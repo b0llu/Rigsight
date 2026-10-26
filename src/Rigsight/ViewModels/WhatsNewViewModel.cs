@@ -160,7 +160,7 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
         if (_fromUpdate && Newest?.Feature is { IsRemoval: false, ShowsButton: true } feature && ViewModels.SidebarViewModel.IconOf(feature.Page) is not null)
         {
             string version = $"{Newest.Version.Major}.{Newest.Version.Minor}.{Math.Max(Newest.Version.Build, 0)}", name = feature.Name;
-            string text = Core.Lang.T($"New in {version}: {name}");
+            string text = Core.Lang.T($"{name} is new in {version}");
             settings.Update(s => { s.NewFeaturePage = feature.Page; s.NewFeatureText = text; });
         }
         _fromUpdate = false;
@@ -181,7 +181,7 @@ public sealed partial class ReleaseRow(ReleaseNotes notes) : ObservableObject
 
     /// <summary>Its headline feature as a line of its own when opened (its name and what it's for), then its lines.</summary>
     public IReadOnlyList<ReleaseLine> Lines =>
-        Notes.Feature is { } f ? [new ReleaseLine($"{f.Name}: {f.Pitch}", f.IsRemoval ? "fixed" : "new", f.Icon, f.ShowsButton ? f.Page : null, null), .. Notes.Lines] : Notes.Lines;
+        Notes.Feature is { } f ? [new ReleaseLine($"{f.Name} · {f.Pitch}", f.IsRemoval ? "fixed" : "new", f.Icon, f.ShowsButton ? f.Page : null, null), .. Notes.Lines] : Notes.Lines;
 
     [ObservableProperty] private bool _isExpanded;
 

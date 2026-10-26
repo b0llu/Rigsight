@@ -50,7 +50,8 @@ public sealed partial class SortHeading(string key, string label) : ObservableOb
 public enum ProcMenuKind { Item, Separator, Header, Note }
 
 /// <summary>A line of a row's menu, as the page builds it (the view turns these into a ContextMenu).</summary>
-public sealed record ProcMenuEntry(ProcMenuKind Kind, string Text = "", string? Hint = null, string Glyph = "", bool Enabled = true, bool Danger = false, Func<Task>? Run = null);
+/// <remarks><paramref name="Ai"/>: an AI line, shown with the AI's sparkle (only while the AI is on).</remarks>
+public sealed record ProcMenuEntry(ProcMenuKind Kind, string Text = "", string? Hint = null, string Glyph = "", bool Enabled = true, bool Danger = false, Func<Task>? Run = null, bool Ai = false);
 
 /// <summary>Something to end: an app (every process of it), or one of its processes.</summary>
 public sealed record EndTarget(ProcRow App, ProcChild? Process = null)
@@ -189,7 +190,7 @@ public sealed partial class ProcessesViewModel : ObservableObject
         cpu.Value = Live.CpuLoad?.Value is { } load ? $"{load:0}%" : ProcRow.Nothing;
         cpu.Most = Most(Live.Procs.MaxBy(p => p.Cpu), p => p.Cpu >= 0.05);
         internet.Value = net is null ? ProcRow.Nothing : Units.Speed(net.Down + net.Up);
-        internet.Most = net?.Apps.MaxBy(a => a.Down + a.Up) is { } fastest && fastest.Down + fastest.Up >= 1024 ? Lang.T($"Most: {fastest.Name}") : NothingUsing;
+        internet.Most = net?.Apps.MaxBy(a => a.Down + a.Up) is { } fastest && fastest.Down + fastest.Up >= 1024 ? Lang.T($"Mostly {fastest.Name}") : NothingUsing;
         disk.Value = Live.Disk is { } bytes ? Units.Speed(bytes) : ProcRow.Nothing;
         disk.Most = Most(Live.Procs.MaxBy(p => p.Disk), p => p.Disk >= 1024);
         foreach (var tile in Tiles) tile.Version++;
@@ -197,7 +198,7 @@ public sealed partial class ProcessesViewModel : ObservableObject
 
     private static string NothingUsing => Lang.T("Nothing using it");
 
-    private static string Most(ProcRow? row, Func<ProcRow, bool> uses) => row is not null && uses(row) ? Lang.T($"Most: {row.Name}") : NothingUsing;
+    private static string Most(ProcRow? row, Func<ProcRow, bool> uses) => row is not null && uses(row) ? Lang.T($"Mostly {row.Name}") : NothingUsing;
 
     // ── Search, and only the apps with windows: this page's own, apart from the Memory page's ──
 
@@ -359,6 +360,10 @@ public sealed partial class ProcessesViewModel : ObservableObject
             new(ProcMenuKind.Item, Lang.T("Copy path"), Glyph: "", Enabled: hasPath, Run: () => Done(Copy(app.Path!, Lang.T("Path copied")))),
             new(ProcMenuKind.Separator),
         };
+        // What it is, asked of the AI: first, while the AI is on and Processes is shared (mock-up, 2026-10-26).
+        var ask = new AiQuestion(Lang.T($"What is {app.Name}, and is it normal for it to use {app.MemText} of memory?"), Core.Ai.AiPages.Processes);
+        if (target.Process is null && AiGate.Shows(ask))
+            menu.InsertRange(0, [new(ProcMenuKind.Item, Lang.T("Ask what this is"), Ai: true, Run: () => Done(() => AiGate.Ask.Execute(ask))), new(ProcMenuKind.Separator)]);
         string dots = target.Asks ? "…" : "";
         if (target.Process is { } process)
         {
@@ -434,7 +439,7 @@ public sealed partial class ProcessesViewModel : ObservableObject
         return new EndQuestion
         {
             Title = Lang.T($"End {targets.Count} apps?"), NeedsTick = critical,
-            Intro = parts.Count == 1 ? Lang.T("One of them is part of Windows:") : Lang.T("Some of them are part of Windows:"),
+            Intro = parts.Count == 1 ? Lang.T("One of them is part of Windows.") : Lang.T("Some of them are part of Windows."),
             Lines = [.. parts.Select(t => new EndQuestionLine(t.Name, EndRisks.Sentence(t.Risk)!))],
         };
     }

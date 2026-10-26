@@ -118,7 +118,7 @@ public sealed class HomeAndHeatTests
         };
         var fan = new Insight("", "Fan #2 on your motherboard stopped for 12 minutes from 3:10 PM, when it always turns. Check it isn't blocked or unplugged.", InsightTone.Warn, "fan-stopped")
             { Short = "Fan #2 on your motherboard stopped for 12 minutes" };
-        var worseDriver = new HomeLine("", "WarmBrush", "Driver 618.10: Crimson Desert runs 10° hotter on the GPU") { TextBrush = "WarmBrush", ChangeDay = day.AddDays(-3) };
+        var worseDriver = new HomeLine("", "WarmBrush", "Crimson Desert runs 10° hotter on the GPU since driver 618.10") { TextBrush = "WarmBrush", ChangeDay = day.AddDays(-3) };
         var bad = HomeViewModel.HealthLines(Today(off, fan), [], 0, [], null, worseDriver);
         // The same words as the insight list; the driver's own line isn't said here too (PC health already says the heat).
         Assert.Equal(["Crimson Desert runs 9° hotter than usual", "Fan #2 on your motherboard stopped for 12 minutes", "3 graphics driver resets in the last 7 days"], bad.Select(l => l.Text));
@@ -146,9 +146,9 @@ public sealed class HomeAndHeatTests
         var today = new DateTime(2026, 10, 17);
         var driver = new SystemChange(today.AddDays(-7).AddHours(17), ChangeKind.Driver, "NVIDIA graphics driver 618.10") { Now = "618.10" };
         var chrome = new SystemChange(today.AddDays(-1).AddHours(9), ChangeKind.AppUpdated, "Google Chrome updated to 155.0.8059.80");
-        var result = new ChangeResult { Day = driver.Time.Date, Changes = [driver], Tone = EffectTone.Worse, Plain = "Crimson Desert runs 10° hotter on the GPU" };
+        var result = new ChangeResult { Day = driver.Time.Date, Changes = [driver], Tone = EffectTone.Worse, Line = c => $"Crimson Desert runs 10° hotter on the GPU since {c}" };
         var lines = HomeViewModel.HomeChangeLines([driver, chrome], today, new Dictionary<DateTime, ChangeResult> { [result.Day] = result });
-        Assert.Equal(("Driver 618.10: Crimson Desert runs 10° hotter on the GPU", "WarmBrush", true), (lines[0].Text, lines[0].TextBrush, lines[0].CanOpen));
+        Assert.Equal(("Crimson Desert runs 10° hotter on the GPU since driver 618.10", "WarmBrush", true), (lines[0].Text, lines[0].TextBrush, lines[0].CanOpen));
         Assert.Equal(("Google Chrome updated", "Yesterday", false), (lines[1].Text, lines[1].When, lines[1].CanOpen));
         Assert.All(lines, l => Assert.Null(l.Detail));
     }

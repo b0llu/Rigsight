@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Automation;
 using System.Windows.Controls.Primitives;
 using Rigsight.Core.Ai;
 using Rigsight.Core.Apps;
@@ -184,6 +185,217 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
         });
         Shot("10-small-talk");
         Ui.Run(() => { ask.IsOpen = false; ask.Conversations.Remove(talk); });
+        Assert.Empty(Ui.TakeProblems().Crashes);
+    }
+
+    /// <summary>
+    /// The chat buttons of 2026-10-24 as drawn, each state the approved artifact shows, for the side-by-side audit: the
+    /// scan card ready, scanning, done and failed (under an answer that stays); the plan card for a page the plan doesn't
+    /// open, and paying; "Open NVIDIA App" with its own icon and "Get" for one not here; Check again waiting with its bar and
+    /// before figures; Close with its seconds. Saved as screens\ask-20..33.png.
+    /// </summary>
+    // Questions given from the admin site (approved mock-up, 2026-10-25): the card above the question box, with and
+    // without a message, and on Free with none left, where it takes the out card's place.
+    [Fact]
+    public void Questions_given_as_drawn()
+    {
+        Ui.TakeProblems();
+        var (ask, talk, _) = Ui.Run(() => Setup("Your CPU hits 78°C in short bursts when Chrome opens new tabs.", [Running]));
+        var before = Ui.Run(() => ask.Standing);
+        string Gift(long id, int n, string? note) => $$"""{"id":{{id}},"n":{{n}},"note":{{(note is null ? "null" : $"\"{note}\"")}}}""";
+        try
+        {
+            Ui.Run(() =>
+            {
+                talk.Messages.Clear();
+                ask.Show(Relay.ReadStatus(Rigsight.Tests.App.PlansTests.Status("complete", "subscription", used: 23)
+                    .Replace("\"can_manage\"", "\"given\":20,\"can_manage\"")
+                    .Replace("\"search\":true", $"\"search\":true,\"gifts\":[{Gift(41, 20, "Thanks for reporting the fan bug.")}]"))!);
+            });
+            Shot("40-given-extra");
+            var card = Ui.Run(() => Visuals.Descendants<Button>(Panel()).Single(b => b.IsVisible && b.Command == ask.CloseGiftCommand));
+            Assert.NotNull(card);
+
+            Ui.Run(() => ask.Show(Relay.ReadStatus(Rigsight.Tests.App.PlansTests.Status("free", used: 10)
+                .Replace("\"can_manage\"", "\"given\":5,\"can_manage\"")
+                .Replace("\"search\":true", $"\"search\":true,\"gifts\":[{Gift(42, 5, null)}]"))!));
+            Shot("41-given-free");
+            Assert.False(Ui.Run(() => ask.IsOutOfQuestions));
+
+            Ui.Run(() => ask.CloseGiftCommand.Execute(null));
+            Shot("42-given-closed");
+            Assert.False(Ui.Run(() => Visuals.Descendants<Button>(Panel()).Any(b => b.IsVisible && b.Command == ask.CloseGiftCommand)));
+        }
+        finally
+        {
+            Ui.Run(() => { ask.Gift = null; if (before is not null) ask.Show(before); else ask.Standing = null; });
+        }
+        Assert.Empty(Ui.TakeProblems().Crashes);
+    }
+
+    [Fact]
+    public void The_new_buttons_in_each_state_as_drawn()
+    {
+        Ui.TakeProblems();
+        var drive = new AiLookUp("get_storage", new JsonObject(), 600);
+        var (ask, talk, answer) = Ui.Run(() => Setup("E is 73% full: 680.5 GB of 931.5 GB is used. It has barely changed this week.\nNext step: see which folders take the space.\n[do: scan E]", [drive]));
+        talk.Messages[0] = new AskQuestion("why is my E drive full?");
+        Shot("20-scan-ready");
+        var scan = answer.Parts.OfType<AskNext>().Single().ScanAction!;
+        Ui.Run(() => { scan.State = AskActionState.Working; scan.Scan!.Files = 31_250; scan.Scan.Found = 381L << 30; scan.Scan.Folder = @"E:\SteamLibrary\steamapps\common"; });
+        Shot("21-scanning");
+        Ui.Run(() =>
+        {
+            var root = new FolderNode { Name = "E:", Path = @"E:\", Size = 677L << 30, Files = 58_083 };
+            root.Children = [new() { Name = "SteamLibrary", Path = @"E:\SteamLibrary", Size = 464L << 30 }, new() { Name = "Videos", Path = @"E:\Videos", Size = 90L << 30 },
+                new() { Name = "Downloads", Path = @"E:\Downloads", Size = 57L << 30 }, new() { Name = "Games", Path = @"E:\Games", Size = 66L << 30 }];
+            scan.Scan!.Result = new ScanResult { Root = root, LargestFiles = [], FileCount = 58_083, Elapsed = TimeSpan.FromSeconds(1.5) };
+            scan.Scan.DoneAt = new DateTime(2026, 10, 24, 21, 7, 0);
+            scan.State = AskActionState.Done;
+            var thinking = new AskThinking();
+            thinking.Show("Reading the scan of E:…");
+            talk.Messages.Add(thinking);
+        });
+        Shot("22-scanned-reading");
+        Ui.Run(() =>
+        {
+            talk.Messages.Remove(talk.Messages.OfType<AskThinking>().Single());
+            scan.Scan!.Failed = "Windows stopped the scan after 12,400 files. The drive may have been unplugged or gone to sleep.";
+            scan.State = AskActionState.Failed;
+        });
+        Shot("23-scan-failed");
+
+        // A page the plan doesn't open: the card where the scan was, the page's own line under it, then paying.
+        Ui.Run(() =>
+        {
+            var (_, t, locked) = Setup("Drive E is 73% full: 680.5 GB of 931.5 GB is used, so 251 GB is free.\nYour plan doesn't include Storage, so I can't see which folders fill it.\nNext step: scan it yourself on the Storage page.\n[do: open storage E]\nAsk next: How full is C? | Did E grow this week?\n[locked: storage | See what fills the E drive]", [new AiLookUp("get_today", new JsonObject(), 900)]);
+            t.Messages[0] = new AskQuestion("why is my E drive full?");
+            var withPlan = locked with { LockedPlanId = "essentials", LockedPlanName = "Essentials" };
+            var parts = withPlan.Parts.ToList();
+            parts.Insert(parts.FindIndex(x => x is AskNext), new AskLockedCard(withPlan));
+            t.Messages[1] = withPlan with { Parts = parts };
+        });
+        Shot("24-locked-card");
+        Ui.Run(() => ask.Current!.Messages.OfType<AskAnswer>().Single().Pay.Waiting = true);
+        Shot("25-locked-paying");
+
+        // Open an app that's here (its own icon, when Windows gives one) and Get one that isn't.
+        Ui.Run(() =>
+        {
+            var (_, t, _) = Setup("No, your driver is behind: you have 617.14, and NVIDIA's newest Game Ready driver is 617.42.\nNext step: check for a driver update and install the newest Game Ready driver if it offers one.\n[do: app nvidia-app]\n[do: app amd-software]", []);
+            t.Messages[0] = new AskQuestion("Is the driver for my RTX 3080 Ti up to date?");
+            var text = "No, your driver is behind: you have 617.14, and NVIDIA's newest Game Ready driver is 617.42.\nNext step: check for a driver update and install the newest Game Ready driver if it offers one.\n[do: app nvidia-app]\n[do: app amd-software]";
+            t.Messages[1] = AskViewModel.ToAnswer(text, [], actions: m => AiActions.Resolve(m, new AiActionContext([], null, () => [], true, null, () => OpenableApps.Installed(StartApps.List()))));
+        });
+        Shot("26-open-app");
+
+        // Check again waiting: a bar to a known end, the before figures already in.
+        Ui.Run(() =>
+        {
+            var (_, t, a) = Setup(Fast, [Running, Memory, Web]);
+            var next = a.Parts.OfType<AskNext>().Single();
+            var close = next.Actions[0];
+            close.Said = "Closed DataCruncher at 9:41 PM · 3.0 GB freed";
+            close.State = AskActionState.Done;
+            var press = next.Actions[1];
+            var check = new AskCheck(DateTime.Now.AddMinutes(-4), 10, CheckWhat.Memory, "DataCruncher") { BeforeRead = true };
+            check.BeforeRows = [new("Memory in use", "26.8 GB", "", "", null), new("Closest to running out", "74%", "", "", null)];
+            press.Started = check;
+            press.Said = $"Checks at {check.Due:h:mm tt}";
+            press.Pending = true;
+            press.State = AskActionState.Done;
+            t.Messages.Add(check);
+        });
+        Ui.Run(() => Visuals.Descendants<ScrollViewer>(Panel()).First(sv => sv.Name == "Chat").ScrollToEnd());
+        Shot("27-check-waiting");
+
+        // Close at work: why it takes a moment, its seconds as a bar.
+        Ui.Run(() =>
+        {
+            var (_, _, a) = Setup(Fast, [Running, Memory, Web]);
+            a.Parts.OfType<AskNext>().Single().Actions[0].State = AskActionState.Working;
+        });
+        Ui.Pump(500);
+        Shot("28-closing-windowless");
+        // An app with a window: it's asked, and given its seconds, as a bar.
+        Ui.Run(() =>
+        {
+            var (_, t, _) = Setup("Hey! Ask me anything about your PC.", []);
+            var a = AskViewModel.ToAnswer("Chrome holds 2.9 GB right now.\nNext step: close it if you don't need it.\n[do: close chrome.exe]", [],
+                actions: _ => [new AiAction(AiActionKind.CloseApp, "Close Google Chrome", "", "chrome.exe", "Google Chrome", MemMb: 2900, Windowless: false)]);
+            t.Messages[1] = a;
+            a.Parts.OfType<AskNext>().Single().Actions[0].State = AskActionState.Working;
+        });
+        Ui.Pump(3000);
+        Shot("28-closing");
+
+        // A card at a limit, paying.
+        Ui.Run(() =>
+        {
+            var (_, t, _) = Setup("Hey! Ask me anything about your PC.", []);
+            t.Messages.Clear();
+            t.Messages.Add(new AskQuestion("why does my PC crash in Cyberpunk?"));
+            t.Messages.Add(new AskWall("That was your last free question this week.", "They're back on Monday. Essentials gives up to 100 a day for $5 a month, and sends this question the moment it's on.", "essentials", "Essentials", "why does my PC crash in Cyberpunk?"));
+        });
+        Shot("29-wall");
+        Ui.Run(() => ask.Current!.Messages.OfType<AskWall>().Single().Pay.Waiting = true);
+        Shot("30-wall-paying");
+
+        Ui.Run(() => { ask.IsOpen = false; foreach (var c in ask.Conversations.Where(c => c.Title == "Look").ToList()) ask.Conversations.Remove(c); });
+        Assert.Empty(Ui.TakeProblems().Crashes);
+    }
+
+    /// <summary>
+    /// Board 7 (2026-10-26): the widget, overlay and taskbar cards under an answer, ready, done (with Undo) and with every
+    /// reading already there, drawn for the side-by-side check with the mock-up. Saved as screens\ask-50..54.png.
+    /// </summary>
+    [Fact]
+    public void The_widget_overlay_and_taskbar_cards_as_drawn()
+    {
+        Ui.TakeProblems();
+        AiReading package = new("CPU Package", SensorId: "/look/cpu/0", Part: "AMD Ryzen 7 7800X3D");
+        var context = new AiActionContext([], null, () => [], true, Sensors: [package], TrayOf: new Dictionary<OverlayMetric, AiReading> { [OverlayMetric.CpuTemp] = package });
+        const string Text = "Your GPU hot spot reached 96°C in Cyberpunk, 18 degrees over its edge temperature.\nWatching it while you play shows when it climbs.\n"
+            + "[do: widget GPU hot spot, GPU temperature, CPU temperature]\n[do: overlay GPU hot spot, Frame time, 1% low]\n[do: taskbar CPU temperature]";
+        var (ask, talk, answer) = Ui.Run(() =>
+        {
+            var (a, t, _) = Setup("Hey! Ask me anything about your PC.", []);
+            a.RivaTuner = () => "missing";
+            var drawn = AskViewModel.ToAnswer(Text, [], actions: m => AiActions.Resolve(m, context));
+            foreach (var card in drawn.Parts.OfType<AskNext>().SelectMany(n => n.SetupActions)) card.Setup!.Refresh(host.Shell.Settings.Current, "missing");
+            t.Messages[0] = new AskQuestion("how do I keep an eye on my GPU while gaming?");
+            t.Messages[1] = drawn;
+            return (a, t, drawn);
+        });
+        Shot("50-setup-ready");
+        var cards = answer.Parts.OfType<AskNext>().Single().SetupActions;
+        Assert.Equal(3, cards.Count);
+        Ui.Run(() =>
+        {
+            var labels = Visuals.Descendants<Button>(Panel()).Where(b => b.IsVisible).Select(b => AutomationProperties.GetName(b)).ToList();
+            Assert.Contains("Create and turn on", labels);
+            Assert.Contains("Customize", labels);
+            Assert.Contains("Open Taskbar", labels);
+            var words = Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible).Select(t => t.Text).ToList();
+            Assert.Contains("Frame time (needs RivaTuner)", words);
+            Assert.Contains("As a slim bar, on your desktop, where you can drag it.", words);
+        });
+        Ui.Run(() => { foreach (var c in cards) { c.Setup!.DoneText = c.Kind == AiActionKind.CreateWidget ? "Created and turned on" : c.Kind == AiActionKind.AddOverlay ? "Added to the overlay" : "Added to the taskbar"; c.State = AskActionState.Done; } });
+        Ui.Run(() => Visuals.Descendants<ScrollViewer>(Panel()).First(sv => sv.Name == "Chat").ScrollToEnd());
+        Shot("51-setup-done");
+        Ui.Run(() => Assert.Contains("Undo", Visuals.Descendants<Button>(Panel()).Where(b => b.IsVisible).Select(b => AutomationProperties.GetName(b))));
+        // Everything there already: said, no button.
+        Ui.Run(() =>
+        {
+            var s = host.Shell.Settings.Current.Clone();
+            s.TraySensors = ["/look/cpu/0"];
+            var taskbar = cards.Single(c => c.Kind == AiActionKind.AddTaskbar);
+            taskbar.State = AskActionState.Ready;
+            taskbar.Setup!.Refresh(s, "running");
+        });
+        Shot("52-setup-all-on");
+        Ui.Run(() => Assert.Contains("All of these are in the taskbar already.", Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible).Select(t => t.Text)));
+        Ui.Run(() => { ask.IsOpen = false; foreach (var c in ask.Conversations.Where(c => c.Title == "Look").ToList()) ask.Conversations.Remove(c); });
         Assert.Empty(Ui.TakeProblems().Crashes);
     }
 

@@ -55,6 +55,7 @@ public static class CrashCases
                 AppName = name,
                 IsGame = app is not null && (settings.AppCategories.TryGetValue(app.Exe, out var category) ? category : app.Category) == AppCategory.Game,
                 Context = ctx,
+                FrontIsGame = ctx?.FrontApp is long fid && byId.TryGetValue(fid, out var fr) && (settings.AppCategories.TryGetValue(fr.Exe, out var fc) ? fc : fr.Category) == AppCategory.Game,
                 FrontApp = front is not null && !string.Equals(front, name, StringComparison.OrdinalIgnoreCase) ? front : e.Kind is CrashKind.AppCrash or CrashKind.AppHang ? null : front,
                 Rest = minutes == 0 ? null : new LoadTemps(Ratio(days.Sum(d => d.CpuSum), days.Sum(d => d.CpuN)), Ratio(days.Sum(d => d.GpuSum), days.Sum(d => d.GpuN)), minutes),
                 RamTotal = ram,

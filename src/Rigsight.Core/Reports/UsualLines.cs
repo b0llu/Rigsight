@@ -43,10 +43,10 @@ public static class UsualLines
         }
         string text = (inProgress, hotter) switch
         {
-            (true, true) => Lang.T($"In {app}, your {which} runs {diff} hotter than usual: {now} against {span}, at the same power"),
-            (true, false) => Lang.T($"In {app}, your {which} runs {diff} cooler than usual: {now} against {span}, at the same power"),
-            (false, true) => Lang.T($"In {app}, your {which} ran {diff} hotter than usual: {now} against {span}, at the same power"),
-            (false, false) => Lang.T($"In {app}, your {which} ran {diff} cooler than usual: {now} against {span}, at the same power"),
+            (true, true) => Lang.T($"In {app}, your {which} runs {diff} hotter than usual at the same power, {now} against {span}"),
+            (true, false) => Lang.T($"In {app}, your {which} runs {diff} cooler than usual at the same power, {now} against {span}"),
+            (false, true) => Lang.T($"In {app}, your {which} ran {diff} hotter than usual at the same power, {now} against {span}"),
+            (false, false) => Lang.T($"In {app}, your {which} ran {diff} cooler than usual at the same power, {now} against {span}"),
         };
         if (also is null) text += ".";
         else
@@ -80,14 +80,14 @@ public static class UsualLines
         EffectTone.Worse => new Insight(IconWarn, Lang.T($"{Wording.Capital(pr.Words)} {span}; {pr.UsualWords} on this PC. Each one is on the Crashes page."), InsightTone.Warn, "usual-problems", 92,
             Detail(pr)) { Short = $"{Wording.Capital(pr.Words)} {span}", Ask = Lang.T("Why has my PC had more problems than usual?"), AskPage = Ai.AiPages.Crashes },
         EffectTone.Better => new Insight(IconGood,
-            pr.Now.Count == 0 ? Lang.T($"Fewer PC problems than usual: none {span}, {pr.UsualWords}.") : Lang.T($"Fewer PC problems than usual: {pr.Now.Count.ToString()} {span}, {pr.UsualWords}."),
+            pr.Now.Count == 0 ? Lang.T($"Fewer PC problems than usual, with none {span}, {pr.UsualWords}.") : Lang.T($"Fewer PC problems than usual, with {pr.Now.Count.ToString()} {span}, {pr.UsualWords}."),
             InsightTone.Good, "usual-problems", 45, Detail(pr)) { Short = Lang.T("Fewer PC problems than usual") },
         _ => null,
     };
 
     /// <summary>The shut-offs that look like the power, only when they jumped far past their own usual; null otherwise.</summary>
     public static Insight? Power(UsualProblems pr, string span) => pr.PowerTone != EffectTone.Worse ? null
-        : new Insight(IconWarn, Lang.T($"More sudden shut-offs than usual: {pr.PowerNow} {span}, {pr.PowerUsualWords}. Each looked like the power going off; if the mains was steady, check the power supply."),
+        : new Insight(IconWarn, Lang.T($"More sudden shut-offs than usual, with {pr.PowerNow} {span}, {pr.PowerUsualWords}. Each looked like the power going off; if the mains was steady, check the power supply."),
             InsightTone.Warn, "usual-power", 88, Lang.T($"{pr.PowerNow} in {pr.NowHours:0} h of use; {pr.PowerUsual} in {pr.UsualHours:0} h in the weeks before"))
             { Short = Lang.T($"More sudden shut-offs than usual {span}"), Ask = Lang.T("Why does my PC keep shutting off suddenly?"), AskPage = Ai.AiPages.Crashes };
 

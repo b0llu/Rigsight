@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using Rigsight.Models;
 using Rigsight.ViewModels;
 
@@ -153,6 +154,7 @@ public partial class ProcessesView : UserControl
                     // Every item has an icon, so their words line up (see the Apps page's menu).
                     var icon = new TextBlock { Text = entry.Glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = 14 };
                     var item = new MenuItem { Header = entry.Text, Icon = icon, InputGestureText = entry.Hint ?? "", IsEnabled = entry.Enabled, FocusVisualStyle = null };
+                    if (entry.Ai) item.Icon = AiIcon();
                     // Ending is set apart from the rest: after the line, and in the colour of a warning.
                     if (entry.Danger && entry.Enabled)
                     {
@@ -168,5 +170,17 @@ public partial class ProcessesView : UserControl
         menu.Opened += (_, _) => vm.SetMenuOpen(true);
         menu.Closed += (_, _) => vm.SetMenuOpen(false);
         menu.IsOpen = true;
+    }
+
+    /// <summary>The AI's sparkle, for an AI line of a menu (as on every AI button).</summary>
+    internal static System.Windows.Shapes.Path AiIcon()
+    {
+        var path = new System.Windows.Shapes.Path
+        {
+            Data = (Geometry)Application.Current.FindResource("AiSparkle"), StrokeThickness = 2, StrokeLineJoin = PenLineJoin.Round,
+            StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, Stretch = Stretch.Uniform, Width = 13, Height = 13,
+        };
+        path.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "AiBrush");
+        return path;
     }
 }

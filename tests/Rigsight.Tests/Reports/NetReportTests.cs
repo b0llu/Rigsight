@@ -484,7 +484,7 @@ public sealed class NetReportTests : IDisposable
         long steam = App("steam.exe", "Steam");
         for (int i = 1; i <= 30; i++) Use(Day.AddDays(-i), null, (steam, 2 * GB, 0, 0, 0, 0));
         Use(Day, null, (steam, 6 * GB, 0, 0, 0, 0));
-        Assert.Equal("Your biggest download day in a month: 6.0 GB.", Said("net-record")?.Text);
+        Assert.Equal("6.0 GB downloaded, your biggest download day in a month.", Said("net-record")?.Text);
     }
 
     [Fact]
@@ -546,7 +546,7 @@ public sealed class NetReportTests : IDisposable
         Drops(Day, 5);
         var line = Said("net-drops");
         Assert.Equal("Your internet dropped 5 times that day, the longest for 5m at 1:00 PM. Your PC stayed connected to the router each time, "
-            + "so the trouble was past it: the router or your internet provider.", line?.Text);
+            + "so the trouble was past it, in the router or your internet provider.", line?.Text);
         Assert.Equal(InsightTone.Warn, line!.Tone);
     }
 

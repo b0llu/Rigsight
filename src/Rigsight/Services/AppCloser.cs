@@ -17,7 +17,9 @@ public enum CloseOutcome { Closed, Ended, Gone, NeedsAdmin, Refused, StillOpen }
 public sealed class AppCloser
 {
     /// <summary>How long the app gets to close by itself before it is ended.</summary>
-    public TimeSpan Grace { get; init; } = TimeSpan.FromSeconds(6);
+    /// <summary>How long an app with a window is given to close by itself (it may ask to save); what the card says.</summary>
+    public static readonly TimeSpan DefaultGrace = TimeSpan.FromSeconds(6);
+    public TimeSpan Grace { get; init; } = DefaultGrace;
 
     /// <summary>Tests give their own (no real app is closed).</summary>
     internal Func<string, IReadOnlyList<int>> PidsOf { get; init; } = Running;

@@ -468,7 +468,7 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
                 }
             });
             if (failed is null) Error = Lang.T("The history couldn't be opened. Try again in a moment.");
-            else if (failed.Length > 0) Error = Lang.T($"Couldn't finish: {failed}");
+            else if (failed.Length > 0) Error = Lang.T($"Couldn't finish. {failed}");
             else
             {
                 Log.Write("export", $"{Title}: {on.Count} file(s) ({string.Join(", ", on.Select(i => i.Kind == PageItemKind.Table ? i.Table.ToString() : i.Kind.ToString()))}) as {(asText ? "text" : "CSV")} for {from:yyyy-MM-dd HH:mm} to {to:yyyy-MM-dd HH:mm}");
@@ -480,14 +480,14 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
         {
             Log.Error("export", ex);
             string why = ex.Message;
-            Error = Lang.T($"Couldn't save there: {why}");
+            Error = Lang.T($"Couldn't save there. {why}");
         }
         catch (Exception ex)
         {
             // Anything else (a page read for the period, the history) is said in the box, never left to take the app down.
             Log.Error("export", ex);
             string why = ex.Message;
-            Error = Lang.T($"Couldn't finish: {why}");
+            Error = Lang.T($"Couldn't finish. {why}");
         }
         finally
         {

@@ -131,12 +131,14 @@ public sealed partial class FanCard : ObservableObject
 
     /// <summary>Today's warning about this fan (stopped, or slower than usual), as the day's insights put it; empty if none.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasAlert), nameof(Note), nameof(NeedsLook))]
+    [NotifyPropertyChangedFor(nameof(HasAlert), nameof(Note), nameof(NeedsLook), nameof(AlertAsk))]
     private string _alert = "";
 
     [ObservableProperty] private bool _alertIsHot;
 
     public bool HasAlert => Alert.Length > 0;
+    /// <summary>The warning's AI button: why, and what to do, from the Fans page's records.</summary>
+    public Services.AiQuestion? AlertAsk => HasAlert ? new(Lang.T($"{Title}. {Alert} Why, and what should I do?"), Core.Ai.AiPages.Fans) : null;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StateText), nameof(NeedsLook), nameof(Note))]

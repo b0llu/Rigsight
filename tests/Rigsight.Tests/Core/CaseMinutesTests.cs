@@ -41,7 +41,7 @@ public class CaseMinutesTests
         Assert.Equal("CPU went from 63° to 91° in the 5 minutes before the crash, while HandBrake was using about 60% of the CPU.", said[0].Text);
         Assert.True(said[0].Warn);
         // The GPU stayed where it was: calm, with the rest that was recorded.
-        Assert.Equal("Nothing unusual in these minutes: GPU temperature, memory (56% full at most) and the connection.", said[^1].Text);
+        Assert.Equal("Nothing unusual in these minutes for GPU temperature, memory (56% full at most) and the connection.", said[^1].Text);
         Assert.True(said[^1].IsCalm);
     }
 
@@ -93,7 +93,7 @@ public class CaseMinutesTests
         var said = Find(Minutes(before => before > 5 ? 63 : 70));
         Assert.Single(said);
         // No drives recorded (a crash from before 0.24.0): the drives aren't called calm.
-        Assert.Equal("Nothing unusual in these minutes: CPU temperature, GPU temperature, memory (56% full at most) and the connection.", said[0].Text);
+        Assert.Equal("Nothing unusual in these minutes for CPU temperature, GPU temperature, memory (56% full at most) and the connection.", said[0].Text);
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class CaseMinutesTests
         var minutes = Minutes(_ => 60, (before, m) => m.CommitPct = before < 4 ? 96 : 60);
         var apps = new List<AppMinute> { new(Crash, 3, 5, 0, 9216, 0), new(Crash, 1, 20, 70, 5800, 0) };
         var memory = Assert.Single(Find(minutes, apps), s => s.Text.StartsWith("Windows was nearly out of memory"));
-        Assert.Equal("Windows was nearly out of memory: 96% of what it can promise was promised to apps, the most to Chrome (9.0 GB).", memory.Text);
+        Assert.Equal("Windows was nearly out of memory, with 96% of what it can promise promised to apps, the most to Chrome (9.0 GB).", memory.Text);
         Assert.True(memory.Warn);
     }
 

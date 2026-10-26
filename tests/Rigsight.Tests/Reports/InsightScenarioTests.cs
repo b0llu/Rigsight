@@ -106,7 +106,7 @@ public sealed class InsightScenarioTests : IDisposable
         // From the last day the card's fans turn 30% slower at every temperature, in the same game as every evening.
         string path = Pc("gpu-fan-worn", Healthy with { Seed = 7, GameChance = 1, Game = 0, GpuFanWornFrom = End.AddDays(-1) });
         var line = Assert.Single(Build(path, ReportRange.Day, End.AddDays(-1)).Insights, i => i.Key == "fan-slower");
-        Assert.Matches(@"^Your GPU fans spun (2[5-9]|3[0-5])% slower than usual at the same heat: [\d,]+ rpm with the GPU at \d+°, against [\d,]+ rpm in the 7 days before\. "
+        Assert.Matches(@"^Your GPU fans spun (2[5-9]|3[0-5])% slower than usual at the same heat\. They turned at [\d,]+ rpm with the GPU at \d+°, against [\d,]+ rpm in the 7 days before\. "
             + @"If you changed the fan curve in the card's software, that's why; if not, check they're clean and turning freely\.$", line.Text);
         Assert.Contains(line.Tone, new[] { InsightTone.Warn, InsightTone.Hot });
         Assert.DoesNotContain(Build(path, ReportRange.Day, End.AddDays(-1)).Insights, i => i.Key == "fan-stopped");
@@ -137,7 +137,7 @@ public sealed class InsightScenarioTests : IDisposable
         var days = Enumerable.Range(0, 60).Select(i => Build(path, ReportRange.Day, End.AddDays(-i))).ToList();
         var older = days.SelectMany(d => d.Insights.Where(i => i.Key == "fan-older").Select(i => (R: d, I: i))).ToList();
         var said = Assert.Single(older);
-        Assert.Matches(@"^Your GPU fans now spin \d+% slower at the same heat than in (January|February|March|April)( 2025)?: [\d,]+ rpm with the GPU at \d+°, against [\d,]+ rpm then\. "
+        Assert.Matches(@"^Your GPU fans now spin \d+% slower at the same heat than in (January|February|March|April)( 2025)?\. They turn at [\d,]+ rpm with the GPU at \d+°, against [\d,]+ rpm then\. "
             + @"If you changed the fan curve in the card's software, that's why; if not, check they're clean and turning freely\.$", said.I.Text);
         Assert.DoesNotContain(days.SelectMany(d => d.Insights), i => i.Key == "fan-slower");
     }
@@ -158,7 +158,7 @@ public sealed class InsightScenarioTests : IDisposable
         string path = Pc("dust", Healthy with { Seed = 4, DustPerMonth = 3, DustFrom = Start, GameChance = 1 });
         var drift = Reports(path, days: 14).SelectMany(r => r.Insights.Where(i => i.Key == "drift").Select(i => (R: r, I: i))).ToList();
         Assert.NotEmpty(drift);
-        Assert.All(drift, x => Assert.Matches(@"^In (Cyberpunk 2077|Dota 2|Hades), your (GPU|CPU) (runs|ran) \d+° hotter than in (January|February|March|April|May)( 2025)?: \d+° against \d+°, at the same power\. "
+        Assert.All(drift, x => Assert.Matches(@"^In (Cyberpunk 2077|Dota 2|Hades), your (GPU|CPU) (runs|ran) \d+° hotter than in (January|February|March|April|May)( 2025)? at the same power, \d+° against \d+°\. "
             + @"With nothing running it(( sits| sat) at \d+°, as it did then|'s only \d+° (warmer|cooler) than then), so dust or old thermal paste are the likely causes\.$", x.I.Text));
         Assert.All(drift, x => Assert.Equal(InsightTone.Warn, x.I.Tone));
     }
@@ -178,7 +178,7 @@ public sealed class InsightScenarioTests : IDisposable
         // A hot room: the card sits at 83–86° in a heavy game either way. From the last day it also slows itself there.
         string path = Pc("throttle", Healthy with { Seed = 6, Room = 36, SeasonSwing = 0, GameChance = 1, Game = 0, ThrottleFrom = End.AddDays(-1) });
         var line = Assert.Single(Build(path, ReportRange.Day, End.AddDays(-1)).Insights, i => i.Key == "throttle");
-        Assert.Matches(@"^Your GPU slowed itself for (\d+ minutes|\d+h \d\dm) to stay cool: clocks fell about 26% once it reached \d+°\.$", line.Text);
+        Assert.Matches(@"^Your GPU slowed itself for (\d+ minutes|\d+h \d\dm) to stay cool\. Clocks fell about 26% once it reached \d+°\.$", line.Text);
         for (int back = 2; back < 20; back++)
             Assert.DoesNotContain(Build(path, ReportRange.Day, End.AddDays(-back)).Insights, i => i.Key == "throttle");
     }
@@ -215,7 +215,7 @@ public sealed class InsightScenarioTests : IDisposable
     public void A_game_past_midnight_belongs_to_both_days_by_the_hours_in_each()
     {
         var after = Build(Nights(), ReportRange.Day, End.AddDays(-2));
-        Assert.Equal("The night before ran late: you were on until 1:30 AM. Your day ran from 10:00 AM to 6:00 PM.", Assert.Single(after.Insights, i => i.Key == "span").Text);
+        Assert.Equal("The night before ran late. You were on until 1:30 AM. Your day ran from 10:00 AM to 6:00 PM.", Assert.Single(after.Insights, i => i.Key == "span").Text);
         // Its gaming is the hour and a half after midnight, all one session: no "longest session" longer than it.
         Assert.StartsWith("You gamed for 1h 30m (Dota 2).", Assert.Single(after.Insights, i => i.Key == "gaming").Text);
         Assert.DoesNotContain("Longest session", Assert.Single(after.Insights, i => i.Key == "gaming").Text);

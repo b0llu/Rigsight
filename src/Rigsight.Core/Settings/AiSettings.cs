@@ -31,6 +31,9 @@ public sealed class AiSettings
     /// <summary>The ways of answering whose first-question window (what is sent, and where) has been read and closed with Start asking.</summary>
     public List<AiMode> FirstQuestionSeen { get; set; } = [];
 
+    /// <summary>Questions given from the admin site whose card was shown in the chat and closed (the relay's ids, newest kept).</summary>
+    public List<long> GiftsSeen { get; set; } = [];
+
     // Your own key: the service, and the model picked from the ones it lists for that key. The key itself is kept
     // apart from settings, protected by Windows (never in settings.json).
     public string Service { get; set; } = "OpenRouter";

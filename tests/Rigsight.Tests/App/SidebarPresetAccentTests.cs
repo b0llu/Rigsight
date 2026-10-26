@@ -318,7 +318,7 @@ public sealed class SidebarPresetAccentTests
     }
 
     [Fact]
-    public void The_sidebar_editor_opens_from_settings_with_a_row_for_every_page()
+    public void The_customize_pop_up_opens_from_settings_with_a_row_for_every_page()
     {
         var settings = Kit.OfflineSettings();
         Ui.Run(() =>
@@ -333,35 +333,53 @@ public sealed class SidebarPresetAccentTests
                 Assert.False(panel.IsVisible);
                 Assert.DoesNotContain(Visuals.Descendants<System.Windows.Controls.TextBlock>(window), t => t.Text == "SIDEBAR"); // the old card is gone
 
-                var edit = Visuals.Descendants<System.Windows.Controls.Button>(window).Single(b => NameOf(b) == "Edit the sidebar");
+                var edit = Visuals.Descendants<System.Windows.Controls.Button>(window).Single(b => NameOf(b) == "Customize the sidebar");
                 edit.Command.Execute(null);
                 Ui.Pump(400);
                 Assert.True(sidebar.IsEditing);
                 Assert.True(panel.IsVisible);
 
-                // A grip, a name box and a switch for each page; a name box and a switch for each heading.
+                // A grip, its icon, its name, up, down, rename and a switch for each page (approved mock-up, 2026-10-25).
                 var grips = Visuals.Descendants<System.Windows.Controls.Primitives.Thumb>(panel).Where(t => t.DataContext is NavEntry).ToList();
                 Assert.Equal(16, grips.Count);
                 Assert.All(grips, g => Assert.True(g.Focusable && g.ActualHeight > 0));
                 Assert.Contains(grips, g => NameOf(g) == "Move Memory: drag it, or use the arrow keys");
-                var boxes = Visuals.Descendants<System.Windows.Controls.TextBox>(panel).Where(b => b.IsVisible).ToList();
-                Assert.Equal(16 + 3, boxes.Count);
+                // Names show as text: no box until the pencil; headings' switches only while renaming them.
+                Assert.Empty(Visuals.Descendants<System.Windows.Controls.TextBox>(panel).Where(b => b.IsVisible));
                 var switches = Visuals.Descendants<System.Windows.Controls.CheckBox>(panel).Where(c => c.IsVisible).Select(NameOf).ToList();
                 Assert.Contains("Show Memory", switches);
-                Assert.Contains("Show the Hardware heading", switches);
-                Assert.Equal(16 + 3, switches.Count);
+                Assert.DoesNotContain("Show the Hardware heading", switches);
+                Assert.Equal(16, switches.Count);
                 Assert.False(Visuals.Descendants<System.Windows.Controls.CheckBox>(panel).Single(c => NameOf(c) == "Show Home").IsEnabled);
+                var buttons = Visuals.Descendants<System.Windows.Controls.Button>(panel).Select(NameOf).ToList();
+                Assert.Contains("Move Memory up", buttons);
+                Assert.Contains("Move Memory down", buttons);
+                Assert.Contains("Rename Memory", buttons);
 
-                // Typing over a name renames the page with each letter.
+                // The pencil: a name box, ready; typing over the name renames the page with each letter.
                 var memory = sidebar.Hardware.Single(e => e.Key == "memory");
-                var box = boxes.Single(b => NameOf(b) == "Name of Memory");
+                Visuals.Descendants<System.Windows.Controls.Button>(panel).Single(b => NameOf(b) == "Rename Memory").Command.Execute(null);
+                Ui.Pump(100);
+                var box = Visuals.Descendants<System.Windows.Controls.TextBox>(panel).Single(b => b.IsVisible && NameOf(b) == "Name of Memory");
                 Assert.Equal("Memory", box.Tag);
                 box.Text = "RAM";
                 Assert.Equal("RAM", memory.Title);
                 box.Text = "";
                 Assert.Equal("Memory", memory.Title);
-                boxes.Single(b => NameOf(b) == "Name of the Hardware heading").Text = "PARTS";
+                memory.IsRenaming = false;
+                // A heading's pencil: its name box and the switch that hides it.
+                Visuals.Descendants<System.Windows.Controls.Button>(panel).Single(b => NameOf(b) == "Rename the Hardware heading").Command.Execute(null);
+                Ui.Pump(100);
+                Visuals.Descendants<System.Windows.Controls.TextBox>(panel).Single(b => b.IsVisible && NameOf(b) == "Name of the Hardware heading").Text = "PARTS";
                 Assert.Equal("PARTS", sidebar.HardwareGroup.Heading);
+                Assert.Contains(Visuals.Descendants<System.Windows.Controls.CheckBox>(panel), c => c.IsVisible && NameOf(c) == "Show the Hardware heading");
+                sidebar.HardwareGroup.IsRenaming = false;
+
+                // The arrows move a page one place.
+                Visuals.Descendants<System.Windows.Controls.Button>(panel).Single(b => NameOf(b) == "Move Memory down").Command.Execute(memory);
+                Assert.Equal(["temperatures", "fans", "storage", "memory", "network", "sensors"], Keys(sidebar.Hardware));
+                Visuals.Descendants<System.Windows.Controls.Button>(panel).First(b => NameOf(b) == "Move Memory up").Command.Execute(memory);
+                Assert.Equal(["temperatures", "fans", "memory", "storage", "network", "sensors"], Keys(sidebar.Hardware));
 
                 // The arrow keys on a grip move its page, and the row built in its new place has a grip again.
                 var grip = grips.Single(g => g.DataContext == memory);
@@ -395,9 +413,10 @@ public sealed class SidebarPresetAccentTests
                 Ui.Pump(50);
                 Assert.Equal(2, Visuals.Descendants<System.Windows.Controls.TextBlock>(panel).Count(t => t.Text == "Drag a page here" && t.IsVisible)); // and DASHBOARDS, with no dashboard yet
 
-                // Settings says what is hidden, and Esc closes the editor.
-                sidebar.OnScreenGroup.ShowHeading = false;
-                Assert.Contains(Visuals.Descendants<System.Windows.Controls.TextBlock>(window), t => t.Text == "· 1 heading hidden" && t.IsVisible);
+                // Settings and the pop-up's foot say how many pages show, and Esc closes the editor.
+                sidebar.Hardware.Single(e => e.Key == "fans").IsShown = false;
+                Assert.Contains(Visuals.Descendants<System.Windows.Controls.TextBlock>(window), t => t.Text == "· 15 of 16 pages shown");
+                Assert.Contains(Visuals.Descendants<System.Windows.Controls.TextBlock>(panel), t => t.Text == "15 of 16 pages shown" && t.IsVisible);
                 panel.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, source, 0, System.Windows.Input.Key.Escape)
                     { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent });
                 Assert.False(sidebar.IsEditing);

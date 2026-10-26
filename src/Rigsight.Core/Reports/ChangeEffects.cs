@@ -50,8 +50,14 @@ public sealed record ChangeResult
 
     /// <summary>"Crimson Desert runs 6° hotter on the GPU since this driver".</summary>
     public string Headline { get; init; } = "";
-    /// <summary>The headline without the change it's about, to follow "Since it, ": "Crimson Desert runs 6° hotter on the GPU".</summary>
-    public string Plain { get; init; } = "";
+    /// <summary>
+    /// The headline for any name of the change, one sentence with no colon: "Crimson Desert runs 6° hotter on the GPU since
+    /// {0}", "2 graphics driver resets since {0}, none in the 14 days before" (2026-10-26: Home said "Driver 621.01: more
+    /// graphics problems: 2 graphics driver resets, ...", two colons and a claim the count didn't need).
+    /// </summary>
+    public Func<string, string> Line { get; init; } = _ => "";
+    /// <summary>The headline standing on its own, the change named: "2 graphics driver resets since driver 621.01, none in the 14 days before".</summary>
+    public string Said => Wording.Capital(Line(ChangeEffects.InLine(Changes, Day)));
     /// <summary>The line under it: what makes it like for like.</summary>
     public string Context { get; init; } = "";
     /// <summary>Two at most, for the line or card on the Timeline.</summary>
@@ -209,6 +215,24 @@ public static class ChangeEffects
         _ => (Lang.T("this power plan"), Lang.T("THE POWER PLAN")),
     };
 
+    /// <summary>
+    /// A big change named inside a sentence, after "since": "driver 621.01", "the Windows update of 22 Oct", "the BIOS update";
+    /// several on one day, "the changes on 22 Oct".
+    /// </summary>
+    public static string InLine(IReadOnlyList<SystemChange> of, DateTime day) => of.Count > 1 ? Lang.T($"the changes on {day:d MMM}") : of[0] switch
+    {
+        { IsGraphicsDriver: true, Now: { Length: > 0 } version } => Lang.T($"driver {version}"),
+        { IsGraphicsDriver: true } => Lang.T("the new driver"),
+        { Kind: ChangeKind.WindowsUpdate } => Lang.T($"the Windows update of {day:d MMM}"),
+        { Kind: ChangeKind.Windows, Now: { Length: > 0 } version } => Lang.T($"Windows {version}"),
+        { Kind: ChangeKind.Windows } => Lang.T("the new Windows version"),
+        { Kind: ChangeKind.Hardware } => Lang.T("the hardware change"),
+        { Kind: ChangeKind.Firmware } => Lang.T("the BIOS update"),
+        { Kind: ChangeKind.Fans } => Lang.T("the fan change"),
+        { Now: { Length: > 0 } plan } => Lang.T($"the switch to {plan}"),
+        _ => Lang.T("the power plan change"),
+    };
+
     /// <summary>One change's comparison: each side's heat and problems, then what (if anything) got better or worse.</summary>
     private sealed class Comparison(DateTime day, DateTime at, DateTime from, DateTime to, bool open, List<SystemChange> of,
         IReadOnlyList<HeatDay> heat, IReadOnlyList<SystemDay> use, IReadOnlyList<ChangeProblem> problems, Func<long, string> nameOf)
@@ -226,8 +250,11 @@ public static class ChangeEffects
 
         private sealed record Finding(EffectTone Tone, Confidence Sure, string Headline, string Context, string Short, bool Heat, bool Warm)
         {
-            public string Plain { get; init; } = "";
+            public Func<string, string> Line { get; init; } = _ => "";
         }
+
+        /// <summary>"since {change}", or "in the 5 days after {change}" when another change came after.</summary>
+        private string When(string change) => open ? Lang.T($"since {change}") : Lang.T($"in the {_daysAfter} days after {change}");
 
         public ChangeResult? Result()
         {
@@ -278,7 +305,7 @@ public static class ChangeEffects
                 }
                 rows.Add(new(Lang.T($"GPU power in {n1.App}"), _plan ? Lang.T("The power plan changes power by design, so it's shown, not held the same") : Lang.T("Within 15%, so it's the same load"),
                     Watts(w1.GpuPower), Watts(n1.GpuPower), EffectTone.Same, _plan ? "" : Lang.T("Same load")));
-                checks.Add(new(true, Lang.T("The same game on both sides"), Lang.T($"{n1.App}: {Play(w1.Minutes)} before, {Play(n1.Minutes)} {Since}.")));
+                checks.Add(new(true, Lang.T("The same game on both sides"), Lang.T($"{Play(w1.Minutes)} of {n1.App} before, {Play(n1.Minutes)} {Since}.")));
                 if (!_plan) checks.Add(new(true, Lang.T("The same load"), Lang.T($"GPU power {Watts(w1.GpuPower)} before, {Watts(n1.GpuPower)} {Since}.")));
                 playWhy = Lang.T($"{Play(w1.Minutes)} and {Play(n1.Minutes)} of {n1.App}");
                 if (thin)
@@ -307,7 +334,7 @@ public static class ChangeEffects
                     (tempBefore, tempAfter) = (pw.Gpu, pn.Gpu);
                 }
                 checks.Add(new(true, Lang.T("The same GPU power"), Lang.T($"{Watts(pw.Power)} before, {Watts(pn.Power)} {Since}, across games.")));
-                checks.Add(new(false, Lang.T("Different games"), Lang.T("No one game was played for an hour on both sides, so it's every game at the same power: possibly, not likely.")));
+                checks.Add(new(false, Lang.T("Different games"), Lang.T("No one game was played for an hour on both sides, so it's every game at the same power, which makes it possible, not likely.")));
                 playWhy = Lang.T($"{Play(pw.Minutes)} and {Play(pn.Minutes)} of games");
             }
             if (rows.Count > 0)
@@ -344,36 +371,27 @@ public static class ChangeEffects
                 if (tone != EffectTone.Same)
                 {
                     var sure = of.Count == 1 && Math.Max(before.Count, since.Count) >= LikelyCount ? Confidence.Likely : Confidence.Possible;
-                    string wordsSince = Words(since), wordsBefore = Words(before);
+                    string wordsSince = Words(since), wordsBefore = Words(before), lower = what.ToLowerInvariant(), since0 = Since;
                     int days = _daysBefore;
-                    // One day and many said whole: another language words "the day before" apart from "the 5 days before".
-                    string counts = tone == EffectTone.Worse
-                        ? before.Count == 0
-                            ? days == 1 ? Lang.T($"{wordsSince}, none in the day before") : Lang.T($"{wordsSince}, none in the {days} days before")
-                            : Lang.T($"{wordsSince} in {hoursAfter:0} h of use, against {wordsBefore} in {hoursBefore:0} h before")
-                        : since.Count == 0
-                            ? days == 1 ? Lang.T($"none, against {wordsBefore} in the day before") : Lang.T($"none, against {wordsBefore} in the {days} days before")
-                            : Lang.T($"{wordsSince} in {hoursAfter:0} h of use, against {wordsBefore} in {hoursBefore:0} h before");
-                    string lower = what.ToLowerInvariant(), since0 = Since;
                     bool more = tone == EffectTone.Worse;
-                    // Whole for each case: "since this driver" and "in the 5 days after this driver" join the change differently elsewhere.
-                    string said = (more, open) switch
-                    {
-                        (true, true) => Lang.T($"More {lower} since {thisOne}: {counts}"),
-                        (true, false) => Lang.T($"More {lower} in the {_daysAfter} days after {thisOne}: {counts}"),
-                        (false, true) => Lang.T($"Fewer {lower} since {thisOne}: {counts}"),
-                        (false, false) => Lang.T($"Fewer {lower} in the {_daysAfter} days after {thisOne}: {counts}"),
-                    };
-                    findings.Add(new(tone, sure, said,
+                    double hA = hoursAfter, hB = hoursBefore;
+                    // The counts first, the change after: one sentence, true whatever caused them. One day and many said whole,
+                    // as another language words "the day before" apart from "the 5 days before".
+                    string Line(string change) => more && before.Count == 0
+                        ? days == 1 ? Lang.T($"{wordsSince} {When(change)}, none in the day before") : Lang.T($"{wordsSince} {When(change)}, none in the {days} days before")
+                        : !more && since.Count == 0
+                            ? days == 1 ? Lang.T($"No {lower} {When(change)}, against {wordsBefore} in the day before") : Lang.T($"No {lower} {When(change)}, against {wordsBefore} in the {days} days before")
+                            : Lang.T($"{wordsSince} in {hA:0} h of use {When(change)}, against {wordsBefore} in {hB:0} h before");
+                    findings.Add(new(tone, sure, Wording.Capital(Line(thisOne)),
                         Lang.T("Counted against the hours the PC was used on each side."), more ? Lang.T($"More {lower} {since0}") : Lang.T($"Fewer {lower} {since0}"), false, false)
-                        { Plain = more ? Lang.T($"more {lower}: {counts}") : Lang.T($"fewer {lower}: {counts}") });
+                        { Line = Line });
                     problemCheck = new(sure == Confidence.Likely, sure == Confidence.Likely ? Lang.T("Enough problems to go on") : Lang.T("A small count"),
                         Lang.T($"{before.Count + since.Count} in all; at least {LikelyCount} on one side makes it likely."));
                 }
                 if (pairs.Count < 2) pairs.Add(figure);
                 if (_graphics && problems.Where(p => !p.Graphics).ToList() is { Count: > 0 } other
                     && other.Count(p => p.Time >= from && p.Time < at) is var ob && other.Count(p => p.Time >= at && p.Time < to) is var oa && ob + oa > 0)
-                    rows.Add(new(Lang.T($"Not counted: {And(other.Select(p => Wording.Noun(p.Kind, many: true)).Distinct())}"),
+                    rows.Add(new(Lang.T($"{Wording.Capital(And(other.Select(p => Wording.Noun(p.Kind, many: true)).Distinct()))} not counted"),
                         Lang.T("A graphics driver doesn't cause these unless the graphics card hung"), ob.ToString(), oa.ToString(), EffectTone.Same, Lang.T("See Crashes"), Counted: false));
             }
 
@@ -412,7 +430,7 @@ public static class ChangeEffects
             return new ChangeResult
             {
                 Day = day, Changes = of, From = from, To = to, Open = open, DaysBefore = _daysBefore, DaysAfter = _daysAfter,
-                Tone = head.Tone, Sure = head.Sure, Cause = cause, Headline = head.Headline, Plain = head.Plain, Context = head.Context, Short = head.Short,
+                Tone = head.Tone, Sure = head.Sure, Cause = cause, Headline = head.Headline, Line = head.Line, Context = head.Context, Short = head.Short,
                 Pairs = [.. pairs.Take(2)], Rows = rows, Checks = checks, Why = why, Advice = advice,
                 Before = before, After = since, TempLabel = tempLabel, TempBefore = tempBefore, TempAfter = tempAfter, Days = list,
             };
@@ -435,7 +453,7 @@ public static class ChangeEffects
                     (false, true) => Lang.T($"{by} cooler, {beyond} beyond what rest moved"),
                     (false, false) => Lang.T($"{by} cooler"),
                 }
-                : Math.Abs(diff) <= 2 ? Lang.T("About the same: within 2°") : Lang.T($"Not enough to say: under {Units.Degrees(MinDiff)}");
+                : Math.Abs(diff) <= 2 ? Lang.T("About the same, within 2°") : Lang.T($"Under {Units.Degrees(MinDiff)}, not enough to say");
             var row = new ChangeFigure($"{part} {where}", "", Units.TempShort(then), Units.TempShort(now), tone, meaning);
             if (!moved) return (row, null);
             string context = _plan ? Lang.T("Same game; the power plan changes power by design, so GPU power is shown too.")
@@ -457,9 +475,9 @@ public static class ChangeEffects
                 (false, _, false) => Lang.T($"{who} ran {by} cooler on the {part}"),
             };
             string since = Since;
-            string headline = open ? Lang.T($"{plain} since {thisOne}") : Lang.T($"{plain} in the {_daysAfter} days after {thisOne}");
-            return (row, new(tone, sure, headline, context,
-                hotter ? Lang.T($"{by} hotter {where} {since}") : Lang.T($"{by} cooler {where} {since}"), true, diff > 0 && now >= warm) { Plain = plain });
+            string Line(string change) => open ? Lang.T($"{plain} since {change}") : Lang.T($"{plain} in the {_daysAfter} days after {change}");
+            return (row, new(tone, sure, Line(thisOne), context,
+                hotter ? Lang.T($"{by} hotter {where} {since}") : Lang.T($"{by} cooler {where} {since}"), true, diff > 0 && now >= warm) { Line = Line });
         }
 
         private bool Counts(ChangeProblem p) => !_graphics || p.Graphics;
@@ -473,9 +491,9 @@ public static class ChangeEffects
                 : Lang.T($"No other graphics driver, Windows update, BIOS, hardware or power plan change from {from:d MMM} to {until:d MMM}.");
         }
 
-        private string PossibleWhy(Finding head, int changes) => changes > 1 ? Lang.T("Possibly, not likely: two big changes on one day.")
-            : !head.Heat ? Lang.T("Possibly, not likely: a small count.")
-            : _thin is { } thin ? Lang.T($"Possibly, not likely: only {thin} of play on one side.") : Lang.T("Possibly, not likely: across games, not one game.");
+        private string PossibleWhy(Finding head, int changes) => changes > 1 ? Lang.T("Possibly, not likely. Two big changes came on one day.")
+            : !head.Heat ? Lang.T("Possibly, not likely. It's a small count.")
+            : _thin is { } thin ? Lang.T($"Possibly, not likely. There's only {thin} of play on one side.") : Lang.T("Possibly, not likely. It's across games, not one game.");
 
         private string? Advice(SystemChange c) => c switch
         {

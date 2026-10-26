@@ -34,6 +34,14 @@ public sealed record RelayPlan(string Id, string Name, string Source, string Sta
     public bool PastDue => State == "past_due";
     public bool Gift => Source == "gift";
     public RelayPayment? LastPayment { get; init; }
+
+    /// <summary>
+    /// Questions given from the admin site, kept until used: taken once the plan's day or the free week is used up
+    /// (the person's rule, 2026-10-25). Not in <see cref="Cap"/> or <see cref="Left"/>. 0 from an older relay.
+    /// </summary>
+    public int Given { get; init; }
+    /// <summary>What can be asked now: the plan's day or week left, and the given ones.</summary>
+    public int AllLeft => Left + Given;
 }
 
 /// <summary>A plan to choose from: its price, questions, the pages it opens and the checkout link (carrying this PC's id).</summary>
@@ -42,6 +50,9 @@ public sealed record RelayPlanOffer(string Id, string Name, string Price, int Pr
     public bool IsFree => Id == "free";
     public bool Weekly => Period == "week";
 }
+
+/// <summary>Questions given from the admin site (kept until used), with the message written to them: told once in the chat.</summary>
+public sealed record RelayGift(long Id, int N, string? Note);
 
 /// <summary>Why a question wasn't sent: the free week's or the plan's day used up, and when it starts again.</summary>
 public sealed record AiLimit(string Kind, string? Plan, DateTime? ResetsAt);
@@ -96,6 +107,7 @@ public static partial class Relay
             card is not null && Text(card["last4"]) is { Length: > 0 } last4 ? new RelayCard(Text(card["brand"]) ?? "card", last4) : null,
             Pages(p["pages"]), (bool?)(p["can_manage"] as JsonValue) ?? false)
         {
+            Given = (int)Math.Clamp(OwnKey.Num(p["given"]) ?? 0, 0, 1_000_000),
             LastPayment = p["last_payment"] is JsonObject last && OwnKey.Num(last["amount_cents"]) is { } cents && Moment(last["at"]) is { } at
                 ? new RelayPayment((int)Math.Clamp(cents, 0, int.MaxValue), Text(last["currency"]) ?? "USD", at) : null,
         };
@@ -108,6 +120,11 @@ public static partial class Relay
 
     private static IReadOnlyList<string> Pages(JsonNode? node) =>
         [.. (node as JsonArray ?? []).Select(Text).OfType<string>().Where(id => AiPages.Get(id) is not null)];
+
+    private static RelayGift? ReadGift(JsonObject g) =>
+        OwnKey.Num(g["id"]) is { } id && OwnKey.Num(g["n"]) is { } n && n > 0
+            ? new RelayGift((long)id, (int)Math.Min(n, 100_000), Text(g["note"]) is { Length: > 0 } note ? note.Trim() : null)
+            : null;
 
     /// <summary>A time the relay gives in the PC's own clock ("2026-10-24T00:00:00", no zone).</summary>
     private static DateTime? LocalTime(JsonNode? node) =>

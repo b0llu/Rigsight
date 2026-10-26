@@ -23,4 +23,16 @@ public sealed class SidebarSettings
 
     /// <summary>Sections whose heading is left out: their pages follow the ones above, and the section no longer folds.</summary>
     public List<string> HiddenHeadings { get; set; } = [];
+
+    /// <summary>
+    /// Which pages the sidebar was set to show at once (2026-10-25): "basic" (the few most people use), "full" (every
+    /// page), or null when never picked. Picking one rewrites <see cref="Hidden"/>; the editor can change it after.
+    /// </summary>
+    public string? Pages { get; set; }
+
+    /// <summary>A new install asks once which pages to show (set where no settings file existed yet).</summary>
+    public bool AskPages { get; set; }
+
+    /// <summary>The sidebar shows its pages' icons only, narrow; each page's name is its hover.</summary>
+    public bool IconsOnly { get; set; }
 }

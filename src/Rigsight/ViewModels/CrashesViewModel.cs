@@ -418,7 +418,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         string change = r.Main.Shown, chip = Core.Wording.Running(r.Chip);
         string title = days == 0 ? Lang.T($"The same day as {change}") : days == 1 ? Lang.T($"A day after {change}") : Lang.T($"{days} days after {change}");
         // As shown: the crash's own line about it holds the change as shown too (see CrashFinding, SavedText.ChangeName).
-        return new(title, Lang.T($"Since it, {r.Plain}, {chip}. That alone doesn't prove this crash."), r.Day) { Change = change };
+        string line = r.Said, how = r.HowSure;
+        return new(title, Lang.T($"{line}. {how}. That alone doesn't prove this crash."), r.Day) { Change = change };
     }
 
     /// <summary>The page an opened crash came from (Timeline, Reports, Home), to go back to; null when it was opened here.</summary>
@@ -890,37 +891,37 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     {
         var sb = new StringBuilder();
         string kind = g.KindLabel.ToLowerInvariant();
-        sb.AppendLine(g.Title.Contains(kind, StringComparison.OrdinalIgnoreCase) ? Lang.T($"Problem: {g.Title}") : Lang.T($"Problem: {g.Title} ({kind})"));
+        sb.AppendLine(g.Title.Contains(kind, StringComparison.OrdinalIgnoreCase) ? g.Title : Lang.T($"{g.Title} ({kind})"));
         sb.AppendLine(g.IsIncident
-            ? Lang.T($"When: {g.First.Time:dddd d MMMM yyyy, h:mm tt} – {g.Latest.Time:h:mm tt}")
+            ? Lang.T($"On {g.First.Time:dddd d MMMM yyyy, h:mm tt} to {g.Latest.Time:h:mm tt}")
             : g.Count == 1
-            ? Lang.T($"When: {g.Latest.Time:dddd d MMMM yyyy, h:mm tt}")
-            : Lang.T($"When: {g.Count} times, most recently {g.Latest.Time:d MMM yyyy, h:mm tt} (first {g.First.Time:d MMM yyyy})"));
+            ? Lang.T($"On {g.Latest.Time:dddd d MMMM yyyy, h:mm tt}")
+            : Lang.T($"{g.Count} times, most recently {g.Latest.Time:d MMM yyyy, h:mm tt} (first {g.First.Time:d MMM yyyy})"));
         if ((opened?.Finding ?? g.Finding) is { } f)
         {
-            sb.AppendLine(Lang.T($"What happened: {f.Head} {f.Text}"));
-            sb.AppendLine(Lang.T($"How sure: {f.HowSure}"));
-            if (f.Points.Count > 0) sb.AppendLine(Lang.T("What points to this:"));
-            foreach (var p in f.Points) sb.AppendLine($"  - {p.Title}{(p.Detail.Length > 0 ? ": " + p.Detail : "")}");
-            if (f.RuledOut.Count > 0) sb.AppendLine(Lang.T("What it wasn't:"));
-            foreach (var p in f.RuledOut) sb.AppendLine($"  - {p.Title}: {p.Detail}");
-            if (f.NotChecked.Count > 0) sb.AppendLine(Lang.T("Could not be checked:"));
-            foreach (var p in f.NotChecked) sb.AppendLine($"  - {p.Title}: {p.Detail}");
-            if (f.CantTell is { } cant) sb.AppendLine(Lang.T($"Still unknown: {cant}"));
+            sb.AppendLine(Lang.T($"What happened · {f.Head} {f.Text}"));
+            sb.AppendLine(Lang.T($"How sure · {f.HowSure}"));
+            if (f.Points.Count > 0) sb.AppendLine(Lang.T("What points to this"));
+            foreach (var p in f.Points) sb.AppendLine($"  - {p.Title}{(p.Detail.Length > 0 ? ". " + p.Detail : "")}");
+            if (f.RuledOut.Count > 0) sb.AppendLine(Lang.T("What it wasn't"));
+            foreach (var p in f.RuledOut) sb.AppendLine($"  - {p.Title}. {p.Detail}");
+            if (f.NotChecked.Count > 0) sb.AppendLine(Lang.T("Could not be checked"));
+            foreach (var p in f.NotChecked) sb.AppendLine($"  - {p.Title}. {p.Detail}");
+            if (f.CantTell is { } cant) sb.AppendLine(Lang.T($"Still unknown · {cant}"));
             // What its close-up showed, a reading every two seconds.
             if (opened?.Close is { StoodOut.Count: > 0 } close)
             {
-                sb.AppendLine(Lang.T("In the last minutes:"));
+                sb.AppendLine(Lang.T("In the last minutes"));
                 foreach (var line in close.StoodOut) sb.AppendLine($"  - {line.Text}");
             }
         }
-        else sb.AppendLine(Lang.T($"What happened: {g.Reason}"));
+        else sb.AppendLine(Lang.T($"What happened · {g.Reason}"));
         if (g.IsIncident)
             foreach (var r in g.Rows.OrderBy(r => r.Time))
-                sb.AppendLine($"  {TimeText.At(r.Time, "h:mm:ss tt")}  {(r.Event.Kind == CrashKind.GpuDriverReset ? Lang.T("Graphics driver") : r.AppName ?? r.Event.AppExe)}: {r.KindLabel.ToLowerInvariant()}" +
+                sb.AppendLine($"  {TimeText.At(r.Time, "h:mm:ss tt")}  {(r.Event.Kind == CrashKind.GpuDriverReset ? Lang.T("Graphics driver") : r.AppName ?? r.Event.AppExe)} · {r.KindLabel.ToLowerInvariant()}" +
                               (string.IsNullOrEmpty(r.TechnicalText) || r.Event.Kind == CrashKind.GpuDriverReset ? "" : $" ({r.TechnicalText})"));
-        if (!g.IsIncident && !string.IsNullOrEmpty(g.TechnicalText)) sb.AppendLine(Lang.T($"Technical: {g.TechnicalText}"));
-        sb.AppendLine(Lang.T($"What to try: {g.Advice}"));
+        if (!g.IsIncident && !string.IsNullOrEmpty(g.TechnicalText)) sb.AppendLine(Lang.T($"Technical · {g.TechnicalText}"));
+        sb.AppendLine(Lang.T($"What to try · {g.Advice}"));
         sb.AppendLine();
         sb.Append(PcInfo.Text);
         return sb.ToString();

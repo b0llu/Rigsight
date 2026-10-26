@@ -104,7 +104,7 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
         // Several picked, some of them parts of Windows: each of those with what ending it does.
         var several = Ui.Run(() => host.Shell.Processes.Question.AskAsync(new ViewModels.EndQuestion
         {
-            Title = "End 3 apps?", Intro = "One of them is part of Windows:",
+            Title = "End 3 apps?", Intro = "One of them is part of Windows.",
             Lines = [new("Desktop Window Manager", Rigsight.Core.Apps.EndRisks.Sentence(Rigsight.Core.Apps.EndRisk.WindowManager)!)],
         }));
         Ui.Pump(300);

@@ -80,8 +80,8 @@ public static class CaseMinutes
         {
             var top = Top(apps, crash, a => a.MemMb);
             said.Add(new StoodOut(top is { } t
-                ? Lang.T($"Windows was nearly out of memory: {commit:0}% of what it can promise was promised to apps, the most to {nameOf(t.App)} ({t.MemMb / 1024:0.0} GB).")
-                : Lang.T($"Windows was nearly out of memory: {commit:0}% of what it can promise was promised to apps."), true));
+                ? Lang.T($"Windows was nearly out of memory, with {commit:0}% of what it can promise promised to apps, the most to {nameOf(t.App)} ({t.MemMb / 1024:0.0} GB).")
+                : Lang.T($"Windows was nearly out of memory, with {commit:0}% of what it can promise promised to apps."), true));
         }
         else if (ramTotalGb is > 0 && used is double u && u / ramTotalGb >= 0.92)
             said.Add(new StoodOut(Lang.T($"Memory was {100 * u / ramTotalGb:0}% full."), true));
@@ -125,7 +125,7 @@ public static class CaseMinutes
             said.Add(new StoodOut(Lang.T($"The connection dropped at {TimeUtil.FromUnix(drop.Start):h:mm tt}, for {Units.Duration(drop.Seconds)}."), false));
         else calm.Add(Lang.T("the connection"));
 
-        if (calm.Count > 0) said.Add(new StoodOut(Lang.T($"Nothing unusual in these minutes: {Wording.JoinAnd(calm)}."), false, IsCalm: true));
+        if (calm.Count > 0) said.Add(new StoodOut(Lang.T($"Nothing unusual in these minutes for {Wording.JoinAnd(calm)}."), false, IsCalm: true));
         return said;
     }
 

@@ -52,7 +52,7 @@ public partial class App : Application
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     Log.Error("ai-preview", ex);
-                    said = Lang.T($"Couldn't change the AI preview: {ex.Message}");
+                    said = Lang.T($"Couldn't change the AI preview. {ex.Message}");
                 }
             }
             MessageBox.Show(said, "RigSight", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -95,6 +95,8 @@ public partial class App : Application
         // takes its few tenths of a second, not only once the window is up. (What it sends waits its turn on this thread.)
         _client.Start();
         var window = new MainWindow(shell);
+        // Where it was last closed, at that size (GitHub issue #3).
+        WindowPlace.Keep(window);
         MainWindow = window;
         window.Show();
     }

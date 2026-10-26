@@ -118,7 +118,7 @@ public static class RewindCards
         if (f.Time && f.OnSec > 0)
         {
             string sub = f.BusiestDay is { } busiest
-                ? Lang.T($"On {f.DaysOn} of {f.Days} days. Your biggest day was {Day(busiest)}: {Hours(f.BusiestDaySec)} on.")
+                ? Lang.T($"On {f.DaysOn} of {f.Days} days. Your biggest day was {Day(busiest)}, with {Hours(f.BusiestDaySec)} on.")
                 : Lang.T($"On {f.DaysOn} of {f.Days} days.");
             cards.Add(new("time", Lang.T("PC on for"), Lang.T("Your PC was on for"), Whole(f.OnSec / 3600), sub) { Unit = Lang.T("hours") });
         }
@@ -184,7 +184,7 @@ public static class RewindCards
             int space = data.LastIndexOf(' ');
             double top = f.TopInternet.Count > 0 ? f.TopInternet[0].Value : 0;
             var rows = f.TopInternet.Select(a => new RewindRow(a.Name, Units.Data(a.Value), top > 0 ? a.Value / top : 0, 0, a.Exe, a.Path)).ToList();
-            string sub = rows.Count > 0 ? Lang.T($"And uploaded {Units.Data(f.Up)}. Most of it came through these:") : Lang.T($"And uploaded {Units.Data(f.Up)}.");
+            string sub = rows.Count > 0 ? Lang.T($"And uploaded {Units.Data(f.Up)}. Most of it came through these apps.") : Lang.T($"And uploaded {Units.Data(f.Up)}.");
             cards.Add(new("internet", Lang.T("You downloaded"), Lang.T("You downloaded"), space > 0 ? data[..space] : data, sub)
             { Unit = space > 0 ? data[(space + 1)..] : null, Rows = rows });
         }

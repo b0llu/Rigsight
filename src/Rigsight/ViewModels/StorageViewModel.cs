@@ -83,6 +83,8 @@ public sealed record CleanupItem(string Title, string Description, long Size, st
     private bool _busy;
 
     public string SizeText => Units.Bytes(Size);
+    /// <summary>Its AI button: whether it's safe to delete, from the Storage page's records.</summary>
+    public Services.AiQuestion Ask => new(Lang.T($"Is it safe to delete {Title} ({SizeText})? {Description}"), Core.Ai.AiPages.Storage);
 
     /// <summary>A drive's own Recycle Bin ("E:\"); null for every drive's.</summary>
     public string? BinRoot { get; init; }

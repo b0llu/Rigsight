@@ -180,7 +180,7 @@ public static class CrashExplainer
         {
             "dwm.exe" => new(Lang.T("Windows' display crashed"),
                 Lang.T("The part of Windows that draws everything on screen (Desktop Window Manager) crashed and restarted. The screen probably flickered or went black for a moment.") + what,
-                Lang.T("This is almost always the graphics driver: update or clean-reinstall it, and undo any GPU overclock."), Lang.Key("Graphics driver")),
+                Lang.T("This is almost always the graphics driver. Update or clean-reinstall it, and undo any GPU overclock."), Lang.Key("Graphics driver")),
             "explorer.exe" => new(Lang.T("Taskbar and desktop restarted"),
                 Lang.T("Windows Explorer, which runs the taskbar, desktop and file windows, crashed and restarted.") + what,
                 Lang.T("Often a shell extension from another app (right-click menu add-ons, cloud drives). If it repeats, update or remove recently installed tools."), Lang.Key("Windows Explorer")),

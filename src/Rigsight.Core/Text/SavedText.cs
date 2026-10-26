@@ -36,12 +36,12 @@ public static partial class SavedText
         P(@"^\.NET update$", Lang.Key(".NET update")),
         P(@"^Windows update$", Lang.Key("Windows update")),
         P(@"^Fan speeds changed while the PC was off$", Lang.Key("Fan speeds changed while the PC was off")),
-        P(@"^GPU disconnected for 1 minute: (.+)$", Lang.Key("GPU disconnected for 1 minute: {0}")),
-        P(@"^GPU disconnected for (\d+) minutes: (.+)$", Lang.Key("GPU disconnected for {0} minutes: {1}")),
-        P(@"^Graphics card added: (.+)$", Lang.Key("Graphics card added: {0}")),
-        P(@"^Graphics card removed: (.+)$", Lang.Key("Graphics card removed: {0}")),
-        P(@"^Drive added: (.+)$", Lang.Key("Drive added: {0}")),
-        P(@"^Drive removed: (.+)$", Lang.Key("Drive removed: {0}")),
+        P(@"^GPU disconnected for 1 minute: (.+)$", Lang.Key("{0} disconnected for 1 minute")),
+        P(@"^GPU disconnected for (\d+) minutes: (.+)$", Lang.Key("{1} disconnected for {0} minutes")),
+        P(@"^Graphics card added: (.+)$", Lang.Key("Graphics card {0} added")),
+        P(@"^Graphics card removed: (.+)$", Lang.Key("Graphics card {0} removed")),
+        P(@"^Drive added: (.+)$", Lang.Key("Drive {0} added")),
+        P(@"^Drive removed: (.+)$", Lang.Key("Drive {0} removed")),
         P(@"^Processor changed to (.+)$", Lang.Key("Processor changed to {0}")),
         P(@"^Memory changed to (.+)$", Lang.Key("Memory changed to {0}")),
         P(@"^Motherboard changed to (.+)$", Lang.Key("Motherboard changed to {0}")),
@@ -93,8 +93,8 @@ public static partial class SavedText
         P(@"^(.+) and (\d+) more stretches couldn't be read\.$", Lang.Key("{0} and {1} more stretches couldn't be read."), Stretch, R),
         P(@"^(.+) couldn't be read\.$", Lang.Key("{0} couldn't be read."), Stretch),
         P(@"^Drive (\S+) needs (.+) free for the repair\. It has (.+)\.$", Lang.Key("Drive {0} needs {1} free for the repair. It has {2}.")),
-        P(@"^The repair didn't finish: (.+)$", Lang.Key("The repair didn't finish: {0}")),
-        P(@"^The history file stayed in use: (.+)$", Lang.Key("The history file stayed in use: {0}")),
+        P(@"^The repair didn't finish: (.+)$", Lang.Key("The repair didn't finish ({0})")),
+        P(@"^The history file stayed in use: (.+)$", Lang.Key("The history file stayed in use ({0})")),
         P(@"^Nothing was lost\.$", Lang.Key("Nothing was lost.")),
         P(@"^A few app readings couldn't be read\.$", Lang.Key("A few app readings couldn't be read.")),
         P(@"^The damaged file is kept\.$", Lang.Key("The damaged file is kept.")),
@@ -102,6 +102,9 @@ public static partial class SavedText
         P(@"^RigSight started a new history today\.$", Lang.Key("RigSight started a new history today.")),
         P(@"^The old file is kept in case a tool can read it\.$", Lang.Key("The old file is kept in case a tool can read it.")),
     ];
+
+    /// <summary>The saved forms with a colon in them: reworded in English as well (see <see cref="Show"/>).</summary>
+    private static readonly Pattern[] Colons = [.. Patterns.Where(p => p.Match.ToString().Contains(": ", StringComparison.Ordinal))];
 
     /// <summary>A lost stretch of history, inside a repair's sentences only ("2:10 PM to 3:40 PM on Fri 3 Oct").</summary>
     private static readonly Pattern[] Stretches =
@@ -120,7 +123,9 @@ public static partial class SavedText
     public static string Show(string? saved)
     {
         if (string.IsNullOrEmpty(saved)) return saved ?? "";
-        if (!Lang.Translating) return saved;
+        // English too: a line saved with a colon ("Graphics card added: X", from before 2026-10-26's no-colon rule) is
+        // said in the words its pattern gives now ("Graphics card X added"); rows already saved stay as they were.
+        if (!Lang.Translating) return Match(Colons, saved) ?? (saved.Contains(". ", StringComparison.Ordinal) ? BySentenceIn(Colons, saved) : null) ?? saved;
         return Whole(saved) ?? BySentence(saved) ?? saved;
     }
 
@@ -151,6 +156,17 @@ public static partial class SavedText
             return Lang.FC(p.Template, values);
         }
         return null;
+    }
+
+    /// <summary>Each sentence of a line said by <paramref name="patterns"/> where one knows it (English: the colon forms only).</summary>
+    private static string? BySentenceIn(Pattern[] patterns, string saved)
+    {
+        var parts = Sentence().Split(saved.Trim());
+        if (parts.Length < 2) return null;
+        bool any = false;
+        for (int i = 0; i < parts.Length; i++)
+            if (Match(patterns, parts[i]) is { } said) { parts[i] = said; any = true; }
+        return any ? string.Join(" ", parts) : null;
     }
 
     /// <summary>Several sentences in one line (a repair's summary): each said by itself, kept as saved when none is known.</summary>

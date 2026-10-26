@@ -460,29 +460,34 @@
         <!-- The zoom, for a moment while it changes (Ctrl + wheel): up here, where it isn't zoomed itself -->
         <TextBlock x:Name="ZoomText" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" Opacity="0"
                    Foreground="{DynamicResource MutedBrush}" IsHitTestVisible="False" />
-        <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
-            <Image Source="Assets/Rigsight.png" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality" />
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <!-- Icons only, or the pages' names: the sidebar's own switch, where Windows apps keep theirs (2026-10-25). -->
+            <Image Source="Assets/Rigsight.png" Width="16" Height="16" Margin="12,0,0,0" RenderOptions.BitmapScalingMode="HighQuality" />
             <TextBlock x:Name="TitleText" Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="12" Margin="10,0,0,0"
                        VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <!-- The AI helper's Ask button, beside the window's own buttons (Settings › Ask RigSight can move it to the sidebar).
-                 Filled in the accent with a chat icon, so it's easy to find (the user, 2026-10-20). -->
+                 In the AI's own look since 2026-10-26 (every AI button: the sparkle, a faint tint of the AI colour). -->
             <Button x:Name="AskButton" WindowChrome.IsHitTestVisibleInChrome="True" Command="{Binding Ask.ToggleCommand}" Cursor="Hand" Focusable="False" FocusVisualStyle="{x:Null}"
                     VerticalAlignment="Stretch" AutomationProperties.Name="Ask RigSight" ToolTip="{ctl:T 'Ask RigSight about this PC'}"
                     Visibility="{Binding Ask.InTopBar, Converter={StaticResource Vis}}">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
-                        <!-- A box the bar's full height like the window's own buttons, filled in the accent so it stands out; a chat icon and the word. -->
-                        <Border x:Name="Bd" Height="32" Background="{DynamicResource AccentBrush}" Padding="14,0,16,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8F2;" FontFamily="{StaticResource IconFont}" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource OnAccentBrush}" />
-                                <TextBlock Text="{ctl:T 'Ask'}" FontSize="12" FontWeight="SemiBold" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource OnAccentBrush}" />
+                        <!-- The bar's full height like the window's own buttons, in the AI look (A3: tint, hairline edge, sparkle), with a
+                             little rounding so its edge shows (the user, 2026-10-26: the tint alone was hard to see). -->
+                        <Grid Height="32">
+                            <!-- Off the window's top edge by a little, so its top border shows (the user, 2026-10-26). -->
+                            <Border Margin="0,3,0,0" CornerRadius="4" Background="{DynamicResource AiSoftBrush}" BorderBrush="{DynamicResource AiStrokeBrush}" BorderThickness="1" />
+                            <Border x:Name="Hover" Margin="0,3,0,0" CornerRadius="4" Background="{DynamicResource AiSoftBrush}" Opacity="0" />
+                            <StackPanel Orientation="Horizontal" Margin="14,3,16,0">
+                                <Path Data="{StaticResource AiSparkle}" Stroke="{DynamicResource AiBrush}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Stretch="Uniform" Width="13" Height="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Ask'}" FontSize="12" FontWeight="SemiBold" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
                             </StackPanel>
-                        </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.88" /></Trigger>
-                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.75" /></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Hover" Property="Opacity" Value="1" /></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Button.Template>
@@ -495,15 +500,82 @@
     <!-- Everything under the title bar, zoomed with Ctrl + wheel (MainWindow.xaml.cs, ApplyZoom) -->
     <Grid x:Name="Body">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="232" />
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Sidebar -->
-        <Border x:Name="SidebarHost" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0">
-            <DockPanel Margin="14,16,14,16">
+        <!-- Sidebar: 232 wide, or 72 with icons only (everything in it follows SidebarLook.Narrow) -->
+        <Border x:Name="SidebarHost" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0"
+                ctl:SidebarLook.Narrow="{Binding Sidebar.IconsOnly}">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Width" Value="232" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Sidebar.IconsOnly}" Value="True"><Setter Property="Width" Value="72" /></DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <DockPanel>
+                <DockPanel.Style>
+                    <Style TargetType="DockPanel">
+                        <Setter Property="Margin" Value="14,16,14,16" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Sidebar.IconsOnly}" Value="True"><Setter Property="Margin" Value="13,16,13,16" /></DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DockPanel.Style>
                 <!-- Bottom: an update if there is one, an agent warning if needed, then Settings and its menu -->
                 <StackPanel DockPanel.Dock="Bottom">
+                    <!-- Icons only: each card at the foot is one icon that says it on hover; a press shows the names again, card
+                         and all (a rewind waiting opens itself). -->
+                    <StackPanel Visibility="{Binding Sidebar.IconsOnly, Converter={StaticResource Vis}}">
+                        <StackPanel.Resources>
+                            <Style x:Key="FootIcon" TargetType="Button">
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="Focusable" Value="False" />
+                                <Setter Property="Margin" Value="0,0,0,8" />
+                                <Setter Property="Command" Value="{Binding Sidebar.ToggleIconsCommand}" />
+                                <Setter Property="ToolTipService.Placement" Value="Right" />
+                                <Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+                                <Setter Property="AutomationProperties.Name" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, TargetNullValue=''}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <ctl:SmoothBorder x:Name="Bd" Height="40" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
+                                                <TextBlock Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" FontSize="15" Foreground="{TemplateBinding Foreground}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </ctl:SmoothBorder>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" /></Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </StackPanel.Resources>
+                        <Button Style="{StaticResource FootIcon}" Tag="&#xE768;" Foreground="{DynamicResource CpuBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                DataContext="{Binding Rewind}" Command="{Binding Waiting.WatchCommand}" ToolTip="{Binding WaitingTitle}"
+                                Visibility="{Binding HasWaiting, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource FootIcon}" Tag="&#xE896;" Foreground="{DynamicResource GoodBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                ToolTip="{Binding Update.LineTitle}" Visibility="{Binding Update.ShowLine, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource FootIcon}" Tag="&#xE896;" Foreground="{DynamicResource GoodBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                ToolTip="{Binding Update.ProgressTitle}" Visibility="{Binding Update.ShowProgress, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource FootIcon}" Tag="&#xE930;" Foreground="{DynamicResource GoodBrush}" BorderBrush="{DynamicResource GoodBrush}"
+                                ToolTip="{Binding Update.PromptTitle}" Visibility="{Binding Update.ShowPrompt, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource FootIcon}" Tag="&#xE7BA;" Foreground="{DynamicResource WarmBrush}" BorderBrush="{DynamicResource WarmBrush}"
+                                ToolTip="{ctl:T 'Update didn\'t finish'}" Visibility="{Binding Update.ShowFailed, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource FootIcon}" Tag="&#xE895;" Foreground="{DynamicResource MutedBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                ToolTip="{Binding AgentStatus}" Visibility="{Binding ShowAgentStarting, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource FootIcon}" Tag="&#xEA18;" Foreground="{DynamicResource CpuBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                ToolTip="{ctl:T 'Standard account'}" Visibility="{Binding ShowStandardNote, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource FootIcon}" Tag="&#xE7BA;" Foreground="{DynamicResource WarmBrush}" BorderBrush="{DynamicResource WarmBrush}"
+                                ToolTip="{Binding HistoryCard.Title}" Visibility="{Binding HistoryCard, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource FootIcon}" Tag="&#xE7BA;" Foreground="{DynamicResource WarmBrush}" BorderBrush="{DynamicResource WarmBrush}"
+                                ToolTip="{ctl:T 'Background agent not running'}" Visibility="{Binding ShowAgentWarning, Converter={StaticResource Vis}}" />
+                        <Button Style="{StaticResource FootIcon}" Tag="&#xE7BA;" Foreground="{DynamicResource WarmBrush}" BorderBrush="{DynamicResource WarmBrush}"
+                                ToolTip="{ctl:T 'The latest language pack couldn\'t be downloaded'}" Visibility="{Binding Language.ShowCard, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                    <StackPanel Visibility="{Binding Sidebar.IconsOnly, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                     <!-- A rewind waiting to be watched (shown full screen and put off with Later, or full screen switched off). -->
                     <Button DataContext="{Binding Rewind}" Command="{Binding Waiting.WatchCommand}" Cursor="Hand" Focusable="False"
                             AutomationProperties.Name="{Binding WaitingTitle}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,10"
@@ -756,6 +828,7 @@
                             </Button>
                         </StackPanel>
                     </ctl:SmoothBorder>
+                    </StackPanel>
 
                     <!-- Settings: always at the foot of the sidebar, however far the pages above are scrolled. A press opens a
                          small menu over it (Settings first, then the things people come looking for: updates, what's new,
@@ -785,15 +858,20 @@
                                     <Grid>
                                         <Border x:Name="Bar" Width="3" Height="16" CornerRadius="2" Margin="-12,0,0,0" HorizontalAlignment="Left"
                                                 Background="{DynamicResource AccentBrush}" Visibility="Collapsed" />
-                                        <DockPanel>
-                                            <TextBlock DockPanel.Dock="Left" Text="&#xE713;" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
-                                            <TextBlock DockPanel.Dock="Right" Text="&#xE70E;" Style="{StaticResource Icon}" FontSize="10"
+                                        <DockPanel x:Name="Row">
+                                            <Grid DockPanel.Dock="Left">
+                                                <TextBlock Text="&#xE713;" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
+                                                <!-- Icons only: the attention dot sits on the gear's corner. -->
+                                                <Ellipse x:Name="CornerDot" Width="7" Height="7" Margin="0,-3,-5,0" HorizontalAlignment="Right" VerticalAlignment="Top" Fill="{DynamicResource WarmBrush}"
+                                                         Visibility="Collapsed" />
+                                            </Grid>
+                                            <TextBlock x:Name="Chevron" DockPanel.Dock="Right" Text="&#xE70E;" Style="{StaticResource Icon}" FontSize="10"
                                                        Foreground="{DynamicResource FaintBrush}" Margin="8,0,0,0" />
                                             <!-- A dot while something in Settings needs a look (sensors being left out), until it's been seen there. -->
-                                            <Ellipse DockPanel.Dock="Right" Width="8" Height="8" Margin="8,0,2,0" VerticalAlignment="Center" Fill="{DynamicResource WarmBrush}"
+                                            <Ellipse x:Name="Dot" DockPanel.Dock="Right" Width="8" Height="8" Margin="8,0,2,0" VerticalAlignment="Center" Fill="{DynamicResource WarmBrush}"
                                                      ToolTip="{ctl:T 'Something in Settings needs a look'}"
                                                      Visibility="{Binding SettingsNeedAttention, Converter={StaticResource Vis}}" />
-                                            <TextBlock Text="{ctl:T 'Settings'}" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                            <TextBlock x:Name="Label" Text="{ctl:T 'Settings'}" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
                                         </DockPanel>
                                     </Grid>
                                 </Border>
@@ -814,13 +892,28 @@
                                         <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
                                         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                                     </Trigger>
+                                    <Trigger Property="ctl:SidebarLook.Narrow" Value="True">
+                                        <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="Chevron" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="Dot" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="Row" Property="HorizontalAlignment" Value="Center" />
+                                        <Setter Property="ToolTip" Value="{ctl:T 'Settings'}" />
+                                        <Setter Property="ToolTipService.Placement" Value="Right" />
+                                    </Trigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding (ctl:SidebarLook.Narrow), RelativeSource={RelativeSource Self}}" Value="True" />
+                                            <Condition Binding="{Binding SettingsNeedAttention}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter TargetName="CornerDot" Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </ToggleButton.Template>
                     </ToggleButton>
                     <Popup x:Name="SettingsMenu" PlacementTarget="{Binding ElementName=SettingsRow}" Placement="Top" VerticalOffset="-6" StaysOpen="False"
                            AllowsTransparency="True" PopupAnimation="Fade" IsOpen="{Binding IsChecked, ElementName=SettingsRow, Mode=TwoWay}" Closed="SettingsMenu_Closed">
-                        <Border Width="{Binding ActualWidth, ElementName=SettingsRow}" Background="{DynamicResource TooltipBrush}"
+                        <Border Width="{Binding ActualWidth, ElementName=SettingsRow}" MinWidth="204" Background="{DynamicResource TooltipBrush}"
                                 BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="12" Padding="6">
                             <StackPanel Button.Click="SettingsMenu_Click">
                                 <StackPanel.Resources>
@@ -900,7 +993,10 @@
                      and names, and what is hidden come from the sidebar editor in Settings; DASHBOARDS, HARDWARE and ON SCREEN
                      fold away with a click on their heading. A heading left out takes no room: its pages follow the ones above. -->
                 <!-- Its bar sits in the sidebar's right margin, clear of the items (it used to lie on their edge). -->
-                <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <!-- When the pages don't fit, a soft fade shows the side with more (see MainWindow.Sidebar); Settings and the cards
+                     at the foot stay put. -->
+                <ScrollViewer x:Name="NavScroll" Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                              ScrollChanged="NavScroll_ScrollChanged">
                 <StackPanel DataContext="{Binding Sidebar}">
                     <StackPanel.Resources>
                         <DataTemplate x:Key="NavEntry">
@@ -914,6 +1010,13 @@
                                 </DockPanel>
                             </RadioButton>
                         </DataTemplate>
+                        <!-- A page in a group's list beside its icon (icons only): shown even while the group is folded. -->
+                        <DataTemplate x:Key="FlyoutEntry">
+                            <RadioButton Style="{StaticResource NavItem}" Tag="{Binding Icon, Converter={StaticResource NavIcon}}" AutomationProperties.Name="{Binding Title}"
+                                         IsChecked="{Binding IsSelected, Mode=TwoWay}" Click="NavClicked">
+                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                            </RadioButton>
+                        </DataTemplate>
                         <!-- A section heading that folds its group: the caption, and a chevron at the right in the muted text colour (white while hovered). -->
                         <Style x:Key="SectionToggle" TargetType="Button">
                             <Setter Property="Cursor" Value="Hand" />
@@ -924,15 +1027,26 @@
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="12,4,10,4">
-                                            <DockPanel>
-                                                <TextBlock x:Name="Chevron" DockPanel.Dock="Right" Style="{StaticResource Icon}" FontSize="10"
-                                                           Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Text="&#xE70D;" />
-                                                <ContentPresenter VerticalAlignment="Center" />
-                                            </DockPanel>
+                                            <Grid>
+                                                <DockPanel x:Name="Words">
+                                                    <TextBlock x:Name="Chevron" DockPanel.Dock="Right" Style="{StaticResource Icon}" FontSize="10"
+                                                               Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Text="&#xE70D;" />
+                                                    <ContentPresenter VerticalAlignment="Center" />
+                                                </DockPanel>
+                                                <Border x:Name="Line" Height="1" Width="24" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource StrokeBrush}" Visibility="Collapsed" />
+                                            </Grid>
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter TargetName="Chevron" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                <Setter TargetName="Line" Property="Background" Value="{DynamicResource MutedBrush}" />
+                                            </Trigger>
+                                            <Trigger Property="ctl:SidebarLook.Narrow" Value="True">
+                                                <Setter TargetName="Words" Property="Visibility" Value="Collapsed" />
+                                                <Setter TargetName="Line" Property="Visibility" Value="Visible" />
+                                                <Setter TargetName="Bd" Property="Padding" Value="0,8" />
+                                                <Setter Property="ToolTip" Value="{Binding (AutomationProperties.Name), RelativeSource={RelativeSource Self}}" />
+                                                <Setter Property="ToolTipService.Placement" Value="Right" />
                                             </Trigger>
                                             <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
                                                 <Setter TargetName="Chevron" Property="Text" Value="&#xE76C;" />
@@ -946,29 +1060,109 @@
 
                     <ItemsControl ItemsSource="{Binding Main}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
 
+                    <!-- Icons only: DASHBOARDS, HARDWARE and ON SCREEN are one icon each; a press lists the group's pages beside it
+                         (approved mock-up, 2026-10-25), so the narrow sidebar rarely needs to scroll. -->
+                    <StackPanel Visibility="{Binding IconsOnly, Converter={StaticResource Vis}}">
+                        <Border Height="1" Width="24" Background="{DynamicResource HoverBrush}" Margin="0,12,0,10" />
+                        <ItemsControl ItemsSource="{Binding Groups}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Visibility="{Binding InRail, Converter={StaticResource Vis}}" Margin="0,0,0,4">
+                                        <ToggleButton x:Name="GroupIcon" Cursor="Hand" Focusable="True" AutomationProperties.Name="{Binding Title}" ToolTip="{Binding Title}"
+                                                      ToolTipService.Placement="Right" ToolTipService.InitialShowDelay="250" HorizontalAlignment="Stretch">
+                                            <ToggleButton.Template>
+                                                <ControlTemplate TargetType="ToggleButton">
+                                                    <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="0,10">
+                                                        <Grid HorizontalAlignment="Center">
+                                                            <Border x:Name="Bar" Width="3" Height="16" CornerRadius="2" Margin="-22,0,0,0" HorizontalAlignment="Left"
+                                                                    Background="{DynamicResource AccentBrush}" Visibility="Collapsed" />
+                                                            <TextBlock x:Name="Glyph" Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" FontSize="16" Foreground="{DynamicResource MutedBrush}" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                            <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                            <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                        </Trigger>
+                                                        <DataTrigger Binding="{Binding HasSelected}" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                            <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                                                            <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                        </DataTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </ToggleButton.Template>
+                                        </ToggleButton>
+                                        <!-- Its pages, beside it: names shown here even with icons only. -->
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=GroupIcon, Mode=TwoWay}" PlacementTarget="{Binding ElementName=GroupIcon}" Placement="Right"
+                                               HorizontalOffset="8" VerticalOffset="-6" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="12" Padding="6"
+                                                    MinWidth="200" ctl:SidebarLook.Narrow="False" AutomationProperties.Name="{Binding Title}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Heading}" Style="{StaticResource Caption}" Margin="10,6,10,4" />
+                                                    <ItemsControl ItemsSource="{Binding ShownPages}" ItemTemplate="{StaticResource FlyoutEntry}" Focusable="False" />
+                                                    <Button Click="RailNewDashboard_Click" AutomationProperties.Name="New dashboard" Cursor="Hand" Focusable="True" Foreground="{DynamicResource FaintBrush}"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Visibility="{Binding OffersNewDashboard, Converter={StaticResource Vis}}">
+                                                        <Button.Template>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
+                                                                        <TextBlock Text="{ctl:T 'New dashboard'}" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                                                    </StackPanel>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                    </Button>
+                                                </StackPanel>
+                                            </Border>
+                                        </Popup>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- With names: each group under its heading. -->
+                    <StackPanel Visibility="{Binding IconsOnly, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+
                     <Button Style="{StaticResource SectionToggle}" Tag="{Binding DashboardsCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="dashboards"
                             AutomationProperties.Name="{Binding DashboardsGroup.Title}" ToolTip="{ctl:T 'Show or hide your dashboards'}"
-                            Visibility="{Binding DashboardsGroup.ShowHeading, Converter={StaticResource Vis}}">
+                            Visibility="{Binding DashboardsGroup.HeadingInSidebar, Converter={StaticResource Vis}}">
                         <TextBlock Text="{Binding DashboardsGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
                     <!-- The user's dashboards, and any page moved in among them; a dashboard moved out is in the group it was put in. -->
                     <ItemsControl ItemsSource="{Binding DashboardsGroup.Pages}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
                     <Button Command="{Binding DataContext.Presets.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}" AutomationProperties.Name="New dashboard"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4"
-                            ToolTip="{ctl:T 'Start from a preset or a blank page'}"
-                            Visibility="{Binding DashboardsCollapsed, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                            ToolTip="{ctl:T 'Start from a preset or a blank page'}" ToolTipService.Placement="Right"
+                            Visibility="{Binding ShowNewDashboard, Converter={StaticResource Vis}}">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="12,10">
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel x:Name="Row" Orientation="Horizontal">
                                         <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" Foreground="{TemplateBinding Foreground}" />
-                                        <TextBlock Text="{ctl:T 'New dashboard'}" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="Label" Text="{ctl:T 'New dashboard'}" Margin="12,0,0,0" FontSize="14" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
                                         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                    </Trigger>
+                                    <Trigger Property="ctl:SidebarLook.Narrow" Value="True">
+                                        <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="Row" Property="HorizontalAlignment" Value="Center" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -977,21 +1171,56 @@
 
                     <Button Style="{StaticResource SectionToggle}" Tag="{Binding HardwareCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="hardware"
                             AutomationProperties.Name="{Binding HardwareGroup.Title}" ToolTip="{ctl:T 'Show or hide these pages'}"
-                            Visibility="{Binding HardwareGroup.ShowHeading, Converter={StaticResource Vis}}">
+                            Visibility="{Binding HardwareGroup.HeadingInSidebar, Converter={StaticResource Vis}}">
                         <TextBlock Text="{Binding HardwareGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
                     <ItemsControl ItemsSource="{Binding Hardware}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
 
                     <Button Style="{StaticResource SectionToggle}" Tag="{Binding OnScreenCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="onscreen"
                             AutomationProperties.Name="{Binding OnScreenGroup.Title}" ToolTip="{ctl:T 'Show or hide these pages'}"
-                            Visibility="{Binding OnScreenGroup.ShowHeading, Converter={StaticResource Vis}}">
+                            Visibility="{Binding OnScreenGroup.HeadingInSidebar, Converter={StaticResource Vis}}">
                         <TextBlock Text="{Binding OnScreenGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
                     <ItemsControl ItemsSource="{Binding OnScreen}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
+                    </StackPanel>
                 </StackPanel>
                 </ScrollViewer>
             </DockPanel>
         </Border>
+
+        <!-- Folds and opens the sidebar: a round handle on its edge, shown only while the pointer is over the sidebar or the handle
+             (it takes no keyboard focus, which kept it showing after a click: Ctrl+B is the keyboard way). Centred on the edge line (the
+             sidebar's 1px right border), level with Home and clear of it in either width (the user, 2026-10-25). -->
+        <Button x:Name="SidebarHandle" Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,23,-10.5,0" Width="22" Height="22"
+                Panel.ZIndex="6" Cursor="Hand" Focusable="False" Command="{Binding Sidebar.ToggleIconsCommand}"
+                ToolTip="{Binding Sidebar.IconsTip}" ToolTipService.InitialShowDelay="300" ToolTipService.Placement="Right" AutomationProperties.Name="{Binding Sidebar.IconsTip}">
+            <Button.Style>
+                <Style TargetType="Button">
+                    <Setter Property="Opacity" Value="0" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsMouseOver, ElementName=SidebarHost}" Value="True"><Setter Property="Opacity" Value="1" /></DataTrigger>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="1" /></Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Button.Style>
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="11" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                        <TextBlock x:Name="Glyph" Text="{Binding Sidebar.HandleGlyph}" FontFamily="{StaticResource IconFont}" FontSize="9" Foreground="{DynamicResource MutedBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource TextBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
 
         <!-- Pages (created on first visit, then kept), with a note at the top of one that couldn't read part of its history. -->
         <DockPanel Grid.Column="1">
@@ -1077,6 +1306,114 @@
                         <TextBlock Text="{ctl:T 'It means a lot. RigSight won\'t ask again.'}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" Opacity="0.85"
                                    TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,6" />
                     </StackPanel>
+                </StackPanel>
+            </ctl:SmoothBorder>
+        </Grid>
+
+        <!-- A new install, once: which pages the sidebar shows (the few most people use, or every page). A press on either
+             answers it; Settings › Look has the same choice after. (2026-10-25) -->
+        <Grid x:Name="PagesLayer" Grid.ColumnSpan="2" DataContext="{Binding Sidebar}" Visibility="{Binding AskPages, Converter={StaticResource Vis}}"
+              AutomationProperties.Name="Pick the pages">
+            <Border Background="#B8000000" />
+            <ctl:SmoothBorder Width="640" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="28,28,28,20"
+                              Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1.5" CornerRadius="16">
+                <StackPanel>
+                    <TextBlock Text="{ctl:T 'How much should RigSight show?'}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="{ctl:T 'Pick the pages for your sidebar. RigSight records the same either way.'}"
+                               FontSize="13.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,22" />
+                    <UniformGrid Columns="2" Margin="-7,0">
+                        <UniformGrid.Resources>
+                            <!-- One choice: a card that is a button. The basics, recommended, has the accent's edge from the start. -->
+                            <Style x:Key="PagesChoice" TargetType="Button">
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource HoverBrush}" />
+                                <Setter Property="Margin" Value="7,0" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <ctl:SmoothBorder x:Name="Bd" CornerRadius="14" Padding="18,16" Background="{DynamicResource Surface2Brush}"
+                                                              BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1.5">
+                                                <ContentPresenter />
+                                            </ctl:SmoothBorder>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource TextBrush}" /></Trigger>
+                                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource TextBrush}" /></Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                            <!-- The 16 pages as tiles in a 4 by 4 square: lit ones filled, the rest a dashed outline. -->
+                            <DataTemplate x:Key="PageTileT">
+                                <Grid Margin="4">
+                                    <Border x:Name="Tile" CornerRadius="8" Background="{DynamicResource HoverBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" />
+                                    <!-- Left out: a dashed outline (a Border can't draw dashes). -->
+                                    <Rectangle x:Name="Dashed" RadiusX="8" RadiusY="8" Stroke="{DynamicResource StrokeBrush}" StrokeThickness="1" StrokeDashArray="3 3" Visibility="Collapsed" />
+                                    <ContentPresenter x:Name="TileIcon" Content="{Binding Icon, Converter={StaticResource NavIcon}}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="15" TextElement.Foreground="{DynamicResource TextBrush}" />
+                                </Grid>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Lit}" Value="False">
+                                        <Setter TargetName="Tile" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="Dashed" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="TileIcon" Property="TextElement.Foreground" Value="{DynamicResource FaintBrush}" />
+                                        <Setter TargetName="TileIcon" Property="Opacity" Value="0.35" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                            <Style x:Key="TileBox" TargetType="Border">
+                                <Setter Property="Height" Value="164" />
+                                <Setter Property="Padding" Value="18,12" />
+                                <Setter Property="CornerRadius" Value="10" />
+                                <Setter Property="Background" Value="{DynamicResource BgBrush}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
+                                <Setter Property="BorderThickness" Value="1" />
+                            </Style>
+                        </UniformGrid.Resources>
+                        <Button Style="{StaticResource PagesChoice}" BorderBrush="{DynamicResource AccentBrush}" Command="{Binding PickPagesCommand}" CommandParameter="basic" AutomationProperties.Name="The basics">
+                            <StackPanel>
+                                <Border Style="{StaticResource TileBox}">
+                                    <ItemsControl ItemsSource="{Binding BasicTiles}" ItemTemplate="{StaticResource PageTileT}" Focusable="False">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4" Rows="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </Border>
+                                <StackPanel Orientation="Horizontal" Height="24" Margin="0,14,0,0">
+                                    <TextBlock Text="{ctl:T 'The basics'}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Border Background="{DynamicResource AccentBrush}" CornerRadius="5" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{ctl:T 'RECOMMENDED'}" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource OnAccentBrush}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{ctl:T '6 of the 16 pages, to see whether your PC is fine and what went wrong.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap" MinHeight="38" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource PagesChoice}" Command="{Binding PickPagesCommand}" CommandParameter="full" AutomationProperties.Name="Everything">
+                            <StackPanel>
+                                <Border Style="{StaticResource TileBox}">
+                                    <ItemsControl ItemsSource="{Binding FullTiles}" ItemTemplate="{StaticResource PageTileT}" Focusable="False">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4" Rows="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </Border>
+                                <StackPanel Orientation="Horizontal" Height="24" Margin="0,14,0,0">
+                                    <TextBlock Text="{ctl:T 'Everything'}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="{ctl:T 'All 16 pages, for every detail like what\'s running, fans, sensors and widgets.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap" MinHeight="38" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Button>
+                    </UniformGrid>
+                    <!-- Where pages come back: Settings, page by page (there is no "More pages" in the sidebar: the user, 2026-10-25). -->
+                    <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,16,0,0">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="&#xE946;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,1,10,0" VerticalAlignment="Top" />
+                            <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap">
+                                <Run Text="{ctl:T 'Change it any time in'}" /> <Run Text="{ctl:T 'Settings › Appearance › Sidebar'}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="{ctl:T ', where every page has its own switch.'}" />
+                            </TextBlock>
+                        </DockPanel>
+                    </ctl:SmoothBorder>
+                    <Button Style="{StaticResource ActionButton}" Content="{ctl:T 'Decide later (shows every page)'}" Command="{Binding PickPagesCommand}" CommandParameter="full"
+                            HorizontalAlignment="Center" Margin="0,12,0,0" />
                 </StackPanel>
             </ctl:SmoothBorder>
         </Grid>

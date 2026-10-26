@@ -22,8 +22,8 @@ public sealed partial class WidgetItemRow(WidgetCard card, string id, string nam
     private string? _notShown;
 
     public bool IsShown => NotShown is null;
-    /// <summary>The note under the row: "Not shown: Tiles shows 6".</summary>
-    public string? NotShownText => NotShown is null ? null : Lang.T($"Not shown: {NotShown}");
+    /// <summary>The note under the row: "Not shown · Tiles shows 6".</summary>
+    public string? NotShownText => NotShown is null ? null : Lang.T($"Not shown · {NotShown}");
     /// <summary>What the reading is ("CPU temperature", or the sensor's name): shown when no short name is set.</summary>
     public string Name { get; } = name;
     /// <summary>Where it comes from: the sensor's hardware, or nothing for the usual readings.</summary>
@@ -249,7 +249,7 @@ public sealed partial class WidgetCard : ObservableObject
     {
         var layout = LayoutValue;
         bool full = !CanAddMore;
-        string? Off(string? why) => why ?? (full ? Lang.T("Full: remove one to add another") : null);
+        string? Off(string? why) => why ?? (full ? Lang.T("Full. Remove one to add another") : null);
         var list = new List<PickerOption>();
         foreach (var m in Enum.GetValues<OverlayMetric>())
         {

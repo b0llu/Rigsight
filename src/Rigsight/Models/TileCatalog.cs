@@ -38,7 +38,7 @@ public static class TileCatalog
         new(Lang.T("INTERNET"), [
             new("net-speed", Lang.T("Internet speed"), Lang.T("Download and upload right now, over the last minute."), "\uE839", 6, 4, MinW: 4, MinH: 3),
             new("net-now", Lang.T("Using the internet now"), Lang.T("The apps moving the most right now."), "\uE839", 6, 4, MinW: 4, MinH: 3),
-            new("net-today", Lang.T("Internet today"), Lang.T("Everything used today: total, down, up and in the background."), "\uE839", 6, 2, MinW: 4, MinH: 2),
+            new("net-today", Lang.T("Internet today"), Lang.T("Everything used today, in total, down, up and in the background."), "\uE839", 6, 2, MinW: 4, MinH: 2),
             new("net-apps", Lang.T("Top internet users today"), Lang.T("The apps that used the most internet today."), "\uE839", 6, 4, MinW: 4, MinH: 3),
             new("net-chart", Lang.T("Internet use by hour"), Lang.T("Each hour of today, split by app."), "\uE9D9", 12, 4, MinW: 6, MinH: 3),
             new("net-drops", Lang.T("Connection today"), Lang.T("Whether the internet dropped today."), "\uE839", 3, 2, MinW: 3, MinH: 2),

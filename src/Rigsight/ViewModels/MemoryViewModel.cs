@@ -18,6 +18,8 @@ namespace Rigsight.ViewModels;
 public sealed record MemoryNote(string Caption, bool IsWarm, string Name, ImageSource? Icon, string Figure, string Text)
 {
     public bool HasIcon => Icon is not null;
+    /// <summary>Its AI button: what to do about it, from the Memory page's records.</summary>
+    public Services.AiQuestion Ask => new(Lang.T($"{Name} is at {Figure}. {Text} What should I do?"), Core.Ai.AiPages.Memory);
 }
 
 public sealed partial class MemoryViewModel(ReportService reports, LiveData live) : ObservableObject

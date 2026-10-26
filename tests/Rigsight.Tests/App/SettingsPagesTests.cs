@@ -486,7 +486,7 @@ public sealed class SettingsPageTests
             mine.PickOptionCommand.Execute(mine.PickerOptions.Single(o => o.Id == "CpuLoad"));
             Assert.False(mine.CanAddMore);
             Assert.All(mine.PickerOptions, o => Assert.False(o.CanAdd));
-            Assert.Contains(mine.PickerOptions, o => o.Off == "Full: remove one to add another");
+            Assert.Contains(mine.PickerOptions, o => o.Off == "Full. Remove one to add another");
         });
     }
 

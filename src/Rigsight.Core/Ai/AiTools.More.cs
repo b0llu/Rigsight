@@ -60,6 +60,47 @@ public sealed partial class AiTools
 
     private static bool Known(string name) => AiPages.Of(name) is not null;
 
+    // ── The PC tools an answer can open (the person's case, 2026-10-24: "check that in the NVIDIA App", installed, no button) ──
+    public const string AppsLookUp = "get_openable_apps";
+
+    /// <summary>
+    /// Offers <see cref="AppsLookUp"/>: RigSight AI only for now (the person's call, 2026-10-24: the other prompts stay as
+    /// they are until they say), set by the relay's client. A look-up, not something sent with every question, so the AI
+    /// asks only when a step happens in such an app (the person's idea), and it follows the Apps switch in Settings › AI.
+    /// </summary>
+    public bool OpenableAppsLookUp { get; set; }
+
+    /// <summary>The known apps on this PC (the tests give their own).</summary>
+    public Func<IReadOnlyDictionary<string, StartApp>> OpenableOnPc { get; set; } = () => OpenableApps.Installed(StartApps.List());
+    /// <summary>The other PC tools on this PC, by name (the tests give their own).</summary>
+    public Func<IReadOnlyList<StartApp>> OtherOnPc { get; set; } = () => OpenableApps.OtherTools(StartApps.List());
+
+    private string AppsText()
+    {
+        if (!On(Switch.Apps))
+            return $"Not shared: the user switched off the \"{Label(Switch.Apps)}\" page in Settings › AI, so which apps are on this PC isn't sent. Give the step in words, with no app button.";
+        var on = OpenableOnPc();
+        var sb = new StringBuilder();
+        var here = OpenableApps.All.Where(a => on.ContainsKey(a.Id)).ToList();
+        sb.AppendLine(here.Count == 0 ? "None of the apps on RigSight's list are on this PC." : "On this PC, and RigSight can open them from an answer:");
+        foreach (var a in here) sb.AppendLine($"  {a.Name} ([do: app {a.Id}])");
+        var away = OpenableApps.All.Where(a => !on.ContainsKey(a.Id) && a.Download is not null).ToList();
+        if (away.Count > 0)
+        {
+            sb.AppendLine("On the list but not on this PC (the button opens the maker's download page, so offer one only when installing it is the step):");
+            foreach (var a in away) sb.AppendLine($"  {a.Name} ([do: app {a.Id}])");
+        }
+        var others = OtherOnPc();
+        if (others.Count > 0)
+        {
+            sb.AppendLine("Other PC tools on this PC, opened by their name as written here (no download is offered for them):");
+            foreach (var o in others) sb.AppendLine($"  {o.Name} ([do: app {o.Name}])");
+        }
+        sb.AppendLine("Another PC tool not on the list (a motherboard or fan app, a drive maker's tool): name it as it appears on the Start menu (\"[do: app MSI Center]\"). RigSight opens it only when an entry by that name is on this PC, and offers no download for it.");
+        Log.Write("ask", $"{AppsLookUp}: {here.Count} on this PC ({string.Join(", ", here.Select(a => a.Id))}), {others.Count} other PC tools ({string.Join(", ", others.Select(o => o.Name))})");
+        return sb.ToString().TrimEnd();
+    }
+
     /// <summary>
     /// What a switched-off look-up answers: that the person chose not to share that page, and where to switch it on, so
     /// the model tells them that rather than guessing or saying nothing was recorded.

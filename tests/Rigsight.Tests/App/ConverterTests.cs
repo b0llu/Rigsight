@@ -610,6 +610,25 @@ public sealed class ConverterTests
     }
 
     [Fact]
+    public void An_AI_button_shows_only_while_the_AI_is_on_and_its_page_is_shared()
+    {
+        var c = new AiShowConverter();
+        object Show(bool on, AiQuestion? q) => c.Convert([on, 1, q!], typeof(Visibility), null, CultureInfo.InvariantCulture);
+        bool wasOn = AiGate.IsOn;
+        try
+        {
+            AiGate.Update(true, page => page != "games", _ => { });
+            Assert.Equal(Visibility.Visible, Show(true, new("Why?", "crashes")));
+            Assert.Equal(Visibility.Visible, Show(true, null));
+            // Games isn't shared: its buttons hide.
+            Assert.Equal(Visibility.Collapsed, Show(true, new("How can I make it run better?", "games")));
+            AiGate.Update(false, _ => true, _ => { });
+            Assert.Equal(Visibility.Collapsed, Show(false, new("Why?", "crashes")));
+        }
+        finally { AiGate.Update(wasOn, _ => true, _ => { }); }
+    }
+
+    [Fact]
     public void Every_converter_the_theme_declares_is_tested_here()
     {
         Type[] tested =
@@ -620,7 +639,7 @@ public sealed class ConverterTests
             typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(FractionConverter),
             typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter), typeof(ScaledTempBrushConverter),
             typeof(DataSizeConverter), typeof(InsightBrushConverter), typeof(SureBrushConverter), typeof(TimeFormatConverter), typeof(ShareStarConverter),
-            typeof(InkOnConverter),
+            typeof(InkOnConverter), typeof(AiShowConverter),
         ];
         var declared = Ui.Run(() => Application.Current.Resources.MergedDictionaries
             .Where(d => d.Source?.OriginalString.EndsWith("Themes/Theme.xaml") == true)

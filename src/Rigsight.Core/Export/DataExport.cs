@@ -215,7 +215,7 @@ public static class DataExport
         [ExportTable.Crashes] = new(Lang.Key("Crashes.csv"), Lang.Key("Apps that crashed or froze, blue screens, sudden shut-offs and graphics driver resets."),
             [C(Lang.Key("Time"), Lang.Key("When it happened")), C(Lang.Key("What"), Lang.Key("In a sentence")), C(Lang.Key("Kind"), Lang.Key("The kind of problem")), C(Lang.Key("App"), Lang.Key("The app, if it was one")),
              C(Lang.Key("Program"), Lang.Key("Its program file")), C(Lang.Key("Module"), Lang.Key("The file the fault was in")), C(Lang.Key("Code"), Lang.Key("Windows' error code")), C(Lang.Key("Detail"), Lang.Key("What Windows wrote down")),
-             C(Lang.Key("Most likely"), Lang.Key("What most likely happened")), C(Lang.Key("How sure"), Lang.Key("How sure the cause is: confirmed (by Windows' own record), likely, possibly, or not enough to say")),
+             C(Lang.Key("Most likely"), Lang.Key("What most likely happened")), C(Lang.Key("How sure"), Lang.Key("How sure the cause is, as confirmed (by Windows' own record), likely, possibly, or not enough to say")),
              C(Lang.Key("App version"), Lang.Key("The program's version")), C(Lang.Key("Driver"), Lang.Key("The driver a blue screen names"))],
             "crashes", "ts", 260,
             (db, from, to, n, f) =>
@@ -230,11 +230,11 @@ public static class DataExport
                 });
             }),
 
-        [ExportTable.Timeline] = new(Lang.Key("Timeline changes.csv"), Lang.Key("What changed on the PC: drivers, Windows updates, apps installed, removed and updated, startup programs, settings, parts, drive space."),
+        [ExportTable.Timeline] = new(Lang.Key("Timeline changes.csv"), Lang.Key("What changed on the PC, covering drivers, Windows updates, apps installed, removed and updated, startup programs, settings, parts and drive space."),
             [C(Lang.Key("Time"), Lang.Key("When it changed (a change found by a check is dated when it was found)")), C(Lang.Key("Kind"), Lang.Key("The kind of change")), C(Lang.Key("What"), Lang.Key("In a sentence")),
              C(Lang.Key("Before"), Lang.Key("What it was")), C(Lang.Key("After"), Lang.Key("What it became")),
              C(Lang.Key("Result"), Lang.Key("What a big change made better or worse, measured on this PC; empty where it changed nothing measurable")),
-             C(Lang.Key("How sure"), Lang.Key("How sure it was the change: likely or possibly")), C(Lang.Key("Compared"), Lang.Key("The days compared before and after"))],
+             C(Lang.Key("How sure"), Lang.Key("How sure it was the change, likely or possibly")), C(Lang.Key("Compared"), Lang.Key("The days compared before and after"))],
             "changes", "ts", 120,
             (db, from, to, n, f) =>
             {
@@ -395,10 +395,10 @@ public static class DataExport
         sb.AppendLine();
         // A paragraph at a time, its English line breaks kept (the key holds them).
         void Paragraph(string text) => sb.AppendLine(text.Replace("\n", Environment.NewLine));
-        Paragraph(Lang.T("rigsight.db is the history itself, a SQLite database: everything RigSight has recorded on this PC. Putting it\nback in %LocalAppData%\\Rigsight (with RigSight closed from its tray icon) restores the history on this or another PC."));
+        Paragraph(Lang.T("rigsight.db is the history itself, a SQLite database with everything RigSight has recorded on this PC. Putting it\nback in %LocalAppData%\\Rigsight (with RigSight closed from its tray icon) restores the history on this or another PC."));
         Paragraph(Lang.T("settings.json holds the settings."));
         sb.AppendLine();
-        Paragraph(Lang.T("The other files are the same history as tables (CSV: comma-separated, UTF-8), which Excel and most other\nprograms open. Times are this PC's local time. Temperatures are in °C. An empty cell means nothing was recorded."));
+        Paragraph(Lang.T("The other files are the same history as tables (CSV, comma-separated, UTF-8), which Excel and most other\nprograms open. Times are this PC's local time. Temperatures are in °C. An empty cell means nothing was recorded."));
         foreach (var table in Enum.GetValues<ExportTable>())
         {
             var t = Tables[table];

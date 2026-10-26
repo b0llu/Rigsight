@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:svc="clr-namespace:Rigsight.Services"
              x:Name="Page">
     <UserControl.Resources>
         <Style x:Key="StatValue" TargetType="TextBlock">
@@ -27,6 +28,7 @@
                         <ColumnDefinition Width="4" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -61,8 +63,13 @@
                         </WrapPanel>
                         <TextBlock Text="{Binding Line}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                     </StackPanel>
-                    <TextBlock Grid.Column="3" Text="{Binding WhenText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="4" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="14,0,16,0" />
+                    <!-- Explain without opening it first (mock-up, 2026-10-26); hidden while the AI is off. -->
+                    <Button Grid.Column="3" Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Explain'}" CommandParameter="{Binding ExplainAsk}"
+                            VerticalAlignment="Center" Margin="0,0,14,0" AutomationProperties.Name="{ctl:T 'Explain'}" />
+                    <!-- A set width, so every row's Explain lines up in one column whatever the date's length. -->
+                    <TextBlock Grid.Column="4" Text="{Binding WhenText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"
+                               MinWidth="132" TextAlignment="Right" />
+                    <TextBlock Grid.Column="5" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="14,0,16,0" />
                 </Grid>
             </Button>
             <DataTemplate.Triggers>
@@ -119,6 +126,8 @@
                 <!-- Title, then a toolbar row: picking "Day" adds the date picker to the right without moving anything. -->
                 <DockPanel>
                     <Button Style="{StaticResource PageExportButton}" />
+                    <!-- The page's own question for the AI (mock-up board 5), left of Export. -->
+                    <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'Is there a pattern?'}" CommandParameter="{x:Static svc:PageAsks.Crashes}" AutomationProperties.Name="{ctl:T 'Is there a pattern?'}" />
                     <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding OpenEventViewerCommand}" VerticalAlignment="Top"
                             ToolTip="{ctl:T 'Windows\' own (much more technical) log'}">
                         <StackPanel Orientation="Horizontal">
@@ -128,7 +137,7 @@
                     </Button>
                     <StackPanel>
                         <TextBlock Text="{ctl:T 'Crashes'}" Style="{StaticResource H1}" />
-                        <TextBlock Text="{ctl:T 'App and game crashes, graphics driver resets, blue screens and sudden shut-offs: what happened, what most likely caused it, and how sure that is.'}"
+                        <TextBlock Text="{ctl:T 'App and game crashes, graphics driver resets, blue screens and sudden shut-offs, with what happened, what most likely caused it, and how sure that is.'}"
                                    Style="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </DockPanel>
@@ -183,7 +192,7 @@
                     <Border Grid.Column="3" Style="{StaticResource Tile}" Margin="5">
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'BLUE SCREENS &amp; SUDDEN SHUT-OFFS'}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                       ToolTip="{ctl:T 'Blue screens, and sudden shut-offs (including while asleep). Shutdowns that didn\'t finish are listed but not counted: they are usually harmless.'}" />
+                                       ToolTip="{ctl:T 'Blue screens, and sudden shut-offs (including while asleep). Shutdowns that didn\'t finish are listed but not counted, because they are usually harmless.'}" />
                             <!-- How many of them came from outside the PC (the number alone read as nine faults), beside the
                                  number: on a line of its own it made this tile, and so the whole row, taller than the others. -->
                             <WrapPanel>
@@ -318,7 +327,7 @@
                     <!-- What can be done with the case, always in sight (the user: at the foot of the page they were hidden). -->
                     <!-- A game's crash: how far into the play it came, opening the game's page (its other plays and problems). -->
                     <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" VerticalAlignment="Center" Command="{Binding OpenCaseGameCommand}"
-                            Visibility="{Binding CaseGameText, Converter={StaticResource Vis}}" ToolTip="{ctl:T 'Open the game: every play, how it runs and its problems'}">
+                            Visibility="{Binding CaseGameText, Converter={StaticResource Vis}}" ToolTip="{ctl:T 'Open the game to see every play, how it runs and its problems'}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="12" Margin="0,1,8,0" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding CaseGameText}" FontSize="13" VerticalAlignment="Center" />
@@ -326,15 +335,9 @@
                         </StackPanel>
                     </Button>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,-9,0" DataContext="{Binding Case.Group}">
-                        <!-- The AI helper on this case: a filled button, because it starts something (hidden while the helper is off). -->
-                        <Button Style="{StaticResource AccentButton}" Margin="0,0,12,0" AutomationProperties.Name="Explain this crash"
-                                Command="{Binding DataContext.Ask.ExplainCaseCommand, ElementName=Page}" CommandParameter="{Binding ExplainSubject}"
-                                Visibility="{Binding DataContext.Ask.IsEnabled, ElementName=Page, Converter={StaticResource Vis}}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE99A;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
-                                <TextBlock Text="{ctl:T 'Explain this crash'}" />
-                            </StackPanel>
-                        </Button>
+                        <!-- The AI helper on this case (hidden while the AI is off or Crashes isn't shared). -->
+                        <Button Style="{StaticResource AiButton}" Margin="0,0,12,0" AutomationProperties.Name="Explain this crash"
+                                Content="{ctl:T 'Explain this crash'}" CommandParameter="{Binding ExplainAsk}" />
                         <Button Style="{StaticResource ActionButton}" Content="{Binding CopyText}"
                                 Command="{Binding DataContext.CopyCommand, ElementName=Page}" CommandParameter="{Binding}"
                                 ToolTip="{ctl:T 'Copies the whole case (what happened, how sure, what points to it, what was ruled out, and your PC\'s hardware) to paste into a forum post or support request'}" />
@@ -350,7 +353,7 @@
                                 Visibility="{Binding CanMute, Converter={StaticResource Vis}}">
                             <Button.ToolTip>
                                 <TextBlock MaxWidth="320" TextWrapping="Wrap"
-                                           Text="{ctl:T 'Stop counting this app\'s crashes. They\'re left out of the totals, the timeline, reports and crash notifications. Nothing is deleted: turn on \'Show muted\' to see them again or unmute.'}" />
+                                           Text="{ctl:T 'Stop counting this app\'s crashes. They\'re left out of the totals, the timeline, reports and crash notifications. Nothing is deleted. Turn on \'Show muted\' to see them again or unmute.'}" />
                             </Button.ToolTip>
                         </Button>
                         <Button Style="{StaticResource ActionButton}" Margin="0" Content="{ctl:T 'Event Viewer'}" Command="{Binding DataContext.OpenEventViewerCommand, ElementName=Page}"

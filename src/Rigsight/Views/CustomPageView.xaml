@@ -1,7 +1,8 @@
 ﻿<UserControl x:Class="Rigsight.Views.CustomPageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctl="clr-namespace:Rigsight.Controls">
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:svc="clr-namespace:Rigsight.Services">
     <UserControl.Resources>
         <ctl:TileTemplateSelector x:Key="TileFrameSelector" Chrome="True" />
         <ctl:TileTemplateSelector x:Key="TileContentSelector" />
@@ -507,6 +508,8 @@
                     </StackPanel>
                 </Button>
                 <Button Style="{StaticResource PageExportButton}" Visibility="{Binding IsEditing, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                <!-- The page's own question for the AI (mock-up board 5), left of Export. -->
+                <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'Suggest tiles'}" CommandParameter="{x:Static svc:PageAsks.Dashboards}" AutomationProperties.Name="{ctl:T 'Suggest tiles'}" />
             </StackPanel>
             <StackPanel>
                 <Grid>

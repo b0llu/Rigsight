@@ -68,13 +68,35 @@ public static class ActionCheck
         string? note = Math.Abs(gameBefore - gameAfter) > 0.5
             ? Lang.T("A game was in front on one side only, so this isn't a like-for-like comparison.") : null;
 
+        var rows = Rows(db, what, before, after, (f0, mid), (mid, t1), need);
+        if (rows.Count == 0) return new CheckResult([], false, Lang.T("RigSight has no readings for this on both sides to compare."));
+        return new CheckResult(rows, note is null, note);
+    }
+
+    /// <summary>
+    /// The readings of the minutes before <paramref name="at"/> alone, shown while the after side is still to come (the
+    /// approved artifact of 2026-10-24: the rows are there from the start, only "after" fills in). Empty when too little
+    /// was recorded before.
+    /// </summary>
+    public static IReadOnlyList<CheckRow> Before(RigsightDb db, DateTime at, int minutes, CheckWhat what)
+    {
+        long mid = TimeUtil.ToUnix(at), f0 = mid - minutes * 60L;
+        var before = db.GetMinutes(f0, mid);
+        int need = Math.Max(2, minutes / 2);
+        if (before.Count < need) return [];
+        // The same rows as a comparison, with the before side on both: only its "before" is kept.
+        return [.. Rows(db, what, before, before, (f0, mid), (f0, mid), need).Select(r => r with { After = "", Change = "", Better = null })];
+    }
+
+    private static List<CheckRow> Rows(RigsightDb db, CheckWhat what, List<SystemMinute> before, List<SystemMinute> after, (long From, long To) b, (long From, long To) a, int need)
+    {
         var rows = new List<CheckRow>();
         switch (what)
         {
             case CheckWhat.Fans:
                 var names = db.GetFans().ToDictionary(x => x.Id, x => x.Name);
-                var fb = db.GetFanMinutes(f0, mid).GroupBy(m => m.Fan).ToDictionary(g => g.Key, g => g.Average(m => (double)m.RpmAvg));
-                var fa = db.GetFanMinutes(mid, t1).GroupBy(m => m.Fan).ToDictionary(g => g.Key, g => g.Average(m => (double)m.RpmAvg));
+                var fb = db.GetFanMinutes(b.From, b.To).GroupBy(m => m.Fan).ToDictionary(g => g.Key, g => g.Average(m => (double)m.RpmAvg));
+                var fa = db.GetFanMinutes(a.From, a.To).GroupBy(m => m.Fan).ToDictionary(g => g.Key, g => g.Average(m => (double)m.RpmAvg));
                 // The fans that were spinning, fastest first: at most four rows.
                 foreach (var (fan, rpm) in fb.Where(kv => kv.Value >= 100 && fa.ContainsKey(kv.Key)).OrderByDescending(kv => kv.Value).Take(4))
                     rows.Add(Row(names.GetValueOrDefault(fan) ?? Lang.T("A fan"), rpm, fa[fan], v => Lang.T($"{v:N0} rpm"), smallest: Math.Max(60, rpm * 0.05), lowerIsBetter: true));
@@ -96,8 +118,8 @@ public static class ActionCheck
                 Add(rows, Lang.T("Closest to running out"), before, after, m => m.CommitPct, v => $"{v:0}%", 3);
                 break;
             case CheckWhat.Internet:
-                var nb = db.GetNetMinutes(f0, mid);
-                var na = db.GetNetMinutes(mid, t1);
+                var nb = db.GetNetMinutes(b.From, b.To);
+                var na = db.GetNetMinutes(a.From, a.To);
                 if (nb.Count >= need && na.Count >= need)
                 {
                     double db0 = nb.Average(m => (double)m.Down), da = na.Average(m => (double)m.Down);
@@ -105,8 +127,7 @@ public static class ActionCheck
                 }
                 break;
         }
-        if (rows.Count == 0) return new CheckResult([], false, Lang.T("RigSight has no readings for this on both sides to compare."));
-        return new CheckResult(rows, note is null, note);
+        return rows;
     }
 
     private static void Add(List<CheckRow> rows, string label, List<SystemMinute> before, List<SystemMinute> after, Func<SystemMinute, double?> read, Func<double, string> say, double smallest)

@@ -23,11 +23,11 @@ public class SensorStatusTests
     [Fact]
     public void Paused_parts_are_listed_per_program()
     {
-        Assert.Equal("Not read right now: motherboard (Gigabyte Control Center).",
+        Assert.Equal("Right now RigSight doesn't read the motherboard (Gigabyte Control Center).",
             SettingsViewModel.PausedText(Status(("Motherboard", ["Gigabyte Control Center"]))));
-        Assert.Equal("Not read right now: motherboard (Gigabyte Control Center), fan hubs and power supply (iCUE).",
+        Assert.Equal("Right now RigSight doesn't read the motherboard (Gigabyte Control Center), fan hubs and power supply (iCUE).",
             SettingsViewModel.PausedText(Status(("Motherboard", ["Gigabyte Control Center"]), ("Fan hubs", ["iCUE"]), ("Power supply", ["iCUE"]))));
-        Assert.Equal("Not read right now: motherboard, fan hubs and power supply (SignalRGB), fan hubs (iCUE).",
+        Assert.Equal("Right now RigSight doesn't read the motherboard, fan hubs and power supply (SignalRGB), fan hubs (iCUE).",
             SettingsViewModel.PausedText(Status(("Motherboard", ["SignalRGB"]), ("Fan hubs", ["SignalRGB", "iCUE"]), ("Power supply", ["SignalRGB"]))));
     }
 

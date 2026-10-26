@@ -133,10 +133,10 @@ public sealed class WhatsNewTests
     }
 
     [Theory]
-    [InlineData("Opening the Crashes page is quicker: its list keeps the crashes it already showed.", "crashes")]
+    [InlineData("Opening the Crashes page is quicker because its list keeps the crashes it already showed.", "crashes")]
     [InlineData("A game's page on Games no longer jumps back to the top every couple of minutes.", "games")]
     [InlineData("Switch off Show What's new after an update in Settings, About, and this card won't open by itself any more.", "settings")]
-    [InlineData("You can now select and copy text anywhere in RigSight: drag over it, double-click a word, then press Ctrl+C.", null)]
+    [InlineData("You can now select and copy text anywhere in RigSight by dragging over it or double-clicking a word, then pressing Ctrl+C.", null)]
     [InlineData("A widget dragged onto the taskbar stays over it.", null)] // "taskbar", not the Taskbar page
     public void A_line_opens_the_page_it_names_by_its_name(string text, string? page)
     {
@@ -160,7 +160,7 @@ public sealed class WhatsNewTests
             Assert.False(entry.IsNew); // not while the card is still open
             card.CloseCommand.Execute(null);
             Assert.True(entry.IsNew);
-            Assert.StartsWith($"New in {feature.Version.ToString(3)}: ", entry.NewText);
+            Assert.EndsWith($" is new in {feature.Version.ToString(3)}", entry.NewText);
             sidebar.Select(feature.Feature!.Page);
             Assert.False(entry.IsNew);
             Assert.Null(settings.Current.NewFeaturePage);

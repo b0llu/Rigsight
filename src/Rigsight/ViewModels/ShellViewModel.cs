@@ -114,13 +114,17 @@ public sealed partial class ShellViewModel : ObservableObject
         Ask.CopyReport = () => SettingsPage.CopyProblemReportCommand.Execute(null);
         Ask.SendAgent = (cmd, arg) => _client.SendCommand(cmd, arg);
         Ask.AgentRunning = () => IsConnected;
+        // A widget, the overlay or the taskbar from an answer (board 7): the sensors by name, and whether RivaTuner runs.
+        Ask.SetupSensors = () => AskViewModel.SensorsOf(Live);
+        Ask.TrayReadings = () => AskViewModel.TrayOf(Live);
+        Ask.RivaTuner = () => Overlay.RtssState;
         SettingsPage.Ai = new AiSettingsViewModel(Settings, Ask);
         // RigSight AI's plans: Settings › AI shows yours, the Plans screen covers the window, the Ask window offers one at a limit.
         Plans = new PlansViewModel(Ask);
         SettingsPage.Ai.Plans = Plans;
         Ask.Plans = Plans;
         // The look-ups that read what is on screen now: every reading, and the drives' health.
-        Ask.ConfigureTools = tools => { tools.SensorsNow = AiLiveReadings.Sensors(Live); tools.DrivesNow = AiLiveReadings.Drives(Live); tools.DriveScan = DriveScans.Text; };
+        Ask.ConfigureTools = tools => { tools.SensorsNow = AiLiveReadings.Sensors(Live); tools.DrivesNow = AiLiveReadings.Drives(Live); tools.DriveScan = DriveScans.Text; tools.RivaTuner = () => Overlay.RtssState; tools.SensorName = id => Live.Resolve(id)?.DisplayName; };
         Ask.PerQuestion = () => SettingsPage.Ai?.ModelPerQuestion;
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
         _ = Language.CheckAtStartAsync(mayCheck: Settings.Current.AutoUpdate && !RigsightPaths.IsTestInstance);
@@ -746,6 +750,13 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public void Navigate(string? page, string? arg)
     {
+        // The Ask shortcut (the agent's): the window in front with Ask open, while the AI is on.
+        if (page == "ask")
+        {
+            if (Ask.IsEnabled) Ask.IsOpen = true;
+            ActivateRequested?.Invoke();
+            return;
+        }
         if (!string.IsNullOrEmpty(page))
         {
             // A crash's notification: that crash, opened (its time, in ticks).
@@ -834,6 +845,11 @@ public sealed partial class ShellViewModel : ObservableObject
                 break;
             case "crashes" when Core.Ai.AiSources.ParseDays(focus) is var (from, to):
                 Crashes.ShowDays(from, to, pcOnly: false);
+                break;
+            // The widget an answer's card made: open in the editor.
+            case "widgets" when focus is { Length: > 0 }:
+                Widgets.Refresh();
+                Widgets.Edit(focus);
                 break;
         }
     }
@@ -936,6 +952,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         if (msg.OverlayVisible is bool visible) Overlay.IsVisible = visible;
         if (msg.OverlayHotkeyTaken is bool taken) Overlay.HotkeyTaken = taken;
+        if (msg.AskHotkeyTaken is bool askTaken && SettingsPage.Ai is { } ai) ai.ShortcutTaken = askTaken;
         if (msg.RtssState is { } rtss) Overlay.RtssState = rtss;
     }
 
@@ -1003,6 +1020,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 Overlay.OnPreviewsReady();
                 break;
             case "overlay":
+            case "ask-hotkey":
                 ApplyOverlayState(msg);
                 break;
             case "navigate":

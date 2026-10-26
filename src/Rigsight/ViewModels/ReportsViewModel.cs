@@ -28,7 +28,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     [ObservableProperty] private DateTime? _firstDay;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(Subtitle), nameof(TimelineEnd), nameof(Insights), nameof(Peaks), nameof(TopSessions), nameof(HasData), nameof(ShowEmpty), nameof(ShowData),
+    [NotifyPropertyChangedFor(nameof(Title), nameof(ReportAsk), nameof(Subtitle), nameof(TimelineEnd), nameof(Insights), nameof(Peaks), nameof(TopSessions), nameof(HasData), nameof(ShowEmpty), nameof(ShowData),
         nameof(MaxActive), nameof(BackgroundOnlyCount), nameof(BackgroundToggleText), nameof(CoverageNote), nameof(InsightsTitle))]
     private Report? _report;
 
@@ -414,7 +414,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     /// that it's loading instead of the period it is leaving.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowEmpty), nameof(ShowData), nameof(ShowLoading), nameof(Title), nameof(Subtitle))]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty), nameof(ShowData), nameof(ShowLoading), nameof(Title), nameof(ReportAsk), nameof(Subtitle))]
     private bool _switching;
 
     public bool ShowData => HasData && !Switching;
@@ -434,6 +434,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     // While another period is read the heading is empty: the one it has is the period being left.
     public string Title => Switching ? "" : Report?.Title ?? "";
+    /// <summary>The period's AI button: how it went, from the Reports page's records.</summary>
+    public Services.AiQuestion? ReportAsk => Switching || Report is null ? null
+        : new(Lang.T($"How did my PC do over this period ({Report.Title}), and is anything worth a look?"), Core.Ai.AiPages.Reports);
 
     public string Subtitle => Report is null || Switching ? "" : Range == ReportRange.Custom
         ? $"{Controls.PeriodPicker.Duration(Report.To - Report.From)}" : Controls.PeriodPicker.Span(Range, Report.From);
@@ -532,6 +535,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         if (anchor != Anchor) { Anchor = anchor; return; }
         // The same report, in the new day's words ("Yesterday" is a date now).
         OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(ReportAsk));
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(InsightsTitle));
         OnPropertyChanged(nameof(CoverageNote));

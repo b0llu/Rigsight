@@ -23,7 +23,8 @@ public static class SettingsStore
     /// </remarks>
     public static RigsightSettings Load(string path)
     {
-        if (!File.Exists(path)) return Normalize(new RigsightSettings());
+        // A new install: the app asks once which pages the sidebar shows (an unreadable file isn't one: see below).
+        if (!File.Exists(path)) { var fresh = Normalize(new RigsightSettings()); fresh.Sidebar.AskPages = true; return fresh; }
         if (Read(path) is { } settings) return settings;
         try { File.Copy(path, path + BadSuffix, overwrite: true); }
         catch (Exception ex) { Log.Error("settings", ex); }

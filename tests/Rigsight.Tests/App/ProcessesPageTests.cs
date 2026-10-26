@@ -386,18 +386,18 @@ public sealed class ProcessesPageTests
             Assert.Equal(["RamBrush", "CpuBrush", "SkyBrush", "AccentBrush"], page.Vm.Tiles.Select(t => t.Brush));
             Assert.Equal([ProcessesViewModel.ByMemory, ProcessesViewModel.ByCpu, ProcessesViewModel.ByInternet, ProcessesViewModel.ByDisk], page.Vm.Tiles.Select(t => t.Key));
 
-            Assert.Equal(("16.0 GB", "of 32 GB", "Most: Dota 2"), (memory.Value, memory.Note, memory.Most));
+            Assert.Equal(("16.0 GB", "of 32 GB", "Mostly Dota 2"), (memory.Value, memory.Note, memory.Most));
             Assert.Same(page.Live.RamUsed!.History, memory.History);
-            Assert.Equal(("37%", "Most: Dota 2"), (cpu.Value, cpu.Most));
+            Assert.Equal(("37%", "Mostly Dota 2"), (cpu.Value, cpu.Most));
             Assert.Same(page.Live.CpuLoad!.History, cpu.History);
             // No readings of the internet (the agent has no admin rights): a dash, and nothing named.
             Assert.Equal(("–", "Nothing using it"), (internet.Value, internet.Most));
-            Assert.Equal(("4.8 MB/s", "Most: Dota 2"), (disk.Value, disk.Most));
+            Assert.Equal(("4.8 MB/s", "Mostly Dota 2"), (disk.Value, disk.Most));
             Assert.Equal(1, disk.History!.Count);
 
             long version = disk.Version;
             page.Live.ApplyTick(Net(T0 + 1000, ("discord.exe", "Discord", 2_000_000, 100_000), ("chrome.exe", "Google Chrome", 400_000, 0)));
-            Assert.Equal(("2.4 MB/s", "Most: Discord"), (internet.Value, internet.Most));
+            Assert.Equal(("2.4 MB/s", "Mostly Discord"), (internet.Value, internet.Most));
             Assert.Equal(1, internet.History!.Count);
             Assert.True(disk.Version > version); // the lines are drawn again
             page.Live.ApplyTick(Net(T0 + 2000, ("chrome.exe", "Google Chrome", 500, 0)));
@@ -651,7 +651,34 @@ public sealed class ProcessesPageTests
         _ => $"{e.Text}{(e.Hint is null ? "" : $" [{e.Hint}]")}{(e.Enabled ? "" : " (off)")}{(e.Danger && e.Enabled ? " !" : "")}",
     };
 
-    private static List<string> Menu(PageKit page, params string[] exes) => Ui.Run(() => page.Vm.MenuFor([.. exes.Select(page.Row)]).Select(Line).ToList());
+    // The AI's "Ask what this is" (and its line) comes first only while the AI is on, a switch every test shares: left out
+    // here, checked by its own test below.
+    private static List<string> Menu(PageKit page, params string[] exes) => Ui.Run(() =>
+    {
+        var menu = page.Vm.MenuFor([.. exes.Select(page.Row)]).ToList();
+        if (menu.FirstOrDefault()?.Ai == true) menu.RemoveRange(0, 2);
+        return menu.Select(Line).ToList();
+    });
+
+    [Fact]
+    public void While_the_AI_is_on_an_apps_menu_starts_with_ask_what_this_is()
+    {
+        var page = Page();
+        bool wasOn = Services.AiGate.IsOn;
+        try
+        {
+            Services.AiGate.Update(true, _ => true, _ => { });
+            var on = Ui.Run(() => page.Vm.MenuFor([page.Row("Discord.exe")]));
+            Assert.True(on[0] is { Ai: true, Text: "Ask what this is" });
+            Assert.Equal(ProcMenuKind.Separator, on[1].Kind);
+            // Processes not shared: no AI line.
+            Services.AiGate.Update(true, p => p != "processes", _ => { });
+            Assert.DoesNotContain(Ui.Run(() => page.Vm.MenuFor([page.Row("Discord.exe")])), e => e.Ai);
+            Services.AiGate.Update(false, _ => true, _ => { });
+            Assert.DoesNotContain(Ui.Run(() => page.Vm.MenuFor([page.Row("Discord.exe")])), e => e.Ai);
+        }
+        finally { Services.AiGate.Update(wasOn, _ => true, _ => { }); }
+    }
 
     [Fact]
     public void An_apps_menu_opens_its_place_copies_its_path_and_ends_it()
@@ -663,8 +690,10 @@ public sealed class ProcessesPageTests
 
         Ui.Run(() =>
         {
-            var menu = page.Vm.MenuFor([page.Row("Discord.exe")]);
-            Assert.All(menu.Where(e => e.Kind == ProcMenuKind.Item), e => Assert.NotEqual("", e.Glyph));
+            // Without the AI's first line and its divider when the AI is on (a switch every test shares), as Menu() does.
+            var menu = page.Vm.MenuFor([page.Row("Discord.exe")]).SkipWhile(e => e.Ai).SkipWhile(e => e.Kind == ProcMenuKind.Separator).ToList();
+            // Every line has an icon so the words line up; the AI's line has its sparkle, drawn by the page instead of a glyph.
+            Assert.All(menu.Where(e => e.Kind == ProcMenuKind.Item && !e.Ai), e => Assert.NotEqual("", e.Glyph));
             menu[0].Run!();
             Assert.Equal([@"C:\Apps\Discord.exe"], page.Opened);
             Assert.Null(page.Vm.Message);
@@ -792,13 +821,13 @@ public sealed class ProcessesPageTests
 
         // Several, some of them parts of Windows: each of those with its sentence; the ordinary ones aren't listed.
         var several = Question(page, "chrome.exe", "Discord.exe", "explorer.exe");
-        Assert.Equal(("End 3 apps?", "One of them is part of Windows:"), (several.Title, several.Intro));
+        Assert.Equal(("End 3 apps?", "One of them is part of Windows."), (several.Title, several.Intro));
         Assert.Null(several.Body);
         Assert.Equal([new EndQuestionLine("Windows Explorer", "The taskbar, Start menu and desktop icons disappear until it starts again.")], several.Lines);
         Assert.False(several.CanRestart);
         Assert.False(several.NeedsTick);
         var grave = Question(page, "chrome.exe", "explorer.exe", "csrss.exe");
-        Assert.Equal("Some of them are part of Windows:", grave.Intro);
+        Assert.Equal("Some of them are part of Windows.", grave.Intro);
         Assert.Equal(["Windows Explorer", "Client Server Runtime Process"], grave.Lines.Select(l => l.Name));
         Assert.True(grave.NeedsTick);
     }
@@ -1319,7 +1348,7 @@ public sealed class ProcessesPageTests
             {
                 var view = (Views.ProcessesView)window.Content;
                 var texts = Visuals.Descendants<System.Windows.Controls.TextBlock>(view).Where(t => t.IsVisible).Select(t => t.Text).ToList();
-                foreach (var expected in new[] { "Processes", "MEMORY", "CPU", "INTERNET", "DISK", "Most: Dota 2", "Running now", "APP", "Google Chrome", "30 processes", "MEMORY TODAY", "312 KB/s", "WHERE ITS MEMORY IS", "30 PROCESSES" })
+                foreach (var expected in new[] { "Processes", "MEMORY", "CPU", "INTERNET", "DISK", "Mostly Dota 2", "Running now", "APP", "Google Chrome", "30 processes", "MEMORY TODAY", "312 KB/s", "WHERE ITS MEMORY IS", "30 PROCESSES" })
                     Assert.Contains(expected, texts);
                 // The app is open: its box with the chart, the facts and the split of its memory, then its two processes.
                 Assert.Equal(["1 tab", "Google Chrome itself"], Visuals.Descendants<Controls.PartsBar>(view).Single().Parts!.Cast<ProcShare>().Select(x => x.Name));

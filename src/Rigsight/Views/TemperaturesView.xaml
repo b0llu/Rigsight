@@ -2,11 +2,14 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:svc="clr-namespace:Rigsight.Services"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <DockPanel Margin="0,0,0,20">
                 <Button Style="{StaticResource PageExportButton}" />
+                <!-- The page's own question for the AI (mock-up board 5), left of Export. -->
+                <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'Are my temps okay?'}" CommandParameter="{x:Static svc:PageAsks.Temperatures}" AutomationProperties.Name="{ctl:T 'Are my temps okay?'}" />
                 <StackPanel>
                     <TextBlock Text="{ctl:T Temperatures}" Style="{StaticResource H1}" />
                     <TextBlock Text="{Binding SystemSummary}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
@@ -535,6 +538,7 @@
                                             <ColumnDefinition Width="58" />
                                             <ColumnDefinition Width="Auto" MinWidth="86" />
                                             <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{Binding Part}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="1" Text="{Binding TodayText}" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"
@@ -542,6 +546,10 @@
                                         <TextBlock Grid.Column="2" Text="{Binding UsualText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,14,0" />
                                         <ctl:TrendLine Grid.Column="3" Height="34" Values="{Binding Days}" Tips="{Binding Tips}" Stroke="{Binding Brush, Converter={StaticResource ResourceBrush}}"
                                                        Visibility="{Binding HasLine, Converter={StaticResource Vis}}" />
+                                        <!-- Warmer at rest than usual: ask why (hidden while the AI is off). -->
+                                        <Border Grid.Column="4" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="{Binding IsWarmer, Converter={StaticResource Vis}}">
+                                            <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Why is it warmer?'}" CommandParameter="{Binding Ask}" AutomationProperties.Name="{ctl:T 'Why is it warmer?'}" />
+                                        </Border>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

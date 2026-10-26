@@ -137,7 +137,7 @@ public static class PageExports
         var periods = Units(vm.Anchor, all: false, custom: true);
         return new(Lang.T("Export this report"), From(Lang.T("Reports")),
             [
-                new(Lang.T("The report"), Lang.T("Everything on this page in one file: time, peaks, what stood out, against your usual."), PageItemKind.Report, true),
+                new(Lang.T("The report"), Lang.T("Everything on this page in one file, with time, peaks and what stood out, against your usual."), PageItemKind.Report, true),
                 Table(ExportTable.Temperatures, Lang.T("Your day, minute by minute"), Lang.T("The app in front, temperatures, load and power, every minute."), on: false),
                 Table(ExportTable.AppUsage, Lang.T("Where the time went"), Lang.T("Each app's time each day, with its category."), on: false),
             ],
@@ -210,7 +210,7 @@ public static class PageExports
                     IsNow = true, BytesPerDay = 6_000,
                     SheetAsync = async run => { var list = await PickedAsync(); return (_, _) => ExportSheets.Library(list, run.Now); },
                 },
-                new(Lang.T("Play sessions"), Lang.T("Each time you played: how long, how it ended, fps and 1% low, graphics card heat and power."), PageItemKind.Sheet, true)
+                new(Lang.T("Play sessions"), Lang.T("Each time you played, with how long, how it ended, fps and 1% low, graphics card heat and power."), PageItemKind.Sheet, true)
                 {
                     BytesPerDay = 600,
                     SheetAsync = async run => { var list = await PickedAsync(); return (db, s) => ExportSheets.Plays(db, list, s, run.From, run.To, run.Now); },
@@ -371,7 +371,7 @@ public static class PageExports
     private static PageExportSpec Memory(LiveData live) => new(
         Lang.T("Export memory"), From(Lang.T("Memory")),
         [
-            Table(ExportTable.Memory, Lang.T("Biggest memory users"), Lang.T("What each app held, hour by hour: average and peak.")),
+            Table(ExportTable.Memory, Lang.T("Biggest memory users"), Lang.T("What each app held, hour by hour, as average and peak.")),
             new(Lang.T("Using memory right now"), Lang.T("Each app and its processes, now and what it usually holds, as the page lists them."), PageItemKind.Sheet, false)
             {
                 IsNow = true, BytesPerDay = 8_000,

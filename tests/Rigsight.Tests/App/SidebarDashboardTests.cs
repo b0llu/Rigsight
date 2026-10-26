@@ -358,8 +358,11 @@ public sealed class SidebarDashboardTests
                 Assert.Equal(16 + 2, grips.Count);
                 Assert.Equal(["timeline", Gaming, Work, "temperatures"], grips.Select(g => ((NavEntry)g.DataContext).Key).Skip(6).Take(4));
                 Assert.Contains(grips, g => NameOf(g) == "Move Gaming: drag it, or use the arrow keys");
+                // Names show as text until the pencil (approved mock-up, 2026-10-25).
+                Assert.Empty(Visuals.Descendants<TextBox>(panel).Where(b => b.IsVisible));
+                boards.Entry(Gaming).IsRenaming = true;
+                Ui.Pump(100);
                 var boxes = Visuals.Descendants<TextBox>(panel).Where(b => b.IsVisible).ToList();
-                Assert.Equal(16 + 2 + 3, boxes.Count);
                 var box = boxes.Single(b => b.DataContext == boards.Entry(Gaming));
                 Assert.Equal(("Gaming", "Dashboard"), (box.Text, box.Tag));
                 var switches = Visuals.Descendants<CheckBox>(panel).Where(c => c.IsVisible).ToList();
@@ -381,7 +384,7 @@ public sealed class SidebarDashboardTests
                 switches.Single(c => NameOf(c) == "Show Work").IsChecked = false;
                 Assert.False(boards.Entry(Work).IsVisible);
                 Assert.Contains(boards.Pages, p => p.NavKey == Work);
-                Assert.Contains(Visuals.Descendants<TextBlock>(window), t => t.Text == "· 1 page hidden" && t.IsVisible);
+                Assert.Contains(Visuals.Descendants<TextBlock>(window), t => t.Text == "· 17 of 18 pages shown" && t.IsVisible);
 
                 // The arrow keys on its grip carry it out of DASHBOARDS, and the row built in its new place has a grip again.
                 var grip = grips.Single(g => g.DataContext == boards.Entry(Work));

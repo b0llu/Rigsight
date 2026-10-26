@@ -392,4 +392,19 @@ public sealed class AskActionsTests
         Assert.Contains("[do: close <exe>]", AiPrompt.Actions);
         Assert.Contains("never offer to close the game being played", AiPrompt.Actions);
     }
+
+    // 2026-10-24, the person's own I drive: Scan ran, then the answer said "hasn't been scanned". The new chat's starters
+    // had made the look-ups before the shell set their hooks, so a drive's scan was never read.
+    [Fact]
+    public void Hooks_set_after_the_look_ups_were_made_still_reach_them()
+    {
+        Ui.Run(() =>
+        {
+            var window = new AskViewModel(Kit.OfflineSettings(new RigsightSettings()));
+            var tools = (AiTools)typeof(AskViewModel).GetMethod("Tools", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(window, null)!;
+            tools.PlanPages = null;
+            window.ConfigureTools = t => t.DriveScan = letter => letter == "E" ? "Scan of E: finished just now." : null;
+            Assert.StartsWith("Scan of E:", tools.Run("get_drive_scan", """{"drive":"E"}"""));
+        });
+    }
 }

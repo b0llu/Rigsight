@@ -69,7 +69,7 @@ public sealed class CloseUpWordsTests
     {
         var points = Seconds(s => s <= 0 ? Game(-300) : new CloseUpPoint { GpuLoad = 3, Here = true, Front = s >= 100 ? 7 : 1 }, after: 120);
         var said = CloseUpWords.Find(points, CrashTs, id => id == 7 ? "Apex Legends" : "Desktop", crashedApp: 7);
-        var after = Assert.Single(said, s => s.Text.StartsWith("After:"));
+        var after = Assert.Single(said, s => s.Text.StartsWith("Right after,"));
         Assert.Contains("the GPU went from 97% to 3% at once", after.Text);
         Assert.Contains($"Apex Legends was back in front {CrashFindings.Words(100)} later", after.Text);
     }
@@ -98,7 +98,7 @@ public sealed class CloseUpWordsTests
         Assert.Equal(said, point is not null);
         if (point is not null)
         {
-            Assert.Equal(("warn", "GPU memory was possibly running out: 11.6 of 12 GB"), (point.Kind, point.Title));
+            Assert.Equal(("warn", "GPU memory was possibly running out, with 11.6 of 12 GB used"), (point.Kind, point.Title));
             Assert.StartsWith("In the last 30 seconds. Apex Legends usually uses about 9.8 GB on this PC.", point.Detail);
         }
     }
@@ -126,7 +126,7 @@ public sealed class CloseUpWordsTests
         var listed = CrashCases.Of(db, [crash], new RigsightSettings())[crash.Id];
         var opened = CrashCases.Of(db, [crash], new RigsightSettings(), upClose: true)[crash.Id];
         Assert.DoesNotContain(listed.Points, p => p.Title.StartsWith("GPU memory was possibly"));
-        Assert.Contains(opened.Points, p => p.Title == "GPU memory was possibly running out: 11.6 of 12 GB" && p.Detail.Contains("In its last minute"));
+        Assert.Contains(opened.Points, p => p.Title == "GPU memory was possibly running out, with 11.6 of 12 GB used" && p.Detail.Contains("In its last minute"));
         // The same answer either way: only what it rests on grows.
         Assert.Equal((listed.Head, listed.Confidence, listed.Advice), (opened.Head, opened.Confidence, opened.Advice));
     }

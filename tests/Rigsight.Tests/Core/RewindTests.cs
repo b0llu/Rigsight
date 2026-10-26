@@ -124,7 +124,7 @@ public class RewindTests
         var cards = RewindCards.Of(October());
         var time = cards.Single(c => c.Id == "time");
         Assert.Equal(("Your PC was on for", "212", "hours"), (time.Label, time.Big, time.Unit));
-        Assert.Equal("On 17 of 31 days. Your biggest day was Saturday 10 October: 15 hours on.", time.Sub);
+        Assert.Equal("On 17 of 31 days. Your biggest day was Saturday 10 October, with 15 hours on.", time.Sub);
         var games = cards.Single(c => c.Id == "games");
         Assert.Equal(("Time in games", "62h", "30m"), (games.Label, games.Big, games.Unit));
         foreach (var c in cards.Where(c => c.Big.Length > 0 && c.Sub is not null))

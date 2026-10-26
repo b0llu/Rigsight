@@ -225,18 +225,39 @@
             </Setter>
         </Style>
 
-        <!-- One page: grip, name, show switch. The whole row is shaded while pointed at, with room at its sides. -->
+        <!-- One page in the Customize pop-up: grip, its sidebar icon, its name (typed in after the pencil), up and down,
+             rename, and its switch. Hidden, it's dimmed and says it still opens from links. The row is shaded while pointed at. -->
         <DataTemplate x:Key="SidebarRow">
-            <Border x:Name="Row" Background="Transparent" CornerRadius="8" Margin="-10,0" Padding="4,2,10,2">
+            <Border x:Name="Row" Background="Transparent" CornerRadius="8" Margin="-8,0" Padding="4,3,8,3">
                 <DockPanel>
                     <Thumb DockPanel.Dock="Left" Style="{StaticResource Grip}"
                            AutomationProperties.Name="{Binding Title, StringFormat='Move {0}: drag it, or use the arrow keys'}"
                            DragStarted="Grip_DragStarted" DragDelta="Grip_DragDelta" DragCompleted="Grip_DragCompleted" PreviewKeyDown="Grip_PreviewKeyDown" />
-                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding IsShown}" IsEnabled="{Binding CanHide}"
+                    <ContentPresenter x:Name="PageIcon" DockPanel.Dock="Left" Content="{Binding Icon, Converter={StaticResource NavIcon}}" Width="18" Margin="4,0,10,0" VerticalAlignment="Center"
+                                      TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="15" TextElement.Foreground="{DynamicResource MutedBrush}" />
+                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding IsShown}" IsEnabled="{Binding CanHide}" Margin="8,0,0,0"
                               VerticalAlignment="Center" AutomationProperties.Name="{Binding Title, StringFormat='Show {0}'}" />
-                    <TextBox x:Name="PageName" Style="{StaticResource NameBox}" Margin="2,0,0,0" Tag="{Binding BuiltInTitle}"
-                             Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
-                             AutomationProperties.Name="{Binding BuiltInTitle, StringFormat='Name of {0}'}" />
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="{Binding Title, StringFormat='Move {0} up'}"
+                                Command="{Binding DataContext.MoveUpCommand, ElementName=EditorPanel}" CommandParameter="{Binding}"><TextBlock Text="&#xE70E;" FontSize="11" /></Button>
+                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Move down'}" AutomationProperties.Name="{Binding Title, StringFormat='Move {0} down'}"
+                                Command="{Binding DataContext.MoveDownCommand, ElementName=EditorPanel}" CommandParameter="{Binding}"><TextBlock Text="&#xE70D;" FontSize="11" /></Button>
+                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Rename'}" AutomationProperties.Name="{Binding Title, StringFormat='Rename {0}'}"
+                                Command="{Binding ToggleRenameCommand}"><TextBlock Text="&#xE70F;" FontSize="12" /></Button>
+                    </StackPanel>
+                    <Grid VerticalAlignment="Center">
+                        <WrapPanel x:Name="Shown" VerticalAlignment="Center">
+                            <TextBlock x:Name="PageName" Text="{Binding Title}" FontSize="14" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                            <TextBlock Text="{ctl:T 'always shown'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"
+                                       Visibility="{Binding CanHide, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            <TextBlock Text="{ctl:T 'hidden · still opens from links'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center"
+                                       Visibility="{Binding IsShown, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        </WrapPanel>
+                        <TextBox x:Name="NameEdit" Style="{StaticResource NameBox}" Tag="{Binding BuiltInTitle}" Visibility="Collapsed"
+                                 Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" IsVisibleChanged="NameEdit_IsVisibleChanged"
+                                 KeyDown="NameEdit_KeyDown" LostKeyboardFocus="NameEdit_LostFocus"
+                                 AutomationProperties.Name="{Binding BuiltInTitle, StringFormat='Name of {0}'}" />
+                    </Grid>
                 </DockPanel>
             </Border>
             <DataTemplate.Triggers>
@@ -245,33 +266,56 @@
                 </Trigger>
                 <DataTrigger Binding="{Binding IsShown}" Value="False">
                     <Setter TargetName="PageName" Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                    <Setter TargetName="PageIcon" Property="TextElement.Foreground" Value="{DynamicResource FaintBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                    <Setter TargetName="Shown" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="NameEdit" Property="Visibility" Value="Visible" />
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- One group: its heading (name and switch) where it has one, its pages, and a box to drop a page in once
-             every page has been moved out. A line parts it from the group above. -->
+        <!-- One group in the pop-up: its heading (the top group's is "Your history", which the sidebar doesn't show), the pencil
+             that renames it and offers to hide it, its pages, and a box to drop a page in once every page has been moved out. -->
         <DataTemplate x:Key="SidebarGroup">
-            <StackPanel>
-                <StackPanel Visibility="{Binding HasHeading, Converter={StaticResource Vis}}">
-                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,10" />
-                    <DockPanel Margin="0,0,0,4">
-                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding ShowHeading}" VerticalAlignment="Center"
-                                  AutomationProperties.Name="{Binding BuiltInName, StringFormat='Show the {0} heading'}">
-                            <TextBlock Text="{ctl:T 'Heading'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                        </CheckBox>
-                        <TextBox Style="{StaticResource NameBox}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}"
-                                 CharacterCasing="Upper" Margin="-6,0,0,0" Tag="{Binding BuiltInHeading}"
+            <StackPanel Margin="0,0,0,4">
+                <DockPanel Margin="0,12,0,4">
+                    <Button x:Name="HeadingPencil" DockPanel.Dock="Right" Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Rename, or hide the heading'}"
+                            AutomationProperties.Name="{Binding BuiltInName, StringFormat='Rename the {0} heading'}" Command="{Binding ToggleRenameCommand}"
+                            Visibility="{Binding HasHeading, Converter={StaticResource Vis}}"><TextBlock Text="&#xE70F;" FontSize="12" /></Button>
+                    <CheckBox x:Name="HeadingSwitch" DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding ShowHeading}" VerticalAlignment="Center" Margin="0,0,8,0" Visibility="Collapsed"
+                              AutomationProperties.Name="{Binding BuiltInName, StringFormat='Show the {0} heading'}">
+                        <TextBlock Text="{ctl:T 'Heading'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <Grid VerticalAlignment="Center">
+                        <TextBlock x:Name="HeadingText" Text="{Binding Heading}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,0" VerticalAlignment="Center" />
+                        <TextBlock x:Name="TopHeading" Text="{ctl:T 'YOUR HISTORY'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Visibility="Collapsed" />
+                        <TextBox x:Name="HeadingEdit" Style="{StaticResource NameBox}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Visibility="Collapsed"
+                                 CharacterCasing="Upper" Margin="-6,0,0,0" Tag="{Binding BuiltInHeading}" IsVisibleChanged="NameEdit_IsVisibleChanged" KeyDown="NameEdit_KeyDown"
                                  Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
                                  AutomationProperties.Name="{Binding BuiltInName, StringFormat='Name of the {0} heading'}" />
-                    </DockPanel>
-                </StackPanel>
+                    </Grid>
+                </DockPanel>
                 <ItemsControl x:Name="Pages" ItemsSource="{Binding Pages}" ItemTemplate="{StaticResource SidebarRow}" Focusable="False" />
                 <Grid x:Name="DropBox" Margin="0,2" Visibility="{Binding ShowDropBox, Converter={StaticResource Vis}}">
                     <Rectangle x:Name="DropEdge" RadiusX="6" RadiusY="6" StrokeThickness="1" StrokeDashArray="3 3" Stroke="{DynamicResource StrokeBrush}" />
                     <TextBlock Text="{ctl:T 'Drag a page here'}" FontSize="12.5" Foreground="{DynamicResource FaintBrush}" Margin="10,8" />
                 </Grid>
             </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasHeading}" Value="False">
+                    <Setter TargetName="HeadingText" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="TopHeading" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                    <Setter TargetName="HeadingText" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="HeadingEdit" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="HeadingSwitch" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ShowHeading}" Value="False">
+                    <Setter TargetName="HeadingText" Property="TextDecorations" Value="Strikethrough" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -542,14 +586,15 @@
                         </Border>
                         <TextBlock Text="{ctl:T 'Temperature and usage colours'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
-                    <!-- The sidebar: its editor slides in from the right (below). What is hidden is said here, when anything is. -->
+                    <!-- The sidebar: what it shows, and Customize, which opens its pop-up over the page (below), never over the
+                         sidebar, so each change shows in the sidebar at once (approved mock-up, 2026-10-25). -->
                     <DockPanel Style="{StaticResource Row}" DataContext="{Binding Sidebar}">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Edit'}" Command="{Binding EditCommand}"
-                                VerticalAlignment="Center" Margin="16,0,0,0" AutomationProperties.Name="Edit the sidebar" />
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Customize'}" Command="{Binding EditCommand}"
+                                VerticalAlignment="Center" Margin="16,0,0,0" AutomationProperties.Name="Customize the sidebar" />
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{ctl:T 'Sidebar'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding HiddenSummary}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="8,0,0,0"
-                                       TextTrimming="CharacterEllipsis" Visibility="{Binding HiddenSummary, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="{Binding ShownSummary, StringFormat='· {0}'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="8,0,0,0"
+                                       TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </DockPanel>
                 </StackPanel>
@@ -926,6 +971,11 @@
                                     </Border>
                                 </StackPanel>
                                 <TextBlock Text="{Binding Plans.FreeWhen}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="{Binding Plans.FreeWhen, Converter={StaticResource Vis}}" />
+                                <!-- Questions given, kept until used (2026-10-25) -->
+                                <DockPanel Margin="0,6,0,0" Visibility="{Binding Plans.HasGiven, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="&#xF133;" Style="{StaticResource Icon}" FontSize="12.5" Foreground="{DynamicResource PurpleBrush}" Margin="0,1,8,0" VerticalAlignment="Top" />
+                                    <TextBlock Text="{Binding Plans.GivenText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                </DockPanel>
                             </StackPanel>
                         </DockPanel>
 
@@ -1437,7 +1487,7 @@
                         </DockPanel>
                         <TextBlock Text="{ctl:T 'About you and your PC'}" Style="{StaticResource Title}" Margin="0,10,0,8" />
                         <TextBox Style="{StaticResource FieldArea}" Height="104" MaxLength="{Binding AboutMax}" Text="{Binding AboutYou, UpdateSourceTrigger=PropertyChanged, Delay=500}"
-                                 Tag="{ctl:T 'For example: I have a Ryzen 7 5800X3D and an RTX 3080 Ti, I mostly play CS2, and I\'m new to PC parts.'}"
+                                 Tag="{ctl:T 'For example, I have a Ryzen 7 5800X3D and an RTX 3080 Ti, I mostly play CS2, and I\'m new to PC parts.'}"
                                  AutomationProperties.Name="{ctl:T 'About you and your PC'}" />
                         <DockPanel Margin="0,6,0,0">
                             <TextBlock DockPanel.Dock="Right" Text="{Binding AboutCount}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0" />
@@ -1532,7 +1582,7 @@
                                 </StackPanel>
                             </DockPanel>
                         </ctl:SmoothBorder>
-                        <TextBlock Text="{ctl:T 'Never sent: your Windows user name, the names or contents of your files, your licence key. Folder names and sizes go only for a drive you press Scan for.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
+                        <TextBlock Text="{ctl:T 'Your Windows user name, the names or contents of your files and your licence key are never sent. Folder names and sizes go only for a drive you press Scan for.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
                 </ctl:SmoothBorder>
                 </Border>
@@ -1550,15 +1600,46 @@
                             </Border>
                             <TextBlock Text="{ctl:T 'Ask button'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                         </DockPanel>
-                        <DockPanel Style="{StaticResource Row}">
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Border CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,6" MinWidth="170">
-                                    <TextBlock Text="{Binding Shortcut}" FontSize="13" Foreground="{DynamicResource FaintBrush}" />
-                                </Border>
-                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Set'}" Command="{Binding SetShortcutCommand}" Margin="8,0,0,0" AutomationProperties.Name="{ctl:T 'Set a shortcut'}" />
-                            </StackPanel>
-                            <TextBlock Text="{ctl:T 'Shortcut'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                        </DockPanel>
+                        <!-- The Ask shortcut: opens RigSight on Ask from anywhere. Set listens for the next keys pressed here
+                             (SettingsView.xaml.cs), as the overlay's shortcut does. -->
+                        <StackPanel>
+                            <DockPanel Style="{StaticResource Row}">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border CornerRadius="8" Padding="10,6" MinWidth="170" BorderThickness="1">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                <Setter Property="BorderBrush" Value="Transparent" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRecordingShortcut}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding ShortcutText}" FontSize="13">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasShortcut}" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Set'}" Command="{Binding SetShortcutCommand}" Click="ShortcutSet_Click" Margin="8,0,0,0"
+                                            AutomationProperties.Name="{ctl:T 'Set a shortcut'}" />
+                                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Clear'}" Command="{Binding ClearShortcutCommand}" Margin="8,0,0,0"
+                                            Visibility="{Binding HasShortcut, Converter={StaticResource Vis}}" AutomationProperties.Name="{ctl:T 'Clear the shortcut'}" />
+                                </StackPanel>
+                                <TextBlock Text="{ctl:T 'Shortcut'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding ShortcutHint}" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Visibility="{Binding ShortcutHint, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="{Binding ShortcutWarning}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource WarmBrush}" Margin="0,0,0,8"
+                                       Visibility="{Binding ShortcutWarning, Converter={StaticResource Vis}}" />
+                        </StackPanel>
                         <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,4" />
                         <DockPanel Style="{StaticResource Row}">
                             <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
@@ -2056,7 +2137,7 @@
                     </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AutoUpdate}" Margin="0,10"
                               Visibility="{Binding StandardAccount, Converter={StaticResource Vis}, ConverterParameter=Invert}"
-                              ToolTip="{ctl:T 'On: RigSight looks for a new version once a day and installs it. Off: it doesn\'t contact GitHub unless you press Check for updates.'}">
+                              ToolTip="{ctl:T 'When it\'s on, RigSight looks for a new version once a day and installs it. When it\'s off, it doesn\'t contact GitHub unless you press Check for updates.'}">
                         <TextBlock Text="{ctl:T 'Update automatically'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShowWhatsNew}" Margin="0,10">
@@ -2176,43 +2257,43 @@
         </Grid>
     </ScrollViewer>
 
-        <!-- Over the page while the sidebar editor is open: dims it a little; a click on it closes the editor. -->
-        <Border x:Name="EditorScrim" Background="#000000" Opacity="0" Visibility="Collapsed" MouseLeftButtonDown="EditorScrim_MouseLeftButtonDown" />
-
-        <!-- The sidebar editor: a sheet over the page that slides in from the right, as a widget's editor does (see the
-             code-behind). Every change shows in the sidebar at once; the x, Esc or a click on the page closes it. -->
-        <!-- The editor's shadow on an empty box of its own behind it, sliding with it (the same transform): an effect on the
-             editor itself drew all its text without ClearType, softer than the rest of the app. -->
-        <Border Width="430" HorizontalAlignment="Right" Background="{DynamicResource SidebarBrush}" IsHitTestVisible="False"
-                Visibility="{Binding Visibility, ElementName=EditorPanel}" RenderTransform="{Binding RenderTransform, ElementName=EditorPanel}">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.35" Color="Black" />
-            </Border.Effect>
-        </Border>
-        <Border x:Name="EditorPanel" Width="430" HorizontalAlignment="Right" Visibility="Collapsed" DataContext="{Binding Sidebar}"
-                Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle"
-                BorderThickness="1,0,0,0" BorderBrush="{DynamicResource StrokeBrush}" Background="{DynamicResource SidebarBrush}">
-            <Border.RenderTransform>
-                <TranslateTransform x:Name="EditorSlide" X="430" />
-            </Border.RenderTransform>
-            <DockPanel>
-                <DockPanel DockPanel.Dock="Top" Margin="22,22,22,12">
-                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close the editor"
-                            Command="{Binding CloseEditorCommand}" VerticalAlignment="Top">
-                        <TextBlock Text="&#xE711;" />
-                    </Button>
-                    <TextBlock Text="{ctl:T 'Sidebar'}" Style="{StaticResource H2}" />
+        <!-- Customize the sidebar: a pop-up over the page, never over the sidebar (this view is the page), so every change shows
+             in the sidebar at once. Done, the x, Esc or a click beside it closes it (approved mock-up, 2026-10-25). -->
+        <Grid x:Name="EditorLayer" Visibility="Collapsed" Opacity="0">
+            <Border x:Name="EditorScrim" Background="#B8000000" MouseLeftButtonDown="EditorScrim_MouseLeftButtonDown" />
+            <Border x:Name="EditorPanel" Width="560" MaxHeight="780" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" DataContext="{Binding Sidebar}"
+                    Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" AutomationProperties.Name="Customize the sidebar"
+                    CornerRadius="16" BorderThickness="1.5" BorderBrush="{DynamicResource HoverBrush}" Background="{DynamicResource SurfaceBrush}">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="24,22,18,8">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close the editor"
+                                Command="{Binding CloseEditorCommand}" VerticalAlignment="Top">
+                            <TextBlock Text="&#xE711;" />
+                        </Button>
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Customize the sidebar'}" FontSize="19" FontWeight="SemiBold" />
+                            <TextBlock Text="{ctl:T 'Switch a page off to take it out; it still opens from links. Your sidebar on the left changes as you go.'}"
+                                       FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+                    <Border DockPanel.Dock="Bottom" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource StrokeBrush}" Padding="24,12">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{ctl:T 'Done'}" Command="{Binding CloseEditorCommand}" Margin="12,0,0,0" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding ShownSummary}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset to the usual sidebar'}" Command="{Binding ResetSidebarCommand}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
+                    <ScrollViewer x:Name="EditorScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                        <!-- The line showing where a dragged page will land is drawn over the rows, and scrolls with them. -->
+                        <Grid x:Name="EditorRows" Margin="24,0,24,12">
+                            <ItemsControl x:Name="EditorGroups" ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource SidebarGroup}" Focusable="False" />
+                            <Canvas IsHitTestVisible="False">
+                                <Rectangle x:Name="DropLine" Height="2" RadiusX="1" RadiusY="1" Fill="{DynamicResource AccentBrush}" Visibility="Collapsed" />
+                            </Canvas>
+                        </Grid>
+                    </ScrollViewer>
                 </DockPanel>
-                <ScrollViewer x:Name="EditorScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                    <!-- The line showing where a dragged page will land is drawn over the rows, and scrolls with them. -->
-                    <Grid x:Name="EditorRows" Margin="22,0,22,26">
-                        <ItemsControl x:Name="EditorGroups" ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource SidebarGroup}" Focusable="False" />
-                        <Canvas IsHitTestVisible="False">
-                            <Rectangle x:Name="DropLine" Height="2" RadiusX="1" RadiusY="1" Fill="{DynamicResource AccentBrush}" Visibility="Collapsed" />
-                        </Canvas>
-                    </Grid>
-                </ScrollViewer>
-            </DockPanel>
-        </Border>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Controls;
 using Rigsight.Core;
+using Rigsight.Core.Ai;
 using Rigsight.Core.Data;
 using Rigsight.Core.Games;
 using Rigsight.Core.Settings;
@@ -80,6 +81,9 @@ public sealed record PlayRow
     public string? Fps { get; init; }
     public string? Low { get; init; }
     public bool HasFps => Fps is not null;
+    /// <summary>"12 stutters", from every frame of the play (recorded since 2026-10-25); null before.</summary>
+    public string? Stutters { get; init; }
+    public bool StuttersWarm { get; init; }
     public string? Gpu { get; init; }
     public string? GpuPeak { get; init; }
     public bool HasGpu => Gpu is not null;
@@ -90,6 +94,10 @@ public sealed record PlayRow
     public string? Ended { get; init; }
     public string EndedJoin => Ended is null ? "" : " · ";
     public bool EndedWarm { get; init; }
+    /// <summary>A play that ended badly, else one with felt stutters: its AI button asks why ("Why did it end?").</summary>
+    public AiQuestion? Ask { get; init; }
+    public string AskText { get; init; } = "";
+    public bool HasAsk => Ask is not null;
     // A change row
     public string Glyph { get; init; } = "";
     public string Text { get; init; } = "";
@@ -452,6 +460,34 @@ public sealed partial class GamesViewModel : ObservableObject
     [ObservableProperty] private bool _hasFps;
     [ObservableProperty] private string _fpsAvg = "";
     [ObservableProperty] private string _fpsLow = "";
+    /// <summary>
+    /// How smooth it is, from every frame (since 2026-10-25), in place of "Since the last update" once there are frames:
+    /// "Mostly smooth" over "12 stutters an hour · 0.1% low 84 fps" (approved mock-up). Empty without frames.
+    /// </summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSmooth))] private string _smoothVerdict = "";
+    [ObservableProperty] private string _smoothDetail = "";
+    public bool HasSmooth => SmoothVerdict.Length > 0;
+    public bool ShowSinceUpdate => !HasSmooth;
+    partial void OnSmoothVerdictChanged(string value) => OnPropertyChanged(nameof(ShowSinceUpdate));
+
+    /// <summary>"How it runs" shows the newest play's every frame instead of the plays (its second view).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowPlaysChart))] private bool _framesView;
+    public bool ShowPlaysChart => !FramesView;
+    [RelayCommand] private void ShowFrames() => FramesView = true;
+    [RelayCommand] private void ShowPlays() => FramesView = false;
+    /// <summary>The second view's name: "Sat 24 Oct play, every frame".</summary>
+    [ObservableProperty] private string _framesViewName = "";
+    /// <summary>The frame time the slowest 1% of the play's frames are above (the chart's dashed line), in ms.</summary>
+    [ObservableProperty] private double? _everyFrameP99;
+    /// <summary>When the stutters bunched up and what else was going on then (see StutterCauses).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasStutterWhy))] private string _stutterWhy = "";
+    public bool HasStutterWhy => StutterWhy.Length > 0;
+
+    // Every frame of the newest play still kept (14 days, see FrameStore): the chart, its stutters and what it's of.
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasEveryFrame))] private FrameRun? _everyFrame;
+    [ObservableProperty] private IReadOnlyList<Stutter> _everyFrameStutters = [];
+    [ObservableProperty] private string _everyFrameNote = "";
+    public bool HasEveryFrame => EveryFrame is { Count: >= 2 };
     [ObservableProperty] private string _sinceUpdate = "";
     [ObservableProperty] private string _updatedNote = "";
     [ObservableProperty] private IReadOnlyList<FpsPoint> _fpsPoints = [];
@@ -467,7 +503,7 @@ public sealed partial class GamesViewModel : ObservableObject
     public string FpsEmpty => _overlay.RtssState switch
     {
         "running" => Lang.T($"No FPS recorded for {GameName} yet. RivaTuner measures a game that starts after it, so its next play will have it."),
-        "stopped" => Lang.T("No FPS for these plays. RigSight reads the frame rate from RivaTuner, which isn't running: start it before the game."),
+        "stopped" => Lang.T("No FPS for these plays. RigSight reads the frame rate from RivaTuner, which isn't running. Start it before the game."),
         "installing" => Lang.T("No FPS for these plays. RivaTuner is being installed; start the game after it's done."),
         _ => Lang.T("No FPS for these plays. RigSight reads the frame rate from RivaTuner Statistics Server, a free tool anti-cheat accepts, and it isn't installed."),
     };
@@ -532,8 +568,89 @@ public sealed partial class GamesViewModel : ObservableObject
         Fill(story);
         Opened = story;
         IsOpening = false;
-        OnPropertyChanged(nameof(GameName), nameof(GameInstalled), nameof(GameHasFolder), nameof(OpenedLive), nameof(OpenedNotRunning), nameof(ProblemsTitle), nameof(FpsEmpty), nameof(CanStartRtss), nameof(CanInstallRtss));
+        OnPropertyChanged(nameof(GameName), nameof(GameInstalled), nameof(GameHasFolder), nameof(OpenedLive), nameof(OpenedNotRunning), nameof(ProblemsTitle), nameof(FpsEmpty), nameof(CanStartRtss), nameof(CanInstallRtss), nameof(BetterAsk), nameof(NoFpsAsk));
+        await LoadSettingsAsync(story);
+        await LoadFramesAsync(story);
     }
+
+    /// <summary>How smooth, from every frame: a verdict, then the stutters an hour and the 0.1% low. Empty without frames.</summary>
+    internal static (string Verdict, string Detail) SmoothOf(PlayStats all)
+    {
+        if (all.StuttersAnHour is not double rate) return ("", "");
+        string verdict = rate < 3 ? Lang.T("Smooth") : rate < 30 ? Lang.T("Mostly smooth") : Lang.T("It stutters");
+        var parts = new List<string> { rate < 0.5 ? Lang.T("no stutters") : Lang.T($"{rate:0} stutters an hour") };
+        if (all.FpsLow01 is double low) parts.Add(Lang.T($"0.1% low {low:0} fps"));
+        return (verdict, string.Join(Environment.NewLine, parts));
+    }
+
+    /// <summary>
+    /// Every frame of the newest play still kept (from the last 14 days), read off the window's thread: the "Every
+    /// frame" chart. Nothing while none is kept (older plays, or no RivaTuner).
+    /// </summary>
+    private async Task LoadFramesAsync(GameStory story)
+    {
+        EveryFrame = null;
+        EveryFrameStutters = [];
+        EveryFrameNote = "";
+        FramesView = false;
+        EveryFrameP99 = null;
+        StutterWhy = "";
+        var play = story.Plays.LastOrDefault(p => p.Stats.FrameMinutes > 0 && p.EndTime >= DateTime.Now.AddDays(-FrameStore.KeepDays));
+        if (play is null || story.Entry.AppIds.Count == 0) return;
+        long app = story.Entry.AppIds[0];
+        var stutters = await _reports.QueryAsync((db, _) => db.GetStutters(app, play.Start * 1000, (play.End + 60) * 1000)) ?? [];
+        var run = await Task.Run(() => FrameStore.Read(app, play.Start * 1000, (play.End + 60) * 1000));
+        if (Opened != story || run.Count < 2) return;
+        // The slowest 1%'s edge, and what was going on when the stutters bunched up: off the window's thread.
+        var p99 = await Task.Run(() => { var ms = (float[])run.Ms.Clone(); Array.Sort(ms); return (double)ms[Math.Min(ms.Length - 1, (int)(ms.Length * 0.99))]; });
+        var why = await _reports.QueryAsync((db, settings) => StutterCauses.Explain(db, app, stutters, play.Start, play.End + 60, settings));
+        if (Opened != story) return;
+        EveryFrameStutters = stutters;
+        EveryFrameP99 = p99;
+        StutterWhy = why ?? "";
+        FramesViewName = Lang.T($"{play.StartTime:ddd d MMM} play, every frame");
+        EveryFrame = run;
+        EveryFrameNote = Lang.T($"Your {play.StartTime:ddd d MMM} play, {run.Count:N0} frames") + " · "
+            + (stutters.Count == 0 ? Lang.T("no stutters") : stutters.Count == 1 ? Lang.T("1 stutter") : Lang.T($"{stutters.Count} stutters"));
+    }
+
+    // ── How it's set ────────────────────────────────────────────────────
+
+    /// <summary>Where games keep their settings (this PC's folders; a test's own).</summary>
+    internal GameSettings.Places SettingsPlaces { get; set; } = GameSettings.Places.ThisPc();
+
+    /// <summary>The game's own saved settings in plain words (the person's ask, 2026-10-25); empty when none were found.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSettings))] private IReadOnlyList<HeatRow> _settingsRows = [];
+    /// <summary>Which file they came from and when the game last saved it.</summary>
+    [ObservableProperty] private string _settingsNote = "";
+    public bool HasSettings => SettingsRows.Count > 0;
+
+    /// <summary>"Ask how to make it run better": the question its AI button asks about the game that's open.</summary>
+    public AiQuestion? BetterAsk => Opened?.Entry is { } g ? new(Lang.T($"How can I make {g.Name} run better?"), AiPages.Games) : null;
+    /// <summary>No frame rate on record (RivaTuner wasn't running): what it can still say from the rest.</summary>
+    public AiQuestion? NoFpsAsk => Opened?.Entry is { } g ? new(Lang.T($"How does {g.Name} run, from what you can see without a frame rate?"), AiPages.Games) : null;
+
+    /// <summary>Reads the game's settings off the window's thread, then says them and lets "Can it run better?" use them.</summary>
+    private async Task LoadSettingsAsync(GameStory story)
+    {
+        SettingsRows = [];
+        SettingsNote = "";
+        var places = SettingsPlaces;
+        var read = await Task.Run(() => GameSettings.Read(story.Entry, places));
+        if (Opened != story) return;
+        SettingsRows = [.. read.Facts.Select(f => new HeatRow(Lang.T(f.Label), Shown(f.Value)))];
+        if (read.Files.FirstOrDefault() is { } file)
+            SettingsNote = file.Path.StartsWith("HKEY_", StringComparison.Ordinal) ? Lang.T("From its saved preferences in Windows")
+                : Lang.T($"From {Path.GetFileName(file.Path)} · saved {file.Saved.ToString(TimeText.Fit("ddd d MMM"))}");
+        var withFps = story.Plays.Where(p => p.Stats.Fps is not null).ToList();
+        Better = BetterLines(story, withFps, read);
+    }
+
+    /// <summary>A setting's value in the language shown: "Borderless window", "Mostly Epic", "144 fps".</summary>
+    private static string Shown(string value) =>
+        value.StartsWith("Mostly ", StringComparison.Ordinal) ? Lang.T($"Mostly {Lang.T(value[7..])}")
+        : value.EndsWith(" fps", StringComparison.Ordinal) && int.TryParse(value[..^4], out int n) ? Lang.T($"{n} fps")
+        : Lang.T(value);
 
     [RelayCommand]
     private void Back()
@@ -589,6 +706,7 @@ public sealed partial class GamesViewModel : ObservableObject
         HasFps = withFps.Count > 0;
         FpsAvg = st.All.Fps is double fps ? $"{fps:0}" : "—";
         FpsLow = st.All.FpsLow is double low ? $"{low:0}" : "—";
+        (SmoothVerdict, SmoothDetail) = SmoothOf(st.All);
         SinceUpdate = st.SinceUpdate ?? (st.LastUpdate is null ? Lang.T("No update seen") : Lang.T("Too soon to tell"));
         UpdatedNote = st.LastUpdate is { } u ? Lang.T($"Updated {u:ddd d MMM}") : "";
         // One play with frames: that play minute by minute, until a second gives the play-by-play line.
@@ -646,7 +764,7 @@ public sealed partial class GamesViewModel : ObservableObject
         {
             foreach (var c in st.Changes.Where(c => c.After == i).Reverse())
                 rows.Add(ChangeRow(c.Change));
-            rows.Add(PlayRowOf(st.Plays[i], st.Usual) with { AfterChange = rows.Count > 0 && rows[^1].IsChange });
+            rows.Add(PlayRowOf(st.Plays[i], st.Usual, st.Entry.Name) with { AfterChange = rows.Count > 0 && rows[^1].IsChange });
         }
         Rows = rows;
     }
@@ -655,7 +773,7 @@ public sealed partial class GamesViewModel : ObservableObject
     /// "Can it run better?": whether a frame cap sets the pace, how smooth it plays (1% low against the average) and
     /// what the graphics card has left. Each line only when there's data for it.
     /// </summary>
-    private static List<BetterLine> BetterLines(GameStory st, List<GamePlay> withFps)
+    private static List<BetterLine> BetterLines(GameStory st, List<GamePlay> withFps, GameSettingsRead? set = null)
     {
         var lines = new List<BetterLine>();
         double? cap = null;
@@ -665,22 +783,35 @@ public sealed partial class GamesViewModel : ObservableObject
             if (median >= max * 0.97)
             {
                 cap = max;
-                lines.Add(new("", Lang.T($"Flat at {max:0} fps most of the time, so a frame cap or V-Sync sets the pace."), Brush("FpsBrush")));
+                // The game's own settings say which it is, when they were read: its frame limit near the flat line, or V-Sync on.
+                string? limit = set?.Facts.FirstOrDefault(f => f.Label == GameSettings.FrameLimit)?.Value;
+                bool vsync = set?.Facts.Any(f => f.Label == GameSettings.VSync && f.Value == GameSettings.On) == true;
+                string say = limit is { } l && l.EndsWith(" fps", StringComparison.Ordinal) && int.TryParse(l[..^4], out int n) && Math.Abs(n - max) <= Math.Max(3, max * 0.05)
+                        ? Lang.T($"Flat at {max:0} fps most of the time, because the game's own frame limit of {n} fps sets the pace.")
+                    : vsync ? Lang.T($"Flat at {max:0} fps most of the time, because V-Sync is on in the game's settings and sets the pace.")
+                    : Lang.T($"Flat at {max:0} fps most of the time, so a frame cap or V-Sync sets the pace.");
+                lines.Add(new("", say, Brush("FpsBrush")));
             }
         }
-        if (st.All.Fps is double avg && st.All.FpsLow is double low && avg > 0)
+        // From the game's own settings (when they were read): no frame limit and VSync off on a screen it outruns.
+        if (cap is null && set is not null && st.All.Fps is double avgFps && GameSettings.ScreenHz() is int hz && avgFps > hz * 0.95
+            && set.Facts.Any(f => f.Label == GameSettings.FrameLimit && f.Value == GameSettings.NoLimit)
+            && set.Facts.Any(f => f.Label == GameSettings.VSync && f.Value == GameSettings.Off))
+            lines.Add(new("\ue7fc", Lang.T($"No frame limit and VSync off on a {hz} Hz screen, at {avgFps:0} fps on average. A limit of {hz - 3} fps in its settings would keep frames even and the card cooler."), Brush("FpsBrush")));
+        // Smoothness from every frame is said once, in "How it runs"; without frames, the lows say it here.
+        if (st.All.StuttersAnHour is null && st.All.Fps is double avg && st.All.FpsLow is double low && avg > 0)
         {
             double share = low / avg;
             string say = share >= 0.7 ? Lang.T($"The 1% lows stay at {low:0} fps, close to the {avg:0} average, so it plays smoothly.")
                 : share >= 0.5 ? Lang.T($"The 1% lows drop to {low:0} fps against a {avg:0} average, so you may feel the odd stutter.")
                 : Lang.T($"The 1% lows fall to {low:0} fps against a {avg:0} average, so it stutters.");
-            lines.Add(new("", say, Brush("FpsBrush")));
+            lines.Add(new("\ue9d9", say, Brush("FpsBrush")));
         }
         if (st.GpuFullShare is double full)
         {
             double busy = st.All.GpuLoad ?? 0;
             string load = full >= 1 ? Lang.T($"was at full load only {full:0}% of the time") : Lang.T("never hit full load");
-            string say = full >= 70 ? Lang.T($"Your graphics card was at full load {full:0}% of the time, so lower settings would give more frames.")
+            string say = full >= 70 ? Lang.T($"Your graphics card was at full load {full:0}% of the time, so lower settings would give more frames.") + UpscalerHint(set)
                 : full >= 30 ? Lang.T($"Your graphics card was at full load {full:0}% of the time, so in busy scenes it's the limit.")
                 : cap is double c ? Lang.T($"Your graphics card averaged {busy:0}% busy and {load}, so you can raise the settings and keep {c:0} fps.")
                 : Lang.T($"Your graphics card averaged {busy:0}% busy and {load}, so something else sets the pace, most likely the CPU.");
@@ -688,6 +819,20 @@ public sealed partial class GamesViewModel : ObservableObject
         }
         if (lines.Count == 0) lines.Add(new("", Lang.T("Not enough recorded yet to say. Play it with RivaTuner running to see its frame rate here."), Brush("FaintBrush")));
         return lines;
+    }
+
+    /// <summary>
+    /// With the card the limit: what its upscaler could still give, by the game's own settings ("DLSS is on Balanced;
+    /// Performance would add the most."). Empty when the settings don't say.
+    /// </summary>
+    private static string UpscalerHint(GameSettingsRead? set)
+    {
+        if (set?.Facts.FirstOrDefault(f => f.Label == GameSettings.Upscaling)?.Value is not { } up) return "";
+        if (up == GameSettings.Off) return " " + Lang.T("Turning on DLSS or FSR in its settings would add the most.");
+        var parts = up.Split(' ', 2);
+        if (parts.Length == 2 && !parts[1].Contains("Performance", StringComparison.OrdinalIgnoreCase))
+            return " " + Lang.T($"{parts[0]} is on {parts[1]}; Performance would add the most.");
+        return "";
     }
 
     private static PlayRow ChangeRow(SystemChange c) => new()
@@ -699,7 +844,7 @@ public sealed partial class GamesViewModel : ObservableObject
         When = c.Time.ToString(TimeText.Fit("ddd d MMM, h:mm tt")),
     };
 
-    private static PlayRow PlayRowOf(GamePlay p, GameUsual? usual)
+    private static PlayRow PlayRowOf(GamePlay p, GameUsual? usual, string game)
     {
         string? note = null;
         bool warm = false;
@@ -728,6 +873,9 @@ public sealed partial class GamesViewModel : ObservableObject
             Played = Units.Duration(p.ActiveSec),
             Fps = p.Stats.Fps is double f ? $"{f:0}" : null,
             Low = p.Stats.FpsLow is double l ? $"· {l:0}" : null,
+            Stutters = p.Stats.Stutters switch { null => null, 0 => Lang.T("No stutters"), 1 => Lang.T("1 stutter"), int n => Lang.T($"{n} stutters") },
+            // Amber from a stutter every two minutes on: felt, not a one-off.
+            StuttersWarm = p.Stats.StuttersAnHour is >= 30,
             Gpu = p.Stats.Gpu is double g ? Units.TempShort(g) : null,
             GpuPeak = p.Stats.GpuMax is double gm ? Lang.T($"peak {Units.TempShort(gm)}") : null,
             Usual = note,
@@ -735,6 +883,9 @@ public sealed partial class GamesViewModel : ObservableObject
             Power = p.Stats.GpuPower is double w ? $"{w:0} W" : "",
             Ended = ended is null ? null : $"{ended} {In(p)}",
             EndedWarm = endWarm,
+            Ask = endWarm && ended is not null ? new(Lang.T($"Why did my {game} play on {p.StartTime:ddd d MMM} at {p.StartTime:h:mm tt} end ({ended.ToLowerInvariant()})?"), AiPages.Games)
+                : p.Stats.StuttersAnHour is >= 30 ? new(Lang.T($"Why did {game} stutter in my play on {p.StartTime:ddd d MMM} at {p.StartTime:h:mm tt}?"), AiPages.Games) : null,
+            AskText = endWarm ? Lang.T("Why did it end?") : Lang.T("Why does it stutter?"),
         };
 
         static string In(GamePlay p) => p.ActiveSec < 90 ? Lang.T("about a minute in") : Lang.T($"{Units.Duration(p.ActiveSec)} in");

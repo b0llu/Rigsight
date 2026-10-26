@@ -4,13 +4,15 @@ One idea, one wording, on every page, notification and export. New text follows 
 
 The shared words live in one place, `src/Rigsight.Core/Text/Wording.cs`. Use them from there rather than typing them again.
 
+No colon inside a line people read (since 0.35.0): lead with the fact, join with a comma, "with", "because" or "since", or make it two sentences. "2 graphics driver resets since driver 621.01, none in the 14 days before", not "Driver 621.01: more graphics problems: 2 graphics driver resets". Clock times, short label and value readouts in a chart's hover, and text only the AI reads keep theirs.
+
 ## The words
 
 | Idea | Say it like this | Not |
 |---|---|---|
 | How sure | Chips: **CONFIRMED**, **LIKELY &lt;CAUSE&gt;**, **POSSIBLY &lt;CAUSE&gt;**, **NOT ENOUGH TO SAY**. The chip is the same in a list and on the opened crash. | "POSSIBLE: …", a chip without its cause |
 | What a big change did | **Before and after** (the filter, the opened page). A result only when something got better or worse: "Crimson Desert runs 6° hotter on the GPU since this driver". Chips **LIKELY THE DRIVER** / **POSSIBLY THE UPDATE** / **POSSIBLY ONE OF THESE** (two big changes on one day); the causes are THE DRIVER, THE UPDATE, THE BIOS, THE NEW WINDOWS, THE NEW HARDWARE, THE POWER PLAN. "Since" while the change is still the current one, "in the N days after" once another big change came. Nothing at all when nothing moved. | "As before", "No change", "not enough to say yet" lines under a change; a bare "LIKELY" |
-| An app crash | **crashed**: "Dota 2 crashed at 9:14 PM: a .NET error." | "closed unexpectedly", "stopped on an unhandled error", "went down" |
+| An app crash | **crashed**: "Dota 2 crashed at 9:14 PM with a .NET error." | "closed unexpectedly", "stopped on an unhandled error", "went down" |
 | An app that hangs | **froze**: "Chrome froze." Chip **FROZE**. The whole PC: "The PC froze." | "NOT RESPONDING", "stopped responding" |
 | A blue screen | **blue screen**: "Windows crashed with a blue screen." Chip **BLUE SCREEN**. | "Windows crashed (blue screen)" |
 | The PC going off by itself | **sudden shut-off** (noun), "The PC shut off suddenly" (sentence), chip **SUDDEN SHUT-OFF**. "Lost power" only as a cause: "likely a power cut". | "unexpected shutdown", "sudden shutdown", "POWER LOST", "the PC went down" |
@@ -33,7 +35,7 @@ The shared words live in one place, `src/Rigsight.Core/Text/Wording.cs`. Use the
 
 That a crash happened is Windows' own record, so the event is always said as a fact. Only its cause can be likely or possible.
 
-- A confirmed cause is plain fact, with no tag: "RigsightTestCrash crashed at 10:58 AM: a .NET error (NullReferenceException)."
+- A confirmed cause is plain fact, with no tag: "RigsightTestCrash crashed at 10:58 AM with a .NET error (NullReferenceException)."
 - Otherwise the chip's word: "Rocket League crashed at 11:07 PM, likely as it was starting." / "…, possibly heat."
 - Nothing to go on: "Not enough on record to say why."
 - Never "Confirmed by Windows."

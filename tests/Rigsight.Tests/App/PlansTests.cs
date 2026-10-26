@@ -22,8 +22,10 @@ public sealed class PlansTests
 
     private sealed class Undo(Action undo) : IDisposable { public void Dispose() => undo(); }
 
-    private static readonly string[] Free = ["home", "parts", "temperatures"];
-    private static readonly string[] Essentials = [.. Free, "crashes", "memory", "storage", "processes", "reports"];
+    // As the relay sends them since migrations 0010 and 0011: Processes with Free, Games with Essentials, Widgets, Overlay
+    // and Taskbar in every plan.
+    private static readonly string[] Free = ["home", "parts", "temperatures", "processes", "widgets", "overlay", "taskbar"];
+    private static readonly string[] Essentials = [.. Free, "crashes", "memory", "storage", "reports", "games"];
 
     /// <summary>A status as the relay sends it, on <paramref name="plan"/>.</summary>
     internal static string Status(string plan = "free", string source = "free", string state = "active", int used = 3, string? endsAt = null, string? card = "\"card\":{\"brand\":\"visa\",\"last4\":\"4242\"},", int? capIs = null)
@@ -56,7 +58,7 @@ public sealed class PlansTests
         Assert.Equal(new DateTime(2026, 10, 26), s.Plan.ResetsAt);
         Assert.Equal("Visa ending 4242", s.Plan.Card!.Text);
         Assert.True(s.Plan.CanManage);
-        Assert.Equal(8, s.Plan.Pages.Count);
+        Assert.Equal(12, s.Plan.Pages.Count);
         Assert.Equal(["free", "essentials", "complete"], s.Plans.Select(p => p.Id));
         Assert.StartsWith("https://", s.Plans[1].Url);
     }
@@ -219,7 +221,7 @@ public sealed class PlansTests
         Assert.Contains(plans.Columns[1].Uses, u => u.Text == "Why it crashed or shut off" && u.From == "Crashes");
         Assert.DoesNotContain(plans.Columns[0].Uses, u => u.From == "Crashes");
         Assert.All(plans.Columns.SelectMany(c => c.Uses), u => Assert.DoesNotContain("get_", u.Text));
-        Assert.Equal("Everything in Free, and:", plans.Columns[1].Everything);
+        Assert.Equal("Everything in Free, plus", plans.Columns[1].Everything);
     }
 
     [Fact]
@@ -228,7 +230,7 @@ public sealed class PlansTests
         var (_, plans) = Shown(Status("essentials", "subscription", used: 46));
         Assert.True(plans.IsSubscription);
         Assert.Equal("Active", plans.StateText);
-        Assert.Equal("$5 a month · answers use 8 of 16 pages · web search", plans.Summary);
+        Assert.Equal("$5 a month · answers use 12 of 19 pages · web search", plans.Summary);
         Assert.StartsWith("$5 on ", plans.NextPayment);
         Assert.Equal("46 of 100 questions used today · starts again at midnight", plans.UsedText);
         Assert.Equal("Visa ending 4242", plans.CardText);
@@ -279,7 +281,7 @@ public sealed class PlansTests
         Assert.False(plans.IsSubscription);
         Assert.False(plans.CanManage);
         Assert.Contains("Nothing to pay", plans.GiftText);
-        Assert.Equal("Answers use all 16 pages · web search", plans.Summary);
+        Assert.Equal("Answers use all 19 pages · web search", plans.Summary);
     }
 
     [Fact]
@@ -301,11 +303,12 @@ public sealed class PlansTests
         var (ask, _) = Shown(Status());
         Ui.Run(() =>
         {
-            Assert.Equal(3, ask.Pages.Tiles.Count);
-            Assert.Equal(13, ask.Pages.Outside.Count);
-            Assert.Equal("13 more pages with a plan", ask.Pages.OutsideTitle);
+            // Free's own four and Widgets, Overlay and Taskbar (every plan has them, 2026-10-26).
+            Assert.Equal(7, ask.Pages.Tiles.Count);
+            Assert.Equal(12, ask.Pages.Outside.Count);
+            Assert.Equal("12 more pages with a plan", ask.Pages.OutsideTitle);
             ask.Pages.ToggleCommand.Execute(ask.Pages.Tiles[0]);
-            Assert.Equal("2 of 3 on", ask.Pages.OnText);
+            Assert.Equal("6 of 7 on", ask.Pages.OnText);
             Assert.True(ask.Pages.SomeOff);
         });
     }
@@ -349,7 +352,7 @@ public sealed class PlansTests
     }
 
     [Fact]
-    public async Task Stop_hides_what_was_written_keeps_only_the_question_and_gives_it_back()
+    public async Task Stop_hides_what_was_written_says_so_under_the_question_and_gives_it_back()
     {
         string? stopped = null;
         await using var relay = new FakeRelay(async (r, s) =>
@@ -377,8 +380,13 @@ public sealed class PlansTests
         Ui.Run(() =>
         {
             var left = ask.Current!.Messages.ToList();
-            Assert.Single(left);
+            // What was written goes; a faint line says it was stopped, with Ask again, and the question is back in the box (board 6, 2026-10-26).
+            Assert.Equal(2, left.Count);
             Assert.Equal("Why did my PC turn off?", Assert.IsType<AskQuestion>(left[0]).Text);
+            var line = Assert.IsType<AskStoppedAnswer>(left[1]);
+            Assert.Equal("You stopped this answer. It wasn't counted.", line.Text);
+            Assert.Equal("Why did my PC turn off?", line.Question);
+            Assert.Equal("Why did my PC turn off?", ask.Draft);
             Relay.TestRoot.Value = null;
         });
     }
@@ -435,8 +443,22 @@ public sealed class PlansTests
         var answer = AskViewModel.ToAnswer("Your GPU stayed cool.\nThe frame rates are on a page your plan doesn't open.\n[locked: games]\n[locked: network]", []);
         Assert.True(answer.HasLocked);
         Assert.Equal("games", answer.Locked!.Id);
-        Assert.Equal("Couldn't read Games (not in your plan).", answer.LockedTitle);
+        // The card (2026-10-24) in place of the old footer: from an older answer, a plain title; the plan's line once known.
+        Assert.Equal("Get answers from Games", answer.LockedTitle);
+        Assert.Equal("Your plan doesn't include Games.", answer.LockedText);
         Assert.DoesNotContain(answer.Parts.OfType<AskLine>(), l => l.Text.Contains("locked"));
+    }
+
+    // actions-2: "[locked: page | what they'd get]" titles the card for this question.
+    [Fact]
+    public void A_locked_line_with_what_they_would_get_titles_the_card()
+    {
+        var answer = AskViewModel.ToAnswer("E is 73% full.\nYour plan doesn't include Storage, so I can't see which folders fill it.\n[do: open storage E]\nAsk next: How full is C?\n[locked: storage | See what fills the E drive]", []);
+        Assert.Equal("storage", answer.Locked!.Id);
+        Assert.Equal("See what fills the E drive", answer.LockedTitle);
+        Assert.Equal("Essentials lets me read Storage, which covers space on each drive, drive health, and what you could free.",
+            (answer with { LockedPlanId = "essentials", LockedPlanName = "Essentials" }).LockedText);
+        Assert.DoesNotContain(answer.Parts.OfType<AskLine>(), l => l.Text.Contains("locked") || l.Text.Contains("See what fills"));
     }
 
     [Fact]

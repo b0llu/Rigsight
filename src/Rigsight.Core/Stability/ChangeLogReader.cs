@@ -95,7 +95,7 @@ public sealed record SystemChange(DateTime Time, ChangeKind Kind, string Title)
         : string.IsNullOrEmpty(Was) ? null : Lang.T($"Was {Was}");
 
     /// <summary>Drivers and updates are things that were installed; the rest say what happened themselves.</summary>
-    public string Line => Kind is ChangeKind.Driver or ChangeKind.WindowsUpdate ? Lang.T($"Installed: {Title}") : Title;
+    public string Line => Kind is ChangeKind.Driver or ChangeKind.WindowsUpdate ? (Title.EndsWith(" installed", StringComparison.Ordinal) ? Title : Lang.T($"{Title} installed")) : Title;
 
     /// <summary>A graphics card's driver (the inventory follows those by version, see <see cref="Inventory"/>).</summary>
     public bool IsGraphicsDriver => Kind == ChangeKind.Driver && Title.Contains("graphics driver", StringComparison.OrdinalIgnoreCase);

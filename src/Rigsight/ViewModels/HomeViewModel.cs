@@ -32,6 +32,9 @@ public sealed record HomeLine(string Icon, string Brush, string Text, string? De
     /// <summary>The game the line is about, which it opens (see <see cref="Insight.Game"/>).</summary>
     public string? Game { get; init; }
     public bool CanOpen => Opens != InsightOpens.None || ChangeDay is not null;
+    /// <summary>A line in amber gets an AI button: what it means and what to do (a change's, from the Timeline's records).</summary>
+    public bool IsWarm => TextBrush == "WarmBrush";
+    public AiQuestion? Ask => IsWarm ? new(Lang.T($"{Text}. What does this mean, and what should I do?"), ChangeDay is null ? Core.Ai.AiPages.Home : Core.Ai.AiPages.Timeline) : null;
 }
 
 /// <summary>
@@ -106,7 +109,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     public bool ShowNoChanges => Loaded && !HasChanges;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(IsYesterday), nameof(IsLastWeek), nameof(IsLastMonth), nameof(IsLastYear))]
+    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(RecapAsk), nameof(IsYesterday), nameof(IsLastWeek), nameof(IsLastMonth), nameof(IsLastYear))]
     private RecapPeriod _period;
 
     /// <summary>The periods there's history for, in order (a period only once it's whole and something was recorded in it).</summary>
@@ -130,7 +133,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// yesterday). A PC left off over a weekend opens on Friday's recap, not on an empty card.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote))]
+    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(RecapAsk))]
     private DateTime? _lastUsedDay;
 
     /// <summary>The last day used stands in for yesterday (the "Day" recap, and that day isn't yesterday).</summary>
@@ -145,6 +148,16 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         _ when StandIn is { } day => (DateTime.Today - day).TotalDays <= 6 ? day.ToString("dddd") : day.ToString("d MMMM"),
         _ => Lang.T("Yesterday"),
     };
+
+    /// <summary>The recap's AI button: how the period went, from the Reports page's records.</summary>
+    public AiQuestion RecapAsk => new(Period switch
+    {
+        RecapPeriod.LastWeek => Lang.T("How did my PC do last week, and is anything worth a look?"),
+        RecapPeriod.LastMonth => Lang.T("How did my PC do last month, and is anything worth a look?"),
+        RecapPeriod.LastYear => Lang.T("How did my PC do last year, and is anything worth a look?"),
+        _ when StandIn is { } day => Lang.T($"How did my PC do on {day:dddd d MMMM}, and is anything worth a look?"),
+        _ => Lang.T("How did my PC do yesterday, and is anything worth a look?"),
+    }, Core.Ai.AiPages.Reports);
 
     /// <summary>Under the title when another day stands in for yesterday: why ("Not used for 2 days.").</summary>
     public string? RecapNote => StandIn is not { } day ? null
@@ -354,13 +367,13 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// </summary>
     internal static HomeLine? WorseLine(IReadOnlyDictionary<DateTime, Core.Reports.ChangeResult> results, DateTime today) =>
         results.Values.Where(r => r is { Tone: Core.Reports.EffectTone.Worse, Sure: Confidence.Likely } && r.Day >= today.AddDays(-PinDays)).MaxBy(r => r.Day) is { } r
-            ? new HomeLine("\uE7BA", "WarmBrush", $"{ChangeName(r.Main)}: {r.Plain}") { ChangeDay = r.Day, TextBrush = "WarmBrush" }
+            ? new HomeLine("\uE7BA", "WarmBrush", r.Said) { ChangeDay = r.Day, TextBrush = "WarmBrush" }
             : null;
 
     /// <summary>
     /// "What changed lately" as Home reads it: each change in a few words with when at the right; the latest big change
-    /// that made something better or worse stays on top for two weeks as what it did ("Driver 618.10: Crimson Desert runs
-    /// 10° hotter on the GPU"), opening its before and after.
+    /// that made something better or worse stays on top for two weeks as what it did ("Crimson Desert runs 10° hotter on the GPU
+    /// since driver 618.10"), opening its before and after.
     /// </summary>
     internal static List<HomeLine> HomeChangeLines(IEnumerable<SystemChange> changes, DateTime today, IReadOnlyDictionary<DateTime, Core.Reports.ChangeResult> results)
     {
@@ -373,7 +386,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         if (pinned is null) return rest;
         var top = ChangeLines([pinned.Main], 1, c => DayWord(c.Time.Date, today))[0] with
         {
-            Text = $"{ChangeName(pinned.Main)}: {pinned.Plain}", Detail = null, When = DayWord(pinned.Day, today), ChangeDay = pinned.Day,
+            Text = pinned.Said, Detail = null, When = DayWord(pinned.Day, today), ChangeDay = pinned.Day,
             TextBrush = pinned.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush",
         };
         return [top, .. rest];
@@ -382,9 +395,6 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// <summary>A change in a few words: an app update without its version ("Google Chrome updated").</summary>
     internal static string Brief(string title) =>
         title.IndexOf(" updated to ", StringComparison.Ordinal) is > 0 and var at ? title[..(at + " updated".Length)] : title;
-
-    /// <summary>A big change by a short name, before what it did: "Driver 618.10", else its title.</summary>
-    internal static string ChangeName(SystemChange c) => c.IsGraphicsDriver && c.Now is { Length: > 0 } version ? Lang.T($"Driver {version}") : SavedText.Show(Brief(c.Title));
 
     /// <summary>Opens a change's before and after on the Timeline.</summary>
     public Action<DateTime>? OpenChange { get; set; }

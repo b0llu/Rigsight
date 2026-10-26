@@ -93,8 +93,10 @@ public sealed partial class CrashGroup : ObservableObject
     public string KindLabel => IsIncident ? (Rows.All(r => r.Event.Kind == CrashKind.AppHang) ? Lang.T("PC FROZE") : Lang.T("SEVERAL AT ONCE")) : Latest.KindLabel;
 
     public string Title => IsIncident ? IncidentTitle : Latest.Title;
-    /// <summary>What an Explain button hands the AI helper, and its window shows as "Looking at: …": the title and when.</summary>
+    /// <summary>What an Explain button hands the AI helper, and its window shows as "Looking at …": the title and when.</summary>
     public string ExplainSubject => Title + ", " + Latest.TimeText;
+    /// <summary>Its AI button's question: Explain, on the Crashes page's records.</summary>
+    public Services.AiQuestion ExplainAsk => new(ExplainSubject, Core.Ai.AiPages.Crashes, Explain: true);
     public string Reason => IsIncident ? IncidentReason : Latest.Reason;
     public string Advice => Finding?.Advice ?? (IsIncident ? IncidentAdvice : Latest.Advice);
     public string? IconPath => IsIncident ? null : Latest.IconPath;
@@ -111,9 +113,13 @@ public sealed partial class CrashGroup : ObservableObject
 
     public string CountText => $"×{Count}";
 
-    /// <summary>"Yesterday, 12:32 PM" or, for repeats, "First: 25 Jun · Last: yesterday, 12:32 PM" (a bare "first 25 Jun" at the end wasn't understood).</summary>
+    /// <summary>"Yesterday, 12:32 PM" or, for repeats, "First 25 Jun · Last yesterday, 12:32 PM" (a bare "first 25 Jun" at the end wasn't understood).</summary>
     public string WhenText => Count == 1 ? Latest.TimeText
-        : Lang.T($"First: {First.Time:d MMM} · Last: {Latest.TimeText}");
+        : Lang.T($"First {First.Time:d MMM} · Last {InLine(Latest.TimeText)}");
+    /// <summary>"Today, 12:32 PM" inside a line: "Last today, 12:32 PM", as a time said mid-sentence.</summary>
+    private static string InLine(string when) =>
+        when.StartsWith(Lang.T("Today"), StringComparison.Ordinal) || when.StartsWith(Lang.T("Yesterday"), StringComparison.Ordinal)
+            ? char.ToLower(when[0], System.Globalization.CultureInfo.CurrentCulture) + when[1..] : when;
 
     public string ExpandText => IsExpanded ? Lang.T("Hide times") : Lang.T($"All {Count} times");
     partial void OnIsExpandedChanged(bool value) => OnPropertyChanged(nameof(ExpandText));
@@ -179,16 +185,16 @@ public sealed partial class CrashGroup : ObservableObject
             bool froze = Rows.All(r => r.Event.Kind == CrashKind.AppHang);
             return (froze, minutes == 1) switch
             {
-                (true, true) => Lang.T($"{Count} problems within 1 minute: {list} froze, starting at {start}."),
-                (true, false) => Lang.T($"{Count} problems within {minutes} minutes: {list} froze, starting at {start}."),
-                (false, true) => Lang.T($"{Count} problems within 1 minute: {list} crashed or froze, starting at {start}."),
-                _ => Lang.T($"{Count} problems within {minutes} minutes: {list} crashed or froze, starting at {start}."),
+                (true, true) => Lang.T($"{list} froze within 1 minute, starting at {start}. {Count} problems in all."),
+                (true, false) => Lang.T($"{list} froze within {minutes} minutes, starting at {start}. {Count} problems in all."),
+                (false, true) => Lang.T($"{list} crashed or froze within 1 minute, starting at {start}. {Count} problems in all."),
+                _ => Lang.T($"{list} crashed or froze within {minutes} minutes, starting at {start}. {Count} problems in all."),
             };
         }
     }
 
     private static string IncidentAdvice => Lang.T(
-        "When several apps fail together, the cause is usually the whole PC rather than one app: the graphics driver, the drive, running out of memory, or overheating. Check the temperatures below and the drive health on the Storage page.");
+        "When several apps fail together, the cause is usually the whole PC rather than one app, such as the graphics driver, the drive, running out of memory, or overheating. Check the temperatures below and the drive health on the Storage page.");
 
     // ── Grouping ────────────────────────────────────────────────────────
 

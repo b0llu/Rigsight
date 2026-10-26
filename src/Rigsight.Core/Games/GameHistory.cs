@@ -236,7 +236,7 @@ public static class GameHistory
             Changes = changes,
             WeekSec = weeks,
             PlayedMostOn = plays.Count == 0 ? null : plays.GroupBy(p => p.StartTime.DayOfWeek).MaxBy(g => g.Sum(p => p.ActiveSec))!.Key,
-            All = Sum(plays.Select(p => p.Stats)),
+            All = WithFrames(db, mainApp, Sum(plays.Select(p => p.Stats)), first - 60, last + 120),
             Crashes = gameCrashes, Hangs = hangs, DriverResets = resets, ShutOffs = offs,
             PowerCuts = plays.Where(p => p.Ending == PlayEnd.PowerCut).ToList(),
             LastUpdate = lastUpdate ?? entry.Installed?.Updated,
@@ -301,6 +301,21 @@ public static class GameHistory
         double change = (Median(after) - Median(before)) / Median(before) * 100;
         double by = Math.Abs(change);
         return by < 5 ? Lang.T("No change") : change < 0 ? Lang.T($"{by:0}% lower") : Lang.T($"{by:0}% higher");
+    }
+
+    /// <summary>
+    /// All plays together with what every frame says (where frames were recorded): the true lows of all those frames,
+    /// not an average of each play's, and every stutter.
+    /// </summary>
+    private static PlayStats WithFrames(RigsightDb db, long app, PlayStats all, long from, long to)
+    {
+        var (spread, minutes, stutters) = db.GetFrameSpread(app, from, to);
+        if (minutes == 0 || spread.IsEmpty) return all;
+        return all with
+        {
+            Fps = all.Fps ?? spread.Fps, FpsLow = spread.Low1 ?? all.FpsLow, FpsLow01 = spread.Low01, Stutters = stutters, FrameMinutes = minutes,
+            Worst = db.GetStutters(app, from * 1000, to * 1000).MaxBy(x => x.Ms),
+        };
     }
 
     private static PlayStats Sum(IEnumerable<PlayStats> all)

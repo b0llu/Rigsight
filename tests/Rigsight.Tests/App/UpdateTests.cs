@@ -225,7 +225,7 @@ public sealed class UpdateTests : IDisposable
             Assert.Equal(UpdateState.Waiting, vm.State);
             Assert.True(vm.ShowLine);
             Assert.Equal("Update ready", vm.LineTitle);
-            Assert.Equal("RigSight 99.0.0 is downloaded. Click to install it: RigSight closes and opens again by itself.", vm.LineTip);
+            Assert.Equal("RigSight 99.0.0 is downloaded. Click to install it, and RigSight closes and opens again by itself.", vm.LineTip);
             Assert.Equal("Update now", vm.ActionText);
         });
     }

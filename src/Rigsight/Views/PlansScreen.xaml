@@ -116,6 +116,18 @@
                     </Button>
                 </DockPanel>
 
+                <!-- Where this PC stands not known yet: the shared spinner, never Free's page as a guess (2026-10-26: See plans
+                     pressed in that moment opened Free's plans on a Complete PC). Couldn't ask: why, and Try again. -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,80,0,0" Visibility="{Binding Loading, Converter={StaticResource Vis}}">
+                    <ctl:Spinner Width="16" Height="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{ctl:T 'Checking your plan…'}" FontSize="14" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel HorizontalAlignment="Center" Margin="0,80,0,0" Visibility="{Binding CantTell, Converter={StaticResource Vis}}">
+                    <TextBlock Text="{ctl:T 'Couldn\'t check your plan'}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding CantTellText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" HorizontalAlignment="Center" Margin="0,4,0,12" />
+                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Try again'}" Command="{Binding CheckPlanAgainCommand}" HorizontalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowPlan, Converter={StaticResource Vis}}">
                 <TextBlock Text="{Binding Heading}" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,18,0,6" />
                 <TextBlock Text="{Binding Subheading}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,24" />
 
@@ -201,7 +213,7 @@
                                                     <TextBlock DockPanel.Dock="Left" Text="&#xE774;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{Binding Tag, ElementName=Card}" />
                                                     <StackPanel>
                                                         <TextBlock Text="{ctl:T 'Checks the web'}" FontSize="13.5" FontWeight="SemiBold" />
-                                                        <TextBlock Text="{ctl:T 'Looks up your exact parts, drivers and games: known problems, fixes, safe temperatures'}" Style="{StaticResource Small}" />
+                                                        <TextBlock Text="{ctl:T 'Looks up known problems, fixes and safe temperatures for your exact parts, drivers and games'}" Style="{StaticResource Small}" />
                                                     </StackPanel>
                                                 </DockPanel>
                                                 <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,18,0,14" />
@@ -209,7 +221,7 @@
                                                 <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,7" Margin="0,0,0,10" Visibility="{Binding HasEverything, Converter={StaticResource Vis}}">
                                                     <DockPanel>
                                                         <TextBlock DockPanel.Dock="Left" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Tag, ElementName=Card}" />
-                                                        <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center"><Run Text="{Binding EverythingIn, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="{ctl:T ', plus:'}" /></TextBlock>
+                                                        <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center"><Run Text="{Binding EverythingIn, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="{ctl:T ', plus'}" /></TextBlock>
                                                     </DockPanel>
                                                 </ctl:SmoothBorder>
                                                 <!-- Each page with its own icon in the plan's colour; the page's name on hover. -->
@@ -480,6 +492,7 @@
                         <TextBlock Text="{ctl:T 'Your chats stay on this PC whatever the plan'}" Style="{StaticResource Small}" />
                     </StackPanel>
                 </WrapPanel>
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
     </Grid>

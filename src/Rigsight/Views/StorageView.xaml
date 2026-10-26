@@ -1,7 +1,8 @@
 ﻿<UserControl x:Class="Rigsight.Views.StorageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctl="clr-namespace:Rigsight.Controls">
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:svc="clr-namespace:Rigsight.Services">
     <!-- The Storage page, rebuilt around finding what fills a drive (approved mock-up 2026-10-24): the drives as one row
          each, the fullest first; the scan second, a tab per drive, its list and map side by side; then what could be
          freed on the drive picked, and the disks' health. -->
@@ -108,6 +109,8 @@
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <DockPanel Margin="0,0,0,18">
                 <Button Style="{StaticResource PageExportButton}" />
+                <!-- The page's own question for the AI (mock-up board 5), left of Export. -->
+                <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'What can I free up?'}" CommandParameter="{x:Static svc:PageAsks.Storage}" AutomationProperties.Name="{ctl:T 'What can I free up?'}" />
                 <!-- Everything on the page again: drives, cleanup, and the open scan (after deleting something, say). -->
                 <Button DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource GhostButton}" Command="{Binding RefreshAllCommand}"
                         AutomationProperties.Name="{ctl:T Refresh}" ToolTip="{ctl:T 'Check the drives, the cleanup list and the scan again'}">
@@ -380,7 +383,7 @@
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8">
                                         <DockPanel>
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center"
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center" MinWidth="64"
                                                     Command="{Binding DataContext.CleanupActionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
                                                 <!-- The word keeps its room while the spinner takes its place: the button doesn't change size. -->
@@ -389,6 +392,9 @@
                                                     <ctl:Spinner x:Name="Busy" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
                                                 </Grid>
                                             </Button>
+                                            <!-- Whether it's safe to delete, asked of the AI (hidden while it's off). -->
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Is it safe?'}" CommandParameter="{Binding Ask}"
+                                                    VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{ctl:T 'Is it safe to delete?'}" />
                                             <TextBlock DockPanel.Dock="Right" Text="{Binding SizeText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
                                             <StackPanel Margin="0,0,12,0">
                                                 <TextBlock Text="{Binding Title}" FontSize="13" Foreground="{DynamicResource TextBrush}" />
@@ -412,7 +418,7 @@
                                     VerticalAlignment="Center" Margin="12,0,0,0" />
                             <TextBlock Text="{Binding CleanupHint}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
                         </DockPanel>
-                        <TextBlock Text="{ctl:T 'Nothing here is deleted automatically: it shows where the space is, and you decide.'}"
+                        <TextBlock Text="{ctl:T 'Nothing here is deleted automatically. It shows where the space is, and you decide.'}"
                                    FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
                                    Visibility="{Binding CleanupRead, Converter={StaticResource Vis}}" />
                     </StackPanel>
@@ -438,6 +444,11 @@
                                                 <!-- Why it isn't healthy, in the colour of its dot (today's wording, kept). -->
                                                 <TextBlock Text="{Binding HealthReason}" FontSize="11.5" Foreground="{Binding HealthBrush}" Margin="0,3,0,0" TextWrapping="Wrap"
                                                            Visibility="{Binding HealthReason, Converter={StaticResource Vis}}" />
+                                                <!-- Not healthy: what it means, asked of the AI (hidden while it's off). -->
+                                                <Border HorizontalAlignment="Left" Margin="0,6,0,0" Visibility="{Binding HealthReason, Converter={StaticResource Vis}}">
+                                                    <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'What does this mean?'}" CommandParameter="{Binding HealthAsk}"
+                                                            AutomationProperties.Name="{ctl:T 'What does this mean?'}" />
+                                                </Border>
                                             </StackPanel>
                                         </DockPanel>
                                     </Border>

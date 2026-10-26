@@ -354,9 +354,11 @@ public sealed partial class NetworkViewModel : ObservableObject
     /// <summary>The room a biggest hour's bar is drawn in: its parts' widths add up to this (the view stretches it).</summary>
     public const double BarRoom = 1000;
 
-    [ObservableProperty] private string _dropsTitle = "";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(DropsAsk))] private string _dropsTitle = "";
     [ObservableProperty] private string _dropsNote = "";
-    [ObservableProperty] private bool _dropsWarn;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(DropsAsk))] private bool _dropsWarn;
+    /// <summary>Drops worth a look: the AI button asks why, from the Network page's records.</summary>
+    public Services.AiQuestion? DropsAsk => DropsWarn ? new(Lang.T($"{DropsTitle} {PeriodWord}. Why does my connection drop, and is it the PC or the line?"), Core.Ai.AiPages.Network) : null;
     [ObservableProperty] private IReadOnlyList<NetStripCell> _strip = [];
 
     /// <summary>A week's or month's days on the connection strip (empty for a day and a year), and its two ends' names.</summary>
@@ -668,7 +670,7 @@ public sealed partial class NetworkViewModel : ObservableObject
                 lines.Add(d.Day.Date == today.Date ? Lang.T("No drops so far") : Lang.T("Up all day"));
                 break;
             default:
-                if (d.Drops.Count == 1) lines.Add(Lang.T($"Dropped once: {Drop(d.Drops[0])}"));
+                if (d.Drops.Count == 1) lines.Add(Lang.T($"Dropped once at {Drop(d.Drops[0])}"));
                 else
                 {
                     lines.Add(d.Drops.Count == 2 ? Lang.T("Dropped twice") : Lang.T($"Dropped {d.Drops.Count} times"));

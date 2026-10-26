@@ -21,6 +21,9 @@ public sealed record RelayStatus(int QuestionsLeft, int FreeLeft, string? Key, i
 
     /// <summary>The plans to choose from, Free first, each with the pages it opens and its checkout link.</summary>
     public IReadOnlyList<RelayPlanOffer> Plans { get; init; } = [];
+
+    /// <summary>Questions given from the admin site that are still running, newest first; none from an older relay.</summary>
+    public IReadOnlyList<RelayGift> Gifts { get; init; } = [];
 }
 
 /// <summary>
@@ -32,6 +35,19 @@ public sealed record RelayStatus(int QuestionsLeft, int FreeLeft, string? Key, i
 /// </summary>
 public static partial class Relay
 {
+    /// <summary>What this app can show, sent with each question, so the relay sends the rules for it and old apps keep theirs.</summary>
+    public static class Features
+    {
+        /// <summary>
+        /// The buttons of 2026-10-24: "[do: app …]" and the new Windows screens, no button for a page the plan or Settings › AI
+        /// keeps from the answers, and "[locked: page | what they'd get]" drawn as a card.
+        /// </summary>
+        public const string Actions2 = "actions-2";
+
+        /// <summary>Off only in the answer comparison (tests/Rigsight.AskEval), to ask as a released app does: the old prompt, no apps look-up.</summary>
+        public static bool UseActions2 { get; set; } = true;
+    }
+
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(3) };
 
     /// <summary>How long a streamed answer may say nothing at all (not even a keep-alive) before the app gives up on it.</summary>
@@ -160,6 +176,7 @@ public static partial class Relay
         {
             Plan = s["plan"] is JsonObject plan ? ReadPlan(plan) : null,
             Plans = [.. (s["plans"] as JsonArray ?? []).OfType<JsonObject>().Select(ReadOffer).OfType<RelayPlanOffer>()],
+            Gifts = [.. (s["gifts"] as JsonArray ?? []).OfType<JsonObject>().Select(ReadGift).OfType<RelayGift>()],
         };
     }
 
@@ -188,6 +205,8 @@ public static partial class Relay
         foreach (var turn in AiTurns.Recent(earlier)) messages.Add(AiTurns.Message(turn));
         messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });
         var lookUps = new List<AiLookUp>();
+        // The apps an answer can open, a look-up of RigSight AI's only for now (Ollama and own key keep theirs as they are).
+        tools.OpenableAppsLookUp = Features.UseActions2;
         var definitions = tools.Definitions();
         bool searchFailed = false;
         Log.Write("relay", $"Asking RigSight AI at {Root} (question {id[..8]}, {definitions.Count} kinds of look-up open on the plan, at most {OwnKey.MaxRounds} rounds, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
@@ -201,7 +220,7 @@ public static partial class Relay
                 ["messages"] = JsonNode.Parse(messages.ToJsonString()),
                 ["tools"] = JsonNode.Parse(definitions.ToJsonString()),
                 // What this app reads in an answer beyond the words: a "Title:" line names the conversation.
-                ["features"] = new JsonArray("title"),
+                ["features"] = Features.UseActions2 ? new JsonArray("title", Features.Actions2) : new JsonArray("title"),
             };
             OwnKey.Streamed got;
             var asked = DateTime.Now;

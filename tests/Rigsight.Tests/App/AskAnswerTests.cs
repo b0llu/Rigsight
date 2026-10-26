@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Rigsight.Core.Ai;
 using Rigsight.Core.Settings;
 using Rigsight.Tests.Support;
@@ -94,6 +94,31 @@ public sealed class AskAnswerTests
     /// <summary>Every copy of the prompt in the app: Ollama with and without look-ups, and own key (RigSight AI's is in the relay).</summary>
     internal static IEnumerable<string> EveryPrompt(DateTime now) =>
         [AiPrompt.Ollama(true, now), AiPrompt.Ollama(false, now), AiPrompt.OwnKey(now)];
+
+    [Fact]
+    public void A_screen_reader_hears_what_the_chat_shows_never_its_data()
+    {
+        // Each message is an item in a list, named by ToString: a record's own read out "AskAnswer { Verdict = ..., Raw = ...
+        // [do: overlay ...] }", markers and all (found 2026-10-26).
+        var answer = AskViewModel.ToAnswer("Your **CPU** runs warm.\n- **CPU temperature**: it peaked at 81° today.\n[do: overlay GPU hot spot]", []);
+        Assert.Equal("Your CPU runs warm.", answer.ToString());
+        Assert.Equal("CPU temperature: it peaked at 81° today.", answer.Parts.OfType<AskLine>().First(l => l.IsPoint).ToString());
+        Assert.Equal("Why is it hot?", new AskQuestion("Why is it hot?").ToString());
+        Assert.Equal("GPU hot spot, already on", new AskChip("GPU hot spot", On: true).ToString());
+        foreach (var said in answer.Parts.Select(p => p.ToString()!).Append(answer.ToString()))
+            Assert.DoesNotMatch(@"\{|\[do:|Ask[A-Z]\w+ ", said);
+    }
+
+    [Fact]
+    public void A_point_led_by_a_bold_word_and_a_colon_shows_no_stars()
+    {
+        // As a taskbar answer wrote it (2026-10-26): the lead-in is drawn bold already, so its own stars were shown as stars.
+        var answer = AskViewModel.ToAnswer("Four would suit you.\n- **CPU temperature**: it peaked at 81° today.\n- **GPU load** and Video memory: both matter.", []);
+        var points = answer.Parts.OfType<AskLine>().Where(l => l.IsPoint).ToList();
+        Assert.Equal("CPU temperature: ", points[0].Lead);
+        Assert.Equal("it peaked at 81° today.", points[0].Text);
+        Assert.DoesNotContain(points, l => (l.Lead ?? "").Contains('*'));
+    }
 
     [Fact]
     public void A_marker_written_inside_a_sentence_still_draws_its_card()

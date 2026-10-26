@@ -427,7 +427,7 @@ public sealed class TimelinePageTests
         {
             Day = day, Changes = [driver], From = day.AddDays(-14), To = Today.AddDays(1), Open = true, DaysBefore = 14, DaysAfter = 6,
             Tone = Rigsight.Core.Reports.EffectTone.Worse, Sure = Confidence.Likely, Cause = "THE DRIVER",
-            Headline = "Crimson Desert runs 10° hotter on the GPU since this driver", Plain = "Crimson Desert runs 10° hotter on the GPU",
+            Headline = "Crimson Desert runs 10° hotter on the GPU since this driver", Line = c => $"Crimson Desert runs 10° hotter on the GPU since {c}",
             Context = "Same game at the same load, and not because of the room.", Short = "10° hotter in Crimson Desert since", Advice = "Try the next driver.",
             Pairs = [new("GPU in Crimson Desert", "", "68°", "78°", Rigsight.Core.Reports.EffectTone.Worse, "10° hotter")],
             Rows = [new("GPU in Crimson Desert", "Same load", "68°", "78°", Rigsight.Core.Reports.EffectTone.Worse, "10° hotter"),

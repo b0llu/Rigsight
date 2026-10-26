@@ -46,11 +46,22 @@ public partial class AskWindow : UserControl
 
     private void Attach(AskViewModel? vm)
     {
-        if (_vm is not null) { _vm.PropertyChanged -= OnVmChanged; _vm.SearchWanted = null; }
+        if (_vm is not null) { _vm.PropertyChanged -= OnVmChanged; _vm.SearchWanted = null; _vm.FocusWanted = null; }
         _vm = vm;
-        if (_vm is not null) { _vm.PropertyChanged += OnVmChanged; _vm.SearchWanted = FocusSearch; }
+        if (_vm is not null) { _vm.PropertyChanged += OnVmChanged; _vm.SearchWanted = FocusSearch; _vm.FocusWanted = FocusQuestion; }
         Place();
     }
+
+    /// <summary>
+    /// The cursor into the question box once it's on screen (the window opened, a new conversation): not while the
+    /// first-question window shows, and not taken from a box the person is already typing in (History's search, a rename).
+    /// </summary>
+    private void FocusQuestion() => Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, () =>
+    {
+        if (_vm is null || _vm.ShowFirstQuestion || !Question.IsVisible) return;
+        if (Keyboard.FocusedElement is TextBox other && other != Question && IsAncestorOf(other)) return;
+        Question.Focus();
+    });
 
     private void OnVmChanged(object? sender, PropertyChangedEventArgs e)
     {

@@ -1,7 +1,8 @@
 ﻿<UserControl x:Class="Rigsight.Views.WidgetsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctl="clr-namespace:Rigsight.Controls">
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:svc="clr-namespace:Rigsight.Services">
     <UserControl.Resources>
         <Style x:Key="OptionLabel" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -67,6 +68,8 @@
                             <TextBlock Text="{ctl:T 'Create widget'}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
+                    <!-- The page's own question for the AI (mock-up board 5). -->
+                    <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'Which widgets suit me?'}" CommandParameter="{x:Static svc:PageAsks.Widgets}" AutomationProperties.Name="{ctl:T 'Which widgets suit me?'}" />
                     <StackPanel>
                         <TextBlock Text="{ctl:T 'Desktop widgets'}" Style="{StaticResource H1}" />
                         <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"
@@ -102,7 +105,7 @@
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="{ctl:T 'Make your own'}" Style="{StaticResource H2}" FontSize="15" />
                             <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0"
-                                       Text="{ctl:T 'Pick a layout and the readings you want: frame rate, temperatures, loads, or any sensor on your PC.'}" />
+                                       Text="{ctl:T 'Pick a layout and the readings you want, like frame rate, temperatures, loads, or any sensor on your PC.'}" />
                         </StackPanel>
                     </DockPanel>
                 </ctl:SmoothBorder>
@@ -410,7 +413,7 @@
                         <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
                                 Value="{Binding BackgroundPercent}" AutomationProperties.Name="Background" />
                     </DockPanel>
-                    <DockPanel Margin="0,4" ToolTip="{ctl:T 'The readings themselves: numbers, labels, gauges and charts.'}">
+                    <DockPanel Margin="0,4" ToolTip="{ctl:T 'The readings themselves, with their numbers, labels, gauges and charts.'}">
                         <TextBlock Text="{ctl:T 'CONTENT'}" Style="{StaticResource OptionLabel}" />
                         <TextBlock DockPanel.Dock="Right" Text="{Binding ContentPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
                                    Style="{StaticResource Body}" VerticalAlignment="Center" />

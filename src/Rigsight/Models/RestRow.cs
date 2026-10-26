@@ -23,6 +23,11 @@ public sealed record RestRow(string Part, RestReading Reading)
         ? Math.Round(Units.Temp(lo)) == Math.Round(Units.Temp(hi)) ? Lang.T($"usually {Units.TempShort(lo)}") : Lang.T($"usually {Math.Round(Units.Temp(lo)):0}–{Units.TempShort(hi)}")
         : "";
 
+    /// <summary>Warmer at rest today than its usual range, by 3° or more: its AI button asks why (mock-up, 2026-10-26).</summary>
+    public bool IsWarmer => Reading is { Today: double t, UsualHigh: double hi } && t - hi >= 3;
+    public Services.AiQuestion? Ask => IsWarmer
+        ? new(Lang.T($"My {Part} sits at {TodayText} at rest today, {UsualText}. Why is it warmer?"), Core.Ai.AiPages.Temperatures) : null;
+
     /// <summary>Two days or more to draw a line through.</summary>
     public bool HasLine => Days.Count(d => d is not null) >= 2;
 

@@ -64,7 +64,7 @@ public sealed class ReportEdgeCaseTests
         Assert.Equal("Game", Assert.Single(r.Apps).Name);
         Assert.Equal(60, r.GamingSec);
         var early = Assert.Single(r.Insights, i => i.Key == "early");
-        Assert.Equal("Too early for highlights: 1m of use so far.", early.Text);
+        Assert.Equal("Too early for highlights, only 1m of use so far.", early.Text);
     }
 
     [Theory]

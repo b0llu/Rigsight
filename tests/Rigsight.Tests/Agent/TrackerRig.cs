@@ -30,6 +30,8 @@ internal sealed class FakeClock(DateTimeOffset start)
 internal sealed class TrackerRig : IDisposable
 {
     public string DbPath { get; }
+    /// <summary>Where the tracker keeps every frame (see FrameStore): beside the test's database, never the real one.</summary>
+    public string FramesFolder => Path.Combine(Path.GetDirectoryName(DbPath)!, "frames");
     public FakeClock Clock { get; }
     public RigsightSettings Settings { get; }
     public RigsightDb Db { get; private set; }
@@ -96,7 +98,7 @@ internal sealed class TrackerRig : IDisposable
 
     private Tracker NewTracker()
     {
-        var t = new Tracker(Db, Apps, () => Clock.Now);
+        var t = new Tracker(Db, Apps, () => Clock.Now) { FramesFolder = FramesFolder };
         t.SetSettings(Settings);
         t.SessionEnded += (row, app) => Ended.Add((row, app));
         t.Initialize();

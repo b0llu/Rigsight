@@ -30,6 +30,7 @@ public partial class MainWindow : Window
 
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
         SetUpTitleBar();
+        SetUpSidebar();
         // Charts and lists grow with a taller window (see Roomy).
         // Zoomed, the pages have the window's room divided by the zoom.
         SizeChanged += (_, _) => ApplyZoom();
@@ -127,7 +128,13 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            // The Ask window last: the cards above it close first.
+            // The Ask window last: the cards above it close first. A conversation's name being typed over gets its old name
+            // back and the window stays (Esc reaches this before the name box, and closed the window with it, 2026-10-26).
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.Ask.IsOpen && _vm.Ask.CancelRename())
+            {
+                e.Handled = true;
+                return;
+            }
             if (e.Key == System.Windows.Input.Key.Escape && _vm.Ask.IsOpen)
             {
                 _vm.Ask.CloseCommand.Execute(null);
@@ -279,6 +286,8 @@ public partial class MainWindow : Window
         // The same for an opened change: the sidebar's Timeline goes back to the list.
         if ((sender as FrameworkElement)?.DataContext is ViewModels.NavEntry { Key: "timeline" } && _vm.CurrentPage == "timeline")
             _vm.Timeline.CloseChangeCommand.Execute(null);
+        // Picked in a group's list beside its icon (icons only): the list closes.
+        CloseRailFlyout(sender);
     }
 
     private void SettingsMenu_Click(object sender, RoutedEventArgs e)
@@ -318,7 +327,7 @@ public partial class MainWindow : Window
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ShellViewModel.CurrentPage)) ShowPage(_vm.CurrentPage);
+        if (e.PropertyName == nameof(ShellViewModel.CurrentPage)) { ShowPage(_vm.CurrentPage); KeepOpenPageInView(); }
     }
 
     /// <summary>

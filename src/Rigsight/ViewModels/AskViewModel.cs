@@ -13,6 +13,7 @@ namespace Rigsight.ViewModels;
 /// <summary>One record an answer looked at: what the chip says, what was in it (on hover), and the page it opens.</summary>
 public sealed record AskLook(string Icon, string Text, string Detail, string? Opens)
 {
+    public override string ToString() => Text; // its name for screen readers (and UI automation)
     public bool CanOpen => Opens is not null;
     /// <summary>The page it came from, for the folded line ("Looked at Crashes and Temperatures").</summary>
     public string Page { get; init; } = Text;
@@ -23,12 +24,14 @@ public sealed record AskLook(string Icon, string Text, string Detail, string? Op
 /// <summary>A line of an answer: a paragraph, or one point of a list (shown with a bullet), with the pill of what it used.</summary>
 public sealed record AskLine(string Text, bool IsPoint, string? Lead = null)
 {
+    public override string ToString() => (Lead ?? "") + Controls.Md.Plain(Text); // its name for screen readers (and UI automation)
     public AskRefs? Refs { get; init; }
 }
 
 /// <summary>A table the model wrote (parts, games or web facts side by side): its headings and rows, each as many cells.</summary>
 public sealed record AskTable(IReadOnlyList<string> Headings, IReadOnlyList<IReadOnlyList<string>> Rows)
 {
+    public override string ToString() => string.Join(", ", Headings.Select(Controls.Md.Plain)); // its name for screen readers (and UI automation)
     public int Columns => Headings.Count;
 }
 
@@ -38,14 +41,24 @@ public sealed record AskTable(IReadOnlyList<string> Headings, IReadOnlyList<IRea
 /// </summary>
 public sealed record AskNext(string Text, string? Opens, string? OpensLabel)
 {
+    public override string ToString() => HasText ? Text : string.Join(", ", Actions.Select(a => a.Label)); // its name for screen readers (and UI automation)
     public IReadOnlyList<AskAction> Actions { get; init; } = [];
     public bool HasText => Text.Length > 0;
     public bool HasActions => Actions.Count > 0;
     // The approved look C of 2026-10-23: a card for a step that changes something on the PC (Close), its title the action
     // and the step under it; a step that only opens something is one line a button each; a step with no button, words.
     public bool IsCard => Actions.Any(a => a.Action.Kind == AiActionKind.CloseApp);
-    public bool IsLines => HasActions && !IsCard;
-    public bool IsWords => !HasActions;
+    /// <summary>A drive scan's own card first (it changes in place), the step's other buttons as lines under it.</summary>
+    public AskAction? ScanAction => IsCard ? null : Actions.FirstOrDefault(a => a.Action.Kind == AiActionKind.ScanDrive);
+    public bool IsScan => ScanAction is not null;
+    /// <summary>Widget, overlay and taskbar cards (board 7), each its own card under the step's other buttons.</summary>
+    public IReadOnlyList<AskAction> SetupActions => [.. Actions.Where(a => a.Action.IsSetup)];
+    public bool HasSetups => SetupActions.Count > 0;
+    public IReadOnlyList<AskAction> LineActions => [.. Actions.Where(a => a != ScanAction && !a.Action.IsSetup)];
+    public bool HasLineActions => LineActions.Count > 0;
+    public bool IsLines => !IsCard && Actions.Any(a => !a.Action.IsSetup);
+    /// <summary>The step in words: with no buttons, or with only setup cards (they have their own title, so the step stays said).</summary>
+    public bool IsWords => HasText ? !Actions.Any(a => !a.Action.IsSetup) : !HasActions;
     public string CardTitle => Main?.Label ?? "";
     /// <summary>
     /// One short line under the title, from what RigSight measured ("Holds 3.0 GB with no window open"): the model's step
@@ -56,7 +69,7 @@ public sealed record AskNext(string Text, string? Opens, string? OpensLabel)
         : "";
     /// <summary>The card's own button (Close), on the title's row; the others go in the row under it.</summary>
     public AskAction? Main => Actions.FirstOrDefault(a => a.Action.Kind == AiActionKind.CloseApp);
-    public IReadOnlyList<AskAction> Rest => [.. Actions.Where(a => a != Main)];
+    public IReadOnlyList<AskAction> Rest => [.. Actions.Where(a => a != Main && !a.Action.IsSetup)];
     public IReadOnlyList<AskAction> MainOnly => Main is { } m ? [m] : [];
     /// <summary>The page button of before the buttons: with buttons, the page is one of them.</summary>
     public bool CanOpen => Opens is not null && !HasActions;
@@ -67,6 +80,7 @@ public abstract record AskMessage;
 
 public sealed record AskQuestion(string Text) : AskMessage
 {
+    public override string ToString() => Text; // its name for screen readers (and UI automation)
     /// <summary>A pasted log or a long story: the bubble shows its first lines and a "Show all".</summary>
     public bool IsLong => Text.Length > 600 || Text.Count(c => c == '\n') > 9;
 }
@@ -78,6 +92,7 @@ public sealed record AskQuestion(string Text) : AskMessage
 /// </summary>
 public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, string? FromWeb, IReadOnlyList<AskLook> Looked) : AskMessage
 {
+    public override string ToString() => Controls.Md.Plain(Verdict); // its name for screen readers (and UI automation)
     /// <summary>What the opening sentence used, as a pill at its end.</summary>
     public AskRefs? VerdictRefs { get; init; }
     public bool HasWeb => FromWeb is not null;
@@ -96,8 +111,25 @@ public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, stri
     /// <summary>A page the person's plan doesn't open that would have helped (the model's "[locked: games]" line), or null.</summary>
     public AiPage? Locked { get; init; }
     public bool HasLocked => Locked is not null;
-    public string LockedTitle => Locked is { } p ? Lang.T($"Couldn't read {p.Label} (not in your plan).") : "";
-    public string LockedText => Locked is { } p ? Lang.T($"It would add: {p.Description}.") : "";
+    /// <summary>What this question would get with the page ("See what fills the E drive"), from the model's line; null from older answers.</summary>
+    public string? LockedGain { get; init; }
+    /// <summary>The plan card's payment, while it's under way.</summary>
+    public AskPaying Pay { get; init; } = new();
+    /// <summary>The plan that has the page and whether it's a switch (already paying), worked out by the window from the relay's plans.</summary>
+    public string? LockedPlanId { get; init; }
+    public string? LockedPlanName { get; init; }
+    public bool LockedSwitch { get; init; }
+    public bool HasLockedPlan => LockedPlanId is not null;
+    /// <summary>
+    /// The card in place of the old one-line footer (the 2026-10-24 audit, approved artifact): what this question gets as
+    /// its title, which plan reads the page, the plan's button and See plans.
+    /// </summary>
+    public string LockedTitle => Locked is not { } p ? "" : LockedGain is { Length: > 0 } gain ? gain : Lang.T($"Get answers from {p.Label}");
+    public string LockedText => Locked is not { } p ? ""
+        : LockedPlanName is { } plan ? Lang.T($"{plan} lets me read {p.Label}, which covers {Lower(Lang.T(p.Description))}.")
+        : Lang.T($"Your plan doesn't include {p.Label}.");
+    public string LockedButton => LockedSwitch ? Lang.T($"Switch to {LockedPlanName} and ask") : Lang.T($"Get {LockedPlanName} and ask");
+    internal static string Lower(string s) => s.Length > 1 && char.IsUpper(s[0]) && !char.IsUpper(s[1]) ? char.ToLowerInvariant(s[0]) + s[1..] : s;
 
     /// <summary>The question it answers: what Ask again sends.</summary>
     public string? Asked { get; init; }
@@ -178,6 +210,9 @@ public sealed partial class AskFeedback(string? questionId) : ObservableObject
 
     [RelayCommand] private async Task SendWhy() { Asking = false; await Send(false); }
 
+    /// <summary>Skip on the reasons box (board 6, 2026-10-26): it closes and nothing is sent, so nothing shows as said.</summary>
+    [RelayCommand] private void Skip() { (Asking, Rated, Reason, Words) = (false, null, null, ""); foreach (var b in ReasonButtons) b.Refresh(); }
+
     private async Task Send(bool helpful)
     {
         Said = await Relay.FeedbackAsync(QuestionId!, helpful, helpful ? null : Reason, helpful ? null : Words)
@@ -188,6 +223,7 @@ public sealed partial class AskFeedback(string? questionId) : ObservableObject
 /// <summary>One reason button under Not helpful, lit when picked.</summary>
 public sealed partial class AskReason(AskFeedback owner, string id, string label) : ObservableObject
 {
+    public override string ToString() => Label; // its name for screen readers (and UI automation)
     public AskFeedback Owner { get; } = owner;
     public string Id { get; } = id;
     public string Label { get; } = label;
@@ -199,12 +235,22 @@ public sealed partial class AskReason(AskFeedback owner, string id, string label
 /// The moment a limit or a page gets in the way (the plans mock-up): said in the chat, not as a pop-up, with the one step
 /// that fixes it. <paramref name="Plan"/> is the plan that does; null when none would (Complete's day used up).
 /// </summary>
+/// <summary>A plan card's payment under way in the browser: the card says so in place, with the checkout again and Cancel.</summary>
+public sealed partial class AskPaying : ObservableObject
+{
+    [ObservableProperty] private bool _waiting;
+}
+
 public sealed record AskWall(string Title, string Text, string? Plan, string? PlanName, string? Question) : AskMessage
 {
+    public override string ToString() => Title; // its name for screen readers (and UI automation)
+    public AskPaying Pay { get; init; } = new();
     public bool HasPlan => Plan is not null;
     /// <summary>Switching (already paying) rather than buying (on Free).</summary>
     public bool Switch { get; init; }
     public string MainText => Switch ? Lang.T($"Switch to {PlanName} and ask") : Lang.T($"Get {PlanName} and ask");
+    /// <summary>From an answer's plan card: its question goes again once the plan is on (it isn't a card in the chat).</summary>
+    public bool FromAnswer { get; init; }
 }
 
 /// <summary>
@@ -213,6 +259,7 @@ public sealed record AskWall(string Title, string Text, string? Plan, string? Pl
 /// </summary>
 public sealed record AskWriting : AskMessage, System.ComponentModel.INotifyPropertyChanged
 {
+    public override string ToString() => Controls.Md.Plain(Verdict); // its name for screen readers (and UI automation)
     private string _verdict = "";
     public string Verdict { get => _verdict; private set { if (_verdict == value) return; _verdict = value; PropertyChanged?.Invoke(this, new(nameof(Verdict))); } }
     public System.Collections.ObjectModel.ObservableCollection<object> Parts { get; } = [];
@@ -235,22 +282,53 @@ public sealed record AskWriting : AskMessage, System.ComponentModel.INotifyPrope
     }
 }
 
-/// <summary>No answer came: Ollama not running, the model gone, and so on, said plainly.</summary>
-public sealed record AskProblem(string Text) : AskMessage;
+/// <summary>
+/// No answer came: Ollama not running, the model gone, and so on, said plainly. With a way forward where there is one (the
+/// approved board 6, 2026-10-26): Try again asks the same question once more in its place, Open Settings goes where the
+/// words send them. One opened from History has neither: the moment has passed.
+/// </summary>
+public sealed record AskProblem(string Text) : AskMessage
+{
+    public override string ToString() => Text; // its name for screen readers (and UI automation)
+    /// <summary>The question it was for, which Try again asks again; null where trying again can't help.</summary>
+    public string? Question { get; init; }
+    /// <summary>What went with the question unseen (a drive just scanned), and the button's page, given again with it.</summary>
+    public string? Aside { get; init; }
+    public string? FromPage { get; init; }
+    public bool CanRetry => Question is not null;
+    public bool CanOpenSettings { get; init; }
+    public bool HasActions => CanRetry || CanOpenSettings;
+}
+
+/// <summary>
+/// The person pressed Stop: a faint line where the answer was, with Ask again (board 6, 2026-10-26). It replaced the
+/// question standing alone, which read as if nothing had happened. Kept as a plain stopped line when saved.
+/// </summary>
+public sealed record AskStoppedAnswer(string Text, string Question) : AskMessage
+{
+    public override string ToString() => Text; // its name for screen readers (and UI automation)
+    public string? Aside { get; init; }
+    public string? FromPage { get; init; }
+}
 
 /// <summary>A question to start a new chat with, and the page it reads (its icon and name show above the words).</summary>
 public sealed record AskStarter(string Text, string Page)
 {
+    public override string ToString() => Text; // its name for screen readers (and UI automation)
     public string Glyph => PageSwitchesViewModel.Glyph(Page);
     public string PageName => AiPages.Get(Page) is { } page ? Lang.T(page.Name) : "";
 }
 
 /// <summary>The person stopped the answer: said quietly, since nothing went wrong.</summary>
-public sealed record AskStopped(string Text) : AskMessage;
+public sealed record AskStopped(string Text) : AskMessage
+{
+    public override string ToString() => Text; // its name for screen readers (and UI automation)
+}
 
 /// <summary>The helper is still working on an answer.</summary>
 public sealed record AskThinking : AskMessage, System.ComponentModel.INotifyPropertyChanged
 {
+    public override string ToString() => Step; // its name for screen readers (and UI automation)
     /// <summary>
     /// Between real steps, a thinking word that changes every few seconds, as Claude Code does (the person's call,
     /// 2026-10-24: "Connecting the dots…" alone read oddly). Only words for thinking, never a claim of something it
@@ -288,6 +366,10 @@ public sealed record AskThinking : AskMessage, System.ComponentModel.INotifyProp
     /// <param name="step">What it's doing; empty while it's only thinking (a word from <see cref="Words"/> shows).</param>
     public void Show(string step, string? note = null, bool loading = false)
     {
+        // A step set before the question went ("Reading the scan of D:…") stays until a real one takes over: the relay's
+        // client starts each question with an empty step, which put a thinking word in its place (2026-10-25, live test).
+        if (_pinned && string.IsNullOrEmpty(step)) return;
+        _pinned = false;
         _thinking = string.IsNullOrEmpty(step);
         if (_thinking) { step = Lang.T(Words[_word]); _wordSince = DateTime.Now; }
         (Step, Note, Loading, Since) = (step, note, loading, DateTime.Now);
@@ -295,6 +377,15 @@ public sealed record AskThinking : AskMessage, System.ComponentModel.INotifyProp
         // A real step ("Reading your crashes for 23 Oct…") shows at once, pulsing: the dots are only for the first moments
         // before anything is being read.
         if (loading || !_thinking) BeSlow();
+    }
+
+    private bool _pinned;
+
+    /// <summary>What it's about to read, shown at once and kept until the first real step arrives.</summary>
+    public void Pin(string step)
+    {
+        Show(step);
+        _pinned = true;
     }
 
     /// <summary>
@@ -327,6 +418,7 @@ public sealed record AskThinking : AskMessage, System.ComponentModel.INotifyProp
 /// </summary>
 public sealed partial class AskConversation : ObservableObject
 {
+    public override string ToString() => Title; // its name for screen readers (and UI automation)
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     private string _title = "";
     public required string Title { get => _title; set => SetProperty(ref _title, value); }
@@ -343,7 +435,7 @@ public sealed partial class AskConversation : ObservableObject
     [ObservableProperty] private string _renameText = "";
     /// <summary>Loaded from the file but not opened yet: its messages are drawn when it is (RigSight's numbers read again).</summary>
     public IReadOnlyList<SavedMessage>? Unopened { get; set; }
-    /// <summary>The crash or change it was opened from with an Explain button ("Looking at: …"), if any.</summary>
+    /// <summary>The crash or change it was opened from with an Explain button ("Looking at …"), if any.</summary>
     public string? LookingAt { get; init; }
     public ObservableCollection<AskMessage> Messages { get; } = [];
     /// <summary>What was asked and answered, as sent to the model, so a follow-up question keeps its context.</summary>
@@ -380,6 +472,8 @@ public sealed partial class AskViewModel : ObservableObject
         if (file is not null) _starterLog = new AiStarterLog(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(file) ?? "", "ask-starters.json"));
         Pages = new PageSwitchesViewModel(settings, PlanPagesNow) { OpenPlans = () => Plans?.Open() };
         _settings.Changed += OnSettingsChanged;
+        Gate();
+        WatchNetwork();
         if (file is not null)
             foreach (var saved in AiConversations.Load(file).OrderByDescending(c => c.When))
                 Conversations.Add(FromSaved(saved));
@@ -416,15 +510,22 @@ public sealed partial class AskViewModel : ObservableObject
         Changed();
     }
 
+    /// <summary>Every AI button on every page follows the AI and what's shared, at once (<see cref="AiGate"/>).</summary>
+    private void Gate() => AiGate.Update(IsEnabled, Ai.Sends, q => { if (q.Explain) Explain(q.Text); else AskNew(q.Text, q.Page); });
+
     private void OnSettingsChanged()
     {
         if (!IsEnabled) IsOpen = false;
+        Gate();
         OnPropertyChanged(nameof(IsEnabled));
         OnPropertyChanged(nameof(InTopBar));
         OnPropertyChanged(nameof(InSidebar));
         OnPropertyChanged(nameof(ShowQuestionsLeft));
-        OnPropertyChanged(nameof(ShowQuestionsPill));
+        OnPropertyChanged(nameof(ShowQuestionsLine));
         OnPropertyChanged(nameof(IsOutOfQuestions));
+        OnPropertyChanged(nameof(ShowOutBox));
+        OnPropertyChanged(nameof(ShowOffline));
+        SendCommand.NotifyCanExecuteChanged();
         Pages.Refresh();
         PagesChanged++;
         OnPropertyChanged(nameof(PagesChanged));
@@ -473,7 +574,7 @@ public sealed partial class AskViewModel : ObservableObject
     [ObservableProperty] private string _historySearch = "";
     partial void OnHistorySearchChanged(string value) => Regroup();
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsEmpty), nameof(ShowChat), nameof(ShowStarters), nameof(LookingAt), nameof(HasLookingAt))] private AskConversation? _current;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsEmpty), nameof(ShowChat), nameof(ShowStarters), nameof(LookingAt), nameof(HasLookingAt), nameof(ShowOutBox))] private AskConversation? _current;
     partial void OnCurrentChanged(AskConversation? oldValue, AskConversation? newValue)
     {
         if (oldValue is not null) { oldValue.IsCurrent = false; oldValue.Messages.CollectionChanged -= OnMessagesChanged; oldValue.Draft = Draft; }
@@ -489,6 +590,7 @@ public sealed partial class AskViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowStarters));
         OnPropertyChanged(nameof(NextQuestions));
         OnPropertyChanged(nameof(HasNextQuestions));
+        OnPropertyChanged(nameof(ShowOutBox));
     }
 
     /// <summary>
@@ -508,7 +610,7 @@ public sealed partial class AskViewModel : ObservableObject
     public int ShowEnd { get; private set; }
 
     private void ToEnd() { ShowEnd++; OnPropertyChanged(nameof(ShowEnd)); }
-    public string? LookingAt => Current?.LookingAt is { } at ? Lang.T($"Looking at: {at}") : null;
+    public string? LookingAt => Current?.LookingAt is { } at ? Lang.T($"Looking at {at}") : null;
     public bool HasLookingAt => Current?.LookingAt is not null;
 
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendCommand))] private string _draft = "";
@@ -563,26 +665,58 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>Every PC gets this many free questions to try RigSight AI before buying any.</summary>
     public const int FreeQuestions = 10;
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(QuestionsLeftText), nameof(IsLow), nameof(IsOutOfQuestions), nameof(ShowQuestionsPill), nameof(IsLastQuestion), nameof(OutOffer), nameof(OutText))] private int _questionsLeft = FreeQuestions;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(QuestionsLeftText), nameof(IsLow), nameof(IsOutOfQuestions), nameof(ShowOutBox), nameof(IsLastQuestion), nameof(OutOffer), nameof(OutText), nameof(QuestionsLine), nameof(QuestionsNote), nameof(ShowSeePlans))] private int _questionsLeft = FreeQuestions;
+    partial void OnQuestionsLeftChanged(int value) => SendCommand.NotifyCanExecuteChanged();
     /// <summary>A bought licence is on this PC; without one, the free questions are counted.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(QuestionsLeftText))] private bool _hasLicence;
-    /// <summary>RigSight AI: the pill in the window's top bar says how many questions are left (free ones until a pack is bought).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(QuestionsLeftText), nameof(QuestionsLine))] private bool _hasLicence;
+    /// <summary>RigSight AI: questions are counted, so what's left is said (the line under the question box).</summary>
     public bool ShowQuestionsLeft => Ai.Mode == AiMode.RigSight;
+
     /// <summary>
-    /// The pill shows only what the relay said: before that (a first visit, or the relay not asked yet since start-up) a
-    /// guessed "10 free questions left" was shown to a PC that had used all 10 (found 2026-10-23).
+    /// The quiet line under the question box, always there with RigSight AI (board 6, 2026-10-26): it replaced the top bar's
+    /// pill, which showed only from 3 left, so people found out at the limit. What's left on the left, the reset or See plans on
+    /// the right. Only what the relay said: before that it says it's checking, never a guess (a guessed "10 free questions
+    /// left" was shown to a PC that had used all 10, 2026-10-23).
     /// </summary>
-    // Quiet while plenty are left (the approved idea of 2026-10-23: like ChatGPT and Claude, no counter in the chat until it
-    // matters): it shows from 3 left; the exact number is always in Settings and on the Plans screen.
-    public bool ShowQuestionsPill => ShowQuestionsLeft && Standing is not null && (QuestionsLeft <= 3 || LicenceOff);
+    public bool ShowQuestionsLine => ShowQuestionsLeft;
+    public string QuestionsLine => Standing is null ? Lang.T("Checking your questions…")
+        : LicenceOff ? Lang.T("Licence turned off")
+        : Standing.Plan is not { } plan ? QuestionsLeftText
+        : plan is { IsFree: true, Cap: 0 } ? Lang.T("Free questions paused")
+        : plan is { Left: 0, Given: > 0 } ? plan.Given == 1 ? Lang.T("1 given question left") : Lang.T($"{plan.Given} given questions left")
+        : (plan.IsFree, plan.Weekly, plan.Given > 0) switch
+        {
+            (true, true, false) => Lang.T($"{plan.Left} of {plan.Cap} free questions left this week"),
+            (true, true, true) => Lang.T($"{plan.Left} of {plan.Cap} free questions left this week + {plan.Given} given"),
+            (true, false, false) => Lang.T($"{plan.Left} of {plan.Cap} free questions left today"),
+            (true, false, true) => Lang.T($"{plan.Left} of {plan.Cap} free questions left today + {plan.Given} given"),
+            (false, true, false) => Lang.T($"{plan.Left} of {plan.Cap} left this week"),
+            (false, true, true) => Lang.T($"{plan.Left} of {plan.Cap} left this week + {plan.Given} given"),
+            (false, false, false) => Lang.T($"{plan.Left} of {plan.Cap} left today"),
+            (false, false, true) => Lang.T($"{plan.Left} of {plan.Cap} left today + {plan.Given} given"),
+        };
+    /// <summary>The right side when See plans isn't: when they come back ("Back Monday", "Resets at midnight"); empty when unknown.</summary>
+    public string QuestionsNote => ShowSeePlans || LicenceOff || Standing?.Plan is not { } plan || plan is { IsFree: true, Cap: 0 } ? ""
+        : plan is { Weekly: true, ResetsAt: { } at } ? Lang.T($"Back {TimeText.At(at, "dddd")}")
+        : plan.Weekly ? "" : Lang.T("Resets at midnight");
+    /// <summary>Few left and a plan would give more: See plans on the line's right.</summary>
+    public bool ShowSeePlans => IsLow && !LicenceOff && Standing?.Plan is { } plan
+        && (plan.IsFree ? (Standing.Plans ?? []).Any(o => !o.IsFree) : Bigger(plan) is not null);
     /// <summary>One left: said over the box before it's used, so it isn't lost to a typo.</summary>
     public bool IsLastQuestion => ShowQuestionsLeft && Standing is not null && QuestionsLeft == 1 && !IsAnswering && !LicenceOff;
-    public string LastQuestionTitle => Standing?.Plan is { Weekly: false }
-        ? Lang.T("This is your last question today.") : Lang.T("This is your last free question this week.");
-    public string LastQuestionText => Standing?.Plan is { Weekly: true, ResetsAt: { } at } ? Lang.T($"They're back on {TimeText.At(at, "dddd")}.")
+    public string LastQuestionTitle => Standing?.Plan is { Given: > 0 } ? Lang.T("This is the last of the questions given to you.")
+        : Standing?.Plan is { Weekly: false } ? Lang.T("This is your last question today.") : Lang.T("This is your last free question this week.");
+    // The last given one: the plan's own come back, never the given ones (the live gift run, 2026-10-25, said "They're back").
+    public string LastQuestionText => Standing?.Plan is { Given: > 0, Weekly: true, ResetsAt: { } back } p ? Lang.T($"Your {p.Cap} free ones are back on {TimeText.At(back, "dddd")}.")
+        : Standing?.Plan is { Given: > 0, Weekly: false } ? Lang.T("Your plan's are back at midnight.")
+        : Standing?.Plan is { Weekly: true, ResetsAt: { } at } ? Lang.T($"They're back on {TimeText.At(at, "dddd")}.")
         : Standing?.Plan is { Weekly: false } ? Lang.T("More at midnight.") : "";
     public string QuestionsLeftText => LicenceOff ? Lang.T("Licence turned off") : Standing?.Plan is { } plan
         ? plan is { IsFree: true, Cap: 0 } ? Lang.T("Free questions paused")
+        // The plan's own used up, the given ones going (the pill shows from 3 left in all).
+        : plan is { Left: 0, Given: > 0 } ? plan.Given == 1 ? Lang.T("1 given question left") : Lang.T($"{plan.Given} given questions left")
+        // Some of the plan's own and some given: both said (it read "1 of 10 left this week" with 2 given, 2026-10-25).
+        : plan is { Given: > 0 } ? plan.Weekly ? Lang.T($"{plan.Left} of {plan.Cap} left this week + {plan.Given} given") : Lang.T($"{plan.Left} of {plan.Cap} left today + {plan.Given} given")
         : plan.Weekly ? Lang.T($"{plan.Left} of {plan.Cap} left this week") : Lang.T($"{plan.Left} of {plan.Cap} left today")
         : (HasLicence, QuestionsLeft) switch
     {
@@ -591,8 +725,15 @@ public sealed partial class AskViewModel : ObservableObject
         (false, 1) => Lang.T("1 free question left"),
         (false, _) => Lang.T($"{QuestionsLeft} free questions left"),
     };
-    public bool IsLow => Standing?.Plan is { } plan ? plan.Left <= Math.Max(2, plan.Cap / 10) : QuestionsLeft <= 5;
+    public bool IsLow => Standing?.Plan is { } plan ? plan.AllLeft <= Math.Max(2, plan.Cap / 10) : QuestionsLeft <= 5;
     public bool IsOutOfQuestions => ShowQuestionsLeft && QuestionsLeft <= 0;
+    /// <summary>
+    /// The out box over the question field, except while the chat's own limit card is the last thing in it: both offered
+    /// to buy, one above the other (board 6, 2026-10-26).
+    /// </summary>
+    public bool ShowOutBox => IsOutOfQuestions && Current?.Messages.LastOrDefault() is not AskWall;
+    /// <summary>Free questions switched off on the relay for now (cap 0): said as paused, never as a limit reached.</summary>
+    private bool FreePaused => Standing?.Plan is { IsFree: true, Cap: 0 };
 
     /// <summary>The PC's licence turned off by support: nothing can be asked, free questions included.</summary>
     public bool LicenceOff => Standing is { HasLicence: true, LicenceStatus: "disabled" };
@@ -602,6 +743,7 @@ public sealed partial class AskViewModel : ObservableObject
     {
         _ when LicenceOff => Lang.T("Your licence is turned off."),
         "refunded" when Standing.HasLicence => Lang.T("Your licence was refunded."),
+        _ when FreePaused => Lang.T("Free questions are paused right now."),
         // Said as a state, not "that was your last": it also shows on opening, before anything was asked.
         _ when Standing?.Plan is { Weekly: true } => Lang.T("No free questions left this week."),
         _ when Standing?.Plan is not null => Lang.T("No questions left today."),
@@ -609,10 +751,11 @@ public sealed partial class AskViewModel : ObservableObject
     };
     /// <summary>The out box's main button: the plan that fixes it (its card, with the question typed so far), or null.</summary>
     public AskWall? OutOffer => !IsOutOfQuestions || LicenceOff || Standing?.Plan is not { } p ? null
-        : LimitWall(new AiLimit(p.Weekly ? "week" : "day", p.Id, p.ResetsAt), Draft) is { HasPlan: true } wall ? wall : null;
+        : LimitWall(new AiLimit(FreePaused ? "paused" : p.Weekly ? "week" : "day", p.Id, p.ResetsAt), Draft) is { HasPlan: true } wall ? wall : null;
 
     public string OutText => LicenceOff
         ? Lang.T("Contact support from Settings › Ask RigSight.")
+        : FreePaused ? PausedText
         // The plans' own numbers (it said "up to 500" beside a "Get Essentials" button that gives 100, 2026-10-24).
         : Standing?.Plan is { Weekly: true, ResetsAt: { } at } && OutOffer?.Plan is { } offered && Standing.Plans?.FirstOrDefault(o => o.Id == offered) is { } plan
             ? Lang.T($"They're back on {TimeText.At(at, "dddd")}. {plan.Name} gives up to {plan.Cap} questions a day.")
@@ -620,6 +763,37 @@ public sealed partial class AskViewModel : ObservableObject
         : Standing?.Plan is { } now && Bigger(now) is { } bigger ? Lang.T($"More at midnight. {bigger.Name} gives up to {bigger.Cap} a day.")
         : Standing?.Plan is not null ? Lang.T("More at midnight.")
         : Lang.T("Buy more in Settings › Ask RigSight, or switch to your API key there.");
+
+    private static string PausedText => Lang.T("They'll be back. You can still get a plan.");
+
+    // ── Offline (board 6, 2026-10-26) ────────────────────────────────────
+    /// <summary>Windows says there's no network at all (the same check a question makes before it goes, <see cref="Internet.IsOff"/>).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowOffline))] [NotifyCanExecuteChangedFor(nameof(SendCommand))] private bool _isOffline;
+
+    /// <summary>The way of answering needs the internet: RigSight AI, an API key, or an Ollama on another computer.</summary>
+    private bool NeedsInternet => Ai.Mode switch { AiMode.RigSight or AiMode.OwnKey => true, AiMode.Ollama => !OllamaHere, _ => false };
+
+    /// <summary>
+    /// The banner over the question box while offline, and Send off meanwhile: questions sent anyway each came back as a
+    /// problem line. It goes as soon as Windows says the network is back.
+    /// </summary>
+    public bool ShowOffline => IsEnabled && IsOffline && NeedsInternet;
+
+    /// <summary>Windows' word that the network came or went (any thread): checked again on the window's thread.</summary>
+    private void WatchNetwork()
+    {
+        IsOffline = Internet.IsOff();
+        var ui = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+        System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += (_, _) =>
+            ui.BeginInvoke(() => NetworkChanged(Internet.IsOff()));
+    }
+
+    internal void NetworkChanged(bool off)
+    {
+        if (off == IsOffline) return;
+        IsOffline = off;
+        Log.Write("ask", off ? "Offline: questions wait until the network is back" : "Back online");
+    }
 
     // ── Before the first question (each way of answering once) ───────────
     /// <summary>
@@ -643,12 +817,14 @@ public sealed partial class AskViewModel : ObservableObject
         var then = _afterFirst;
         _afterFirst = null;
         then?.Invoke();
+        FocusWanted?.Invoke();
         if (mode == AiMode.RigSight) _ = RefreshQuestionsAsync();
     }
 
     partial void OnIsOpenChanged(bool value)
     {
         if (!value) return;
+        FocusWanted?.Invoke();
         _ = RefreshQuestionsAsync();
         // Read again as the window opens: what Home said since, and only now are they counted as seen.
         if (ShowStarters) RefreshStarters();
@@ -669,7 +845,7 @@ public sealed partial class AskViewModel : ObservableObject
 
     public string FirstIntro => Ai.Mode switch
     {
-        AiMode.OwnKey => Lang.T("With your API key, answers still come from your PC's records: RigSight sends your question and the records it needs to the service you picked."),
+        AiMode.OwnKey => Lang.T("With your API key, answers still come from your PC's records. RigSight sends your question and the records it needs to the service you picked."),
         AiMode.Ollama when OllamaHere => Lang.T("Ollama answers from your PC's records, right here on this PC."),
         AiMode.Ollama => Lang.T("Ollama answers from your PC's records. To do that, RigSight sends your question and the records it needs to the computer Ollama runs on."),
         _ => Lang.T("RigSight AI answers from your PC's records. To do that, RigSight sends your question and the records it needs."),
@@ -713,10 +889,10 @@ public sealed partial class AskViewModel : ObservableObject
 
     public string? FirstNever => Ai.Mode switch
     {
-        AiMode.OwnKey => Lang.T("Never sent: your Windows user name, or the names or contents of your files. Folder names and sizes go only for a drive you press Scan for."),
+        AiMode.OwnKey => Lang.T("Your Windows user name and the names or contents of your files are never sent. Folder names and sizes go only for a drive you press Scan for."),
         AiMode.Ollama when OllamaHere => null,
-        AiMode.Ollama => Lang.T("Never sent: your Windows user name, or the names or contents of your files. Folder names and sizes go only for a drive you press Scan for."),
-        _ => Lang.T("Never sent: your Windows user name, the names or contents of your files, your licence key. Folder names and sizes go only for a drive you press Scan for."),
+        AiMode.Ollama => Lang.T("Your Windows user name and the names or contents of your files are never sent. Folder names and sizes go only for a drive you press Scan for."),
+        _ => Lang.T("Your Windows user name, the names or contents of your files and your licence key are never sent. Folder names and sizes go only for a drive you press Scan for."),
     };
     /// <summary>
     /// The real count, only once the relay has said it (before Start asking it isn't asked: no usage tracking), never a guess:
@@ -759,8 +935,17 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>RigSight AI's plans (set by the shell): the cards at a limit open them, and buy or switch from here.</summary>
     public PlansViewModel? Plans { get; set; }
 
-    /// <summary>Sets the look-ups' hooks into the app (readings now, drives); set by the shell.</summary>
-    public Action<AiTools>? ConfigureTools { get; set; }
+    /// <summary>
+    /// Sets the look-ups' hooks into the app (readings now, drives, drive scans); set by the shell. Applied to look-ups
+    /// already made too: the new chat's starters make them before the shell sets this, and a drive's scan was then never
+    /// read ("hasn't been scanned" right after its own Scan button, 2026-10-24).
+    /// </summary>
+    public Action<AiTools>? ConfigureTools
+    {
+        get => _configureTools;
+        set { _configureTools = value; if (_tools is not null) value?.Invoke(_tools); }
+    }
+    private Action<AiTools>? _configureTools;
 
     /// <summary>The pages answers may use now: the plan's with RigSight AI (Free's until the relay has said), every page otherwise.</summary>
     public IReadOnlyCollection<string>? PlanPagesNow() => Ai.Mode != AiMode.RigSight ? null : Standing?.Plan?.Pages ?? AiPages.DefaultFor(0);
@@ -791,7 +976,8 @@ public sealed partial class AskViewModel : ObservableObject
     public Rect Floating { get; set; } = Rect.Empty;
 
     // ── Commands ─────────────────────────────────────────────────────────
-    [RelayCommand] private void Toggle() => IsOpen = !IsOpen;
+    // Never opened with AI off, whatever button asked (2026-10-26: a Games button left on screen could open it).
+    [RelayCommand] private void Toggle() => IsOpen = !IsOpen && IsEnabled;
     [RelayCommand] private void Close() => IsOpen = false;
     [RelayCommand] private void ToggleSize() => IsBig = !IsBig;
     [RelayCommand] private void PopOut() => IsPoppedOut = !IsPoppedOut;
@@ -813,7 +999,14 @@ public sealed partial class AskViewModel : ObservableObject
         Current.Draft = "";
         Draft = "";
         IsHistoryOpen = false;
+        FocusWanted?.Invoke();
     }
+
+    /// <summary>
+    /// Set by the window: the cursor into the question box, as the window opens and on a new conversation (board 6,
+    /// 2026-10-26), so typing starts at once. The window leaves it while the first-question window shows.
+    /// </summary>
+    public Action? FocusWanted { get; set; }
 
     /// <summary>The rail's search button: History opens with its search box ready (the window puts the cursor in it).</summary>
     [RelayCommand]
@@ -861,10 +1054,47 @@ public sealed partial class AskViewModel : ObservableObject
     {
         if (talk is null) return;
         talk.IsMenuOpen = false;
+        int at = Conversations.IndexOf(talk);
+        bool wasCurrent = Current == talk;
         Conversations.Remove(talk);
-        if (Current == talk) Current = Conversations.FirstOrDefault(c => c.Messages.Count == 0 && c.Unopened is null) ?? NewConversation();
+        if (wasCurrent) Current = Conversations.FirstOrDefault(c => c.Messages.Count == 0 && c.Unopened is null) ?? NewConversation();
         if (ArchivedCount == 0) ShowingArchived = false;
         Changed();
+        // A slip of the menu lost a whole conversation: "Conversation deleted" with Undo for a few seconds (board 6, 2026-10-26).
+        _deletedTalk = (talk, at, wasCurrent);
+        Deleted = true;
+        _undoTimer ??= NewUndoTimer();
+        _undoTimer.Stop();
+        _undoTimer.Start();
+        Log.Write("ask", "Conversation deleted (Undo offered)");
+    }
+
+    /// <summary>The line in History after Delete, with Undo, for <see cref="UndoFor"/>.</summary>
+    [ObservableProperty] private bool _deleted;
+    public static readonly TimeSpan UndoFor = TimeSpan.FromSeconds(6);
+    private (AskConversation Talk, int At, bool WasCurrent)? _deletedTalk;
+    private System.Windows.Threading.DispatcherTimer? _undoTimer;
+
+    private System.Windows.Threading.DispatcherTimer NewUndoTimer()
+    {
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = UndoFor };
+        timer.Tick += (_, _) => { timer.Stop(); Deleted = false; _deletedTalk = null; };
+        return timer;
+    }
+
+    /// <summary>Undo: the conversation back where it was in History (and on screen, if it was the one open).</summary>
+    [RelayCommand]
+    private void UndoDelete()
+    {
+        _undoTimer?.Stop();
+        Deleted = false;
+        if (_deletedTalk is not var (talk, at, wasCurrent)) return;
+        _deletedTalk = null;
+        if (Conversations.Contains(talk)) return;
+        Conversations.Insert(Math.Clamp(at, 0, Conversations.Count), talk);
+        if (wasCurrent) Current = talk;
+        Changed();
+        Log.Write("ask", "Conversation deleted, then put back with Undo");
     }
 
     [RelayCommand]
@@ -890,6 +1120,17 @@ public sealed partial class AskViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Esc while a name is being typed over: the old name back, and true so the window stays open (the main window
+    /// handles Esc first, and it closed the whole window with the rename, board 6, 2026-10-26).
+    /// </summary>
+    public bool CancelRename()
+    {
+        if (Conversations.FirstOrDefault(c => c.IsRenaming) is not { } talk) return false;
+        FinishRename(talk, keep: false);
+        return true;
+    }
+
     [RelayCommand] private void ToggleArchived() => ShowingArchived = !ShowingArchived;
 
     /// <summary>Something about the conversations changed: History again, and the file.</summary>
@@ -913,15 +1154,27 @@ public sealed partial class AskViewModel : ObservableObject
     private void Starter(string? text)
     {
         if (string.IsNullOrWhiteSpace(text) || ShowFirstQuestion) return;
+        if (CantAskNow) { Draft = text; return; }
         if (_starterLog is { } log) { var (topic, now) = (AiStarterLog.TopicOf(text), DateTime.Now); Task.Run(() => log.Picked(topic, now)); }
         Ask(text);
     }
 
-    /// <summary>One of the questions under the latest answer, asked as if typed.</summary>
-    [RelayCommand] private void AskSuggested(string? text) { if (!string.IsNullOrWhiteSpace(text) && !ShowFirstQuestion && !IsAnswering && !IsOutOfQuestions) Ask(text); }
+    /// <summary>One of the questions under the latest answer, asked as if typed (into the box while it can't go now).</summary>
+    [RelayCommand]
+    private void AskSuggested(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || ShowFirstQuestion) return;
+        if (CantAskNow) Draft = text; else Ask(text);
+    }
 
     // Nothing goes before the first-question window is read: Start asking is the way past it.
-    private bool CanSend() => !string.IsNullOrWhiteSpace(Draft) && !IsOutOfQuestions && !IsAnswering && !ShowFirstQuestion;
+    private bool CanSend() => !string.IsNullOrWhiteSpace(Draft) && !CantAskNow && !ShowFirstQuestion;
+
+    /// <summary>
+    /// A question can't go now: one is being answered, none are left, or the PC is offline. A button that asks (a starter,
+    /// Ask next, Ask again, Explain) then puts its question in the box instead of starting a second answer (board 6, 2026-10-26).
+    /// </summary>
+    private bool CantAskNow => IsAnswering || IsOutOfQuestions || ShowOffline;
 
     /// <summary>An answer is on its way: another question waits for it.</summary>
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendCommand))] [NotifyPropertyChangedFor(nameof(NextQuestions), nameof(HasNextQuestions), nameof(IsLastQuestion))] private bool _isAnswering;
@@ -941,11 +1194,10 @@ public sealed partial class AskViewModel : ObservableObject
 
     [RelayCommand] private void Settings() => OpenSettings?.Invoke();
 
-    [RelayCommand] private void ExplainCase(string? what) { if (!string.IsNullOrWhiteSpace(what)) Explain(what); }
-
     /// <summary>An Explain button: the window opens on a new conversation about that crash or change.</summary>
     public void Explain(string what)
     {
+        if (!IsEnabled) return;
         if (ShowFirstQuestion)
         {
             // Opened on the first-question window: the Explain goes once they press Start asking.
@@ -954,7 +1206,17 @@ public sealed partial class AskViewModel : ObservableObject
             IsOpen = true;
             return;
         }
-        var talk = new AskConversation { Title = Lang.T($"Explain: {what}"), LookingAt = what };
+        // "Explain the PC shut off suddenly…", but "Explain Rocket League crashed…": only a leading article is lowered.
+        string said = what.StartsWith("The ", StringComparison.Ordinal) || what.StartsWith("A ", StringComparison.Ordinal) ? AskAnswer.Lower(what) : what;
+        // An answer already running, none left or offline: no second answer, the question waits in the box (board 6, 2026-10-26).
+        if (CantAskNow)
+        {
+            IsHistoryOpen = false;
+            IsOpen = true;
+            Draft = Lang.T($"Explain {said}");
+            return;
+        }
+        var talk = new AskConversation { Title = Lang.T($"Explain {said}"), LookingAt = what };
         Conversations.Insert(0, talk);
         Current = talk;
         talk.Messages.Add(new AskThinking());
@@ -962,24 +1224,54 @@ public sealed partial class AskViewModel : ObservableObject
         IsOpen = true;
         Changed();
         // What it explains is a crash or shut-off: with those not shared, it isn't sent, and the window says where to turn them on.
-        if (Ai.Mode == AiMode.RigSight && PlanPagesNow() is { } open && !open.Contains(AiPages.Crashes))
-        {
-            talk.Messages.Clear();
-            talk.Messages.Add(LockedWall(AiPages.Get(AiPages.Crashes)!, $"Explain this from my PC's records: {what}"));
-            return;
-        }
+        // Crashes not in the plan: asked all the same, as a typed question is. The answer says what it could find and that
+        // the plan doesn't include Crashes, with the plan's card under it (the user, 2026-10-26: AI buttons on every page).
         if (!Ai.Sends(AiPages.Crashes))
         {
             talk.Messages.Clear();
-            talk.Messages.Add(new AskProblem(Lang.T("Explain needs the Crashes page switched on in Settings › AI.")));
+            talk.Messages.Add(new AskProblem(Lang.T("Explain needs the Crashes page switched on in Settings › Ask RigSight.")) { CanOpenSettings = true });
             return;
         }
-        Answer(talk, $"Explain this from my PC's records: {what}");
+        Answer(talk, $"Explain this from my PC's records: {what}", fromPage: AiPages.Crashes);
+    }
+
+    /// <summary>
+    /// A page's own question ("How can I make REMATCH run better?" on a game's page): the window opens on a new
+    /// conversation asking it. A page the plan doesn't open shows its card; one not shared, where to switch it on; with
+    /// no questions left, the question waits in the box above the card that says so.
+    /// </summary>
+    public void AskNew(string question, string page)
+    {
+        if (!IsEnabled) return;
+        if (ShowFirstQuestion)
+        {
+            _afterFirst = () => AskNew(question, page);
+            IsHistoryOpen = false;
+            IsOpen = true;
+            return;
+        }
+        IsHistoryOpen = false;
+        IsOpen = true;
+        if (CantAskNow) { Draft = question; return; }
+        var talk = new AskConversation { Title = question };
+        Conversations.Insert(0, talk);
+        Current = talk;
+        // A page the plan doesn't include is asked all the same, as a typed question is: the answer gives what it could find,
+        // says once that the plan doesn't include that page, and the plan's card comes under it (2026-10-26).
+        if (!Ai.Sends(page) && AiPages.Get(page) is { } off)
+        {
+            talk.Messages.Add(new AskProblem(Lang.T($"This needs the {off.Label} page switched on in Settings › Ask RigSight.")) { CanOpenSettings = true });
+            Changed();
+            return;
+        }
+        Ask(question, page);
     }
 
     /// <summary>The question goes in, and the helper starts on it.</summary>
-    private void Ask(string text)
+    private void Ask(string text, string? fromPage = null)
     {
+        // Asking closes the card about questions given, as "Got it" does (approved mock-up, 2026-10-25).
+        if (Gift is not null) CloseGift();
         var talk = Current ?? NewConversation();
         if (talk.Messages.Count == 0 && talk.Title.Length == 0) talk.Title = text;
         talk.When = DateTime.Now;
@@ -990,8 +1282,18 @@ public sealed partial class AskViewModel : ObservableObject
         talk.Messages.Add(new AskThinking());
         Changed();
         ToEnd();
-        Answer(talk, text);
+        Answer(talk, text, fromPage: fromPage);
     }
+
+    /// <summary>
+    /// A button's page the RigSight AI plan doesn't include (null: it does, or another helper answers). Its question says
+    /// so to the AI, unseen in the chat, and its answer gets that page's card even if the AI leaves it out (2026-10-26).
+    /// </summary>
+    /// <remarks>Only from the plan the relay said, never a guess: an answer waits for it (see <see cref="Answer"/>).</remarks>
+    private AiPage? LockedFor(string page) =>
+        Ai.Mode == AiMode.RigSight && Standing?.Plan?.Pages is { } open && !open.Contains(page) ? AiPages.Get(page) : null;
+
+    private static string LockedAside(AiPage page) => $"(Asked from RigSight's {page.Label} page, which my plan doesn't include.)";
 
     /// <summary>The records it may look at, read the way the pages read them.</summary>
     private AiTools? _tools;
@@ -1000,11 +1302,14 @@ public sealed partial class AskViewModel : ObservableObject
 
     /// <summary>Gets the answer (RigSight AI through the relay, my own key, or Ollama on my PC) and puts it in place of the "Thinking…" line.</summary>
     /// <param name="aside">Said to the AI with the question but never shown or kept as its words (a drive just scanned for it).</param>
-    private async void Answer(AskConversation talk, string question, string? aside = null)
+    /// <param name="fromPage">The page of the AI button it came from, which may be one the plan doesn't include.</param>
+    private async void Answer(AskConversation talk, string question, string? aside = null, string? fromPage = null)
     {
-        string sent = aside is null ? question : question + "\n\n" + aside;
         IsAnswering = true;
+        // What Try again and Ask again give again: the aside as it came (the locked page's note is added again from fromPage).
+        string? givenAside = aside;
         var took = System.Diagnostics.Stopwatch.StartNew();
+        // Made before the wait for the plan, so Stop works there too: nothing has gone yet (board 6, 2026-10-26).
         using var stop = new CancellationTokenSource();
         _answering = stop;
         // One stage going on far longer than usual (but not the model loading, which says so): say it's still at it,
@@ -1020,6 +1325,31 @@ public sealed partial class AskViewModel : ObservableObject
         longWait.Start();
         try
         {
+            // Never sent before the plan has come (opened and asked straight away): the look-ups it opens and a button's page
+            // come from it, and guessing either way is wrong (2026-10-26: guessed Free, a Complete PC was answered as if Reports
+            // were locked). The question and the thinking line show meanwhile, saying what it waits for (board 6); two
+            // tries, then it says so and sends nothing.
+            if (Ai.Mode == AiMode.RigSight && Standing is null)
+            {
+                talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(Lang.T("Checking your plan…"), Lang.T("Your question goes as soon as it's known."));
+                for (int attempt = 0; attempt < 2 && Standing is null; attempt++)
+                {
+                    if (attempt > 0) await Task.Delay(TimeSpan.FromSeconds(1), stop.Token);
+                    // Stop doesn't wait for the relay's reply: the plan still lands when it comes, for the next question.
+                    await Task.WhenAny(RefreshQuestionsAsync(theyAsked: true), Task.Delay(Timeout.Infinite, stop.Token));
+                    stop.Token.ThrowIfCancellationRequested();
+                }
+                if (Standing is null)
+                {
+                    Log.Write("ask", $"Question not sent: the plan couldn't be read from the relay ({PlanUnknown})");
+                    Unwait(talk);
+                    talk.Messages.Add(Problem(Lang.T("Your plan couldn't be checked, so the question wasn't sent. Ask again in a moment."), question, givenAside, fromPage));
+                    return;
+                }
+            }
+            var lockedFrom = fromPage is null ? null : LockedFor(fromPage);
+            if (lockedFrom is not null) aside = aside is null ? LockedAside(lockedFrom) : aside + "\n" + LockedAside(lockedFrom);
+            string sent = aside is null ? question : question + "\n\n" + aside;
             var reply = Ai.Mode switch
             {
                 AiMode.Ollama => await AskOllama(talk, sent, stop.Token),
@@ -1040,6 +1370,9 @@ public sealed partial class AskViewModel : ObservableObject
                     Model = reply.Model, Asked = question, Took = took.Elapsed,
                     Feedback = new AskFeedback(Ai.Mode == AiMode.RigSight ? _questionId : null),
                 };
+                if (answer.Locked is null && lockedFrom is not null) answer = answer with { Locked = lockedFrom };
+                answer = WithLockedPlan(answer);
+                PrepareSetups(answer);
                 int at = talk.Messages.IndexOf(talk.Messages.FirstOrDefault(m => m is AskWriting)!);
                 if (at >= 0) talk.Messages[at] = answer;
                 // Named by its first answer (leftover #10): only while it still has the question as its name, so a later
@@ -1057,23 +1390,35 @@ public sealed partial class AskViewModel : ObservableObject
             else
             {
                 Unwait(talk);
-                talk.Messages.Add(reply.Limit is { } limit ? LimitWall(limit, question) : new AskProblem(reply.Problem ?? Lang.T("No answer came back. Ask again.")));
+                if (reply.Limit is { } limit)
+                {
+                    talk.Messages.Add(LimitWall(limit, question));
+                    // The card says the question stays: it does, in the box (board 6, 2026-10-26).
+                    ToBox(talk, question);
+                }
+                else talk.Messages.Add(Problem(reply.Problem ?? Lang.T("No answer came back. Ask again."), question, givenAside, fromPage));
             }
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
         {
-            // The question stays where it was; it isn't sent again with the next one, since it got no answer.
-            // Stopped: whatever was written goes, and only the question stays (the person's word, 2026-10-23). It isn't sent
-            // again with the next one, since it got no answer. RigSight AI gives the question back, whenever Stop was pressed.
-            Log.Write("ask", "Stopped before the answer finished: the answer is hidden, the question stays");
+            // Stopped: whatever was written goes (the person's word, 2026-10-23), and a faint line says so with Ask again,
+            // the question back in the box (board 6, 2026-10-26). It isn't sent again with the next one, since it got no
+            // answer. RigSight AI gives the question back, whenever Stop was pressed.
+            bool sentYet = _questionId is not null;
+            Log.Write("ask", sentYet || Ai.Mode != AiMode.RigSight ? "Stopped before the answer finished: the answer is hidden, the question stays" : "Stopped while waiting for the plan: nothing was sent");
             Unwait(talk);
             if (Ai.Mode == AiMode.RigSight && _questionId is { } id) _ = GiveBackAsync(id);
+            talk.Messages.Add(new AskStoppedAnswer(Ai.Mode == AiMode.RigSight ? Lang.T("You stopped this answer. It wasn't counted.") : Lang.T("You stopped this answer."), question)
+            {
+                Aside = givenAside, FromPage = fromPage,
+            });
+            ToBox(talk, question);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Log.Error("ask", ex);
             Unwait(talk);
-            talk.Messages.Add(new AskProblem(Lang.T("Something went wrong while answering. Ask again.")));
+            talk.Messages.Add(Problem(Lang.T("Something went wrong while answering. Ask again."), question, givenAside, fromPage));
         }
         finally { IsAnswering = false; _answering = null; _questionId = null; longWait.Stop(); Save(); }
     }
@@ -1089,7 +1434,7 @@ public sealed partial class AskViewModel : ObservableObject
             string? line = part switch
             {
                 AskLine l => (l.IsPoint ? "• " : "") + (l.Lead ?? "") + Controls.Md.Plain(l.Text),
-                AskNext n when n.HasText => Lang.T($"Next step: {n.Text}"),
+                AskNext n when n.HasText => Lang.T($"Next step · {n.Text}"),
                 AskTable t => string.Join("\n", new[] { string.Join(" | ", t.Headings.Select(Controls.Md.Plain)) }.Concat(t.Rows.Select(r => string.Join(" | ", r.Select(Controls.Md.Plain))))),
                 _ => null,
             };
@@ -1122,7 +1467,8 @@ public sealed partial class AskViewModel : ObservableObject
     [RelayCommand]
     private void AskAgain(AskAnswer? answer)
     {
-        if (answer?.Asked is not { Length: > 0 } q || IsAnswering || IsOutOfQuestions || ShowFirstQuestion) return;
+        if (answer?.Asked is not { Length: > 0 } q || ShowFirstQuestion) return;
+        if (CantAskNow) { Draft = q; return; }
         var talk = Current;
         int at = talk?.Messages.IndexOf(answer) ?? -1;
         bool latest = talk is not null && at >= 0 && !talk.Messages.Skip(at + 1).Any(m => m is AskQuestion or AskAnswer);
@@ -1137,6 +1483,56 @@ public sealed partial class AskViewModel : ObservableObject
         Changed();
         Answer(talk, q);
     }
+
+    /// <summary>
+    /// A problem line with its way forward (board 6, 2026-10-26): Open Settings where the words send them there, Try again
+    /// unless only Settings can fix it (no key, no model, no Ollama model).
+    /// </summary>
+    private static AskProblem Problem(string text, string question, string? aside, string? fromPage)
+    {
+        bool settingsOnly = text == Lang.T("Add your API key in Settings › Ask RigSight and press Test.") || text == Lang.T("Pick a model in Settings › Ask RigSight.")
+            || text == Lang.T("Ollama has no models yet. Download one in Ollama, then pick it in Settings › Ask RigSight.");
+        return new AskProblem(text) { Question = settingsOnly ? null : question, Aside = aside, FromPage = fromPage, CanOpenSettings = SendsToSettings(text) };
+    }
+
+    /// <summary>The words send them to Settings ("… in Settings › Ask RigSight"), in English or the language pack's words.</summary>
+    internal static bool SendsToSettings(string text) =>
+        text.Contains("Settings ›", StringComparison.Ordinal) || text.Contains(Lang.T("Settings") + " ›", StringComparison.Ordinal);
+
+    /// <summary>
+    /// A question that didn't get its answer (stopped, or refused at a limit) goes back in the box (board 6, 2026-10-26):
+    /// only one the person asked (shown in the chat), and never over something they have typed since.
+    /// </summary>
+    private void ToBox(AskConversation talk, string question)
+    {
+        if (!talk.Messages.OfType<AskQuestion>().Any(q => q.Text == question)) return;
+        if (talk == Current) { if (string.IsNullOrWhiteSpace(Draft)) Draft = question; }
+        else if (string.IsNullOrWhiteSpace(talk.Draft)) talk.Draft = question;
+    }
+
+    /// <summary>
+    /// Try again under a problem, or Ask again under a stopped answer (board 6, 2026-10-26): the same question once more
+    /// in the same conversation, that line gone, with no second question bubble. While a question can't go, it waits in
+    /// the box instead.
+    /// </summary>
+    private void Rerun(AskMessage line, string question, string? aside, string? fromPage)
+    {
+        if (Current is not { } talk || !talk.Messages.Contains(line) || ShowFirstQuestion) return;
+        if (CantAskNow) { Draft = question; return; }
+        talk.Messages.Remove(line);
+        if (Draft.Trim() == question) Draft = "";
+        talk.When = DateTime.Now;
+        if (Conversations.IndexOf(talk) is > 0 and var at) Conversations.Move(at, 0);
+        talk.Messages.Add(new AskThinking());
+        Changed();
+        ToEnd();
+        Log.Write("ask", line is AskProblem ? "Try again after a problem: the same question in its place" : "Ask again after Stop: the same question in its place");
+        Answer(talk, question, aside, fromPage);
+    }
+
+    [RelayCommand] private void TryAgain(AskProblem? problem) { if (problem?.Question is { } q) Rerun(problem, q, problem.Aside, problem.FromPage); }
+
+    [RelayCommand] private void AskStoppedAgain(AskStoppedAnswer? stopped) { if (stopped is not null) Rerun(stopped, stopped.Question, stopped.Aside, stopped.FromPage); }
 
     /// <summary>The relay's id for the question being answered (RigSight AI), for Stop to give it back.</summary>
     private string? _questionId;
@@ -1159,6 +1555,13 @@ public sealed partial class AskViewModel : ObservableObject
     {
         var offers = Standing?.Plans ?? [];
         var paid = offers.Where(o => !o.IsFree).ToList();
+        // Free questions switched off on the relay for now ("paused", or an older relay's "free"): said as paused, not as a
+        // week or a day used up (board 6, 2026-10-26), with the first plan, which still answers.
+        if (limit.Kind is "paused" or "free" || FreePaused)
+        {
+            var first = paid.FirstOrDefault();
+            return new AskWall(Lang.T("Free questions are paused right now."), PausedText, first?.Id, first?.Name, question);
+        }
         if (limit.Kind == "week")
         {
             string day = limit.ResetsAt is { } at ? TimeText.At(at, "dddd") : Lang.T("Monday");
@@ -1177,23 +1580,19 @@ public sealed partial class AskViewModel : ObservableObject
             bigger?.Id, bigger?.Name, question) { Switch = current is { IsFree: false, CanManage: true } };
     }
 
-    /// <summary>The card for something only a bigger plan reads (Explain on Free needs Crashes).</summary>
-    private AskWall LockedWall(AiPage page, string question)
-    {
-        var offer = (Standing?.Plans ?? []).FirstOrDefault(o => !o.IsFree && o.Pages.Contains(page.Id));
-        string name = offer?.Name ?? Lang.T("a plan");
-        return new AskWall(Lang.T($"This needs the {page.Label} page."), Lang.T($"{page.Description}. It comes with {name}."), offer?.Id, offer?.Name, question)
-            { Switch = Standing?.Plan is { IsFree: false, CanManage: true } };
-    }
-
     /// <summary>A card's main button: buy (or switch to) its plan, then send the question that hit the limit.</summary>
     [RelayCommand]
     private async Task UseWall(AskWall? wall)
     {
         if (wall?.Plan is not { } plan || Plans is null) return;
-        bool on = wall.Switch ? await Plans.SwitchNowAsync(plan) : await Plans.BuyAsync(plan);
+        // Buying happens in the browser and can take minutes: the card says it's waiting, in place (it said nothing before).
+        if (!wall.Switch) wall.Pay.Waiting = true;
+        bool on;
+        try { on = wall.Switch ? await Plans.SwitchNowAsync(plan) : await Plans.BuyAsync(plan); }
+        finally { wall.Pay.Waiting = false; }
         if (!on || Current is not { } talk) return;
-        bool inChat = talk.Messages.Contains(wall);
+        talk.Messages.Add(new AskDone(Lang.T($"{wall.PlanName} is on. Asking your question now.")));
+        bool inChat = talk.Messages.Contains(wall) || wall.FromAnswer;
         // The out box's card was made before the question was typed: what's in the box now is the question.
         talk.Messages.Remove(wall);
         string q = wall.Question is { Length: > 0 } asked && inChat ? asked : Draft.Trim();
@@ -1207,6 +1606,17 @@ public sealed partial class AskViewModel : ObservableObject
     }
 
     [RelayCommand] private void SeePlans() => Plans?.Open();
+
+    /// <summary>The checkout again, while a card waits for the payment (the tab was closed, or went behind).</summary>
+    [RelayCommand]
+    private void ReopenCheckout(string? plan)
+    {
+        if ((Standing?.Plans ?? []).FirstOrDefault(o => o.Id == plan) is { } offer && Uri.TryCreate(offer.Url, UriKind.Absolute, out var url) && url.Scheme == Uri.UriSchemeHttps)
+            Browser.Open(url.AbsoluteUri);
+    }
+
+    /// <summary>Cancel on a waiting card: stops waiting for the payment (nothing is bought or cancelled by it).</summary>
+    [RelayCommand] private void StopPaying() => Plans?.StopWaitingCommand.Execute(null);
 
     /// <summary>Takes the "Thinking…" line and any half-written answer away, for the finished answer or a problem.</summary>
     private static void Unwait(AskConversation talk)
@@ -1336,6 +1746,41 @@ public sealed partial class AskViewModel : ObservableObject
         finally { if (first) CheckingPlan = false; }
     }
 
+    /// <summary>Questions given from the admin site not yet told: the card above the question box; null when none.</summary>
+    [ObservableProperty] private AskGift? _gift;
+
+    /// <summary>
+    /// The card for gifts not yet seen, as one: "You've got 50 extra questions", used after the plan's own and kept until
+    /// used (the person's rule, 2026-10-25). Without a message, it says who gave them.
+    /// </summary>
+    internal static AskGift? GiftFor(RelayStatus status, IReadOnlyCollection<long> seen)
+    {
+        var fresh = status.Gifts.Where(g => !seen.Contains(g.Id)).ToList();
+        if (fresh.Count == 0) return null;
+        int got = fresh.Sum(g => g.N);
+        string title = got == 1 ? Lang.T("You've got 1 extra question") : Lang.T($"You've got {got} extra questions");
+        string text = status.Plan switch
+        {
+            { IsFree: true, Cap: > 0 } p => Lang.T($"They're used after your {p.Cap} free a week, and they don't run out."),
+            { IsFree: false } p => Lang.T($"They're used once {p.Name}'s {p.Cap} for the day are gone, and they don't run out."),
+            _ => Lang.T("They're used after your plan's own, and they don't run out."),
+        };
+        string? note = fresh.Select(g => g.Note).FirstOrDefault(n => n is not null);
+        if (note is null) text = Lang.T("Given by RigSight.") + " " + text;
+        return new AskGift([.. fresh.Select(g => g.Id)], title, text, note);
+    }
+
+    /// <summary>"Got it", or a question asked: the card goes and isn't shown again for these gifts.</summary>
+    [RelayCommand]
+    private void CloseGift()
+    {
+        if (Gift is not { } gift) return;
+        Log.Write("ask", $"Questions given told and closed: {gift.Title} (gifts {string.Join(", ", gift.Ids)})");
+        // The newest 50 kept: a gift runs a week at most, so older ids are never sent again.
+        _settings.Update(s => s.Ai.GiftsSeen = [.. s.Ai.GiftsSeen.Concat(gift.Ids).Distinct().TakeLast(50)]);
+        Gift = null;
+    }
+
     /// <summary>Asking the relay where this PC stands while nothing is known yet.</summary>
     [ObservableProperty] private bool _checkingPlan;
     /// <summary>Why the plan couldn't be checked, while nothing is known yet; null otherwise.</summary>
@@ -1345,24 +1790,32 @@ public sealed partial class AskViewModel : ObservableObject
     public void Show(RelayStatus status)
     {
         Standing = status;
+        Gift = GiftFor(status, Ai.GiftsSeen);
         OnPropertyChanged(nameof(OutOffer));
         HasLicence = status.HasLicence && status.LicenceStatus == "active";
         // A relay with plans counts this week's free ones or today's; an older one, what's left in all.
-        QuestionsLeft = status.Plan?.Left ?? status.QuestionsLeft;
-        OnPropertyChanged(nameof(QuestionsLeftText));
-        OnPropertyChanged(nameof(IsLow));
+        QuestionsLeft = status.Plan?.AllLeft ?? status.QuestionsLeft;
+        foreach (var name in new[] { nameof(QuestionsLeftText), nameof(IsLow), nameof(QuestionsLine), nameof(QuestionsNote), nameof(ShowSeePlans), nameof(IsOutOfQuestions), nameof(ShowOutBox) })
+            OnPropertyChanged(name);
+        SendCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>The relay's latest word on this PC's questions and licence; null until it answers.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(LicenceOff), nameof(OutTitle), nameof(OutText), nameof(QuestionsLeftText), nameof(ShowQuestionsPill), nameof(IsLastQuestion), nameof(LastQuestionTitle), nameof(LastQuestionText), nameof(FirstExtra))] private RelayStatus? _standing;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(LicenceOff), nameof(OutTitle), nameof(OutText), nameof(QuestionsLeftText), nameof(QuestionsLine), nameof(QuestionsNote), nameof(ShowSeePlans), nameof(IsLastQuestion), nameof(LastQuestionTitle), nameof(LastQuestionText), nameof(FirstExtra))] private RelayStatus? _standing;
 
     /// <summary>
     /// The plan known (or changed): a new chat's starters are read again for its pages. Until the relay answers, Free's
-    /// are assumed, which left one starter of four on a Complete plan (2026-10-24).
+    /// are assumed, which left one starter of four on a Complete plan (2026-10-24). Answers' plan cards follow the plan too:
+    /// one for a page the plan now includes goes (board 6, 2026-10-26).
     /// </summary>
     partial void OnStandingChanged(RelayStatus? oldValue, RelayStatus? newValue)
     {
-        if (ShowStarters && !SamePages(oldValue?.Plan?.Pages, newValue?.Plan?.Pages)) RefreshStarters();
+        if (SamePages(oldValue?.Plan?.Pages, newValue?.Plan?.Pages)) return;
+        if (ShowStarters) RefreshStarters();
+        foreach (var talk in Conversations)
+            for (int i = 0; i < talk.Messages.Count; i++)
+                if (talk.Messages[i] is AskAnswer { Locked: { } page } answer && newValue?.Plan?.Pages.Contains(page.Id) == true)
+                    talk.Messages[i] = WithLockedPlan(answer);
     }
 
     private static bool SamePages(IReadOnlyList<string>? a, IReadOnlyList<string>? b) =>
@@ -1394,7 +1847,8 @@ public sealed partial class AskViewModel : ObservableObject
         || LockedLine.IsMatch(words) || AiActions.Marker(words) is not null;
     private static readonly Regex NextStep = new(@"^(?:[-*•]\s*)?\[?\s*(next step|siguiente paso|pr[oó]ximo paso)\s*:\s*(?<rest>.+?)\s*\]?$", RegexOptions.IgnoreCase);
     private static readonly Regex TableRule = new(@"^\|?\s*:?-{2,}");
-    private static readonly Regex LockedLine = new(@"^\[\s*locked\s*:\s*(?<page>[a-z]+)\s*\]$", RegexOptions.IgnoreCase);
+    // "[locked: storage]", and since actions-2 "[locked: storage | See what fills the E drive]": what this question would get.
+    private static readonly Regex LockedLine = new(@"^\[\s*locked\s*:\s*(?<page>[a-z]+)\s*(?:\|\s*(?<gain>[^\]]{2,80}?))?\s*\]$", RegexOptions.IgnoreCase);
     // "Ask next: Was it the same on Monday? | Which game heats the GPU most?": questions to offer under the answer.
     // "Title: Sudden shut-off at 4:44 PM": the conversation's name, on its first answer only.
     private static readonly Regex TitleLine = new(@"^(?:[-*•]\s*)?\[?\s*(title|t[ií]tulo)\s*:\s*(?<rest>.+?)\s*\]?$", RegexOptions.IgnoreCase);
@@ -1458,13 +1912,18 @@ public sealed partial class AskViewModel : ObservableObject
         string? title = null;
         var markers = new List<string>();
         AiPage? locked = null;
+        string? lockedGain = null;
         for (int i = 0; i < lines.Count; i++)
         {
             string raw = lines[i], l = W(raw);
             // "[locked: games]": a page the plan doesn't open would have helped; said once, under the answer.
             if (LockedLine.Match(l) is { Success: true } lockedLine)
             {
-                locked ??= AiPages.Get(lockedLine.Groups["page"].Value.ToLowerInvariant());
+                if (locked is null && AiPages.Get(lockedLine.Groups["page"].Value.ToLowerInvariant()) is { } page)
+                {
+                    locked = page;
+                    lockedGain = lockedLine.Groups["gain"].Success ? lockedLine.Groups["gain"].Value.Trim().TrimEnd('.') : null;
+                }
                 continue;
             }
             if (AiActions.Marker(l) is { } marker)
@@ -1524,7 +1983,7 @@ public sealed partial class AskViewModel : ObservableObject
             bool isPoint = Point.IsMatch(raw);
             string body = Point.Replace(raw, "");
             var refs = RefsFor(refsOf[i]);
-            parts.Add(LeadIn.Match(body) is { Success: true } lead ? new AskLine(lead.Groups["rest"].Value, isPoint, lead.Groups["lead"].Value) { Refs = refs } : new AskLine(body, isPoint) { Refs = refs });
+            parts.Add(LeadIn.Match(body) is { Success: true } lead ? new AskLine(lead.Groups["rest"].Value, isPoint, Controls.Md.Plain(lead.Groups["lead"].Value)) { Refs = refs } : new AskLine(body, isPoint) { Refs = refs });
         }
         // The first line stands out only as an opening sentence with more after it: a short reply alone, or a whole
         // paragraph first, read as all bold ("text feels so bold", 2026-10-21).
@@ -1561,19 +2020,22 @@ public sealed partial class AskViewModel : ObservableObject
             var list = buttons.ToList();
             if (stepOpens is { } o && list.Count < AiActions.Most && !list.Any(b => b.Kind == AiActionKind.OpenPage && b.Target == o.Page))
                 list.Add(new AiAction(AiActionKind.OpenPage, o.Label, o.Page == "processes" ? "\uE9D9" : "\uE8A7", o.Page, o.Focus));
-            // Close first: it's the card's own button ("Close it"); the rest after it.
-            list = [.. list.OrderBy(b => b.Kind == AiActionKind.CloseApp ? 0 : 1)];
+            // Close first: it's the card's own button ("Close it"); the rest after it, and the widget, overlay and taskbar
+            // cards last (they're cards of their own, so the first line still says what the step is for).
+            list = [.. list.OrderBy(b => b.Kind == AiActionKind.CloseApp ? 0 : b.IsSetup ? 2 : 1)];
             bool card = list.Any(b => b.Kind == AiActionKind.CloseApp);
             next = next with { Actions = [.. list.Select((b, k) => new AskAction(b)
             {
                 Role = k == 0 ? AskActionRole.Main : k == 1 ? AskActionRole.Second : AskActionRole.Link,
                 // As a line, the first one says what it's for (the step), so the step isn't said twice.
-                Why = !card && k == 0 && next.Text.Length > 0 ? next.Text : null,
+                // A maker's page says which site it opens ("· amd.com"), as the approved artifact draws it.
+                Why = !card && k == 0 && next.Text.Length > 0 ? next.Text
+                    : b.Kind == AiActionKind.OpenWeb && Uri.TryCreate(b.Target, UriKind.Absolute, out var site) ? site.Host.Replace("www.", "") : null,
                 InCard = card,
             })] };
             if (at >= 0) parts[at] = next; else parts.Add(next);
         }
-        return new AskAnswer(verdict, parts, null, Chips(lookUps)) { Raw = text, LookUps = lookUps, Drawn = drawnBy, Suggestions = suggestions, VerdictRefs = verdictRefs, Locked = writing ? null : locked, Title = title };
+        return new AskAnswer(verdict, parts, null, Chips(lookUps)) { Raw = text, LookUps = lookUps, Drawn = drawnBy, Suggestions = suggestions, VerdictRefs = verdictRefs, Locked = writing ? null : locked, LockedGain = writing ? null : lockedGain, Title = title };
     }
 
     /// <summary>The page the next step points to: where the records the answer leaned on are shown.</summary>
@@ -1651,6 +2113,8 @@ public sealed partial class AskViewModel : ObservableObject
                 talk.Sent.AddRange([new AiTurn(true, pair.First.Text), new AiTurn(false, pair.Second.Text, pair.Second.LookUps?.Select(l => l.ToLookUp()).ToList())]);
         Tools();
         var tools = _tools;
+        var canRead = CanReadNow();
+        var (sensors, tray) = (SetupSensors?.Invoke(), TrayReadings?.Invoke());
         List<AskMessage> messages;
         try
         {
@@ -1672,9 +2136,9 @@ public sealed partial class AskViewModel : ObservableObject
                             Func<string, IReadOnlyList<AiBlock>> draw = m.Drawn is { } kept
                                 ? marker => kept.TryGetValue(marker, out var b) ? b : []
                                 : marker => tools.Blocks(marker, looks);
-                            list.Add(ToAnswer(m.Text, looks, draw, actions: markers => AiActions.Resolve(markers, new AiActionContext(looks, null, tools.Installed, true))
+                            list.Add(WithLockedPlan(ToAnswer(m.Text, looks, draw, actions: markers => AiActions.Resolve(markers, new AiActionContext(looks, null, tools.Installed, true, canRead, OpenableOnPc, StartMenu, sensors, tray))
                                 .Where(a => a.Kind is not (AiActionKind.CloseApp or AiActionKind.CheckAgain or AiActionKind.StartAgent)).ToList())
-                                with { Model = m.Model, Asked = list.OfType<AskQuestion>().LastOrDefault()?.Text });
+                                with { Model = m.Model, Asked = list.OfType<AskQuestion>().LastOrDefault()?.Text }));
                             break;
                     }
                 }
@@ -1686,6 +2150,7 @@ public sealed partial class AskViewModel : ObservableObject
             Log.Error("ask", ex);
             messages = [new AskProblem(Lang.T("This conversation couldn't be opened."))];
         }
+        foreach (var answer in messages.OfType<AskAnswer>()) PrepareSetups(answer);
         foreach (var m in messages) talk.Messages.Add(m);
         // A check from before: compared now if its time has passed, counted down otherwise.
         var checks = messages.OfType<AskCheck>().ToList();
@@ -1729,6 +2194,7 @@ public sealed partial class AskViewModel : ObservableObject
             AskAnswer a => new SavedMessage(SavedMessage.Answer, a.Raw, a.Model, [.. a.LookUps.Select(SavedLookUp.From)], a.Drawn),
             AskProblem p => new SavedMessage(SavedMessage.Problem, p.Text),
             AskStopped x => new SavedMessage(SavedMessage.Stopped, x.Text),
+            AskStoppedAnswer x => new SavedMessage(SavedMessage.Stopped, x.Text),
             AskDone d => new SavedMessage(SavedMessage.Done, d.Text),
             AskCheck k => new SavedMessage(SavedMessage.Check, k.Saved),
             _ => null,
@@ -1764,11 +2230,14 @@ public sealed partial class AskViewModel : ObservableObject
                 }.Where(g => g.Conversations.Count > 0),
             ];
         OnPropertyChanged(nameof(HasHistory));
+        OnPropertyChanged(nameof(HistoryEmptyText));
         OnPropertyChanged(nameof(ArchivedCount));
         OnPropertyChanged(nameof(HasArchived));
     }
 
     public bool HasHistory => Groups.Count > 0;
+    /// <summary>Nothing in History: none yet, or none matching the search (it said "No conversations yet." to a search, board 6).</summary>
+    public string HistoryEmptyText => HistorySearch.Trim().Length > 0 ? Lang.T("No conversations match") : Lang.T("No conversations yet.");
 
 
 }

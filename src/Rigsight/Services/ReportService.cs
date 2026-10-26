@@ -456,7 +456,7 @@ public sealed class ReportService(SettingsModel settings)
                 Core.Stability.CrashKind.UnexpectedShutdown => bars.Count > 0 ? Lang.T("Sudden shut-offs like this, by month") : Lang.T("Sudden shut-offs like this"),
                 Core.Stability.CrashKind.SystemCrash => Lang.T("This blue screen on this PC"),
                 Core.Stability.CrashKind.GpuDriverReset => bars.Count > 0 ? Lang.T("Graphics driver resets, by month") : Lang.T("Graphics driver resets"),
-                _ => bars.Count > 0 ? Lang.T($"{crashedApp}: this problem, by month") : Lang.T($"{crashedApp} on this PC"),
+                _ => bars.Count > 0 ? Lang.T($"This {crashedApp} problem, by month") : Lang.T($"{crashedApp} on this PC"),
             };
 
             return new Models.CrashCase
@@ -487,12 +487,12 @@ public sealed class ReportService(SettingsModel settings)
                 var app = db.LoadApps().FirstOrDefault(a => a.Exe.Equals(e.AppExe, StringComparison.OrdinalIgnoreCase));
                 if (app is null) return null;
                 var again = db.GetSessions(ts + 5, ts + Models.CrashCase.MinutesAfter * 60).Where(x => x.AppId == app.Id && x.Start > ts + 5).MinBy(x => x.Start);
-                if (again is not null) return Lang.T($"After: {nameOf(app.Id)} was opened again {Core.Stability.CrashFindings.Words(again.Start - ts)} later.");
+                if (again is not null) return Lang.T($"{nameOf(app.Id)} was opened again {Core.Stability.CrashFindings.Words(again.Start - ts)} later.");
                 return (to - TimeUtil.FromUnix(ts)).TotalMinutes >= Models.CrashCase.MinutesAfter - 0.5
-                    ? Lang.T($"After: {nameOf(app.Id)} wasn't opened again in the {Models.CrashCase.MinutesAfter} minutes after.") : null;
+                    ? Lang.T($"{nameOf(app.Id)} wasn't opened again in the {Models.CrashCase.MinutesAfter} minutes after.") : null;
             }
             if (e.Kind is Core.Stability.CrashKind.UnexpectedShutdown or Core.Stability.CrashKind.SystemCrash && row.Input?.Context?.BackOn is long on && on > ts && on - ts <= 3 * 3600)
-                return Lang.T($"After: back on {Core.Stability.CrashFindings.Words(on - ts)} later.");
+                return Lang.T($"It was back on {Core.Stability.CrashFindings.Words(on - ts)} later.");
             return null;
         }
 

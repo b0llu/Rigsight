@@ -48,10 +48,10 @@ public sealed class PlanColumn(RelayPlanOffer offer, PlansViewModel owner, int r
         : Offer.Weekly ? Lang.T($"{Offer.Cap} questions a week") : Lang.T($"Up to {Offer.Cap} questions a day");
     public string QuestionsWhen => Offer is { IsFree: true, Cap: 0 } ? Lang.T("A plan keeps answering")
         : Offer.Weekly ? Lang.T($"Back to {Offer.Cap} every Monday") : Lang.T("Starts again every midnight");
-    public string Everything => rank == 0 ? "" : Lang.T($"Everything in {owner.Columns[rank - 1].Name}, and:");
+    public string Everything => rank == 0 ? "" : Lang.T($"Everything in {owner.Columns[rank - 1].Name}, plus");
     public bool HasEverything => rank > 0;
 
-    /// <summary>"Everything in Free" in bold, then ", plus:": one line of words, the part that names the plan bold.</summary>
+    /// <summary>"Everything in Free" in bold, then ", plus": one line of words, the part that names the plan bold.</summary>
     public string EverythingIn => rank == 0 ? "" : Lang.T($"Everything in {owner.Columns[rank - 1].Name}");
 
     /// <summary>The plan's place, for its colour: 0 Free (sky), 1 the middle plan (blue), 2 the top one (violet).</summary>
@@ -79,7 +79,7 @@ public sealed class PlanColumn(RelayPlanOffer offer, PlansViewModel owner, int r
     public bool CanSwitch => !Offer.IsFree && !owner.IsFree && !IsMine && owner.Plan is { CanManage: true, Ending: false };
     public string BuyText => Lang.T($"Get {Name}");
     public string SwitchText => Lang.T($"Switch to {Name}");
-    public string MineText => Offer.IsFree ? owner.FreeLine : Lang.T("Your plan");
+    public string MineText => (Offer.IsFree ? owner.FreeLine : Lang.T("Your plan")) + (owner.HasGiven ? " · " + Lang.T($"{owner.Plan!.Given} given") : "");
     public bool ShowMine => IsMine;
     public bool ShowNothing => !IsMine && !CanBuy && !CanSwitch;
     /// <summary>Free's column while on a plan: what RigSight goes back to, so its button's place isn't left empty.</summary>
@@ -103,6 +103,9 @@ public sealed class PlanColumn(RelayPlanOffer offer, PlansViewModel owner, int r
         AiPages.Fans => Lang.Key("Fan speeds, and fans wearing out"),
         AiPages.Sensors => Lang.Key("Every sensor reading"),
         AiPages.Rewind => Lang.Key("Your Rewind"),
+        AiPages.Widgets => Lang.Key("Which widgets suit you"),
+        AiPages.Overlay => Lang.Key("What your game overlay should show"),
+        AiPages.Taskbar => Lang.Key("Which taskbar readings to keep"),
         _ => Lang.Key("Your own dashboards"),
     };
 }
@@ -162,7 +165,9 @@ public sealed partial class PlansViewModel : ObservableObject
     /// Nothing known and the relay asked: the whole card (plan and licence) waits with a spinner, so Free never shows
     /// before the real plan. Couldn't ask: says so with Try again, in place of a guess.
     /// </summary>
-    public bool Loading => _ask.CheckingPlan && _ask.Standing is null;
+    /// <remarks>Not only while a check is in flight: the moment before one starts showed Free for a second or two, and a
+    /// press of See plans then opened Free's plans on a Complete PC (2026-10-26). Unknown and not failed is loading.</remarks>
+    public bool Loading => _ask.ShowQuestionsLeft && _ask.Standing is null && _ask.PlanUnknown is null;
     public bool CantTell => !Loading && _ask.Standing is null && _ask.PlanUnknown is not null;
     public string CantTellText => _ask.PlanUnknown ?? "";
     public bool ShowPlan => !Loading && !CantTell;
@@ -182,7 +187,7 @@ public sealed partial class PlansViewModel : ObservableObject
     public string StateText => Plan switch
     {
         { IsFree: true, Cap: 0 } => Lang.T("Paused for now"),
-        { IsFree: true } p => p.Left == 1 ? Lang.T("1 of 10 left this week") : Lang.T($"{p.Left} of {p.Cap} left this week"),
+        { IsFree: true } p => p.Left == 1 && p.Cap == 10 ? Lang.T("1 of 10 left this week") : Lang.T($"{p.Left} of {p.Cap} left this week"),
         { Gift: true } => Lang.T("Given by RigSight"),
         { Ending: true, EndsAt: { } end } => Lang.T($"Ends {TimeText.At(end, "d MMMM")}"),
         { PastDue: true } => Lang.T("Payment didn't go through"),
@@ -210,6 +215,13 @@ public sealed partial class PlansViewModel : ObservableObject
     private static string PagesText(int n) => n >= AiPages.All.Count ? Lang.T($"all {AiPages.All.Count} pages") : Lang.T($"{n} of {AiPages.All.Count} pages");
 
     public double UsedPart => Plan is { Cap: > 0 } p ? Math.Clamp((double)p.Used / p.Cap, 0, 1) : 0;
+
+    // Questions given from the admin site (the person's rule, 2026-10-25): kept until used, after the plan's own, so a
+    // line of their own under the day's or week's bar, saying who gave them, for as long as any are left.
+    public bool HasGiven => Plan is { Given: > 0 };
+    public string GivenText => Plan is not { Given: > 0 } p ? ""
+        : p.IsFree ? Lang.T($"{p.Given} given by RigSight · used after this week's {p.Cap}, they don't run out")
+        : Lang.T($"{p.Given} given by RigSight · used after {p.Name}'s {p.Cap} a day, they don't run out");
     public string UsedText => Plan is not { } p ? ""
         : p.Weekly ? Lang.T($"{p.Used} of {p.Cap} free questions used this week")
         : Lang.T($"{p.Used} of {p.Cap} questions used today · starts again at midnight");
@@ -443,7 +455,7 @@ public sealed partial class PlansViewModel : ObservableObject
             ? Lang.T($"{to.Name} opens straight away, with up to {to.Offer.Cap} questions a day. You pay the difference for the rest of this month now (about {Estimate(to)}), then {to.Offer.Price} a month from {TimeText.At(on, "d MMMM")}.")
         : Up(to)
             ? Lang.T($"{to.Name} opens straight away, with up to {to.Offer.Cap} questions a day. You pay the difference for the rest of this month now (about {Estimate(to)}), then {to.Offer.Price} a month.")
-            : Lang.T($"It starts now: answers use {PagesText(to.Offer.Pages.Count)}, with up to {to.Offer.Cap} questions a day. What's left of this month comes off your next payment.");
+            : Lang.T($"It starts now. Answers use {PagesText(to.Offer.Pages.Count)}, with up to {to.Offer.Cap} questions a day. What's left of this month comes off your next payment.");
 
     private bool Up(PlanColumn to) => Plan is { } p && Columns.FirstOrDefault(c => c.Offer.Id == p.Id) is { } mine && to.Offer.PriceCents > mine.Offer.PriceCents;
 

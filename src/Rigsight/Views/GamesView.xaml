@@ -1,7 +1,8 @@
 ﻿<UserControl x:Class="Rigsight.Views.GamesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctl="clr-namespace:Rigsight.Controls">
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:svc="clr-namespace:Rigsight.Services">
     <UserControl.Resources>
         <!-- The frame rate's own blue (not a part's colour), or the picked accent (Accents.Fps), and the Play button in it. -->
         <Style x:Key="PlayButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
@@ -130,7 +131,11 @@
                                     </LinearGradientBrush>
                                 </Rectangle.OpacityMask>
                             </Rectangle>
-                            <Button Style="{StaticResource PageExportButton}" HorizontalAlignment="Right" Margin="0,16,22,0" Height="30" Padding="12,0" />
+                            <!-- The library's question for the AI (mock-up board 5), left of Export, over the banner. -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,16,22,0">
+                                <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'Which game needs tuning?'}" CommandParameter="{x:Static svc:PageAsks.Games}" AutomationProperties.Name="{ctl:T 'Which game needs tuning?'}" Height="30" Padding="12,0" Margin="0" Background="{DynamicResource Surface2Brush}" />
+                                <Button Style="{StaticResource PageExportButton}" Height="30" Padding="12,0" />
+                            </StackPanel>
                             <Grid Margin="28,0,28,22" VerticalAlignment="Bottom">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -434,14 +439,36 @@
                     </Grid>
 
                     <StackPanel Margin="28,22,28,30">
-                        <!-- How it runs -->
+                        <!-- How it runs: all plays, or (once every frame was kept) the newest play's every frame (approved mock-up, 2026-10-25). -->
                         <ctl:SmoothBorder Style="{StaticResource Card}">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,12">
-                                    <TextBlock DockPanel.Dock="Left" Text="{ctl:T 'How it runs'}" Style="{StaticResource H2}" />
+                                    <TextBlock DockPanel.Dock="Left" Text="{ctl:T 'How it runs'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                                    <Border DockPanel.Dock="Left" Style="{StaticResource SegmentHost}" Margin="14,0,0,0" VerticalAlignment="Center"
+                                            Visibility="{Binding HasEveryFrame, Converter={StaticResource Vis}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Style="{StaticResource Segment}" GroupName="RunsView" Content="{ctl:T 'All plays'}" IsChecked="{Binding ShowPlaysChart, Mode=OneWay}" Command="{Binding ShowPlaysCommand}" />
+                                            <RadioButton Style="{StaticResource Segment}" GroupName="RunsView" Content="{Binding FramesViewName}" IsChecked="{Binding FramesView, Mode=OneWay}" Command="{Binding ShowFramesCommand}" />
+                                        </StackPanel>
+                                    </Border>
                                     <TextBlock DockPanel.Dock="Left" Text="{Binding FpsChartNote}" Style="{StaticResource Muted}" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center"
                                                Visibility="{Binding FpsByMinute, Converter={StaticResource Vis}}" />
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Visibility="{Binding HasFpsChart, Converter={StaticResource Vis}}">
+                                    <!-- The plays' key -->
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding HasFpsChart}" Value="True" />
+                                                            <Condition Binding="{Binding FramesView}" Value="False" />
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </MultiDataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
                                         <Ellipse Width="10" Height="10" Fill="{DynamicResource FpsBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
                                         <TextBlock Text="{ctl:T 'Average FPS'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,14,0" />
                                         <Line X1="0" X2="14" Y1="0" Y2="0" Stroke="{DynamicResource MutedBrush}" StrokeThickness="2" StrokeDashArray="1.5 1.2" VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -453,30 +480,67 @@
                                             <TextBlock Text="{ctl:T 'Driver or game update'}" Style="{StaticResource Muted}" FontSize="12" />
                                         </StackPanel>
                                     </StackPanel>
+                                    <!-- Every frame's key -->
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="{Binding FramesView, Converter={StaticResource Vis}}">
+                                        <Border Width="14" Height="3" CornerRadius="1.5" Background="{DynamicResource FpsBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{ctl:T 'Usual frame'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,14,0" />
+                                        <Border Width="14" Height="10" CornerRadius="2" Background="{DynamicResource FpsBrush}" Opacity="0.25" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{ctl:T 'Most frames'}" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,14,0" />
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource WarmBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{ctl:T 'Stutter'}" Style="{StaticResource Muted}" FontSize="12" />
+                                    </StackPanel>
                                 </DockPanel>
                                 <Grid Visibility="{Binding HasFps, Converter={StaticResource Vis}}">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="170" />
+                                        <ColumnDefinition Width="190" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="{ctl:T 'AVERAGE'}" Style="{StaticResource Caption}" />
                                         <TextBlock FontSize="34" FontWeight="SemiBold"><Run Text="{Binding FpsAvg, Mode=OneWay}" /><Run Text=" fps" FontSize="14" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" /></TextBlock>
-                                        <TextBlock Text="{ctl:T '1% LOW'}" Style="{StaticResource Caption}" Margin="0,14,0,0" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                            <TextBlock Text="{ctl:T '1% LOW'}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                            <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="6,0,0,0" VerticalAlignment="Center" Cursor="Help"
+                                                       ToolTip="{ctl:T 'The frame rate of the slowest 1 frame in 100. Close to the average means smooth; far below it, you feel it.'}" />
+                                        </StackPanel>
                                         <TextBlock FontSize="34" FontWeight="SemiBold"><Run Text="{Binding FpsLow, Mode=OneWay}" /><Run Text=" fps" FontSize="14" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" /></TextBlock>
-                                        <TextBlock Text="{ctl:T 'SINCE THE LAST UPDATE'}" Style="{StaticResource Caption}" Margin="0,14,0,0" />
-                                        <TextBlock Text="{Binding SinceUpdate}" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
-                                        <TextBlock Text="{Binding UpdatedNote}" Style="{StaticResource Muted}" FontSize="12" />
+                                        <!-- From every frame: how smooth, in place of the update line. -->
+                                        <StackPanel Margin="0,14,0,0" Visibility="{Binding HasSmooth, Converter={StaticResource Vis}}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{ctl:T 'SMOOTHNESS'}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                                <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="6,0,0,0" VerticalAlignment="Center" Cursor="Help"
+                                                           ToolTip="{ctl:T 'Counted from every frame. A stutter is one frame at least 2.5 times as long as the ones before it, a hitch you feel.'}" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding SmoothVerdict}" FontSize="15" FontWeight="SemiBold" Margin="0,4,0,0" />
+                                            <TextBlock Text="{Binding SmoothDetail}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <StackPanel Visibility="{Binding ShowSinceUpdate, Converter={StaticResource Vis}}">
+                                            <TextBlock Text="{ctl:T 'SINCE THE LAST UPDATE'}" Style="{StaticResource Caption}" Margin="0,14,0,0" />
+                                            <TextBlock Text="{Binding SinceUpdate}" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
+                                            <TextBlock Text="{Binding UpdatedNote}" Style="{StaticResource Muted}" FontSize="12" />
+                                        </StackPanel>
                                     </StackPanel>
-                                    <ctl:FpsChart Grid.Column="1" Points="{Binding FpsPoints}" Marks="{Binding FpsMarks}" ByMinute="{Binding FpsByMinute}" Margin="20,0,0,0" />
+                                    <ctl:FpsChart Grid.Column="1" Points="{Binding FpsPoints}" Marks="{Binding FpsMarks}" ByMinute="{Binding FpsByMinute}" Margin="20,0,0,0"
+                                                  Visibility="{Binding ShowPlaysChart, Converter={StaticResource Vis}}" />
+                                    <!-- The newest play, every frame: the dashed line where the slowest 1% begin, each stutter a dot, and when they bunched up. -->
+                                    <StackPanel Grid.Column="1" Margin="20,0,0,0" Visibility="{Binding FramesView, Converter={StaticResource Vis}}">
+                                        <ctl:FrameTimeChart Frames="{Binding EveryFrame}" Stutters="{Binding EveryFrameStutters}" SlowestOne="{Binding EveryFrameP99}" />
+                                        <DockPanel Margin="0,12,0,0" Visibility="{Binding HasStutterWhy, Converter={StaticResource Vis}}">
+                                            <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource WarmBrush}" Margin="0,2,10,0" VerticalAlignment="Top" />
+                                            <TextBlock Text="{Binding StutterWhy}" FontSize="13" TextWrapping="Wrap" />
+                                        </DockPanel>
+                                    </StackPanel>
                                 </Grid>
+                                <TextBlock Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="{Binding FramesView, Converter={StaticResource Vis}}"
+                                           Text="{ctl:T 'How long each frame took. Lower is faster, flat is smooth. Every frame is kept for 14 days.'}" />
                                 <StackPanel Visibility="{Binding HasFps, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                     <TextBlock Text="{Binding FpsEmpty}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
                                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                                         <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Start RivaTuner'}" Command="{Binding StartRtssCommand}" Margin="0,0,10,0"
                                                 Visibility="{Binding CanStartRtss, Converter={StaticResource Vis}}" />
-                                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Install RivaTuner'}" Command="{Binding InstallRtssCommand}"
+                                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Install RivaTuner'}" Command="{Binding InstallRtssCommand}" Margin="0,0,10,0"
                                                 Visibility="{Binding CanInstallRtss, Converter={StaticResource Vis}}" />
+                                        <Button Style="{StaticResource AiButton}" Content="{ctl:T 'What can it tell?'}" CommandParameter="{Binding NoFpsAsk}" AutomationProperties.Name="{ctl:T 'What can it tell?'}" />
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
@@ -490,6 +554,10 @@
                             </Grid.ColumnDefinitions>
                             <!-- Can it run better?: a frame cap, how smooth, what the graphics card has left -->
                             <ctl:SmoothBorder Style="{StaticResource Card}">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Bottom" Style="{StaticResource AiButton}" HorizontalAlignment="Left" Margin="0,16,0,0"
+                                            Content="{ctl:T 'Ask how to make it run better'}" CommandParameter="{Binding BetterAsk}"
+                                            AutomationProperties.Name="{ctl:T 'Ask how to make it run better'}" />
                                 <StackPanel>
                                     <TextBlock Text="{ctl:T 'Can it run better?'}" Style="{StaticResource H2}" Margin="0,0,0,4" />
                                     <ItemsControl ItemsSource="{Binding Better}" Focusable="False">
@@ -509,6 +577,7 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </StackPanel>
+                                </DockPanel>
                             </ctl:SmoothBorder>
                             <!-- Play time -->
                             <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
@@ -607,10 +676,34 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                     <TextBlock Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0"
-                                               Text="{ctl:T 'This game\'s own problems, and shut-offs that weren\'t a power cut. Power cuts are in grey: they aren\'t about the game.'}" />
+                                               Text="{ctl:T 'This game\'s own problems, and shut-offs that weren\'t a power cut. Power cuts are in grey because they aren\'t about the game.'}" />
                                 </StackPanel>
                             </ctl:SmoothBorder>
                         </Grid>
+
+                        <!-- How it's set: the game's own saved graphics settings, read from its file (2026-10-25). -->
+                        <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" AutomationProperties.Name="{ctl:T 'How it\'s set'}"
+                                          Visibility="{Binding HasSettings, Converter={StaticResource Vis}}">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,8">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding SettingsNote}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" />
+                                    <TextBlock Text="{ctl:T 'How it\'s set'}" Style="{StaticResource H2}" />
+                                </DockPanel>
+                                <ItemsControl ItemsSource="{Binding SettingsRows}">
+                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource KvLine}" Margin="0,0,18,0">
+                                                <DockPanel>
+                                                    <TextBlock Text="{Binding Label}" Style="{StaticResource Muted}" Width="130" />
+                                                    <TextBlock Text="{Binding Value}" FontWeight="SemiBold" TextAlignment="Right" TextTrimming="CharacterEllipsis" ToolTip="{Binding Value}" />
+                                                </DockPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ctl:SmoothBorder>
 
                         <!-- About this game: everything about the game itself in one place. -->
                         <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" AutomationProperties.Name="{ctl:T 'About this game'}">
@@ -690,11 +783,26 @@
                                                                         </Run.Style>
                                                                     </Run>
                                                                 </TextBlock>
+                                                                <!-- Ended badly or stuttered: ask why (hidden while the AI is off). -->
+                                                                <Border HorizontalAlignment="Left" Margin="0,6,0,0" Visibility="{Binding HasAsk, Converter={StaticResource Vis}}">
+                                                                    <Button Style="{StaticResource AiButtonSmall}" Content="{Binding AskText}" CommandParameter="{Binding Ask}" AutomationProperties.Name="{Binding AskText}" />
+                                                                </Border>
                                                             </StackPanel>
                                                             <TextBlock Grid.Column="1" Text="{Binding Played}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                                            <TextBlock Grid.Column="2" VerticalAlignment="Center" Visibility="{Binding Fps, Converter={StaticResource Vis}}">
-                                                                <Run Text="{Binding Fps, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource FpsBrush}" /> <Run Text="{Binding Low, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" />
-                                                            </TextBlock>
+                                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Visibility="{Binding Fps, Converter={StaticResource Vis}}">
+                                                                <TextBlock>
+                                                                    <Run Text="{Binding Fps, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource FpsBrush}" /> <Run Text="{Binding Low, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" />
+                                                                </TextBlock>
+                                                                <!-- From every frame: amber once they're felt (a stutter every two minutes). -->
+                                                                <TextBlock Text="{Binding Stutters}" FontSize="11.5" Visibility="{Binding Stutters, Converter={StaticResource Vis}}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                                                            <Style.Triggers><DataTrigger Binding="{Binding StuttersWarm}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger></Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </StackPanel>
                                                             <!-- Nothing measured: said quietly, not in a reading's colour. -->
                                                             <TextBlock Grid.Column="2" Text="{ctl:T 'Not recorded'}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center"
                                                                        Visibility="{Binding Fps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />

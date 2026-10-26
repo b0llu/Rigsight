@@ -33,6 +33,20 @@ public sealed record PlayStats
     public double? Fps { get; init; }
     public double? FpsLow { get; init; }
     public int FpsMinutes { get; init; }
+
+    /// <summary>
+    /// From every frame (recorded since 2026-10-25, see <see cref="Games.FrameSpread"/>): the true 0.1% low, how many
+    /// stutters, and the minutes that had frames. Where there are such minutes, <see cref="Fps"/> and <see cref="FpsLow"/>
+    /// come from the frames too; older plays keep RivaTuner's minute averages.
+    /// </summary>
+    public double? FpsLow01 { get; init; }
+    public int? Stutters { get; init; }
+    public int FrameMinutes { get; init; }
+    /// <summary>The worst stutter: how long its frame took and when (Unix ms).</summary>
+    public Games.Stutter? Worst { get; init; }
+
+    /// <summary>Stutters an hour of play with frames, or null without frames.</summary>
+    public double? StuttersAnHour => Stutters is int n && FrameMinutes > 0 ? n * 60.0 / FrameMinutes : null;
 }
 
 public sealed partial class RigsightDb
@@ -77,13 +91,86 @@ public sealed partial class RigsightDb
             """, ("$from", from), ("$to", to), ("$app", appId));
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return new PlayStats();
-        return new PlayStats
+        var stats = new PlayStats
         {
             Minutes = r.GetInt32(0), Gpu = D(r, 1), GpuMax = D(r, 2), Cpu = D(r, 3), CpuMax = D(r, 4), HotMax = D(r, 5),
             GpuLoad = D(r, 6), GpuPower = D(r, 7), Power = D(r, 8), GpuFullMinutes = r.IsDBNull(9) ? 0 : r.GetInt32(9),
             VramMax = D(r, 10), VramTotal = D(r, 11), Fps = D(r, 12), FpsLow = D(r, 13), FpsMinutes = r.IsDBNull(14) ? 0 : r.GetInt32(14),
             VramOwnMax = D(r, 15),
         };
+        r.Close();
+        // Every frame, where it was recorded: the true lows and the stutters.
+        var (spread, minutes, stutters) = GetFrameSpread(appId, from, to);
+        if (minutes == 0 || spread.IsEmpty) return stats;
+        var worst = GetStutters(appId, from * 1000, to * 1000).MaxBy(s => s.Ms);
+        return stats with
+        {
+            Fps = spread.Fps ?? stats.Fps, FpsLow = spread.Low1 ?? stats.FpsLow, FpsLow01 = spread.Low01,
+            Stutters = stutters, FrameMinutes = minutes, Worst = worst,
+        };
+    }
+
+    // ── Every frame (see Games.FrameSpread) ──
+
+    private bool? _hasFrames;
+    private bool HasFrames => _hasFrames ??= HasTable("frame_minute");
+
+    /// <summary>A minute of a game's frames: their spread and how many stutters.</summary>
+    public void WriteFrameMinute(long ts, long app, Games.FrameSpread spread, IReadOnlyList<Games.Stutter> stutters)
+    {
+        if (spread.IsEmpty) return;
+        using (var cmd = Cmd("INSERT OR REPLACE INTO frame_minute(ts, app, frames, stutters, spread) VALUES($ts, $app, $frames, $stutters, $spread)",
+                   ("$ts", ts), ("$app", app), ("$frames", spread.Frames), ("$stutters", stutters.Count), ("$spread", spread.ToBytes())))
+            cmd.ExecuteNonQuery();
+        foreach (var s in stutters)
+        {
+            using var cmd = Cmd("INSERT OR REPLACE INTO stutter(ts_ms, app, ms, usual_ms) VALUES($ts, $app, $ms, $usual)",
+                ("$ts", s.AtMs), ("$app", app), ("$ms", Math.Round(s.Ms, 1)), ("$usual", Math.Round(s.UsualMs, 1)));
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>A game's frames from <paramref name="from"/> to <paramref name="to"/> (Unix seconds) added up: their spread, the minutes with frames, the stutters.</summary>
+    public (Games.FrameSpread Spread, int Minutes, int Stutters) GetFrameSpread(long appId, long from, long to)
+    {
+        var all = new Games.FrameSpread();
+        if (!HasFrames) return (all, 0, 0);
+        using var cmd = Cmd("SELECT spread, stutters FROM frame_minute WHERE app = $app AND ts >= $from AND ts < $to", ("$app", appId), ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        int minutes = 0, stutters = 0;
+        while (r.Read())
+        {
+            all.Add(Games.FrameSpread.FromBytes((byte[])r.GetValue(0)));
+            stutters += r.GetInt32(1);
+            minutes++;
+        }
+        return (all, minutes, stutters);
+    }
+
+    /// <summary>A game's frames minute by minute: each minute's true average, 1% low and stutters (a play's chart).</summary>
+    public List<(long Ts, double? Fps, double? Low, int Stutters)> GetFrameMinutes(long appId, long from, long to)
+    {
+        var list = new List<(long, double?, double?, int)>();
+        if (!HasFrames) return list;
+        using var cmd = Cmd("SELECT ts, spread, stutters FROM frame_minute WHERE app = $app AND ts >= $from AND ts < $to ORDER BY ts", ("$app", appId), ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var spread = Games.FrameSpread.FromBytes((byte[])r.GetValue(1));
+            list.Add((r.GetInt64(0), spread.Fps, spread.Low1, r.GetInt32(2)));
+        }
+        return list;
+    }
+
+    /// <summary>A game's stutters from <paramref name="fromMs"/> to <paramref name="toMs"/> (Unix ms), oldest first.</summary>
+    public List<Games.Stutter> GetStutters(long appId, long fromMs, long toMs)
+    {
+        var list = new List<Games.Stutter>();
+        if (!HasFrames) return list;
+        using var cmd = Cmd("SELECT ts_ms, ms, usual_ms FROM stutter WHERE app = $app AND ts_ms >= $from AND ts_ms < $to ORDER BY ts_ms", ("$app", appId), ("$from", fromMs), ("$to", toMs));
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new Games.Stutter(r.GetInt64(0), r.GetDouble(1), r.GetDouble(2)));
+        return list;
     }
 
     /// <summary>

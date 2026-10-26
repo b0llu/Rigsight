@@ -20,9 +20,9 @@ public sealed record CrashStory(CrashEvent Crash, string? App, CrashContext? Con
     /// <summary>What the big changes before it made better or worse, by day (only where they did): said beside each change.</summary>
     public IReadOnlyDictionary<DateTime, Reports.ChangeResult> Results { get; init; } = new Dictionary<DateTime, Reports.ChangeResult>();
 
-    /// <summary>"NVIDIA graphics driver 618.10 (10 Oct; since it, Crimson Desert runs 10° hotter on the GPU, likely the driver)".</summary>
+    /// <summary>"NVIDIA graphics driver 618.10 (10 Oct; Crimson Desert runs 10° hotter on the GPU since driver 618.10; likely the driver)".</summary>
     public string Changed => string.Join("; ", ChangesBefore.Select(ch => Results.TryGetValue(ch.Time.Date, out var r) && r.Main == ch
-        ? Lang.T($"{ch.Shown} ({ch.Time:d MMM}; since it, {r.Plain}, {Wording.Running(r.Chip)})")
+        ? Lang.T($"{ch.Shown} ({ch.Time:d MMM}; {r.Said}; {Wording.Running(r.Chip)})")
         : $"{ch.Shown} ({ch.Time:d MMM})"));
 
     /// <summary>What stood out in its close-up, a reading every two seconds, where one was kept (see <see cref="CloseUp"/>).</summary>
@@ -139,7 +139,7 @@ public static class ReadableExport
     {
         var sb = new StringBuilder();
         sb.AppendLine(Lang.T("RigSight crashes"));
-        sb.AppendLine(stories.Count == 0 ? Lang.T($"{period}: none recorded.") : Lang.T($"{period}: {stories.Count} recorded, latest first."));
+        sb.AppendLine(stories.Count == 0 ? Lang.T($"{period}, none recorded.") : Lang.T($"{period}, {stories.Count} recorded, latest first."));
         foreach (var s in stories.OrderByDescending(s => s.Crash.Ts))
         {
             var said = CrashExplainer.Explain(s.Crash, s.App);
@@ -192,7 +192,7 @@ public static class ReadableExport
         if (all.Count == 0)
         {
             sb.AppendLine();
-            sb.AppendLine(Lang.T("No sensor readings: the background agent wasn't running."));
+            sb.AppendLine(Lang.T("No sensor readings because the background agent wasn't running."));
             return sb.ToString();
         }
         sb.AppendLine();
@@ -357,7 +357,7 @@ public static class ReadableExport
 
     public static string Crashes(IReadOnlyList<CrashStory> stories, string period, DateTime made, string version)
     {
-        var sb = Page(Lang.T("Crashes"), stories.Count == 0 ? Lang.T($"{period}: none recorded.") : Lang.T($"{period}: {stories.Count} recorded, latest first."));
+        var sb = Page(Lang.T("Crashes"), stories.Count == 0 ? Lang.T($"{period}, none recorded.") : Lang.T($"{period}, {stories.Count} recorded, latest first."));
         foreach (var s in stories.OrderByDescending(s => s.Crash.Ts))
         {
             var said = CrashExplainer.Explain(s.Crash, s.App);

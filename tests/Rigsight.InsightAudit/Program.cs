@@ -42,6 +42,7 @@ if (args.Contains("--changes"))
         {
             lines.Add($"{r.Day:yyyy-MM-dd} {string.Join(" + ", r.Changes.Select(c => c.Title))}");
             lines.Add($"  {r.Tone} · {r.Chip} · {r.Headline}");
+            lines.Add($"  Home: {r.Said} · Short: {r.Short} · Context: {r.Context}");
             lines.Add($"  {r.Why}");
             foreach (var x in r.Rows) lines.Add($"    {x.Label}: {x.Before} -> {x.After} ({x.Meaning}){(x.Counted ? "" : " [not counted]")}");
             foreach (var c in r.Checks) lines.Add($"    {(c.Ok ? "ok" : "!!")} {c.Title}: {c.Detail}");

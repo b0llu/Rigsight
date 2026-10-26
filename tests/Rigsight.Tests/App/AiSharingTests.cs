@@ -30,7 +30,7 @@ public sealed class AiSharingTests
         foreach (var name in new[] { "get_moment", "get_temperatures", "get_fans", "get_apps", "get_memory", "get_storage", "get_network", "get_on_times", "get_running_now",
                      "get_today", "get_sensors_now", "get_rewind", "get_dashboard", "get_drive_scan" })
             Assert.Contains(name, all);
-        Assert.Equal(20, all.Count);
+        Assert.Equal(23, all.Count);
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public sealed class AiSharingTests
         var all = Names(new AiTools(new RigsightSettings(), NoHistory));
         foreach (var name in all) Assert.Single(AiPages.All, p => p.Tools.Contains(name));
         foreach (var page in AiPages.All) Assert.NotEmpty(page.Tools.Intersect(all));
-        Assert.Equal(16, AiPages.All.Count);
+        Assert.Equal(19, AiPages.All.Count);
     }
 
     [Theory]
@@ -106,7 +106,7 @@ public sealed class AiSharingTests
     {
         var tools = new AiTools(new RigsightSettings(), NoHistory) { PlanPages = AiPages.DefaultFor(0) };
         var offered = Names(tools);
-        Assert.Equal(["get_pc_info", "get_temperatures", "get_today"], [.. offered.Order()]);
+        Assert.Equal(["get_overlay", "get_pc_info", "get_running_now", "get_taskbar", "get_temperatures", "get_today", "get_widgets"], [.. offered.Order()]);
         // One from outside the plan (a changed app could still ask) answers that the plan doesn't include it.
         Assert.StartsWith("Not in this plan", tools.Run("get_crashes", Args));
         Assert.Contains("\"Crashes\"", tools.Run("get_crashes", Args));
@@ -116,7 +116,7 @@ public sealed class AiSharingTests
     public void Own_key_and_Ollama_have_no_plan_so_every_page_is_offered()
     {
         var tools = new AiTools(new RigsightSettings(), NoHistory) { PlanPages = null };
-        Assert.Equal(20, Names(tools).Count);
+        Assert.Equal(23, Names(tools).Count);
     }
 
     [Fact]

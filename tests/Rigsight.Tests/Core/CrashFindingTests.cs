@@ -238,9 +238,9 @@ public sealed class CrashFindingTests
         var e = ShutOff();
         e.Moment = PowerMoment.ShuttingDown;
         var f = CrashFindings.Judge(Input(e));
-        Assert.Equal((Confidence.Named, true, "The PC shut off suddenly: Windows was already shutting down."), (f.Confidence, f.Outside, f.Told()));
+        Assert.Equal((Confidence.Named, true, "The PC shut off suddenly as Windows was already shutting down."), (f.Confidence, f.Outside, f.Told()));
         e.Moment = PowerMoment.Asleep;
-        Assert.Equal((Confidence.Named, true, "The PC shut off suddenly: it was asleep."), (CrashFindings.Judge(Input(e)).Confidence, CrashFindings.Judge(Input(e)).Outside, CrashFindings.Judge(Input(e)).Told()));
+        Assert.Equal((Confidence.Named, true, "The PC shut off suddenly while it was asleep."), (CrashFindings.Judge(Input(e)).Confidence, CrashFindings.Judge(Input(e)).Outside, CrashFindings.Judge(Input(e)).Told()));
     }
 
     // ── A new driver is a lead only when the problem is new ──
@@ -273,7 +273,7 @@ public sealed class CrashFindingTests
         Assert.Equal("Windows crashed inside the Realtek USB audio driver (RtUsbA64.sys).", f.Line);
         Assert.StartsWith("Update or reinstall the Realtek USB audio driver.", f.Advice);
         Assert.Contains(f.RuledOut, p => p.Title == "It wasn't the graphics driver");
-        Assert.Contains("nothing was being recorded", f.CantTell);
+        Assert.Contains("Nothing was being recorded", f.CantTell);
     }
 
     [Fact]
@@ -385,7 +385,7 @@ public sealed class CrashFindingTests
     {
         var e = new CrashEvent { Kind = CrashKind.AppCrash, AppExe = "Tool.exe", Module = "KERNELBASE.dll", Code = "e0434352", Facts = new CrashFacts { Error = "System.IO.FileNotFoundException", ErrorAt = "Tool.Program.Main" } };
         var f = CrashFindings.Judge(Input(e, name: "Tool"));
-        Assert.Equal((Confidence.Named, "Tool crashed on a .NET error: System.IO.FileNotFoundException."), (f.Confidence, f.Head));
+        Assert.Equal((Confidence.Named, "Tool crashed on a .NET error (System.IO.FileNotFoundException)."), (f.Confidence, f.Head));
         Assert.Contains("thrown in Tool.Program.Main", f.Text);
     }
 

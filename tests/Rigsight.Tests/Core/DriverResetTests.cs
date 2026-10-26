@@ -91,7 +91,7 @@ public sealed class DriverResetTests
     // ── What a reset says ──
 
     private static CrashInput Input(CrashEvent e, string? front = null, IReadOnlyList<CrashSign>? signs = null) =>
-        new(e, CrashExplainer.Explain(e), new AlertSettings()) { FrontApp = front, Signs = signs ?? [] };
+        new(e, CrashExplainer.Explain(e), new AlertSettings()) { FrontApp = front, FrontIsGame = front is not null, Signs = signs ?? [] };
 
     private static CrashEvent Reset(DateTime at) => CrashLogReader.ResetsFrom([new HangRecord(at, "k", Bucket, "141")], [], [])[0];
 
@@ -104,6 +104,17 @@ public sealed class DriverResetTests
         Assert.Contains(f.Points, p => p.Title == "Windows reported that the GPU stopped answering" && p.Detail.StartsWith("Its report names nvlddmkm.sys"));
         Assert.StartsWith("If it keeps happening in Dota 2, lower its graphics settings", f.Advice);
         Assert.Contains("power", f.CantTell);
+    }
+
+    [Fact]
+    public void A_reset_with_an_app_in_front_that_isn_t_a_game_never_says_to_lower_its_graphics_settings()
+    {
+        // 2026-10-26, real history: a reset with Windows Terminal Host in front was told to "lower its graphics settings".
+        var e = Reset(T(10, 16, 18, 10, 22));
+        var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { FrontApp = "Windows Terminal Host" });
+        Assert.StartsWith("Update or clean-reinstall the graphics driver", f.Advice);
+        Assert.DoesNotContain("graphics settings", f.Advice);
+        Assert.Equal("The graphics driver was reset while Windows Terminal Host was in front", f.Event);
     }
 
     [Fact]
@@ -135,7 +146,7 @@ public sealed class DriverResetTests
             new(TimeUtil.ToUnix(T(9, 22, 9, 47, 9)), SignKind.GraphicsHangAt, "The graphics card hung"),
             new(TimeUtil.ToUnix(T(9, 22, 9, 48, 0)), SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering"),
         };
-        var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", Signs = signs });
+        var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", FrontIsGame = true, Signs = signs });
         Assert.Equal((Confidence.Likely, "LIKELY THE GPU HUNG"), (f.Confidence, f.Chip));
         Assert.Contains("9:47:09 AM", f.Text);
         Assert.Contains("9:47:24 AM", f.Text);
@@ -149,7 +160,7 @@ public sealed class DriverResetTests
         // A standard account can't read the report's own time: only that one was filed at the next start.
         var e = ShutOff(T(9, 22, 9, 47, 0), T(9, 22, 9, 47, 24));
         var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 48, 0)), SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering") };
-        var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", Signs = signs });
+        var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", FrontIsGame = true, Signs = signs });
         Assert.Equal((Confidence.Possible, "POSSIBLY THE GPU HUNG"), (f.Confidence, f.Chip));
     }
 
@@ -181,7 +192,7 @@ public sealed class DriverResetTests
     {
         var e = ShutOff(T(9, 22, 9, 47, 0), T(9, 22, 9, 47, 24));
         var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 40, 0)), SignKind.GraphicsHangAt, "The graphics card hung") };
-        var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", Signs = signs });
+        var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", FrontIsGame = true, Signs = signs });
         Assert.NotEqual("THE GPU HUNG", f.Cause);
     }
 }

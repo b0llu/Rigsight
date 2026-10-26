@@ -25,10 +25,19 @@ public sealed partial class AiTools
     public Func<string>? DrivesNow { get; set; }
 
     /// <summary>
+    /// RivaTuner Statistics Server as the agent last said ("missing", "install-failed", "installing", "stopped", "running"),
+    /// from the app: why a game has no frame rate. Null: not known here.
+    /// </summary>
+    public Func<string?>? RivaTuner { get; set; }
+
+    /// <summary>
     /// What the last scan of a drive found (its biggest folders, its biggest files by kind, and the space that could be
     /// freed on it), from the app's Storage scanner, for a drive letter; null when it hasn't been scanned.
     /// </summary>
     public Func<string, string?>? DriveScan { get; set; }
+
+    /// <summary>A sensor's name as the app shows it, from its identifier (null: not known here, the identifier stands in).</summary>
+    public Func<string, string?>? SensorName { get; set; }
 
     private static IEnumerable<JsonObject> PageDefinitions() =>
     [
@@ -50,6 +59,9 @@ public sealed partial class AiTools
             ["properties"] = new JsonObject { ["drive"] = new JsonObject { ["type"] = "string", ["description"] = "The drive's letter, like \"C\" or \"E\"." } },
             ["required"] = new JsonArray("drive"),
         }),
+        Def("get_widgets", "The Widgets page: the desktop widgets that are on, with their readings, the ones that are off, the built-in kinds, and every reading a widget can show. For suggesting widgets: suggest only from these.", new JsonObject()),
+        Def("get_overlay", "The Overlay page: the in-game overlay, on or off, its shortcut and the readings it shows, and every reading it can show. For suggesting overlay readings: suggest only from these.", new JsonObject()),
+        Def("get_taskbar", "The Taskbar page: the readings shown beside the clock, and every reading that can be added there. For suggesting taskbar readings: suggest only from these.", new JsonObject()),
         Def("get_dashboard", "The dashboards the person made from tiles. Without a name: their names and what tiles each has. With a name: what each of its tiles shows right now.", new JsonObject
         {
             ["type"] = "object",
@@ -64,8 +76,79 @@ public sealed partial class AiTools
         "get_rewind" => WithDb(db => RewindText(db, (string?)args["period"] ?? "month", (string?)args["when"])),
         "get_dashboard" => (string?)args["name"] is { Length: > 0 } dash ? DashboardText(dash) : DashboardList(),
         "get_drive_scan" => DriveScanText((string?)args["drive"]),
+        "get_widgets" => WidgetsText(),
+        "get_overlay" => OverlayText(),
+        "get_taskbar" => TaskbarText(),
         _ => null,
     };
+
+    // ── Widgets, the overlay, the taskbar ────────────────────────────────
+
+    /// <summary>
+    /// A reading by its name: one of RigSight's own, or a sensor ("sensor:&lt;id&gt;" on a widget, the bare id on the
+    /// taskbar) by the name the app shows it under.
+    /// </summary>
+    private string ReadingName(string id) =>
+        Enum.TryParse<OverlayMetric>(id, out var m) && Enum.IsDefined(m) ? WidgetCatalog.MetricName(m)
+        : id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? SensorName?.Invoke(id[WidgetCatalog.SensorPrefix.Length..]) ?? id[WidgetCatalog.SensorPrefix.Length..]
+        : SensorName?.Invoke(id) ?? id;
+
+    // What each place can show (2026-10-26: the taskbar question was offered "1% low", which the taskbar can't show): the
+    // overlay its own readings, not the widgets-only ones after Clock; the taskbar the readings it shows as a sensor.
+    private static readonly OverlayMetric[] OverlayReadings = [.. Enum.GetValues<OverlayMetric>().Where(m => m <= OverlayMetric.Clock)];
+    private static readonly OverlayMetric[] TaskbarReadings =
+    [
+        OverlayMetric.CpuTemp, OverlayMetric.CpuLoad, OverlayMetric.CpuClock, OverlayMetric.CpuPower, OverlayMetric.GpuTemp, OverlayMetric.GpuHotSpot,
+        OverlayMetric.GpuLoad, OverlayMetric.GpuClock, OverlayMetric.GpuPower, OverlayMetric.GpuMemory, OverlayMetric.Ram,
+    ];
+
+    /// <summary>The readings a place can show, and whether RivaTuner (which the frame readings need) is running.</summary>
+    private string Pickable(IEnumerable<OverlayMetric> readings)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("READINGS THAT CAN BE PICKED HERE (no others): " + string.Join(", ", readings.Select(m =>
+            WidgetCatalog.MetricName(m) + (m is OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow ? " (needs RivaTuner)" : ""))) + ", and any sensor by its name (get_sensors_now has every one).");
+        if (readings.Any(m => m is OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow) && RivaTuner?.Invoke() is { } rtss)
+            sb.AppendLine($"RivaTuner, which the frame readings need: {rtss}.");
+        return sb.ToString();
+    }
+
+    // The Widgets, Overlay and Taskbar pages, said as the pages set them (2026-10-26: those pages' AI buttons had no
+    // look-up, so a suggestion could name a reading RigSight doesn't have, or one already on). Suggest only from these.
+    private string WidgetsText()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("The desktop widgets, as the Widgets page sets them (each turned on there, moved anywhere, its readings changed). Suggest only from these, by these names, and say when one is already on.");
+        var on = settings.Widgets.Where(w => w.Enabled).ToList();
+        sb.AppendLine(on.Count == 0 ? "On: none." : "On: " + string.Join("; ", on.Select(w => $"{WidgetCatalog.Title(w)} ({string.Join(", ", WidgetCatalog.ItemsOf(w).Select(i => ReadingName(i.Id)))})")) + ".");
+        var off = settings.Widgets.Where(w => !w.Enabled).Select(WidgetCatalog.Title).ToList();
+        if (off.Count > 0) sb.AppendLine("Off: " + string.Join(", ", off) + ".");
+        sb.AppendLine("Built in: " + string.Join("; ", WidgetCatalog.Listed.Select(st => $"{WidgetCatalog.Title(st)}, {WidgetCatalog.Description(st).TrimEnd('.')}")) + ".");
+        sb.AppendLine($"One of their own (Create widget): a {string.Join(", ", WidgetCatalog.CustomLayouts.Select(WidgetCatalog.LayoutName))} with any readings below.");
+        sb.Append(Pickable(Enum.GetValues<OverlayMetric>()));
+        return sb.ToString();
+    }
+
+    private string OverlayText()
+    {
+        var o = settings.Overlay;
+        var sb = new StringBuilder();
+        sb.AppendLine("The in-game overlay, as the Overlay page sets it. Suggest only from these, by these names, and say when one is already shown.");
+        sb.AppendLine(o.Enabled ? $"On: shown and hidden in a game with {o.Hotkey}." : "Off.");
+        sb.AppendLine("Shows: " + string.Join(", ", o.Metrics.Select(WidgetCatalog.MetricName))
+            + (o.Sensors.Count > 0 ? "; and the sensors " + string.Join(", ", o.Sensors.Select(x => x.Label ?? ReadingName(x.Id))) : "") + ".");
+        sb.Append(Pickable(OverlayReadings));
+        return sb.ToString();
+    }
+
+    private string TaskbarText()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("The readings beside the clock, as the Taskbar page sets them. Suggest only from these, by these names, and say when one is already there.");
+        sb.AppendLine(settings.TraySensors.Count == 0 ? "Shown: none." : "Shown: " + string.Join(", ", settings.TraySensors.Select(ReadingName)) + ".");
+        sb.Append(Pickable(TaskbarReadings));
+        return sb.ToString();
+    }
 
     /// <summary>The last scan of a drive, or how to get one (the button the answer may offer).</summary>
     private string DriveScanText(string? drive)

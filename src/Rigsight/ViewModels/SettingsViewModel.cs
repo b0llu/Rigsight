@@ -244,7 +244,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
             {
                 string label = value switch { 90 => Lang.T("3 months"), 365 => Lang.T("1 year"), _ => Lang.T("2 years") };
                 var answer = MessageBox.Show(Application.Current.MainWindow,
-                    Lang.T($"History from before {DateTime.Today.AddDays(-value):d MMMM yyyy} will be permanently deleted: temperatures, app time, sessions and crashes.\n\nKeep history for {label}?"),
+                    Lang.T($"Temperatures, app time, sessions and crashes from before {DateTime.Today.AddDays(-value):d MMMM yyyy} will be permanently deleted.\n\nKeep history for {label}?"),
                     Lang.T("Keep history"), MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
                 if (answer != MessageBoxResult.Yes)
                 {
@@ -432,7 +432,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     [RelayCommand]
     private void AcknowledgePaused() => Set(s => s.SensorNoticeSeen = Acknowledge(s.SensorNoticeSeen, SensorStatus, problems: false));
 
-    /// <summary>"Not read right now: fan hubs and power supply (iCUE), motherboard (Gigabyte Control Center)."</summary>
+    /// <summary>"Right now RigSight doesn't read the fan hubs and power supply (iCUE), motherboard (Gigabyte Control Center)."</summary>
     public string? SensorPausedText => PausedText(SensorStatus);
 
     /// <summary>Why the risky parts are off after a scan that didn't finish or ran memory up; null when they aren't.</summary>
@@ -453,7 +453,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
                 else byApp[i].Parts.Add(part);
             }
         string list = string.Join(", ", byApp.Select(x => $"{Core.Wording.JoinAnd(x.Parts)} ({x.App})"));
-        return Lang.T($"Not read right now: {list}.");
+        return Lang.T($"Right now RigSight doesn't read the {list}.");
     }
 
     internal static string? SkippedText(SensorStatus? status) => status switch
@@ -583,7 +583,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     /// <summary>A new email to support in Gmail, in the browser: addressed, with a subject and the version.</summary>
     public static string SupportMailUrl =>
-        $"https://mail.google.com/mail/?view=cm&fs=1&to={Uri.EscapeDataString(SupportAddress)}&su={Uri.EscapeDataString(Lang.T("RigSight: I need help"))}"
+        $"https://mail.google.com/mail/?view=cm&fs=1&to={Uri.EscapeDataString(SupportAddress)}&su={Uri.EscapeDataString(Lang.T("I need help with RigSight"))}"
         + $"&body={Uri.EscapeDataString(Lang.T($"RigSight {Rigsight.Core.Ai.Relay.Version}") + "\n\n")}";
 
     [RelayCommand]
@@ -802,7 +802,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     {
         if (!client.IsConnected)
         {
-            StatusMessage = Lang.T("The history wasn't checked: the agent isn't running.");
+            StatusMessage = Lang.T("The history wasn't checked because the agent isn't running.");
             return;
         }
         client.SendCommand("check-history");
@@ -822,7 +822,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         foreach (var side in new[] { "", "-wal", "-shm" })
         {
             try { if (File.Exists(copy.Path + side)) File.Delete(copy.Path + side); }
-            catch (Exception ex) { StatusMessage = Lang.T($"{copy.Name} couldn't be deleted: {ex.Message}"); return; }
+            catch (Exception ex) { StatusMessage = Lang.T($"{copy.Name} couldn't be deleted. {ex.Message}"); return; }
         }
         Log.Write("history", $"Deleted the damaged copy {copy.Name} (asked in Settings)");
         OnPropertyChanged(nameof(DamagedCopies));
@@ -838,7 +838,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         // The agent keeps the history and deletes it: nothing is cleared until it says so.
         if (!client.IsConnected)
         {
-            StatusMessage = Lang.T("The history wasn't cleared: the agent isn't running.");
+            StatusMessage = Lang.T("The history wasn't cleared because the agent isn't running.");
             return;
         }
         client.SendCommand("clear-history");

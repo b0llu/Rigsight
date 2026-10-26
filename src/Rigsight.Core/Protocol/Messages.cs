@@ -245,6 +245,8 @@ public sealed class AgentMessage
     // overlay (also on hello): whether it's on screen, and whether another program already owns its shortcut
     public bool? OverlayVisible { get; set; }
     public bool? OverlayHotkeyTaken { get; set; }
+    /// <summary>The Ask shortcut (Settings › Ask RigSight) is already used by another program.</summary>
+    public bool? AskHotkeyTaken { get; set; }
     /// <summary>RivaTuner: running · stopped · missing · installing · install-failed</summary>
     public string? RtssState { get; set; }
 

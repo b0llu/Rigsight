@@ -44,6 +44,10 @@ public sealed partial class NavEntry(string key, string title, string icon, stri
     public string? NewText => IsNew ? owner.NewText : null;
     internal void NewChanged() { OnPropertyChanged(nameof(IsNew)); OnPropertyChanged(nameof(NewText)); }
 
+    /// <summary>Its name is being typed in the Customize pop-up (the pencil); otherwise the name shows as text.</summary>
+    [ObservableProperty] private bool _isRenaming;
+    [RelayCommand] private void ToggleRename() => IsRenaming = !IsRenaming;
+
     /// <summary>Bound two-way to the sidebar button: picking it opens the page.</summary>
     [ObservableProperty] private bool _isSelected;
     partial void OnIsSelectedChanged(bool value)
@@ -69,6 +73,9 @@ public sealed partial class NavEntry(string key, string title, string icon, stri
         OnPropertyChanged(nameof(Title));
     }
 }
+
+/// <summary>A page as the new-install card pictures it: its sidebar icon (see <see cref="Converters.NavIconConverter"/>), lit or not.</summary>
+public sealed record SidebarTile(string Icon, bool Lit);
 
 /// <summary>
 /// One group of the sidebar: the top one (no heading), DASHBOARDS, HARDWARE or ON SCREEN. A heading can be renamed and
@@ -111,8 +118,54 @@ public sealed class SidebarGroup(string key, string? name, SidebarViewModel owne
     /// <summary>Folded away. Only a group whose heading shows can be: the heading is what unfolds it.</summary>
     public bool Collapsed => ShowHeading && owner.IsFolded(Key);
 
+    /// <summary>
+    /// The heading in the sidebar itself: shown, with a page of the group not hidden (DASHBOARDS, with nothing in it yet,
+    /// keeps its heading for "New dashboard", except with only the basics shown).
+    /// </summary>
+    public bool HeadingInSidebar => ShowHeading && (Pages.Any(p => !owner.IsHidden(p.Key)) || (Key == SidebarViewModel.Dashboards && !owner.IsBasic));
+
+    /// <summary>Its heading's name is being typed in the Customize pop-up (the pencil), with the switch that hides the heading.</summary>
+    public bool IsRenaming
+    {
+        get => _renaming;
+        set { if (_renaming == value) return; _renaming = value; OnPropertyChanged(); }
+    }
+    private bool _renaming;
+    public CommunityToolkit.Mvvm.Input.IRelayCommand ToggleRenameCommand => _toggle ??= new CommunityToolkit.Mvvm.Input.RelayCommand(() => IsRenaming = !IsRenaming);
+    private CommunityToolkit.Mvvm.Input.RelayCommand? _toggle;
+
     /// <summary>It has no page (every one was moved out, or there is no dashboard yet): the editor shows a box to drop one in.</summary>
     public bool ShowDropBox => Pages.Count == 0;
+
+    // ── Icons only: the group as one icon, its pages in a small list beside it (approved mock-up, 2026-10-25) ──
+
+    /// <summary>The group's icon in the icons-only sidebar.</summary>
+    public string Glyph => Key switch { SidebarViewModel.Dashboards => SidebarViewModel.DashboardIcon, SidebarViewModel.HardwareSection => "\uE950", _ => "\uE7F4" };
+
+    /// <summary>Its pages that aren't hidden, for the list beside its icon (a folded group still lists them).</summary>
+    public IReadOnlyList<NavEntry> ShownPages => [.. Pages.Where(p => !owner.IsHidden(p.Key))];
+
+    /// <summary>Its icon is in the icons-only sidebar: it has a heading and a page to list (DASHBOARDS also for "New dashboard").</summary>
+    public bool InRail => HasHeading && (ShownPages.Count > 0 || (Key == SidebarViewModel.Dashboards && !owner.IsBasic));
+
+    /// <summary>The page on screen is one of its own: its icon is marked like a picked page.</summary>
+    public bool HasSelected => Pages.Any(p => p.IsSelected);
+
+    /// <summary>"New dashboard" in DASHBOARDS' list.</summary>
+    public bool OffersNewDashboard => Key == SidebarViewModel.Dashboards;
+
+    internal void RailChanged()
+    {
+        OnPropertyChanged(nameof(ShownPages));
+        OnPropertyChanged(nameof(InRail));
+        OnPropertyChanged(nameof(HasSelected));
+    }
+
+    /// <summary>
+    /// Another page opened: only the mark on its icon changes. Its list isn't built again then: a page picked in it opens
+    /// as the press goes down, and a list rebuilt at that moment would lose the click that closes it.
+    /// </summary>
+    internal void SelectionChanged() => OnPropertyChanged(nameof(HasSelected));
 
     internal void Changed()
     {
@@ -122,6 +175,8 @@ public sealed class SidebarGroup(string key, string? name, SidebarViewModel owne
         OnPropertyChanged(nameof(ShowHeading));
         OnPropertyChanged(nameof(Collapsed));
         OnPropertyChanged(nameof(ShowDropBox));
+        OnPropertyChanged(nameof(HeadingInSidebar));
+        RailChanged();
     }
 }
 
@@ -140,6 +195,12 @@ public sealed partial class SidebarViewModel : ObservableObject
     /// under Apps) rather than at the end of its group.
     /// </summary>
     private static readonly HashSet<string> AddedLater = ["games"];
+
+    /// <summary>
+    /// "The basics" (2026-10-25): the pages someone who mostly wants to know their PC is fine looks at. Every other page is
+    /// hidden, and still opens from links (Home's lines, the AI's sources).
+    /// </summary>
+    public static readonly IReadOnlySet<string> BasicPages = new HashSet<string> { "home", "reports", "games", "crashes", "temperatures", "storage" };
 
     /// <summary>Every built-in page, in its usual group and order (its title in English, shown translated). A new page is one more line here.</summary>
     private static readonly (string Key, string Title, string Icon, string Group)[] BuiltIn =
@@ -261,11 +322,104 @@ public sealed partial class SidebarViewModel : ObservableObject
     /// <summary>Raised when what the dashboards section shows may have changed (folded or not).</summary>
     public event Action? Changed;
 
+    // ── Pages shown, and icons only ──
+
+    /// <summary>Only the basics were picked (the editor may have changed which since).</summary>
+    public bool IsBasic => S.Pages == "basic";
+
+    /// <summary>"basic", "full", or "" while never picked: the "Pages in the sidebar" choice in Settings.</summary>
+    public string PagesMode
+    {
+        get => S.Pages ?? "";
+        set => PickPages(value);
+    }
+
+    /// <summary>A new install asks which pages to show, once (the card over the window).</summary>
+    public bool AskPages => S.AskPages;
+
+    /// <summary>The card's two pictures: the same 16 pages as tiles, the basics lighting 6 of them, everything all (approved mock-up).</summary>
+    public IReadOnlyList<SidebarTile> BasicTiles => [.. BuiltIn.Select(p => new SidebarTile(p.Icon, BasicPages.Contains(p.Key)))];
+    public IReadOnlyList<SidebarTile> FullTiles => [.. BuiltIn.Select(p => new SidebarTile(p.Icon, true))];
+
+    /// <summary>
+    /// Shows only the basics, or every page: the pages left out are hidden as the editor would hide them (dashboards
+    /// stay), and the question a new install gets is answered.
+    /// </summary>
+    [RelayCommand]
+    private void PickPages(string? mode)
+    {
+        if (mode is not ("basic" or "full")) return;
+        var hide = mode == "basic" ? _entries.Where(e => e.CanHide && e.Dashboard is null && !BasicPages.Contains(e.Key)).Select(e => e.Key).ToList() : [];
+        _settings.Update(s =>
+        {
+            s.Sidebar.Pages = mode;
+            s.Sidebar.AskPages = false;
+            s.Sidebar.Hidden.RemoveAll(k => _entries.Any(e => e.Key == k && e.Dashboard is null));
+            s.Sidebar.Hidden.AddRange(hide);
+        });
+        foreach (var e in _entries) e.ShownChanged();
+        Notify(nameof(PagesMode), nameof(IsBasic), nameof(AskPages), nameof(ShowNewDashboard));
+        GroupsChanged();
+        Update();
+    }
+
+    /// <summary>"New dashboard" under DASHBOARDS: not with only the basics shown and no dashboard yet, or the group folded.</summary>
+    public bool ShowNewDashboard => !DashboardsCollapsed && (!IsBasic || DashboardsGroup.Pages.Any(p => !IsHidden(p.Key)));
+
+    /// <summary>Icons only, narrow; each page's name shows on hover.</summary>
+    public bool IconsOnly
+    {
+        get => S.IconsOnly;
+        set
+        {
+            if (S.IconsOnly == value) return;
+            _settings.Update(s => s.Sidebar.IconsOnly = value);
+            Notify(nameof(IconsOnly), nameof(IconsTip), nameof(HandleGlyph));
+        }
+    }
+
+    [RelayCommand] private void ToggleIcons() => IconsOnly = !IconsOnly;
+
+    private void Notify(params string[] names) { foreach (var n in names) OnPropertyChanged(n); }
+
+    /// <summary>The edge handle's hover: what pressing it does (Ctrl+B does the same).</summary>
+    public string IconsTip => IconsOnly ? Lang.T("Expand the sidebar") : Lang.T("Collapse the sidebar");
+
+    /// <summary>The edge handle's arrow: towards the page to open, back to fold.</summary>
+    public string HandleGlyph => IconsOnly ? "\uE76C" : "\uE76B";
+
+
     /// <summary>The sidebar editor is open (the panel that slides in over Settings).</summary>
     [ObservableProperty] private bool _isEditing;
 
     [RelayCommand]
     private void Edit() => IsEditing = true;
+
+    /// <summary>"14 of 17 pages shown", beside Sidebar in Settings and at the foot of the Customize pop-up.</summary>
+    public string ShownSummary => Lang.T($"{_entries.Count(e => !IsHidden(e.Key))} of {_entries.Count} pages shown");
+
+    /// <summary>The arrows on a row in the Customize pop-up: one place up or down, as the arrow keys on its grip.</summary>
+    [RelayCommand] private void MoveUp(NavEntry? entry) { if (entry is not null) MoveBy(entry, -1); }
+    [RelayCommand] private void MoveDown(NavEntry? entry) { if (entry is not null) MoveBy(entry, 1); }
+
+    /// <summary>
+    /// "Reset to the usual sidebar": every page shown, in its usual group and order, with its own name; every heading
+    /// shown with its own name. Dashboards keep their names (those are theirs) and come back too.
+    /// </summary>
+    [RelayCommand]
+    private void ResetSidebar()
+    {
+        _settings.Update(s =>
+        {
+            s.Sidebar.Order.Clear(); s.Sidebar.Hidden.Clear(); s.Sidebar.Groups.Clear(); s.Sidebar.Names.Clear();
+            s.Sidebar.HeadingNames.Clear(); s.Sidebar.HiddenHeadings.Clear();
+        });
+        foreach (var e in _entries) { e.IsRenaming = false; e.ShownChanged(); e.NameChanged(); }
+        foreach (var g in Groups) g.IsRenaming = false;
+        Arrange();
+        GroupsChanged();
+        Update();
+    }
 
     [RelayCommand]
     private void CloseEditor() => IsEditing = false;
@@ -320,6 +474,7 @@ public sealed partial class SidebarViewModel : ObservableObject
             if (hidden) s.Sidebar.Hidden.Add(entry.Key);
         });
         entry.ShownChanged();
+        GroupsChanged();
         Update();
     }
 
@@ -390,6 +545,7 @@ public sealed partial class SidebarViewModel : ObservableObject
     private void GroupsChanged()
     {
         foreach (var group in Groups) group.Changed();
+        OnPropertyChanged(nameof(ShowNewDashboard));
         OnPropertyChanged(nameof(DashboardsCollapsed));
         OnPropertyChanged(nameof(HardwareCollapsed));
         OnPropertyChanged(nameof(OnScreenCollapsed));
@@ -443,6 +599,7 @@ public sealed partial class SidebarViewModel : ObservableObject
     /// <summary>Settings changed elsewhere (another window, the agent): read it again.</summary>
     public void Refresh()
     {
+        Notify(nameof(PagesMode), nameof(IsBasic), nameof(AskPages), nameof(IconsOnly), nameof(IconsTip), nameof(HandleGlyph));
         Arrange();
         foreach (var e in _entries)
         {
@@ -490,8 +647,12 @@ public sealed partial class SidebarViewModel : ObservableObject
     private void Update()
     {
         foreach (var group in Groups)
+        {
             foreach (var e in group.Pages) e.IsVisible = (!IsHidden(e.Key) && !group.Collapsed) || e.IsSelected;
+            group.SelectionChanged();
+        }
         OnPropertyChanged(nameof(HiddenSummary));
+        OnPropertyChanged(nameof(ShownSummary));
         Changed?.Invoke();
     }
 }

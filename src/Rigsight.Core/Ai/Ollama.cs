@@ -181,7 +181,7 @@ public static class Ollama
                     Log.Write("ollama", $"Download of {model} stopped: {error}");
                     return error.Contains("not found", StringComparison.OrdinalIgnoreCase)
                         ? Lang.T($"Ollama has no model called {model}.")
-                        : Lang.T($"Ollama couldn't download {model}: {error}");
+                        : Lang.T($"Ollama couldn't download {model} ({error})");
                 }
                 string status = (string?)n?["status"] ?? "";
                 if ((string?)n?["digest"] is { Length: > 0 } digest && (long?)n?["total"] is long total and > 0)
@@ -256,7 +256,7 @@ public static class Ollama
                 Log.Write("ollama", $"{model} round {round}: expected an answer, got HTTP {status}: {error}");
                 return new AiReply(null, status == 404
                     ? Lang.T($"Ollama doesn't have {model} any more. Pick another model in Settings › Ask RigSight.")
-                    : Lang.T($"Ollama couldn't answer: {error}"), lookUps);
+                    : Lang.T($"Ollama couldn't answer ({error})"), lookUps);
             }
             var msg = json?["message"];
             if (msg?["tool_calls"] is JsonArray { Count: > 0 } calls)
@@ -373,6 +373,9 @@ public static class Ollama
             "get_running_now" => Lang.T("Reading what's running now"),
             "get_rewind" => Lang.T("Reading your rewind"),
             "get_dashboard" => Lang.T("Reading your dashboards"),
+            "get_widgets" => Lang.T("Reading your widgets"),
+            "get_overlay" => Lang.T("Reading your overlay"),
+            "get_taskbar" => Lang.T("Reading your taskbar readings"),
             "get_game" when (string?)args["name"] is { Length: > 0 } game => Lang.T($"Reading {game}"),
             _ => Lang.T("Reading your PC history"),
         };

@@ -31,6 +31,9 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     /// </summary>
     public IReadOnlyCollection<string>? PlanPages { get; set; }
 
+    /// <summary>Where games keep their settings: this PC's folders, or a test's (where none are read from the real PC).</summary>
+    public GameSettings.Places SettingsPlaces { get; set; } = GameSettings.Places.ThisPc();
+
     private bool InPlan(string name) => PlanPages is null || AiPages.Of(name) is not { } page || PlanPages.Contains(page.Id);
 
     /// <summary>The settings the look-ups follow (and the person's answer preferences for the prompt).</summary>
@@ -56,7 +59,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
                     ["to"] = new JsonObject { ["type"] = "string", ["description"] = "Last day included, yyyy-MM-dd." },
                 },
             }),
-            Def("get_game", "One game's history: each play with its length, CPU/GPU load and temperature, power, frame rate when recorded, how it ended; its usual; crashes; changes between plays.", new JsonObject
+            Def("get_game", "One game's history and how it's set: each play with its length, CPU/GPU load and temperature, power, frame rate when recorded, how it ended; its usual; crashes; changes between plays; the game's own saved graphics settings (resolution, display mode, VSync, frame limit, quality, upscaling) and Windows' settings for it. Look it up for how to make a game run better, smoother or cooler.", new JsonObject
             {
                 ["type"] = "object",
                 ["properties"] = new JsonObject { ["name"] = new JsonObject { ["type"] = "string", ["description"] = "The game's name as list_games gives it." } },
@@ -65,6 +68,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         };
         foreach (var def in MoreDefinitions()) all.Add(def!.DeepClone());
         foreach (var def in PageDefinitions()) all.Add(def);
+        if (OpenableAppsLookUp) all.Add(Def(AppsLookUp, "Which apps from RigSight's list of PC tools (graphics driver apps, game launchers, fan, lighting and drive tools) are on this PC, so a step done in one can come with a button that opens it. Look it up when the next step happens in such an app (check for a driver update, change lighting, verify a game in its launcher).", new JsonObject()));
         // Every look-up the plan opens is offered, whatever Settings › AI sends: one switched off answers that it isn't
         // shared, so the model can say so and where to switch it on, instead of never knowing the records exist.
         return [.. all.Where(d => InPlan((string?)d?["function"]?["name"] ?? "")).Select(d => d!.DeepClone())];
@@ -98,6 +102,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         JsonObject args;
         try { args = JsonNode.Parse(string.IsNullOrWhiteSpace(argsJson) ? "{}" : argsJson) as JsonObject ?? []; }
         catch (JsonException) { return "Error: the arguments weren't valid JSON."; }
+        if (name == AppsLookUp && OpenableAppsLookUp) return AppsText();
         if (!Known(name)) return $"Error: there is no tool called {name}.";
         if (!InPlan(name)) return NotInPlan(name);
         if (!Allowed(name)) return NotShared(name);
@@ -382,7 +387,12 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
             + (settings.Ai.Sends(AiPages.Crashes) ? $" Crashes {story.Crashes}, hangs {story.Hangs}, driver resets {story.DriverResets}, shut-offs {story.ShutOffs}, power cuts {story.PowerCuts.Count}." : ""));
         if (settings.Ai.Sends(AiPages.Temperatures) && story.Usual is { } u) sb.AppendLine($"Its usual (from {u.Plays} plays at like graphics card power): GPU {u.Gpu:0} °C, CPU {u.Cpu:0} °C, power {u.Power:0} W.");
         if (story.SinceUpdate is { } since) sb.AppendLine($"Frame rate since its last update ({story.LastUpdate:d MMM}): {since}.");
+        // How it's set: the game's own settings file and Windows' settings for it (the person's ask, 2026-10-25).
+        sb.Append(GameSettings.Text(GameSettings.Read(entry, SettingsPlaces), entry.ExePath ?? GameSettings.ProgramIn(entry.Installed?.InstallDir)));
         sb.AppendLine("All plays together: " + Stats(story.All));
+        if (NoFrameRate(story) is { } noFps) sb.AppendLine(noFps);
+        if (story.All.FrameMinutes > 0)
+            sb.AppendLine("A stutter is one frame taking at least 2.5 times as long as the frames just before it, and at least 20 ms: a hitch you feel. Lows and stutters come from every frame RivaTuner drew; more stutters an hour than the game's own other plays means it ran less smoothly.");
         if (settings.Ai.Sends(AiPages.Memory)) sb.AppendLine("\"Graphics card memory in use\" is the whole card, every app together. \"The game's own video memory\" is the game alone, recorded only for plays from 20 Oct 2026 on: for older plays, check what else was using the card before saying a game uses more.");
         sb.AppendLine("Plays, newest first (at most 15):");
         // Video memory is the whole card's (every app together), so each play says what else had the card at the time.
@@ -391,9 +401,36 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         foreach (var p in story.Plays.OrderByDescending(p => p.Start).Take(15))
             sb.AppendLine($"  {p.StartTime:ddd d MMM h:mm tt} to {p.EndTime:h:mm tt}, {Units.Duration(p.ActiveSec)} in front{(settings.Ai.Sends(AiPages.Crashes) ? $", ended: {p.Ending}" : "")}. {Stats(p.Stats)}"
                 + Alongside(db, p, own, apps));
+        // When the newest play with frames stuttered, and what else was going on then (as its page says it).
+        if (story.Plays.LastOrDefault(p => p.Stats.Stutters is > 0) is { } rough && entry.AppIds.Count > 0)
+        {
+            var stutters = db.GetStutters(entry.AppIds[0], rough.Start * 1000, (rough.End + 60) * 1000);
+            if (StutterCauses.Explain(db, entry.AppIds[0], stutters, rough.Start, rough.End + 60, settings) is { } why)
+                sb.AppendLine($"Stutters in the {rough.StartTime:ddd d MMM} play: {why}");
+        }
         if (settings.Ai.Sends(AiPages.Timeline))
             foreach (var c in story.Changes.TakeLast(10)) sb.AppendLine($"Changed between plays: {c.Change.Time:d MMM} {c.Change.Shown}");
         return sb.ToString() + LeftOut(Switch.Heat, Switch.Memory, Switch.Changes, Switch.Crashes);
+    }
+
+    /// <summary>
+    /// Why plays have no frame rate (the person's ask, 2026-10-25: people without RivaTuner must know why FPS isn't
+    /// shown): RigSight reads it from RivaTuner, and says which of its states kept it out. Null when every play has one.
+    /// </summary>
+    private string? NoFrameRate(GameStory story)
+    {
+        int without = story.Plays.Count(p => p.Stats.Fps is null);
+        if (without == 0) return null;
+        string some = without == story.Plays.Count ? "No play of this game has a frame rate (FPS, lows or stutters)" : $"{without} of its {story.Plays.Count} plays have no frame rate";
+        string state = RivaTuner?.Invoke() switch
+        {
+            "missing" or "install-failed" => "it isn't installed on this PC (the Games page has an Install RivaTuner button)",
+            "installing" => "it's being installed right now",
+            "stopped" => "it's installed but isn't running now, and it has to be running before the game starts (the Games page has a Start RivaTuner button)",
+            "running" => "it's running now, but it only measures a game started after it, so plays from before it ran have none",
+            _ => "it wasn't running for them",
+        };
+        return $"WHY NO FRAME RATE: {some}. RigSight reads frame rates from RivaTuner Statistics Server, a free tool anti-cheat accepts; {state}. Once it runs before a game starts, each play gets its frame rate, lows and stutters. Say this when the frame rate matters to the question, and never guess a frame rate.";
     }
 
     /// <summary>
@@ -426,6 +463,11 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         Add("CPU temp average", s.Cpu, " °C"); Add("CPU temp max", s.CpuMax, " °C"); Add("GPU load", s.GpuLoad, "%");
         Add("GPU power", s.GpuPower, " W"); Add("CPU+GPU power", s.Power, " W");
         if (s.Fps is double fps) parts.Add($"FPS average {fps:0}");
+        // From every frame where it was recorded (since 25 Oct 2026); before, RivaTuner's own 1% low averaged over minutes.
+        if (s.FpsLow is double low) parts.Add(s.FrameMinutes > 0 ? $"1% low {low:0}" : $"1% low about {low:0} (RivaTuner's rolling figure, smoother than the true one)");
+        if (s.FpsLow01 is double low01) parts.Add($"0.1% low {low01:0}");
+        if (s.Stutters is int st && s.StuttersAnHour is double rate)
+            parts.Add($"{st} stutters ({rate:0.#} an hour of play)" + (s.Worst is { } w ? $", the worst a {w.Ms:0} ms frame at {DateTimeOffset.FromUnixTimeMilliseconds(w.AtMs).LocalDateTime:h:mm:ss tt} against {w.UsualMs:0.#} ms usual" : ""));
         if (memory && s.VramMax is double v && s.VramTotal is double tot) parts.Add($"graphics card memory in use max {v / 1024:0.0} of {tot / 1024:0.0} GB (the whole card, every app together, not this game alone)");
         if (memory && s.VramOwnMax is double own) parts.Add($"the game's own video memory max {own / 1024:0.0} GB");
         if (heat && s.Minutes > 0) parts.Add($"GPU at 95%+ for {s.GpuFullMinutes} of {s.Minutes} min");

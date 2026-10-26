@@ -21,7 +21,7 @@ public sealed class ChangeResultPagesTests
     {
         Day = day ?? Day, Changes = [Driver], From = Day.AddDays(-14), To = Today.AddDays(1), Open = true, DaysBefore = 14, DaysAfter = 6,
         Tone = tone, Sure = sure, Cause = "THE DRIVER",
-        Headline = "Crimson Desert runs 10° hotter on the GPU since this driver", Plain = "Crimson Desert runs 10° hotter on the GPU",
+        Headline = "Crimson Desert runs 10° hotter on the GPU since this driver", Line = c => $"Crimson Desert runs 10° hotter on the GPU since {c}",
         Context = "Same game at the same load, and not because of the room.", Short = "10° hotter in Crimson Desert since",
         Rows = [new("GPU in Crimson Desert", "Same load", "68°", "78°", tone, "10° hotter")],
         Checks = [new(true, "The same game on both sides", "Crimson Desert: 12h 15m before, 2h 33m since.")],
@@ -43,7 +43,7 @@ public sealed class ChangeResultPagesTests
         var lines = HomeViewModel.HomeChangeLines(Changes(), Today, new Dictionary<DateTime, ChangeResult> { [Day] = Result() });
         Assert.Equal(HomeViewModel.CardLines, lines.Count);
         // A week old, above three newer app updates: one statement of what it did, amber, opening its before and after.
-        Assert.Equal(("Driver 618.10: Crimson Desert runs 10° hotter on the GPU", "WarmBrush", (DateTime?)Day), (lines[0].Text, lines[0].TextBrush, lines[0].ChangeDay));
+        Assert.Equal(("Crimson Desert runs 10° hotter on the GPU since driver 618.10", "WarmBrush", (DateTime?)Day), (lines[0].Text, lines[0].TextBrush, lines[0].ChangeDay));
         Assert.All(lines.Skip(1), l => Assert.Null(l.ChangeDay));
 
         // Without a result it's just the newest four, nothing pinned or linked.
@@ -61,7 +61,7 @@ public sealed class ChangeResultPagesTests
     {
         var line = HomeViewModel.WorseLine(new Dictionary<DateTime, ChangeResult> { [Day] = Result() }, Today)!;
         // One statement on Home, amber, opening the change's before and after.
-        Assert.Equal("Driver 618.10: Crimson Desert runs 10° hotter on the GPU", line.Text);
+        Assert.Equal("Crimson Desert runs 10° hotter on the GPU since driver 618.10", line.Text);
         Assert.Equal(("WarmBrush", true), (line.TextBrush, line.CanOpen));
         Assert.Equal(Day, line.ChangeDay);
         Assert.Null(HomeViewModel.WorseLine(new Dictionary<DateTime, ChangeResult> { [Day] = Result(sure: Confidence.Possible) }, Today));
@@ -77,7 +77,7 @@ public sealed class ChangeResultPagesTests
         var finding = new CrashFinding(Confidence.Named, "The GPU stopped answering and Windows reset its driver.", "", "", "");
         var point = CrashesViewModel.ChangePointOf(reset, finding, results)!;
         Assert.Equal("2 days after NVIDIA graphics driver 618.10", point.Title);
-        Assert.Equal("Since it, Crimson Desert runs 10° hotter on the GPU, likely the driver. That alone doesn't prove this crash.", point.Detail);
+        Assert.Equal("Crimson Desert runs 10° hotter on the GPU since driver 618.10. Likely the driver. That alone doesn't prove this crash.", point.Detail);
         Assert.Equal(Day, point.Day);
 
         // Before the change, or after one that made things better, or an app crash a graphics driver can't cause: nothing.
@@ -93,7 +93,7 @@ public sealed class ChangeResultPagesTests
         var text = new ChangeCase(Result(), []).Report();
         Assert.Contains("NVIDIA graphics driver 618.10 (was 617.42)", text);
         Assert.Contains("Crimson Desert runs 10° hotter on the GPU since this driver. Likely the driver.", text);
-        Assert.Contains("GPU in Crimson Desert: 68° before, 78° since (10° hotter)", text);
+        Assert.Contains("GPU in Crimson Desert · 68° before, 78° since (10° hotter)", text);
         Assert.Contains("14 days before, 6 days since", text);
     }
 
@@ -105,7 +105,7 @@ public sealed class ChangeResultPagesTests
         {
             Results = new Dictionary<DateTime, ChangeResult> { [Day] = Result() },
         };
-        Assert.Equal($"NVIDIA graphics driver 618.10 ({Day:d MMM}; since it, Crimson Desert runs 10° hotter on the GPU, likely the driver); Windows update KB1 ({Day.AddDays(1):d MMM})",
+        Assert.Equal($"NVIDIA graphics driver 618.10 ({Day:d MMM}; Crimson Desert runs 10° hotter on the GPU since driver 618.10; likely the driver); Windows update KB1 ({Day.AddDays(1):d MMM})",
             story.Changed);
     }
 

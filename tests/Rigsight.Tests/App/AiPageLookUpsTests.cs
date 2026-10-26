@@ -56,7 +56,7 @@ public sealed class AiPageLookUpsTests(PageHistory history) : IClassFixture<Page
     [Fact]
     public void The_four_page_look_ups_are_defined_and_an_unknown_one_is_not_theirs()
     {
-        Assert.Equal(["get_today", "get_sensors_now", "get_rewind", "get_drive_scan", "get_dashboard"], Names());
+        Assert.Equal(["get_today", "get_sensors_now", "get_rewind", "get_drive_scan", "get_widgets", "get_overlay", "get_taskbar", "get_dashboard"], Names());
         Assert.Equal("(none)", Run(Tools(), "get_passwords"));
     }
 
@@ -203,5 +203,32 @@ public sealed class AiPageLookUpsTests(PageHistory history) : IClassFixture<Page
         string said = Run(Tools(s => { TwoDashboards(s); s.Ai.ShareCrashes = false; s.Ai.ShareNetwork = false; }), "get_dashboard", new() { ["name"] = "Gaming" });
         Assert.Contains("Crashes: left out", said);
         Assert.Contains("Internet: left out", said);
+    }
+
+    [Fact]
+    public void Widgets_overlay_and_taskbar_say_what_is_on_and_only_the_readings_that_place_can_show()
+    {
+        var settings = new RigsightSettings();
+        settings.Widgets.Add(new WidgetConfig { Style = WidgetStyle.Custom, Id = "custom-1", Name = "My widget 1", Layout = WidgetLayout.Bar, Enabled = true,
+            Items = WidgetCatalog.Items(OverlayMetric.GpuHotSpot, OverlayMetric.Ram) });
+        settings.TraySensors = ["/gpu/0/temperature/0"];
+        var tools = new AiTools(settings, history.Db) { SensorName = id => id == "/gpu/0/temperature/0" ? "GPU Core" : null };
+
+        string widgets = Run(tools, "get_widgets");
+        Assert.Contains("My widget 1 (GPU hot spot, RAM in use)", widgets);
+        Assert.Contains("Screen time today", widgets);
+        Assert.Contains("1% low (needs RivaTuner)", widgets);
+
+        // The overlay has none of the widgets-only readings (2026-10-26).
+        string overlay = Run(tools, "get_overlay");
+        Assert.Contains("Frame time (needs RivaTuner)", overlay);
+        Assert.DoesNotContain("Screen time today", overlay);
+
+        // The taskbar shows only readings it has a sensor for: never a frame reading.
+        string taskbar = Run(tools, "get_taskbar");
+        Assert.Contains("Shown: GPU Core.", taskbar);
+        Assert.Contains("GPU hot spot", taskbar);
+        Assert.DoesNotContain("1% low", taskbar);
+        Assert.DoesNotContain("Frame time", taskbar);
     }
 }

@@ -40,7 +40,7 @@ public sealed class ChangeCase(ChangeResult result, IReadOnlyList<DriverLine> dr
     public string Sure => Result.Sure.ToString();
     public string SureHint => Result.Sure == Confidence.Likely
         ? Lang.T("Like for like on both sides, with enough to go on")
-        : Lang.T("Something stands in the way of more: see How sure");
+        : Lang.T("Something stands in the way of more, see How sure");
 
     public string ToneBrush => Result.Tone == EffectTone.Worse ? "WarmBrush" : "GoodBrush";
     public string Icon => ResultIcon(Result);
@@ -101,13 +101,13 @@ public sealed class ChangeCase(ChangeResult result, IReadOnlyList<DriverLine> dr
         b.AppendLine();
         foreach (var r in Result.Rows)
         {
-            string figures = Result.Open ? Lang.T($"{r.Label}: {r.Before} before, {r.After} since") : Lang.T($"{r.Label}: {r.Before} before, {r.After} after");
+            string figures = Result.Open ? Lang.T($"{r.Label} · {r.Before} before, {r.After} since") : Lang.T($"{r.Label} · {r.Before} before, {r.After} after");
             b.AppendLine($"{figures}{(r.Meaning.Length > 0 ? $" ({r.Meaning})" : "")}");
         }
         b.AppendLine();
-        b.AppendLine(Lang.T($"Compared: {RangeText}. {Result.Why}"));
-        foreach (var c in Result.Checks.Where(c => !c.Ok)) b.AppendLine($"{c.Title}: {c.Detail}");
-        if (Advice is not null) b.AppendLine(Lang.T($"What to try: {Advice}"));
+        b.AppendLine(Lang.T($"Compared {RangeText}. {Result.Why}"));
+        foreach (var c in Result.Checks.Where(c => !c.Ok)) b.AppendLine($"{c.Title}. {c.Detail}");
+        if (Advice is not null) b.AppendLine(Lang.T($"What to try · {Advice}"));
         b.AppendLine();
         b.Append(Services.PcInfo.Text);
         return b.ToString();

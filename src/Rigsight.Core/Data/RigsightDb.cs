@@ -215,6 +215,15 @@ public sealed partial class RigsightDb : IDisposable
             SetMeta(FansFreshKey, "1");
         }
 
+        // Every frame of a game, summed up a minute at a time (2026-10-25, see FrameSpread), and each stutter: the true
+        // 1% and 0.1% lows of any stretch, and when it hitched. Kept as long as the rest of the history.
+        Exec("""
+            CREATE TABLE IF NOT EXISTS frame_minute(ts INTEGER NOT NULL, app INTEGER NOT NULL, frames INTEGER NOT NULL, stutters INTEGER NOT NULL,
+                spread BLOB NOT NULL, PRIMARY KEY(ts, app)) WITHOUT ROWID;
+            CREATE TABLE IF NOT EXISTS stutter(ts_ms INTEGER NOT NULL, app INTEGER NOT NULL, ms REAL NOT NULL, usual_ms REAL NOT NULL,
+                PRIMARY KEY(ts_ms, app)) WITHOUT ROWID;
+            """);
+
         EnsureNetworkSchema();
         EnsureChangesSchema();
     }
@@ -954,6 +963,7 @@ public sealed partial class RigsightDb : IDisposable
         using (var c5 = Cmd("DELETE FROM crashes WHERE ts < $t", ("$t", before))) c5.ExecuteNonQuery();
         using (var c5s = Cmd("DELETE FROM crash_signs WHERE ts < $t", ("$t", before))) c5s.ExecuteNonQuery();
         using (var c5c = Cmd("DELETE FROM close_up WHERE ts < $t", ("$t", before))) c5c.ExecuteNonQuery();
+        using (var c6 = Cmd("DELETE FROM frame_minute WHERE ts < $t; DELETE FROM stutter WHERE ts_ms < $t * 1000", ("$t", before))) c6.ExecuteNonQuery();
         PruneNetwork(before);
         PruneChanges(before);
     }
@@ -963,7 +973,7 @@ public sealed partial class RigsightDb : IDisposable
         Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes; DELETE FROM crash_signs; DELETE FROM close_up;"
             + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM app_minute;"
             + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop;"
-            + " DELETE FROM changes;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new
+            + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new
         Exec("VACUUM");
     }
 

@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Rigsight.Core.Settings;
 using Rigsight.Controls;
 using Rigsight.ViewModels;
 
@@ -14,7 +15,6 @@ namespace Rigsight.Views;
 
 public partial class SettingsView : UserControl
 {
-    private const double EditorWidth = 430;
     private static readonly IEasingFunction Ease = new CubicEase { EasingMode = EasingMode.EaseOut };
     private SidebarViewModel? _sidebar;
 
@@ -48,14 +48,44 @@ public partial class SettingsView : UserControl
             if (e.NewValue is INotifyPropertyChanged now) now.PropertyChanged += OnViewModelChanged;
             Watch((e.NewValue as SettingsViewModel)?.Sidebar);
         };
-        // Esc puts a page being dragged back where it was; otherwise it closes the sidebar editor.
+        // Setting the Ask shortcut: the next keys pressed on the page are it (Esc cancels), as on the Overlay page.
         PreviewKeyDown += (_, e) =>
         {
-            if (e.Key != Key.Escape || _sidebar is not { IsEditing: true }) return;
+            if (DataContext is not SettingsViewModel { Ai: { IsRecordingShortcut: true } ai }) return;
+            e.Handled = true;
+            // With Alt held, WPF reports the key as "System".
+            var key = e.Key == Key.System ? e.SystemKey : e.Key;
+            if (key == Key.Escape) { ai.CancelShortcut(); return; }
+            if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.None) return;
+            var mods = HotkeyModifiers.None;
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) mods |= HotkeyModifiers.Ctrl;
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) mods |= HotkeyModifiers.Alt;
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) mods |= HotkeyModifiers.Shift;
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Windows)) mods |= HotkeyModifiers.Win;
+            ai.RecordShortcut(KeyInterop.VirtualKeyFromKey(key), mods);
+        };
+        // Clicking elsewhere (or leaving the window) stops listening.
+        IsKeyboardFocusWithinChanged += (_, e) =>
+        {
+            if (e.NewValue is false && DataContext is SettingsViewModel { Ai: { IsRecordingShortcut: true } ai }) ai.CancelShortcut();
+        };
+        // Esc puts a page being dragged back where it was; otherwise it closes the sidebar editor (a name box takes its own Esc).
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Escape || _sidebar is not { IsEditing: true } || e.OriginalSource is TextBox) return;
             if (_grip is { IsDragging: true }) _grip.CancelDrag();
             else _sidebar.IsEditing = false;
             e.Handled = true;
         };
+    }
+
+    /// <summary>Keys are read by the page while listening for the Ask shortcut: the Set button holds the focus meanwhile.</summary>
+    private void ShortcutSet_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button set) return;
+        set.Focusable = true;
+        set.FocusVisualStyle = null;
+        set.Focus();
     }
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
@@ -93,28 +123,54 @@ public partial class SettingsView : UserControl
     }
 
     /// <summary>
-    /// The editor slides in over the page from the right while the page dims a little behind it; closing slides it
-    /// back out and takes it (and the dimming) away. The page itself never moves. (The widget editor's way: see WidgetsView.)
+    /// The Customize pop-up fades in over the page (pop-ins fade only) and out again; the sidebar beside it is never
+    /// covered, so each switch shows there at once. Without Windows' animations it appears and goes at once.
     /// </summary>
     private void ShowEditor(bool show, bool animate)
     {
-        var duration = TimeSpan.FromMilliseconds(animate ? (show ? 260 : 200) : 0);
+        var duration = TimeSpan.FromMilliseconds(animate && Services.Motion.Enabled ? (show ? 160 : 120) : 0);
         if (show)
         {
-            EditorPanel.Visibility = Visibility.Visible;
-            EditorScrim.Visibility = Visibility.Visible;
+            EditorLayer.Visibility = Visibility.Visible;
             // The keys go to the editor from here on: Esc closes it, Tab walks its rows and stays among them.
             if (animate) EditorPanel.Focus();
         }
-        var slide = new DoubleAnimation(show ? 0 : EditorWidth, duration) { EasingFunction = Ease };
-        if (!show) slide.Completed += (_, _) =>
+        else foreach (var g in _sidebar?.Groups ?? []) { g.IsRenaming = false; foreach (var p in g.Pages) p.IsRenaming = false; }
+        var fade = new DoubleAnimation(show ? 1 : 0, duration) { EasingFunction = Ease };
+        if (!show) fade.Completed += (_, _) =>
         {
             if (_sidebar is { IsEditing: true }) return; // opened again meanwhile
-            EditorPanel.Visibility = Visibility.Collapsed;
-            EditorScrim.Visibility = Visibility.Collapsed;
+            EditorLayer.Visibility = Visibility.Collapsed;
         };
-        EditorSlide.BeginAnimation(TranslateTransform.XProperty, slide, HandoffBehavior.SnapshotAndReplace);
-        EditorScrim.BeginAnimation(OpacityProperty, new DoubleAnimation(show ? 0.3 : 0, duration) { EasingFunction = Ease }, HandoffBehavior.SnapshotAndReplace);
+        EditorLayer.BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
+    }
+
+    // ── Renaming with the pencil ──
+
+    /// <summary>The name box takes the keys as it appears, its words picked, ready to be typed over.</summary>
+    private void NameEdit_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true && sender is TextBox box) Dispatcher.BeginInvoke(() => { box.Focus(); box.SelectAll(); }, DispatcherPriority.Input);
+    }
+
+    /// <summary>Enter keeps the name, Esc leaves the box (the name is kept as typed either way: it's saved as it's typed).</summary>
+    private void NameEdit_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Escape)) return;
+        StopRenaming(sender);
+        EditorPanel.Focus();
+        e.Handled = true;
+    }
+
+    private void NameEdit_LostFocus(object sender, KeyboardFocusChangedEventArgs e) => StopRenaming(sender);
+
+    private static void StopRenaming(object sender)
+    {
+        switch ((sender as FrameworkElement)?.DataContext)
+        {
+            case NavEntry page: page.IsRenaming = false; break;
+            case SidebarGroup group: group.IsRenaming = false; break;
+        }
     }
 
     /// <summary>A click outside the editor, on the page, closes it.</summary>

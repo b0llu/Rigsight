@@ -54,6 +54,16 @@ public partial class AppsView : UserControl
             FocusVisualStyle = null,
         };
 
+        // What it is, asked of the AI: first, while the AI is on and Apps is shared (mock-up, 2026-10-26).
+        if (vm.Selected?.Name is { Length: > 0 } name && new Services.AiQuestion(Lang.T($"What is {name}, and how do I use it on my PC?"), Core.Ai.AiPages.Apps) is var ask
+            && Services.AiGate.Shows(ask))
+        {
+            var ai = new MenuItem { Header = Lang.T("Ask what this is"), Icon = ProcessesView.AiIcon(), FocusVisualStyle = null };
+            ai.Click += (_, _) => Services.AiGate.Ask.Execute(ask);
+            menu.Items.Add(ai);
+            menu.Items.Add(new Separator());
+        }
+
         var category = Item(Lang.T("Category"), ""); // tag
         foreach (var c in vm.Categories)
         {

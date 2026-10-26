@@ -195,7 +195,9 @@ public sealed class ChangeEffectsTests
     public void Problems_that_started_after_the_change_are_a_worse_result()
     {
         var r = new Pc().Days(-14, 6, gpu: 70, minutes: 0).Problem(0, 20).Problem(1, 20).Problem(1, 21).Problem(2, 21.7).Result()!;
-        Assert.Equal("More graphics problems since this driver: 4 graphics driver resets, none in the 14 days before", r.Headline);
+        Assert.Equal("4 graphics driver resets since this driver, none in the 14 days before", r.Headline);
+        // On its own (Home), the change by name; one sentence, no colon.
+        Assert.Equal("4 graphics driver resets since driver 616.92, none in the 14 days before", r.Said);
         Assert.Equal(EffectTone.Worse, r.Tone);
         Assert.Equal("LIKELY THE DRIVER", r.Chip); // four on one side
         Assert.Equal(4, r.After.Count);
@@ -235,7 +237,7 @@ public sealed class ChangeEffectsTests
         var r = new Pc().Days(-14, 6, gpu: 70, minutes: 0).Problem(0, 10).Problem(-3, 10).Result()!;
         Assert.Equal(EffectTone.Better, r.Tone);
         Assert.Equal(2, r.Before.Count);
-        Assert.StartsWith("Fewer graphics problems since this driver: none, against 2 graphics driver resets in the 14 days before", r.Headline);
+        Assert.StartsWith("No graphics problems since this driver, against 2 graphics driver resets in the 14 days before", r.Headline);
     }
 
     [Fact]
@@ -308,7 +310,7 @@ public sealed class ChangeEffectsTests
         Assert.Equal(4, driver.DaysBefore);
         Assert.Equal(2, driver.DaysAfter);
         Assert.False(driver.Open);
-        Assert.StartsWith("More graphics problems in the 2 days after this driver", driver.Headline);
+        Assert.Contains("in the 2 days after this driver", driver.Headline);
         // The update: two before it, none in the four days until the driver.
         Assert.Equal(EffectTone.Better, results[update.Time.Date].Tone);
     }

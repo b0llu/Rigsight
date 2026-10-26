@@ -301,7 +301,7 @@ public sealed class InventoryTests
         Assert.Equal((ChangeKind.Driver, "NVIDIA graphics driver 616.92", "610.47"), (change.Kind, change.Title, change.Was));
         Assert.True(change.IsGraphicsDriver);
         Assert.True(change.IsSystemLevel);
-        Assert.Equal("Installed: NVIDIA graphics driver 616.92", change.Line);
+        Assert.Equal("NVIDIA graphics driver 616.92 installed", change.Line);
     }
 
     [Fact]

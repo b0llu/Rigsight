@@ -50,10 +50,10 @@ public sealed class ExportLanguageTests
         string readMe = DataExport.ReadMe(new DateTime(2026, 10, 10, 18, 5, 0), "9.9.9");
         string nl = Environment.NewLine;
         Assert.StartsWith("RigSight full copy, made 10 October 2026, 18:05 by RigSight 9.9.9." + nl + nl
-            + "rigsight.db is the history itself, a SQLite database: everything RigSight has recorded on this PC. Putting it" + nl
+            + "rigsight.db is the history itself, a SQLite database with everything RigSight has recorded on this PC. Putting it" + nl
             + @"back in %LocalAppData%\Rigsight (with RigSight closed from its tray icon) restores the history on this or another PC." + nl
             + "settings.json holds the settings." + nl + nl
-            + "The other files are the same history as tables (CSV: comma-separated, UTF-8), which Excel and most other" + nl
+            + "The other files are the same history as tables (CSV, comma-separated, UTF-8), which Excel and most other" + nl
             + "programs open. Times are this PC's local time. Temperatures are in °C. An empty cell means nothing was recorded." + nl, readMe);
         Assert.Contains("  Start: When it started" + nl, readMe);
     }

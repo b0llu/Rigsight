@@ -41,10 +41,10 @@ public static class CloseUpWords
 
         var lastMinute = Window(before, last - LastSec * 1000L, last);
         if (lastMinute.Max(p => p.Commit) is double commit && commit >= 95)
-            said.Add(new StoodOut(Lang.T($"Windows was nearly out of memory in the last minute: {commit:0}% of what it can promise was promised to apps."), true));
+            said.Add(new StoodOut(Lang.T($"Windows was nearly out of memory in the last minute, with {commit:0}% of what it can promise promised to apps."), true));
 
         if (said.Count == 0)
-            said.Add(new StoodOut(Lang.T("Nothing climbing in the seconds before: no jump in temperature, power or memory."), false, IsCalm: true));
+            said.Add(new StoodOut(Lang.T("No jump in temperature, power or memory in the seconds before."), false, IsCalm: true));
 
         if (After(points, crashTs, nameOf, crashedApp) is { } after) said.Insert(said.FindIndex(s => s.IsCalm) is int calm and >= 0 ? calm : said.Count, after);
         return said;
@@ -139,9 +139,9 @@ public static class CloseUpWords
             (name, later) = (nameOf(app), CrashFindings.Words((back.T - at) / 1000.0));
         string? text = (quiet, name) switch
         {
-            (true, not null) => Lang.T($"After: the GPU went from {gpuBefore:0}% to {gpuAfter:0}% at once, and {name} was back in front {later} later."),
-            (true, null) => Lang.T($"After: the GPU went from {gpuBefore:0}% to {gpuAfter:0}% at once."),
-            (false, not null) => Lang.T($"After: {name} was back in front {later} later."),
+            (true, not null) => Lang.T($"Right after, the GPU went from {gpuBefore:0}% to {gpuAfter:0}% at once, and {name} was back in front {later} later."),
+            (true, null) => Lang.T($"Right after, the GPU went from {gpuBefore:0}% to {gpuAfter:0}% at once."),
+            (false, not null) => Lang.T($"{name} was back in front {later} later."),
             _ => null,
         };
         return text is null ? null : new StoodOut(text, false);

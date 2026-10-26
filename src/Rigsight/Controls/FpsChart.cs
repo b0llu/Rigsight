@@ -179,7 +179,7 @@ public sealed class FpsChart : FrameworkElement
             {
                 var at = new Point(X(_hover), Y(low));
                 dc.DrawEllipse(ChartPaint.Muted, new Pen(hole, 1.5), at, 3.2, 3.2);
-                ChartPaint.InfoBox(dc, this, [(Lang.T($"{low:0} fps 1% low"), ChartPaint.TextBrush, true), (Lang.T($"The slowest frames: {p.Fps - low:0} under the average"), ChartPaint.Muted, false)],
+                ChartPaint.InfoBox(dc, this, [(Lang.T($"{low:0} fps 1% low"), ChartPaint.TextBrush, true), (Lang.T($"The slowest frames are {p.Fps - low:0} under the average"), ChartPaint.Muted, false)],
                     new Point(x, at.Y + 8), bounds, minTop: top.Bottom + 6);
             }
         }

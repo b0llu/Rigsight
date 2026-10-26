@@ -197,7 +197,7 @@ public sealed class ExportTests
         Assert.DoesNotContain(text, l => l.Contains('<')); // text, not a page
         Assert.Contains("Nothing was recorded in this time.", ReadableExport.ReportText(new Report { From = day, To = day.AddDays(1) }, "Empty", "0.21.0"));
 
-        Assert.StartsWith($"RigSight crashes{Environment.NewLine}Last 7 days: none recorded.", ReadableExport.CrashesText([], "Last 7 days", day, "0.21.0"));
+        Assert.StartsWith($"RigSight crashes{Environment.NewLine}Last 7 days, none recorded.", ReadableExport.CrashesText([], "Last 7 days", day, "0.21.0"));
     }
 
     [Fact]
@@ -254,7 +254,7 @@ public sealed class ExportTests
         Assert.Contains("    CPU Total           6 %      1 %  to  100 %", lines);
         Assert.True(Array.IndexOf(lines, "NVIDIA GeForce RTX 3080 Ti") > Array.IndexOf(lines, "AMD Ryzen 7 5700X3D"));
         // No agent, no readings: it says so instead of an empty list.
-        Assert.Contains("No sensor readings: the background agent wasn't running.", ReadableExport.Snapshot(at, "0.20.1", "CPU: x", [], []));
+        Assert.Contains("No sensor readings because the background agent wasn't running.", ReadableExport.Snapshot(at, "0.20.1", "CPU: x", [], []));
     }
 
     [Fact]
@@ -471,7 +471,7 @@ public sealed class ExportTests
         Kit.Wait(() => vm.ExportCommand.ExecuteAsync(null));
         Ui.Run(() =>
         {
-            Assert.StartsWith("Couldn't save there: ", vm.Error);
+            Assert.StartsWith("Couldn't save there. ", vm.Error);
             Assert.True(vm.IsOpen);
             Assert.False(vm.IsBusy);
             Assert.Empty(shown);

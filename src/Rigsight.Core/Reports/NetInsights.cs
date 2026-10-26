@@ -98,7 +98,7 @@ public static class NetInsights
         // 6. The biggest download day in a month, three months or a year.
         if (isDay && r.Down >= RecordBytes && RecordDays(db, r) is int days)
             list.Add(new Insight(IconRecord,
-                inProgress ? Lang.T($"Your biggest download day in {Span(days)}: {Units.Data(r.Down)} so far.") : Lang.T($"Your biggest download day in {Span(days)}: {Units.Data(r.Down)}."),
+                inProgress ? Lang.T($"{Units.Data(r.Down)} downloaded so far, your biggest download day in {Span(days)}.") : Lang.T($"{Units.Data(r.Down)} downloaded, your biggest download day in {Span(days)}."),
                 InsightTone.Neutral, "net-record", 60, Lang.T($"Beats every day of the {days} before")) { Short = Lang.T($"Biggest download day in {Span(days)}") });
 
         // 7. The period in a line, against the one before.
@@ -135,7 +135,7 @@ public static class NetInsights
         {
             var longest = r.Drops.MaxBy(d => d.Seconds)!;
             int link = r.Drops.Count(d => d.Kind == NetDropKind.Link);
-            string why = link == 0 ? " " + Lang.T("Your PC stayed connected to the router each time, so the trouble was past it: the router or your internet provider.")
+            string why = link == 0 ? " " + Lang.T("Your PC stayed connected to the router each time, so the trouble was past it, in the router or your internet provider.")
                 : link == r.Drops.Count ? " " + Lang.T("Each time your PC's own connection to the router (the cable or Wi-Fi) went down.")
                 : "";
             int drops = r.Drops.Count;
@@ -166,7 +166,7 @@ public static class NetInsights
                     ? Lang.T($"{name} uploaded {up} {period}, against its usual of about {Units.Data(usual)} a day.")
                     : Lang.T($"{name} uploaded {up} {period}. It usually uploads next to nothing."),
                 usual >= MB ? InsightTone.Neutral : InsightTone.Warn, "net-upload", 68,
-                Lang.T($"Its usual: the middle of the {days.Count} days it was online in the {NetReportBuilder.UsualDays} before"))
+                Lang.T($"Its usual is the middle of the {days.Count} days it was online in the {NetReportBuilder.UsualDays} before"))
                 { Short = usual >= MB ? Lang.T($"{name} uploaded {times:0}× its usual") : Lang.T($"{name} uploaded {up}, usually next to nothing"),
                   Ask = Lang.T($"Why did {name} upload {up} {period}?"), AskPage = Ai.AiPages.Network });
             return;

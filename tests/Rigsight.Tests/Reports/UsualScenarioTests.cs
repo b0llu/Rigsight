@@ -94,7 +94,7 @@ public sealed class UsualScenarioTests : IDisposable
         var today = Build(path, ReportRange.Day, End);
         var line = Assert.Single(today.Insights, x => x.Key == "usual-heat");
         Assert.Equal(InsightTone.Warn, line.Tone);
-        Assert.Matches(@"^In Cyberpunk 2077, your GPU (runs|ran) \d+° hotter than usual: \d+° against \d+(–\d+)?°, at the same power\. With nothing running it (sits|sat) at its usual \d+°, so dust or old thermal paste are the likely causes\.$", line.Text);
+        Assert.Matches(@"^In Cyberpunk 2077, your GPU (runs|ran) \d+° hotter than usual at the same power, \d+° against \d+(–\d+)?°\. With nothing running it (sits|sat) at its usual \d+°, so dust or old thermal paste are the likely causes\.$", line.Text);
         Assert.Matches(@"^Cyberpunk 2077 (runs|ran) \d+° hotter than usual$", line.Line);
         // It opens the game: its plays against its usual, on the Games page.
         Assert.Equal((InsightOpens.Game, "Cyberpunk 2077"), (line.Opens, line.Game));

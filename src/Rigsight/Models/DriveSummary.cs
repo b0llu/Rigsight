@@ -24,6 +24,7 @@ public sealed partial class DriveSummary : ObservableObject
                 OnPropertyChanged(nameof(HealthText));
                 OnPropertyChanged(nameof(HealthBrush));
                 OnPropertyChanged(nameof(HealthReason));
+                OnPropertyChanged(nameof(HealthAsk));
                 OnPropertyChanged(nameof(StateWord));
                 OnPropertyChanged(nameof(Details));
             };
@@ -44,7 +45,7 @@ public sealed partial class DriveSummary : ObservableObject
     public SensorItem? PowerOnHours { get; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasHealth), nameof(HealthText), nameof(HealthBrush), nameof(SectorsText), nameof(HealthToolTip), nameof(HealthReason), nameof(SectorsBrush), nameof(StateWord), nameof(Details))]
+    [NotifyPropertyChangedFor(nameof(HasHealth), nameof(HealthText), nameof(HealthBrush), nameof(SectorsText), nameof(HealthToolTip), nameof(HealthReason), nameof(HealthAsk), nameof(SectorsBrush), nameof(StateWord), nameof(Details))]
     private DriveHealthInfo? _health;
 
     private string Status => Health?.Status ?? "Unknown";
@@ -98,6 +99,9 @@ public sealed partial class DriveSummary : ObservableObject
         1 => "WarmBrush",
         _ => "GoodBrush",
     });
+
+    /// <summary>A drive that isn't healthy: its AI button asks what it means, from the Storage page's records.</summary>
+    public Services.AiQuestion? HealthAsk => HealthReason is { } why ? new(Lang.T($"My drive {Name} shows {StateWord}. {why} What does this mean for it?"), Core.Ai.AiPages.Storage) : null;
 
     /// <summary>
     /// Why the drive isn't in green, said on its card in the same colour (nothing for a healthy drive): "Caution" or a

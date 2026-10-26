@@ -2,6 +2,7 @@
 using Rigsight.Agent.Sensors;
 using Rigsight.Core;
 using Rigsight.Core.Data;
+using Rigsight.Core.Games;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
@@ -34,6 +35,26 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     internal Func<int, (double Fps, double? Low)?> ReadFrames { get; set; } = pid =>
         Widgets.Rtss.ReadFrameStats(pid) is { } f && f.Fps > 0 ? (f.Fps, f.OnePercentLow) : null;
 
+    /// <summary>
+    /// Every frame the game in front drew since the last ask (µs each, into the list), and whether some went by unread
+    /// (2026-10-25: true lows and stutters, see <see cref="FrameSpread"/>). RivaTuner's; a test sets its own.
+    /// </summary>
+    internal Func<int, List<uint>, (bool Ok, bool Missed)> ReadNewFrames { get; set; } = (pid, into) => (Widgets.Rtss.ReadNewFrames(pid, into, out var missed), missed);
+
+    /// <summary>Where every frame is kept for 14 days (see <see cref="FrameStore"/>); a test's own folder.</summary>
+    internal string? FramesFolder { get; set; }
+
+    private readonly List<uint> _frameBuf = [];
+    private readonly StutterFinder _stutters = new();
+    private int _stutterPid;
+
+    /// <summary>A game's frames over the minute: their spread and the stutters (at most 300 kept a minute).</summary>
+    private sealed class FrameAcc
+    {
+        public readonly FrameSpread Spread = new();
+        public readonly List<Stutter> Stutters = [];
+    }
+
     private sealed class MinuteAcc
     {
         public double Seconds, Active, Idle;
@@ -62,6 +83,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         /// <summary>The game in front's frame rate and 1% low, a reading a second while RivaTuner measured it.</summary>
         public double FpsSum, FpsLowSum;
         public int FpsN, FpsLowN;
+        /// <summary>Each game's every frame over the minute, by app (usually one: the game in front).</summary>
+        public readonly Dictionary<long, FrameAcc> Frames = [];
         /// <summary>How many process samples the minute has had, and what each app with something to show added up to over them.</summary>
         public int Samples;
         public readonly Dictionary<string, AppAcc> Apps = new(StringComparer.OrdinalIgnoreCase);
@@ -244,6 +267,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     _minute.FpsSum += fps;
                     _minute.FpsN++;
                     if (low is double l) { _minute.FpsLowSum += l; _minute.FpsLowN++; }
+                    TakeFrames(app, s.Pid);
                 }
             }
             else
@@ -255,6 +279,30 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         _foreground = app;
         _present = present;
         Activity = BuildActivity(app, present, s.Fullscreen);
+    }
+
+    /// <summary>
+    /// The game in front's frames since the last second: into the minute's spread, through the stutter finder, and kept
+    /// for 14 days. Frames after a gap (the game was behind another window, RivaTuner's ring came round) aren't joined to
+    /// the ones before: that batch only starts the count again.
+    /// </summary>
+    private void TakeFrames(AppInfo app, int pid)
+    {
+        var (ok, missed) = ReadNewFrames(pid, _frameBuf);
+        if (!ok) return;
+        if (pid != _stutterPid || missed)
+        {
+            _stutterPid = pid;
+            _stutters.Reset();
+            if (missed) return;
+        }
+        if (_frameBuf.Count == 0) return;
+        long endMs = _clock().ToUnixTimeMilliseconds();
+        if (!_minute.Frames.TryGetValue(app.Id, out var acc)) _minute.Frames[app.Id] = acc = new FrameAcc();
+        foreach (var us in _frameBuf) acc.Spread.Add(us);
+        var found = _stutters.Feed(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_frameBuf), endMs);
+        acc.Stutters.AddRange(found.Take(Math.Max(0, 300 - acc.Stutters.Count)));
+        FrameStore.Append(app.Id, endMs, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_frameBuf), FramesFolder);
     }
 
     /// <summary>Fullscreen + heavy GPU use for a couple of minutes means it's almost certainly a game.</summary>
@@ -656,6 +704,10 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         _minuteTs = minute;
     }
 
+    /// <summary>The frames of the minute's app in front, with ten seconds of them at least (else null).</summary>
+    private static FrameSpread? FrontFrames(MinuteAcc m) =>
+        m.Foreground.Count > 0 && m.Frames.TryGetValue(m.Foreground.MaxBy(kv => kv.Value).Key, out var acc) && acc.Spread.TotalUs >= 10_000_000 ? acc.Spread : null;
+
     /// <summary>Writes the finished minute and hour deltas, closes stale sessions, and rolls the day.</summary>
     public void Flush(bool closeAllSessions)
     {
@@ -712,9 +764,11 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     VramTotal = m.VramTotal,
                     FgVram = FrontVram(m),
                     // Ten seconds of frames at least, so a game glimpsed while switching away doesn't give the minute a rate.
-                    Fps = m.FpsN >= 10 ? m.FpsSum / m.FpsN : null,
-                    FpsLow = m.FpsN >= 10 && m.FpsLowN > 0 ? m.FpsLowSum / m.FpsLowN : null,
+                    // From every frame where they were read (the true 1% low), else RivaTuner's own readings averaged.
+                    Fps = m.FpsN >= 10 ? FrontFrames(m)?.Fps ?? m.FpsSum / m.FpsN : null,
+                    FpsLow = m.FpsN >= 10 ? FrontFrames(m)?.Low1 ?? (m.FpsLowN > 0 ? m.FpsLowSum / m.FpsLowN : null) : null,
                 });
+                foreach (var (appId, frames) in m.Frames) db.WriteFrameMinute(_minuteTs, appId, frames.Spread, frames.Stutters);
                 db.WriteAppMinutes(_minuteTs, [.. TopApps(m.Apps, m.Samples)
                     .Select(a => new AppMinute(_minuteTs, apps.Get(a.Exe, a.Pid).Id, a.Cpu, a.Gpu, a.MemMb, a.Disk))]);
                 db.WriteFanMinutes(_minuteTs, [.. m.Fans.Where(f => f.Value.N > 0)
@@ -738,6 +792,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             if (LocalToday != _lastPrune)
             {
                 _lastPrune = LocalToday;
+                FrameStore.Prune(LocalToday, FramesFolder);
                 if (_settings.Tracking.KeepHistoryDays > 0)
                     db.Prune(TimeUtil.ToUnix(PruneDay(LocalToday, db.LastMinuteBefore(_minuteTs)).AddDays(-_settings.Tracking.KeepHistoryDays)));
             }

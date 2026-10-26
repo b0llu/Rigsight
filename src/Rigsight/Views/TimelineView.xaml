@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:Rigsight.Views"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:svc="clr-namespace:Rigsight.Services"
              x:Name="Page">
     <UserControl.Resources>
         <Style x:Key="PanelHead" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
@@ -192,6 +193,10 @@
                                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Open'}" Margin="12,0,0,0" VerticalAlignment="Center"
                                         Command="{Binding DataContext.OpenResultCommand, ElementName=Page}" CommandParameter="{Binding}"
                                         AutomationProperties.Name="{ctl:T 'Open this change\'s before and after'}" />
+                                <!-- Worse since the change: ask whether it's why (hidden while the AI is off). -->
+                                <Border DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="{Binding HasResultAsk, Converter={StaticResource Vis}}">
+                                    <Button Style="{StaticResource AiButton}" Content="{Binding ResultAskText}" CommandParameter="{Binding ResultAsk}" AutomationProperties.Name="{Binding ResultAskText}" />
+                                </Border>
                                 <TextBlock Text="{Binding Result.Why}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
                             </DockPanel>
                         </StackPanel>
@@ -238,6 +243,8 @@
         <DockPanel>
             <!-- How many, since when: at the title's right. At the end of the row below it slid under the search box on a small window. -->
             <Button Style="{StaticResource PageExportButton}" />
+            <!-- The page's own question for the AI (mock-up board 5), left of Export. -->
+            <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'Did a change hurt?'}" CommandParameter="{x:Static svc:PageAsks.Timeline}" AutomationProperties.Name="{ctl:T 'Did a change hurt?'}" />
             <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Foreground="{DynamicResource FaintBrush}" FontSize="12.5" VerticalAlignment="Bottom" Margin="16,0,0,1" />
             <StackPanel>
                 <TextBlock Text="{ctl:T 'Timeline'}" Style="{StaticResource H1}" />
@@ -265,10 +272,10 @@
             <Border Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
                     <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="{ctl:T 'By day'}"
-                                 ToolTip="{ctl:T 'Day by day: three or more app updates on a day are one line'}"
+                                 ToolTip="{ctl:T 'Day by day, with three or more app updates on a day as one line'}"
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Day}" />
                     <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="{ctl:T 'By month'}"
-                                 ToolTip="{ctl:T 'A row a month: each kind of change in it is one line'}"
+                                 ToolTip="{ctl:T 'A row a month, with each kind of change in it as one line'}"
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Month}" />
                     <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="{ctl:T 'Off'}" ToolTip="{ctl:T 'Day by day, every change on its own line'}"
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Each}" />

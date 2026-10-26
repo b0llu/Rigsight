@@ -42,10 +42,10 @@ public sealed class SavedTextTests
         { ".NET update KB5066000", "«.NET update KB5066000»" },
         { "Windows 11 updated to 25H2", "«Windows 11 updated to 25H2»" },
         { "BIOS updated to F64", "«BIOS updated to F64»" },
-        { "Graphics card removed: NVIDIA GeForce RTX 3080 Ti", "«Graphics card removed: NVIDIA GeForce RTX 3080 Ti»" },
-        { "Graphics card added: AMD Radeon", "«Graphics card added: AMD Radeon»" },
-        { "Drive added: Samsung SSD 980", "«Drive added: Samsung SSD 980»" },
-        { "Drive removed: Kingston A400", "«Drive removed: Kingston A400»" },
+        { "Graphics card removed: NVIDIA GeForce RTX 3080 Ti", "«Graphics card NVIDIA GeForce RTX 3080 Ti removed»" },
+        { "Graphics card added: AMD Radeon", "«Graphics card AMD Radeon added»" },
+        { "Drive added: Samsung SSD 980", "«Drive Samsung SSD 980 added»" },
+        { "Drive removed: Kingston A400", "«Drive Kingston A400 removed»" },
         { "Processor changed to AMD Ryzen 7 5700X3D", "«Processor changed to AMD Ryzen 7 5700X3D»" },
         { "Memory changed to 32 GB", "«Memory changed to 32 GB»" },
         { "Motherboard changed to B450 AORUS PRO", "«Motherboard changed to B450 AORUS PRO»" },
@@ -58,8 +58,8 @@ public sealed class SavedTextTests
         { "Edge left startup and came straight back", "«Edge left startup and came straight back»" },
         { "Edge was turned on at startup and straight back off", "«Edge was turned on at startup and straight back off»" },
         { "Chrome ended from Processes", "«Chrome ended from Processes»" },
-        { "GPU disconnected for 1 minute: AMD Radeon", "«GPU disconnected for 1 minute: AMD Radeon»" },
-        { "GPU disconnected for 4 minutes: AMD Radeon", "«GPU disconnected for 4 minutes: AMD Radeon»" },
+        { "GPU disconnected for 1 minute: AMD Radeon", "«AMD Radeon disconnected for 1 minute»" },
+        { "GPU disconnected for 4 minutes: AMD Radeon", "«AMD Radeon disconnected for 4 minutes»" },
         { "Fan speeds changed while the PC was off", "«Fan speeds changed while the PC was off»" },
         { "12 GB added to the C drive", "«12 GB added to the C drive»" },
         { "1,204 GB freed on the D drive", "«1,204 GB freed on the D drive»" },
@@ -82,10 +82,20 @@ public sealed class SavedTextTests
 
     [Theory]
     [MemberData(nameof(Saved))]
-    public void Without_a_pack_a_saved_line_is_shown_exactly_as_saved(string saved, string _)
+    public void Without_a_pack_a_saved_line_is_shown_exactly_as_saved(string saved, string expected)
     {
         using var __ = Lang.UseHere(null);
-        Assert.Same(saved, SavedText.Show(saved));
+        // A form saved with a colon is said without it, in its template's words (2026-10-26); every other one as saved.
+        if (saved.Contains(": ", StringComparison.Ordinal)) Assert.Equal(expected.Trim('«', '»'), SavedText.Show(saved));
+        else Assert.Same(saved, SavedText.Show(saved));
+    }
+
+    [Fact]
+    public void A_line_saved_with_a_colon_is_said_without_one_in_English()
+    {
+        using var _ = Lang.UseHere(null);
+        Assert.Equal("Graphics card NVIDIA GeForce RTX 3080 Ti added", SavedText.Show("Graphics card added: NVIDIA GeForce RTX 3080 Ti"));
+        Assert.Equal("Kept 5 of 7 days in full. The repair didn't finish (disk full)", SavedText.Show("Kept 5 of 7 days in full. The repair didn't finish: disk full"));
     }
 
     [Fact]
@@ -104,7 +114,7 @@ public sealed class SavedTextTests
             { "code": "es", "strings": {
                 "{0} updated to {1}": "{0} actualizado a {1}",
                 "{0} installed": "{0} instalado",
-                "GPU disconnected for {0} minutes: {1}": "GPU desconectada durante {0} minutos: {1}",
+                "{1} disconnected for {0} minutes": "{1} desconectada durante {0} minutos",
                 "{0} turned off": "{0} desactivado",
                 "Fast Startup": "Inicio rápido",
                 "Kept {0} of {1} days in full.": "Se conservaron {0} de {1} días completos.",
@@ -114,7 +124,7 @@ public sealed class SavedTextTests
         using var _ = Lang.UseHere(pack);
         Assert.Equal("Copilot actualizado a 26.01", SavedText.Show("Copilot updated to 26.01"));
         Assert.Equal("Mage Arena instalado", SavedText.Show("Mage Arena installed"));
-        Assert.Equal("GPU desconectada durante 4 minutos: AMD Radeon", SavedText.Show("GPU disconnected for 4 minutes: AMD Radeon"));
+        Assert.Equal("AMD Radeon desconectada durante 4 minutos", SavedText.Show("GPU disconnected for 4 minutes: AMD Radeon"));
         Assert.Equal("Inicio rápido desactivado", SavedText.Show("Fast Startup turned off"));
         Assert.Equal("Se conservaron 3 de 5 días completos. Nothing was lost. Se conserva el archivo dañado.",
             SavedText.Show("Kept 3 of 5 days in full. Nothing was lost. The damaged file is kept."));

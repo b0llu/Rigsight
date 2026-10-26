@@ -64,6 +64,13 @@
             </Border>
         </Grid>
         <TextBlock Text="{Binding UsedText}" Style="{StaticResource Label}" />
+        <!-- Questions given, kept until used: their own line, not part of the day's bar (2026-10-25) -->
+        <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="12,9" Margin="0,10,0,0" Visibility="{Binding HasGiven, Converter={StaticResource Vis}}">
+            <DockPanel>
+                <TextBlock Text="&#xF133;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource PurpleBrush}" Margin="0,1,10,0" VerticalAlignment="Top" />
+                <TextBlock Text="{Binding GivenText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+            </DockPanel>
+        </ctl:SmoothBorder>
 
         <!-- Cancelled (works until the end) or a failed payment: said in full, above the facts -->
         <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,14,0,0"

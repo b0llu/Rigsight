@@ -37,7 +37,7 @@ public static class WidgetCatalog
     public static string Description(WidgetStyle style) => style switch
     {
         WidgetStyle.Compact => Lang.T("CPU and GPU temperature with load, power and a mini chart."),
-        WidgetStyle.Pill => Lang.T("One slim line: CPU, GPU and RAM. Great along the top of the screen."),
+        WidgetStyle.Pill => Lang.T("One slim line with CPU, GPU and RAM. Great along the top of the screen."),
         WidgetStyle.Gauges => Lang.T("Ring gauges for CPU and GPU temperature."),
         WidgetStyle.NowPlaying => Lang.T("The app or game you're using, for how long, and its peak temperatures."),
         WidgetStyle.Today => Lang.T("Screen time so far today, your most-used app and today's peaks."),

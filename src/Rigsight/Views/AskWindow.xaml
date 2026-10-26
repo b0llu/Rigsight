@@ -579,6 +579,22 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- Words only, brighter on hover, no arrow: Cancel and Try again (they open nothing). -->
+        <Style x:Key="PlainLink" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter Margin="0,6,4,6" VerticalAlignment="Center" TextElement.FontSize="12.5" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="LinkAction" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
@@ -640,9 +656,20 @@
                                     </StackPanel>
                                 </StackPanel>
                             </ctl:SmoothBorder>
-                            <StackPanel Orientation="Horizontal" Margin="2,6,0,6" Visibility="{Binding IsWorking, Converter={StaticResource Vis}}">
-                                <ctl:Spinner Width="14" Height="14" StrokeThickness="1.6" VerticalAlignment="Center" />
-                                <TextBlock Text="{ctl:T 'Closing…'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                            <StackPanel Margin="2,6,0,6" Width="320" HorizontalAlignment="Left" Visibility="{Binding IsWorking, Converter={StaticResource Vis}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ctl:Spinner Width="14" Height="14" StrokeThickness="1.6" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ClosingText}" FontSize="13" Foreground="{DynamicResource TextBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <!-- The seconds the app is given to close by itself, as a bar (the 2026-10-24 audit: a spinner alone gave no reason). -->
+                                <Grid Height="6" Margin="0,8,0,0" Visibility="{Binding ClosingWaits, Converter={StaticResource Vis}}">
+                                    <Border CornerRadius="3" Background="{DynamicResource HoverBrush}" />
+                                    <Border x:Name="CloseFill" CornerRadius="3" Background="{DynamicResource PurpleBrush}" RenderTransformOrigin="0,0.5">
+                                        <Border.RenderTransform><ScaleTransform ScaleX="0" /></Border.RenderTransform>
+                                    </Border>
+                                </Grid>
+                                <TextBlock Text="{Binding ClosingWhy}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                           Visibility="{Binding ClosingWaits, Converter={StaticResource Vis}}" />
                             </StackPanel>
                             <DockPanel Margin="2,6,0,6" Visibility="{Binding IsSaid, Converter={StaticResource Vis}}">
                                 <TextBlock x:Name="Mark" DockPanel.Dock="Left" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}"
@@ -667,6 +694,20 @@
                                 <Setter TargetName="Mark" Property="Text" Value="&#xE7BA;" />
                                 <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource WarmBrush}" />
                             </DataTrigger>
+                            <!-- "Checks at 9:51 PM" still to come: a clock, not a done tick (it read as done, 2026-10-24 audit). -->
+                            <DataTrigger Binding="{Binding Pending}" Value="True">
+                                <Setter TargetName="Mark" Property="Text" Value="&#xE916;" />
+                                <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsWorking}" Value="True">
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="CloseFill" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" From="0" To="1" Duration="0:0:6" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                            </DataTrigger>
                         </DataTemplate.Triggers>
         </DataTemplate>
 
@@ -681,10 +722,14 @@
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" CornerRadius="10" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1" Background="Transparent" Padding="12,9">
                                 <DockPanel>
-                                    <TextBlock DockPanel.Dock="Right" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource FaintBrush}"
+                                    <TextBlock x:Name="Go" DockPanel.Dock="Right" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource FaintBrush}"
                                                LineStackingStrategy="BlockLineHeight" LineHeight="12" Height="12" VerticalAlignment="Center" Margin="10,0,0,0" />
-                                    <TextBlock x:Name="Sign" DockPanel.Dock="Left" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource PurpleBrush}"
-                                               LineStackingStrategy="BlockLineHeight" LineHeight="16" Height="16" VerticalAlignment="Top" Margin="0,1,11,0" />
+                                    <Grid DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,11,0">
+                                        <TextBlock x:Name="Sign" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource PurpleBrush}"
+                                                   LineStackingStrategy="BlockLineHeight" LineHeight="16" Height="16" />
+                                        <!-- An app's own icon, as the Start menu shows it (the approved artifact: "Open NVIDIA App" with its icon). -->
+                                        <Image x:Name="AppIcon" Source="{Binding Icon}" Width="16" Height="16" Visibility="Collapsed" RenderOptions.BitmapScalingMode="HighQuality" />
+                                    </Grid>
                                     <TextBlock TextWrapping="Wrap" FontSize="13" LineHeight="18" VerticalAlignment="Center">
                                         <Run Text="{Binding Label, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run x:Name="Dot" Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run x:Name="WhyRun" Text="{Binding Why, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
                                     </TextBlock>
@@ -698,6 +743,17 @@
                                 <DataTrigger Binding="{Binding Kind}" Value="OpenSharing"><Setter TargetName="Sign" Property="Foreground" Value="{DynamicResource AccentBrush}" /></DataTrigger>
                                 <DataTrigger Binding="{Binding Kind}" Value="StartAgent"><Setter TargetName="Sign" Property="Foreground" Value="{DynamicResource AccentBrush}" /></DataTrigger>
                                 <DataTrigger Binding="{Binding Kind}" Value="CopyReport"><Setter TargetName="Sign" Property="Foreground" Value="{DynamicResource AccentBrush}" /></DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="OpenApp"><Setter TargetName="Sign" Property="Foreground" Value="{DynamicResource CpuBrush}" /></DataTrigger>
+                                <!-- Check again starts a check here, it opens nothing: no arrow (test copy pass, 2026-10-25). -->
+                                <DataTrigger Binding="{Binding Kind}" Value="CheckAgain">
+                                    <Setter TargetName="Go" Property="Visibility" Value="Collapsed" />
+                                    <Setter TargetName="Sign" Property="Foreground" Value="{DynamicResource CpuBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="OpenWeb"><Setter TargetName="Sign" Property="Foreground" Value="{DynamicResource SkyBrush}" /></DataTrigger>
+                                <DataTrigger Binding="{Binding HasIcon}" Value="True">
+                                    <Setter TargetName="AppIcon" Property="Visibility" Value="Visible" />
+                                    <Setter TargetName="Sign" Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Button.Template>
@@ -705,6 +761,10 @@
                 <DockPanel Margin="2,6,0,6" Visibility="{Binding IsSaid, Converter={StaticResource Vis}}">
                     <TextBlock x:Name="Mark" DockPanel.Dock="Left" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}"
                                LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,7,0" />
+                    <!-- It didn't work: Try again where trying again can help (a Windows screen or an app that didn't open). -->
+                    <Button x:Name="Again" DockPanel.Dock="Right" Style="{StaticResource PlainLink}" Content="{ctl:T 'Try again'}" Visibility="Collapsed" Margin="10,-6,0,-6"
+                            AutomationProperties.Name="{ctl:T 'Try again'}" VerticalAlignment="Top"
+                            Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
                     <TextBlock Text="{Binding Said}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
                 </DockPanel>
             </Grid>
@@ -713,6 +773,218 @@
                     <Setter TargetName="Mark" Property="Text" Value="&#xE7BA;" />
                     <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource WarmBrush}" />
                 </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions><Condition Binding="{Binding IsFailed}" Value="True" /><Condition Binding="{Binding CanRetry}" Value="True" /></MultiDataTrigger.Conditions>
+                    <Setter TargetName="Again" Property="Visibility" Value="Visible" />
+                </MultiDataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- A drive scan from an answer: one card that changes in place (the approved artifact of 2026-10-24): before, the
+             drive and how full it is with Scan; scanning, a real bar of what's found against what the drive holds, the files
+             and the folder being read, with Stop; done, the biggest folders as one bar and Open on Storage; failed, why and
+             Try again. It never goes away: the answer that reads the scan comes under it. -->
+        <DataTemplate x:Key="ScanCard">
+            <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource Surface2Brush}" Padding="14,13" Margin="0,0,0,6" AutomationProperties.Name="{Binding Scan.Title}">
+                <Grid>
+                    <StackPanel Visibility="{Binding IsReady, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Padding="14,6" Margin="12,0,0,0" VerticalAlignment="Top"
+                                    AutomationProperties.Name="{Binding Scan.Title}"
+                                    Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource OnAccentBrush}"
+                                               LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                    <TextBlock Text="{ctl:T 'Scan'}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Grid Width="32" Height="32" VerticalAlignment="Top" Margin="0,0,11,0">
+                                    <Border CornerRadius="8" Background="{DynamicResource SkyBrush}" Opacity="0.15" />
+                                    <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource SkyBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="15" Height="15" />
+                                </Grid>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Scan.Title}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Scan.ReadyText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                        <StackPanel Margin="0,11,0,0" Visibility="{Binding Scan.HasSize, Converter={StaticResource Vis}}">
+                            <ctl:PartsBar Parts="{Binding Scan.UsedBar}" Height="6" />
+                            <DockPanel Margin="0,6,0,0">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Scan.FreeText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                    <TextBlock Text="{Binding Scan.UsedText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                </DockPanel>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Visibility="{Binding IsWorking, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource SecondAction}" Margin="12,0,0,0" VerticalAlignment="Top" Content="{ctl:T 'Stop'}"
+                                    AutomationProperties.Name="{ctl:T 'Stop scanning'}"
+                                    Command="{Binding DataContext.StopScanCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                            <Grid Width="32" Height="32" VerticalAlignment="Top" Margin="0,0,11,0">
+                                    <Border CornerRadius="8" Background="{DynamicResource SkyBrush}" Opacity="0.15" />
+                                    <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource SkyBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="15" Height="15" />
+                                </Grid>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Scan.ScanningTitle}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Scan.Folder}" FontSize="12.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                        <StackPanel Margin="0,11,0,0">
+                            <ctl:PartsBar Parts="{Binding Scan.ProgressBar}" Height="6" />
+                            <DockPanel Margin="0,6,0,0">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Scan.FilesText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                    <TextBlock Text="{Binding Scan.FoundText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                </DockPanel>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Visibility="{Binding IsDone, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <Grid Width="32" Height="32" VerticalAlignment="Top" Margin="0,0,11,0">
+                                    <Border CornerRadius="8" Background="{DynamicResource GoodBrush}" Opacity="0.15" />
+                                    <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource GoodBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="15" Height="15" />
+                                </Grid>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Scan.DoneTitle}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Scan.DoneText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                        <StackPanel Margin="0,11,0,0" Visibility="{Binding Scan.HasFolders, Converter={StaticResource Vis}}">
+                            <ctl:PartsBar Parts="{Binding Scan.Folders}" Height="6" />
+                            <ItemsControl ItemsSource="{Binding Scan.Top}" Focusable="False" Margin="0,7,0,0">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,14,3">
+                                            <Border Width="8" Height="8" CornerRadius="2" Background="{Binding Brush, Converter={StaticResource ResourceBrush}}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}"><Run Text="{Binding Name, Mode=OneWay}" /> <Run Text="{Binding Size, Mode=OneWay}" /></TextBlock>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                        <DockPanel Margin="0,4,0,-4">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource LinkAction}" Content="{ctl:T 'Open on Storage'}" AutomationProperties.Name="{ctl:T 'Open on Storage'}"
+                                    Command="{Binding DataContext.OpenScanCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                            <TextBlock Text="{Binding Scan.Later}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                       Visibility="{Binding Scan.HasLater, Converter={StaticResource Vis}}" />
+                        </DockPanel>
+                    </StackPanel>
+                    <DockPanel Visibility="{Binding IsFailed, Converter={StaticResource Vis}}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource SecondAction}" Margin="12,0,0,0" VerticalAlignment="Top" AutomationProperties.Name="{ctl:T 'Try again'}"
+                                Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                           LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                <TextBlock Text="{ctl:T 'Try again'}" FontSize="13" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Grid Width="32" Height="32" VerticalAlignment="Top" Margin="0,0,11,0">
+                                    <Border CornerRadius="8" Background="{DynamicResource WarmBrush}" Opacity="0.15" />
+                                    <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource WarmBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="15" Height="15" />
+                                </Grid>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Scan.FailedTitle}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Scan.Failed}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+                </Grid>
+            </ctl:SmoothBorder>
+        </DataTemplate>
+
+
+        <!-- Readings for a new widget, the overlay or the taskbar (the approved board 7 of 2026-10-26): the sign and title, the
+             readings as chips (ticked when already there), where they'd go, then the button; once pressed, what it did in green
+             with Undo and the page. Nothing changes until it's pressed. -->
+        <DataTemplate x:Key="SetupCard">
+            <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                              Padding="14,12" Margin="0,0,0,6" AutomationProperties.Name="{Binding Setup.Title}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Grid Width="26" Height="26" VerticalAlignment="Center" Margin="0,0,9,0">
+                            <Border CornerRadius="7" Background="{DynamicResource AccentBrush}" Opacity="0.15" />
+                            <TextBlock Text="{Binding Setup.Glyph}" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource AccentBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="13" Height="13" />
+                        </Grid>
+                        <TextBlock Text="{Binding Setup.Title}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding Setup.Chips}" Focusable="False" Margin="0,10,0,0">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border x:Name="Chip" CornerRadius="11" Background="{DynamicResource HoverBrush}" Padding="10,3" Margin="0,0,6,6" AutomationProperties.Name="{Binding Spoken}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="Tick" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" Visibility="Collapsed"
+                                                   LineStackingStrategy="BlockLineHeight" LineHeight="12" Height="12" VerticalAlignment="Center" Margin="0,0,5,0" />
+                                        <TextBlock x:Name="Words" Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding On}" Value="True">
+                                        <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="Words" Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                        <Setter TargetName="Chip" Property="Background" Value="Transparent" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <!-- Only before the press: once done, "Adding turns the overlay on" or "Nothing is shown there yet" would no longer be
+                         true; Undo brings the card back to ready with the note worked out again. -->
+                    <TextBlock Text="{Binding Setup.Where}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,0"
+                               Visibility="{Binding IsDone, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    <Grid Margin="0,11,0,0">
+                        <!-- Ready: the main button, and Customize or Open Taskbar. -->
+                        <StackPanel x:Name="Ready" Orientation="Horizontal" Visibility="Collapsed">
+                            <Button Style="{StaticResource AccentButton}" Padding="12,6" AutomationProperties.Name="{Binding Setup.MainLabel}"
+                                    Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                <TextBlock Text="{Binding Setup.MainLabel}" FontSize="13" FontWeight="SemiBold" />
+                            </Button>
+                            <Button Style="{StaticResource GhostButton}" Padding="12,6" Margin="8,0,0,0" AutomationProperties.Name="{Binding Setup.SecondLabel, TargetNullValue=''}"
+                                    Visibility="{Binding Setup.HasSecond, Converter={StaticResource Vis}}"
+                                    Command="{Binding DataContext.SetupSecondCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                <TextBlock Text="{Binding Setup.SecondLabel}" FontSize="13" />
+                            </Button>
+                        </StackPanel>
+                        <!-- Ready, with everything there already: said, and the page. -->
+                        <DockPanel x:Name="AllOn" Visibility="Collapsed">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource LinkAction}" Content="{Binding Setup.OpenLabel}" AutomationProperties.Name="{Binding Setup.OpenLabel}" Margin="10,-6,0,-6"
+                                    Command="{Binding DataContext.OpenSetupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}"
+                                       LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,7,0" />
+                            <TextBlock Text="{Binding Setup.AllOnText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
+                        </DockPanel>
+                        <!-- Done: what it did, Undo and the page. -->
+                        <DockPanel Visibility="{Binding IsDone, Converter={StaticResource Vis}}">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource LinkAction}" Content="{Binding Setup.OpenLabel}" AutomationProperties.Name="{Binding Setup.OpenLabel}" Margin="10,-6,0,-6"
+                                    Command="{Binding DataContext.OpenSetupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                            <Button DockPanel.Dock="Right" Style="{StaticResource PlainLink}" Content="{ctl:T 'Undo'}" AutomationProperties.Name="{ctl:T 'Undo'}" Margin="10,-6,0,-6"
+                                    Command="{Binding DataContext.UndoSetupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}"
+                                       LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,7,0" />
+                            <TextBlock Text="{Binding Setup.DoneText}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" TextWrapping="Wrap" LineHeight="18" />
+                        </DockPanel>
+                        <!-- Couldn't (a widget past the most there can be). -->
+                        <DockPanel Visibility="{Binding IsFailed, Converter={StaticResource Vis}}">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource WarmBrush}"
+                                       LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,7,0" />
+                            <TextBlock Text="{Binding Said}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
+                        </DockPanel>
+                    </Grid>
+                </StackPanel>
+            </ctl:SmoothBorder>
+            <DataTemplate.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions><Condition Binding="{Binding IsReady}" Value="True" /><Condition Binding="{Binding Setup.HasNew}" Value="True" /></MultiDataTrigger.Conditions>
+                    <Setter TargetName="Ready" Property="Visibility" Value="Visible" />
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions><Condition Binding="{Binding IsReady}" Value="True" /><Condition Binding="{Binding Setup.AllOn}" Value="True" /></MultiDataTrigger.Conditions>
+                    <Setter TargetName="AllOn" Property="Visibility" Value="Visible" />
+                </MultiDataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
 
@@ -764,8 +1036,12 @@
                         </ItemsControl>
                     </StackPanel>
                 </ctl:SmoothBorder>
-                <ItemsControl ItemsSource="{Binding Actions}" Focusable="False" ItemTemplate="{StaticResource ActionLine}" Margin="0,0,0,-6"
+                <ContentControl Content="{Binding ScanAction}" ContentTemplate="{StaticResource ScanCard}" Focusable="False" IsTabStop="False"
+                                Visibility="{Binding IsScan, Converter={StaticResource Vis}}" />
+                <ItemsControl ItemsSource="{Binding LineActions}" Focusable="False" ItemTemplate="{StaticResource ActionLine}" Margin="0,0,0,-6"
                               Visibility="{Binding IsLines, Converter={StaticResource Vis}}" />
+                <ItemsControl ItemsSource="{Binding SetupActions}" Focusable="False" ItemTemplate="{StaticResource SetupCard}" Margin="0,6,0,-6"
+                              Visibility="{Binding HasSetups, Converter={StaticResource Vis}}" />
             </StackPanel>
         </DataTemplate>
 
@@ -787,15 +1063,19 @@
                                    LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,10,0" />
                         <StackPanel>
                             <TextBlock Text="{Binding Heading}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" LineHeight="18" />
-                            <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding SubLine}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
                         </StackPanel>
                     </DockPanel>
-                    <StackPanel Orientation="Horizontal" Margin="28,10,0,2" Visibility="{Binding IsWaiting, Converter={StaticResource Vis}}">
-                        <ctl:Spinner Width="14" Height="14" StrokeThickness="1.6" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding Left}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    <!-- Ten minutes is a known end: a bar and the time, not a spinner (the 2026-10-24 audit). -->
+                    <StackPanel Margin="28,10,0,2" Visibility="{Binding IsWaiting, Converter={StaticResource Vis}}">
+                        <ctl:PartsBar Parts="{Binding Progress}" Height="6" />
+                        <DockPanel Margin="0,6,0,0">
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding Left}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                            <TextBlock Text="{Binding DueText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                        </DockPanel>
                     </StackPanel>
                     <ItemsControl ItemsSource="{Binding Rows}" Focusable="False" Margin="28,10,0,0" Grid.IsSharedSizeScope="True"
-                                  Visibility="{Binding HasResult, Converter={StaticResource Vis}}">
+                                  Visibility="{Binding HasRows, Converter={StaticResource Vis}}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Grid Margin="0,0,0,7">
@@ -809,11 +1089,19 @@
                                         <TextBlock x:Name="Change" Text="{Binding Change}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" />
                                     </StackPanel>
                                     <TextBlock Grid.Column="1" Text="{Binding Before}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="12,0,0,0" VerticalAlignment="Top" />
-                                    <TextBlock Grid.Column="2" FontSize="12.5" Margin="10,0,0,0" VerticalAlignment="Top">
+                                    <TextBlock x:Name="AfterText" Grid.Column="2" FontSize="12.5" Margin="10,0,0,0" VerticalAlignment="Top">
                                         <Run Text="→ " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding After, Mode=OneWay}" FontWeight="SemiBold" />
                                     </TextBlock>
+                                    <!-- The after side still to come: its place kept, so nothing moves when it fills in. -->
+                                    <TextBlock x:Name="AfterWait" Grid.Column="2" Text="{ctl:T 'after…'}" FontSize="12.5" FontStyle="Italic" Foreground="{DynamicResource FaintBrush}"
+                                               Margin="10,0,0,0" VerticalAlignment="Top" Visibility="Collapsed" />
                                 </Grid>
                                 <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Change}" Value=""><Setter TargetName="Change" Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                    <DataTrigger Binding="{Binding After}" Value="">
+                                        <Setter TargetName="AfterText" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="AfterWait" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding Better}" Value="True"><Setter TargetName="Change" Property="Foreground" Value="{DynamicResource GoodBrush}" /></DataTrigger>
                                     <DataTrigger Binding="{Binding Better}" Value="False"><Setter TargetName="Change" Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
                                 </DataTemplate.Triggers>
@@ -822,6 +1110,8 @@
                     </ItemsControl>
                     <TextBlock Text="{Binding Note}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="28,6,0,0"
                                Visibility="{Binding HasNote, Converter={StaticResource Vis}}" />
+                    <TextBlock Text="{ctl:T 'You can keep asking meanwhile.'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="28,4,0,0"
+                               Visibility="{Binding IsWaiting, Converter={StaticResource Vis}}" />
                     <Button Style="{StaticResource SecondAction}" HorizontalAlignment="Left" Margin="28,12,0,0"
                             Content="{ctl:T 'Ask what this means'}" AutomationProperties.Name="{ctl:T 'Ask what this means'}"
                             Visibility="{Binding HasResult, Converter={StaticResource Vis}}"
@@ -913,10 +1203,34 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
+        <!-- A problem with its way forward (board 6, 2026-10-26): Try again asks the same question in its place, Open Settings
+             goes where the words send them. -->
         <DataTemplate DataType="{x:Type vm:AskProblem}">
             <DockPanel Margin="0,0,0,14">
                 <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource WarmBrush}" Margin="0,2,10,0" VerticalAlignment="Top" />
-                <TextBlock Text="{Binding Text}" FontSize="13.5" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
+                <StackPanel>
+                    <TextBlock Text="{Binding Text}" FontSize="13.5" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
+                    <WrapPanel Margin="0,8,0,0" Visibility="{Binding HasActions, Converter={StaticResource Vis}}">
+                        <Button Style="{StaticResource SecondAction}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Try again'}"
+                                Visibility="{Binding CanRetry, Converter={StaticResource Vis}}"
+                                Command="{Binding DataContext.TryAgainCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                           LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                <TextBlock Text="{ctl:T 'Try again'}" FontSize="13" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource SecondAction}" AutomationProperties.Name="{ctl:T 'Open Settings'}"
+                                Visibility="{Binding CanOpenSettings, Converter={StaticResource Vis}}"
+                                Command="{Binding DataContext.SettingsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                           LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                <TextBlock Text="{ctl:T 'Open Settings'}" FontSize="13" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
+                </StackPanel>
             </DockPanel>
         </DataTemplate>
 
@@ -924,7 +1238,8 @@
         <DataTemplate DataType="{x:Type vm:AskWall}">
             <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                               Padding="14,12" Margin="0,0,0,14" AutomationProperties.Name="{Binding Title}">
-                <StackPanel>
+                <Grid>
+                <StackPanel Visibility="{Binding Pay.Waiting, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                     <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
                     <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                     <WrapPanel Margin="0,12,0,0">
@@ -935,11 +1250,123 @@
                                 Command="{Binding DataContext.SeePlansCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                     </WrapPanel>
                 </StackPanel>
+                    <!-- Paying in the browser: the card turns into the wait (it said nothing before, the 2026-10-24 audit). -->
+                    <StackPanel Visibility="{Binding Pay.Waiting, Converter={StaticResource Vis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="PayDot" Width="8" Height="8" Fill="{DynamicResource SkyBrush}" VerticalAlignment="Center" Margin="0,1,8,0" />
+                            <TextBlock Text="{ctl:T 'Finish paying in your browser'}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        </StackPanel>
+                        <TextBlock Text="{ctl:T 'Your question is kept and goes as soon as the plan is on. This updates by itself.'}" FontSize="12.5"
+                                   Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        <WrapPanel Margin="0,12,0,0">
+                            <Button Style="{StaticResource SecondAction}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Open the payment page again'}"
+                                    Command="{Binding DataContext.ReopenCheckoutCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Plan}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                               LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                    <TextBlock Text="{ctl:T 'Open the payment page again'}" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource PlainLink}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Stop waiting for the payment'}"
+                                    Command="{Binding DataContext.StopPayingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Grid>
             </ctl:SmoothBorder>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Pay.Waiting}" Value="True">
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard x:Name="PulseWall">
+                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                <DoubleAnimation Storyboard.TargetName="PayDot" Storyboard.TargetProperty="Opacity" From="1" To="0.35" Duration="0:0:0.8" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions><StopStoryboard BeginStoryboardName="PulseWall" /></DataTrigger.ExitActions>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- An answer that needed a page the plan doesn't open (the approved artifact of 2026-10-24): one card where the
+             scan button used to be, its title what this question would get, which plan reads the page, the plan's button
+             and See plans. The page itself opens on every plan, so the answer's own "Open Storage" line stays under it. -->
+        <DataTemplate DataType="{x:Type vm:AskLockedCard}">
+            <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource Surface2Brush}" Padding="14,13" Margin="0,4,0,8" AutomationProperties.Name="{Binding Title}">
+                <Grid>
+                    <StackPanel Visibility="{Binding Pay.Waiting, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <DockPanel>
+                            <Grid Width="32" Height="32" VerticalAlignment="Top" Margin="0,0,11,0">
+                                <Border CornerRadius="8" Background="{DynamicResource CpuBrush}" Opacity="0.15" />
+                                <TextBlock Text="&#xE72E;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource CpuBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="15" Height="15" />
+                            </Grid>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                        <WrapPanel Margin="43,11,0,0">
+                            <Button Style="{StaticResource AccentButton}" Content="{Binding Button}" Margin="0,0,8,0" AutomationProperties.Name="{Binding Button}"
+                                    Command="{Binding DataContext.UseLockedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                                    Visibility="{Binding HasPlan, Converter={StaticResource Vis}}" />
+                            <Button Style="{StaticResource SecondAction}" Content="{ctl:T 'See plans'}" AutomationProperties.Name="{ctl:T 'See plans'}"
+                                    Command="{Binding DataContext.SeePlansCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </WrapPanel>
+                    </StackPanel>
+                    <!-- Paying in the browser: the card turns into the wait (it said nothing before, the 2026-10-24 audit). -->
+                    <StackPanel Visibility="{Binding Pay.Waiting, Converter={StaticResource Vis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="PayDot" Width="8" Height="8" Fill="{DynamicResource SkyBrush}" VerticalAlignment="Center" Margin="0,1,8,0" />
+                            <TextBlock Text="{ctl:T 'Finish paying in your browser'}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        </StackPanel>
+                        <TextBlock Text="{ctl:T 'Your question is kept and goes as soon as the plan is on. This updates by itself.'}" FontSize="12.5"
+                                   Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        <WrapPanel Margin="0,12,0,0">
+                            <Button Style="{StaticResource SecondAction}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Open the payment page again'}"
+                                    Command="{Binding DataContext.ReopenCheckoutCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding PlanId}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                               LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                    <TextBlock Text="{ctl:T 'Open the payment page again'}" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource PlainLink}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Stop waiting for the payment'}"
+                                    Command="{Binding DataContext.StopPayingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Grid>
+            </ctl:SmoothBorder>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Pay.Waiting}" Value="True">
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard x:Name="PulseCard">
+                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                <DoubleAnimation Storyboard.TargetName="PayDot" Storyboard.TargetProperty="Opacity" From="1" To="0.35" Duration="0:0:0.8" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions><StopStoryboard BeginStoryboardName="PulseCard" /></DataTrigger.ExitActions>
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:AskStopped}">
             <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,14" />
+        </DataTemplate>
+
+        <!-- Stopped (board 6, 2026-10-26): a faint line where the answer was, and Ask again for the same question in its place. -->
+        <DataTemplate DataType="{x:Type vm:AskStoppedAnswer}">
+            <WrapPanel Margin="0,0,0,14">
+                <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <Button Style="{StaticResource SecondAction}" Padding="10,4" AutomationProperties.Name="{ctl:T 'Ask again'}" VerticalAlignment="Center"
+                        Command="{Binding DataContext.AskStoppedAgainCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource MutedBrush}"
+                                   LineStackingStrategy="BlockLineHeight" LineHeight="13" Height="13" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="{ctl:T 'Ask again'}" FontSize="12.5" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </WrapPanel>
         </DataTemplate>
 
         <!-- An answer still being written: drawn as the finished one will be, so nothing moves when it's done. -->
@@ -982,19 +1409,7 @@
                     <TextBlock DockPanel.Dock="Left" Text="&#xE721;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,2,8,0" VerticalAlignment="Top" />
                     <TextBlock Text="{Binding FromWeb}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                 </DockPanel>
-                <!-- A page the plan doesn't open would have helped: one quiet line, never a pop-up. -->
-                <!-- Room under it: the actions below sit 6 px up to hug an answer's words, and touched this line (2026-10-24). -->
-                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0" Margin="0,4,0,14"
-                        Visibility="{Binding HasLocked, Converter={StaticResource Vis}}">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'See plans'}" VerticalAlignment="Center" Margin="12,0,0,0"
-                                Command="{Binding DataContext.SeePlansCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                        <TextBlock DockPanel.Dock="Left" Text="&#xE72E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,2,10,0" VerticalAlignment="Top" />
-                        <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center">
-                            <Run Text="{Binding LockedTitle, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding LockedText, Mode=OneWay}" />
-                        </TextBlock>
-                    </DockPanel>
-                </Border>
+                <!-- A page the plan doesn't open: its card is one of the parts above (AskLockedCard), where the scan button was. -->
                 <!-- Under every answer, tight under it like other chat apps' action bars: icons with their word as a tooltip,
                      quiet until hovered. No offset to line the icons up with the words: the hover was cut by the chat's edge. -->
                 <StackPanel Orientation="Horizontal" Margin="0,-6,0,0">
@@ -1040,8 +1455,13 @@
                         </ItemsControl>
                         <TextBox Style="{StaticResource ComposeBox}" Tag="{ctl:T 'Anything else? Kept with this question on the RigSight server. (optional)'}" AutomationProperties.Name="{ctl:T 'Anything else?'}"
                                  Text="{Binding Words, UpdateSourceTrigger=PropertyChanged}" MaxLength="500" TextWrapping="Wrap" Margin="0,2,0,0" />
-                        <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Send'}" AutomationProperties.Name="{ctl:T 'Send why'}" Padding="14,6" HorizontalAlignment="Left" Margin="0,10,0,0"
-                                Command="{Binding SendWhyCommand}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Send'}" AutomationProperties.Name="{ctl:T 'Send why'}" Padding="14,6"
+                                    Command="{Binding SendWhyCommand}" />
+                            <!-- Closes the box and sends nothing (board 6, 2026-10-26). -->
+                            <Button Style="{StaticResource SecondAction}" Content="{ctl:T 'Skip'}" AutomationProperties.Name="{ctl:T 'Skip'}" Margin="8,0,0,0"
+                                    Command="{Binding SkipCommand}" />
+                        </StackPanel>
                     </StackPanel>
                 </ctl:SmoothBorder>
             </StackPanel>
@@ -1088,10 +1508,21 @@
                 </Button>
                 <TextBox x:Name="HistorySearchBox" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search conversations'}" Margin="0,12,0,0"
                          AutomationProperties.Name="{ctl:T 'Search conversations'}" Text="{Binding HistorySearch, UpdateSourceTrigger=PropertyChanged}" />
+                <!-- Just deleted: Undo for a few seconds, at the foot of the list (board 6, 2026-10-26). -->
+                <ctl:SmoothBorder DockPanel.Dock="Bottom" CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,2,6,2" Margin="0,8,0,0"
+                                  Visibility="{Binding Deleted, Converter={StaticResource Vis}}" AutomationProperties.LiveSetting="Polite"
+                                  AutomationProperties.Name="{ctl:T 'Conversation deleted'}">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource PlainLink}" AutomationProperties.Name="{ctl:T 'Undo'}" Command="{Binding UndoDeleteCommand}">
+                            <TextBlock Text="{ctl:T 'Undo'}" FontSize="12.5" FontWeight="SemiBold" />
+                        </Button>
+                        <TextBlock Text="{ctl:T 'Conversation deleted'}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                </ctl:SmoothBorder>
                 <!-- The bar in its own gutter beside the rows (drawn over them, it covered the titles and their ⋯). -->
                 <ScrollViewer Style="{StaticResource GutterScroll}" FocusVisualStyle="{x:Null}">
                     <StackPanel>
-                        <TextBlock Text="{ctl:T 'No conversations yet.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="6,8"
+                        <TextBlock Text="{Binding HistoryEmptyText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="6,8"
                                    Visibility="{Binding HasHistory, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <ItemsControl ItemsSource="{Binding Groups}">
                             <ItemsControl.ItemTemplate>
@@ -1270,12 +1701,16 @@
                                                         Command="{Binding DataContext.AskSuggestedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                     <Button.Template>
                                                         <ControlTemplate TargetType="Button">
-                                                            <Border x:Name="Bd" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Background="Transparent" Padding="6,9">
-                                                                <DockPanel>
-                                                                    <TextBlock x:Name="Go" DockPanel.Dock="Right" Text="&#xE72A;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
-                                                                               VerticalAlignment="Center" Margin="12,0,2,0" />
-                                                                    <TextBlock Text="{Binding}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                                                </DockPanel>
+                                                            <!-- The divider stays square; the hover shade inside it is rounded (the user, 2026-10-26: the sharp
+                                                                 corners felt pointy). -->
+                                                            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Background="Transparent" Padding="0,3">
+                                                                <Border x:Name="Bd" CornerRadius="8" Background="Transparent" Padding="6,6">
+                                                                    <DockPanel>
+                                                                        <TextBlock x:Name="Go" DockPanel.Dock="Right" Text="&#xE72A;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                                                                                   VerticalAlignment="Center" Margin="12,0,2,0" />
+                                                                        <TextBlock Text="{Binding}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                                    </DockPanel>
+                                                                </Border>
                                                             </Border>
                                                             <ControlTemplate.Triggers>
                                                                 <Trigger Property="IsMouseOver" Value="True">
@@ -1457,26 +1892,7 @@
                     </Button>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,8,0">
-                        <!-- Questions left on RigSight AI (this week's free ones, or today's): amber when few are left; opens the plans. -->
-                        <Button Command="{Binding SeePlansCommand}" Margin="0,0,4,0" VerticalAlignment="Center" Height="30" Cursor="Hand"
-                                ToolTip="{ctl:T 'See plans'}" Visibility="{Binding ShowQuestionsPill, Converter={StaticResource Vis}}">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" CornerRadius="8" Background="Transparent" Padding="10,0">
-                                        <TextBlock x:Name="Txt" Text="{Binding QuestionsLeftText}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                                            <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                        </Trigger>
-                                        <DataTrigger Binding="{Binding IsLow}" Value="True">
-                                            <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource WarmBrush}" />
-                                        </DataTrigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
+                    <!-- Questions left: the quiet line under the question box since board 6 (2026-10-26), not a pill up here. -->
                     <Button Style="{StaticResource FloatButton}" Command="{Binding ToggleSizeCommand}" x:Name="SizeButton" Margin="0,0,4,0"
                             ToolTip="{ctl:T 'Bigger'}" AutomationProperties.Name="{ctl:T 'Bigger'}"
                             Visibility="{Binding IsPoppedOut, Converter={StaticResource Vis}, ConverterParameter=Invert}">
@@ -1491,6 +1907,34 @@
                     </Button>
                 </StackPanel>
 
+                <!-- Questions given from the admin site, told once: how many, on top of what, until when, and the message
+                     written to them; "Got it" or a question closes it (approved mock-up, 2026-10-25). Out of questions,
+                     it takes the place of that card, as the questions given end it. -->
+                <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="12" Margin="12,0,12,10" Padding="14,13" Background="{DynamicResource Surface2Brush}"
+                                  Visibility="{Binding Gift, Converter={StaticResource Vis}}" AutomationProperties.Name="{Binding Gift.Title}"
+                                  AutomationProperties.LiveSetting="Polite">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border Width="32" Height="32" CornerRadius="8" Background="{DynamicResource PurpleSoftBrush}" VerticalAlignment="Top" Margin="0,0,11,0">
+                            <TextBlock Text="&#xF133;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource PurpleBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="{Binding Gift.Title}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Gift.Text}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <Border BorderBrush="{DynamicResource PurpleBrush}" BorderThickness="2,0,0,0" Padding="10,2,0,2" Margin="0,10,0,0"
+                                    Visibility="{Binding Gift.Note, Converter={StaticResource Vis}}">
+                                <StackPanel>
+                                    <TextBlock FontSize="13" TextWrapping="Wrap"><Run Text="“" /><Run Text="{Binding Gift.Note, Mode=OneWay}" /><Run Text="”" /></TextBlock>
+                                    <TextBlock Text="{ctl:T 'From RigSight support'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <!-- On the box's own colour a ghost button vanished into it: a shade lighter, so it's a button. -->
+                            <Button Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Content="{ctl:T 'Got it'}" Command="{Binding CloseGiftCommand}"
+                                    HorizontalAlignment="Left" Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </ctl:SmoothBorder>
                 <!-- One question left: said before it's used. -->
                 <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="10" Margin="12,0,12,10" Padding="12,9" Background="{DynamicResource Surface2Brush}"
                                   Visibility="{Binding IsLastQuestion, Converter={StaticResource Vis}}">
@@ -1500,9 +1944,9 @@
                                    Visibility="{Binding LastQuestionText, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
-                <!-- RigSight AI with nothing left: where to get more. -->
+                <!-- RigSight AI with nothing left: where to get more (not while the chat's own limit card offers it, board 6). -->
                 <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="10" Margin="12,0,12,10" Padding="12" Background="{DynamicResource Surface2Brush}"
-                                  Visibility="{Binding IsOutOfQuestions, Converter={StaticResource Vis}}">
+                                  Visibility="{Binding ShowOutBox, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <TextBlock Text="{Binding OutTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
                         <TextBlock Text="{Binding OutText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
@@ -1517,6 +1961,17 @@
 
                 <!-- Where the question is typed; Enter sends it, Shift+Enter starts a new line. -->
                 <Border Grid.Row="2" Grid.Column="1" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="12,10">
+                    <StackPanel>
+                    <!-- Offline while the way of answering needs the internet (board 6, 2026-10-26): said before anything is sent,
+                         Send off until the network is back. -->
+                    <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,9" Margin="0,0,0,10"
+                                      Visibility="{Binding ShowOffline, Converter={StaticResource Vis}}" AutomationProperties.LiveSetting="Polite">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Text="&#xF384;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,2,10,0" VerticalAlignment="Top" />
+                            <TextBlock Text="{ctl:T 'You\'re offline. Answers need the internet, so questions can\'t be sent until it\'s back.'}" FontSize="12.5"
+                                       Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                        </DockPanel>
+                    </ctl:SmoothBorder>
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Style="{StaticResource SendButton}" Margin="8,0,0,0" VerticalAlignment="Bottom"
                                 Command="{Binding SendCommand}" ToolTip="{ctl:T 'Send'}" AutomationProperties.Name="{ctl:T 'Send'}"
@@ -1529,6 +1984,27 @@
                                  Text="{Binding Draft, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" MinHeight="38" MaxLength="4000"
                                  VerticalScrollBarVisibility="Auto" PreviewKeyDown="Question_KeyDown" />
                     </DockPanel>
+                    <!-- Questions left, always in view with RigSight AI (board 6, 2026-10-26): the count on the left (amber when few
+                         are left), when they come back or See plans on the right. -->
+                    <DockPanel Margin="2,7,2,0" Visibility="{Binding ShowQuestionsLine, Converter={StaticResource Vis}}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource PlainLink}" Margin="12,-6,0,-6" AutomationProperties.Name="{ctl:T 'See plans'}"
+                                Command="{Binding SeePlansCommand}" Visibility="{Binding ShowSeePlans, Converter={StaticResource Vis}}">
+                            <TextBlock Text="{ctl:T 'See plans'}" FontSize="11.5" TextDecorations="Underline" />
+                        </Button>
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding QuestionsNote}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0"
+                                   VerticalAlignment="Center" Visibility="{Binding QuestionsNote, Converter={StaticResource Vis}}" />
+                        <TextBlock x:Name="QuestionsLineText" Text="{Binding QuestionsLine}" FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLow}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </DockPanel>
+                    </StackPanel>
                 </Border>
 
                 <!-- Narrow: the conversations open over the chat, which dims behind them (a click on it closes them). -->

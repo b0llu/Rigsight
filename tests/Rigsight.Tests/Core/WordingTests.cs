@@ -116,7 +116,7 @@ public sealed class WordingTests
         // The two sentences the rule set was written from.
         var dotnet = new CrashEvent { Kind = CrashKind.AppCrash, AppExe = "RigsightTestCrash.exe", Ts = 1, Facts = new CrashFacts { Error = "System.NullReferenceException" } };
         var a = CrashFindings.Judge(new CrashInput(dotnet, CrashExplainer.Explain(dotnet, "RigsightTestCrash"), new Rigsight.Core.Settings.AlertSettings()) { AppName = "RigsightTestCrash" });
-        Assert.Equal("RigsightTestCrash crashed at 10:58 AM: a .NET error (NullReferenceException).", a.Told("10:58 AM"));
+        Assert.Equal("RigsightTestCrash crashed at 10:58 AM with a .NET error (NullReferenceException).", a.Told("10:58 AM"));
 
         var start = new CrashEvent { Kind = CrashKind.AppCrash, AppExe = "RocketLeague.exe", Module = "RocketLeague.exe", Ts = 1, Facts = new CrashFacts { RanSec = 4 } };
         var b = CrashFindings.Judge(new CrashInput(start, CrashExplainer.Explain(start, "Rocket League"), new Rigsight.Core.Settings.AlertSettings()) { AppName = "Rocket League", IsGame = true });

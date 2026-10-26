@@ -340,7 +340,7 @@ public sealed partial class ExportViewModel : ObservableObject, Views.IDayRange
                 }
             });
             if (failed is null) Error = Lang.T("The history couldn't be opened. Try again in a moment.");
-            else if (failed.Length > 0) Error = Lang.T($"Couldn't finish: {failed}");
+            else if (failed.Length > 0) Error = Lang.T($"Couldn't finish. {failed}");
             else
             {
                 Log.Write("export", $"{on.Count} file(s) ({string.Join(", ", on.Select(i => i.Key))}) as {(asText ? "text" : "CSV")} for {period}");
@@ -352,7 +352,7 @@ public sealed partial class ExportViewModel : ObservableObject, Views.IDayRange
         {
             Log.Error("export", ex);
             string why = ex.Message;
-            Error = Lang.T($"Couldn't save there: {why}");
+            Error = Lang.T($"Couldn't save there. {why}");
         }
         finally
         {

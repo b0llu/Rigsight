@@ -294,13 +294,13 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         // What it's about: a key in use elsewhere, a licence turned off or refunded, a key that wasn't found.
         var subject = Uri.EscapeDataString(_ask.Standing?.LicenceStatus switch
         {
-            "disabled" => Lang.T("RigSight AI: my licence is turned off"),
-            _ when LicenceElsewhere || LicenceActive => Lang.T("RigSight AI: move my licence to this PC"),
-            _ => Lang.T("RigSight AI: my licence key isn't working"),
+            "disabled" => Lang.T("My RigSight AI licence is turned off"),
+            _ when LicenceElsewhere || LicenceActive => Lang.T("Move my RigSight AI licence to this PC"),
+            _ => Lang.T("My RigSight AI licence key isn't working"),
         });
         // The key typed in (one locked to another PC, or not found) or the PC's own, whole: support looks it up.
         var key = LicenceKey.Trim().Length > 0 ? LicenceKey.Trim() : _ask.Standing?.Key ?? LicenceShown;
-        var body = Uri.EscapeDataString(Lang.T($"My licence key: {key}"));
+        var body = Uri.EscapeDataString(Lang.T($"My licence key is {key}"));
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo($"https://mail.google.com/mail/?view=cm&fs=1&to={Uri.EscapeDataString(SupportEmail)}&su={subject}&body={body}") { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Log.Error("ai-settings", ex); }
     }
@@ -496,10 +496,69 @@ public sealed partial class AiSettingsViewModel : ObservableObject
 
     // ── The Ask button and conversations ─────────────────────────────────
     public string Place { get => Ai.Place == AskPlace.Sidebar ? "sidebar" : "top"; set => Set(a => a.Place = value == "sidebar" ? AskPlace.Sidebar : AskPlace.TopBar); }
+    // The Ask shortcut: opens RigSight on the Ask window from anywhere (the agent holds it, only while the AI is on).
+    // Set listens for the next keys pressed on the page (SettingsView), as the overlay's shortcut does (2026-10-26).
     public string Shortcut => Ai.Shortcut.Length > 0 ? Ai.Shortcut : Lang.T("Not set");
     public bool HasShortcut => Ai.Shortcut.Length > 0;
-    /// <summary>Setting a shortcut listens for the next keys pressed; wired with the window's key handling.</summary>
-    [RelayCommand] private void SetShortcut() { }
+    public string ShortcutText => IsRecordingShortcut ? Lang.T("Press the new shortcut…") : Shortcut;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShortcutText))]
+    private bool _isRecordingShortcut;
+
+    /// <summary>How to press one while listening, or why the last press wasn't taken.</summary>
+    [ObservableProperty] private string _shortcutHint = "";
+
+    /// <summary>Another program already holds the shortcut (the agent says so), so it does nothing.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShortcutWarning))]
+    private bool _shortcutTaken;
+
+    public string ShortcutWarning => ShortcutTaken && HasShortcut ? Lang.T($"Another program already uses {Ai.Shortcut}, so it does nothing here. Pick another.") : "";
+
+    [RelayCommand]
+    private void SetShortcut()
+    {
+        IsRecordingShortcut = true;
+        ShortcutHint = Lang.T("Hold Ctrl, Alt or Shift and press a key. Esc cancels.");
+    }
+
+    public void CancelShortcut()
+    {
+        IsRecordingShortcut = false;
+        ShortcutHint = "";
+    }
+
+    /// <summary>Each key pressed while listening (a Windows virtual-key code); modifier-only presses never reach here.</summary>
+    public void RecordShortcut(int virtualKey, HotkeyModifiers modifiers)
+    {
+        var hotkey = new Hotkey(modifiers, virtualKey);
+        if (!Hotkey.IsSupportedKey(virtualKey)) { ShortcutHint = Lang.T("That key can't be used. Try a letter, a number or an F-key."); return; }
+        if (!hotkey.IsValid) { ShortcutHint = Lang.T("Add Ctrl, Alt or Shift, so the shortcut doesn't clash with your games."); return; }
+        if (_settings.Current.Overlay is { Enabled: true } overlay && string.Equals(overlay.Hotkey, hotkey.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            ShortcutHint = Lang.T("That's the overlay's shortcut. Pick another.");
+            return;
+        }
+        ShortcutTaken = false;
+        Set(a => a.Shortcut = hotkey.ToString());
+        CancelShortcut();
+        ShortcutChanged();
+    }
+
+    [RelayCommand]
+    private void ClearShortcut()
+    {
+        ShortcutTaken = false;
+        Set(a => a.Shortcut = "");
+        CancelShortcut();
+        ShortcutChanged();
+    }
+
+    private void ShortcutChanged()
+    {
+        foreach (var name in new[] { nameof(Shortcut), nameof(HasShortcut), nameof(ShortcutText), nameof(ShortcutWarning) }) OnPropertyChanged(name);
+    }
 
     public int KeepConversationDays
     {

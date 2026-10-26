@@ -19,6 +19,8 @@
     <Color x:Key="WarmColor">#FBBF24</Color>
     <Color x:Key="HotColor">#F87171</Color>
     <Color x:Key="PurpleColor">#B18CFF</Color>
+    <!-- RigSight AI's own colour: every button that hands something to the AI, and nothing else (2026-10-26). -->
+    <Color x:Key="AiColor">#E879F9</Color>
     <Color x:Key="OrangeColor">#FB923C</Color>
     <Color x:Key="CoolColor">#38BDF8</Color>
     <Color x:Key="GoodColor">#34D399</Color>
@@ -64,6 +66,9 @@
     <SolidColorBrush x:Key="HotSoftBrush" Color="{StaticResource HotColor}" Opacity="0.14" />
     <SolidColorBrush x:Key="WarmSoftBrush" Color="{StaticResource WarmColor}" Opacity="0.12" />
     <SolidColorBrush x:Key="PurpleSoftBrush" Color="{StaticResource PurpleColor}" Opacity="0.16" />
+    <SolidColorBrush x:Key="AiBrush" Color="{StaticResource AiColor}" />
+    <SolidColorBrush x:Key="AiSoftBrush" Color="{StaticResource AiColor}" Opacity="0.08" />
+    <SolidColorBrush x:Key="AiStrokeBrush" Color="{StaticResource AiColor}" Opacity="0.25" />
 
     <!-- The Fluent controls (calendar, combo boxes, text boxes, sliders, check boxes) use the same monochrome accent. -->
     <Color x:Key="SystemAccentColor">#FFFFFF</Color>

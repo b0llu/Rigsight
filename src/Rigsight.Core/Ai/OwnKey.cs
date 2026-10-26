@@ -234,7 +234,7 @@ public static class OwnKey
             if (got.Error is { } error)
             {
                 Log.Write("own-key", $"{model} round {round}: expected an answer, got: {error}");
-                return new AiReply(null, Lang.T($"{service} couldn't answer: {error}"), lookUps);
+                return new AiReply(null, Lang.T($"{service} couldn't answer ({error})"), lookUps);
             }
             Log.Write("own-key", $"{model} round {round}: first words after {(got.FirstWords is { } f ? $"{(f - asked).TotalSeconds:0.0} s" : "none")}, done after {(DateTime.Now - asked).TotalSeconds:0.0} s");
             if (got.Calls.Count > 0 && IsAnswer(got.Text, lookUps.Count))
@@ -420,7 +420,7 @@ public static class OwnKey
             HttpStatusCode.TooManyRequests => inSettings
                 ? Lang.T($"{service} is busy right now. Press Test again in a moment.")
                 : Lang.T($"{service} is busy right now. Ask again in a moment."),
-            _ => Lang.T($"{service} couldn't answer: {said ?? ((int)res.StatusCode).ToString(CultureInfo.InvariantCulture)}"),
+            _ => Lang.T($"{service} couldn't answer ({said ?? ((int)res.StatusCode).ToString(CultureInfo.InvariantCulture)})"),
         };
     }
 }

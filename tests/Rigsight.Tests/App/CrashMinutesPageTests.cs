@@ -180,7 +180,7 @@ public sealed class CrashMinutesPageTests
             Assert.EndsWith("a reading every 2 to 3 seconds", c.RangeText);
             Assert.All(c.Lanes.SelectMany(l => l.Series), s => Assert.Equal(c.Minutes.Count, s.Values.Length));
             Assert.StartsWith("Last reading before the crash, ", c.Readout!.Title);
-            Assert.Contains(c.StoodOut, x => x.Text.StartsWith("After: the GPU went from"));
+            Assert.Contains(c.StoodOut, x => x.Text.StartsWith("Right after, the GPU went from"));
             c.Readout.Show(0);
             Assert.EndsWith("before the crash", c.Readout.When);
 

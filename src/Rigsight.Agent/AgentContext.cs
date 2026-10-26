@@ -11,6 +11,7 @@ using Rigsight.Agent.Tracking;
 using Rigsight.Agent.Ui;
 using Rigsight.Agent.Widgets;
 using Rigsight.Core;
+using Rigsight.Core.Ai;
 using Rigsight.Core.Data;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Reports;
@@ -94,6 +95,10 @@ internal sealed class AgentContext : ApplicationContext
     private readonly TaskbarStrip _taskbarStrip;
     private readonly WidgetManager _widgets;
     private readonly OverlayManager _overlay;
+    /// <summary>The Ask shortcut: opens the app on the Ask window from anywhere, while the AI is on (2026-10-26).</summary>
+    private readonly GlobalHotkey _askHotkey = new();
+    private string? _askRegistered;
+    private bool _askHotkeyTaken;
     private readonly NotificationCenter _notices;
 
     private readonly ConcurrentQueue<Action> _samplerWork = new();
@@ -205,6 +210,8 @@ internal sealed class AgentContext : ApplicationContext
         _pipe.Start();
         _widgets.Apply(_settings);
         _overlay.Apply(_settings.Overlay);
+        _askHotkey.Pressed += () => OpenApp("ask");
+        ApplyAskShortcut(_settings);
         if (NeedsRtss(_settings) && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
 
         // Save before Windows shuts down or signs out (otherwise the process is simply killed, losing
@@ -1774,6 +1781,7 @@ internal sealed class AgentContext : ApplicationContext
             Arg = _pendingArg,
             OverlayVisible = _overlayVisible,
             OverlayHotkeyTaken = _overlay.HotkeyTaken,
+            AskHotkeyTaken = _askHotkeyTaken,
             RtssState = _overlay.RtssState,
             Today = _lastToday,
         };
@@ -1936,6 +1944,24 @@ internal sealed class AgentContext : ApplicationContext
         }
     }
 
+    /// <summary>
+    /// The Ask shortcut, registered only while the AI is on for this PC and not Off (nothing is taken from other programs
+    /// otherwise), and never the overlay's own. Pressed, it opens the app on the Ask window. UI thread.
+    /// </summary>
+    private void ApplyAskShortcut(RigsightSettings settings)
+    {
+        string? wanted = settings.Ai.Shortcut is { Length: > 0 } s && AiPreview.IsOn && settings.Ai.Mode != AiMode.Off
+                         && !(settings.Overlay.Enabled && string.Equals(s, settings.Overlay.Hotkey, StringComparison.OrdinalIgnoreCase)) ? s : null;
+        if (wanted == _askRegistered) return;
+        _askRegistered = wanted;
+        bool taken = !_askHotkey.Register(Hotkey.TryParse(wanted, out var key) ? key : null);
+        if (taken) Log.Write("ask", $"Shortcut {wanted} is already used by another program");
+        else if (wanted is not null) Log.Write("ask", $"Shortcut {wanted} opens Ask");
+        if (taken == _askHotkeyTaken) return;
+        _askHotkeyTaken = taken;
+        _pipe.Broadcast(new AgentMessage { T = "ask-hotkey", AskHotkeyTaken = taken });
+    }
+
     /// <summary>Opens the Rigsight app (or brings it to the front) on an optional page.</summary>
     private void OpenApp(string? page, string? arg = null)
     {
@@ -2033,6 +2059,7 @@ internal sealed class AgentContext : ApplicationContext
         {
             _widgets.Apply(updated);
             _overlay.Apply(updated.Overlay);
+            ApplyAskShortcut(updated);
             if (NeedsRtss(updated) && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
             // Keep the app's widget previews in sync with theme changes.
             if (_pipe.ClientCount > 0) RenderPreviews(updated);
@@ -2281,7 +2308,7 @@ internal sealed class AgentContext : ApplicationContext
         _sampler.Join(5000);
 
         // Each step is independent: a failure in one must never leave the agent half-closed.
-        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _notices.CloseAll, _trayReadings.Dispose, _taskbarStrip.Dispose, _tray.Dispose })
+        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _askHotkey.Dispose, _notices.CloseAll, _trayReadings.Dispose, _taskbarStrip.Dispose, _tray.Dispose })
         {
             try { step(); }
             catch (Exception ex) { Log.Error("agent", ex); }

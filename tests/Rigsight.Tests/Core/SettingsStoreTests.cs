@@ -366,6 +366,9 @@ public sealed class SettingsStoreTests
     public void A_missing_file_loads_the_defaults()
     {
         var s = SettingsStore.Load(Path.Combine(TestEnvironment.NewFolder("settings"), "none.json"));
+        // A new install, and the only difference from a file's defaults: it's asked once which pages to show (2026-10-25).
+        Assert.True(s.Sidebar.AskPages);
+        s.Sidebar.AskPages = false;
         Assert.Equal(SettingsStore.Serialize(SettingsStore.Deserialize("{}")), SettingsStore.Serialize(s));
     }
 

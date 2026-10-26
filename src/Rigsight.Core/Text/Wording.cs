@@ -31,7 +31,7 @@ public static class Wording
     };
 
     /// <summary>
-    /// The cause as it reads after the event, with how sure it is: a confirmed one is plain fact (": a .NET error"),
+    /// The cause as it reads after the event, with how sure it is: a confirmed one is plain fact (" with a .NET error"),
     /// the others take the chip's word (", likely a power cut"). Empty where there is no cause to say; a problem
     /// nothing explains gets its own sentence (" Not enough on record to say why.").
     /// </summary>
@@ -39,7 +39,7 @@ public static class Wording
     {
         Confidence.NotEnough => "",
         _ when string.IsNullOrEmpty(why) => "",
-        Confidence.Named => $": {why}",
+        Confidence.Named => $" {why}",
         Confidence.Likely => Lang.T($", likely {why}"),
         _ => Lang.T($", possibly {why}"),
     };

@@ -58,7 +58,7 @@ public static class InsightEngine
             {
                 bool outside = r.Crashes.Count <= CrashesJudged && r.Crashes.All(c => r.CrashFindings.GetValueOrDefault(c.Id) is { Outside: true });
                 list.Add(new Insight(outside ? IconInfo : IconWarn, $"{finding.Told(when)}{more}", outside ? InsightTone.Neutral : InsightTone.Warn, "crash", 95, CrashDetail(r))
-                    { Short = Lang.T($"{finding.Event} at {when}") + (finding.Why is { Length: <= 32 } && finding.Confidence is Confidence.Named or Confidence.Likely ? Wording.CauseAfter(finding.Confidence, finding.Why) : "") });
+                    { Short = Lang.T($"{finding.Event} at {when}") + (finding.Why is { Length: <= 40 } && finding.Confidence is Confidence.Named or Confidence.Likely ? Wording.CauseAfter(finding.Confidence, finding.Why) : "") });
             }
             else
             {
@@ -69,7 +69,8 @@ public static class InsightEngine
                 null => "",
                 // Decided on the cause as kept (English), said in the person's language (a module's name stays as it is).
                 var c when c.StartsWith("in ", StringComparison.Ordinal) => $", {Lang.T(c)}",
-                var c => $": {Lang.T(c)}",
+                // No colon in a line (the user, 2026-10-26): "game crashed at 3:04 PM (NVIDIA driver)."
+                var c => $" ({Lang.T(c)})",
             };
             list.Add(new Insight(IconWarn, $"{Lang.T($"{ex.Title} at {when}")}{cause}.{more}{CrashPattern(r, alerts)}", InsightTone.Warn, "crash", 95, CrashDetail(r)) { Short = Lang.T($"{ex.Title} at {when}") });
             }
@@ -89,7 +90,7 @@ public static class InsightEngine
 
         // The GPU slowing itself down to stay cool, within one game session: the clearest sign cooling isn't keeping up.
         if (r.GpuThrottle is { } gt)
-            list.Add(new Insight(IconGpu, Lang.T($"Your GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool: clocks fell about {gt.DropPercent:0}% once it reached {Units.TempShort(gt.FromTemp)}."),
+            list.Add(new Insight(IconGpu, Lang.T($"Your GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool. Clocks fell about {gt.DropPercent:0}% once it reached {Units.TempShort(gt.FromTemp)}."),
                 InsightTone.Hot, "throttle", 80, Lang.T($"Clocks {gt.DropPercent:0}% under where they were earlier in the same session, while cooler, at no more power"))
                 { Short = Lang.T($"GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool"), Ask = Lang.T("Why did my GPU slow itself down to stay cool?"), AskPage = Ai.AiPages.Temperatures });
 
@@ -153,10 +154,10 @@ public static class InsightEngine
                     string app = now.App, by = Units.ShownDiff(x, y), tNow = Units.TempShort(x), tThen = Units.TempShort(y);
                     string head = (inProgress, hotter) switch
                     {
-                        (true, true) => Lang.T($"In {app}, your {part} runs {by} hotter than {when}: {tNow} against {tThen}, at the same power."),
-                        (true, false) => Lang.T($"In {app}, your {part} runs {by} cooler than {when}: {tNow} against {tThen}, at the same power."),
-                        (false, true) => Lang.T($"In {app}, your {part} ran {by} hotter than {when}: {tNow} against {tThen}, at the same power."),
-                        (false, false) => Lang.T($"In {app}, your {part} ran {by} cooler than {when}: {tNow} against {tThen}, at the same power."),
+                        (true, true) => Lang.T($"In {app}, your {part} runs {by} hotter than {when} at the same power, {tNow} against {tThen}."),
+                        (true, false) => Lang.T($"In {app}, your {part} runs {by} cooler than {when} at the same power, {tNow} against {tThen}."),
+                        (false, true) => Lang.T($"In {app}, your {part} ran {by} hotter than {when} at the same power, {tNow} against {tThen}."),
+                        (false, false) => Lang.T($"In {app}, your {part} ran {by} cooler than {when} at the same power, {tNow} against {tThen}."),
                     };
                     string shortLine = (inProgress, hotter) switch
                     {
@@ -195,7 +196,7 @@ public static class InsightEngine
                     ? new Insight(IconWarn, oneDay
                         ? Lang.T($"Your GPU fan stopped for {mins} from {from:h:mm tt} with the GPU at {temp}, when it always turns at that heat. Check it isn't blocked or unplugged.")
                         : Lang.T($"Your GPU fan stopped for {mins} from {from:ddd d MMM, h:mm tt} with the GPU at {temp}, when it always turns at that heat. Check it isn't blocked or unplugged."),
-                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name}: 0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes with the GPU at 70° or more")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did my GPU fan stop for {mins}?"), AskPage = Ai.AiPages.Fans }
+                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name} at 0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes with the GPU at 70° or more")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did my GPU fan stop for {mins}?"), AskPage = Ai.AiPages.Fans }
                     : new Insight(IconWarn, oneDay
                         ? Lang.T($"{fan.Name} on your motherboard stopped for {mins} from {from:h:mm tt}, when it always turns. Check it isn't blocked or unplugged.")
                         : Lang.T($"{fan.Name} on your motherboard stopped for {mins} from {from:ddd d MMM, h:mm tt}, when it always turns. Check it isn't blocked or unplugged."),
@@ -235,8 +236,8 @@ public static class InsightEngine
                     // Hot, not just worth a look, when the chip was warm with its fans held back.
                     list.Add(new Insight(IconWarn,
                         (fan.Gpu
-                            ? Lang.T($"Your GPU fans spun {slow.Percent:0}% slower than usual at the same heat: {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm {usualLabel}.")
-                            : Lang.T($"{name} on your motherboard spun {slow.Percent:0}% slower than usual at the same heat: {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm {usualLabel}."))
+                            ? Lang.T($"Your GPU fans spun {slow.Percent:0}% slower than usual at the same heat. They turned at {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm {usualLabel}.")
+                            : Lang.T($"{name} on your motherboard spun {slow.Percent:0}% slower than usual at the same heat. It turned at {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm {usualLabel}."))
                         + " " + Check(true, fan.Gpu),
                         slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-slower", 84,
                         Lang.T($"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {usualLabel}"))
@@ -280,9 +281,9 @@ public static class InsightEngine
                     string where = app is not null ? Lang.T($"in {app}") : fan.Gpu ? Lang.T("in the card's software") : Lang.T("in the BIOS or a fan app");
                     list.Add(new Insight(IconWarn,
                         (fan.Gpu
-                            ? Lang.T($"Your GPU fans now spin {slow.Percent:0}% slower at the same heat than {when}: {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm then.")
+                            ? Lang.T($"Your GPU fans now spin {slow.Percent:0}% slower at the same heat than {when}. They turn at {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm then.")
                               + " " + Lang.T($"If you changed the fan curve {where}, that's why; if not, check they're clean and turning freely.")
-                            : Lang.T($"{name} on your motherboard now spins {slow.Percent:0}% slower at the same heat than {when}: {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm then.")
+                            : Lang.T($"{name} on your motherboard now spins {slow.Percent:0}% slower at the same heat than {when}. It turns at {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm then.")
                               + " " + Lang.T($"If you changed the fan curve {where}, that's why; if not, check it's clean and turning freely.")),
                         slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-older", 82,
                         Lang.T($"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {when}"))
@@ -338,14 +339,14 @@ public static class InsightEngine
         {
             string used = Units.Duration(r.ActiveSec);
             string text = inProgress
-                ? Lang.T($"Too early for highlights: {used} of use so far.")
+                ? Lang.T($"Too early for highlights, only {used} of use so far.")
                 : r.Range switch
                 {
-                    ReportRange.Day => Lang.T($"A quiet day: only {used} of use, so there's not much to point out."),
-                    ReportRange.Week => Lang.T($"A quiet week: only {used} of use, so there's not much to point out."),
-                    ReportRange.Year => Lang.T($"A quiet year: only {used} of use, so there's not much to point out."),
-                    ReportRange.All or ReportRange.Custom => Lang.T($"A quiet stretch: only {used} of use, so there's not much to point out."),
-                    _ => Lang.T($"A quiet month: only {used} of use, so there's not much to point out."),
+                    ReportRange.Day => Lang.T($"A quiet day with only {used} of use, so there's not much to point out."),
+                    ReportRange.Week => Lang.T($"A quiet week with only {used} of use, so there's not much to point out."),
+                    ReportRange.Year => Lang.T($"A quiet year with only {used} of use, so there's not much to point out."),
+                    ReportRange.All or ReportRange.Custom => Lang.T($"A quiet stretch with only {used} of use, so there's not much to point out."),
+                    _ => Lang.T($"A quiet month with only {used} of use, so there's not much to point out."),
                 };
             list.Add(new Insight(IconInfo, text, InsightTone.Neutral, "early", 60) { Short = text.TrimEnd('.') });
             return Ranked(list);
@@ -364,10 +365,10 @@ public static class InsightEngine
             // A hottest peak is only a record: the peak line (with its tone) says when a temperature is a worry.
             var (icon, text, tone, priority) = record.Kind switch
             {
-                RecordKind.LongestGameSession => (IconGame, Lang.T($"Longest gaming session in {Span(record.Days)}: {record.App}, {record.Value}."), InsightTone.Good, 66),
-                RecordKind.HottestGpu => (IconTemp, Lang.T($"Highest GPU peak in {Span(record.Days)}: {record.Value}."), InsightTone.Neutral, 63),
-                RecordKind.HottestCpu => (IconTemp, Lang.T($"Highest CPU peak in {Span(record.Days)}: {record.Value}."), InsightTone.Neutral, 62),
-                _ => (IconScreen, Lang.T($"Most screen time in {Span(record.Days)}: {record.Value}."), InsightTone.Neutral, 61),
+                RecordKind.LongestGameSession => (IconGame, Lang.T($"{record.App} for {record.Value}, your longest gaming session in {Span(record.Days)}."), InsightTone.Good, 66),
+                RecordKind.HottestGpu => (IconTemp, Lang.T($"{record.Value}, the highest GPU peak in {Span(record.Days)}."), InsightTone.Neutral, 63),
+                RecordKind.HottestCpu => (IconTemp, Lang.T($"{record.Value}, the highest CPU peak in {Span(record.Days)}."), InsightTone.Neutral, 62),
+                _ => (IconScreen, Lang.T($"{record.Value} of screen time, the most in {Span(record.Days)}."), InsightTone.Neutral, 61),
             };
             var (ask, askPage) = record.Kind switch
             {
@@ -395,7 +396,7 @@ public static class InsightEngine
             bool again = TopApp(previous)?.Name == top.Name;
             string topName = top.Name, topTime = Units.Duration(top.ActiveSec);
             list.Add(new Insight(IconApp,
-                again ? Lang.T($"{topName} took most of your time again: {topTime} ({pct}% of active time).") : Lang.T($"{topName} took most of your time: {topTime} ({pct}% of active time)."),
+                again ? Lang.T($"{topName} took most of your time again, {topTime} ({pct}% of active time).") : Lang.T($"{topName} took most of your time, {topTime} ({pct}% of active time)."),
                 InsightTone.Neutral, "top-app", again ? 25 : 50) { Short = Lang.T($"{topName} took most of your time") });
         }
 
@@ -431,10 +432,10 @@ public static class InsightEngine
                 && sessions.MaxBy(x => x.Sec) is { Session: { } longest, Sec: >= 20 * 60 } best
                 && (games.Count > 1 || best.Sec < total - 5 * 60))
                 text += " " + (longest.Start < r.From
-                    ? Lang.T($"Longest session: {longest.Name}, {Units.Duration(best.Sec)}, carried on from the night before.")
+                    ? Lang.T($"The longest session was {longest.Name} for {Units.Duration(best.Sec)}, carried on from the night before.")
                     : OneDay(r)
-                        ? Lang.T($"Longest session: {longest.Name}, {Units.Duration(best.Sec)} starting {longest.Start:h:mm tt}.")
-                        : Lang.T($"Longest session: {longest.Name}, {Units.Duration(best.Sec)} starting {longest.Start:ddd d MMM, h:mm tt}."));
+                        ? Lang.T($"The longest session was {longest.Name} for {Units.Duration(best.Sec)} starting {longest.Start:h:mm tt}.")
+                        : Lang.T($"The longest session was {longest.Name} for {Units.Duration(best.Sec)} starting {longest.Start:ddd d MMM, h:mm tt}."));
             list.Add(new Insight(IconGame, text, InsightTone.Neutral, "gaming", 64)
                 { Short = games.Count == 1 ? Lang.T($"{Units.Duration(total)} of {games[0].Name}") : Lang.T($"{Units.Duration(total)} of games, mostly {games[0].Name}") });
         }
@@ -486,7 +487,7 @@ public static class InsightEngine
             var others = steadyGames.Where(g => g != hottest).ToList();
             double othersGpu = others.Sum(g => g.Gpu * g.Minutes) / others.Sum(g => g.Minutes);
             if (hottest.Gpu - othersGpu >= MinGameHeatDiff)
-                list.Add(new Insight(IconGame, Lang.T($"{hottest.App} works your GPU hardest: {Units.TempShort(hottest.Gpu)} in steady play, against {Units.TempShort(othersGpu)} in your other games."),
+                list.Add(new Insight(IconGame, Lang.T($"{hottest.App} works your GPU hardest, at {Units.TempShort(hottest.Gpu)} in steady play against {Units.TempShort(othersGpu)} in your other games."),
                     InsightTone.Neutral, "game-heat", 52, Wording.JoinAnd(steadyGames.Select(g => $"{g.App} {Units.TempShort(g.Gpu)}"))) { Short = Lang.T($"{hottest.App} works your GPU hardest"), Ask = Lang.T($"Why does {hottest.App} work my GPU harder than my other games?"), AskPage = Ai.AiPages.Games });
         }
 
@@ -606,7 +607,7 @@ public static class InsightEngine
 
     private static string? DaySpan(Report r, bool inProgress)
     {
-        string? late = r.LateUntil is { } l ? Lang.T($"The night before ran late: you were on until {l:h:mm tt}.") : null;
+        string? late = r.LateUntil is { } l ? Lang.T($"The night before ran late. You were on until {l:h:mm tt}.") : null;
         if (r.DayStart is not { } start) return late;
         if (r.Range == ReportRange.Custom)
         {
@@ -790,7 +791,7 @@ public static class InsightEngine
 
     private static string CrashDetail(Report r) => string.Join(" · ", r.Crashes.Take(4).Select(c =>
         r.CrashContexts.GetValueOrDefault(c.Id) is { } ctx && (ctx.CpuBefore is not null || ctx.GpuBefore is not null)
-            ? Lang.T($"{c.Time:d MMM h:mm tt}: {string.Join(", ", new[] { ctx.CpuBefore is { } cb ? $"CPU {Units.TempShort(cb)}" : null, ctx.GpuBefore is { } gb ? $"GPU {Units.TempShort(gb)}" : null }.OfType<string>())} just before")
+            ? Lang.T($"{c.Time:d MMM h:mm tt}, {string.Join(", ", new[] { ctx.CpuBefore is { } cb ? $"CPU {Units.TempShort(cb)}" : null, ctx.GpuBefore is { } gb ? $"GPU {Units.TempShort(gb)}" : null }.OfType<string>())} just before")
             : $"{TimeText.At(c.Time, "d MMM h:mm tt")}"));
 
     /// <summary>"a month", "three months", "a year": how far back a record holds.</summary>

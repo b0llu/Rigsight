@@ -608,9 +608,10 @@ public sealed class ControlTests
             // Over the live readings (the last ten minutes) and over the minute history before them.
             foreach (int window in new[] { 3600, 21600, 86400, 0 })
             {
-                Assert.True(Box(Chart(window), 880) > oneValue * 1.5, $"no columns over the live readings at {window}");
                 // Over today (0) the minute under the pointer moves with the clock, and some minutes' numbers are narrower:
-                // their three columns came to 1.46 times one value. Under 1.3 is one value (1.0), not three.
+                // their three columns came to 1.46 times one value (over the live readings too: 1 run in 3, 2026-10-26).
+                // Under 1.3 is one value (1.0), not three.
+                Assert.True(Box(Chart(window), 880) > oneValue * 1.3, $"no columns over the live readings at {window}");
                 Assert.True(Box(Chart(window), 300) > oneValue * 1.3, $"no columns over the minute history at {window}");
             }
             // Other readings (a fan's speed) keep the one value.

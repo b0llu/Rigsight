@@ -67,7 +67,7 @@ public sealed class NetworkWholeDaysTests
         var today = new DateTime(2026, 10, 15);
         var fri = new DateTime(2026, 10, 2);
         Assert.Equal("Fri 2 Oct\nUp all day\nRecorded 9h 40m", NetworkViewModel.DayTip(new NetDayLink(fri, NetDayState.Up, 580, []), today));
-        Assert.Equal("Fri 2 Oct\nDropped once: 6:12 PM, 43m\nRecorded 9h 40m",
+        Assert.Equal("Fri 2 Oct\nDropped once at 6:12 PM, 43m\nRecorded 9h 40m",
             NetworkViewModel.DayTip(new NetDayLink(fri, NetDayState.Dropped, 580, [Drop(fri.AddHours(18).AddMinutes(12), 43 * 60)]), today));
         Assert.Equal("Fri 2 Oct\nDropped twice\n9:00 AM, 2m\n6:12 PM, 1h 05m\nRecorded 9h 40m",
             NetworkViewModel.DayTip(new NetDayLink(fri, NetDayState.Dropped, 580, [Drop(fri.AddHours(9), 120), Drop(fri.AddHours(18).AddMinutes(12), 65 * 60)]), today));

@@ -189,7 +189,7 @@ public sealed class CrashCaseTests
         t.Db.InsertCrashes([ShutOff(T0 + 1800, button: true)]);
         report = ReportBuilder.Build(t.Db, ReportRange.Day, L(T0), new RigsightSettings());
         insight = Assert.Single(report.Insights, i => i.Key == "crash");
-        Assert.StartsWith("The PC shut off suddenly at 10:51 AM: someone held the power button. 2 problems in all", insight.Text);
+        Assert.StartsWith("The PC shut off suddenly at 10:51 AM because someone held the power button. 2 problems in all", insight.Text);
         Assert.Equal(InsightTone.Warn, insight.Tone);
     }
 }

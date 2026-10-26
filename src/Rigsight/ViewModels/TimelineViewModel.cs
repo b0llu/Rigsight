@@ -53,6 +53,11 @@ public sealed partial class TimelineEntry : ObservableObject
     public string ResultIcon => Result is null ? "" : Models.ChangeCase.ResultIcon(Result);
     public string ResultSure => Result?.Sure.ToString() ?? "";
     public List<ResultPair> ResultPairs => Result is null ? [] : [.. Result.Pairs.Select(ResultPair.Of)];
+    /// <summary>A change that made something worse: its AI button asks whether the change is why ("Is it the driver?").</summary>
+    public bool HasResultAsk => Result?.Tone == Core.Reports.EffectTone.Worse;
+    public string ResultAskText => Result?.Changes is [{ IsGraphicsDriver: true }] ? Lang.T("Is it the driver?") : Lang.T("Did this cause it?");
+    public AiQuestion? ResultAsk => Result is { Tone: Core.Reports.EffectTone.Worse } r
+        ? new(Lang.T($"{r.Said}. Did {Core.Reports.ChangeEffects.InLine(r.Changes, r.Day)} cause this?"), Core.Ai.AiPages.Timeline) : null;
 
     /// <summary>The app updates folded into this line.</summary>
     public List<TimelineEntry> Children { get; init; } = [];

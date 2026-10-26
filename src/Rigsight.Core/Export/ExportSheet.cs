@@ -93,7 +93,7 @@ public static class ExportSheets
         var rows = new List<(GamePlay Play, string Game)>();
         foreach (var game in games.Where(g => g.HasHistory))
             rows.AddRange(GameHistory.Story(db, game, s, now).Plays.Where(p => p.StartTime >= from && p.StartTime < to).Select(p => (p, game.Name)));
-        return new(Lang.T("Play sessions"), Lang.T("Play sessions"), Lang.T("Each time a game was played: how long, how it ended, frame rate, graphics card heat and power."), Period(from, to),
+        return new(Lang.T("Play sessions"), Lang.T("Play sessions"), Lang.T("Each time a game was played, with how long, how it ended, frame rate, graphics card heat and power."), Period(from, to),
             [Lang.T("Start"), Lang.T("End"), Lang.T("Game"), Lang.T("Played (min)"), Lang.T("Ended"), Lang.T("FPS"), Lang.T("1% low FPS"), Lang.T("GPU (°C)"), Lang.T("GPU highest (°C)"),
              Lang.T("GPU hot spot highest (°C)"), Lang.T("CPU highest (°C)"), Lang.T("GPU load (%)"), Lang.T("GPU power (W)"), Lang.T("CPU and GPU power (W)"), Lang.T("Video memory highest (GB)")],
             [.. rows.OrderBy(r => r.Play.Start).Select(r => new object?[]

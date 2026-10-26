@@ -72,11 +72,11 @@ public sealed class InsightEngineTests : IDisposable
     }
 
     [Theory]
-    [InlineData(ReportRange.Day, "A quiet day: only 10m of use, so there's not much to point out.")]
-    [InlineData(ReportRange.Week, "A quiet week: only 10m of use, so there's not much to point out.")]
-    [InlineData(ReportRange.Month, "A quiet month: only 10m of use, so there's not much to point out.")]
-    [InlineData(ReportRange.Year, "A quiet year: only 10m of use, so there's not much to point out.")]
-    [InlineData(ReportRange.All, "A quiet stretch: only 10m of use, so there's not much to point out.")]
+    [InlineData(ReportRange.Day, "A quiet day with only 10m of use, so there's not much to point out.")]
+    [InlineData(ReportRange.Week, "A quiet week with only 10m of use, so there's not much to point out.")]
+    [InlineData(ReportRange.Month, "A quiet month with only 10m of use, so there's not much to point out.")]
+    [InlineData(ReportRange.Year, "A quiet year with only 10m of use, so there's not much to point out.")]
+    [InlineData(ReportRange.All, "A quiet stretch with only 10m of use, so there's not much to point out.")]
     public void A_period_with_little_use_is_called_quiet_and_nothing_else_is_said(ReportRange range, string text)
     {
         var r = Past(range, active: 600, on: 900);
@@ -91,8 +91,8 @@ public sealed class InsightEngineTests : IDisposable
     [Fact]
     public void A_period_in_progress_with_little_use_is_too_early_to_say()
     {
-        Assert.Equal("Too early for highlights: 14m of use so far.", Assert.Single(Gen(Now(active: 14 * 60 + 59))).Text);
-        Assert.Equal("Too early for highlights: 45s of use so far.", Assert.Single(Gen(Now(ReportRange.Month, active: 45))).Text);
+        Assert.Equal("Too early for highlights, only 14m of use so far.", Assert.Single(Gen(Now(active: 14 * 60 + 59))).Text);
+        Assert.Equal("Too early for highlights, only 45s of use so far.", Assert.Single(Gen(Now(ReportRange.Month, active: 45))).Text);
     }
 
     [Fact]
@@ -123,21 +123,21 @@ public sealed class InsightEngineTests : IDisposable
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.SystemCrash, Code = "0x00000124" });
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504.AddDays(-1)), Kind = CrashKind.GpuDriverReset });
         r.Crashes.Add(new CrashEvent { Ts = TimeUtil.ToUnix(At1504.AddDays(-2)), Kind = CrashKind.UnexpectedShutdown });
-        Assert.Equal("Windows crashed with a blue screen at Wed 12 Mar, 3:04 PM: WHEA_UNCORRECTABLE_ERROR. 3 problems in all, each on the Crashes page.",
+        Assert.Equal("Windows crashed with a blue screen at Wed 12 Mar, 3:04 PM (WHEA_UNCORRECTABLE_ERROR). 3 problems in all, each on the Crashes page.",
             Line(Gen(r), "crash"));
     }
 
     [Theory]
     [InlineData(CrashKind.GpuDriverReset, "", null, null, "Graphics driver reset at 3:04 PM.")]
-    [InlineData(CrashKind.UnexpectedShutdown, "", null, null, "The PC shut off suddenly at 3:04 PM: a power cut or a hard freeze.")]
+    [InlineData(CrashKind.UnexpectedShutdown, "", null, null, "The PC shut off suddenly at 3:04 PM (a power cut or a hard freeze).")]
     [InlineData(CrashKind.AppHang, "unknown.exe", null, null, "unknown froze at 3:04 PM.")]
-    [InlineData(CrashKind.AppCrash, "game.exe", "nvwgf2umx.dll", "c0000005", "game crashed at 3:04 PM: NVIDIA driver.")]
+    [InlineData(CrashKind.AppCrash, "game.exe", "nvwgf2umx.dll", "c0000005", "game crashed at 3:04 PM (NVIDIA driver).")]
     [InlineData(CrashKind.AppCrash, "game.exe", "game.exe", "c0000005", "game crashed at 3:04 PM, in its own code.")]
-    [InlineData(CrashKind.AppCrash, "game.exe", "SomeMod.dll", null, "game crashed at 3:04 PM: SomeMod.dll.")]
+    [InlineData(CrashKind.AppCrash, "game.exe", "SomeMod.dll", null, "game crashed at 3:04 PM (SomeMod.dll).")]
     [InlineData(CrashKind.AppCrash, "game.exe", "", null, "game crashed at 3:04 PM.")]
     [InlineData(CrashKind.AppCrash, "game.exe", "unknown", null, "game crashed at 3:04 PM.")] // what Windows writes when it couldn't tell
-    [InlineData(CrashKind.SystemCrash, "", null, "0x00000124", "Windows crashed with a blue screen at 3:04 PM: WHEA_UNCORRECTABLE_ERROR.")]
-    [InlineData(CrashKind.SystemCrash, "", null, "0x0000ABCD", "Windows crashed with a blue screen at 3:04 PM: 0x0000ABCD.")]
+    [InlineData(CrashKind.SystemCrash, "", null, "0x00000124", "Windows crashed with a blue screen at 3:04 PM (WHEA_UNCORRECTABLE_ERROR).")]
+    [InlineData(CrashKind.SystemCrash, "", null, "0x0000ABCD", "Windows crashed with a blue screen at 3:04 PM (0x0000ABCD).")]
     public void Each_kind_of_crash_reads_naturally_and_names_a_cause_only_where_it_adds_one(CrashKind kind, string exe, string? module, string? code, string text)
     {
         var r = Past();
@@ -163,8 +163,8 @@ public sealed class InsightEngineTests : IDisposable
                     if (ex.Cause is null) Assert.Equal($"{ex.Title} at 3:04 PM.", line);
                     else
                     {
-                        // "…: NVIDIA driver." for a name; "…, in its own code." for where it happened.
-                        Assert.Equal(ex.Cause.StartsWith("in ", StringComparison.Ordinal) ? $"{ex.Title} at 3:04 PM, {ex.Cause}." : $"{ex.Title} at 3:04 PM: {ex.Cause}.", line);
+                        // "… (NVIDIA driver)." for a name; "…, in its own code." for where it happened.
+                        Assert.Equal(ex.Cause.StartsWith("in ", StringComparison.Ordinal) ? $"{ex.Title} at 3:04 PM, {ex.Cause}." : $"{ex.Title} at 3:04 PM ({ex.Cause}).", line);
                         Assert.DoesNotContain(ex.Cause, ex.Title, StringComparison.OrdinalIgnoreCase);
                     }
                 }
@@ -402,9 +402,9 @@ public sealed class InsightEngineTests : IDisposable
         r.LateUntil = Wed.AddHours(1).AddMinutes(30);
         r.DayStart = Wed.AddHours(9);
         r.LastActive = Wed.AddHours(18);
-        Assert.Equal("The night before ran late: you were on until 1:30 AM. Your day ran from 9:00 AM to 6:00 PM.", Line(Gen(r), "span"));
+        Assert.Equal("The night before ran late. You were on until 1:30 AM. Your day ran from 9:00 AM to 6:00 PM.", Line(Gen(r), "span"));
         r.DayStart = null;
-        Assert.Equal("The night before ran late: you were on until 1:30 AM.", Line(Gen(r), "span"));
+        Assert.Equal("The night before ran late. You were on until 1:30 AM.", Line(Gen(r), "span"));
     }
 
     [Fact]
@@ -445,7 +445,7 @@ public sealed class InsightEngineTests : IDisposable
         r.Apps.Add(App("Chrome", AppCategory.Browser, 2 * 3600));
         r.Apps.Add(App("Code", AppCategory.Development, 3600));
         var top = Assert.Single(Gen(r), i => i.Key == "top-app");
-        Assert.Equal("Chrome took most of your time: 2h 00m (67% of active time).", top.Text);
+        Assert.Equal("Chrome took most of your time, 2h 00m (67% of active time).", top.Text);
         Assert.Equal(50, top.Priority);
     }
 
@@ -455,7 +455,7 @@ public sealed class InsightEngineTests : IDisposable
         var r = Past(active: 3 * 3600);
         r.Apps.Add(App("File Explorer", AppCategory.System, 2 * 3600));
         r.Apps.Add(App("Code", AppCategory.Development, 30 * 60));
-        Assert.Equal("Code took most of your time: 30m (17% of active time).", Line(Gen(r), "top-app"));
+        Assert.Equal("Code took most of your time, 30m (17% of active time).", Line(Gen(r), "top-app"));
         r.Apps[1].ActiveSec = 19 * 60;
         None(Gen(r), "top-app");
     }
@@ -469,7 +469,7 @@ public sealed class InsightEngineTests : IDisposable
         r.Sessions.Add(new SessionInfo { Name = "Dota 2", Start = At1504, End = At1504.AddMinutes(50), ActiveSec = 45 * 60, IsGame = true });
         r.Sessions.Add(new SessionInfo { Name = "Chrome", Start = At1504, End = At1504.AddHours(5), ActiveSec = 4 * 3600, IsGame = false });
         var gaming = Assert.Single(Gen(r), i => i.Key == "gaming");
-        Assert.Equal("You gamed for 1h 00m (Dota 2). Longest session: Dota 2, 45m starting 3:04 PM.", gaming.Text);
+        Assert.Equal("You gamed for 1h 00m (Dota 2). The longest session was Dota 2 for 45m starting 3:04 PM.", gaming.Text);
         Assert.Equal(64, gaming.Priority);
     }
 
@@ -482,7 +482,7 @@ public sealed class InsightEngineTests : IDisposable
         r.Sessions.Add(new SessionInfo { Name = "Dota 2", Start = At1504, End = At1504.AddMinutes(19), ActiveSec = 19 * 60, IsGame = true });
         Assert.Equal("You gamed for 1h 10m (2 games).", Line(Gen(r), "gaming"));
         r.Sessions.Add(new SessionInfo { Name = "Tetris", Start = At1504, End = At1504.AddMinutes(20), ActiveSec = 20 * 60, IsGame = true });
-        Assert.Equal("You gamed for 1h 10m (2 games). Longest session: Tetris, 20m starting Wed 12 Mar, 3:04 PM.", Line(Gen(r), "gaming"));
+        Assert.Equal("You gamed for 1h 10m (2 games). The longest session was Tetris for 20m starting Wed 12 Mar, 3:04 PM.", Line(Gen(r), "gaming"));
     }
 
     [Fact]
@@ -492,7 +492,7 @@ public sealed class InsightEngineTests : IDisposable
         var r = Past();
         r.Apps.Add(App("Dota 2", AppCategory.Game, 3 * 3600));
         r.Sessions.Add(new SessionInfo { Name = "Dota 2", Start = Wed.AddHours(-1), End = Wed.AddHours(1.5), ActiveSec = 2.5 * 3600, IsGame = true });
-        Assert.Equal("You gamed for 3h 00m (Dota 2). Longest session: Dota 2, 1h 30m, carried on from the night before.", Line(Gen(r), "gaming"));
+        Assert.Equal("You gamed for 3h 00m (Dota 2). The longest session was Dota 2 for 1h 30m, carried on from the night before.", Line(Gen(r), "gaming"));
     }
 
     [Fact]
@@ -501,9 +501,9 @@ public sealed class InsightEngineTests : IDisposable
         var r = Past();
         r.Apps.Add(App("REMATCH", AppCategory.Game, 34 * 60));
         r.Sessions.Add(new SessionInfo { Name = "REMATCH", Start = Wed.AddHours(-1), End = Wed.AddMinutes(35), ActiveSec = 70 * 60, IsGame = true });
-        Assert.Equal("You gamed for 34m (REMATCH).", Line(Gen(r), "gaming")); // not "Longest session: REMATCH, 35m"
+        Assert.Equal("You gamed for 34m (REMATCH).", Line(Gen(r), "gaming")); // not "The longest session was REMATCH for 35m"
         r.Apps.Add(App("Dota 2", AppCategory.Game, 5 * 60)); // two games: which one the time went to is worth saying
-        Assert.Equal("You gamed for 39m (2 games). Longest session: REMATCH, 35m, carried on from the night before.", Line(Gen(r), "gaming"));
+        Assert.Equal("You gamed for 39m (2 games). The longest session was REMATCH for 35m, carried on from the night before.", Line(Gen(r), "gaming"));
 
         // Still playing: the session that matters isn't over (nor written) yet, so an earlier short one isn't "the longest".
         var today = Now();
@@ -629,7 +629,7 @@ public sealed class InsightEngineTests : IDisposable
         r.Steady = [Steady(a, 60, 74), Steady(b, 90, 66), Steady(c, 30, 60)];
         var line = Assert.Single(Gen(r), i => i.Key == "game-heat");
         // The others weighted by their minutes: (66×90 + 60×30) / 120 = 64.5.
-        Assert.Equal("Rematch works your GPU hardest: 74° in steady play, against 65° in your other games.", line.Text);
+        Assert.Equal("Rematch works your GPU hardest, at 74° in steady play against 65° in your other games.", line.Text);
         Assert.Equal((InsightTone.Neutral, "Rematch 74°, Dota 2 66° and Hades 60°"), (line.Tone, line.Detail));
 
         r.Steady = [Steady(a, 60, 69), Steady(b, 90, 66)]; // 3° is no difference worth a line
@@ -665,7 +665,7 @@ public sealed class InsightEngineTests : IDisposable
         var list = Gen(Playing(gpu: 77, cpu: 66, restGpu: 41, restCpu: 42), context: new InsightContext(Then: Then()));
         var line = Assert.Single(list, i => i.Key == "drift");
         // What rules the room out is said as the figure that does (the GPU at rest), not as "not because of the room".
-        Assert.Equal("In Cyberpunk 2077, your GPU ran 7° hotter than in December 2024: 77° against 70°, at the same power. With nothing running it sat at 41°, as it did then, so dust or old thermal paste are the likely causes.", line.Text);
+        Assert.Equal("In Cyberpunk 2077, your GPU ran 7° hotter than in December 2024 at the same power, 77° against 70°. With nothing running it sat at 41°, as it did then, so dust or old thermal paste are the likely causes.", line.Text);
         Assert.Equal("Cyberpunk 2077 ran 7° hotter than in December 2024", line.Short);
         Assert.Equal(InsightOpens.Usual, line.Opens);
         Assert.Equal((InsightTone.Warn, 72), (line.Tone, line.Priority));
@@ -687,7 +687,7 @@ public sealed class InsightEngineTests : IDisposable
     public void Running_cooler_than_months_ago_is_good_news()
     {
         var line = Assert.Single(Gen(Playing(gpu: 64, cpu: 64, restGpu: 40, restCpu: 42), context: new InsightContext(Then: Then())), i => i.Key == "drift");
-        Assert.Equal("In Cyberpunk 2077, your GPU ran 6° cooler than in December 2024: 64° against 70°, at the same power. With nothing running it sat at 40°, as it did then.", line.Text);
+        Assert.Equal("In Cyberpunk 2077, your GPU ran 6° cooler than in December 2024 at the same power, 64° against 70°. With nothing running it sat at 40°, as it did then.", line.Text);
         Assert.Equal((InsightTone.Good, 40), (line.Tone, line.Priority));
     }
 
@@ -727,7 +727,7 @@ public sealed class InsightEngineTests : IDisposable
         // 75.4 vs 69.6 is 5.8° apart, shown as 75° vs 70°: the line says 5°, what the two shown numbers make, not 6°.
         var then = new ThenHeat([Steady(Cyberpunk, 300, 69.6, 65, 300, 8)], new LoadTemps(42, 40, 400), Wed.AddDays(-120), Wed.AddDays(-30));
         var line = Line(Gen(Playing(gpu: 75.4, cpu: 65, restGpu: 40, restCpu: 42), context: new InsightContext(Then: then)), "drift");
-        Assert.Equal("In Cyberpunk 2077, your GPU ran 5° hotter than in December 2024: 75° against 70°, at the same power. With nothing running it sat at 40°, as it did then, so dust or old thermal paste are the likely causes.", line);
+        Assert.Equal("In Cyberpunk 2077, your GPU ran 5° hotter than in December 2024 at the same power, 75° against 70°. With nothing running it sat at 40°, as it did then, so dust or old thermal paste are the likely causes.", line);
     }
 
     [Fact]
@@ -784,7 +784,7 @@ public sealed class InsightEngineTests : IDisposable
         var r = Past();
         r.GpuThrottle = new Throttling(14, 15.2, 84);
         var line = Assert.Single(Gen(r), i => i.Key == "throttle");
-        Assert.Equal("Your GPU slowed itself for 14 minutes to stay cool: clocks fell about 15% once it reached 84°.", line.Text);
+        Assert.Equal("Your GPU slowed itself for 14 minutes to stay cool. Clocks fell about 15% once it reached 84°.", line.Text);
         Assert.Equal(InsightTone.Hot, line.Tone);
         Assert.Equal(line, Gen(r)[1]); // right after the screen-time line, which heads every list
     }
@@ -798,8 +798,8 @@ public sealed class InsightEngineTests : IDisposable
         r.Records = [new RecordNote(RecordKind.LongestGameSession, "4h 12m", "Dota 2", 90), new RecordNote(RecordKind.HottestGpu, "84°", null, 30),
             new RecordNote(RecordKind.HottestCpu, "88°", null, 30), new RecordNote(RecordKind.MostScreenTime, "11h 20m", null, 365)];
         var lines = Gen(r).Where(i => i.Key == "record").ToList();
-        Assert.Equal(["Longest gaming session in three months: Dota 2, 4h 12m.", "Highest GPU peak in a month: 84°.", "Highest CPU peak in a month: 88°.",
-            "Most screen time in a year: 11h 20m."], lines.Select(i => i.Text));
+        Assert.Equal(["Dota 2 for 4h 12m, your longest gaming session in three months.", "84°, the highest GPU peak in a month.", "88°, the highest CPU peak in a month.",
+            "11h 20m of screen time, the most in a year."], lines.Select(i => i.Text));
         Assert.Equal([InsightTone.Good, InsightTone.Neutral, InsightTone.Neutral, InsightTone.Neutral], lines.Select(i => i.Tone));
         Assert.Equal("Beats every day of the 90 before", lines[0].Detail);
     }
@@ -847,10 +847,10 @@ public sealed class InsightEngineTests : IDisposable
         var before = Past();
         before.Apps.Add(App("Chrome", AppCategory.Browser, 2 * 3600));
         var line = Assert.Single(Gen(r, before), i => i.Key == "top-app");
-        Assert.Equal(("Chrome took most of your time again: 3h 00m (100% of active time).", 25), (line.Text, line.Priority));
+        Assert.Equal(("Chrome took most of your time again, 3h 00m (100% of active time).", 25), (line.Text, line.Priority));
         before.Apps[0] = App("Code", AppCategory.Development, 2 * 3600);
         line = Assert.Single(Gen(r, before), i => i.Key == "top-app");
-        Assert.Equal(("Chrome took most of your time: 3h 00m (100% of active time).", 50), (line.Text, line.Priority));
+        Assert.Equal(("Chrome took most of your time, 3h 00m (100% of active time).", 50), (line.Text, line.Priority));
     }
 
     [Fact]
@@ -891,7 +891,7 @@ public sealed class InsightEngineTests : IDisposable
         r.Crashes.Add(new CrashEvent { Id = 1, Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.UnexpectedShutdown, DuringSleep = true });
         Assert.Equal("The PC shut off while asleep at 3:04 PM.", Line(Gen(r), "crash"));
         r.Crashes[0] = new CrashEvent { Id = 1, Ts = TimeUtil.ToUnix(At1504), Kind = CrashKind.UnexpectedShutdown };
-        Assert.Equal("The PC shut off suddenly at 3:04 PM: a power cut or a hard freeze.", Line(Gen(r), "crash"));
+        Assert.Equal("The PC shut off suddenly at 3:04 PM (a power cut or a hard freeze).", Line(Gen(r), "crash"));
     }
 
     [Fact]
@@ -902,7 +902,7 @@ public sealed class InsightEngineTests : IDisposable
         r.CrashContexts[7] = new CrashContext(70, 86, null, null);
         var line = Line(Gen(r), "crash"); // the GPU over its 83° alert limit
         Assert.EndsWith(" The GPU was at 86° just before.", line);
-        Assert.Equal("12 Mar 3:04 PM: CPU 70°, GPU 86° just before", Assert.Single(Gen(r), i => i.Key == "crash").Detail);
+        Assert.Equal("12 Mar 3:04 PM, CPU 70°, GPU 86° just before", Assert.Single(Gen(r), i => i.Key == "crash").Detail);
         r.CrashContexts[7] = new CrashContext(90, 60, null, null);
         Assert.EndsWith(" The CPU was at 90° just before.", Line(Gen(r), "crash"));
         // 82° is where many GPUs sit in every game: under the alert limit, heat isn't blamed.
@@ -919,7 +919,7 @@ public sealed class InsightEngineTests : IDisposable
         r.CrashContexts[7] = new CrashContext(null, null, null, null);
         Assert.Equal("12 Mar 3:04 PM", Assert.Single(Gen(r), i => i.Key == "crash").Detail);
         r.CrashContexts[7] = new CrashContext(null, 70, null, null);
-        Assert.Equal("12 Mar 3:04 PM: GPU 70° just before", Assert.Single(Gen(r), i => i.Key == "crash").Detail);
+        Assert.Equal("12 Mar 3:04 PM, GPU 70° just before", Assert.Single(Gen(r), i => i.Key == "crash").Detail);
     }
 
     [Fact]

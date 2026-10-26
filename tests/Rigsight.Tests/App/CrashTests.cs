@@ -68,7 +68,7 @@ public sealed class CrashModelTests
         Assert.Same(rows[0], g.Latest);
         Assert.Same(rows[1], g.First);
         Assert.Equal("×3", g.CountText);
-        Assert.Equal($"First: {rows[1].Time:d MMM} · Last: {rows[0].TimeText}", g.WhenText);
+        Assert.Equal($"First {rows[1].Time:d MMM} · Last {rows[0].TimeText}", g.WhenText);
         Assert.Equal(CrashSeverity.Minor, g.Severity);
         Assert.Equal("game.exe", g.AppExe);
         Assert.True(g.CanMute);
@@ -125,7 +125,7 @@ public sealed class CrashModelTests
         Assert.Equal(CrashSeverity.Serious, incident.Severity);
         Assert.Null(incident.AppExe);
         Assert.Null(incident.IconPath);
-        Assert.Equal($"3 problems within 4 minutes: a, b and c crashed or froze, starting at {Noon:h:mm tt}.", incident.Reason);
+        Assert.Equal($"a, b and c crashed or froze within 4 minutes, starting at {Noon:h:mm tt}. 3 problems in all.", incident.Reason);
         Assert.StartsWith("When several apps fail together", incident.Advice);
         Assert.Equal("Windows PC freezes several apps not responding at once", incident.SearchQuery);
         // Rows in the incident aren't listed again as repeats.
@@ -328,24 +328,24 @@ public sealed class CrashModelTests
         {
             var one = CrashGroup.Build([Crashes.Row(CrashKind.AppCrash, Noon, "game.exe", "Game", "ntdll.dll", "0xc0000005", cpu: 55, gpu: 66)])[0];
             var text = CrashesViewModel.Report(one);
-            Assert.Contains($"When: {Noon:dddd d MMMM yyyy, h:mm tt}", text);
-            Assert.Contains("What happened: ", text);
-            Assert.Contains("  - It wasn't overheating: The CPU was at 55° and the GPU at 66°, under your alert limits.", text);
-            Assert.Contains("Technical: game.exe  ·  module ntdll.dll  ·  code 0xc0000005", text);
-            Assert.Contains("How sure: ", text);
-            Assert.Contains("What to try: ", text);
+            Assert.Contains($"On {Noon:dddd d MMMM yyyy, h:mm tt}", text);
+            Assert.Contains("What happened · ", text);
+            Assert.Contains("  - It wasn't overheating. The CPU was at 55° and the GPU at 66°, under your alert limits.", text);
+            Assert.Contains("Technical · game.exe  ·  module ntdll.dll  ·  code 0xc0000005", text);
+            Assert.Contains("How sure · ", text);
+            Assert.Contains("What to try · ", text);
             Assert.EndsWith(PcInfo.Text, text);
 
             var repeated = CrashGroup.Build([Crashes.App(Noon), Crashes.App(Noon.AddDays(-2))])[0];
-            Assert.Contains($"When: 2 times, most recently {Noon:d MMM yyyy, h:mm tt} (first {Noon.AddDays(-2):d MMM yyyy})", CrashesViewModel.Report(repeated));
+            Assert.Contains($"2 times, most recently {Noon:d MMM yyyy, h:mm tt} (first {Noon.AddDays(-2):d MMM yyyy})", CrashesViewModel.Report(repeated));
 
             var incident = CrashGroup.Build([Crashes.Reset(Noon), Crashes.App(Noon.AddSeconds(30), "a.exe"), Crashes.App(Noon.AddSeconds(50), "b.exe")])[0];
             var lines = CrashesViewModel.Report(incident);
-            Assert.StartsWith("Problem: The graphics driver reset and apps failed with it (several at once)", lines);
-            Assert.Contains($"When: {Noon:dddd d MMMM yyyy, h:mm tt} – {Noon.AddSeconds(50):h:mm tt}", lines);
-            Assert.Contains("Graphics driver: graphics driver reset", lines);
-            Assert.Contains("a: app crash (a.exe  ·  module ntdll.dll  ·  code 0xc0000005)", lines);
-            Assert.DoesNotContain("Technical:", lines);
+            Assert.StartsWith("The graphics driver reset and apps failed with it (several at once)", lines);
+            Assert.Contains($"On {Noon:dddd d MMMM yyyy, h:mm tt} to {Noon.AddSeconds(50):h:mm tt}", lines);
+            Assert.Contains("Graphics driver · graphics driver reset", lines);
+            Assert.Contains("a · app crash (a.exe  ·  module ntdll.dll  ·  code 0xc0000005)", lines);
+            Assert.DoesNotContain("Technical · ", lines);
         });
     }
 }
@@ -958,10 +958,10 @@ public sealed class CrashesPageTests
     {
         var row = Crashes.Row(CrashKind.AppCrash, DateTime.Today.AddHours(-5), "g.exe", "Game", "nvwgf2umx.dll", "c0000005", cpu: 60, gpu: 70);
         string text = CrashesViewModel.Report(CrashGroup.Build([row]).Single());
-        Assert.Contains("What happened: The NVIDIA graphics driver failed while running Game.", text);
-        Assert.Contains("How sure: Confirmed", text);
-        Assert.Contains("What it wasn't:", text);
-        Assert.Contains("  - It wasn't overheating: The CPU was at 60° and the GPU at 70°, under your alert limits.", text);
-        Assert.Contains("What to try: Update the NVIDIA driver", text);
+        Assert.Contains("What happened · The NVIDIA graphics driver failed while running Game.", text);
+        Assert.Contains("How sure · Confirmed", text);
+        Assert.Contains("What it wasn't", text);
+        Assert.Contains("  - It wasn't overheating. The CPU was at 60° and the GPU at 70°, under your alert limits.", text);
+        Assert.Contains("What to try · Update the NVIDIA driver", text);
     }
 }

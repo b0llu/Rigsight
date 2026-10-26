@@ -51,6 +51,10 @@
                 <ctl:PeriodPicker DockPanel.Dock="Right" VerticalAlignment="Center" AllowAll="False" BusyOnLeft="True"
                                   IsBusy="{Binding IsLoading}" Unit="{Binding Range}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
+                <!-- How the period went, asked of the AI (hidden while it's off, or with nothing to show). -->
+                <Border DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,12,0" Visibility="{Binding ShowData, Converter={StaticResource Vis}}">
+                    <Button Style="{StaticResource AiButton}" Content="{ctl:T 'Ask about this period'}" CommandParameter="{Binding ReportAsk}" AutomationProperties.Name="{ctl:T 'Ask about this period'}" />
+                </Border>
                 <StackPanel>
                     <TextBlock Text="{Binding Title}" Style="{StaticResource H1}" />
                     <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,0" />

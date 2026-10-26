@@ -136,6 +136,59 @@ internal static unsafe class Rtss
         return stats;
     }
 
+    // Where RivaTuner writes its next frame time in that ring (dwStatFrameTimeBufPos, right after it): checked on this
+    // PC, 2026-10-25, Risk of Rain 2 at 132 fps moved it 136 places in a second.
+    private const int FrameTimePosAt = FrameTimeBufAt + FrameTimeBufLength * 4;
+
+    /// <summary>Where each game's frames were read up to, by process: its place in RivaTuner's ring and when.</summary>
+    private static readonly Dictionary<int, (uint Pos, long At)> ReadUpTo = [];
+
+    /// <summary>
+    /// The frames <paramref name="pid"/> drew since this was last asked (their times in µs, oldest first, into
+    /// <paramref name="into"/>), read from RivaTuner's ring of the last 1,024. Missed says frames went by that the ring
+    /// no longer holds (asked too rarely for the frame rate, or the first ask): what came before them doesn't join up.
+    /// False when RivaTuner doesn't measure the process.
+    /// </summary>
+    public static bool ReadNewFrames(int pid, List<uint> into, out bool missed)
+    {
+        bool ok = false, gap = true;
+        into.Clear();
+        if (pid <= 0) { missed = true; return false; }
+        Use(memory =>
+        {
+            uint size = U(memory, AppEntrySizeAt), offset = U(memory, AppArrOffsetAt), count = U(memory, AppArrSizeAt);
+            if (!Fits(offset, count, size, FrameTimePosAt + 4)) return false;
+            for (uint i = 0; i < count; i++)
+            {
+                byte* entry = memory + offset + i * size;
+                if (*(int*)entry != pid) continue;
+                uint pos = U(entry, FrameTimePosAt) % FrameTimeBufLength;
+                long now = Environment.TickCount64;
+                uint t0 = U(entry, FrameTime0At), t1 = U(entry, FrameTime1At), frames = U(entry, FramesAt);
+                double fps = t1 > t0 && frames > 0 ? 1000.0 * frames / (t1 - t0) : 0;
+                if (ReadUpTo.TryGetValue(pid, out var last))
+                {
+                    uint n = (pos + FrameTimeBufLength - last.Pos) % FrameTimeBufLength;
+                    // More frames than the ring holds may have gone by since: the ring has come round, and what's in it is
+                    // only its last 1,024.
+                    double expected = fps * (now - last.At) / 1000.0;
+                    gap = expected > FrameTimeBufLength * 0.9;
+                    if (gap) n = FrameTimeBufLength;
+                    for (uint k = 0; k < n; k++)
+                        if (U(entry, FrameTimeBufAt + 4 * (int)((pos + FrameTimeBufLength - n + k) % FrameTimeBufLength)) is > 0 and var ft) into.Add(ft);
+                }
+                ReadUpTo[pid] = (pos, now);
+                ok = true;
+                return true;
+            }
+            return false;
+        });
+        if (!ok) ReadUpTo.Remove(pid);
+        if (ReadUpTo.Count > 32) foreach (var old in ReadUpTo.Keys.Where(k => k != pid).ToList()) ReadUpTo.Remove(old);
+        missed = gap;
+        return ok;
+    }
+
     private static uint U(byte* memory, int at) => *(uint*)(memory + at);
 
     // The shared memory stays mapped between calls (it's used up to twice a second while the overlay is

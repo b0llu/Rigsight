@@ -2,6 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:conv="clr-namespace:Rigsight.Converters"
                     xmlns:ctl="clr-namespace:Rigsight.Controls"
+                    xmlns:svc="clr-namespace:Rigsight.Services"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
     <!-- The colours live in Dark.xaml and Light.xaml (one of them is merged before this file). -->
@@ -432,19 +433,34 @@
                                     </Border.RenderTransform>
                                 </Border>
                                 <!-- The label fills the row, so an item can put something at its right edge (Settings' attention dot). -->
-                                <DockPanel>
+                                <DockPanel x:Name="Row">
                                     <!-- An icon-font character, or a drawn icon (see FanIcon) where the font has none. -->
                                     <ContentPresenter DockPanel.Dock="Left" Content="{TemplateBinding Tag}" VerticalAlignment="Center"
                                                       TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="16"
                                                       TextElement.Foreground="{TemplateBinding Foreground}" />
-                                    <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextElement.FontSize="14" />
+                                    <ContentPresenter x:Name="Label" Margin="12,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextElement.FontSize="14" />
                                 </DockPanel>
                             </Grid>
                         </Border>
                     </Grid>
+                    <ControlTemplate.Triggers>
+                        <!-- Icons only: the icon alone, in the middle of the row. -->
+                        <Trigger Property="ctl:SidebarLook.Narrow" Value="True">
+                            <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="Row" Property="HorizontalAlignment" Value="Center" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <!-- Icons only: the page's name is its hover, to the right of the narrow sidebar. -->
+            <Trigger Property="ctl:SidebarLook.Narrow" Value="True">
+                <Setter Property="ToolTip" Value="{Binding (AutomationProperties.Name), RelativeSource={RelativeSource Self}}" />
+                <Setter Property="ToolTipService.Placement" Value="Right" />
+                <Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <!-- An on/off chip: a reading on the Overlay page, a file in the Export box. -->
@@ -563,6 +579,81 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+    <!-- RigSight AI's button (approved mock-up A3, 2026-10-26): the theme's own text with the AI colour's sparkle, a faint
+         tint and a hairline edge of it, so it reads as AI without shouting. Its CommandParameter is the AiQuestion it asks;
+         it hides itself while the AI is off or that page isn't shared (AiGate), so a page never gates it again. A condition
+         of the page's own goes on what holds the button: a Visibility set on the button would win over the AI's. -->
+    <svc:AiShowConverter x:Key="AiShow" />
+    <Geometry x:Key="AiSparkle">M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,3 L19,7 M17,5 L21,5</Geometry>
+    <Style x:Key="AiButton" TargetType="Button">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource AiSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AiStrokeBrush}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Tag" Value="15" />
+        <Setter Property="Command" Value="{x:Static svc:AiGate.Ask}" />
+        <Setter Property="Visibility">
+            <Setter.Value>
+                <MultiBinding Converter="{StaticResource AiShow}">
+                    <Binding Path="(svc:AiGate.IsOn)" />
+                    <Binding Path="(svc:AiGate.Version)" />
+                    <Binding Path="CommandParameter" RelativeSource="{RelativeSource Self}" />
+                </MultiBinding>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                                    <VisualTransition To="Pressed" GeneratedDuration="0:0:0.05" />
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                        <DoubleAnimation Storyboard.TargetName="Root" Storyboard.TargetProperty="Opacity" To="0.8" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="9" />
+                        <Border x:Name="Hover" Background="{DynamicResource AiSoftBrush}" CornerRadius="9" Opacity="0" />
+                        <StackPanel Margin="{TemplateBinding Padding}" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Path Data="{StaticResource AiSparkle}" Stroke="{DynamicResource AiBrush}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Stretch="Uniform" Width="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Height="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" VerticalAlignment="Center" Margin="0,0,7,0" />
+                            <ContentPresenter VerticalAlignment="Center" TextBlock.FontWeight="Medium" />
+                        </StackPanel>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- The one in a page's title row (mock-up board 5): beside Export, its height, docked the same way. Its question is the
+         page's own (PageAsks). -->
+    <Style x:Key="PageAiButton" TargetType="Button" BasedOn="{StaticResource AiButton}">
+        <Setter Property="DockPanel.Dock" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="8,0,0,0" />
+        <Setter Property="Padding" Value="12,7" />
+    </Style>
+    <!-- The small one, beside a row or a line: "Explain". -->
+    <Style x:Key="AiButtonSmall" TargetType="Button" BasedOn="{StaticResource AiButton}">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="9,4" />
+        <Setter Property="Tag" Value="13" />
     </Style>
     <!-- A page's Export button, the last in its title row: the page's own Export box (routed to the window, which opens it). -->
     <Style x:Key="PageExportButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">

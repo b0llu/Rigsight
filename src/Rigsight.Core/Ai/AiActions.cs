@@ -1,10 +1,24 @@
 using System.Text.RegularExpressions;
 using Rigsight.Core.Games;
+using Rigsight.Core.Settings;
 
 namespace Rigsight.Core.Ai;
 
 /// <summary>What a button under an answer does.</summary>
-public enum AiActionKind { CloseApp, CheckAgain, OpenPage, OpenWindows, VerifyGame, OpenSharing, StartAgent, CopyReport, ScanDrive }
+public enum AiActionKind { CloseApp, CheckAgain, OpenPage, OpenWindows, VerifyGame, OpenSharing, StartAgent, CopyReport, ScanDrive, OpenApp, OpenWeb, CreateWidget, AddOverlay, AddTaskbar }
+
+/// <summary>
+/// A reading an answer can put on a widget, the overlay or the taskbar: one of the overlay's own (<see cref="Metric"/>) or one
+/// of the PC's sensors (<see cref="SensorId"/>), with the name it shows. <see cref="Part"/>: a sensor's part, so "GPU Core"
+/// can be told from "CPU Core" when an answer names both.
+/// </summary>
+public sealed record AiReading(string Name, OverlayMetric? Metric = null, string? SensorId = null, string? Part = null)
+{
+    /// <summary>As a widget stores it: the metric's name, or "sensor:" and the sensor's id.</summary>
+    public string Key => Metric is { } m ? m.ToString() : WidgetCatalog.SensorPrefix + SensorId;
+    /// <summary>A frame reading, which only RivaTuner measures.</summary>
+    public bool IsFrame => Metric is OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow;
+}
 
 /// <summary>
 /// A button under an answer, worked out by RigSight from the model's "[do: …]" line and checked against what is really
@@ -12,10 +26,24 @@ public enum AiActionKind { CloseApp, CheckAgain, OpenPage, OpenWindows, VerifyGa
 /// </summary>
 /// <param name="Windowless">A Close's app has no window open (what the card says about it, measured, not the model's words).</param>
 public sealed record AiAction(AiActionKind Kind, string Label, string Glyph, string Target = "", string? Focus = null, int Minutes = 0,
-    CheckWhat What = CheckWhat.Fans, double MemMb = 0, bool Windowless = false);
+    CheckWhat What = CheckWhat.Fans, double MemMb = 0, bool Windowless = false, IReadOnlyList<AiReading>? Readings = null)
+{
+    /// <summary>A card that changes RigSight's own settings (a widget, the overlay, the taskbar), with Undo.</summary>
+    public bool IsSetup => Kind is AiActionKind.CreateWidget or AiActionKind.AddOverlay or AiActionKind.AddTaskbar;
+}
 
-/// <summary>What the buttons are checked against: this answer's look-ups, what was running when it looked, the games installed.</summary>
-public sealed record AiActionContext(IReadOnlyList<AiLookUp> LookUps, RunningSnapshot? Running, Func<IReadOnlyList<InstalledGame>> Installed, bool AgentRunning);
+/// <summary>
+/// What the buttons are checked against: this answer's look-ups, what was running when it looked, the games installed,
+/// which pages the answers may read now (the plan and Settings › AI; null: all), and the known apps on this PC.
+/// <paramref name="Sensors"/>: the PC's sensors by the names they show, read on the window's thread when the answer came
+/// (null: none known yet); <paramref name="TrayOf"/>: the sensor the taskbar shows for an overlay reading ("CPU temperature").
+/// </summary>
+public sealed record AiActionContext(IReadOnlyList<AiLookUp> LookUps, RunningSnapshot? Running, Func<IReadOnlyList<InstalledGame>> Installed, bool AgentRunning,
+    Func<string, bool>? CanRead = null, Func<IReadOnlyDictionary<string, StartApp>>? Apps = null, Func<IReadOnlyList<StartApp>>? StartMenu = null,
+    IReadOnlyList<AiReading>? Sensors = null, IReadOnlyDictionary<OverlayMetric, AiReading>? TrayOf = null)
+{
+    public bool Reads(string page) => CanRead?.Invoke(page) ?? true;
+}
 
 /// <summary>
 /// The buttons an answer may carry (the 2026-10-22 audit, rigsight-ai-actions-audit): the model asks for one with a
@@ -50,6 +78,14 @@ public static class AiActions
         ["installed-apps"] = ("ms-settings:appsfeatures", Lang.Key("Open Installed apps"), ""),
         ["memory-diagnostic"] = ("mdsched.exe", Lang.Key("Open Windows Memory Diagnostic"), ""),
         ["network-status"] = ("ms-settings:network-status", Lang.Key("Open Network status"), ""),
+        ["windows-update"] = ("ms-settings:windowsupdate", Lang.Key("Open Windows Update"), ""),
+        ["optional-updates"] = ("ms-settings:windowsupdate-optionalupdates", Lang.Key("Open Optional updates"), ""),
+        ["device-manager"] = ("devmgmt.msc", Lang.Key("Open Device Manager"), ""),
+        ["graphics-settings"] = ("ms-settings:display-advancedgraphics", Lang.Key("Open Graphics settings"), ""),
+        ["power-mode"] = ("ms-settings:powersleep", Lang.Key("Open Power settings"), ""),
+        ["game-mode"] = ("ms-settings:gaming-gamemode", Lang.Key("Open Game Mode"), ""),
+        ["windows-security"] = ("windowsdefender:", Lang.Key("Open Windows Security"), ""),
+        ["task-manager"] = ("taskmgr.exe", Lang.Key("Open Task Manager"), ""),
     };
 
     /// <summary>The buttons for these "[do: …]" lines, at most <see cref="Most"/>, each checked; why one was dropped goes to the log.</summary>
@@ -110,12 +146,39 @@ public static class AiActions
                 if (Regex.Match(rest, @"^([A-Za-z])(:|\b)") is not { Success: true } d) return (null, $"'{rest}' isn't a drive letter");
                 string letter = d.Groups[1].Value.ToUpperInvariant();
                 if (!DriveReady(letter)) return (null, $"there's no drive {letter}: ready on this PC");
+                // A scan is for the AI to read afterwards: not when the plan or Settings › AI keeps Storage from it (the
+                // person's I drive on Free, 2026-10-24: "Scan the I drive" under "Storage isn't in your plan").
+                if (!c.Reads(AiPages.Storage)) return (null, "the answers can't read Storage (not in the plan, or switched off)");
                 return (new AiAction(AiActionKind.ScanDrive, Lang.T($"Scan the {letter} drive"), "", letter), "");
             }
             case "windows":
                 return Windows.TryGetValue(rest.Replace(' ', '-'), out var screen)
                     ? (new AiAction(AiActionKind.OpenWindows, Lang.T(screen.Label), screen.Glyph, screen.Uri), "")
                     : (null, $"no Windows screen called '{rest}'");
+            case "app":
+            {
+                // "[do: app nvidia-app]", or "[do: app steam <game>]" for that game's page: only an app on the fixed list;
+                // on this PC it opens, otherwise its maker's download page (when it has one).
+                var parts = rest.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (parts.Length == 0) return (null, "no app named");
+                if (OpenableApps.Get(parts[0]) is not { } app)
+                {
+                    // Any other tool, by its name on this PC's Start menu (the person's call, 2026-10-25); never downloaded.
+                    return c.StartMenu?.Invoke() is { } start && OpenableApps.MatchByName(rest, start) is { } found
+                        ? (new AiAction(AiActionKind.OpenApp, Lang.T($"Open {found.Name}"), "", @"shell:AppsFolder\" + found.AppId, found.Name), "")
+                        : (null, $"'{rest}' isn't on RigSight's list, and no safe Start menu entry has that name");
+                }
+                var installed = c.Apps?.Invoke() ?? new Dictionary<string, StartApp>();
+                if (installed.TryGetValue(app.Id, out var entry))
+                {
+                    if (app.Id == "steam" && parts.Length > 1 && Installed(c, parts[1]) is { Launcher: Launcher.Steam } game && game.Key.StartsWith("steam:", StringComparison.Ordinal))
+                        return (new AiAction(AiActionKind.OpenApp, Lang.T($"Open {game.Name} in Steam"), "", "steam://nav/games/details/" + game.Key["steam:".Length..], app.Id), "");
+                    return (new AiAction(AiActionKind.OpenApp, Lang.T($"Open {app.Name}"), "", @"shell:AppsFolder\" + entry.AppId, app.Id), "");
+                }
+                return app.Download is { } url
+                    ? (new AiAction(AiActionKind.OpenWeb, Lang.T($"Get {app.Name}"), "", url, app.Id), "")
+                    : (null, $"{app.Name} isn't on this PC and has no download page on the list");
+            }
             case "verify":
             {
                 if (Installed(c, rest) is not { } game) return (null, $"'{rest}' isn't an installed game");
@@ -130,10 +193,87 @@ public static class AiActions
                 return (null, "the agent is already running");
             case "copy-report" or "report":
                 return (new AiAction(AiActionKind.CopyReport, Lang.T("Copy problem report"), ""), "");
+            case "widget" or "widgets" or "overlay" or "taskbar" or "tray":
+            {
+                // Readings for a new widget, the overlay or the taskbar: only RigSight's own settings change, and only once
+                // the card's button is pressed (board 7, 2026-10-26). Each name must be a reading RigSight knows.
+                var kind = verb switch { "overlay" => AiActionKind.AddOverlay, "taskbar" or "tray" => AiActionKind.AddTaskbar, _ => AiActionKind.CreateWidget };
+                var readings = Readings(rest, kind, c);
+                if (readings.Count == 0) return (null, $"none of '{rest}' is a reading RigSight can put there");
+                Log.Write("ask", $"[do: {marker}] readings matched: {string.Join(", ", readings.Select(r => $"{r.Name} ({r.Key})"))}");
+                var (label, glyph) = kind switch
+                {
+                    AiActionKind.AddOverlay => (Lang.T("Add to your game overlay"), "\uE7FC"),
+                    AiActionKind.AddTaskbar => (Lang.T("Add beside the clock"), "\uE75B"),
+                    _ => (Lang.T("A widget with these readings"), "\uF246"),
+                };
+                return (new AiAction(kind, label, glyph, string.Join(",", readings.Select(r => r.Key)), Readings: readings), "");
+            }
             default:
                 return (null, $"no action called '{verb}'");
         }
     }
+
+    /// <summary>The overlay's own readings: those before the widgets-only ones (Screen time and after).</summary>
+    private static bool OnOverlay(OverlayMetric m) => m < OverlayMetric.ScreenTime;
+
+    /// <summary>Other ways answers write a reading, besides its name in the editor (either language) and its code.</summary>
+    private static readonly Dictionary<string, OverlayMetric> Aliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["fps"] = OverlayMetric.Fps, ["frame rate"] = OverlayMetric.Fps, ["1% lows"] = OverlayMetric.OnePercentLow, ["1% low fps"] = OverlayMetric.OnePercentLow,
+        ["cpu temp"] = OverlayMetric.CpuTemp, ["gpu temp"] = OverlayMetric.GpuTemp, ["hot spot"] = OverlayMetric.GpuHotSpot, ["gpu hotspot"] = OverlayMetric.GpuHotSpot,
+        ["ram"] = OverlayMetric.Ram, ["memory in use"] = OverlayMetric.Ram, ["vram"] = OverlayMetric.GpuMemory, ["gpu memory"] = OverlayMetric.GpuMemory,
+    };
+
+    private static readonly Regex NameSplit = new(@"\s*[,;|]\s*|\s+and\s+(?=[^,;|]+$)", RegexOptions.IgnoreCase);
+    private static readonly Regex LeadingAnd = new(@"^and\s+", RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// The readings an answer named for <paramref name="kind"/>'s place, each once: overlay readings by name (as the widget
+    /// editor names them, in English or the language in use), then the PC's sensors by the name they show. A name that is
+    /// nothing RigSight knows, or that the place can't show, is dropped and logged; a widget keeps what its slim bar holds.
+    /// </summary>
+    internal static List<AiReading> Readings(string names, AiActionKind kind, AiActionContext c)
+    {
+        var found = new List<AiReading>();
+        var parts = NameSplit.Split(names).Select(n => LeadingAnd.Replace(n.Trim().Trim('"', '\'', '“', '”', '.', '*').Trim(), "")).Where(n => n.Length > 0);
+        int most = WidgetCatalog.MaxItems(WidgetLayout.Bar);
+        foreach (var name in parts)
+        {
+            var reading = Metric(name) is { } m ? new AiReading(WidgetCatalog.MetricName(m), m) : Sensor(name, c);
+            if (reading is null) { Log.Write("ask", $"Reading '{name}' dropped: no reading or sensor by that name"); continue; }
+            if (kind == AiActionKind.AddOverlay && reading.Metric is { } om && !OnOverlay(om)) { Log.Write("ask", $"Reading '{name}' dropped: the overlay doesn't show {om}"); continue; }
+            if (kind == AiActionKind.AddTaskbar && reading.Metric is { } tm)
+            {
+                // The taskbar shows sensors: an overlay reading goes as the sensor that measures it on this PC.
+                // A sensor of the same name ("GPU Hot Spot") when there's none on the list for it.
+                if (c.TrayOf?.GetValueOrDefault(tm) is { } sensor) reading = sensor with { Name = reading.Name };
+                else if (Sensor(name, c) is { } same) reading = same;
+                else { Log.Write("ask", $"Reading '{name}' dropped: no sensor for {tm} on this PC for the taskbar"); continue; }
+            }
+            if (found.Any(f => f.Key == reading.Key)) continue;
+            if (kind == AiActionKind.CreateWidget && found.Count >= most) { Log.Write("ask", $"Reading '{name}' dropped: a widget's bar holds {most}"); continue; }
+            found.Add(reading);
+        }
+        return found;
+    }
+
+    private static OverlayMetric? Metric(string name)
+    {
+        if (Aliases.TryGetValue(name, out var alias)) return alias;
+        foreach (var m in Enum.GetValues<OverlayMetric>())
+        {
+            if (m.ToString().Equals(name, StringComparison.OrdinalIgnoreCase) || WidgetCatalog.MetricName(m).Equals(name, StringComparison.OrdinalIgnoreCase)) return m;
+            using (Lang.UseHere(null))
+                if (WidgetCatalog.MetricName(m).Equals(name, StringComparison.OrdinalIgnoreCase)) return m;
+        }
+        return null;
+    }
+
+    private static AiReading? Sensor(string name, AiActionContext c) =>
+        c.Sensors is not { } all ? null
+        : all.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+          ?? all.FirstOrDefault(s => s.Part is { } part && ($"{part} {s.Name}".Equals(name, StringComparison.OrdinalIgnoreCase) || $"{s.Name} ({part})".Equals(name, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>Whether a drive is there and readable (the tests give their own).</summary>
     internal static Func<string, bool> DriveReady { get; set; } = letter =>
