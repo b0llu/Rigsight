@@ -35,10 +35,15 @@ img { max-width: 100%; height: auto; }
 .top-in { display: flex; align-items: center; gap: 24px; height: 62px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
 .brand img { border-radius: 6px; }
-.top nav { display: flex; gap: 22px; margin-left: auto; }
+.top nav { display: flex; gap: 30px; margin-left: 24px; }
 .top nav a { color: var(--muted); text-decoration: none; font-size: 14.5px; font-weight: 600; }
 .top nav a:hover, .top nav a.on { color: var(--fg); }
-.top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.foot a.coffee { color: var(--coffee); }
+.top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.coffee-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; color: var(--coffee); font-weight: 600; font-size: 14.5px; text-decoration: none; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3); white-space: nowrap; }
+.coffee-pill:hover { color: #fde047; background: rgba(250,204,21,.14); }
+.icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; color: #c9cdd4; }
+.icon-btn:hover { color: var(--fg); background: rgba(255,255,255,.09); }
 .btn { display: inline-flex; align-items: center; justify-content: center; background: var(--fg); color: #000; font-weight: 600; text-decoration: none; border-radius: 999px; padding: 11px 20px; font-size: 15px; white-space: nowrap; }
 .btn:hover { background: #fff; }
 .btn-sm { padding: 7px 14px; font-size: 13.5px; }
@@ -163,6 +168,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (max-width: 760px) {
   .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .top nav a:not(.on) { display: none; }
+  .top-end { gap: 8px; }
   .top-in { gap: 14px; }
   .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
   .row h2 { font-size: 21px; }
@@ -174,3 +180,5 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   .blog-head { padding-block: 40px 28px; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+@media (max-width: 640px) { .top .coffee-pill { display: none; } }

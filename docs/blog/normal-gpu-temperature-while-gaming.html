@@ -64,10 +64,15 @@ img { max-width: 100%; height: auto; }
 .top-in { display: flex; align-items: center; gap: 24px; height: 62px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
 .brand img { border-radius: 6px; }
-.top nav { display: flex; gap: 22px; margin-left: auto; }
+.top nav { display: flex; gap: 30px; margin-left: 24px; }
 .top nav a { color: var(--muted); text-decoration: none; font-size: 14.5px; font-weight: 600; }
 .top nav a:hover, .top nav a.on { color: var(--fg); }
-.top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.foot a.coffee { color: var(--coffee); }
+.top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.coffee-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; color: var(--coffee); font-weight: 600; font-size: 14.5px; text-decoration: none; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3); white-space: nowrap; }
+.coffee-pill:hover { color: #fde047; background: rgba(250,204,21,.14); }
+.icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; color: #c9cdd4; }
+.icon-btn:hover { color: var(--fg); background: rgba(255,255,255,.09); }
 .btn { display: inline-flex; align-items: center; justify-content: center; background: var(--fg); color: #000; font-weight: 600; text-decoration: none; border-radius: 999px; padding: 11px 20px; font-size: 15px; white-space: nowrap; }
 .btn:hover { background: #fff; }
 .btn-sm { padding: 7px 14px; font-size: 13.5px; }
@@ -192,6 +197,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (max-width: 760px) {
   .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .top nav a:not(.on) { display: none; }
+  .top-end { gap: 8px; }
   .top-in { gap: 14px; }
   .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
   .row h2 { font-size: 21px; }
@@ -204,13 +210,15 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
+@media (max-width: 640px) { .top .coffee-pill { display: none; } }
+
   </style>
 </head>
 <body>
 <header class="top"><div class="wrap top-in">
   <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="24" height="24"><span>RigSight</span></a>
-  <nav aria-label="Site"><a href="./" class="on">Blog</a><a href="../#faq">FAQ</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
-  <a class="btn btn-sm" href="https://github.com/b0llu/Rigsight/releases/latest">Download</a>
+  <nav aria-label="Site"><a href="./" class="on">Blog</a><a href="../#faq">FAQ</a></nav>
+  <div class="top-end"><a class="coffee-pill" href="https://buymeacoffee.com/bollu"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8zM17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 2v2M12 2v2"/></svg>Buy me a coffee</a><a class="icon-btn" href="https://github.com/b0llu/Rigsight" aria-label="RigSight on GitHub"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5"/></svg></a><a class="btn btn-sm" href="https://github.com/b0llu/Rigsight/releases/latest">Download</a></div>
 </div><div class="progress" aria-hidden="true"><i></i></div></header><main><article class="post wrap-narrow guide">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Blog</a></nav>
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Temperatures</p>
@@ -308,7 +316,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 <p>Your next step: look up your card's maximum on the maker's spec page, then play your usual game for half an hour and note where the temperature levels off. If it's well under the maximum, you can stop worrying. If it's close, start with the dust.</p>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Is 85 degrees hot for a GPU while gaming?</summary><p>It's warm, but it's inside the limit for most current cards. NVIDIA lists a maximum of 90°C for the RTX 4070 and 4090 and 93°C for the RTX 3060 and 3080, though the RTX 5070 is listed at 85°C. If your card sits at 85°C, check its own maximum, then look at dust, airflow and the fan curve.</p></details><details class="qa"><summary>What is the average GPU temperature while gaming?</summary><p>There is no single average that fits every card. Most desktop cards with a clean cooler settle somewhere in the 60s or 70s °C in a demanding game. Small cases, hot rooms and laptops run warmer.</p></details><details class="qa"><summary>What is a normal GPU temperature while gaming on a laptop?</summary><p>Laptops run hotter than desktops because the cooler is small and shared with the CPU. Readings in the high 70s and 80s °C are common on gaming laptops. The laptop maker sets the limits, so their support page is the place to check.</p></details><details class="qa"><summary>What is normal GPU temperature while gaming in Fahrenheit?</summary><p>60 to 80°C is 140 to 176°F. 85°C is 185°F, and the 90°C limit on many NVIDIA cards is 194°F.</p></details><details class="qa"><summary>When should I worry about GPU temp?</summary><p>Worry when the card reaches its listed maximum and the frame rate drops, when temperatures climb over weeks in the same game, or when the hot spot runs far above the main reading. A one-off warm day in summer is usually the room.</p></details></section>
   </div>
-  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>GPU hotspot temperature: what it is and when 100°C is a problem</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>How to find out why your PC crashed on Windows 11</b></a><a class="more" href="kernel-power-41"><span>Crashes</span><b>Kernel-Power 41: what it means and how to fix it</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games: how to find the cause and fix it</b></a></nav>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>GPU hotspot temperature: what it is and when 100°C is a problem</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>How to find out why your PC crashed on Windows 11</b></a><a class="more" href="kernel-power-41"><span>Crashes</span><b>Kernel-Power 41: why it happens, and how RigSight caught mine</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games: how to find the cause and fix it</b></a></nav>
   <aside class="get">
     <img src="../img/logo-144.webp" alt="" width="40" height="40">
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>
