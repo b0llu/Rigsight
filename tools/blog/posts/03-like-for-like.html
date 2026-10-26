@@ -1,13 +1,13 @@
 <!--meta
 {"slug": "like-for-like", "series": "build", "happened": "2026-09-29", "published": "2026-10-26", "version": "0.11.0",
  "title": "The day RigSight told me my healthy fan was clogged",
- "summary": "A warning that compared a resting PC with a gaming one, and the rule it left behind: compare like with like, or say nothing.",
+ "summary": "A warning that compared a resting PC with a gaming one, and the rule it left behind. Compare like with like, or say nothing.",
  "short": "RigSight warned my healthy GPU fan might be clogged. It had compared a stopped fan at rest with a spinning one in a game. Since then, every comparison is like for like, or not shown.",
  "cover": "pages/reports-day", "mark": "1,473"}
 -->
 <p>A big part of RigSight is the short lines it writes about your PC. "You gamed 25 minutes less than your usual Saturday." "Your GPU was hotter than usual in this game." I call them insights, and they are the reason the app exists. Anyone can draw a chart. Telling you which part of the chart matters is harder.</p>
 
-<p>On 29 September one of them told me this:</p>
+<p>On 29 September one of them told me this.</p>
 
 <blockquote><p>Your GPU fan runs 1,473 rpm faster than usual at the same temperature. Your cooler may be clogging.</p></blockquote>
 
@@ -26,13 +26,13 @@
 
 <h2>Like for like, or nothing</h2>
 
-<p>I could have patched that one insight. Instead I went through all of them with one question: is this comparing two things that should behave the same?</p>
+<p>I could have patched that one insight. Instead I went through all of them and asked one question. Is this comparing two things that should behave the same?</p>
 
 <p>Heat is now only compared at what I call steady load. That means the same app, with the GPU at 80% or more, after its first 10 minutes so the cooler has warmed up. The room is taken out by looking at the PC's resting temperatures on both days. A summer evening and a winter morning are not the same test.</p>
 
 <p>For "your GPU runs hotter than it used to", the bar is high. The difference has to be at least 5 degrees, at least 3 degrees more than the change at rest, at the same GPU power within 15%, with an hour of steady play behind it.</p>
 
-<p>A lot of insights didn't survive the question, so they went:</p>
+<p>A lot of insights didn't survive the question, so these went.</p>
 
 <ul>
   <li>Week against week temperature comparisons</li>
@@ -49,7 +49,7 @@
 
 <h2>A fake PC to keep it honest</h2>
 
-<p>I didn't want to find out about the next bad insight from my own PC. So I built a pretend one. It's a small simulation that plays out months of a PC's life: the room warming and cooling through the day and the seasons, a cooler warming up, dust building up with use, fans that stop at rest, fans that wear out, a GPU that throttles.</p>
+<p>I didn't want to find out about the next bad insight from my own PC. So I built a pretend one. It's a small simulation that plays out months of a PC's life. The room warms and cools through the day and the seasons. A cooler warms up, dust builds up with use, fans stop at rest or wear out, and a GPU throttles.</p>
 
 <p>The rule for it is strict. A healthy pretend PC, run for 45 days, 8 weeks or 3 months, must produce zero warnings. And each fault I add, a worn fan or a dusty cooler, has to be found only once it actually happens, never before.</p>
 

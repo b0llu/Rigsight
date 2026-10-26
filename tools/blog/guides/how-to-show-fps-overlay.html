@@ -5,18 +5,18 @@
  "also": ["fps overlay windows 11", "rivatuner overlay not showing", "fps overlay steam", "fps overlay nvidia", "fps overlay amd", "does geforce overlay affect fps"],
  "title": "How to show an FPS overlay on Windows 11, and fix RivaTuner",
  "summary": "How to show an FPS overlay in any PC game with Steam, Xbox Game Bar, the NVIDIA app, AMD Software or RivaTuner, and what to do when the RivaTuner overlay is not showing.",
- "short": "The quickest FPS overlay on Windows 11 is Xbox Game Bar: press Win + G, open Performance and pin it. Steam has a Performance Monitor under Settings > In Game. NVIDIA's app uses Alt + R and AMD Software uses Ctrl + Shift + O. RivaTuner works in almost every game, including exclusive fullscreen.",
+ "short": "The quickest FPS overlay on Windows 11 is Xbox Game Bar. Press Win + G, open Performance and pin it. Steam has a Performance Monitor under Settings > In Game. NVIDIA's app uses Alt + R and AMD Software uses Ctrl + Shift + O. RivaTuner works in almost every game, including exclusive fullscreen.",
  "faq": [["How do I show the FPS overlay in Steam?", "Open Steam, go to Steam > Settings > In Game and turn on the Performance Monitor, which replaced the old In-game FPS counter in 2025. Pick a corner and how much detail to show. It works in Steam games and in other games you add to Steam and start from it."],
          ["Why is the RivaTuner overlay not showing?", "Most often RivaTuner wasn't running before the game started, Show On-Screen Display is off, or the game's profile has Application detection level set to None. Another overlay or anti-cheat can also block it. Start RivaTuner first, check those settings, and restart the game."],
          ["Does the GeForce overlay affect FPS?", "Showing the statistics overlay costs very little. Recording features such as Instant Replay keep the video encoder busy in the background and can cost some frames, more so on slower PCs. Turn off what you don't use."],
-         ["How do I show an FPS overlay on AMD?", "Open AMD Software: Adrenalin Edition, go to Performance > Metrics, choose what to show and turn the overlay on. Ctrl + Shift + O shows or hides it in game by default, and you can change the shortcut in the hotkey settings."]],
+         ["How do I show an FPS overlay on AMD?", "Open AMD Software, go to Performance > Metrics, choose what to show and turn the overlay on. Ctrl + Shift + O shows or hides it in game by default, and you can change the shortcut in the hotkey settings."]],
  "cover_img": "cards/overlay", "cover_crop": [0, 0, 480, 320], "cover_alt": "RigSight's overlay reading picker with frame rate, frame time and 1% low under Game, and CPU and GPU readings below",
  "app": ["Overlay as its own window (0.4.0), drawn through RivaTuner in exclusive fullscreen (0.4.1) and in games RivaTuner is in", "Overlay shortcut Alt+Shift+O by default (OverlaySettings.cs)", "Overlay looks the same drawn by RigSight or RivaTuner, and doesn't turn off G-Sync when RivaTuner draws it (0.6.2)", "FPS widget (0.8.0); widgets over windowed and borderless games (0.26.0)", "Games page buttons Install RivaTuner and Start RivaTuner (0.29.0)"],
  "sources": ["https://support.xbox.com/en-US/help/friends-social-activity/share-socialize/xbox-game-bar-performance", "https://www.howtogeek.com/706162/how-to-see-fps-in-any-windows-10-game-without-extra-software/", "https://www.pcworld.com/article/3605108/how-to-see-your-pc-games-frame-rate-with-steams-fps-counter.html", "https://www.tweaktown.com/news/113475/nvidia-app-overlay-finally-adds-cpu-temperature-and-clock-speed-monitoring/index.html", "https://www.amd.com/en/resources/support-articles/faqs/DH3-038.html", "https://support.overwolf.com/support/solutions/articles/9000177860-overwolf-and-conflicts-with-rivatuner", "https://answers.microsoft.com/en-us/xbox/forum/all/fps-counter-not-showing-in-xbox-game-bar/2d6508ac-f970-4b2c-9291-dd6f41181f96", "https://learn.microsoft.com/en-us/answers/questions/4120703/xbox-game-bar-doesnt-show-fps", "https://help.steampowered.com/en/faqs/view/3462-CD4C-36BD-5767", "https://steamcommunity.com/groups/SteamClientBeta/discussions/3/591774445091167328/", "https://nvidia.custhelp.com/app/answers/detail/a_id/5084/~/nvidia-app-in-game-performance-and-latency-overlay", "https://www.msi.com/support/technical_details/VGA_MSI_Utility_AfterBurner", "https://www.msi.com/blog/msi-afterburner-on-screen-display"]}
 -->
 <p>You want to see your frame rate while you play. Windows 11 has an FPS overlay built in, your game launcher probably has one, and your graphics driver has another. Here is how to show an FPS overlay with each of them, which one to pick, and what to do when the RivaTuner overlay is not showing.</p>
 
-<h2>Xbox Game Bar: the FPS overlay built into Windows 11</h2>
+<h2>Xbox Game Bar, the FPS overlay built into Windows 11</h2>
 
 <p>Game Bar comes with Windows 10 and 11 and works in most games.</p>
 
@@ -56,7 +56,7 @@
 <h2>AMD FPS overlay</h2>
 
 <ol>
-<li>Open AMD Software: Adrenalin Edition and go to <b>Performance > Metrics</b>.</li>
+<li>Open AMD Software and go to <b>Performance > Metrics</b>.</li>
 <li>Pick the readings, the position, the size and the colour of the overlay.</li>
 <li>Press Ctrl + Shift + O in game to show or hide it.</li>
 </ol>
@@ -74,7 +74,7 @@
 <li>Make sure RivaTuner is running in the tray, then start the game.</li>
 </ol>
 
-<h2>RivaTuner overlay not showing: what to check</h2>
+<h2>What to check when the RivaTuner overlay is not showing</h2>
 
 <p>Work through these in order. Restart the game after each change.</p>
 
@@ -83,7 +83,7 @@
 <li>In RivaTuner, check that <b>Show On-Screen Display</b> is on, for the global profile and for the game's own profile if it has one.</li>
 <li>Check <b>Application detection level</b>. If it says <b>None</b>, the game is ignored. Set it to <b>Low</b>, and try <b>Medium</b> if Low doesn't work.</li>
 <li>If you made a profile for the game, make sure it points at the game's real program file. Some games run from a different program than their launcher.</li>
-<li>Close other overlays for a test: Steam, Discord, Xbox Game Bar, the NVIDIA app, Overwolf. Overwolf's own help suggests detection level Low with <b>Stealth mode</b> and <b>Custom Direct3D support</b> off when they clash.</li>
+<li>Close other overlays for a test, such as Steam, Discord, Xbox Game Bar, the NVIDIA app and Overwolf. Overwolf's own help suggests detection level Low with <b>Stealth mode</b> and <b>Custom Direct3D support</b> off when they clash.</li>
 <li>Update RivaTuner. New graphics APIs and new games often need a newer version.</li>
 <li>Some anti-cheat systems block overlays in some games. If one game never shows it while others do, that is the likely reason.</li>
 </ol>
@@ -93,15 +93,15 @@
 <ul>
 <li>For a quick look in any game, Xbox Game Bar is already on your PC.</li>
 <li>For Steam games only, Steam's counter is the least work.</li>
-<li>For readings matched to your graphics card, the NVIDIA app or AMD Software.</li>
-<li>For exclusive fullscreen games and the most control over what shows, RivaTuner.</li>
+<li>For readings matched to your graphics card, use the NVIDIA app or AMD Software.</li>
+<li>For exclusive fullscreen games and the most control over what shows, use RivaTuner.</li>
 </ul>
 
 <p>Use one at a time. Two or three overlays hooking the same game is a common cause of crashes, missing overlays and lost frames.</p>
 
 <h2>RigSight's overlay, through RivaTuner when it has to be</h2>
 
-<p>RigSight is free and open source, and it has its own overlay on its Overlay page. You pick the readings: frame rate, frame time and 1% low for the game, temperature, load, clock speed and power for the CPU and GPU, the GPU hot spot and video memory, RAM in use, the app and time on it, and the time of day. Press Alt + Shift + O to show or hide it. You can change the shortcut, and RigSight tells you if another program already uses it.</p>
+<p>RigSight is free and open source, and it has its own overlay on its Overlay page. You pick the readings. There are frame rate, frame time and 1% low for the game, temperature, load, clock speed and power for the CPU and GPU, the GPU hot spot and video memory, RAM in use, the app and time on it, and the time of day. Press Alt + Shift + O to show or hide it. You can change the shortcut, and RigSight tells you if another program already uses it.</p>
 
 {{fig cards/overlay | RigSight's overlay reading picker with frame rate, frame time and 1% low under Game, and CPU, GPU, memory and other readings below | RigSight's overlay reading picker. Game readings appear while a game runs, measured by RivaTuner.}}
 

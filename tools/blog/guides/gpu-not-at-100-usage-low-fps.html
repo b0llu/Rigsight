@@ -3,14 +3,14 @@
  "topic": "FPS and games",
  "keyword": "gpu not at 100 usage but low fps",
  "also": ["why is my gpu not at 100 usage", "cpu bottleneck symptoms", "cpu bottleneck", "cpu and gpu usage not at 100 but low fps", "cpu bottleneck vs gpu bottleneck"],
- "title": "GPU not at 100% usage but low FPS: how to find out why",
- "summary": "When your GPU is not at 100% usage but FPS is low, something else sets the pace: a frame cap, VSync, the CPU or the game engine. Here is how to tell which one, with CPU bottleneck symptoms and fixes.",
- "short": "A graphics card under 95% load means it is waiting. If the frame rate sits flat at a round number, a cap or VSync is holding it. If it moves around and drops in busy scenes, the CPU or the game engine is the limit. Lowering the resolution tells you: if FPS barely rises, it's the CPU.",
+ "title": "GPU not at 100% usage but low FPS? How to find out why",
+ "summary": "When your GPU is not at 100% usage but FPS is low, something else sets the pace. It can be a frame cap, VSync, the CPU or the game engine. Here is how to tell which one, with CPU bottleneck symptoms and fixes.",
+ "short": "A graphics card under 95% load means it is waiting. If the frame rate sits flat at a round number, a cap or VSync is holding it. If it moves around and drops in busy scenes, the CPU or the game engine is the limit. Lowering the resolution tells you which. If FPS barely rises, it's the CPU.",
  "faq": [["Why is my GPU not at 100 usage?", "Because it has nothing more to do. Either a frame cap or VSync stops it after the target frame rate, or the CPU can't prepare frames fast enough to keep it busy. Low usage on its own is not a fault, it only matters when your FPS is also lower than you want."],
-         ["What are CPU bottleneck symptoms?", "GPU load well under 95% with no frame cap, FPS that barely changes when you lower resolution or graphics settings, dips in crowded scenes and big fights, and one or two CPU threads near 100% in Task Manager while the total CPU usage looks modest."],
-         ["CPU bottleneck vs GPU bottleneck: which is better to have?", "Being limited by the GPU is the normal, healthy state in most games: the card runs at 95 to 100% and you trade settings for frames. A CPU limit is harder to fix with settings, and it often shows as uneven frame rates in busy moments."],
+         ["What are CPU bottleneck symptoms?", "The usual signs are GPU load well under 95% with no frame cap, FPS that barely changes when you lower resolution or graphics settings, dips in crowded scenes and big fights, and one or two CPU threads near 100% in Task Manager while the total CPU usage looks modest."],
+         ["CPU bottleneck vs GPU bottleneck, which is better to have?", "Being limited by the GPU is the normal, healthy state in most games. The card runs at 95 to 100% and you trade settings for frames. A CPU limit is harder to fix with settings, and it often shows as uneven frame rates in busy moments."],
          ["Is GPU usage at 100% bad?", "No. A graphics card is built to run at full load for hours while you play. What matters is its temperature and whether the fans keep it within the maker's limits."]],
- "cover_tiles": [["GPU LOAD", "95%+", "the graphics card is the limit"], ["FLAT FPS", "60 / 144", "a frame cap or VSync"], ["GPU LOAD", "under 95%", "and uneven FPS: often the CPU"]],
+ "cover_tiles": [["GPU LOAD", "95%+", "the graphics card is the limit"], ["FLAT FPS", "60 / 144", "a frame cap or VSync"], ["GPU LOAD", "under 95%", "and uneven FPS, often the CPU"]],
  "cover_alt": "Three readings: GPU load at 95% or more means the graphics card is the limit; a flat frame rate means a cap or VSync; GPU load under 95% with uneven FPS often means the CPU",
  "app": ["Games page, a game's Can it run better? card: frame cap, smoothness and graphics card full load lines (0.32.0; first as What holds it back in 0.29.0)", "Games page FPS and 1% low per play (0.29.0)", "Overlay with frame rate, GPU load, CPU load and clock speeds (0.4.0, RivaTuner in exclusive fullscreen 0.4.1)"],
  "sources": ["https://www.digitalcitizen.life/how-to-tell-whether-your-cpu-or-gpu-is-limiting-gaming-performance/", "https://www.blurbusters.com/gsync/gsync101-input-lag-tests-and-settings/14/", "https://www.nvidia.com/content/Control-Panel-Help/vLatest/en-us/mergedProjects/nv3d/Manage_3D_Settings_(reference).htm", "https://www.amd.com/en/products/software/adrenalin/frtc.html", "https://www.amd.com/en/products/software/adrenalin/radeon-software-chill.html", "https://support.microsoft.com/en-us/windows/hardware/display-graphics/optimizations-for-windowed-games-in-windows-11", "https://support.microsoft.com/en-us/windows/change-the-power-mode-for-your-windows-pc-c2aff038-22c9-f46d-5ca0-78696fdf2de8"]}
@@ -21,7 +21,7 @@
 
 <p>In most games, a graphics card that works as hard as it can sits at 95 to 100% load. Below that, it finishes each frame and then waits for the next one. That waiting is fine when you have the frames you want. It only matters when FPS is also lower than you expect.</p>
 
-<p>There are four usual reasons the card waits:</p>
+<p>There are four usual reasons the card waits.</p>
 
 <ol>
 <li>A frame cap or VSync tells the game to stop at a set number of frames.</li>
@@ -30,7 +30,7 @@
 <li>Windows or the laptop runs the card in a power saving mode, or the game runs on the wrong GPU.</li>
 </ol>
 
-<h2>Step 1: rule out a frame cap or VSync</h2>
+<h2>First, rule out a frame cap or VSync</h2>
 
 <p>Look at the FPS counter first. If the frame rate sits flat on a round number like 60, 120, 144 or 165 while GPU load is low, it is a cap. The card makes those frames easily and then stops.</p>
 
@@ -42,7 +42,7 @@
 
 <p>If FPS climbs and GPU load rises with it, the cap was the reason, and nothing is wrong. You can keep the cap if you like it. A cap is often the better choice with a G-Sync or FreeSync screen, as <a href="vsync-fps-cap">VSync vs an FPS cap</a> explains.</p>
 
-<h2>Step 2: the resolution test for a CPU bottleneck</h2>
+<h2>Second, try the resolution test for a CPU bottleneck</h2>
 
 <p>This is the clearest test, and it takes two minutes.</p>
 
@@ -64,7 +64,7 @@
 <li>The 1% low FPS is far below the average, so the game feels uneven. See <a href="one-percent-low-fps">1% low FPS meaning</a>.</li>
 </ul>
 
-<p>The total CPU number fools many people. A game can max out two threads and leave the rest idle, and Task Manager shows a low total. To see each thread:</p>
+<p>The total CPU number fools many people. A game can max out two threads and leave the rest idle, and Task Manager shows a low total. Here is how to see each thread.</p>
 
 <ol>
 <li>Press Ctrl + Shift + Esc and open the <b>Performance</b> tab.</li>
@@ -72,11 +72,11 @@
 <li>Play in a window or on a second screen and look for one or two graphs pinned near the top.</li>
 </ol>
 
-<h2>Step 3: check power mode and the right GPU</h2>
+<h2>Third, check power mode and the right GPU</h2>
 
 <p>A card in a power saving state runs at low clocks and can look half busy. Set <b>Settings > System > Power & battery > Power mode</b> to <b>Best performance</b>, and play a laptop on its charger. If your plan changes by itself, see <a href="power-plan-keeps-changing">power plan keeps changing</a>.</p>
 
-<p>On laptops and PCs with built-in graphics, make sure the game runs on the dedicated card:</p>
+<p>On laptops and PCs with built-in graphics, make sure the game runs on the dedicated card.</p>
 
 <ol>
 <li>Open <b>Settings > System > Display > Graphics</b>.</li>
@@ -84,15 +84,15 @@
 <li>Open its options and choose <b>High performance</b>, then restart the game.</li>
 </ol>
 
-<h2>CPU bottleneck vs GPU bottleneck: what to do about each</h2>
+<h2>What to do about a CPU bottleneck vs GPU bottleneck</h2>
 
 <p>If the GPU is the limit, you are in the normal state. Lower graphics settings or resolution scale for more frames, or turn on DLSS, FSR or XeSS if the game has them.</p>
 
-<p>If the CPU is the limit, graphics settings give little back. These help more:</p>
+<p>If the CPU is the limit, graphics settings give little back. These steps help more.</p>
 
 <ul>
 <li>Raise the resolution or graphics quality. It sounds backwards, but if the card is waiting anyway, better visuals cost you almost nothing.</li>
-<li>Lower the settings that load the CPU: view distance, crowd or traffic density, physics, shadows from many lights, and simulation detail in strategy games.</li>
+<li>Lower the settings that load the CPU. Those are view distance, crowd or traffic density, physics, shadows from many lights, and simulation detail in strategy games.</li>
 <li>Close background apps that use CPU time. Sort Task Manager's <b>Processes</b> tab by <b>CPU</b>.</li>
 <li>Set a frame cap near the frame rate your PC holds in busy scenes. An even frame rate often feels better than a higher average that jumps around.</li>
 <li>Check that the CPU isn't hot and slowing down. See <a href="pc-overheating-while-gaming">PC overheating while gaming</a>.</li>
@@ -103,17 +103,17 @@
 <h2>What the numbers mean</h2>
 
 <ul>
-<li>GPU load at 95 to 100%: GPU bound. Normal.</li>
-<li>GPU load under 95% and FPS flat at a round number: a cap or VSync.</li>
-<li>GPU load under 95%, FPS uneven, one or two CPU threads near 100%: CPU bound.</li>
-<li>GPU load and GPU clock both low on a laptop: power mode, battery, or the wrong GPU.</li>
+<li>GPU load at 95 to 100% means the game is GPU bound. That is normal.</li>
+<li>GPU load under 95% with FPS flat at a round number means a cap or VSync.</li>
+<li>GPU load under 95% with uneven FPS and one or two CPU threads near 100% means the game is CPU bound.</li>
+<li>GPU load and GPU clock both low on a laptop point to the power mode, the battery, or the wrong GPU.</li>
 </ul>
 
 <p>These are rules of thumb. Some games never quite reach 99% even when the card is the limit, so read the trend rather than one number.</p>
 
 <h2>Where RigSight answers this for you</h2>
 
-<p>Watching GPU load during a single session is a snapshot. RigSight is free and open source, and it keeps a record of every play on its Games page. Open a game, and the card <b>Can it run better?</b> puts the answer in plain sentences, worked out from all your plays together.</p>
+<p>Watching GPU load during one session shows you only that session. RigSight is free and open source, and it keeps a record of every play on its Games page. Open a game, and the card <b>Can it run better?</b> puts the answer in plain sentences, worked out from all your plays together.</p>
 
 <p>Once a game has three plays with frame rates, it says when the frame rate stays flat at one number across them, which means a frame cap or V-Sync sets the pace. It says what share of the time your graphics card spent at full load, counting 95% and up as full. The cut-offs are RigSight's own rules of thumb. At full load 70% of the time or more, it says lower settings would give more frames. From 30%, it says the card is the limit in busy scenes. Below 30% with no cap in play, it says something else sets the pace, most likely the CPU. Below 30% with a cap in play, it says you can raise the settings and keep that frame rate. It also compares the 1% low to the average, so you see how smooth the game is.</p>
 

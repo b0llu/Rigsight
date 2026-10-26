@@ -3,20 +3,20 @@
  "topic": "Crashes",
  "keyword": "game crashes to desktop no error",
  "also": ["game randomly crashes to desktop without error", "games crashing to desktop windows 11", "why does my game keep crashing pc", "every game crashes to desktop", "what causes a game to crash on pc"],
- "title": "Game crashes to desktop with no error: how to find why",
+ "title": "Game crashes to desktop with no error? How to find why",
  "summary": "When a game crashes to desktop with no error, Windows still logs the crash. How to find it in Event Viewer, read the faulting module, and fix the usual causes.",
- "short": "A game that crashes to desktop with no error still leaves an entry in Windows. Open Event Viewer, Windows Logs, Application, and find Application Error 1000 at that time. The faulting module names the file it crashed in: the game, the graphics driver, an overlay or Windows. That tells you what to fix first.",
+ "short": "A game that crashes to desktop with no error still leaves an entry in Windows. Open Event Viewer, Windows Logs, Application, and find Application Error 1000 at that time. The faulting module names the file it crashed in, which can be the game, the graphics driver, an overlay or Windows. That tells you what to fix first.",
  "faq": [
-  ["Why does my game keep crashing on PC?", "Most often it's the game itself, its files or mods, an overlay hooking into it, or the graphics driver. If one game crashes in the same file every time, look at that game. If every game crashes, look at the whole PC: memory settings, overclocks, temperatures and the power supply."],
-  ["Why does every game crash to desktop?", "When several games crash, the cause is usually shared: the graphics driver, an overlay that hooks every game, an unstable overclock or XMP or EXPO memory profile, or heat. Turn overlays off, reset tuning to defaults and run Windows Memory Diagnostic before reinstalling games."],
+  ["Why does my game keep crashing on PC?", "Most often it's the game itself, its files or mods, an overlay hooking into it, or the graphics driver. If one game crashes in the same file every time, look at that game. If every game crashes, look at the whole PC. Check memory settings, overclocks, temperatures and the power supply."],
+  ["Why does every game crash to desktop?", "When several games crash, the cause is usually something they share. That can be the graphics driver, an overlay that hooks every game, an unstable overclock or XMP or EXPO memory profile, or heat. Turn overlays off, reset tuning to defaults and run Windows Memory Diagnostic before reinstalling games."],
   ["What causes a game to crash on PC with no error message?", "A crash to desktop means the game hit a fault it couldn't handle and Windows ended it, often too fast for the game to show anything. Windows still logs it as event 1000 in the Application log, with the faulting module and an exception code such as 0xc0000005."],
-  ["Are games crashing to desktop on Windows 11 different from Windows 10?", "No. The logs, the fields and the fixes are the same on both. Windows 11 just moves some settings: the steps here use the Windows 11 names."]
+  ["Are games crashing to desktop on Windows 11 different from Windows 10?", "No. The logs, the fields and the fixes are the same on both. Windows 11 just moves some settings, and the steps here use the Windows 11 names."]
  ],
  "cover_img": "pages/crash-open", "cover_crop": [263, 80, 1131, 754], "cover_alt": "An opened game crash in RigSight marked Confirmed: the NVIDIA graphics driver failed while running the game, with what to try, what it wasn't and the minutes around the crash",
  "app": ["Crashes page lists app and game crashes and freezes (0.2.0)", "Crash cause with Confirmed, Likely, Possibly or Not enough to say (0.24.0, wording 0.26.0)", "Known files named in plain words: NVIDIA, AMD and Intel drivers, DirectX, Vulkan, Steam, Discord, RivaTuner and NVIDIA overlays, Unity, Unreal (CrashExplainer)", "Crashed as it was starting, and crashed at the same spot every time (0.24.0)", "The 45 minutes before a crash with the apps doing the work (0.24.0)", "Game crash close-up: last five minutes and two after, a reading every 2 to 3 seconds (0.25.0)", "Graphics memory well above that game's usual (0.25.0)", "Crash notifications name the app (0.24.0, 0.26.0)", "A graphics driver being installed at the time of a crash (0.17.1)", "Games page names a crash after each play (0.32.0)"],
  "sources": ["https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/596a1078-e883-4972-9bbc-49e60bebca55", "https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-code-reference2", "https://support.microsoft.com/en-us/topic/use-the-system-file-checker-tool-to-repair-missing-or-corrupted-system-files-79aa86cb-ca52-166a-92a3-966e85d4094e", "https://help.steampowered.com/en/faqs/view/0C48-FCBD-DA71-93EB", "https://support.microsoft.com/en-us/windows/troubleshooting-windows-unexpected-restarts-and-stop-code-errors-60b01860-58f2-be66-7516-5c45a66ae3c6", "https://www.easy.ac/support/articles/eac-windows-service", "https://www.trustedreviews.com/how-to/how-to-verify-game-files-on-steam-4429171"]}
 -->
-<p>You're mid-match, the screen flicks, and you're looking at your desktop. No message, no report, the game is just gone. A game that crashes to desktop with no error feels like it left nothing behind, but Windows almost always wrote down what happened. Here's where to find it and what to do with it.</p>
+<p>You're mid-match, the screen flicks, and you're looking at your desktop. There's no message and no report. The game is just gone. A game that crashes to desktop with no error feels like it left nothing behind, but Windows almost always wrote down what happened. Here's where to find it and what to do with it.</p>
 
 <h2>Find the error Windows did log</h2>
 
@@ -29,12 +29,12 @@
   <li>Find the entry at the time of the crash, with your game's .exe as the faulting application.</li>
 </ol>
 
-<p>Event 1000 is a crash, event 1002 is a freeze that ended with the game being closed. In a 1000, three lines matter:</p>
+<p>Event 1000 is a crash. Event 1002 is a freeze that ended with the game being closed. In a 1000, three lines matter.</p>
 
 <ul>
-  <li>Faulting application name: the game's .exe and its version.</li>
-  <li>Faulting module name: the file the crash happened in. This is your best lead.</li>
-  <li>Exception code: what kind of fault it was.</li>
+  <li>Faulting application name is the game's .exe and its version.</li>
+  <li>Faulting module name is the file the crash happened in. This is your best lead.</li>
+  <li>Exception code says what kind of fault it was.</li>
 </ul>
 
 <p>Reliability Monitor shows the same thing as a calendar. Type <strong>reliability</strong> into Start, open <strong>View reliability history</strong>, and look for "Stopped working" under the game's name. A .NET game may also leave a .NET Runtime 1026 entry with the error's name, just before the 1000.</p>
@@ -44,46 +44,46 @@
 <h2>What the faulting module tells you</h2>
 
 <ul>
-  <li>The game's own .exe, <code>UnityPlayer.dll</code>, <code>GameAssembly.dll</code> or an Unreal Engine file: the crash was inside the game. Update it, verify its files, remove mods.</li>
-  <li><code>nvwgf2umx.dll</code>, <code>nvd3dumx.dll</code> or <code>nvlddmkm.sys</code>: the NVIDIA driver. <code>amdxx64.dll</code> or <code>atiumd64.dll</code>: the AMD driver. Files starting with <code>igd</code>: the Intel graphics driver.</li>
-  <li><code>d3d11.dll</code>, <code>d3d12.dll</code>, <code>dxgi.dll</code> or <code>vulkan-1.dll</code>: the graphics layer. Usually the driver or the game, not DirectX itself.</li>
-  <li><code>gameoverlayrenderer64.dll</code>: the Steam overlay. <code>DiscordHook64.dll</code>: Discord's overlay. <code>RTSSHooks64.dll</code>: RivaTuner Statistics Server, which MSI Afterburner uses for its overlay. <code>nvspcap64.dll</code>: the NVIDIA overlay.</li>
-  <li><code>KERNELBASE.dll</code> or <code>ntdll.dll</code>: parts of Windows every program uses. The fault is most often still the game's, so treat it like the first case.</li>
-  <li>unknown: Windows couldn't tell. Use the exception code instead.</li>
+  <li>If it's the game's own .exe, <code>UnityPlayer.dll</code>, <code>GameAssembly.dll</code> or an Unreal Engine file, the crash was inside the game. Update it, verify its files and remove mods.</li>
+  <li><code>nvwgf2umx.dll</code>, <code>nvd3dumx.dll</code> and <code>nvlddmkm.sys</code> belong to the NVIDIA driver. <code>amdxx64.dll</code> and <code>atiumd64.dll</code> belong to the AMD driver. Files starting with <code>igd</code> belong to the Intel graphics driver.</li>
+  <li><code>d3d11.dll</code>, <code>d3d12.dll</code>, <code>dxgi.dll</code> and <code>vulkan-1.dll</code> are the graphics layer. The fault is usually the driver's or the game's, not DirectX itself.</li>
+  <li><code>gameoverlayrenderer64.dll</code> is the Steam overlay and <code>DiscordHook64.dll</code> is Discord's. <code>RTSSHooks64.dll</code> is RivaTuner Statistics Server, which MSI Afterburner uses for its overlay. <code>nvspcap64.dll</code> is the NVIDIA overlay.</li>
+  <li><code>KERNELBASE.dll</code> and <code>ntdll.dll</code> are parts of Windows every program uses. The fault is most often still the game's, so treat it like the first case.</li>
+  <li>If it says unknown, Windows couldn't tell. Use the exception code instead.</li>
 </ul>
 
-<p>Common exception codes:</p>
+<p>These are the common exception codes.</p>
 
 <ul>
-  <li><code>0xc0000005</code>, access violation: the game touched memory it wasn't allowed to. Bugs, mods, overlays and unstable memory all cause it.</li>
-  <li><code>0xc0000409</code>, stack buffer overrun: the game found that part of its memory had been overwritten, or stopped itself on purpose after a serious error.</li>
-  <li><code>0xc0000374</code>, heap corruption: memory got damaged, often by a mod, an overlay or a bug.</li>
-  <li><code>0xc000001d</code>, illegal instruction: the CPU hit an invalid instruction. That can point to an unstable overclock or undervolt.</li>
+  <li><code>0xc0000005</code> is an access violation. The game touched memory it wasn't allowed to. Bugs, mods, overlays and unstable memory all cause it.</li>
+  <li><code>0xc0000409</code> is a stack buffer overrun. The game found that part of its memory had been overwritten, or stopped itself on purpose after a serious error.</li>
+  <li><code>0xc0000374</code> is heap corruption. Memory got damaged, often by a mod, an overlay or a bug.</li>
+  <li><code>0xc000001d</code> is an illegal instruction. The CPU hit an invalid instruction, which can point to an unstable overclock or undervolt.</li>
 </ul>
 
 <h2>Fixes, in the order worth trying</h2>
 
 <ol>
-  <li>Verify the game's files. In Steam: right-click the game in your <strong>Library</strong>, choose <strong>Properties &gt; Installed Files &gt; Verify integrity of game files</strong>. Epic, EA, Ubisoft and Battle.net have a <strong>Verify</strong> or <strong>Repair</strong> option in each game's menu. If it crashes within seconds of starting, also repair its anti-cheat if it has one. Easy Anti-Cheat, for example, has a <strong>Repair Service</strong> button in the setup file inside the game's folder.</li>
-  <li>Turn off overlays one at a time: Steam, Discord, the NVIDIA app or AMD Software, and RivaTuner. If the faulting module is one of their files, start with that one.</li>
+  <li>Verify the game's files. In Steam, right-click the game in your <strong>Library</strong> and choose <strong>Properties &gt; Installed Files &gt; Verify integrity of game files</strong>. Epic, EA, Ubisoft and Battle.net have a <strong>Verify</strong> or <strong>Repair</strong> option in each game's menu. If it crashes within seconds of starting, also repair its anti-cheat if it has one. Easy Anti-Cheat, for example, has a <strong>Repair Service</strong> button in the setup file inside the game's folder.</li>
+  <li>Turn off overlays one at a time. That means Steam, Discord, the NVIDIA app or AMD Software, and RivaTuner. If the faulting module is one of their files, start with that one.</li>
   <li>Remove mods, reshade files and injected tools, then test the plain game.</li>
   <li>Update or clean-reinstall the graphics driver if the faulting module belongs to it. If the crashes began after a new driver, try the one before.</li>
   <li>Undo tuning. Reset GPU overclocks, and in the BIOS turn off XMP or EXPO for a test. A memory profile that's slightly unstable is a classic cause of random crashes across several games.</li>
-  <li>Test memory: open Start, type <strong>Windows Memory Diagnostic</strong>, and pick <strong>Restart now and check for problems</strong>. The result appears in the System log under the source MemoryDiagnostics-Results.</li>
+  <li>Test memory. Open Start, type <strong>Windows Memory Diagnostic</strong>, and pick <strong>Restart now and check for problems</strong>. The result appears in the System log under the source MemoryDiagnostics-Results.</li>
   <li>Check temperatures and memory use while playing. A GPU near its limit or RAM nearly full can both end a game. Windows logs event 2004, Resource-Exhaustion-Detector, in the System log when it's running out of memory.</li>
-  <li>Repair Windows files: open <strong>Terminal (Admin)</strong> and run <code>sfc /scannow</code>. If it finds problems it can't fix, run <code>DISM /Online /Cleanup-Image /RestoreHealth</code> and then <code>sfc /scannow</code> again.</li>
+  <li>Repair Windows files. Open <strong>Terminal (Admin)</strong> and run <code>sfc /scannow</code>. If it finds problems it can't fix, run <code>DISM /Online /Cleanup-Image /RestoreHealth</code> and then <code>sfc /scannow</code> again.</li>
 </ol>
 
-<p>A good test for any fix is the pattern. If the game crashes at the same place in the same file every time, it's the game or a mod. If it crashes in different files at random moments, it's the PC: memory, tuning, heat or power.</p>
+<p>A good test for any fix is the pattern. If the game crashes at the same place in the same file every time, it's the game or a mod. If it crashes in different files at random moments, it's the PC, so look at memory, tuning, heat and power.</p>
 
 <h2>How RigSight saves the digging</h2>
 
-<p>RigSight is a free, open-source monitor for Windows. Its Crashes page reads the same Application Error entries and turns the faulting module into plain words. "crashed inside the NVIDIA driver" instead of <code>nvwgf2umx.dll</code>, with what to try next. Every crash carries one word for how sure the cause is. It's Confirmed when Windows names a known file, Likely when the evidence points one way, Possibly when other causes fit too, and Not enough to say when it can't tell.</p>
+<p>RigSight is a free, open-source monitor for Windows. Its Crashes page reads the same Application Error entries and turns the faulting module into plain words. It says "crashed inside the NVIDIA driver" instead of <code>nvwgf2umx.dll</code>, with what to try next. Every crash carries one word for how sure the cause is. It's Confirmed when Windows names a known file, Likely when the evidence points one way, Possibly when other causes fit too, and Not enough to say when it can't tell.</p>
 
-<p>It also catches the patterns for you. A crash within a minute of starting reads "crashed as it was starting" and points at the game's files and anti-cheat. Three crashes at the same place in the same file read "crashes at the same spot every time", which is a fault in the game, not your hardware. A crash while a graphics driver was being installed is put down to the install.</p>
+<p>It also catches the patterns for you. A crash within a minute of starting reads "crashed as it was starting" and points at the game's files and anti-cheat. Three crashes at the same place in the same file read "crashes at the same spot every time", which is a fault in the game, not your hardware. RigSight puts a crash down to the install when a graphics driver was being installed at the time.</p>
 
 {{fig pages/crash-around | The minutes around a game crash in RigSight: lanes for temperature, load, power, memory, fans and network on one time axis, with the crash marked and a panel with every reading at that minute | Around the crash. Every lane shares one time axis, and the panel shows every reading at the minute you point at.}}
 
-<p>Opening a crash shows the 45 minutes before it: temperatures, load, power, memory, fans and network, and which app was using the CPU and GPU. For a game, RigSight also keeps the last five minutes before the crash at a reading every 2 to 3 seconds. What it wasn't lists what it ruled out, like "It wasn't overheating" or "Memory wasn't full", and it says when graphics memory was nearly full and well above that game's usual. You also get a notification with the game's name the moment it happens, and the play on the Games page says it ended in a crash. CPU temperature needs RigSight running with admin rights.</p>
+<p>Opening a crash shows the 45 minutes before it. You see temperatures, load, power, memory, fans and network, and which app was using the CPU and GPU. For a game, RigSight also keeps the last five minutes before the crash at a reading every 2 to 3 seconds. What it wasn't lists what it ruled out, like "It wasn't overheating" or "Memory wasn't full", and it says when graphics memory was nearly full and well above that game's usual. You also get a notification with the game's name the moment it happens, and the play on the Games page says it ended in a crash. CPU temperature needs RigSight running with admin rights.</p>
 
-<p>Your next step: find the Application Error 1000 for your last crash and read its faulting module. If it's the game's own file, verify the files first. If it's an overlay's file, turn that overlay off and play again.</p>
+<p>Your next step is to find the Application Error 1000 for your last crash and read its faulting module. If it's the game's own file, verify the files first. If it's an overlay's file, turn that overlay off and play again.</p>

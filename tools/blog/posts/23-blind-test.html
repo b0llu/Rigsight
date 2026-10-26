@@ -5,26 +5,26 @@
  "short": "I voted blind on six models' answers to real questions about my PC. Gemini 3.8 Flash won 12 of 19. After stricter rules it got slower and only partly better, so Claude Haiku 5.5, cheaper and better at following them, got the job.",
  "mark": "A to F"}
 -->
-<p>Picking the AI model for RigSight AI sounds like a quick decision. Look at a leaderboard, take the top one. But leaderboards test general knowledge and coding. I needed something narrower: a model that reads look-ups about one PC and explains them to a person who just had a game crash. The only way to know was to try it on exactly that.</p>
+<p>Picking the AI model for RigSight AI sounds like a quick decision. Look at a leaderboard, take the top one. But leaderboards test general knowledge and coding. I needed something narrower, a model that reads look-ups about one PC and explains them to a person who just had a game crash. The only way to know was to try it on exactly that.</p>
 
 <h2>Six models, six letters</h2>
 
-<p>On 21 October I picked six models from different companies, from very cheap to expensive, and gave them all the same setup: the same instructions, the same look-ups into my PC's real records, the same questions. Things like why a game crashed, whether my GPU runs hotter than it used to, where my time went last week.</p>
+<p>On 21 October I picked six models from different companies, from very cheap to expensive, and gave them all the same setup. They had the same instructions, the same look-ups into my PC's real records, the same questions. Things like why a game crashed, whether my GPU runs hotter than it used to, where my time went last week.</p>
 
 <p>Then I hid the names. Each model became a letter, A to F, and the answers went on one page side by side. I read them and voted for the best answer to each question without knowing who wrote it. If I knew which company made which answer, I'd have had opinions before reading a word.</p>
 
 
 <p>F was clearly my favourite. Its answers were warm, well organised and easy to read.</p>
 
-<p>Here is who was behind each letter, which I only looked up after voting:</p>
+<p>I only looked up who was behind each letter after voting.</p>
 
 <ul>
-  <li><strong>A</strong>: Qwen3.8 Flash</li>
-  <li><strong>B</strong>: DeepSeek V4.1 Flash</li>
-  <li><strong>C</strong>: GPT-5.6 Luna</li>
-  <li><strong>D</strong>: Claude Sonnet 5.5</li>
-  <li><strong>E</strong>: Claude Haiku 5.5</li>
-  <li><strong>F</strong>: Gemini 3.8 Flash</li>
+  <li><strong>A</strong> was Qwen3.8 Flash</li>
+  <li><strong>B</strong> was DeepSeek V4.1 Flash</li>
+  <li><strong>C</strong> was GPT-5.6 Luna</li>
+  <li><strong>D</strong> was Claude Sonnet 5.5</li>
+  <li><strong>E</strong> was Claude Haiku 5.5</li>
+  <li><strong>F</strong> was Gemini 3.8 Flash</li>
 </ul>
 
 <h2>Cost per question</h2>
@@ -35,7 +35,7 @@
 
 <h2>Then I tightened the rules</h2>
 
-<p>Reading dozens of answers side by side showed me patterns I didn't like in all of them, so I wrote stricter rules for how every answer must be put together:</p>
+<p>Reading dozens of answers side by side showed me patterns I didn't like in all of them, so I wrote stricter rules for how every answer must be put together.</p>
 
 <ul>
   <li>Say "likely" for a likely cause, and only call something certain when the records prove it.</li>
@@ -50,7 +50,7 @@
 
 <h2>Choosing the one that follows the rules</h2>
 
-<p>So Claude Haiku 5.5 got the job. Not because I liked its writing more. I didn't, at first. But in RigSight the rules are the product. An answer that's a little plainer but never claims more than the records show is worth more to someone with a crashing PC than a beautiful answer that guesses. And 43 seconds is a long time to stare at "Putting the findings together".</p>
+<p>So Claude Haiku 5.5 got the job. Not because I liked its writing more. I didn't, at first. But in RigSight, following the rules matters more than the writing. An answer that's a little plainer but never claims more than the records show is worth more to someone with a crashing PC than a beautiful answer that guesses. And 43 seconds is a long time to stare at "Putting the findings together".</p>
 
 <h2>A bug that looked like the model's fault</h2>
 
@@ -58,4 +58,4 @@
 
 <p>The model thinks before it writes, and that thinking counts toward the length limit for an answer. I had set the limit at a size that's plenty for the answer itself. On harder questions, the thinking used it all up, and the answer was cut off before its first word. Raising the limit well above what an answer needs fixed it.</p>
 
-<p>It's a good reminder that when an AI gives a strange result, the first place to look is often the plumbing around it, not the model. The next post is all about that.</p>
+<p>It's a good reminder that when an AI gives a strange result, the first place to look is often the code around it, not the model. The next post is all about that.</p>

@@ -161,12 +161,12 @@ def index_html(posts, mode, img_prefix, fixes=()):
     first_ai = next((p for p in posts if p["series"] == "ai"), None)
     starts = " or ".join(x for x in [
         f'<a href="{post_href(first_build, mode)}">{first_build["title"]}</a>' if first_build else "",
-        f'<a href="{post_href(first_ai, mode)}">the AI journey, part 1</a>' if first_ai else ""] if x)
+        f'<a href="{post_href(first_ai, mode)}">part 1 of the AI journey</a>' if first_ai else ""] if x)
     return f'''<section class="blog-head wrap">
   <p class="kicker">RigSight blog</p>
   <h1>The RigSight log</h1>
-  <p class="intro">Building a PC monitor that keeps your PC's history: what broke, what got fixed, and the AI helper it is growing into. And the PC problems RigSight catches: why they happen and how to fix them.</p>
-  <p class="starts">Start at the beginning: {starts}</p>
+  <p class="intro">Building a PC monitor that keeps your PC's history. What broke, what got fixed, and the AI helper it is growing into. And the PC problems RigSight catches, why they happen and how to fix them.</p>
+  <p class="starts">Start at the beginning with {starts}.</p>
 </section>
 <section class="wrap">
   <div class="filter" role="group" aria-label="Show posts from">
@@ -307,8 +307,8 @@ def build_site():
     out.mkdir()
     img = "../img/"
     links = dict(home="../", blog="./", img=img)
-    pages = [("", "The RigSight log: building a free PC monitor for Windows",
-              "How RigSight, a free PC monitor for Windows, gets made: the bugs, the wrong turns, the fixes and the AI helper it is growing into.",
+    pages = [("", "Blog · RigSight, a free PC monitor for Windows",
+              "How RigSight, a free PC monitor for Windows, gets made, and the PC problems it catches, why they happen and how to fix them.",
               index_html(posts, "site", img, fixes), None)]
     for p in posts:
         pages.append((p["slug"], f"{p['title']} · The RigSight log", p["summary"], article_html(p, posts, "site", img, False), p))

@@ -5,7 +5,7 @@
  "also": ["cpu temperature history", "pc temperature history", "check gpu temps", "how to check temp on gpu", "when should i worry about gpu temp"],
  "title": "How to check GPU temperature history on Windows",
  "summary": "Windows doesn't keep a GPU or CPU temperature history. Here is how to check GPU temperature history with HWiNFO, GPU-Z or Afterburner logs, and how to keep a PC temperature history all day.",
- "short": "Windows keeps no temperature history. Task Manager shows only the GPU temperature right now. To check GPU temperature history, record it with a sensor app: HWiNFO, GPU-Z and MSI Afterburner can each log readings to a file while you play. For a history of every day without starting a log, use a monitor that records in the background.",
+ "short": "Windows keeps no temperature history. Task Manager shows only the GPU temperature right now. To check GPU temperature history, record it with a sensor app. HWiNFO, GPU-Z and MSI Afterburner can each log readings to a file while you play. For a history of every day without starting a log, use a monitor that records in the background.",
  "faq": [["Does Windows keep a history of GPU or CPU temperature?", "No. Task Manager shows the graphics card's temperature at this moment, and Windows has no CPU temperature reading of its own. Neither is saved. To look back, you need an app that was recording at the time."],
          ["How do I check my CPU temperature history?", "Use a sensor app that logs to a file, such as HWiNFO, and start the log before you play. Open the file afterwards in a spreadsheet and look at the highest values. Apps that record all day, like RigSight, keep it without you starting anything, though CPU temperature needs admin rights."],
          ["How do I check my GPU temps while gaming?", "Task Manager's Performance tab shows the GPU temperature, but you have to tab out of the game. An on-screen overlay from MSI Afterburner with RivaTuner Statistics Server, or your graphics driver's own overlay, shows it during play. A log shows how hot it got afterwards."],
@@ -33,7 +33,7 @@
 
 <h2>How to check GPU temps right now</h2>
 
-<p>For a quick look at the current reading in Windows 10 version 2004 or later, or Windows 11:</p>
+<p>Task Manager gives a quick look at the current reading in Windows 10 version 2004 or later, and in Windows 11.</p>
 
 <ol>
   <li>Press <strong>Ctrl + Shift + Esc</strong> to open Task Manager.</li>
@@ -57,7 +57,7 @@
   <li>Click the same button, now a red cross, to stop.</li>
 </ol>
 
-<p>Open the CSV in Excel or Google Sheets and find the column for <strong>GPU Temperature</strong>, or the CPU column for your chip. Sort it or make a quick line chart. Some guides suggest lowering HWiNFO's polling interval for finer detail, but the default is fine for temperatures.</p>
+<p>Open the CSV in Excel or Google Sheets and find the column for <strong>GPU Temperature</strong>, or the CPU column for your chip. Sort it or make a quick line chart. You can lower HWiNFO's polling interval for finer detail, but the default is fine for temperatures.</p>
 
 <p>The catch is that it only records while HWiNFO is open and logging. You have to remember to start it, and a log left running for days grows into a very large file.</p>
 
@@ -68,7 +68,7 @@
   <li>MSI Afterburner draws a monitoring graph of the last few minutes, and its <strong>Settings</strong> > <strong>Monitoring</strong> tab has a <strong>Log history to file</strong> box that saves it. With RivaTuner Statistics Server it can also show the temperature on screen while you play.</li>
 </ul>
 
-<p>All of them have the same limit as HWiNFO: they only know about the time they were running and logging.</p>
+<p>All of them have the same limit as HWiNFO. They only know about the time they were running and logging.</p>
 
 <h2>How to check GPU temps while you play</h2>
 
@@ -81,7 +81,7 @@
 <p>A pile of numbers is only useful if you know what to ask of it.</p>
 
 <ul>
-  <li>The highest reading in a session, and when it happened. Compare it with your card's maximum: NVIDIA lists 85 to 93°C for its recent GeForce cards depending on the model, for example 90°C for the RTX 4070 family.</li>
+  <li>The highest reading in a session, and when it happened. Compare it with your card's maximum. NVIDIA lists 85 to 93°C for its recent GeForce cards depending on the model, for example 90°C for the RTX 4070 family.</li>
   <li>Where the temperature levels off. A short spike to the high 80s is less worrying than an hour spent there.</li>
   <li>The same game over weeks. If one game settles 6 or 8 degrees hotter than it did last month, at the same settings, dust or paste may be building up.</li>
   <li>The temperature at rest. A PC idling warmer than it used to, with the room the same, points the same way.</li>

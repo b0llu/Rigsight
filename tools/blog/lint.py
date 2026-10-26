@@ -65,5 +65,10 @@ for f, (meta, body) in metas.items():
             x, y, cw, ch = meta["cover_crop"]
             if x + cw > w or y + ch > h:
                 bad(f, f"crop {meta['cover_crop']} outside {w}x{h}")
+# no colons as punctuation anywhere in the writing (the user, 2026-10-26); times, paths, URLs and code are fine
+import colons
+for f in files:
+    for where, ctx in colons.hits(f):
+        bad(f, f"colon in {where}: ...{ctx.strip()}...")
 print(f"{len(files)} files, {problems} problems")
 sys.exit(1 if problems else 0)

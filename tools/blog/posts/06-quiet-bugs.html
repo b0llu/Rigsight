@@ -21,7 +21,7 @@
 
 <h2>Discord, updated 45 minutes early</h2>
 
-<p>The Timeline page lists what changed on your PC: drivers, Windows updates, apps installed and updated. One morning it said Discord had updated at 7:19. I had been using the old version until about 8:05.</p>
+<p>The Timeline page lists what changed on your PC, like drivers, Windows updates, and apps installed and updated. One morning it said Discord had updated at 7:19. I had been using the old version until about 8:05.</p>
 
 <p>Discord writes its new version number into Windows' list of installed apps as soon as the update is downloaded, while the old version keeps running. RigSight believed the list. Since 0.18.0, an app's update only counts once the new version is actually the one running.</p>
 
@@ -41,4 +41,4 @@
 
 <p>The fix each time was to check the thing itself. Is the new version the one running? Is the download finished? Is the network busy while the stream says it's quiet?</p>
 
-<p>I also changed how I treat silence. In a few places RigSight now tells a gap apart from a quiet moment and says which one it is. A stretch with no readings is shaded as "Not recorded" on charts. A Storage scan shows how far along it is, after a user saw nothing happen and thought the app had crashed. Saying "I don't know" is fine. Saying "nothing happened" when you don't know is the bug.</p>
+<p>I also changed how I treat silence. In a few places RigSight now tells a gap apart from a quiet moment and says which one it is. A stretch with no readings is shaded as "Not recorded" on charts. A Storage scan shows how far along it is, after a user saw nothing happen and thought the app had crashed. When RigSight doesn't know what happened, it should say so, and never show it as "nothing happened".</p>

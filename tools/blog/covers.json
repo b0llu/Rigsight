@@ -158,9 +158,9 @@
   "colour": "hot",
   "chips_label": "Three ways to ask",
   "chips": [
-   "On your PC: nothing leaves it",
-   "Your own key: the provider you pick",
-   "RigSight AI: nothing to set up"
+   "On your PC, where nothing leaves it",
+   "Your own key, with the provider you pick",
+   "RigSight AI, with nothing to set up"
   ]
  },
  "choosing-a-model-blind": {

@@ -7,18 +7,18 @@
 -->
 <p>RigSight's recorder never closes. It starts with Windows and reads your sensors every couple of seconds for as long as the PC is on. If it cost even 1% of your processor, that would be a real tax on a gaming PC, all day, every day. So "how light is it?" is a question I get a lot, and one I ask myself.</p>
 
-<p>On 30 September a user made a good suggestion: write the hardware polling in C++ instead of C#, to make the app lighter. It's a fair instinct. C++ has a reputation for being fast. Before rewriting anything, I wanted to know where the time actually went.</p>
+<p>On 30 September a user made a good suggestion. Write the hardware polling in C++ instead of C#, to make the app lighter. It's a fair instinct. C++ has a reputation for being fast. Before rewriting anything, I wanted to know where the time actually went.</p>
 
 <h2>Where the time goes</h2>
 
 <p>I measured the installed recorder with its window closed, for two minutes, on my PC. It used 0.078% of one processor core in its own code and 0.208% inside Windows itself. So about 73% of its time wasn't RigSight's code at all. It was Windows and the drivers, talking to the hardware.</p>
 
 
-<p>Then I timed one full read of every sensor on the PC, the slowest case possible. It took 214 milliseconds of waiting. Almost all of it was the devices themselves taking their time to answer:</p>
+<p>Then I timed one full read of every sensor on the PC, the slowest case possible. It took 214 milliseconds of waiting. Almost all of it was the devices themselves taking their time to answer.</p>
 
 <figure class="fig">
 <svg viewBox="0 0 640 210" role="img" aria-labelledby="hl-t">
-  <title id="hl-t">Time each device took to answer one full sensor read: graphics card 89 ms, hard drive 73 ms, Ryzen processor 24 ms, NVMe drive 20 ms, SATA SSD 6.5 ms, motherboard chips about 1 ms each</title>
+  <title id="hl-t">Time each device took to answer one full sensor read. Graphics card 89 ms, hard drive 73 ms, Ryzen processor 24 ms, NVMe drive 20 ms, SATA SSD 6.5 ms, motherboard chips about 1 ms each</title>
   <g class="t">
     <text x="0" y="30">Graphics card</text><text x="0" y="62">Hard drive</text><text x="0" y="94">Processor</text>
     <text x="0" y="126">NVMe drive</text><text x="0" y="158">SATA SSD</text><text x="0" y="190">Motherboard chips</text>

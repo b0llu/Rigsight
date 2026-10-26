@@ -3,11 +3,11 @@
  "topic": "Crashes",
  "keyword": "kernel power 41",
  "also": ["kernel power 41 while gaming", "kernel-power 41 (63)", "what causes kernel power error 41", "how to fix kernel power 41", "kernel power 41 windows 11", "what is kernel power 41 critical error"],
- "title": "Kernel-Power 41: why it happens, and how RigSight caught mine",
+ "title": "Why Kernel-Power 41 happens, and how RigSight caught mine",
  "summary": "My PC logged Kernel-Power 41 again and again. How RigSight caught and explained it, what causes Kernel Power 41, including while gaming, and how to fix it.",
  "short": "Kernel-Power 41 is the critical error Windows logs when it starts after not shutting down cleanly. It's the record, not the cause. A BugcheckCode above 0 means a blue screen, a PowerButtonTimestamp means the button was held, and all zeros usually means power was lost or a shutdown never finished.",
  "faq": [
-  ["What is Kernel-Power 41 (63)?", "It's the same event. 41 is the event ID and 63 is its task category, which Event Viewer shows in brackets. The long number like (70368744177664),(2) is the event's keywords. None of these numbers say what caused the shut-off; the fields on the Details tab do."],
+  ["What is Kernel-Power 41 (63)?", "It's the same event. 41 is the event ID and 63 is its task category, which Event Viewer shows in brackets. The long number like (70368744177664),(2) is the event's keywords. None of these numbers say what caused the shut-off. The fields on the Details tab do."],
   ["Why does Kernel Power 41 happen while gaming?", "Under a game the GPU and CPU draw the most power and run hottest, so a power supply that can't keep up, an unstable overclock or overheating shows up there first. If BugcheckCode is 0 and nobody touched the power button, start with the power supply and the temperatures in the minutes before."],
   ["Is Kernel-Power 41 a hardware problem?", "Not always. It's logged after a power cut, a held power button, a blue screen caused by a driver, or a shutdown that didn't finish. If it keeps happening with a code of 0 while the PC is working hard, hardware, usually the power supply, is the most likely cause."],
   ["How do I fix Kernel Power 41?", "Fix what caused it, since the event is only the record. Read the BugcheckCode first. With a code, follow the stop code. With all zeros, undo overclocks and XMP or EXPO, check temperatures, plug the PC straight into the wall, and test or replace the power supply if it only happens under load."]
@@ -16,15 +16,15 @@
  "app": ["Crashes page with blue screens and sudden shut-offs (0.2.0)", "Shut-off findings: Likely a power cut only when idle, no button press, nothing logged; Possibly mains or power supply under load (0.24.0)", "Held power button read from Kernel-Power 41 (0.24.0)", "SleepInProgress read as a power state, unfinished shutdowns not called power loss while asleep (0.14.2)", "Shut-off timed by the last minute RigSight recorded (0.19.1)", "Graphics hang just before a shut-off (0.25.0)", "Shut-offs that look like the power counted apart, power cut count on the shut-offs tile (0.24.0, 0.28.0)", "Temperature graph marks gaps when the PC was off or had crashed (0.18.0)", "CPU temperature and power need admin rights"],
  "sources": ["https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/event-id-41-restart", "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ne-winnt-system_power_state", "https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-code-reference2", "https://support.microsoft.com/en-us/windows/troubleshooting-windows-unexpected-restarts-and-stop-code-errors-60b01860-58f2-be66-7516-5c45a66ae3c6", "https://www.pcworld.com/article/3631488/one-cable-or-two-for-powering-a-graphics-card-heres-the-answer.html", "https://www.pcgamesn.com/amd/ryzen-7000-temperatures", "https://community.intel.com/t5/Processors/i9-14900K-Temperatures-100%C2%BA/m-p/1545026", "https://www.intel.com/content/www/us/en/products/sku/236773/intel-core-i9-processor-14900k-36m-cache-up-to-6-00-ghz/specifications.html", "https://www.profesionalreview.com/2023/01/07/amd-ryzen-7000-x3d-tjmax-89/amp/", "https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/distinguishing-fast-startup-from-wake-from-hibernation", "https://learn.microsoft.com/en-us/answers/questions/2084205/does-anyone-know-how-to-fix-kernel-power-41-error"]}
 -->
-<p>In the 30 days up to 1 October, my own PC logged Kernel-Power 41 again and again: 22 shutdowns that didn't finish cleanly, against 7 that did. I don't switch my PC off at the wall, and my lights weren't flickering 22 times a month. RigSight is what put that number in front of me, and working out what it really meant changed how RigSight reads this event for everyone.</p>
+<p>In the 30 days up to 1 October, my own PC logged Kernel-Power 41 again and again. There were 22 shutdowns that didn't finish cleanly, against 7 that did. I don't switch my PC off at the wall, and my lights weren't flickering 22 times a month. RigSight is what put that number in front of me, and working out what it really meant changed how RigSight reads this event for everyone.</p>
 
 <h2>How RigSight caught it</h2>
 
 <p>RigSight reads Windows' crash records every time it starts, so every Kernel Power 41 shows up on its Crashes page as a sudden shut-off, with the time it happened and what the PC was doing in the minutes before. That's how I saw how often it was happening. Without it, each one was a single red line in Event Viewer that I would never have gone looking for.</p>
 
-<p>At first, RigSight called them power loss while the PC was asleep. That was my mistake, and it came from one field in the event. The full story is in <a href="power-loss-while-asleep">My PC wasn't losing power in its sleep</a>. The short version: the field <code>SleepInProgress</code> holds the power state Windows was moving into, not a yes or no. On my PC it was a 6, switching off. These were shutdowns that never quite finished, not power cuts.</p>
+<p>At first, RigSight called them power loss while the PC was asleep. That was my mistake, and it came from one field in the event. The full story is in <a href="power-loss-while-asleep">My PC wasn't losing power in its sleep</a>. In short, the field <code>SleepInProgress</code> holds the power state Windows was moving into, not a yes or no. On my PC it was a 6, switching off. These were shutdowns that never quite finished, not power cuts.</p>
 
-<p>Today, every sudden shut-off on the Crashes page gets a cause and one word for how sure RigSight is:</p>
+<p>Today, every sudden shut-off on the Crashes page gets a cause and one word for how sure RigSight is.</p>
 
 <ul>
   <li>A held power button reads as Confirmed.</li>
@@ -36,13 +36,13 @@
 
 {{fig pages/crashes | RigSight's Crashes page with tiles for app crashes, graphics driver resets, and blue screens with sudden shut-offs, above a timeline and the list of what went wrong | RigSight's Crashes page. Blue screens and sudden shut-offs have their own tile, and shut-offs that look like the power are counted apart.}}
 
-<p>Open a shut-off and you see the 45 minutes before it: temperatures, load, GPU power draw, memory and fans, with the game in front. If the GPU was drawing 320 W at normal temperatures when it went off, that points toward the power supply rather than heat. The shut-off is timed by the last minute RigSight recorded, not by Windows' 6008 time, which can be some minutes early. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
+<p>Open a shut-off and you see the 45 minutes before it. It shows temperatures, load, GPU power draw, memory and fans, with the game in front. If the GPU was drawing 320 W at normal temperatures when it went off, that points toward the power supply rather than heat. The shut-off is timed by the last minute RigSight recorded, not by Windows' 6008 time, which can be some minutes early. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
 
 <h2>Why Kernel-Power 41 happens</h2>
 
-<p>When you shut down normally, Windows closes everything and marks the shutdown as clean. When it starts and finds no clean mark, it logs event 41 from the source Kernel-Power: "The system has rebooted without cleanly shutting down first." So the event is written at the next start, not at the moment the PC went down. It sounds like a diagnosis. It isn't. It only says the last shutdown wasn't clean.</p>
+<p>When you shut down normally, Windows closes everything and marks the shutdown as clean. When it starts and finds no clean mark, it logs event 41 from the source Kernel-Power, with the text "The system has rebooted without cleanly shutting down first." So the event is written at the next start, not at the moment the PC went down. It sounds like a diagnosis. It isn't. It only says the last shutdown wasn't clean.</p>
 
-<p>Anything that stops Windows without a proper shutdown leaves one behind. That's why searching the event ID alone gets you every possible answer. These are the usual causes when the event shows no blue screen:</p>
+<p>Anything that stops Windows without a proper shutdown leaves one behind. That's why searching the event ID alone gets you every possible answer. These are the usual causes when the event shows no blue screen.</p>
 
 <ul>
   <li>A power cut or dip. If the lights flickered or other devices lost power too, it was the mains. A battery backup, called a UPS, stops these.</li>
@@ -51,7 +51,7 @@
   <li>An unstable overclock or undervolt. That includes XMP or EXPO memory profiles, Curve Optimizer and GPU tuning tools. Tuning that is too tight can reset the PC with no blue screen.</li>
   <li>A held power button after a freeze. The timestamp usually records it, but Microsoft notes it can stay at 0 when the frozen PC couldn't write to its drive.</li>
   <li>A shutdown that didn't finish, often with Fast Startup, like mine. With Fast Startup on, a normal shutdown goes through hibernate, so an unfinished one leaves a 41 behind. These are usually harmless.</li>
-  <li>A loose cable. A power cable at the wall, at the supply, or the GPU's own power plugs.</li>
+  <li>A loose cable. Check the power cable at the wall and at the supply, and the GPU's own power plugs.</li>
 </ul>
 
 <h2>How to read Kernel-Power 41 yourself</h2>
@@ -62,15 +62,15 @@
   <li>Double-click the event, then open the <strong>Details</strong> tab and pick <strong>Friendly View</strong>.</li>
 </ol>
 
-<p>These are the fields that matter:</p>
+<p>These are the fields that matter.</p>
 
 <ul>
-  <li><code>BugcheckCode</code>: the blue screen's stop code, written in decimal. 0 means no blue screen was recorded. Any other number means Windows crashed with a stop error. Convert it to hex to look it up: open Calculator, switch to <strong>Programmer</strong>, type the number with <strong>DEC</strong> selected and read the <strong>HEX</strong> line. Microsoft's own example, 159, is 0x9F, DRIVER_POWER_STATE_FAILURE.</li>
-  <li><code>PowerButtonTimestamp</code>: anything other than 0 means someone held the power button to switch the PC off.</li>
-  <li><code>SleepInProgress</code>: Microsoft's event 41 article only shows it as false or 0, and doesn't explain the other numbers for this event. They line up with Windows' list of power states: 0 is none, 2 to 4 are sleep, 5 is hibernate and 6 is off. Read that way, a 5 or 6 most likely means a shutdown that never finished, not a crash in the middle of a game.</li>
+  <li><code>BugcheckCode</code> is the blue screen's stop code, written in decimal. 0 means no blue screen was recorded. Any other number means Windows crashed with a stop error. Convert it to hex to look it up. Open Calculator, switch to <strong>Programmer</strong>, type the number with <strong>DEC</strong> selected and read the <strong>HEX</strong> line. Microsoft's own example, 159, is 0x9F, DRIVER_POWER_STATE_FAILURE.</li>
+  <li>In <code>PowerButtonTimestamp</code>, anything other than 0 means someone held the power button to switch the PC off.</li>
+  <li>For <code>SleepInProgress</code>, Microsoft's event 41 article only shows it as false or 0, and doesn't explain the other numbers for this event. They line up with Windows' list of power states, where 0 is none, 2 to 4 are sleep, 5 is hibernate and 6 is off. Read that way, a 5 or 6 most likely means a shutdown that never finished, not a crash in the middle of a game.</li>
 </ul>
 
-<p>Microsoft's own advice splits it the same way. A code above 0 is a stop error, so follow the stop code: see <a href="blue-screen-of-death-causes">what causes a blue screen</a>. A power button timestamp means the PC was switched off by hand, usually because it had frozen. When everything is 0, Windows had no chance to write anything, and Microsoft points to the power supply, overheating, memory and overclocking.</p>
+<p>Microsoft's own advice splits it the same way. A code above 0 is a stop error, so follow the stop code. See <a href="blue-screen-of-death-causes">what causes a blue screen</a>. A power button timestamp means the PC was switched off by hand, usually because it had frozen. When everything is 0, Windows had no chance to write anything, and Microsoft points to the power supply, overheating, memory and overclocking.</p>
 
 <h2>How to fix Kernel-Power 41, in order</h2>
 
@@ -80,10 +80,10 @@
   <li>Check temperatures while gaming. If the CPU or GPU is near its limit just before it goes off, clean the dust filters and check every fan spins.</li>
   <li>Plug the PC straight into a wall socket, not a power strip or extension. Reseat the power supply's cables at both ends, and the GPU's power plugs.</li>
   <li>Check the power supply. Compare its wattage with your graphics card maker's recommended supply. If the card takes two or three 8-pin plugs, check the manuals for the card and the power supply. Some ask for a separate cable from the supply for each plug instead of one cable with two plugs on it, and with a power-hungry card that is the safer choice anyway.</li>
-  <li>If the 41s happen at shutdown, sleep or wake, turn off Fast Startup: <strong>Control Panel &gt; Hardware and Sound &gt; Power Options &gt; Choose what the power buttons do &gt; Change settings that are currently unavailable</strong>, then clear <strong>Turn on fast startup</strong> and click <strong>Save changes</strong>. Update the BIOS and chipset drivers from your motherboard maker too.</li>
+  <li>If the 41s happen at shutdown, sleep or wake, turn off Fast Startup. Go to <strong>Control Panel &gt; Hardware and Sound &gt; Power Options &gt; Choose what the power buttons do &gt; Change settings that are currently unavailable</strong>, then clear <strong>Turn on fast startup</strong> and click <strong>Save changes</strong>. Update the BIOS and chipset drivers from your motherboard maker too.</li>
   <li>If it still happens under load with everything at defaults, test with another power supply. It's the part most often at fault, and the hardest to prove any other way.</li>
 </ol>
 
 <p>Also check whether the 41 is alone. Filter the System log for <code>WHEA-Logger</code> as the event source. An error the hardware couldn't correct around the same time points at the CPU, memory or motherboard, or at tuning that's too tight for them.</p>
 
-<p>Your next step: open the latest event 41 and read <code>BugcheckCode</code> and <code>PowerButtonTimestamp</code>. If both are 0 and it happens while gaming, start with tuning and the power supply. If <code>SleepInProgress</code> is 5 or 6 and it only happens at shutdown, you're probably looking at what I was: shutdowns that didn't finish, nothing to panic about.</p>
+<p>Your next step is to open the latest event 41 and read <code>BugcheckCode</code> and <code>PowerButtonTimestamp</code>. If both are 0 and it happens while gaming, start with tuning and the power supply. If <code>SleepInProgress</code> is 5 or 6 and it only happens at shutdown, you're probably looking at what I was. Those are shutdowns that didn't finish, and nothing to panic about.</p>

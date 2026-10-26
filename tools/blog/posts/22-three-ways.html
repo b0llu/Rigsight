@@ -7,15 +7,15 @@
 -->
 <p>When I removed Riggy, the reason was simple. A real AI meant either a big download to run it on your PC, or your PC's records going to a server. In October those still looked like the only two choices. So rather than pick one for everyone, the new helper lets you pick.</p>
 
-<h2>One: on your own PC</h2>
+<h2>The first way runs on your own PC</h2>
 
-<p>The first way I built, starting on 20 October, runs the AI on your own PC with Ollama, a free app for running AI models locally. RigSight talks to it on your PC, and nothing leaves the machine. No account, no key, nobody else involved.</p>
+<p>The first way I built, starting on 20 October, runs the AI on your own PC with Ollama, a free app for running AI models locally. RigSight talks to it on your PC, and nothing leaves the machine. You need no account or key, and nobody else is involved.</p>
 
-<p>There's a cost, and I'd rather be clear about it. A model good enough to reason about your PC needs a decent graphics card, takes a while to load the first time, and is slower than the big services. RigSight says what's happening while you wait: "Getting the model ready", then "Connecting the dots", then "Putting the findings together". Each answer says which model wrote it, so you always know what you're reading.</p>
+<p>There's a cost, and I'd rather be clear about it. A model good enough to reason about your PC needs a decent graphics card, takes a while to load the first time, and is slower than the big services. RigSight says what's happening while you wait. It shows "Getting the model ready", then "Connecting the dots", then "Putting the findings together". Each answer says which model wrote it, so you always know what you're reading.</p>
 
 <p>I built this way first on purpose. If the helper only worked by sending your data somewhere, it would have been a step back from everything RigSight said about privacy.</p>
 
-<h2>Two: your own key</h2>
+<h2>The second way uses your own key</h2>
 
 <p>The second way is for people who already pay for an AI service. Paste your key from the provider you use, pick a model from a list you can search, and RigSight asks that model directly. Only the look-up results the model asks for are sent, the same as always, and only to the provider you chose.</p>
 
@@ -23,11 +23,11 @@
 
 <p>I tested that by telling it to talk like a pirate. It did, every sentence. And it still used the look-ups, still pointed to the records it read, and still ended with a next step.</p>
 
-<h2>Three: RigSight AI</h2>
+<h2>The third way is RigSight AI</h2>
 
 <p>The third way is for people who just want it to work, without installing a model or signing up anywhere. Questions go through a small service I run, which passes them to the AI model and streams the answer back.</p>
 
-<p>This is the one that needed the most rules, because it's the one where I'm in the middle. So:</p>
+<p>This is the one that needed the most rules, because it's the one where I'm in the middle. It has these rules.</p>
 
 <ul>
   <li>The app never contacts it until you've chosen RigSight AI and asked a question. No check-in at start-up.</li>
@@ -39,7 +39,7 @@
 
 <figure class="fig">
 <svg viewBox="0 0 640 150" role="img" aria-labelledby="tw-t">
-  <title id="tw-t">The three ways compared. On your PC: nothing leaves the PC. Your own key: look-up results go to the provider you chose. RigSight AI: look-up results go through RigSight's service to its AI provider.</title>
+  <title id="tw-t">The three ways compared. On your PC, nothing leaves the PC. With your own key, look-up results go to the provider you chose. With RigSight AI, look-up results go through RigSight's service to its AI provider.</title>
   <g>
     <rect x="0" y="10" width="200" height="130" rx="12" style="fill: rgba(52,211,153,.07); stroke: rgba(52,211,153,.55)"/>
     <rect class="box" x="220" y="10" width="200" height="130" rx="12"/>

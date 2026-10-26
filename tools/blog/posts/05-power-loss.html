@@ -13,13 +13,13 @@
 
 <h2>A field with a misleading name</h2>
 
-<p>Event 41 has a field called <code>SleepInProgress</code>. I read it the way the name reads: was the PC asleep when it went down? If the value was anything but zero, RigSight said yes.</p>
+<p>Event 41 has a field called <code>SleepInProgress</code>. I read it the way the name reads, as "was the PC asleep when it went down?" If the value was anything but zero, RigSight said yes.</p>
 
-<p>That's not what it means. The field holds the power state Windows was moving into when things stopped. It's a number, and each number is a different state:</p>
+<p>That's not what it means. The field holds the power state Windows was moving into when things stopped. It's a number, and each number is a different state.</p>
 
 <figure class="fig">
 <svg viewBox="0 0 640 170" role="img" aria-labelledby="pl-t">
-  <title id="pl-t">SleepInProgress values: 0 nothing in progress, 2 to 4 going to sleep, 5 going into hibernation, which every Fast Startup shutdown does, 6 switching off</title>
+  <title id="pl-t">SleepInProgress values. 0 means nothing in progress, 2 to 4 going to sleep, 5 going into hibernation, which every Fast Startup shutdown does, and 6 switching off</title>
   <g>
     <rect class="box" x="0" y="10" width="140" height="100" rx="10"/>
     <rect class="box" x="160" y="10" width="140" height="100" rx="10"/>
@@ -35,7 +35,7 @@
     <text x="340" y="84">Hibernating, and</text><text x="340" y="101">every Fast Startup</text>
     <text x="500" y="84">Switching off</text>
   </g>
-  <text class="tb" x="320" y="146">5 and 6: the PC didn't finish shutting down</text>
+  <text class="tb" x="320" y="146">5 and 6 mean the shutdown didn't finish</text>
 </svg>
 <figcaption>What the number in event 41 means. My first reading treated anything above 0 as "asleep".</figcaption>
 </figure>
@@ -54,7 +54,7 @@
 
 <h2>Being careful with the word "power"</h2>
 
-<p>That bug made me careful with anything that sounds like a power cut. Two weeks later, when crashes started getting a cause and a confidence word, the rules for power got strict:</p>
+<p>That bug made me careful with anything that sounds like a power cut. Two weeks later, when crashes started getting a cause and a confidence word, the rules for power got strict.</p>
 
 <ul>
   <li>A shut-off is only a likely power cut when the PC was idle and cool, nobody held the power button and Windows logged nothing else.</li>

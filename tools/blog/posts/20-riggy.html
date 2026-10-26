@@ -1,6 +1,6 @@
 <!--meta
 {"slug": "riggy", "series": "ai", "happened": "2026-10-06", "published": "2026-10-26", "version": "0.16.0 to 0.18.0", "order": 2,
- "title": "Riggy: the helper I shipped, then removed two days later",
+ "title": "Riggy, the helper I shipped and removed two days later",
  "summary": "The first try at letting you ask RigSight questions. It was clever, it was careful, and it wasn't really AI. So it went.",
  "short": "Riggy answered questions about your PC from a corner of the window. A small model picked the topic and code filled in answers written ahead of time. It wasn't really AI, so I removed it two days later.",
  "mark": "23 MB"}
@@ -11,13 +11,13 @@
 
 <h2>What Riggy was</h2>
 
-<p>Riggy was a small robot face that peeked out of the bottom right corner of the window. I drew it myself: a chunky screen for a head, big white eyes, a little smile. Hover it and it popped out. Click it and a chat opened.</p>
+<p>Riggy was a small robot face that peeked out of the bottom right corner of the window. I drew it myself, with a chunky screen for a head, big white eyes, a little smile. Hover it and it popped out. Click it and a chat opened.</p>
 
-<p>Behind the face there was no chatbot. There was a 23 MB model whose only job was to read your question and decide which of about 17 topics it was about: crashes, heat, what changed, where your time went, internet, storage, fans and so on. Rules picked out the time, the app and the part you meant. Then code put an answer together from the same reports the pages use.</p>
+<p>Behind the face there was no chatbot. There was a 23 MB model whose only job was to read your question and decide which of about 17 topics it was about, like crashes, heat, what changed, where your time went, internet, storage, fans and so on. Rules picked out the time, the app and the part you meant. Then code put an answer together from the same reports the pages use.</p>
 
 <figure class="fig">
 <svg viewBox="0 0 640 132" role="img" aria-labelledby="rg-t">
-  <title id="rg-t">How Riggy worked: your question went to a small model that picked one of about 17 topics, rules found the time and app, and a pre-written answer was filled in from the reports.</title>
+  <title id="rg-t">How Riggy worked. Your question went to a small model that picked one of about 17 topics, rules found the time and app, and a pre-written answer was filled in from the reports.</title>
   <g>
     <rect class="box" x="0" y="30" width="138" height="64" rx="10"/>
     <rect class="box" x="166" y="30" width="138" height="64" rx="10"/>
@@ -32,7 +32,7 @@
 <figcaption>Riggy's insides. The model understood which kind of question it was. It never wrote a word itself.</figcaption>
 </figure>
 
-<p>I was careful with it. It never guessed: if it wasn't sure what you meant, it asked back. It could compare two periods, like this week against last week, and it only compared heat like for like. It could follow up on "that", as in "when did that start?". If it misunderstood you, you could tell it what you meant, and it would remember that wording next time.</p>
+<p>I was careful with it. It never guessed. If it wasn't sure what you meant, it asked back. It could compare two periods, like this week against last week, and it only compared heat like for like. It could follow up on "that", as in "when did that start?". If it misunderstood you, you could tell it what you meant, and it would remember that wording next time.</p>
 
 <h2>Why it went</h2>
 
@@ -42,11 +42,11 @@
 
 <p>A real AI would have meant one of two things. Either a download of around a gigabyte to run a model on your PC, or your PC's history sent to a server somewhere. At that time, RigSight's promise was that your data never leaves your PC, and I wasn't going to quietly break it for a feature that was "experimental".</p>
 
-<p>So it all went: the robot, the model, the chat, the settings. The installer dropped from 73.9 MB to 54.5 MB. Memory, Timeline and Crashes got plain search boxes instead, where every word you type has to be in the row. No model, no pretending.</p>
+<p>So the robot, the model, the chat and the settings all went. The installer dropped from 73.9 MB to 54.5 MB. Memory, Timeline and Crashes got plain search boxes instead, where every word you type has to be in the row. There's no model behind them.</p>
 
 
 <h2>Saying so out loud</h2>
 
-<p>I didn't want Riggy to just disappear in an update. The What's new card for 0.18.0 had a plain grey "Removed" card that said why: it wasn't a real AI, its answers were written ahead of time, and a real one would mean a big download or sending your history to the cloud.</p>
+<p>I didn't want Riggy to just disappear in an update. The What's new card for 0.18.0 had a plain grey "Removed" card that said why. It wasn't a real AI, its answers were written ahead of time, and a real one would mean a big download or sending your history to the cloud.</p>
 
 <p>Removing your own feature two days after shipping it doesn't feel great. But I think it was the right call, and it taught me what a helper in RigSight would need to be. It would have to understand any question, not 17. It would have to work from your real records and show which ones it used. And it would have to say "I can't tell" when it can't. About ten days later, I started on that.</p>

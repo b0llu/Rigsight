@@ -1,41 +1,107 @@
 <!--meta
-{"slug": "gpu-hotspot-temperature", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+{
+ "slug": "gpu-hotspot-temperature",
+ "series": "guide",
+ "published": "2026-10-26",
+ "updated": "2026-10-26",
  "topic": "Temperatures",
  "keyword": "gpu hotspot temperature",
- "also": ["gpu hotspot temperature vs gpu temp", "gpu hotspot temperature 100c", "gpu hotspot temperature range", "gpu hotspot temperature 110c", "is 85 degrees hot for gpu hotspot", "gpu hotspot temperature msi afterburner"],
- "title": "GPU hotspot temperature: what it is and when 100°C is a problem",
- "summary": "What the GPU hotspot temperature measures, how far above the GPU temp it normally runs, what AMD says about 110°C, and when a big gap means worn paste or a bad cooler mount.",
+ "also": [
+  "gpu hotspot temperature vs gpu temp",
+  "gpu hotspot temperature 100c",
+  "gpu hotspot temperature range",
+  "gpu hotspot temperature 110c",
+  "is 85 degrees hot for gpu hotspot",
+  "gpu hotspot temperature msi afterburner"
+ ],
+ "title": "Why GPU hotspot temperature runs high, and when the gap is bad",
+ "summary": "Why the GPU hotspot temperature always reads higher than the GPU, what gap is normal, when 100°C is a problem, and how RigSight watches the gap for you over weeks of play.",
  "short": "The GPU hotspot temperature is the hottest of many sensors on the graphics chip, so it always reads above the main GPU temp. As a rule of thumb, a gap of about 10 to 20°C under load is common. AMD says up to 110°C on Radeon cards is within spec. A gap past about 30°C often points to paste or cooler contact.",
- "faq": [["What is the difference between GPU hotspot temperature and GPU temp?", "The GPU temp is one general reading for the chip. The hotspot is the highest reading from a whole grid of sensors across the chip, so it's always the warmer of the two. What matters most is the gap between them, not the hotspot on its own."],
-         ["Is a GPU hotspot temperature of 100°C bad?", "On an AMD Radeon card, 100°C is below the 110°C AMD calls within spec. On any card, look at the gap: a hotspot of 100°C with the GPU temp at 85°C is a normal spread, while 100°C with the GPU temp at 65°C points to poor contact between the cooler and the chip."],
-         ["Is 85 degrees hot for a GPU hotspot?", "No. A hotspot of 85°C is an ordinary reading in a demanding game. It usually means the main GPU temperature is somewhere in the 60s or low 70s."],
-         ["What is a normal GPU hotspot temperature range?", "In games, hotspots in the 80s and 90s °C are common, and Radeon cards can go higher while staying within AMD's spec. The gap to the main GPU temperature tells you more. As a rule of thumb from builders, not a maker's spec, about 10 to 20°C is common, and past about 30°C deserves a closer look."],
-         ["Why can't I see the hotspot on my RTX 50 series card?", "When the RTX 50 series launched in early 2025, NVIDIA stopped handing the hotspot reading to common monitoring tools, so most apps showed only the main GPU temperature. In 2026 HWMonitor, HWiNFO and GPU-Z 2.71.0 added it back. If your app shows no hotspot, update it."]],
- "cover_tiles": [["HOT SPOT", "78°", "hottest sensor on the chip"], ["GPU", "68°", "the main reading"], ["GAP", "10°", "a normal spread in a game"]],
- "app": ["Temperatures page HOT SPOT tile with today's lowest and highest", "GPU hot spot line on the temperature graph (averages since 0.17.0; lowest recorded since 0.20.0)", "Reports Peaks: GPU hot spot with the app", "Report insight: GPU hot spot 30° or more above the core over 20 minutes of steady heavy load (InsightEngine)", "Temperature alerts: GPU hot spot limit, 100° by default, 70 to 110°"],
- "sources": ["https://www.tomshardware.com/news/amd-rx-5700-graphics-card-thermal-management,40144.html",
-             "https://www.pcgamer.com/uk/fretting-over-high-gpu-temps-amd-says-110c-is-expected-and-within-spec-on-navi",
-             "https://www.techspot.com/news/97120-amd-aware-radeon-rx-7900-xtx-temperature-issues.html",
-             "https://www.guru3d.com/story/issues-with-the-rx-7900-xtx-110c-hotspot-response-from-amd",
-             "https://www.igorslab.de/en/rdna3-and-single-too-high-hotspot-temperatures-on-the-amd-radeon-rx-7900-xtx-total-possible-causes/2/",
-             "https://www.tomshardware.com/pc-components/gpus/hotspot-temperature-sensor-on-nvidias-blackwell-gaming-gpus-is-still-accessible-if-you-have-access-to-nvidias-internal-mods-tool-nvidia-rtx-5070-ti-caught-throttling-at-107-c-over-poor-tim-application",
-             "https://www.club386.com/nvidia-geforce-rtx-50-hotspot-sensor-exposed-mods/",
-             "https://overclock3d.net/news/gpu-displays/gpu-z-enables-rtx-50-gpu-hotspot-support-with-2-71-0-update/",
-             "https://www.techpowerup.com/download/techpowerup-gpu-z/",
-             "https://www.pcgamer.com/amd-rx-7900-xtx-overheating-issue/",
-             "https://www.amd.com/en/resources/support-articles/faqs/DH3-020.html",
-             "https://www.amd.com/en/resources/support-articles/faqs/DH3-038.html",
-             "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4070-family/"]}
+ "faq": [
+  [
+   "What is the difference between GPU hotspot temperature and GPU temp?",
+   "The GPU temp is one general reading for the chip. The hotspot is the highest reading from a whole grid of sensors across the chip, so it's always the warmer of the two. What matters most is the gap between them, not the hotspot on its own."
+  ],
+  [
+   "Is a GPU hotspot temperature of 100°C bad?",
+   "On an AMD Radeon card, 100°C is below the 110°C AMD calls within spec. On any card, look at the gap. A hotspot of 100°C with the GPU temp at 85°C is a normal spread, while 100°C with the GPU temp at 65°C points to poor contact between the cooler and the chip."
+  ],
+  [
+   "Is 85 degrees hot for a GPU hotspot?",
+   "No. A hotspot of 85°C is an ordinary reading in a demanding game. It usually means the main GPU temperature is somewhere in the 60s or low 70s."
+  ],
+  [
+   "What is a normal GPU hotspot temperature range?",
+   "In games, hotspots in the 80s and 90s °C are common, and Radeon cards can go higher while staying within AMD's spec. The gap to the main GPU temperature tells you more. As a rule of thumb from builders, not a maker's spec, about 10 to 20°C is common, and past about 30°C deserves a closer look."
+  ],
+  [
+   "Why can't I see the hotspot on my RTX 50 series card?",
+   "When the RTX 50 series launched in early 2025, NVIDIA stopped handing the hotspot reading to common monitoring tools, so most apps showed only the main GPU temperature. In 2026 HWMonitor, HWiNFO and GPU-Z 2.71.0 added it back. If your app shows no hotspot, update it."
+  ]
+ ],
+ "cover_tiles": [
+  [
+   "HOT SPOT",
+   "78°",
+   "hottest sensor on the chip"
+  ],
+  [
+   "GPU",
+   "68°",
+   "the main reading"
+  ],
+  [
+   "GAP",
+   "10°",
+   "a normal spread in a game"
+  ]
+ ],
+ "app": [
+  "Temperatures page HOT SPOT tile with today's lowest and highest",
+  "GPU hot spot line on the temperature graph (averages since 0.17.0; lowest recorded since 0.20.0)",
+  "Reports Peaks: GPU hot spot with the app",
+  "Report insight: GPU hot spot 30° or more above the core over 20 minutes of steady heavy load (InsightEngine)",
+  "Temperature alerts: GPU hot spot limit, 100° by default, 70 to 110°"
+ ],
+ "sources": [
+  "https://www.tomshardware.com/news/amd-rx-5700-graphics-card-thermal-management,40144.html",
+  "https://www.pcgamer.com/uk/fretting-over-high-gpu-temps-amd-says-110c-is-expected-and-within-spec-on-navi",
+  "https://www.techspot.com/news/97120-amd-aware-radeon-rx-7900-xtx-temperature-issues.html",
+  "https://www.guru3d.com/story/issues-with-the-rx-7900-xtx-110c-hotspot-response-from-amd",
+  "https://www.igorslab.de/en/rdna3-and-single-too-high-hotspot-temperatures-on-the-amd-radeon-rx-7900-xtx-total-possible-causes/2/",
+  "https://www.tomshardware.com/pc-components/gpus/hotspot-temperature-sensor-on-nvidias-blackwell-gaming-gpus-is-still-accessible-if-you-have-access-to-nvidias-internal-mods-tool-nvidia-rtx-5070-ti-caught-throttling-at-107-c-over-poor-tim-application",
+  "https://www.club386.com/nvidia-geforce-rtx-50-hotspot-sensor-exposed-mods/",
+  "https://overclock3d.net/news/gpu-displays/gpu-z-enables-rtx-50-gpu-hotspot-support-with-2-71-0-update/",
+  "https://www.techpowerup.com/download/techpowerup-gpu-z/",
+  "https://www.pcgamer.com/amd-rx-7900-xtx-overheating-issue/",
+  "https://www.amd.com/en/resources/support-articles/faqs/DH3-020.html",
+  "https://www.amd.com/en/resources/support-articles/faqs/DH3-038.html",
+  "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4070-family/"
+ ]
+}
 -->
-<p>Your monitoring app shows two GPU temperatures. One says 72°C and the other, labelled hot spot, says 94°C. The GPU hotspot temperature always reads higher, and that's by design. What tells you whether something is wrong is how far apart the two are, and whether that gap has grown.</p>
+<p>Your monitoring app shows two GPU temperatures. One says 72°C and the other, labelled hot spot, says 94°C. The GPU hotspot temperature always reads higher, and that's by design. What tells you whether something is wrong is how far apart the two are, and whether that gap has grown. A gap that grows does it slowly, over weeks, which is exactly what nobody notices by glancing at a number.</p>
 
-<h2>What the GPU hotspot temperature is</h2>
+<h2>How RigSight spots a bad hotspot gap</h2>
 
-<p>A modern graphics chip has many temperature sensors spread across it. AMD explained this in 2019 for its RX 5700 cards: an array of sensors is spread across the chip, and the highest reading from any of them is the hotspot, which AMD also calls the junction temperature.</p>
+<p>Here is what it looks like on the demo PC in RigSight's own pictures, an RTX 3080 Ti. The GPU reads 68° and its hot spot 78°, a 10° gap, which is healthy. RigSight keeps that gap as history, so a gap that creeps up shows in the history.</p>
+
+
+<p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. When your card reports a hotspot, the GPU card on the Temperatures page shows it as its own tile, next to the memory junction, with today's lowest and highest under it. The history graph draws GPU hot spot as a line beside the main GPU line, so you can see the gap across a whole evening of play.</p>
+
+{{fig pages/temperatures | RigSight's Temperatures page with the GPU at 68° and its hot spot at 78°, above a history graph with CPU, GPU, GPU hot spot and GPU memory lines | RigSight's Temperatures page. The hot spot tile sits next to the GPU gauge, and the graph below draws it as its own line.}}
+
+<p>RigSight also watches the gap for you. When the hotspot runs 30° or more above the core over 20 minutes or more of steady heavy load, Reports says so and adds that the thermal paste or cooler contact may have worn. Reports' Peaks list includes the day's highest GPU hot spot reading and the app that was running.</p>
+
+<p>For a warning while you play, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong> with a GPU hot spot limit. It starts at 100° and can be set from 70 to 110°, so a Radeon owner can set it just under AMD's 110°C.</p>
+
+<h2>Why the GPU hotspot runs hotter</h2>
+
+<p>A modern graphics chip has many temperature sensors spread across it. AMD explained this in 2019 for its RX 5700 cards. An array of sensors is spread across the chip, and the highest reading from any of them is the hotspot, which AMD also calls the junction temperature.</p>
 
 <p>The ordinary GPU temperature is a single, general reading for the chip. On AMD cards some apps call it the edge temperature. Some parts of the chip always work harder than others, so one spot is always warmer than the general reading. That warmest spot is the hotspot.</p>
 
-<h2>GPU hotspot temperature vs GPU temp: the normal gap</h2>
+<h2>GPU hotspot temperature vs GPU temp, and the normal gap</h2>
 
 <p>Under load, the hotspot usually runs about 10 to 20°C above the GPU temperature. Some high-power cards sit a little past that and are still fine. This range is a rule of thumb from people who build and repair PCs. Neither NVIDIA nor AMD publishes an official figure for the gap.</p>
 
@@ -45,9 +111,9 @@
   <li>A gap past about 30°C often means the cooler isn't pressing evenly on the chip, or the thermal paste has dried out or spread unevenly.</li>
 </ul>
 
-<p>Two things make the gap meaningful. Compare at steady load, a few minutes into a game, because at idle both readings are low and close. And compare like for like: the same game on the same card, before and after. A gap that was 15°C a year ago and is 30°C now tells you far more than one reading against a forum post.</p>
+<p>Two things make the gap meaningful. Compare at steady load, a few minutes into a game, because at idle both readings are low and close. And compare like for like, with the same game on the same card, before and after. A gap that was 15°C a year ago and is 30°C now tells you far more than one reading against a forum post.</p>
 
-<h2>GPU hotspot temperature 100°C, 105°C, 110°C: what the makers say</h2>
+<h2>What the makers say about a GPU hotspot temperature of 100°C, 105°C or 110°C</h2>
 
 <p>AMD has been clear about its own cards. In 2019 it said a junction temperature of up to 110°C during typical gaming on the RX 5700 series was "expected and within spec". AMD said the card keeps raising its clocks until any one sensor reaches 110°C.</p>
 
@@ -57,11 +123,11 @@
 
 <h2>Why your card might not show a hotspot</h2>
 
-<p>Not every card reports one, and not every app reads it. When the RTX 50 series launched in early 2025, NVIDIA stopped giving the hotspot reading to common monitoring tools, so apps such as HWiNFO and GPU-Z showed only the main temperature. The sensor was still on the chip. In 2026 the tools caught up: HWMonitor, HWiNFO and GPU-Z 2.71.0 read the RTX 50 hotspot again, so update your app if it shows none. Older GeForce cards like the RTX 30 and 40 series show it, and AMD lists the hotspot for the Radeon VII, the RX 5000 series and newer.</p>
+<p>Not every card reports one, and not every app reads it. When the RTX 50 series launched in early 2025, NVIDIA stopped giving the hotspot reading to common monitoring tools, so apps such as HWiNFO and GPU-Z showed only the main temperature. The sensor was still on the chip. In 2026 HWMonitor, HWiNFO and GPU-Z 2.71.0 started to read the RTX 50 hotspot again, so update your app if it shows none. Older GeForce cards like the RTX 30 and 40 series show it, and AMD lists the hotspot for the Radeon VII, the RX 5000 series and newer.</p>
 
 <h2>How to check your GPU hotspot temperature</h2>
 
-<p>Task Manager shows only the main GPU temperature, so you need a sensor app:</p>
+<p>Task Manager shows only the main GPU temperature, so you need a sensor app.</p>
 
 <ol>
   <li>In GPU-Z, open the <strong>Sensors</strong> tab and look for <strong>Hot Spot</strong>.</li>
@@ -80,16 +146,7 @@
   <li>After any change, play the same game for the same time and compare the gap with what you saw before.</li>
 </ol>
 
-<p>If only the main GPU temperature is high and the gap is normal, the chip and cooler are in good contact, and the heat is a matter of airflow, dust or settings. The guide on <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a> covers that side, and <a href="pc-overheating-while-gaming">PC overheating while gaming</a> has the full list of fixes.</p>
-
-<h2>Watching the hotspot over time with RigSight</h2>
-
-<p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. When your card reports a hotspot, the GPU card on the Temperatures page shows it as its own tile, next to the memory junction, with today's lowest and highest under it. The history graph draws GPU hot spot as a line beside the main GPU line, so you can see the gap across a whole evening of play.</p>
-
-{{fig pages/temperatures | RigSight's Temperatures page with the GPU at 68° and its hot spot at 78°, above a history graph with CPU, GPU, GPU hot spot and GPU memory lines | RigSight's Temperatures page. The hot spot tile sits next to the GPU gauge, and the graph below draws it as its own line.}}
-
-<p>RigSight also watches the gap for you. When the hotspot runs 30° or more above the core over 20 minutes or more of steady heavy load, Reports says so and adds that the thermal paste or cooler contact may have worn. Reports' Peaks list includes the day's highest GPU hot spot reading and the app that was running.</p>
-
-<p>For a warning while you play, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong> with a GPU hot spot limit. It starts at 100° and can be set from 70 to 110°, so a Radeon owner can set it just under AMD's 110°C.</p>
+<p>If only the main GPU temperature is high and the gap is normal, the chip and cooler are in good contact, and the heat is a matter of airflow, dust or settings. <a href="normal-gpu-temperature-while-gaming">Normal GPU temperature while gaming</a> covers that side, and <a href="pc-overheating-while-gaming">PC overheating while gaming</a> has the full list of fixes.</p>
 
 <p>Next, write down your gap after 10 minutes in your usual game. If it's under 20°C, leave it alone. If it's past 30°C, clean the card, check the warranty and plan the repaste or the return.</p>
+

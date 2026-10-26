@@ -13,9 +13,9 @@
 
 <h2>Do what you can</h2>
 
-<p>Version 0.23.0 makes the recorder look at the account it's running in first. There are three cases: an admin, an admin that hasn't been given admin rights yet, or a standard account. On a standard account it now runs without admin rights and never asks for them.</p>
+<p>Version 0.23.0 makes the recorder look at the account it's running in first. It can be an admin, an admin that hasn't been given admin rights yet, or a standard account. On a standard account it now runs without admin rights and never asks for them.</p>
 
-<p>Then it records everything Windows does allow. That's more than I expected:</p>
+<p>Then it records everything Windows does allow. That's more than I expected.</p>
 
 <ul>
   <li>CPU load, which Home uses for "CPU busiest" instead of the CPU temperature</li>
@@ -38,12 +38,12 @@
 
 <h2>One PC, several people</h2>
 
-<p>Running on standard accounts raised a question I hadn't thought about: whose history is it? The answer is simple. Each person's history and settings stay in their own Windows profile, even when an admin's password was used to install it. If two people are signed in at once, each gets their own recorder.</p>
+<p>Running on standard accounts raised a question I hadn't thought about. Whose history is it? The answer is simple. Each person's history and settings stay in their own Windows profile, even when an admin's password was used to install it. If two people are signed in at once, each gets their own recorder.</p>
 
-<p>For whoever looks after the PC, setup has two new boxes on PCs with more than one account: install for everyone, and keep it updated for everyone. The updater only runs when RigSight starts or when someone presses Update. It never runs on a timer in the background, and it waits while a RigSight window is open.</p>
+<p>For whoever looks after the PC, setup has two new boxes on PCs with more than one account. One installs it for everyone, and the other keeps it updated for everyone. The updater only runs when RigSight starts or when someone presses Update. It never runs on a timer in the background, and it waits while a RigSight window is open.</p>
 
 <h2>Testing on PCs I don't own</h2>
 
-<p>I only have one PC, and I'm the admin on it. So I tested this on throwaway Windows machines that only last 50 minutes each: an ordinary admin upgrading from the old version with their history counted before and after, standard accounts, two admins, the updater and uninstalling. Then on my own PC, over the previous version.</p>
+<p>I only have one PC, and I'm the admin on it. So I tested this on throwaway Windows machines that only last 50 minutes each. I tried an ordinary admin upgrading from the old version with their history counted before and after, standard accounts, two admins, the updater and uninstalling. Then on my own PC, over the previous version.</p>
 
 <p>It's not the most exciting release I've made. But it's the one that let a whole group of people use RigSight at all, and it set a rule I've kept since. When RigSight can't know something, it says so in words, and the history only ever holds readings that really happened.</p>

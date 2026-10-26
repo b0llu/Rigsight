@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Normal GPU temperature while gaming, and when 85°C is too hot · RigSight</title>
-  <meta name="description" content="What a normal GPU temperature while gaming looks like, the maximum temperatures NVIDIA and AMD give for their cards, and what to do when yours runs hot." />
+  <meta name="description" content="What a normal GPU temperature while gaming is, the limits NVIDIA and AMD give, and why RigSight only ever compares your card with itself, after it once told me my healthy fan was clogged." />
   <meta name="theme-color" content="#000000" />
   <meta name="color-scheme" content="dark" />
   <link rel="canonical" href="https://rigsight.app/blog/normal-gpu-temperature-while-gaming" />
@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
   <meta property="og:site_name" content="RigSight" />
   <meta property="og:title" content="Normal GPU temperature while gaming, and when 85°C is too hot · RigSight" />
-  <meta property="og:description" content="What a normal GPU temperature while gaming looks like, the maximum temperatures NVIDIA and AMD give for their cards, and what to do when yours runs hot." />
+  <meta property="og:description" content="What a normal GPU temperature while gaming is, the limits NVIDIA and AMD give, and why RigSight only ever compares your card with itself, after it once told me my healthy fan was clogged." />
   <meta property="og:url" content="https://rigsight.app/blog/normal-gpu-temperature-while-gaming" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
@@ -21,7 +21,7 @@
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="800" />
   <meta property="og:type" content="article" />
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Normal GPU temperature while gaming, and when 85\u00b0C is too hot", "description": "What a normal GPU temperature while gaming looks like, the maximum temperatures NVIDIA and AMD give for their cards, and what to do when yours runs hot.", "datePublished": "2026-10-26", "dateModified": "2026-10-26", "image": "https://rigsight.app/img/blog/normal-gpu-temperature-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/normal-gpu-temperature-while-gaming", "keywords": "normal gpu temperature while gaming, is 85 degrees hot for a gpu while gaming, average gpu temperature while gaming, normal gpu temperature while gaming laptop, what temperature is normal for gpu, when should i worry about gpu temp"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Normal GPU temperature while gaming, and when 85\u00b0C is too hot", "description": "What a normal GPU temperature while gaming is, the limits NVIDIA and AMD give, and why RigSight only ever compares your card with itself, after it once told me my healthy fan was clogged.", "datePublished": "2026-10-26", "dateModified": "2026-10-26", "image": "https://rigsight.app/img/blog/normal-gpu-temperature-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/normal-gpu-temperature-while-gaming", "keywords": "normal gpu temperature while gaming, is 85 degrees hot for a gpu while gaming, average gpu temperature while gaming, normal gpu temperature while gaming laptop, what temperature is normal for gpu, when should i worry about gpu temp"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Normal GPU temperature while gaming, and when 85\u00b0C is too hot", "item": "https://rigsight.app/blog/normal-gpu-temperature-while-gaming"}]}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is 85 degrees hot for a GPU while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "It's warm, but it's inside the limit for most current cards. NVIDIA lists a maximum of 90\u00b0C for the RTX 4070 and 4090 and 93\u00b0C for the RTX 3060 and 3080, though the RTX 5070 is listed at 85\u00b0C. If your card sits at 85\u00b0C, check its own maximum, then look at dust, airflow and the fan curve."}}, {"@type": "Question", "name": "What is the average GPU temperature while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "There is no single average that fits every card. Most desktop cards with a clean cooler settle somewhere in the 60s or 70s \u00b0C in a demanding game. Small cases, hot rooms and laptops run warmer."}}, {"@type": "Question", "name": "What is a normal GPU temperature while gaming on a laptop?", "acceptedAnswer": {"@type": "Answer", "text": "Laptops run hotter than desktops because the cooler is small and shared with the CPU. Readings in the high 70s and 80s \u00b0C are common on gaming laptops. The laptop maker sets the limits, so their support page is the place to check."}}, {"@type": "Question", "name": "What is normal GPU temperature while gaming in Fahrenheit?", "acceptedAnswer": {"@type": "Answer", "text": "60 to 80\u00b0C is 140 to 176\u00b0F. 85\u00b0C is 185\u00b0F, and the 90\u00b0C limit on many NVIDIA cards is 194\u00b0F."}}, {"@type": "Question", "name": "When should I worry about GPU temp?", "acceptedAnswer": {"@type": "Answer", "text": "Worry when the card reaches its listed maximum and the frame rate drops, when temperatures climb over weeks in the same game, or when the hot spot runs far above the main reading. A one-off warm day in summer is usually the room."}}]}</script>
   <style>
@@ -222,12 +222,27 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Blog</a></nav>
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Temperatures</p>
   <h1>Normal GPU temperature while gaming, and when 85°C is too hot</h1>
-  <p class="dek">What a normal GPU temperature while gaming looks like, the maximum temperatures NVIDIA and AMD give for their cards, and what to do when yours runs hot.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 26 October 2026 · 7 min read</p>
+  <p class="dek">What a normal GPU temperature while gaming is, the limits NVIDIA and AMD give, and why RigSight only ever compares your card with itself, after it once told me my healthy fan was clogged.</p>
+  <p class="byline"><b>Dhruv Samant</b> · Updated 26 October 2026 · 8 min read</p>
   <figure class="cover"><img class="" src="../img/blog/normal-gpu-temperature-while-gaming.webp" srcset="../img/blog/normal-gpu-temperature-while-gaming-600.webp 600w, ../img/blog/normal-gpu-temperature-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s GPU card on the Temperatures page: an RTX 3080 Ti at 68° with load, power, hot spot and memory junction readings" fetchpriority="high" decoding="async"><figcaption>RigSight's Temperatures page. The history graph below the gauges can show each minute's average, highest or lowest.</figcaption></figure>
-  <div class="short"><p class="short-k">The short answer</p><p>A normal GPU temperature while gaming is roughly 60 to 80°C on a desktop card with a working cooler. Each card has its own limit: NVIDIA lists 85 to 93°C depending on the model. 85°C is warm but within spec for most cards. Worry when it keeps rising, or sits right at the limit.</p></div>
+  <div class="short"><p class="short-k">The short answer</p><p>A normal GPU temperature while gaming is roughly 60 to 80°C on a desktop card with a working cooler. Each card has its own limit, and NVIDIA lists 85 to 93°C depending on the model. 85°C is warm but within spec for most cards. Worry when it keeps rising, or sits right at the limit.</p></div>
   <div class="body">
-<p>You're in a game, you glance at a monitoring app, and your graphics card says 82°C. Is that fine? This guide gives the normal GPU temperature while gaming, the limits NVIDIA and AMD actually publish for their cards, and the point where a warm card becomes a problem worth fixing.</p>
+<p>On 29 September RigSight told me my GPU fan was running 1,473 rpm faster than usual at the same temperature, and that my cooler might be clogging. Nothing was wrong. It had compared minutes when my card's fans were stopped at rest with minutes in a game. That mistake is the best answer I have to "what's a normal GPU temperature while gaming?" Normal is what your own card does in the same game, at the same load. Charts of other people's cards give you a rough range and nothing more.</p>
+
+<h2>How RigSight checks your GPU temperature</h2>
+
+<p>After that false alarm, every temperature comparison in RigSight became like for like. The full story is in <a href="like-for-like">The day RigSight told me my healthy fan was clogged</a>. Here is what it does now for your GPU.</p>
+
+
+<p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. Its Temperatures page shows the GPU's temperature with its lowest and highest of the day under it, plus the hot spot and memory junction readings when the card reports them. Below that, the history graph covers any range from the last 5 minutes to the last 12 months, or a Custom range, and can show each minute's average, highest or lowest reading. So you can see the exact peak of last night's session, not only how warm the card is now.</p>
+
+<p>The part that answers "is this normal?" is that RigSight compares your card with itself. For a week, a month or a custom range, Reports has an Against your usual table. It takes the game you played most and sets its GPU temperature against your own usual in that game from the weeks before, at the same power, with the room taken out. If a game now runs hotter than usual, the PC health card on Home says so in one line. That answers the question better than any chart of other people's cards.</p>
+
+<p>If you'd rather be told than check, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong>. The GPU limit starts at 83° and can be set from 60 to 100°. When the GPU stays over it for a few seconds, the alert names the app that was running.</p>
+
+<h2>Why a GPU runs as hot as it does</h2>
+
+<p>A graphics card turns almost all the power it draws into heat, and a demanding game asks it for nearly all it has. How hot it ends up depends on how much power the game pulls, how well the cooler moves that heat into the case, and how well the case moves it out into the room. A hotter room starts the whole chain higher.</p>
 
 <h2>Normal GPU temperature while gaming</h2>
 
@@ -239,29 +254,29 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>A card that stops its fans at rest will idle warmer than you expect, around 40 to 50°C. That's by design.</li>
 </ul>
 
-<p>Two things are normal and catch people out. First, the temperature climbs for the first 10 minutes or so of a game, then levels off. Judge the level, not the climb. Second, modern cards boost their clock speed as long as there is room under their limit, so a card running warm is often a card running fast.</p>
+<p>Two things are normal and catch people out. First, the temperature climbs for the first 10 minutes or so of a game, then levels off. Judge the level, not the climb. Second, modern cards boost their clock speed as long as there is room under their limit, so a warm card is often a card that is boosting its clock.</p>
 
 <h2>The limits NVIDIA and AMD give</h2>
 
-<p>There is no one safe number for every GPU. Each maker publishes its own, and it changes from model to model. NVIDIA lists a "Maximum GPU Temperature" on each GeForce card's spec page. These are the figures for its own Founders Edition or reference designs:</p>
+<p>There is no one safe number for every GPU. Each maker publishes its own, and it changes from model to model. NVIDIA lists a "Maximum GPU Temperature" on each GeForce card's spec page. These are the figures for its own Founders Edition or reference designs.</p>
 
 <ul>
-  <li>RTX 3060, 3060 Ti, 3080 and 3080 Ti: 93°C</li>
-  <li>RTX 4070, 4070 SUPER, 4070 Ti, 4070 Ti SUPER and 4090: 90°C</li>
-  <li>RTX 5090: 90°C</li>
-  <li>RTX 5080 and 5070 Ti: 88°C</li>
-  <li>RTX 5070: 85°C</li>
+  <li>The RTX 3060, 3060 Ti, 3080 and 3080 Ti have a maximum of 93°C.</li>
+  <li>The RTX 4070, 4070 SUPER, 4070 Ti, 4070 Ti SUPER and 4090 have a maximum of 90°C.</li>
+  <li>The RTX 5090 has a maximum of 90°C.</li>
+  <li>The RTX 5080 and 5070 Ti have a maximum of 88°C.</li>
+  <li>The RTX 5070 has a maximum of 85°C.</li>
 </ul>
 
 <p>NVIDIA notes that card makers such as ASUS, MSI or Gigabyte may publish different specs for their own versions, so check your exact card's page too. When a card reaches its maximum, it lowers its clock speed to stay there. That protects the chip, and it also costs you frames.</p>
 
-<p>AMD talks about its limit differently. On Radeon cards the reading to watch against the limit is the junction temperature, also called the hot spot, which is the hottest of many sensors on the chip. In 2019 AMD said that a junction temperature of up to 110°C during typical gaming on the RX 5700 series was "expected and within spec". AMD Software shows this reading as GPU Junction Temperature, next to the main GPU temperature, which sits well below it. If you want to understand that second number, the guide on <a href="gpu-hotspot-temperature">GPU hot spot temperature</a> explains the gap between the two.</p>
+<p>AMD talks about its limit differently. On Radeon cards the reading to watch against the limit is the junction temperature, also called the hot spot, which is the hottest of many sensors on the chip. In 2019 AMD said that a junction temperature of up to 110°C during typical gaming on the RX 5700 series was "expected and within spec". AMD Software shows this reading as GPU Junction Temperature, next to the main GPU temperature, which sits well below it. If you want to understand that second number, <a href="gpu-hotspot-temperature">GPU hot spot temperature</a> explains the gap between the two.</p>
 
 <h2>Is 85 degrees hot for a GPU while gaming?</h2>
 
-<p>85°C is warm. For most current cards it is still inside the maker's limit: 5°C under the 90°C of an RTX 4070 or 4090, and 8°C under the 93°C of an RTX 3080. On an RTX 5070, which NVIDIA lists at 85°C, it is right at the line, and the card is already holding itself back.</p>
+<p>85°C is warm. For most current cards it is still inside the maker's limit. It is 5°C under the 90°C of an RTX 4070 or 4090, and 8°C under the 93°C of an RTX 3080. On an RTX 5070, which NVIDIA lists at 85°C, it is right at the line, and the card is already holding itself back.</p>
 
-<p>So the answer depends on your card. Look up its maximum, then ask three questions:</p>
+<p>So the answer depends on your card. Look up its maximum, then ask yourself these questions.</p>
 
 <ol>
   <li>Does it level off at 85°C, or keep climbing the longer you play?</li>
@@ -275,11 +290,11 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>Laptops are their own case. The GPU and CPU often share one set of heat pipes and fans, in a body a couple of centimetres thick. Gaming laptops commonly run their GPU in the high 70s and 80s °C, and that is how many are tuned out of the box. The laptop maker, not NVIDIA or AMD alone, sets how hot it is allowed to get and how loud the fans may run, so the maker's support page is the place to look for your model's numbers.</p>
 
-<p>What helps most on a laptop is simple: play on a hard, flat surface so the vents underneath can breathe, keep the vents free of dust, and use the maker's own performance mode app if it has one. A stand that lifts the back edge helps too.</p>
+<p>What helps most on a laptop is simple. Play on a hard, flat surface so the vents underneath can breathe, keep the vents free of dust, and use the maker's own performance mode app if it has one. A stand that lifts the back edge helps too.</p>
 
 <h2>How to check your GPU temperature in Windows</h2>
 
-<p>Windows 10 version 2004 and Windows 11 show the temperature of a dedicated graphics card in Task Manager. Microsoft notes it needs a graphics driver that supports WDDM 2.4 or later, which any recent driver does:</p>
+<p>Windows 10 version 2004 and Windows 11 show the temperature of a dedicated graphics card in Task Manager. Microsoft notes it needs a graphics driver that supports WDDM 2.4 or later, which any recent driver does.</p>
 
 <ol>
   <li>Press <strong>Ctrl + Shift + Esc</strong> to open Task Manager.</li>
@@ -288,7 +303,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>Look for <strong>GPU Temperature</strong> in the details under the graphs.</li>
 </ol>
 
-<p>Task Manager only shows the reading right now. To see how hot the card got during a game, you need a tool that records it while you play. The guide on checking GPU temperature history covers the options.</p>
+<p>Task Manager only shows the reading right now. To see how hot the card got during a game, you need a tool that records it while you play. Checking GPU temperature history covers the options.</p>
 
 <h2>What to do if your GPU runs hot</h2>
 
@@ -304,18 +319,10 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>Steps past this, like a new fan curve, undervolting or new thermal paste, are covered in PC overheating while gaming. If your fans are the problem rather than the heat, PC fans loud while gaming is the better read.</p>
 
-<h2>Where RigSight fits in</h2>
-
-<p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. Its Temperatures page shows the GPU's temperature with its lowest and highest of the day under it, plus the hot spot and memory junction readings when the card reports them. Below that, the history graph covers any range from the last 5 minutes to the last 12 months, or a Custom range, and can show each minute's average, highest or lowest reading. So you can see the exact peak of last night's session, not only how warm the card is now.</p>
-
-<p>The more useful part for "is this normal?" is that RigSight compares your card with itself. For a week, a month or a custom range, Reports has an Against your usual table. It takes the game you played most and sets its GPU temperature against your own usual in that game from the weeks before, at the same power, with the room taken out. If a game now runs hotter than usual, the PC health card on Home says so in one line. That answers the question better than any chart of other people's cards.</p>
-
-<p>If you'd rather be told than check, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong>. The GPU limit starts at 83° and can be set from 60 to 100°. When the GPU stays over it for a few seconds, the alert names the app that was running.</p>
-
-<p>Your next step: look up your card's maximum on the maker's spec page, then play your usual game for half an hour and note where the temperature levels off. If it's well under the maximum, you can stop worrying. If it's close, start with the dust.</p>
+<p>Next, look up your card's maximum on the maker's spec page, then play your usual game for half an hour and note where the temperature levels off. If it's well under the maximum, you can stop worrying. If it's close, start with the dust.</p>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Is 85 degrees hot for a GPU while gaming?</summary><p>It's warm, but it's inside the limit for most current cards. NVIDIA lists a maximum of 90°C for the RTX 4070 and 4090 and 93°C for the RTX 3060 and 3080, though the RTX 5070 is listed at 85°C. If your card sits at 85°C, check its own maximum, then look at dust, airflow and the fan curve.</p></details><details class="qa"><summary>What is the average GPU temperature while gaming?</summary><p>There is no single average that fits every card. Most desktop cards with a clean cooler settle somewhere in the 60s or 70s °C in a demanding game. Small cases, hot rooms and laptops run warmer.</p></details><details class="qa"><summary>What is a normal GPU temperature while gaming on a laptop?</summary><p>Laptops run hotter than desktops because the cooler is small and shared with the CPU. Readings in the high 70s and 80s °C are common on gaming laptops. The laptop maker sets the limits, so their support page is the place to check.</p></details><details class="qa"><summary>What is normal GPU temperature while gaming in Fahrenheit?</summary><p>60 to 80°C is 140 to 176°F. 85°C is 185°F, and the 90°C limit on many NVIDIA cards is 194°F.</p></details><details class="qa"><summary>When should I worry about GPU temp?</summary><p>Worry when the card reaches its listed maximum and the frame rate drops, when temperatures climb over weeks in the same game, or when the hot spot runs far above the main reading. A one-off warm day in summer is usually the room.</p></details></section>
   </div>
-  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>GPU hotspot temperature: what it is and when 100°C is a problem</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>How to find out why your PC crashed on Windows 11</b></a><a class="more" href="kernel-power-41"><span>Crashes</span><b>Kernel-Power 41: why it happens, and how RigSight caught mine</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games: how to find the cause and fix it</b></a></nav>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>Why GPU hotspot temperature runs high, and when the gap is bad</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>Why did my PC crash? How RigSight caught one on mine</b></a><a class="more" href="kernel-power-41"><span>Crashes</span><b>Why Kernel-Power 41 happens, and how RigSight caught mine</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games and how to catch what causes them</b></a></nav>
   <aside class="get">
     <img src="../img/logo-144.webp" alt="" width="40" height="40">
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>

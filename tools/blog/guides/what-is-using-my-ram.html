@@ -5,7 +5,7 @@
  "also": ["high memory usage windows 11 nothing running", "what is using all my ram", "high memory usage windows 11 not showing in task manager", "high memory usage windows 11 chrome", "high memory usage windows 11 idle", "high memory usage windows 11 after update"],
  "title": "What is using my RAM? How to find it on Windows 11",
  "summary": "What is using my RAM on Windows 11? How to find the app holding your memory in Task Manager and Resource Monitor, what compressed and cached memory mean, and what to do about high memory usage with nothing running.",
- "short": "Open Task Manager with Ctrl + Shift + Esc, go to Processes and click the Memory column to put the biggest users on top. If the total is high but the list looks small, check Performance > Memory: cached and compressed memory are normal, and memory that keeps growing for hours points to a leak.",
+ "short": "Open Task Manager with Ctrl + Shift + Esc, go to Processes and click the Memory column to put the biggest users on top. If the total is high but the list looks small, check Performance > Memory. Cached and compressed memory are normal, and memory that keeps growing for hours points to a leak.",
  "faq": [["Why is my memory usage high on Windows 11 with nothing running?", "Usually it's apps that start with Windows and sit in the tray, a browser that keeps running after you close its window, and memory Windows keeps as a cache. Cached memory is handed back as soon as an app needs it, so it isn't a problem. Check Task Manager's Startup apps page and turn off what you don't need."],
          ["Why is high memory usage not showing in Task Manager's list?", "The Processes list only shows what apps hold. Memory used by drivers, the Windows kernel and hardware such as integrated graphics isn't listed there. If the Non-paged pool figure on Performance > Memory keeps climbing for hours, a driver may be leaking memory, and Microsoft's free RAMMap tool shows where it went."],
          ["Is high memory usage at idle bad?", "Not by itself. Windows uses spare RAM to cache files you might open again, and gives it back the moment an app asks. It's a problem when Available memory is close to zero, the PC stutters or Windows warns that it is low on memory."],
@@ -34,12 +34,12 @@
 <p>If one app is clearly holding the most, you have your answer. Close it, or close the tabs or projects inside it you don't need. If nothing in the list looks big but the total is still high, read on.</p>
 
 <h2>Why the total is higher than the list adds up to</h2>
-<p>The Processes list only counts memory that apps hold. Windows also uses RAM for itself, for drivers and as a cache. To see all of it, open <b>Performance</b> in Task Manager and pick <b>Memory</b>. The figures under the graph mean this:</p>
+<p>The Processes list only counts memory that apps hold. Windows also uses RAM for itself, for drivers and as a cache. To see all of it, open <b>Performance</b> in Task Manager and pick <b>Memory</b>. The figures under the graph mean the following.</p>
 <ul>
 <li><b>In use</b> is memory that apps and Windows hold right now. The number next to it in brackets is the compressed part.</li>
 <li><b>Compressed</b> memory is memory apps aren't touching at the moment, squeezed by Windows so more fits in RAM. It is faster than writing it out to the drive, and it is normal to see a few hundred MB or more.</li>
 <li><b>Cached</b> is files and programs Windows keeps in RAM in case you open them again. Windows hands this memory to any app that asks for it, so a big cache is a good thing.</li>
-<li><b>Available</b> is what apps can still get: free memory plus the cache that can be given back.</li>
+<li><b>Available</b> is what apps can still get, which is free memory plus the cache that can be given back.</li>
 <li><b>Committed</b> is memory promised to apps, counted against your RAM and the page file together. When it gets close to the limit, Windows warns that the PC is low on memory.</li>
 <li><b>Non-paged pool</b> is memory the Windows kernel and drivers use. It should stay fairly steady.</li>
 <li><b>Hardware reserved</b> is set aside before Windows starts, for example for integrated graphics.</li>
@@ -61,7 +61,7 @@
 <h3>A browser that never closed</h3>
 <p>Chrome and Edge can keep running in the background after you close the last window, so extensions and apps can keep working. Turn that off in the browser's settings if you don't want it. In Chrome it is under <b>Settings > System</b>, in Edge under <b>Settings > System and performance</b>.</p>
 <h3>The cache after a game</h3>
-<p>After a big game, Cached can stay high for a while. That is Windows keeping files ready, not memory being lost. You don't need a RAM cleaner app to clear it. Those tools empty the cache, and Windows simply fills it again.</p>
+<p>After a big game, Cached can stay high for a while. That is Windows keeping files ready, not memory being lost. You don't need a RAM cleaner app to clear it. Those tools empty the cache, and Windows fills it again.</p>
 <h3>Work after an update</h3>
 <p>After a large Windows update, Windows often reindexes files and does other background work for a while. Restart and give it a few hours before you chase it.</p>
 <h3>A memory leak</h3>
@@ -72,7 +72,7 @@
 <p>To see exactly where memory has gone, Microsoft's free Sysinternals tool RAMMap splits all of it by use, including driver memory, the cache and each process. It needs to run as administrator.</p>
 
 <h2>Browser tabs and Chrome's high memory usage</h2>
-<p>Each tab and extension in Chrome or Edge is its own process, which is why a browser so often tops the list. Two settings help:</p>
+<p>Each tab and extension in Chrome or Edge is its own process, which is why a browser so often tops the list. Two settings help.</p>
 <ul>
 <li>In Chrome, open <b>Settings > Performance</b> and turn on <b>Memory Saver</b>. Tabs you haven't used for a while are put to rest and reload when you go back to them.</li>
 <li>In Edge, open <b>Settings > System and performance</b> and turn on sleeping tabs, which does the same.</li>

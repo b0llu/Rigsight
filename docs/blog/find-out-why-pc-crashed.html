@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>How to find out why your PC crashed on Windows 11 · RigSight</title>
-  <meta name="description" content="How to find out why your PC crashed on Windows 11 or 10: what Reliability Monitor, Event Viewer and minidump files tell you, and what each kind of crash points to." />
+  <title>Why did my PC crash? How RigSight caught one on mine · RigSight</title>
+  <meta name="description" content="How to find out why your PC crashed on Windows 11 or 10, from a crash RigSight caught on my own PC. It covers what Windows records, why PCs crash, and where to look." />
   <meta name="theme-color" content="#000000" />
   <meta name="color-scheme" content="dark" />
   <link rel="canonical" href="https://rigsight.app/blog/find-out-why-pc-crashed" />
   <link rel="icon" href="/favicon.ico" sizes="48x48" />
   <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
   <meta property="og:site_name" content="RigSight" />
-  <meta property="og:title" content="How to find out why your PC crashed on Windows 11 · RigSight" />
-  <meta property="og:description" content="How to find out why your PC crashed on Windows 11 or 10: what Reliability Monitor, Event Viewer and minidump files tell you, and what each kind of crash points to." />
+  <meta property="og:title" content="Why did my PC crash? How RigSight caught one on mine · RigSight" />
+  <meta property="og:description" content="How to find out why your PC crashed on Windows 11 or 10, from a crash RigSight caught on my own PC. It covers what Windows records, why PCs crash, and where to look." />
   <meta property="og:url" content="https://rigsight.app/blog/find-out-why-pc-crashed" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
@@ -21,8 +21,8 @@
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="800" />
   <meta property="og:type" content="article" />
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "How to find out why your PC crashed on Windows 11", "description": "How to find out why your PC crashed on Windows 11 or 10: what Reliability Monitor, Event Viewer and minidump files tell you, and what each kind of crash points to.", "datePublished": "2026-10-26", "dateModified": "2026-10-26", "image": "https://rigsight.app/img/blog/find-out-why-pc-crashed.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/find-out-why-pc-crashed", "keywords": "how to find out why pc crashed windows 11, how to find out why my pc crashed, how to find out why pc keeps crashing, event viewer crash logs windows 11, how to find out why pc just crashed, how to determine why my pc crashed"}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "How to find out why your PC crashed on Windows 11", "item": "https://rigsight.app/blog/find-out-why-pc-crashed"}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Why did my PC crash? How RigSight caught one on mine", "description": "How to find out why your PC crashed on Windows 11 or 10, from a crash RigSight caught on my own PC. It covers what Windows records, why PCs crash, and where to look.", "datePublished": "2026-10-26", "dateModified": "2026-10-26", "image": "https://rigsight.app/img/blog/find-out-why-pc-crashed.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/find-out-why-pc-crashed", "keywords": "how to find out why pc crashed windows 11, how to find out why my pc crashed, how to find out why pc keeps crashing, event viewer crash logs windows 11, how to find out why pc just crashed, how to determine why my pc crashed"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Why did my PC crash? How RigSight caught one on mine", "item": "https://rigsight.app/blog/find-out-why-pc-crashed"}]}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I find out why my PC just crashed?", "acceptedAnswer": {"@type": "Answer", "text": "Open Reliability Monitor right away and look at today's column. A red X with Windows was not properly shut down means Windows didn't shut down cleanly. If a Shut down unexpectedly entry with the problem name BlueScreen sits next to it, Windows crashed, and its BCCode is the stop code. If it's alone, the PC lost power, was switched off or froze."}}, {"@type": "Question", "name": "Where are the crash logs in Event Viewer on Windows 11?", "acceptedAnswer": {"@type": "Answer", "text": "Right-click Start, open Event Viewer, then go to Windows Logs, System for the PC going down and Windows Logs, Application for apps and games crashing. Use Filter Current Log and type 41,1001,6008 in the event IDs box to see only the crash entries."}}, {"@type": "Question", "name": "How long does Event Viewer keep logs?", "acceptedAnswer": {"@type": "Answer", "text": "Each log has a size limit, often 20 MB for System and Application, and the oldest entries are dropped when it fills. On a busy PC that can be a few weeks or a few months. Reliability Monitor keeps about a year of its own history."}}, {"@type": "Question", "name": "How do I figure out why my PC keeps crashing?", "acceptedAnswer": {"@type": "Answer", "text": "Write down the time of every crash and compare them. The same stop code or the same faulting file each time points to one driver or program. Different codes every time, or sudden shut-offs with no code at all, point more toward hardware, heat or power."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
@@ -221,28 +221,40 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 </div><div class="progress" aria-hidden="true"><i></i></div></header><main><article class="post wrap-narrow guide">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Blog</a></nav>
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Crashes</p>
-  <h1>How to find out why your PC crashed on Windows 11</h1>
-  <p class="dek">How to find out why your PC crashed on Windows 11 or 10: what Reliability Monitor, Event Viewer and minidump files tell you, and what each kind of crash points to.</p>
+  <h1>Why did my PC crash? How RigSight caught one on mine</h1>
+  <p class="dek">How to find out why your PC crashed on Windows 11 or 10, from a crash RigSight caught on my own PC. It covers what Windows records, why PCs crash, and where to look.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 26 October 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/find-out-why-pc-crashed.webp" srcset="../img/blog/find-out-why-pc-crashed-600.webp 600w, ../img/blog/find-out-why-pc-crashed.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Crashes page for a month: tiles for app crashes, graphics driver resets and blue screens with sudden shut-offs, a timeline, and a list of crashes each with a cause and how sure it is" fetchpriority="high" decoding="async"><figcaption>RigSight's Crashes page. Each crash says what most likely caused it and how sure that is.</figcaption></figure>
-  <div class="short"><p class="short-k">The short answer</p><p>Open Reliability Monitor first: type reliability into Start and pick View reliability history. Click the red X on the day it crashed for a short report. Then check Event Viewer, Windows Logs, System for Kernel-Power 41 and BugCheck 1001. A blue screen names a stop code, a sudden power loss names nothing.</p></div>
+  <figure class="cover"><img class="" src="../img/blog/find-out-why-pc-crashed.webp" srcset="../img/blog/find-out-why-pc-crashed-600.webp 600w, ../img/blog/find-out-why-pc-crashed.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Crashes page for a month: tiles for app crashes, graphics driver resets and blue screens with sudden shut-offs, a timeline, and a list of crashes each with a cause and how sure it is" fetchpriority="high" decoding="async"></figure>
+  <div class="short"><p class="short-k">The short answer</p><p>To find out why your PC crashed, open Reliability Monitor. Type reliability into Start and pick View reliability history, then click the red X on that day. Then check Event Viewer, Windows Logs, System for Kernel-Power 41 and BugCheck 1001. A blue screen names a stop code, a sudden power loss names nothing.</p></div>
   <div class="body">
-<p>Your PC went black, restarted, or threw you back to the desktop, and now you want to know why. Windows writes down almost every crash, it just doesn't show you. Here is how to find out why your PC crashed on Windows 11, and Windows 10 works the same way. Start with the quick view, then dig only as far as you need.</p>
+<p>On 7 October I updated my NVIDIA graphics driver. Ten seconds after the new driver started, a program on my PC crashed. It happened to be RigSight's own recorder, caught asking the graphics card for its temperature at the exact moment the old driver disappeared. Windows wrote it down like any other crash, as one line in a log I'd never have opened. That's the problem when you try to find out why a PC crashed on Windows 11. The record is there, but nobody shows it to you.</p>
 
-<h2>First, work out what kind of crash it was</h2>
+<h2>How RigSight caught it</h2>
 
-<p>"Crash" covers a few different things, and each one leaves a different trail. Before you open any tool, think about what you saw.</p>
+<p>RigSight is a free, open-source Windows monitor. Its Crashes page reads the same Windows records this post walks through, for blue screens, sudden shut-offs, app crashes and freezes, and graphics driver resets. It lists them on one timeline with the stop codes and file names already pulled out. When it first runs, it reads up to 90 days back from Windows' logs, as far as they still reach.</p>
+
+<p>My crash taught it something. Since 0.17.1, when an app goes down within two minutes of a graphics driver install, the Crashes page says which driver was being installed at that moment. That's the answer I had to work out by hand that day.</p>
+
+<p>Every crash gets a plain sentence for the most likely cause and one word for how sure that is. The words are Confirmed when Windows' own record says so, Likely, Possibly, and Not enough to say. A blue screen whose driver Windows named reads as Confirmed. A shut-off that neither Windows nor RigSight has anything on says Not enough to say, rather than guessing.</p>
+
+<figure class="shot"><img src="../img/pages/crash-open.webp" srcset="../img/pages/crash-open-720.webp 720w, ../img/pages/crash-open.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="An opened crash in RigSight: the cause marked Confirmed, What to try, What points to this, What it wasn&#x27;t with temperatures and memory, and the minutes around the crash" loading="lazy" decoding="async"><figcaption>An opened crash on RigSight's Crashes page. What it wasn't rules things out with the readings from those minutes.</figcaption></figure>
+
+<p>Open one and you get what Windows can't give you. RigSight shows the 45 minutes before the crash and the 10 after. You see temperatures, load, power, memory, fans and the network, with the apps doing the work. It lists what it ruled out, such as "It wasn't overheating", and any driver, Windows update, BIOS or hardware change from the week before. <strong>Copy report</strong> puts it all in a block of text for a forum post, and the <strong>Event Viewer</strong> button opens Windows' own log. CPU temperature and power need RigSight running with admin rights. The readings only exist from when RigSight started recording, so older crashes from Windows' logs show without them.</p>
+
+<h2>Why PCs crash</h2>
+
+<p>"Crash" covers a few different things, and each one has its own usual causes and leaves a different trail.</p>
 
 <ul>
-  <li>A blue screen with a stop code. On current Windows 11 it's a black screen that says your device ran into a problem, with the stop code in small text, and it only stays up for a couple of seconds. Windows itself crashed and saved a report.</li>
-  <li>The PC just went off or restarted with no blue screen. Windows had no time to write anything, so the record is thin.</li>
-  <li>One game or app closed and the rest of Windows kept running. That's an app crash, logged separately.</li>
+  <li>A blue screen with a stop code. Windows itself hit an error it couldn't recover from and saved a report. On current Windows 11 it's a black screen that says your device ran into a problem, with the stop code in small text, and it only stays up for a couple of seconds. Microsoft estimates that about three quarters of stop errors come from faulty drivers.</li>
+  <li>The PC just went off or restarted with no blue screen. Windows had no time to write anything, so the record is thin. Power is the usual suspect, whether that's the mains, the power supply or a held power button. Heat and unstable tuning can also do it.</li>
+  <li>One game or app closed and the rest of Windows kept running. That's an app crash, logged separately. A bad update, a mod, an overlay or a driver change is the usual cause, like my driver install.</li>
   <li>The screen went black for a few seconds and came back. That's a graphics driver reset, a different problem again.</li>
 </ul>
 
 <p>If you didn't see it happen, the tools below will tell you which one it was.</p>
 
-<h2>Check Reliability Monitor</h2>
+<h2>How to find out why your PC crashed in Reliability Monitor</h2>
 
 <p>Reliability Monitor is the easiest place to start. It puts every crash of the last year on a calendar.</p>
 
@@ -253,12 +265,12 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>Double-click an entry in the list below the graph to see the technical details.</li>
 </ol>
 
-<p>What the entries mean:</p>
+<p>These are the entries that matter.</p>
 
 <ul>
-  <li>"Windows was not properly shut down": Windows didn't get to shut down cleanly. On its own, that means the PC lost power, was switched off by holding the power button, or froze so hard that Windows wrote nothing. After a blue screen you see it too, next to the BlueScreen entry below.</li>
-  <li>"Shut down unexpectedly" with the problem name BlueScreen: a blue screen. The <code>BCCode</code> line is the stop code, such as <code>124</code> or <code>116</code>.</li>
-  <li>"Stopped working" under an app's name: that app crashed. The details name the file it crashed in.</li>
+  <li>"Windows was not properly shut down" means Windows didn't get to shut down cleanly. On its own, that means the PC lost power, was switched off by holding the power button, or froze so hard that Windows wrote nothing. After a blue screen you see it too, next to the BlueScreen entry below.</li>
+  <li>"Shut down unexpectedly" with the problem name BlueScreen is a blue screen. The <code>BCCode</code> line is the stop code, such as <code>124</code> or <code>116</code>.</li>
+  <li>"Stopped working" under an app's name means that app crashed. The details name the file it crashed in.</li>
 </ul>
 
 <h2>Read the crash logs in Event Viewer</h2>
@@ -272,57 +284,39 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>In the box that says <strong>&lt;All Event IDs&gt;</strong>, type <code>41,1001,6008,1074</code> and click <strong>OK</strong>.</li>
 </ol>
 
-<p>Now you only see the events that matter:</p>
+<p>Now you only see the events that matter.</p>
 
 <ul>
-  <li>41, Kernel-Power: "The system has rebooted without cleanly shutting down first." Windows writes it when the PC starts again. Click it and open the <strong>Details</strong> tab. If <code>BugcheckCode</code> is not 0, it was a blue screen. If it's 0, the PC lost power or was switched off. See <a href="kernel-power-41">our Kernel-Power 41 guide</a> for every field.</li>
-  <li>1001, BugCheck: "The computer has rebooted from a bugcheck." This one gives the stop code in hex and the path of the dump file Windows saved.</li>
-  <li>6008, EventLog: "The previous system shutdown was unexpected." It gives the time Windows last knew it was running. That time can be stale by some minutes.</li>
-  <li>1074, User32: a normal restart that a person or a program asked for. If you see one at the time of a "random" restart, it wasn't a crash. Windows Update is a common source.</li>
+  <li>Event 41 from Kernel-Power says "The system has rebooted without cleanly shutting down first." Windows writes it when the PC starts again. Click it and open the <strong>Details</strong> tab. If <code>BugcheckCode</code> is not 0, it was a blue screen. If it's 0, the PC lost power or was switched off. <a href="kernel-power-41">Kernel-Power 41</a> goes through every field.</li>
+  <li>Event 1001 from BugCheck says "The computer has rebooted from a bugcheck." This one gives the stop code in hex and the path of the dump file Windows saved.</li>
+  <li>Event 6008 from EventLog says "The previous system shutdown was unexpected." It gives the time Windows last knew it was running. That time can be stale by some minutes.</li>
+  <li>Event 1074 from User32 is a normal restart that a person or a program asked for. If you see one at the time of a "random" restart, it wasn't a crash. Windows Update is a common source.</li>
 </ul>
 
-<p>For a game or app that closed, switch to <strong>Windows Logs &gt; Application</strong> and filter for <code>1000</code> and <code>1002</code>. Event 1000, Application Error, names the program, the faulting module and an exception code. Event 1002, Application Hang, is a program that froze and was closed. Our guide to games crashing to desktop goes through those fields.</p>
+<p>For a game or app that closed, switch to <strong>Windows Logs &gt; Application</strong> and filter for <code>1000</code> and <code>1002</code>. Event 1000, Application Error, names the program, the faulting module and an exception code. Event 1002, Application Hang, is a program that froze and was closed. Games crashing to desktop goes through those fields.</p>
 
 <h2>Look for the minidump file</h2>
 
 <p>After a blue screen, Windows usually saves a small memory dump in <code>C:\Windows\Minidump</code>, one file per crash with the date in its name. Opening it takes a debugger. WinDbg is free from Microsoft. Open the file, run <code>!analyze -v</code>, and look for the line "Probably caused by". It often names a driver file such as <code>nvlddmkm.sys</code>.</p>
 
-<p>You don't always need the dump: the stop code alone, from Reliability Monitor or Event Viewer, often says enough. If the Minidump folder is empty, open <strong>Settings &gt; System &gt; About &gt; Advanced system settings</strong>, then <strong>Startup and Recovery &gt; Settings</strong>, and set <strong>Write debugging information</strong> to <strong>Small memory dump</strong> or <strong>Automatic memory dump</strong>. The next blue screen will be saved. The small dumps go to the Minidump folder. The others are saved as <code>C:\Windows\MEMORY.DMP</code>.</p>
+<p>You don't always need the dump. The stop code alone, from Reliability Monitor or Event Viewer, often says enough. If the Minidump folder is empty, open <strong>Settings &gt; System &gt; About &gt; Advanced system settings</strong>, then <strong>Startup and Recovery &gt; Settings</strong>, and set <strong>Write debugging information</strong> to <strong>Small memory dump</strong> or <strong>Automatic memory dump</strong>. The next blue screen will be saved. The small dumps go to the Minidump folder. The others are saved as <code>C:\Windows\MEMORY.DMP</code>.</p>
 
 <h2>What the evidence points to</h2>
 
-<p>Once you have the type and the code, the next step is usually clear.</p>
-
 <ul>
-  <li>A stop code that names a driver. Update or reinstall that driver. If the crashes began after a new driver, roll it back. Microsoft estimates that about three quarters of stop errors come from faulty drivers. Our blue screen guide lists the common codes.</li>
+  <li>A stop code that names a driver. Update or reinstall that driver. If the crashes began after a new driver, roll it back. Blue screen causes lists the common codes.</li>
   <li>Codes like 0x124 WHEA_UNCORRECTABLE_ERROR or 0x101 CLOCK_WATCHDOG_TIMEOUT. The hardware reported the error. Undo any overclock or undervolt, including XMP or EXPO memory profiles, and check temperatures.</li>
-  <li>Kernel-Power 41 with a code of 0. No blue screen was saved. Power is the usual suspect: the mains, the power supply, a held power button. Heat and unstable tuning can also do it. Our guide to random restarts walks through it.</li>
+  <li>Kernel-Power 41 with a code of 0. No blue screen was saved. Power is the usual suspect, then heat and tuning. Random restarts while gaming walks through it.</li>
   <li>The same app crashing in the same file. That program, a mod or an overlay is at fault, not the PC.</li>
   <li>Different apps crashing at random, with different codes each time. That leans toward memory, the drive or heat. Run <strong>Windows Memory Diagnostic</strong> from Start and check your drive's health.</li>
 </ul>
 
-<p>Also look at what changed. Reliability Monitor lists installs under <strong>Informational events</strong>, and <strong>Settings &gt; Windows Update &gt; Update history</strong> shows what Windows installed. A crash that began the day after a new driver arrived has a likely suspect.</p>
+<p>Also look at what changed. Reliability Monitor lists installs under <strong>Informational events</strong>, and <strong>Settings &gt; Windows Update &gt; Update history</strong> shows what Windows installed. A crash that began right after a new driver arrived has a likely suspect, as mine did.</p>
 
-<h2>The part Windows doesn't record</h2>
-
-<p>Windows logs the moment of the crash. It doesn't log what led up to it. Was the GPU at 90°? Was memory full? Was anyone even using the PC? For a sudden shut-off with no code, that's often the only real clue, and by the time you look it's gone.</p>
-
-<p>That's why a monitor that records all day helps. You can't go back and measure a temperature from last Tuesday, but you can read one that was saved.</p>
-
-<h2>How RigSight does the digging for you</h2>
-
-<p>RigSight is a free, open-source Windows monitor. Its Crashes page reads the same Windows records you just looked at: blue screens, sudden shut-offs, app crashes and freezes, and graphics driver resets. It lists them on one timeline with the stop codes and file names already pulled out. When it first runs, it reads up to 90 days back from Windows' logs, as far as they still reach.</p>
-
-<p>Every crash gets a plain sentence for the most likely cause and one word for how sure that is: Confirmed when Windows' own record says so, Likely, Possibly, or Not enough to say. A blue screen whose driver Windows named reads as Confirmed. A shut-off that neither Windows nor RigSight has anything on says Not enough to say, rather than guessing.</p>
-
-<figure class="shot"><img src="../img/pages/crash-open.webp" srcset="../img/pages/crash-open-720.webp 720w, ../img/pages/crash-open.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="An opened crash in RigSight: the cause marked Confirmed, What to try, What points to this, What it wasn&#x27;t with temperatures and memory, and the minutes around the crash" loading="lazy" decoding="async"><figcaption>An opened crash on RigSight's Crashes page. What it wasn't rules things out with the readings from those minutes.</figcaption></figure>
-
-<p>Open one and you also get what Windows can't give you. RigSight shows the 45 minutes before the crash and the 10 after: temperatures, load, power, memory, fans and the network, with the apps doing the work. It lists what it ruled out, such as "It wasn't overheating", and any driver, Windows update, BIOS or hardware change from the week before. <strong>Copy report</strong> puts it all in a block of text for a forum post, and the <strong>Event Viewer</strong> button opens Windows' own log. CPU temperature and power need RigSight running with admin rights. The readings only exist from when RigSight started recording, so older crashes from Windows' logs show without them.</p>
-
-<p>Your next step: open Reliability Monitor now and find the red X for your crash. If it says BlueScreen, take the stop code to the blue screen guide. If it says Windows was not properly shut down, go to <a href="kernel-power-41">Kernel-Power 41</a>.</p>
+<p>Your next step is to open Reliability Monitor now and find the red X for your crash. If it says BlueScreen, take the stop code to blue screen causes. If it says Windows was not properly shut down, go to <a href="kernel-power-41">Kernel-Power 41</a>.</p>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>How do I find out why my PC just crashed?</summary><p>Open Reliability Monitor right away and look at today's column. A red X with Windows was not properly shut down means Windows didn't shut down cleanly. If a Shut down unexpectedly entry with the problem name BlueScreen sits next to it, Windows crashed, and its BCCode is the stop code. If it's alone, the PC lost power, was switched off or froze.</p></details><details class="qa"><summary>Where are the crash logs in Event Viewer on Windows 11?</summary><p>Right-click Start, open Event Viewer, then go to Windows Logs, System for the PC going down and Windows Logs, Application for apps and games crashing. Use Filter Current Log and type 41,1001,6008 in the event IDs box to see only the crash entries.</p></details><details class="qa"><summary>How long does Event Viewer keep logs?</summary><p>Each log has a size limit, often 20 MB for System and Application, and the oldest entries are dropped when it fills. On a busy PC that can be a few weeks or a few months. Reliability Monitor keeps about a year of its own history.</p></details><details class="qa"><summary>How do I figure out why my PC keeps crashing?</summary><p>Write down the time of every crash and compare them. The same stop code or the same faulting file each time points to one driver or program. Different codes every time, or sudden shut-offs with no code at all, point more toward hardware, heat or power.</p></details></section>
   </div>
-  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="kernel-power-41"><span>Crashes</span><b>Kernel-Power 41: why it happens, and how RigSight caught mine</b></a><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>GPU hotspot temperature: what it is and when 100°C is a problem</b></a><a class="more" href="normal-gpu-temperature-while-gaming"><span>Temperatures</span><b>Normal GPU temperature while gaming, and when 85°C is too hot</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games: how to find the cause and fix it</b></a></nav>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="kernel-power-41"><span>Crashes</span><b>Why Kernel-Power 41 happens, and how RigSight caught mine</b></a><a class="more" href="normal-gpu-temperature-while-gaming"><span>Temperatures</span><b>Normal GPU temperature while gaming, and when 85°C is too hot</b></a><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>Why GPU hotspot temperature runs high, and when the gap is bad</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games and how to catch what causes them</b></a></nav>
   <aside class="get">
     <img src="../img/logo-144.webp" alt="" width="40" height="40">
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>

@@ -32,7 +32,7 @@
 
 <p>Windows 11 also has <b>Settings</b> &gt; <b>System</b> &gt; <b>Power &amp; battery</b> &gt; <b>Power mode</b>, with Best power efficiency, Balanced and Best performance. That is the power mode, and it sits on top of the power plan.</p>
 
-<p>Microsoft's documentation for PC makers says the power mode only appears when the Balanced plan, or a plan based on it, is selected. It also says that once a PC is on Balanced, there is no way back to High performance from the settings pages, only with the powercfg command. That explains a lot of what people see:</p>
+<p>Microsoft's documentation for PC makers says the power mode only appears when the Balanced plan, or a plan based on it, is selected. It also says that once a PC is on Balanced, there is no way back to High performance from the settings pages, only with the powercfg command. That explains a lot of what people see.</p>
 
 <ul>
 <li>If your Power Options window only lists Balanced, that is how many Windows 11 PCs ship. It isn't a fault.</li>
@@ -69,7 +69,7 @@
 
 <h2>Set the plan back</h2>
 
-<p>Once the program behind it is dealt with, set the plan you want in <b>Power Options</b>. If High performance isn't listed, the powercfg command can bring it back. Open <b>Command Prompt</b> as administrator and type:</p>
+<p>Once the program behind it is dealt with, set the plan you want in <b>Power Options</b>. If High performance isn't listed, the powercfg command can bring it back. Open <b>Command Prompt</b> as administrator and type this command.</p>
 
 <p><b>powercfg /duplicatescheme 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c</b></p>
 
@@ -83,7 +83,7 @@
 
 <p>Each switch is its own line on the Timeline, such as "Power plan changed to Balanced", with what it was before and the time RigSight noticed it. Pick <b>Settings</b> in the Timeline's filter to see only setting changes. The "This PC now" panel shows the plan you are on and since what date.</p>
 
-{{fig pages/timeline | RigSight's Timeline page with a line saying the power plan changed to AMD Ryzen Balanced, was High performance | RigSight's Timeline with a power plan change: the new plan, the one before it and when it was noticed.}}
+{{fig pages/timeline | RigSight's Timeline page with a line saying the power plan changed to AMD Ryzen Balanced, was High performance | RigSight's Timeline with a power plan change, showing the new plan, the one before it and when it was noticed.}}
 
 <p>RigSight doesn't know which program made the switch. What it gives you is the time, and that is what makes the Event Viewer search above quick. Look at the UserModePowerService entries from that minute. The same day's Timeline also shows whether an app or a driver was installed or updated just before, which often answers it on its own.</p>
 

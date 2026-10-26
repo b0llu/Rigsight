@@ -3,8 +3,8 @@
  "topic": "Tools",
  "keyword": "pc monitoring software free",
  "also": ["pc hardware monitoring software free", "hwinfo alternative", "msi afterburner alternative", "hwinfo alternative open source", "msi afterburner alternative to show fps", "pc temp monitoring software free"],
- "title": "Free PC monitoring software: HWiNFO, Afterburner and others",
- "summary": "An honest comparison of free PC monitoring software for Windows: Task Manager, HWiNFO, MSI Afterburner with RivaTuner, LibreHardwareMonitor and RigSight. What each does best, and which HWiNFO or MSI Afterburner alternative fits what you want to know.",
+ "title": "HWiNFO, Afterburner and other free PC monitoring software",
+ "summary": "A comparison of free PC monitoring software for Windows, covering Task Manager, HWiNFO, MSI Afterburner with RivaTuner, LibreHardwareMonitor and RigSight. What each does best, and which HWiNFO or MSI Afterburner alternative fits what you want to know.",
  "short": "For the most sensors, use HWiNFO. For GPU overclocking, fan curves and an FPS overlay, use MSI Afterburner with RivaTuner Statistics Server. For an open source sensor reader, LibreHardwareMonitor. For history, meaning what your PC did yesterday or last month, RigSight. Task Manager covers the basics.",
  "faq": [["What is the best free PC monitoring software?", "It depends on the question. HWiNFO reads the most sensors, MSI Afterburner is the usual choice for GPU tuning and an in-game overlay, and RigSight keeps a history so you can look back. Many people run one of each."],
          ["Is there an open source HWiNFO alternative?", "LibreHardwareMonitor is open source under the MPL 2.0 licence and reads CPU, GPU, motherboard, drive and network sensors. RigSight is open source under the MIT licence and reads its sensors with LibreHardwareMonitor's library. Neither reads as many sensors as HWiNFO."],
@@ -43,16 +43,16 @@
 <h2>HWiNFO</h2>
 <p>HWiNFO reads more sensors than any other tool here. It reads nearly every sensor on the CPU, graphics card, motherboard and drives, down to individual voltages, power limits and memory timings, and it is updated often for new hardware. It can log every sensor to a CSV file, raise alerts on any reading, show readings in the tray and on screen, and share its sensor data with other apps.</p>
 <p>It is free for personal and non-commercial use. Commercial use needs the paid Pro licence. In the free version, the shared memory feature that lets other apps such as overlays read HWiNFO's sensors switches itself off after 12 hours, and you turn it on again by hand. It isn't open source.</p>
-<p>Where it falls short: the sensor window is a long list of numbers, and it doesn't tell you which ones matter or what is normal for your PC. It only logs while you have logging switched on, and you read the CSV files yourself. If you are diagnosing a fault and know what you are looking for, nothing beats it.</p>
+<p>Where it falls short is the sensor window, which is a long list of numbers, and it doesn't tell you which ones matter or what is normal for your PC. It only logs while you have logging switched on, and you read the CSV files yourself. If you are diagnosing a fault and know what you are looking for, nothing beats it.</p>
 
 <h2>MSI Afterburner and RivaTuner Statistics Server</h2>
 <p>MSI Afterburner is a free graphics card tool that works with cards from other makers too, not only MSI. It is the usual choice for overclocking and undervolting a GPU, setting your own fan curve and watching GPU readings on a graph. Its in-game overlay comes from RivaTuner Statistics Server, a separate free tool that installs alongside it. RivaTuner also has a frame rate limiter that many players use on its own.</p>
-<p>Where it falls short: it is built around the graphics card. CPU and motherboard readings are thinner than HWiNFO's, and the graphs show the recent past while the app is open. Unless you turn on its log file, it keeps no record of how a game ran last week, and it doesn't tell you what the numbers mean. MSI recommends downloading it only from msi.com or Guru3D, because fake copies exist.</p>
+<p>Its weak spot is that it is built around the graphics card. CPU and motherboard readings are thinner than HWiNFO's, and the graphs show the recent past while the app is open. Unless you turn on its log file, it keeps no record of how a game ran last week, and it doesn't tell you what the numbers mean. MSI recommends downloading it only from msi.com or Guru3D, because fake copies exist.</p>
 <p>If you only want an MSI Afterburner alternative to show FPS, you may not need Afterburner at all. RivaTuner can show a frame rate counter by itself. NVIDIA's and AMD's own apps have performance overlays, and the Xbox Game Bar, opened with Win + G, has a Performance widget with FPS.</p>
 
 <h2>LibreHardwareMonitor</h2>
 <p>LibreHardwareMonitor is free and open source, under the MPL 2.0 licence. It reads temperatures, fan speeds, voltages, load and clocks from motherboards, Intel and AMD processors, NVIDIA, AMD and Intel graphics cards, drives and network cards. Some sensors need it to run as administrator. Its library is also used inside other apps, RigSight among them.</p>
-<p>Where it falls short: it reads fewer sensors than HWiNFO, and it shows what is happening now unless you turn on <b>Log Sensors</b>, which saves the readings to a file. Get it from the project's GitHub page. The project warns that librehardwaremonitor.com is not its site.</p>
+<p>Its weak spots are that it reads fewer sensors than HWiNFO, and it shows what is happening now unless you turn on <b>Log Sensors</b>, which saves the readings to a file. Get it from the project's GitHub page. The project warns that librehardwaremonitor.com is not its site.</p>
 
 <h2>Side by side</h2>
 <table>
@@ -62,15 +62,15 @@
 <tr><td>HWiNFO</td><td>Every sensor, alerts, CSV logs</td><td>While logging is on</td><td>No</td></tr>
 <tr><td>MSI Afterburner with RivaTuner</td><td>GPU tuning, fan curves, FPS overlay</td><td>Recent graph while open, optional log file</td><td>No</td></tr>
 <tr><td>LibreHardwareMonitor</td><td>Open source sensor readings</td><td>While Log Sensors is on</td><td>Yes, MPL 2.0</td></tr>
-<tr><td>RigSight</td><td>History in plain words: heat, crashes, changes, app time, internet</td><td>Yes, all day, kept as long as you choose</td><td>Yes, MIT</td></tr>
+<tr><td>RigSight</td><td>History in plain words for heat, crashes, changes, app time and internet</td><td>Yes, all day, kept as long as you choose</td><td>Yes, MIT</td></tr>
 </tbody>
 </table>
 
 <h2>Where RigSight fits</h2>
-<p>RigSight is a free and open source PC monitor built around one thing the others don't do: it records all day in the background and keeps it. You can open the Temperatures page and look at your CPU and GPU over the last 24 hours, 7 days, 30 days or 12 months, with the app that made the heat. The Crashes page lists app crashes, blue screens, driver resets and sudden shut-offs with what most likely caused each one. The Timeline lists what changed on the PC, such as drivers and Windows updates, and whether things ran hotter or less stable afterwards.</p>
+<p>RigSight is a free and open source PC monitor built around one thing the others don't do. It records all day in the background and keeps it. You can open the Temperatures page and look at your CPU and GPU over the last 24 hours, 7 days, 30 days or 12 months, with the app that made the heat. The Crashes page lists app crashes, blue screens, driver resets and sudden shut-offs with what most likely caused each one. The Timeline lists what changed on the PC, such as drivers and Windows updates, and whether things ran hotter or less stable afterwards.</p>
 {{fig pages/temperatures | RigSight's Temperatures page with live CPU and GPU temperature, load, power and clocks, and a 24 hour history chart of CPU, GPU, hot spot and memory temperatures | RigSight's Temperatures page. The history chart keeps every minute, so you can look back at a game you played hours or months ago.}}
 <p>It also keeps time per app, internet use per app, fan speeds over months, and each game's frame rate and 1% low for every play. Live readings can go in the taskbar, in desktop widgets and in an in-game overlay. Everything can be exported as CSV.</p>
-<p>Where it falls short, plainly: it reads its sensors with LibreHardwareMonitor's library, so it shows fewer sensors than HWiNFO. It can't overclock, undervolt or control fans; Afterburner and your motherboard's software do that. FPS readings and the overlay in exclusive full screen games need RivaTuner Statistics Server. CPU temperature and power, motherboard fans, drive health and per-app internet use need RigSight to run with admin rights. It runs on Windows 10 and 11 only.</p>
+<p>It falls short in a few places. It reads its sensors with LibreHardwareMonitor's library, so it shows fewer sensors than HWiNFO. It can't overclock, undervolt or control fans. Afterburner and your motherboard's software do that. FPS readings and the overlay in exclusive full screen games need RivaTuner Statistics Server. CPU temperature and power, motherboard fans, drive health and per-app internet use need RigSight to run with admin rights. It runs on Windows 10 and 11 only.</p>
 <p>A common setup is RigSight running all the time for the history, with HWiNFO or Afterburner opened when you need a closer look or want to tune something.</p>
 
 <p>Pick the tool for the question you have today. If it is about heat, see how to <a href="check-gpu-temperature-history">check your GPU temperature history</a>. If your PC crashed and you don't know why, start with <a href="find-out-why-pc-crashed">how to find out why your PC crashed</a>.</p>

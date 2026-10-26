@@ -5,13 +5,13 @@
  "short": "Every crash now gets a cause and one of four words for how sure that is. The follow-up feature started far too big, and the best decision was cutting most of it.",
  "cover": "pages/crashes", "mark": "4 words"}
 -->
-<p>When a game crashes, you want one thing: to know why. Windows does keep a record, but it reads like this: faulting module <code>nvwgf2umx.dll</code>, exception code 0xc0000005. If you know that file belongs to the NVIDIA driver, it's a clue. If you don't, it's noise.</p>
+<p>When a game crashes, you want to know why. Windows does keep a record, but it reads like faulting module <code>nvwgf2umx.dll</code>, exception code 0xc0000005. If you know that file belongs to the NVIDIA driver, it's a clue. If you don't, it's noise.</p>
 
 <p>For its first three weeks, RigSight's Crashes page did roughly what everyone does. It showed Windows' entry and guessed a culprit from the file name. That's better than nothing. It's also often wrong, and it never told you how much to trust the guess.</p>
 
 <h2>An answer with a confidence word</h2>
 
-<p>Version 0.24.0, on 14 October, gave every crash a finding. Each one has a headline, what to try, what points to the cause, what it wasn't, and what's still unknown. And it has one of four words for how sure it is:</p>
+<p>Version 0.24.0, on 14 October, gave every crash a finding. Each one has a headline, what to try, what points to the cause, what it wasn't, and what's still unknown. And it has one of four words for how sure it is.</p>
 
 <ul>
   <li><strong>Confirmed</strong>, when Windows' own record says what happened</li>
@@ -26,23 +26,23 @@
 
 <h2>What a finding is built from</h2>
 
-<p>A finding looks at more than Windows' crash entry. It reads the rest of what Windows wrote: versions, how long the app had been running, what a frozen app was waiting on, hardware errors at the next start. Then it adds what only RigSight has, the minutes before the crash. Was the GPU hot? Was memory nearly full? Was anyone even at the PC? Did a driver or Windows update arrive in the week before?</p>
+<p>A finding looks at more than Windows' crash entry. It reads the rest of what Windows wrote, like versions, how long the app had been running, what a frozen app was waiting on, hardware errors at the next start. Then it adds what only RigSight has, the minutes before the crash. Was the GPU hot? Was memory nearly full? Was anyone even at the PC? Did a driver or Windows update arrive in the week before?</p>
 
 <p>The "what it wasn't" list is the part I'm proudest of. "It wasn't overheating, the GPU was at 67°." "Memory wasn't full." "Nothing new was installed." Ruling things out calms people down, and it stops them from replacing parts that were fine.</p>
 
-<p>One more rule: everything that talks about crashes reads the same engine. Home, Reports, the notifications and the Crashes page can't disagree, because none of them makes up its own story.</p>
+<p>There is one more rule. Everything that talks about crashes reads the same engine. Home, Reports, the notifications and the Crashes page can't disagree, because none of them makes up its own story.</p>
 
 <h2>The feature I almost over-built</h2>
 
 <p>The next step on my roadmap was a close-up of the moments around a crash, second by second. My first plan for it was big. A recording mode you could switch on. Recordings you could start, stop and read. A settings card. Labels on every row.</p>
 
-<p>I looked at the plan and had a feeling I couldn't explain at first: we are over-complicating this, and nobody will use it.</p>
+<p>I looked at the plan and had a feeling I couldn't explain at first. We are over-complicating this, and nobody will use it.</p>
 
-<p>When I thought it through, the reason was clear. People open a crash for an answer. Version 0.24.0 already gave them one. The plan piled expert tools on top that asked people to do work and handed them raw data. So I cut it down to the parts that help without asking anything of you:</p>
+<p>When I thought it through, the reason was clear. People open a crash for an answer. Version 0.24.0 already gave them one. The plan piled expert tools on top that asked people to do work and handed them raw data. So I cut it down to the parts that help without asking anything of you.</p>
 
 <ul>
   <li>Every opened crash shows the 10 minutes after it too, even for old crashes.</li>
-  <li>App crashes get a close-up: RigSight keeps the last few minutes in memory and saves them the moment something crashes.</li>
+  <li>App crashes get a close-up. RigSight keeps the last few minutes in memory and saves them the moment something crashes.</li>
   <li>Graphics driver resets, the black screen that comes back after a few seconds, became their own kind of problem.</li>
 </ul>
 

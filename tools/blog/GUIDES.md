@@ -55,7 +55,7 @@ The searched phrase goes in the title, the first paragraph, one heading and the 
 ## Voice
 
 Write like a person who builds PCs explaining it to a friend. Plain words, short sentences, one idea each. "You" for the reader.
-No em dashes or en dashes, no hyphen used as a dash, no parentheses for asides. No "not just X, but Y". No groups of three for
+No em dashes or en dashes, no hyphen used as a dash, no parentheses for asides. No colons as punctuation anywhere, titles included (the user's rule, stricter than unslop rule 14). Introduce a list with a full sentence ending in a period, and turn "label: explanation" into a sentence. Times, drive paths, URLs and code keep theirs. Every rule in Cursor's unslop skill applies (copy in %LOCALAPPDATA%\RigsightKeywords\unslop\SKILL.md, source https://github.com/cursor/plugins/tree/main/pstack/skills/unslop). No "not just X, but Y". No groups of three for
 rhythm. No slogans or aphorisms. No AI words (crucial, delve, enhance, leverage, robust, seamless, landscape, testament,
 navigate, unlock, elevate). No "In this guide we will". No "Conclusion" heading. No emoji. Bold only for the name of a button or menu.
 
@@ -71,6 +71,7 @@ navigate, unlock, elevate). No "In this guide we will". No "Conclusion" heading.
 - Fix advice: check it against official docs with web search before writing it. Prefer safe steps. Never tell people to flash a
   BIOS, change voltages or edit the registry without a clear warning; prefer the Windows Settings route. Temperature limits: give the
   maker's numbers (e.g. NVIDIA, AMD and Intel max temps) and say they differ by model.
+- Keep a hedge ("may", "usually", "about", "can be") when it marks a claim you couldn't confirm on an official page. Cut only hedges that qualify nothing. `tools/blog/hedges.py` reports hedges lost since the last commit.
 - Never invent statistics, studies, user stories or quotes. No "we tested 50 PCs".
 - No promises about future features or dates.
 - Pictures show the site's showcase PC (made-up data); describe them as "RigSight's Crashes page", never as someone's real PC.
