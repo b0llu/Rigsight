@@ -1,8 +1,13 @@
-# How to write a RigSight guide
+# How to write a RigSight PC-problem post
 
-Guides live in `tools/blog/guides/<slug>.html` and are built into rigsight.app/guides/. A guide answers one thing
-people type into Google ("how to find out why pc crashed windows 11"). It must fully solve the problem for someone who
-never installs RigSight, and then show plainly where RigSight makes it easier. Help first, product second.
+There is ONE blog, rigsight.app/blog. A PC-problem post is a blog post in the "PC problems" series, next to
+"Building RigSight" and "The AI journey" (the user, 2026-10-26: "everything should come under blogs ... i never said we
+will create a new guide route"). Its sources live in `tools/blog/guides/<slug>.html` (the folder name is historical) and
+build to rigsight.app/blog/<slug>.
+
+Each post answers one thing people type into Google ("kernel power 41"), but it is a story first: HOW RIGSIGHT CAUGHT THE
+PROBLEM, and WHY SUCH PROBLEMS HAPPEN, then how to fix it. It must still fully solve the problem for someone who never
+installs RigSight. The model post is `kernel-power-41.html`.
 
 ## File format
 
@@ -34,11 +39,18 @@ never installs RigSight, and then show plainly where RigSight makes it easier. H
 
 ## Shape of the body (about 1,000 to 1,600 words)
 
-1. One short opening paragraph that names the problem the way the reader would, with the main keyword. No throat-clearing.
-2. `<h2>` sections that solve it, in the order a person should try things. Numbered steps (`<ol>`) for anything they click through in Windows, with the exact names of the menus and buttons ("Event Viewer > Windows Logs > System").
-3. What the readings or messages mean, with real numbers (safe and unsafe ranges, what an error code means). Say where a number comes from when it varies by maker.
-4. One `<h2>` titled like "How RigSight makes this easier" (vary the wording): what RigSight shows for this exact problem, using its real page names, with one picture. Two to four short paragraphs. RigSight is free and open source; say so once. It never replaces the steps above, it saves the digging and keeps the history so the reader can see what happened before they started looking.
-5. A closing paragraph with the next step to take, not a summary.
+1. **How RigSight caught it.** Open with a real moment: the user's own PC where there is one (from the log posts and
+   memory: the 22 unclean shutdowns before 1 Oct, the NVIDIA driver update that crashed the recorder on 7 Oct, the
+   graphics driver resets on 22 Oct, the Cyberpunk frame limit misread, the Discord update 45 minutes early...), told in
+   the first person and linked to its log post. With no real moment, show what RigSight displays for this problem, with a
+   showcase picture, and say plainly that it's an example. NEVER invent a user, an event or a number.
+   Then what RigSight reads, shows and concludes for this problem, with its real page names, and how sure it is.
+2. **Why it happens.** The causes, in plain words, with real numbers (makers' limits, what an error code means).
+3. **How to check it yourself and fix it.** Numbered Windows steps with exact menu and button names, safest first.
+4. A closing paragraph with the next step to take, not a summary. Then the FAQ (built from the meta).
+
+The searched phrase goes in the title, the first paragraph, one heading and the FAQ. Titles can carry the story:
+"Kernel-Power 41: why it happens, and how RigSight caught mine". Never call the post a "guide" in its text.
 
 ## Voice
 
