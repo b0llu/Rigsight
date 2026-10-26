@@ -38,7 +38,7 @@ img { max-width: 100%; height: auto; }
 .top nav { display: flex; gap: 30px; margin-left: 24px; }
 .top nav a { color: var(--muted); text-decoration: none; font-size: 14.5px; font-weight: 600; }
 .top nav a:hover, .top nav a.on { color: var(--fg); }
-.foot a.coffee { color: var(--coffee); }
+.top nav a.coffee, .foot a.coffee { color: var(--coffee); }
 .top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
 .coffee-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; color: var(--coffee); font-weight: 600; font-size: 14.5px; text-decoration: none; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3); white-space: nowrap; }
 .coffee-pill:hover { color: #fde047; background: rgba(250,204,21,.14); }
@@ -181,4 +181,3 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
-@media (max-width: 640px) { .top .coffee-pill { display: none; } }
