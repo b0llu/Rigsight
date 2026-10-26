@@ -1,0 +1,53 @@
+<!--meta
+{"slug": "tests-passed-app-froze", "series": "build", "happened": "2026-10-08", "published": "2026-10-26", "version": "0.18.1 and 0.19.2",
+ "title": "The tests said 15 milliseconds. The app froze.",
+ "summary": "Switching pages felt slow, but every test passed. Made-up history was too tidy to show the problem. Real history showed it at once.",
+ "short": "Tests on made-up history said a page switch took 15 ms. On my real history the window froze for up to 205 ms. Now the release tests run on a copy of real history.",
+ "mark": "205 ms"}
+-->
+<p>RigSight has a lot of tests. By late September there were about 3,160 of them, and before every release a full check builds the app, runs it as a separate test copy on a year of generated history, and measures how fast it starts, how much processor and memory it uses, and how quickly pages switch. Each number has a limit, and the release stops if one goes over.</p>
+
+<p>So on 8 October, when switching between pages felt laggy to me, I looked at the test results first. They said a page switch took about 15 milliseconds. That's instant. Everything passed.</p>
+
+<p>But the lag was real. I could feel it.</p>
+
+<h2>Measuring the real thing</h2>
+
+<p>So I measured the installed app, on my own history, the way I actually use it. After every switch, the window froze for a moment:</p>
+
+<figure class="fig">
+<svg viewBox="0 0 640 196" role="img" aria-labelledby="rd-t">
+  <title id="rd-t">Time the window froze after switching to a page, before and after the fix. Network 205 to 31 milliseconds, Memory 130 to 13, Reports 105 to 50, Timeline 100 to 32.</title>
+  <g class="t"><text x="0" y="40">Network</text><text x="0" y="84">Memory</text><text x="0" y="128">Reports</text><text x="0" y="172">Timeline</text></g>
+  <g>
+    <rect x="96" y="22" width="420" height="14" rx="3" style="fill: var(--hot); opacity: .55"/><rect x="96" y="39" width="64" height="10" rx="3" style="fill: var(--gpu)"/>
+    <rect x="96" y="66" width="266" height="14" rx="3" style="fill: var(--hot); opacity: .55"/><rect x="96" y="83" width="27" height="10" rx="3" style="fill: var(--gpu)"/>
+    <rect x="96" y="110" width="215" height="14" rx="3" style="fill: var(--hot); opacity: .55"/><rect x="96" y="127" width="102" height="10" rx="3" style="fill: var(--gpu)"/>
+    <rect x="96" y="154" width="205" height="14" rx="3" style="fill: var(--hot); opacity: .55"/><rect x="96" y="171" width="66" height="10" rx="3" style="fill: var(--gpu)"/>
+  </g>
+  <g class="tm">
+    <text x="526" y="34">205 ms</text><text x="170" y="49">31</text>
+    <text x="372" y="78">130</text><text x="133" y="93">13</text>
+    <text x="321" y="122">105</text><text x="208" y="137">50</text>
+    <text x="311" y="166">100</text><text x="172" y="181">32</text>
+  </g>
+</svg>
+<figcaption>How long the window froze after coming back to a page, before (violet) and after (cyan) the fix in 0.18.1. Measured on my own history.</figcaption>
+</figure>
+
+<p>Every visit to a page rebuilt it from scratch. RigSight read the period again and replaced every row in every list with brand new rows, even when nothing had changed. On the made-up year, the lists were tidy and regular, so rebuilding them cost almost nothing. My real history was messier, with more apps, more icons and more of everything, and rebuilding it showed.</p>
+
+<h2>The fix, and the bigger fix</h2>
+
+<p>The fix itself was simple to describe. When you come back to a page, it keeps the rows it already has and only replaces the ones that changed. Network keeps each app's row and just gives it new figures. App icons are read in the background instead of on the window's own time.</p>
+
+<p>The bigger fix was to the tests. The full check now runs on a copy of my real history by default, with its own limits. The made-up year still runs too, because it covers cases my PC hasn't had yet. But it isn't the one that decides whether something feels fast.</p>
+
+
+<h2>The next day, the same lesson</h2>
+
+<p>A day later I noticed something else. When I opened RigSight from the tray, the readings and lists took seconds to show up. Measured on the installed version, the first readings arrived 0.35 to 2.7 seconds after the window connected, and the list of running apps 0.5 to 5.2 seconds after.</p>
+
+<p>The recorder sends readings every two seconds and the app list every five. A new window just waited for the next turn. Version 0.19.2 sends both the moment a window connects, so they now arrive in about a third of a second.</p>
+
+<p>While I was there, I fixed something that bothered me more. Pages that were still waiting for their data said "nothing recorded". That's a lie for a second or two, and you might believe it. Now a box that is waiting shows a small loader instead, and only says "nothing" once it really knows.</p>

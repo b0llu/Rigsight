@@ -1,0 +1,53 @@
+<!--meta
+{"slug": "how-sure-is-it", "series": "build", "happened": "2026-10-14", "published": "2026-10-26", "version": "0.24.0 and 0.25.0",
+ "title": "Teaching crashes to say how sure they are",
+ "summary": "Every crash now says what most likely caused it and how sure that is. Getting there meant one big feature, and cutting most of the next one.",
+ "short": "Every crash now gets a cause and one of four words for how sure that is. The follow-up feature started far too big, and the best decision was cutting most of it.",
+ "cover": "pages/crashes", "mark": "4 words"}
+-->
+<p>When a game crashes, you want one thing: to know why. Windows does keep a record, but it reads like this: faulting module <code>nvwgf2umx.dll</code>, exception code 0xc0000005. If you know that file belongs to the NVIDIA driver, it's a clue. If you don't, it's noise.</p>
+
+<p>For its first three weeks, RigSight's Crashes page did roughly what everyone does. It showed Windows' entry and guessed a culprit from the file name. That's better than nothing. It's also often wrong, and it never told you how much to trust the guess.</p>
+
+<h2>An answer with a confidence word</h2>
+
+<p>Version 0.24.0, on 14 October, gave every crash a finding. Each one has a headline, what to try, what points to the cause, what it wasn't, and what's still unknown. And it has one of four words for how sure it is:</p>
+
+<ul>
+  <li><strong>Confirmed</strong>, when Windows' own record says what happened</li>
+  <li><strong>Likely</strong>, when the evidence points one way</li>
+  <li><strong>Possibly</strong>, when it fits but other causes fit too</li>
+  <li><strong>Not enough to say</strong>, when RigSight honestly doesn't know</li>
+</ul>
+
+<p>That last one matters as much as the first. A tool that always has an answer is a tool that's sometimes making one up.</p>
+
+{{fig pages/crashes | The Crashes page for a month: no serious problems, three app crashes on a timeline, and a list where each crash carries a word such as Confirmed, Possibly a fault in the app, or Not enough to say | The Crashes page. Three crashes of the same game, three different levels of certainty.}}
+
+<h2>What a finding is built from</h2>
+
+<p>A finding looks at more than Windows' crash entry. It reads the rest of what Windows wrote: versions, how long the app had been running, what a frozen app was waiting on, hardware errors at the next start. Then it adds what only RigSight has, the minutes before the crash. Was the GPU hot? Was memory nearly full? Was anyone even at the PC? Did a driver or Windows update arrive in the week before?</p>
+
+<p>The "what it wasn't" list is the part I'm proudest of. "It wasn't overheating, the GPU was at 67°." "Memory wasn't full." "Nothing new was installed." Ruling things out calms people down, and it stops them from replacing parts that were fine.</p>
+
+<p>One more rule: everything that talks about crashes reads the same engine. Home, Reports, the notifications and the Crashes page can't disagree, because none of them makes up its own story.</p>
+
+<h2>The feature I almost over-built</h2>
+
+<p>The next step on my roadmap was a close-up of the moments around a crash, second by second. My first plan for it was big. A recording mode you could switch on. Recordings you could start, stop and read. A settings card. Labels on every row.</p>
+
+<p>I looked at the plan and had a feeling I couldn't explain at first: we are over-complicating this, and nobody will use it.</p>
+
+<p>When I thought it through, the reason was clear. People open a crash for an answer. Version 0.24.0 already gave them one. The plan piled expert tools on top that asked people to do work and handed them raw data. So I cut it down to the parts that help without asking anything of you:</p>
+
+<ul>
+  <li>Every opened crash shows the 10 minutes after it too, even for old crashes.</li>
+  <li>App crashes get a close-up: RigSight keeps the last few minutes in memory and saves them the moment something crashes.</li>
+  <li>Graphics driver resets, the black screen that comes back after a few seconds, became their own kind of problem.</li>
+</ul>
+
+{{fig pages/crash-around | The minutes around a crash in RigSight: lanes for temperature, load, power, memory, fans and network on one time axis, with the crash marked and a panel with every reading at that minute | Around the crash. Every lane shares one time axis, and the panel on the right shows every reading at the minute you point at.}}
+
+<p>Even the confidence word changed. My first name for the top level was "Named by Windows". It was accurate, but it read oddly and nobody could tell what it meant. It became "Confirmed", and hovering it says that Windows' own record says so.</p>
+
+<p>That release went out on 15 October, and it was much smaller than the plan. I think it's much better for it.</p>

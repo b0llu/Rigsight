@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>GPU hotspot temperature: what it is and when 100°C is a problem · RigSight</title>
+  <meta name="description" content="What the GPU hotspot temperature measures, how far above the GPU temp it normally runs, what AMD says about 110°C, and when a big gap means worn paste or a bad cooler mount." />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="canonical" href="https://rigsight.app/guides/gpu-hotspot-temperature" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
+  <meta property="og:site_name" content="RigSight" />
+  <meta property="og:title" content="GPU hotspot temperature: what it is and when 100°C is a problem · RigSight" />
+  <meta property="og:description" content="What the GPU hotspot temperature measures, how far above the GPU temp it normally runs, what AMD says about 110°C, and when a big gap means worn paste or a bad cooler mount." />
+  <meta property="og:url" content="https://rigsight.app/guides/gpu-hotspot-temperature" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
+  <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <meta property="og:image" content="https://rigsight.app/img/blog/gpu-hotspot-temperature.webp" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="800" />
+  <meta property="og:type" content="article" />
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "GPU hotspot temperature: what it is and when 100\u00b0C is a problem", "description": "What the GPU hotspot temperature measures, how far above the GPU temp it normally runs, what AMD says about 110\u00b0C, and when a big gap means worn paste or a bad cooler mount.", "datePublished": "2026-10-26", "dateModified": "2026-10-26", "image": "https://rigsight.app/img/blog/gpu-hotspot-temperature.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/guides/gpu-hotspot-temperature", "keywords": "gpu hotspot temperature, gpu hotspot temperature vs gpu temp, gpu hotspot temperature 100c, gpu hotspot temperature range, gpu hotspot temperature 110c, is 85 degrees hot for gpu hotspot, gpu hotspot temperature msi afterburner"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Guides", "item": "https://rigsight.app/guides/"}, {"@type": "ListItem", "position": 3, "name": "GPU hotspot temperature: what it is and when 100\u00b0C is a problem", "item": "https://rigsight.app/guides/gpu-hotspot-temperature"}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is the difference between GPU hotspot temperature and GPU temp?", "acceptedAnswer": {"@type": "Answer", "text": "The GPU temp is one general reading for the chip. The hotspot is the highest reading from a whole grid of sensors across the chip, so it's always the warmer of the two. What matters most is the gap between them, not the hotspot on its own."}}, {"@type": "Question", "name": "Is a GPU hotspot temperature of 100\u00b0C bad?", "acceptedAnswer": {"@type": "Answer", "text": "On an AMD Radeon card, 100\u00b0C is below the 110\u00b0C AMD calls within spec. On any card, look at the gap: a hotspot of 100\u00b0C with the GPU temp at 85\u00b0C is a normal spread, while 100\u00b0C with the GPU temp at 65\u00b0C points to poor contact between the cooler and the chip."}}, {"@type": "Question", "name": "Is 85 degrees hot for a GPU hotspot?", "acceptedAnswer": {"@type": "Answer", "text": "No. A hotspot of 85\u00b0C is an ordinary reading in a demanding game. It usually means the main GPU temperature is somewhere in the 60s or low 70s."}}, {"@type": "Question", "name": "What is a normal GPU hotspot temperature range?", "acceptedAnswer": {"@type": "Answer", "text": "In games, hotspots in the 80s and 90s \u00b0C are common, and Radeon cards can go higher while staying within AMD's spec. The gap to the main GPU temperature tells you more. As a rule of thumb from builders, not a maker's spec, about 10 to 20\u00b0C is common, and past about 30\u00b0C deserves a closer look."}}, {"@type": "Question", "name": "Why can't I see the hotspot on my RTX 50 series card?", "acceptedAnswer": {"@type": "Answer", "text": "When the RTX 50 series launched in early 2025, NVIDIA stopped handing the hotspot reading to common monitoring tools, so most apps showed only the main GPU temperature. In 2026 HWMonitor, HWiNFO and GPU-Z 2.71.0 added it back. If your app shows no hotspot, update it."}}]}</script>
+  <style>
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
+/* Layout: the site's dark look. The list is picture-left rows like a magazine contents page; a post is a 680px column
+   under a cover that matches its row, with pictures a little wider than the text. */
+:root {
+  --bg: #000;
+  --surface: #0a0b0d;
+  --surface-2: #111317;
+  --line: rgba(255,255,255,.08);
+  --line-2: rgba(255,255,255,.14);
+  --fg: #f3f4f6;
+  --text: #c5cad2;
+  --muted: #a0a6b0;
+  --faint: #767c87;
+  --cpu: #5b8def;
+  --gpu: #22d3ee;
+  --hot: #a78bfa;
+  --ram: #c084fc;
+  --coffee: #ffdd00;
+  --display: "Geist", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 80px; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+a { color: var(--gpu); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
+img { max-width: 100%; height: auto; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+.wrap-narrow { max-width: 776px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+
+/* top bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(0,0,0,.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top-in { display: flex; align-items: center; gap: 24px; height: 62px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+.brand img { border-radius: 6px; }
+.top nav { display: flex; gap: 22px; margin-left: auto; }
+.top nav a { color: var(--muted); text-decoration: none; font-size: 14.5px; font-weight: 600; }
+.top nav a:hover, .top nav a.on { color: var(--fg); }
+.top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--fg); color: #000; font-weight: 600; text-decoration: none; border-radius: 999px; padding: 11px 20px; font-size: 15px; white-space: nowrap; }
+.btn:hover { background: #fff; }
+.btn-sm { padding: 7px 14px; font-size: 13.5px; }
+.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.progress i { display: block; height: 100%; background: var(--gpu); transform-origin: 0 50%; transform: scaleX(0); }
+
+/* blog index */
+.blog-head { padding-block: 64px 36px; }
+.kicker { font: 500 13px/1 var(--mono); color: var(--gpu); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; }
+.blog-head h1 { font: 600 clamp(40px, 7vw, 72px)/1.02 var(--display); letter-spacing: -0.045em; margin: 0 0 18px; text-wrap: balance; }
+.intro { color: var(--muted); font-size: 18.5px; line-height: 1.6; max-width: 640px; margin: 0 0 14px; }
+.starts { color: var(--faint); font-size: 14.5px; margin: 0; }
+.starts a { color: var(--muted); }
+.starts a:hover { color: var(--fg); }
+.eyebrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--faint); margin: 0 0 10px; font-weight: 500; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.s-build { background: var(--cpu); }
+.s-ai { background: var(--hot); }
+.s-guide { background: var(--gpu); }
+.meta { font-size: 13.5px; color: var(--faint); margin: 0; font-variant-numeric: tabular-nums; }
+.filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.chip { font: 600 14px/1 var(--body); color: var(--muted); background: transparent; border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.chip span { color: var(--faint); font-weight: 500; margin-left: 4px; }
+.rss { margin-left: auto; align-self: center; font-size: 14px; color: var(--faint); text-decoration: none; }
+.rss:hover { color: var(--fg); }
+.chip:hover { color: var(--fg); }
+.chip[aria-pressed="true"] { color: #000; background: var(--fg); border-color: var(--fg); }
+.chip[aria-pressed="true"] span { color: #444; }
+.rows { list-style: none; margin: 8px 0 80px; padding: 0; }
+.row a { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 40px; align-items: center; padding: 30px 0; text-decoration: none; color: inherit; }
+.row + .row { border-top: 1px solid var(--line); }
+.row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
+.row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
+.row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
+.row a:hover .thumb img { transform: scale(1.015); }
+
+/* guides */
+.body h3 { font: 600 19px/1.3 var(--display); color: var(--fg); margin: 1.6em 0 .4em; }
+.body pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0 0 1.2em; max-width: 100%; }
+.body pre code { background: none; border: 0; padding: 0; font-size: 14.5px; line-height: 1.6; white-space: pre; }
+.body table { border-collapse: collapse; width: 100%; font-size: 16px; margin: 0 0 1.2em; display: block; overflow-x: auto; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.body th { color: var(--fg); font-weight: 600; }
+.faq { margin-top: 2.4em; }
+.qa { border-top: 1px solid var(--line); }
+.qa:last-child { border-bottom: 1px solid var(--line); }
+.qa summary { cursor: pointer; list-style: none; padding: 16px 32px 16px 0; position: relative; color: var(--fg); font-weight: 600; font-size: 17.5px; line-height: 1.45; }
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary::after { content: "+"; position: absolute; right: 4px; top: 14px; font: 400 22px/1 var(--mono); color: var(--faint); }
+.qa[open] summary::after { content: "\2212"; }
+.qa p { margin: 0 0 18px; color: var(--text); font-size: 17px; }
+.guide .short { border-color: rgba(34,211,238,.35); }
+.next.rel { grid-template-columns: 1fr 1fr; }
+
+/* a post */
+.post { padding-block: 40px 40px; }
+.crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--fg); }
+.dek { font-size: 19px; line-height: 1.55; color: var(--muted); margin: 0 0 18px; max-width: 680px; }
+.byline b { color: var(--fg); font-weight: 600; }
+.cover { margin: 0 0 32px; max-width: 728px; }
+.cover img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); }
+.post h1 { font: 600 clamp(34px, 5.6vw, 52px)/1.06 var(--display); letter-spacing: -0.04em; margin: 0 0 14px; text-wrap: balance; }
+.byline { color: var(--faint); font-size: 14.5px; margin: 0 0 30px; font-variant-numeric: tabular-nums; }
+.short { background: var(--surface); border: 1px solid var(--line-2); border-radius: 16px; padding: 20px 24px; margin-bottom: 40px; }
+.short p { margin: 0; color: var(--fg); font-size: 17.5px; line-height: 1.6; }
+.short .short-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+.body, .post h1, .dek, .short p, .qa summary { overflow-wrap: anywhere; }
+.body { font-size: 18px; line-height: 1.75; color: var(--text); max-width: 680px; }
+.body > p { margin: 0 0 1.15em; }
+.body h2 { font: 600 25px/1.25 var(--display); letter-spacing: -0.025em; color: var(--fg); margin: 1.9em 0 .55em; text-wrap: balance; }
+.body strong { color: var(--fg); font-weight: 600; }
+.body ul, .body ol { padding-left: 1.2em; margin: 0 0 1.2em; }
+.body li { margin: .35em 0; }
+.body li::marker { color: var(--faint); }
+.body code { font: 500 .86em var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--fg); }
+.body blockquote { margin: 1.5em 0; padding: 2px 0 2px 20px; border-left: 2px solid var(--hot); color: var(--fg); font-size: 19px; }
+.body blockquote p { margin: 0; }
+.body blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size: 14px; color: var(--faint); }
+.shot { margin: 2em 0; max-width: 728px; }
+.shot img { display: block; width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,.06); }
+figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top: 10px; }
+.stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin: 1.8em 0; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat b { font: 500 clamp(40px, 7vw, 60px)/1 var(--mono); letter-spacing: -0.04em; color: var(--gpu); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 16px; line-height: 1.5; flex: 1 1 260px; min-width: 0; }
+.stat.hot b { color: var(--hot); }
+.stat.cpu b { color: var(--cpu); }
+.fig { margin: 2em 0; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; max-width: 728px; overflow-x: auto; }
+.fig svg { display: block; width: 100%; height: auto; min-width: 520px; font-family: var(--body); }
+.fig figcaption { margin-top: 14px; }
+.fig .t { fill: var(--muted); font-size: 13px; }
+.fig .tf { fill: var(--faint); font-size: 12px; }
+.fig .tb { fill: var(--fg); font-size: 14px; font-weight: 600; }
+.fig .tm { fill: var(--fg); font-family: var(--mono); font-size: 13px; }
+.fig .box { fill: var(--surface-2); stroke: var(--line-2); }
+.fig .grid { stroke: var(--line); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 2em 0; }
+.pair > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; min-width: 0; }
+.pair p { margin: 0; font-size: 16px; line-height: 1.6; }
+.pair .k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px; color: var(--faint); }
+.pair .bad .k { color: #f0a35e; }
+.pair .good .k { color: #34d399; }
+.next { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 56px 0 28px; max-width: 728px; }
+.more { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 14px; text-decoration: none; min-width: 0; }
+.more span { font-size: 13px; color: var(--faint); }
+.more b { color: var(--fg); font-weight: 600; font-size: 16.5px; line-height: 1.35; }
+.more:hover { border-color: var(--line-2); background: var(--surface); }
+.get { display: flex; align-items: center; gap: 18px; padding: 20px 22px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 728px; }
+.get img { border-radius: 10px; flex: none; }
+.get p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; min-width: 0; }
+.get p b { color: var(--fg); }
+
+.foot { border-top: 1px solid var(--line); margin-top: 72px; }
+.foot-in { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; padding-block: 28px 40px; }
+.foot nav { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.foot nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+.foot nav a:hover { color: var(--fg); }
+
+@media (max-width: 760px) {
+  .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .top nav a:not(.on) { display: none; }
+  .top-in { gap: 14px; }
+  .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
+  .row h2 { font-size: 21px; }
+  .row .sum { font-size: 15px; }
+  .dek { font-size: 17px; }
+  .body { font-size: 17px; }
+  .pair, .next { grid-template-columns: 1fr; }
+  .get { flex-wrap: wrap; }
+  .blog-head { padding-block: 40px 28px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+  </style>
+</head>
+<body>
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="24" height="24"><span>RigSight</span></a>
+  <nav aria-label="Site"><a href="./" class="on">Guides</a><a href="../blog/">Log</a><a href="../#faq">FAQ</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+  <a class="btn btn-sm" href="https://github.com/b0llu/Rigsight/releases/latest">Download</a>
+</div><div class="progress" aria-hidden="true"><i></i></div></header><main><article class="post wrap-narrow guide">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Guides</a><span>/</span><span>Temperatures</span></nav>
+  <p class="eyebrow"><span class="dot s-guide"></span>Temperatures</p>
+  <h1>GPU hotspot temperature: what it is and when 100°C is a problem</h1>
+  <p class="dek">What the GPU hotspot temperature measures, how far above the GPU temp it normally runs, what AMD says about 110°C, and when a big gap means worn paste or a bad cooler mount.</p>
+  <p class="byline"><b>Dhruv Samant</b> · Updated 26 October 2026 · 6 min read</p>
+  <figure class="cover"><img class="" src="../img/blog/gpu-hotspot-temperature.webp" srcset="../img/blog/gpu-hotspot-temperature-600.webp 600w, ../img/blog/gpu-hotspot-temperature.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="HOT SPOT: 78°, hottest sensor on the chip. GPU: 68°, the main reading. GAP: 10°, a normal spread in a game" fetchpriority="high" decoding="async"></figure>
+  <div class="short"><p class="short-k">The short answer</p><p>The GPU hotspot temperature is the hottest of many sensors on the graphics chip, so it always reads above the main GPU temp. As a rule of thumb, a gap of about 10 to 20°C under load is common. AMD says up to 110°C on Radeon cards is within spec. A gap past about 30°C often points to paste or cooler contact.</p></div>
+  <div class="body">
+<p>Your monitoring app shows two GPU temperatures. One says 72°C and the other, labelled hot spot, says 94°C. The GPU hotspot temperature always reads higher, and that's by design. What tells you whether something is wrong is how far apart the two are, and whether that gap has grown.</p>
+
+<h2>What the GPU hotspot temperature is</h2>
+
+<p>A modern graphics chip has many temperature sensors spread across it. AMD explained this in 2019 for its RX 5700 cards: an array of sensors is spread across the chip, and the highest reading from any of them is the hotspot, which AMD also calls the junction temperature.</p>
+
+<p>The ordinary GPU temperature is a single, general reading for the chip. On AMD cards some apps call it the edge temperature. Some parts of the chip always work harder than others, so one spot is always warmer than the general reading. That warmest spot is the hotspot.</p>
+
+<h2>GPU hotspot temperature vs GPU temp: the normal gap</h2>
+
+<p>Under load, the hotspot usually runs about 10 to 20°C above the GPU temperature. Some high-power cards sit a little past that and are still fine. This range is a rule of thumb from people who build and repair PCs. Neither NVIDIA nor AMD publishes an official figure for the gap.</p>
+
+<ul>
+  <li>A gap of 10 to 20°C under load is common.</li>
+  <li>A gap of 20 to 25°C can be normal on big, power-hungry cards.</li>
+  <li>A gap past about 30°C often means the cooler isn't pressing evenly on the chip, or the thermal paste has dried out or spread unevenly.</li>
+</ul>
+
+<p>Two things make the gap meaningful. Compare at steady load, a few minutes into a game, because at idle both readings are low and close. And compare like for like: the same game on the same card, before and after. A gap that was 15°C a year ago and is 30°C now tells you far more than one reading against a forum post.</p>
+
+<h2>GPU hotspot temperature 100°C, 105°C, 110°C: what the makers say</h2>
+
+<p>AMD has been clear about its own cards. In 2019 it said a junction temperature of up to 110°C during typical gaming on the RX 5700 series was "expected and within spec". AMD said the card keeps raising its clocks until any one sensor reaches 110°C.</p>
+
+<p>The RX 7900 XTX shows why the gap matters. After it launched, some owners of AMD's own reference cards saw the hotspot reach 110°C while the main temperature stayed much lower, and the cards slowed down. At the start of 2023 AMD said the problem was related to the thermal solution on a limited number of its reference cards, and asked affected owners to contact AMD Support. A hotspot at its limit with a normal main reading was the sign.</p>
+
+<p>NVIDIA publishes one figure per card, the "Maximum GPU Temperature", for example 90°C for the RTX 4070 family. It doesn't publish a separate hotspot limit. On a GeForce card, a hotspot of 100°C with the main reading in the high 80s is a normal spread on a hot card. A hotspot past 100°C with the main reading in the 60s or 70s is a big gap and worth looking into. Tom's Hardware reported an RTX 5070 Ti throttling with its hotspot at 107°C, which a repair technician traced to badly applied thermal paste.</p>
+
+<h2>Why your card might not show a hotspot</h2>
+
+<p>Not every card reports one, and not every app reads it. When the RTX 50 series launched in early 2025, NVIDIA stopped giving the hotspot reading to common monitoring tools, so apps such as HWiNFO and GPU-Z showed only the main temperature. The sensor was still on the chip. In 2026 the tools caught up: HWMonitor, HWiNFO and GPU-Z 2.71.0 read the RTX 50 hotspot again, so update your app if it shows none. Older GeForce cards like the RTX 30 and 40 series show it, and AMD lists the hotspot for the Radeon VII, the RX 5000 series and newer.</p>
+
+<h2>How to check your GPU hotspot temperature</h2>
+
+<p>Task Manager shows only the main GPU temperature, so you need a sensor app:</p>
+
+<ol>
+  <li>In GPU-Z, open the <strong>Sensors</strong> tab and look for <strong>Hot Spot</strong>.</li>
+  <li>In HWiNFO, start it in <strong>Sensors-only</strong> mode and find <strong>GPU Hot Spot Temperature</strong> under your graphics card.</li>
+  <li>In MSI Afterburner, open <strong>Settings</strong> > <strong>Monitoring</strong> and see whether a hotspot entry is in the list for your card. On some cards it has a plain name such as GPU temperature 2. If there's no second GPU temperature, your card or version doesn't report it there, and HWiNFO or GPU-Z is the better choice.</li>
+</ol>
+
+<p>Play for 10 minutes or so, then note both readings at the same moment. That pair is your gap.</p>
+
+<h2>What to do if the gap is too big</h2>
+
+<ol>
+  <li>Clean the card first. Dust in the cooler raises both readings, and a clean cooler gives you a fair baseline.</li>
+  <li>Check the warranty before you open anything. If the card is still covered and the gap is past 30°C on a fairly new card, contact the card maker. Taking the cooler off can void the warranty on some brands.</li>
+  <li>If the card is out of warranty and you're comfortable doing it, new thermal paste and, where the card has them, new thermal pads usually bring a large gap back down. Tighten the cooler screws evenly, a little at a time in a cross pattern.</li>
+  <li>After any change, play the same game for the same time and compare the gap with what you saw before.</li>
+</ol>
+
+<p>If only the main GPU temperature is high and the gap is normal, the chip and cooler are in good contact, and the heat is a matter of airflow, dust or settings. The guide on <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a> covers that side, and PC overheating while gaming has the full list of fixes.</p>
+
+<h2>Watching the hotspot over time with RigSight</h2>
+
+<p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. When your card reports a hotspot, the GPU card on the Temperatures page shows it as its own tile, next to the memory junction, with today's lowest and highest under it. The history graph draws GPU hot spot as a line beside the main GPU line, so you can see the gap across a whole evening of play.</p>
+
+<figure class="shot"><img src="../img/pages/temperatures.webp" srcset="../img/pages/temperatures-720.webp 720w, ../img/pages/temperatures.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="RigSight&#x27;s Temperatures page with the GPU at 68° and its hot spot at 78°, above a history graph with CPU, GPU, GPU hot spot and GPU memory lines" loading="lazy" decoding="async"><figcaption>RigSight's Temperatures page. The hot spot tile sits next to the GPU gauge, and the graph below draws it as its own line.</figcaption></figure>
+
+<p>RigSight also watches the gap for you. When the hotspot runs 30° or more above the core over 20 minutes or more of steady heavy load, Reports says so and adds that the thermal paste or cooler contact may have worn. Reports' Peaks list includes the day's highest GPU hot spot reading and the app that was running.</p>
+
+<p>For a warning while you play, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong> with a GPU hot spot limit. It starts at 100° and can be set from 70 to 110°, so a Radeon owner can set it just under AMD's 110°C.</p>
+
+<p>Next, write down your gap after 10 minutes in your usual game. If it's under 20°C, leave it alone. If it's past 30°C, clean the card, check the warranty and plan the repaste or the return.</p>
+  <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>What is the difference between GPU hotspot temperature and GPU temp?</summary><p>The GPU temp is one general reading for the chip. The hotspot is the highest reading from a whole grid of sensors across the chip, so it's always the warmer of the two. What matters most is the gap between them, not the hotspot on its own.</p></details><details class="qa"><summary>Is a GPU hotspot temperature of 100°C bad?</summary><p>On an AMD Radeon card, 100°C is below the 110°C AMD calls within spec. On any card, look at the gap: a hotspot of 100°C with the GPU temp at 85°C is a normal spread, while 100°C with the GPU temp at 65°C points to poor contact between the cooler and the chip.</p></details><details class="qa"><summary>Is 85 degrees hot for a GPU hotspot?</summary><p>No. A hotspot of 85°C is an ordinary reading in a demanding game. It usually means the main GPU temperature is somewhere in the 60s or low 70s.</p></details><details class="qa"><summary>What is a normal GPU hotspot temperature range?</summary><p>In games, hotspots in the 80s and 90s °C are common, and Radeon cards can go higher while staying within AMD's spec. The gap to the main GPU temperature tells you more. As a rule of thumb from builders, not a maker's spec, about 10 to 20°C is common, and past about 30°C deserves a closer look.</p></details><details class="qa"><summary>Why can&#x27;t I see the hotspot on my RTX 50 series card?</summary><p>When the RTX 50 series launched in early 2025, NVIDIA stopped handing the hotspot reading to common monitoring tools, so most apps showed only the main GPU temperature. In 2026 HWMonitor, HWiNFO and GPU-Z 2.71.0 added it back. If your app shows no hotspot, update it.</p></details></section>
+  </div>
+  <nav class="next rel" aria-label="Related guides"><a class="more" href="normal-gpu-temperature-while-gaming"><span>Temperatures</span><b>Normal GPU temperature while gaming, and when 85°C is too hot</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>How to find out why your PC crashed on Windows 11</b></a><a class="more" href="kernel-power-41"><span>Crashes</span><b>Kernel-Power 41: what it means and how to fix it</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games: how to find the cause and fix it</b></a></nav>
+  <aside class="get">
+    <img src="../img/logo-144.webp" alt="" width="40" height="40">
+    <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>
+    <a class="btn" href="https://github.com/b0llu/Rigsight/releases/latest">Download for Windows</a>
+  </aside>
+</article></main><footer class="foot"><div class="wrap foot-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="20" height="20"><span>RigSight</span></a>
+  <nav aria-label="Links"><a href="../">Home</a><a href="./">Guides</a><a href="../blog/">The RigSight log</a><a href="https://github.com/b0llu/Rigsight">GitHub</a><a href="https://github.com/b0llu/Rigsight/releases">Releases</a><a href="../privacy.html">Privacy policy</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+</div></footer><script>
+(function () {
+  var bar = document.querySelector('.progress i');
+  if (!bar) return;
+  function tick() {
+    var post = [].find.call(document.querySelectorAll('.post'), function (a) { return a.offsetParent !== null; });
+    if (!post) { bar.style.transform = 'scaleX(0)'; return; }
+    var r = post.getBoundingClientRect(), h = r.height - innerHeight;
+    var f = h > 0 ? Math.min(1, Math.max(0, -r.top / h)) : 1;
+    bar.style.transform = 'scaleX(' + f.toFixed(3) + ')';
+  }
+  addEventListener('scroll', tick, { passive: true });
+  addEventListener('resize', tick);
+  window.__tick = tick; tick();
+})();
+(function () {
+  var chips = document.querySelectorAll('.chip[data-series]');
+  if (!chips.length) return;
+  function show(s) {
+    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
+    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
+  }
+  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
+})();
+</script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
+</body>
+</html>

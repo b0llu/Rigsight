@@ -15,7 +15,7 @@ RigSight is a history tool, not only a live monitor. Hardware monitors like HWiN
 
 - Temperatures: live CPU and GPU gauges, hot spot and memory junction, per-core load, fans, clocks, power and voltages, with history for any period and alerts that ignore one-second spikes.
 - Reports: any day, week, month or year; which app was in front each minute with temperatures drawn over it, active time versus time the PC was just on, each month against this PC's usual (game temperatures at the same power, fans, problems), and highlights when something stands out.
-- Games: every installed game from Steam, Epic, Riot, GOG, Ubisoft, EA and Battle.net in one library, with each game's frame rate and 1% low for every play (through RivaTuner Statistics Server), what holds it back (graphics card at full load, a frame cap or the CPU), its temperatures and power, and Play, open folder and uninstall through its own launcher.
+- Games: every installed game from Steam, Epic, Riot, GOG, Ubisoft, EA and Battle.net in one library, with each game's frame rate and 1% low for every play (through RivaTuner Statistics Server), whether it can run better (graphics card at full load, a frame cap or the CPU sets the pace), its temperatures and power, and Play, open folder and uninstall through its own launcher.
 - Crashes: game crashes, freezes, graphics driver resets, blue screens and sudden shutdowns read from Windows' own logs and explained in plain words, with the temperatures, apps and driver or Windows updates from before each crash.
 - Timeline: what changed on the PC day by day (drivers, Windows updates, apps installed or removed, startup apps, hardware, BIOS, key settings).
 - Apps: time each app and game was in use, in the background or minimized, and how hot each one runs the CPU and GPU.
@@ -33,6 +33,8 @@ RigSight is a history tool, not only a live monitor. Hardware monitors like HWiN
 ## Links
 
 - [Website](https://rigsight.app/)
+- [PC guides](https://rigsight.app/guides/): plain fixes for common PC problems (why a PC crashed, Kernel-Power 41, normal GPU temperatures, GPU hot spot, FPS drops)
+- [The RigSight log](https://rigsight.app/blog/): notes from building RigSight
 - [Source code on GitHub](https://github.com/b0llu/Rigsight)
 - [All releases and release notes](https://github.com/b0llu/Rigsight/releases)
 - [Report a problem](https://github.com/b0llu/Rigsight/issues)

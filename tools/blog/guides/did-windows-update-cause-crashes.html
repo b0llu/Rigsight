@@ -1,0 +1,86 @@
+<!--meta
+{"slug": "did-windows-update-cause-crashes", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+ "topic": "Drivers and updates",
+ "keyword": "did a windows update cause crashes",
+ "also": ["fps drop in games after windows update", "pc restarts randomly after windows update", "windows update causing crashes", "uninstall windows update"],
+ "title": "Did a Windows update cause your crashes? How to check",
+ "summary": "Did a Windows update cause crashes or an FPS drop in games? Line up Update history with Reliability Monitor, check Microsoft's known issues, and uninstall the update only if the dates match.",
+ "short": "Open Settings, Windows Update, Update history and note the install dates, then open Reliability Monitor and see whether the crashes start on that day. Check Microsoft's release health page for known issues. If it lines up, uninstall the update under Uninstall updates and pause updates for a week while you test.",
+ "faq": [["Can a Windows update cause crashes?", "Yes, though less often than people think. An update can bring a bug, a new graphics driver or a changed setting. Many crashes that start after an update have another cause that happened the same week, so check the dates before you blame it."],
+         ["Why did my FPS drop in games after a Windows update?", "Common reasons are a graphics driver Windows installed by itself, a setting such as memory integrity being turned on, or a power plan that changed. Microsoft has also listed game performance problems as known issues for some updates. Compare the same game, same settings and same scene before and after."],
+         ["Is it safe to uninstall a Windows update?", "Yes, from Settings, but many updates carry security fixes, and some updates can't be removed at all. Uninstall it only to test, pause updates for a while, and install it again once a fix comes out."],
+         ["How do I see what Windows updates were installed?", "Go to Settings, Windows Update, Update history. It lists quality, driver, feature and definition updates with the date each was installed."]],
+ "cover_img": "pages/timeline", "cover_crop": [263, 168, 815, 543], "cover_alt": "RigSight's Timeline page listing changes day by day, including a Windows update, app updates, a power plan change and Game Mode turned off",
+ "app": ["Timeline: Windows updates by KB number with their time, Windows version upgrades, drivers, settings such as Game Mode, Memory integrity and Hardware-accelerated GPU scheduling (0.15.0)", "What changed? results and the Before and after filter on the Timeline (0.27.0)", "Opened crash: drivers and Windows updates in the 7 days before (0.15.0)", "Games page: frame rate per play, with Windows updates and drivers between plays (0.29.0, FPS needs RivaTuner)"],
+ "sources": ["https://support.microsoft.com/en-us/windows/uninstall-updates-in-windows-11-8f325e56-020d-434f-abd7-c2c8ccb46b90", "https://learn.microsoft.com/en-us/windows/release-health/", "https://betanews.com/2022/10/07/microsoft-says-that-gamers-can-boost-performance-by-lowering-windows-11-security-settings", "https://pureinfotech.com/windows-11-22h2-fixes-gaming-performance-issues/", "https://support.microsoft.com/en-us/windows/update-drivers-through-device-manager-in-windows-ec62f46c-ff14-c91d-eead-d7126dc1f7b6", "https://www.elevenforum.com/t/view-reliability-history-in-windows-11.5791/", "https://pureinfotech.com/uninstall-update-windows-11/", "https://support.microsoft.com/topic/4fdf8a9e-ddc9-4f65-971f-47e7debab6e1", "https://www.elevenforum.com/t/options-to-optimize-gaming-performance-in-windows-11.9492/"]}
+-->
+<p>Your PC was fine, Windows installed an update, and now games crash or the frame rate is lower than it was. Did a Windows update cause the crashes? Sometimes. More often the update just happened the same week as something else. The way to know is to line up the dates, and Windows already keeps the records you need.</p>
+
+<h2>Step 1: See what was installed and when</h2>
+
+<ol>
+<li>Open <b>Settings</b> &gt; <b>Windows Update</b> &gt; <b>Update history</b>.</li>
+<li>Look at the dates under <b>Quality updates</b>, <b>Driver updates</b> and <b>Feature updates</b>.</li>
+<li>Write down any update installed in the day or two before the trouble started.</li>
+</ol>
+
+<p>Pay most attention to <b>Driver updates</b>. Windows Update can install a graphics, audio or chipset driver on its own, and a new graphics driver is a likely suspect for game crashes. If a graphics driver is on the list, start with <a href="games-crashing-after-driver-update">games crashing after a graphics driver update</a>.</p>
+
+<p>A feature update, the big yearly version change, also deserves a look. It replaces much more of Windows and can bring back default settings.</p>
+
+<h2>Step 2: Line the crashes up in Reliability Monitor</h2>
+
+<p>Reliability Monitor is the easiest place in Windows to see crashes and updates on the same chart.</p>
+
+<ol>
+<li>Search Start for <b>reliability</b> and open <b>View reliability history</b>.</li>
+<li>Switch the view to <b>Days</b>. Each column is one day.</li>
+<li>Red marks are critical events such as app crashes and Windows shutting down unexpectedly. Blue marks are information, including each Windows update that installed.</li>
+<li>Click a day to see the list of events at the bottom.</li>
+</ol>
+
+<p>What you are looking for is a clear before and after. If the red marks start the day an update installed and were rare before, the update is a real suspect. If the red marks were already there the week before, the update didn't start them. If the crashes are blue screens or the PC restarting by itself, the codes in those events matter more than the update, and <a href="find-out-why-pc-crashed">how to find out why your PC crashed</a> covers reading them.</p>
+
+<h2>Step 3: Check whether Microsoft already knows</h2>
+
+<p>Microsoft keeps a list of known problems for each Windows version on its Windows release health pages. Search the page for the KB number from your Update history. Game problems have shown up there before. In 2022, for example, Microsoft listed lower than expected performance in some games on Windows 11 version 22H2 and fixed it in a later update. If your problem is listed, the page usually says whether a fix or a workaround exists, and you may only need to wait or install the next update.</p>
+
+<h2>Step 4: Uninstall the update to test it</h2>
+
+<p>If the dates line up and nothing else changed, remove the update and see whether the problem goes away. It's not something to do casually, because most updates include security fixes, and some can't be uninstalled.</p>
+
+<ol>
+<li>Open <b>Settings</b> &gt; <b>Windows Update</b> &gt; <b>Update history</b>.</li>
+<li>Scroll down to <b>Related settings</b> and pick <b>Uninstall updates</b>.</li>
+<li>Find the update by its KB number and press <b>Uninstall</b>.</li>
+<li>Restart the PC.</li>
+</ol>
+
+<p>Then go back to <b>Settings</b> &gt; <b>Windows Update</b> and pick <b>Pause updates</b>, or Windows may install the same update again. Play as you normally would for a few days. If the crashes stop, you found it. Resume updates once Microsoft's release health page shows a fix.</p>
+
+<p>After a feature update, the way back is different. Windows keeps the previous version for a limited time, in most cases 10 days, and <b>Settings</b> &gt; <b>System</b> &gt; <b>Recovery</b> &gt; <b>Go back</b> returns to it while that option is still there. Your files stay, but apps and drivers installed since the upgrade are removed.</p>
+
+<h2>If the problem is an FPS drop in games after a Windows update</h2>
+
+<p>An FPS drop is harder to prove than a crash, because frame rate changes with the scene, the game's own patches and even the room's temperature. Compare like for like: the same game, the same settings and the same spot, before and after. Then check what an update can change.</p>
+
+<ul>
+<li>The graphics driver. If Windows Update installed its own graphics driver, it can be older than the one you had. Check the version in <b>Device Manager</b> &gt; <b>Display adapters</b> and install the current driver from NVIDIA, AMD or Intel.</li>
+<li>Memory integrity. Microsoft says memory integrity and Virtual Machine Platform can cost performance in some games on some PCs, and that gamers may turn them off while playing. Memory integrity is under <b>Windows Security</b> &gt; <b>Device security</b> &gt; <b>Core isolation details</b>. Turning it off makes the PC less protected, so turn it back on when you're done.</li>
+<li>Game Mode and graphics settings. Check that <b>Settings</b> &gt; <b>Gaming</b> &gt; <b>Game Mode</b> is still on, and look at <b>Settings</b> &gt; <b>System</b> &gt; <b>Display</b> &gt; <b>Graphics</b> for the GPU each game is set to use.</li>
+<li>The power plan. If the plan switched to Balanced or Power saver, the CPU can clock down. See <a href="power-plan-keeps-changing">why your power plan keeps changing</a>.</li>
+</ul>
+
+<h2>How RigSight answers "what changed?" for you</h2>
+
+<p>All of the steps above depend on you working out the dates after the fact. RigSight, a free and open source PC monitor, writes them down as they happen.</p>
+
+<p>The Timeline lists every Windows update by its KB number with the time it installed, next to driver installs, Windows version upgrades and setting changes such as Game Mode, memory integrity and hardware-accelerated GPU scheduling being turned on or off. Pick <b>Windows</b> in the Timeline's filter to see only the updates.</p>
+
+{{fig pages/timeline | RigSight's Timeline page listing changes day by day, including a Windows update, app updates, a power plan change and Game Mode turned off | RigSight's Timeline. Windows updates, drivers, apps and settings each get a line with the time they changed.}}
+
+<p>For a Windows update, a graphics driver, a BIOS update or a power plan change, RigSight also checks whether the PC got better or worse after it. It compares the same game at the same load before and since, with the warmth of the room taken out, and counts the problems that kind of change can cause, such as graphics driver resets after a graphics driver, against the hours the PC was used. When something moved, the Timeline says so under the change, and the <b>Before and after</b> filter lists only those. A change that made no difference it could measure gets no line at all, so a quiet Timeline is a real answer.</p>
+
+<p>When a game crashed, the opened crash on the Crashes page lists the drivers and Windows updates from the seven days before it. For frame rates, each game's page on Games shows every play with its average FPS and 1% low, and the list of plays shows the Windows updates and drivers that came in between. Frame rate readings need RivaTuner Statistics Server running.</p>
+
+<p>Start with Update history and Reliability Monitor today. If the dates line up, uninstall the update and pause updates for a week. If they don't, the update was a coincidence, and the cause is somewhere else in that week.</p>

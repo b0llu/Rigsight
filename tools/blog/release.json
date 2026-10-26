@@ -1,0 +1,35 @@
+{
+ "_": "What is on rigsight.app and what waits. The site build publishes only 'released' slugs (posts and guides); the preview shows everything. 'queue' is the order the rest go out (the rigsight-blog skill takes from the front; the user may ask for more than two a day). Each release date becomes the page's published date.",
+ "released": {
+  "day-one": "2026-10-26",
+  "overlay-in-fullscreen-games": "2026-10-26",
+  "like-for-like": "2026-10-26",
+  "how-light": "2026-10-26",
+  "power-loss-while-asleep": "2026-10-26",
+  "find-out-why-pc-crashed": "2026-10-26",
+  "kernel-power-41": "2026-10-26",
+  "normal-gpu-temperature-while-gaming": "2026-10-26",
+  "gpu-hotspot-temperature": "2026-10-26",
+  "fps-drops-in-games": "2026-10-26"
+ },
+ "queue": [
+  "game-crashes-to-desktop-no-error", "quiet-bugs",
+  "display-driver-stopped-responding", "riggy",
+  "normal-cpu-temperature-while-gaming", "honest-charts",
+  "gpu-not-at-100-usage-low-fps", "driver-update-crash",
+  "games-crashing-after-driver-update", "tests-passed-app-froze",
+  "pc-overheating-while-gaming", "standard-accounts",
+  "blue-screen-of-death-causes", "how-sure-is-it",
+  "pc-restarts-randomly-while-gaming", "bringing-ai-back",
+  "one-percent-low-fps", "rigsight-in-spanish",
+  "gpu-fan-not-spinning", "three-ways-to-ask",
+  "what-is-using-my-ram", "choosing-a-model-blind",
+  "what-is-taking-up-space-on-c-drive", "testing-ai-on-fake-pcs",
+  "vsync-fps-cap", "how-to-show-fps-overlay",
+  "pc-fans-loud-while-gaming", "did-windows-update-cause-crashes",
+  "power-plan-keeps-changing", "check-gpu-temperature-history",
+  "ssd-health-check", "check-fan-speed-pc",
+  "which-app-is-using-my-internet", "screen-time-on-pc",
+  "free-pc-monitoring-software"
+ ]
+}

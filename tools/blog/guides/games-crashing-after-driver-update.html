@@ -1,0 +1,103 @@
+<!--meta
+{"slug": "games-crashing-after-driver-update", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+ "topic": "Drivers and updates",
+ "keyword": "games crashing after graphics driver update",
+ "also": ["game crashing after nvidia driver update", "nvidia driver causing crashes", "games crashing after amd driver update", "nvidia driver causing game crashes", "latest nvidia driver causing crashes", "why does my graphics driver keep crashing"],
+ "title": "Games crashing after a graphics driver update: how to fix it",
+ "summary": "Games crashing after a graphics driver update? Check that the driver is really the change, roll it back in Device Manager, then do a clean install, and use DDU only if that fails.",
+ "short": "If games started crashing right after a graphics driver update, roll the driver back first: Device Manager, Display adapters, your card, Driver tab, Roll Back Driver. If the crashes stop, wait for the next driver. If they don't, do a clean install, set the GPU back to stock clocks and check your overlays.",
+ "faq": [["Can an NVIDIA driver update cause game crashes?", "Yes. A new driver changes how every game talks to the graphics card, and a bug in it can crash some games and not others. NVIDIA lists known problems as open issues in each driver's release notes and often ships a hotfix driver for the worst ones."],
+         ["Why does my graphics driver keep crashing?", "The usual causes are a bad driver version, leftovers from older drivers, an unstable GPU overclock or undervolt, heat, or a power supply that can't hold up under load. Rolling back and doing a clean install rules out the driver. If it still crashes on a driver that used to work, look at clocks, temperatures and power next."],
+         ["Should I use DDU every time I update my graphics driver?", "No. Its own developer says DDU was designed for cases where the normal driver uninstall fails, and its guide also covers switching between NVIDIA and AMD cards. For an everyday update, the installer's clean install option is enough."],
+         ["Is it safe to roll back a graphics driver?", "Yes. Roll Back Driver puts back the version Windows kept from before the update, and you can update again whenever you like. If the button is greyed out, Windows didn't keep one, and you install the older version from NVIDIA or AMD instead."]],
+ "cover_img": "pages/crash-open", "cover_crop": [263, 80, 1110, 740], "cover_alt": "RigSight's Crashes page with an opened crash: the NVIDIA graphics driver failed while running Crimson Desert, marked Confirmed, with what to try and what it wasn't",
+ "app": ["Timeline: graphics driver installs with the version before and after (0.15.0)", "Timeline 'This PC now': current graphics driver and since when (0.15.0)", "Crashes: an app crash or freeze within two minutes of a graphics driver install says the driver was being installed (0.17.1)", "Crashes: names a crash inside NVIDIA, AMD or Intel driver files (CrashExplainer)", "Opened crash: drivers and Windows updates from the 7 days before (0.15.0)", "What changed? results and the Before and after filter on the Timeline (0.27.0)", "Games page: every play, how it ended, and driver updates between plays (0.29.0)"],
+ "sources": ["https://support.microsoft.com/en-us/windows/update-drivers-through-device-manager-in-windows-ec62f46c-ff14-c91d-eead-d7126dc1f7b6", "https://www.nvidia.com/en-us/drivers/", "https://www.amd.com/en/resources/support-articles/faqs/RSX2-UNINSTALL.html", "https://www.dell.com/support/kbdoc/en-id/000190215/installing-nvidia-video-drivers-with-the-clean-installation-option", "https://www.wagnardsoft.com/content/ddu-guide-tutorial", "https://us.msi.com/support/technical_details/NB_NV_Driver_Clean_Installation", "https://learn.microsoft.com/en-us/answers/a/12345883", "https://www.wagnardsoft.com/display-driver-uninstaller-DDU-", "https://www.amd.com/en/resources/support-articles/faqs/RSX2-INSTALL.html", "https://www.amd.com/en/resources/support-articles/faqs/GPU-601.html", "https://support.iracing.com/support/solutions/articles/31000165397-performing-a-clean-install-of-graphics-drivers", "https://learn.microsoft.com/archive/technet-wiki/53184.show-or-hide-updates-utility-fixing-automatic-installation-of-a-problematic-update-in-windows-10-version-1903", "https://pureinfotech.com/show-hide-updates-windows-11/"]}
+-->
+<p>Your games ran fine last week. You installed a new graphics driver, and now a game drops to the desktop or freezes halfway through a match. Games crashing after a graphics driver update is common, and it is one of the easier crashes to test, because you can put the old driver back in a couple of minutes. If the crashes stop, you have your answer.</p>
+
+<h2>Check that the driver really is the change</h2>
+
+<p>Before you undo anything, make sure the timing lines up. A game patch, a Windows update or a new overlay the same week can look exactly like a driver problem.</p>
+
+<ol>
+<li>Open <b>Settings</b> &gt; <b>Windows Update</b> &gt; <b>Update history</b> and look under <b>Driver updates</b>. Windows sometimes installs a graphics driver on its own, so this catches updates you never ran yourself.</li>
+<li>Open <b>Device Manager</b>, expand <b>Display adapters</b>, right-click your graphics card and pick <b>Properties</b>. The <b>Driver</b> tab shows the driver version and date.</li>
+<li>Check your game launcher for an update to the game on the same day.</li>
+</ol>
+
+<p>Then look at how the game crashed. Open <b>Event Viewer</b> &gt; <b>Windows Logs</b> &gt; <b>Application</b> and find the <b>Error</b> from <b>Application Error</b> at the time of the crash. The line <b>Faulting module name</b> says which file it crashed in. Files like nvwgf2umx.dll or nvd3dumx.dll belong to the NVIDIA driver, and files starting with amdxx or atiumd belong to AMD's. A crash inside one of those points at the driver. A crash inside the game's own files points at the game. For more on reading these logs, see <a href="find-out-why-pc-crashed">how to find out why your PC crashed</a>.</p>
+
+<h2>Roll the driver back in Device Manager</h2>
+
+<p>This is the quickest test, and it is safe. Windows keeps the previous driver when a new one goes in, and these are Microsoft's own steps for putting it back. You need to be signed in as an administrator.</p>
+
+<ol>
+<li>Open <b>Device Manager</b> and expand <b>Display adapters</b>.</li>
+<li>Right-click your graphics card and pick <b>Properties</b>.</li>
+<li>Open the <b>Driver</b> tab and press <b>Roll Back Driver</b>.</li>
+<li>Pick a reason, press <b>Yes</b>, and restart if Windows asks.</li>
+</ol>
+
+<p>If <b>Roll Back Driver</b> is greyed out, Windows didn't keep an older version. Download the driver you had before from NVIDIA's driver page or AMD's support page, where older versions are listed for each card, and install it with the clean install option described below.</p>
+
+<p>Play the games that crashed for a few sessions. If they now run fine, the new driver was the problem. Stay on the old one until a newer driver lists your game as fixed. NVIDIA's release notes have a section of open issues for each driver, and it is worth a look before you update again.</p>
+
+<p>If Windows Update keeps putting the newer driver back, Microsoft's <b>Show or hide updates</b> troubleshooter, a small file called wushowhide.diagcab, can hide that one driver update. Microsoft made it for Windows 10, and guides report it still works on Windows 11. A newer version of the same update can still install later.</p>
+
+<h2>Do a clean install of the driver</h2>
+
+<p>Sometimes the new driver is fine and the install is the problem. Settings and profiles left from older versions can clash with the new one. A clean install removes them and puts the driver in fresh.</p>
+
+<p>For NVIDIA:</p>
+<ol>
+<li>Download the driver for your card from NVIDIA's driver page.</li>
+<li>Run the installer and accept the license.</li>
+<li>On the installation options screen, pick <b>Custom (Advanced)</b>.</li>
+<li>Tick <b>Perform a clean installation</b> and continue. The exact screens can differ a little between driver versions.</li>
+<li>Restart when it finishes.</li>
+</ol>
+
+<p>Your screens can flicker or go black for a moment during the install. That is normal. A clean install also resets your NVIDIA Control Panel settings, so note any per-game settings you care about first.</p>
+
+<p>For AMD, AMD's advice is to remove AMD Software first from <b>Settings</b> &gt; <b>Apps</b> &gt; <b>Installed apps</b>, then install the new version from AMD's support page. If a normal uninstall leaves things broken, AMD offers the AMD Cleanup Utility for problems an uninstall can't fix. The AMD installer also has a <b>Factory Reset</b> option that removes all earlier versions of AMD Software as part of the install. AMD notes that you can't roll back to the old driver after that.</p>
+
+<h2>Use DDU only when a clean install isn't enough</h2>
+
+<p>Display Driver Uninstaller, usually called DDU, removes every trace of a graphics driver. It is a well known free tool, but its own developer says it was designed for cases where the normal driver uninstall fails, and its guide also covers switching between NVIDIA and AMD cards. It isn't something to run on every update.</p>
+
+<p>If you do use it, follow the developer's guide:</p>
+<ol>
+<li>Download the driver you want to install first, so it is ready offline.</li>
+<li>Back up anything important, and have your BitLocker recovery key to hand if the drive uses BitLocker.</li>
+<li>Disconnect from the internet, so Windows Update can't slip its own driver in.</li>
+<li>Restart into Safe Mode and run DDU there. The developer strongly recommends Safe Mode.</li>
+<li>Restart, install the driver you downloaded, then reconnect.</li>
+</ol>
+
+<h2>Things a new driver can bring to the surface</h2>
+
+<p>If the crashes carry on after a rollback and a clean install, the driver probably isn't the whole story. A new driver can push something that was already borderline over the edge.</p>
+
+<ul>
+<li>Overclocks and undervolts: a setting that was stable on the old driver can fail on the new one. Reset MSI Afterburner or your card maker's tool to default and test at stock clocks.</li>
+<li>Overlays: the Steam, Discord, NVIDIA and RivaTuner overlays all hook into the game. Turn them off one at a time to see whether one of them is crashing it.</li>
+<li>Game files: use your launcher's verify or repair option. After a driver change, the first launch can also take longer while the game rebuilds its shader cache. That is a slow start, not a crash.</li>
+<li>Heat and power: if the crash comes after a long stretch under load, check GPU temperatures and look at your power supply. A driver that lets the card boost higher can show up a weak one.</li>
+</ul>
+
+<p>If every game crashes and the screen goes black before Windows recovers, you are probably seeing graphics driver resets rather than ordinary game crashes. That has its own guide: <a href="display-driver-stopped-responding">display driver stopped responding and has recovered</a>.</p>
+
+<h2>How RigSight shows what the driver did</h2>
+
+<p>The hard part of this problem is remembering what changed and when. RigSight, a free and open source PC monitor, keeps that record for you from the day you install it.</p>
+
+<p>The Timeline lists every driver install with its time, and for the graphics driver it shows the new version and the one it replaced. The "This PC now" panel shows the graphics driver you are on and since when. When a driver made your PC better or worse, the Timeline says so under it, and the <b>Before and after</b> filter lists only those changes. Opening one shows the same game at the same load before and since, with the warmth of the room taken out, and the problems a graphics driver can cause, such as graphics driver resets. A driver that made no difference it could measure gets no line at all.</p>
+
+<p>The Crashes page names a crash that happened inside an NVIDIA, AMD or Intel driver file. When a game crashed or froze within two minutes of a graphics driver being installed, it says the driver was being installed at that moment, because open apps can crash while a driver is swapped under them. That crash says nothing about whether the new driver is any good. An opened crash also lists the drivers and Windows updates from the seven days before it.</p>
+
+{{fig pages/crash-open | RigSight's Crashes page with an opened crash: the NVIDIA graphics driver failed while running Crimson Desert, marked Confirmed, with what to try and what it wasn't | An opened crash on RigSight's Crashes page. It names the driver the game crashed in and checks whether anything new was installed in the week before.}}
+
+<p>On the Games page, each game lists every play and how it ended, with the driver updates that came between plays. Frame rates there need RivaTuner Statistics Server running. With that history, "it started after the update" is something you can look up instead of something you have to remember.</p>
+
+<p>Start with the rollback. It takes five minutes and tells you more than any amount of searching forum threads. If the old driver crashes too, look at the game, your clocks and your temperatures, and if the game just closes with no message at all, read <a href="game-crashes-to-desktop-no-error">why a game crashes to desktop with no error</a>.</p>

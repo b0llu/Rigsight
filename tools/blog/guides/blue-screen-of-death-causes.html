@@ -1,0 +1,93 @@
+<!--meta
+{"slug": "blue-screen-of-death-causes", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+ "topic": "Crashes",
+ "keyword": "blue screen of death causes windows 11",
+ "also": ["blue screen of death causes", "blue screen of death causes and solutions", "why do i keep getting blue screen", "how does the blue screen of death happen", "blue screen of death common causes"],
+ "title": "Blue screen of death causes on Windows 11, and fixes",
+ "summary": "The common blue screen of death causes on Windows 11 and 10, how to find the stop code and the driver Windows blames without extra tools, and the fixes that match each one.",
+ "short": "A blue screen means Windows found a fault it couldn't safely recover from and stopped. Microsoft puts about three quarters down to drivers. Hardware, such as unstable memory or CPU tuning, a failing drive or heat, makes up a smaller share. Find the stop code in Reliability Monitor or Event Viewer, look up what it names, and undo whatever changed last.",
+ "faq": [
+  ["Why do I keep getting blue screens?", "Repeated blue screens with the same stop code and the same driver point to that driver, so update it or roll it back. Different codes every time point toward hardware: unstable memory or CPU tuning, a failing drive, or heat. Compare the codes of your last few crashes before changing anything."],
+  ["How does the blue screen of death happen?", "Windows stops on purpose when something running with full system access, usually a driver, does something that could damage your files or the system if it carried on. It saves a dump file, shows the stop code and restarts."],
+  ["Can overheating cause a blue screen?", "It can, but more often an overheating PC slows itself down or switches off with no blue screen. A blue screen during heavy load with high temperatures is worth checking with the fans, dust filters and the CPU or GPU maker's temperature limit for your model."],
+  ["Can a blue screen damage my PC?", "The blue screen itself doesn't damage anything; it's Windows stopping to avoid damage. Unsaved work is lost, and frequent crashes can corrupt files, which is why running sfc /scannow after a run of blue screens is a good idea."]
+ ],
+ "cover_tiles": [["STOP CODE", "0x124", "WHEA_UNCORRECTABLE_ERROR: the hardware reported an error"]],
+ "app": ["Crashes page lists blue screens with their stop code (0.2.0)", "Stop codes named with a plain reason and advice (CrashExplainer, 0.2.0 onward)", "Windows crashed inside a named driver reads Confirmed (0.24.0)", "0x124 and 0x101 read as Likely a hardware fault (0.24.0)", "Driver or Windows update from the 7 days before named or ruled out (0.24.0)", "Hardware errors handed over at the next start and drive errors logged before (0.24.0)", "It has happened N times before (0.24.0)", "The 45 minutes before an opened crash (0.24.0)", "Copy report (0.24.0)", "CPU temperature needs admin rights"],
+ "sources": ["https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/blue-screen-data", "https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-code-reference2", "https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/stop-error-or-blue-screen-error-troubleshooting", "https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/memory-dump-file-options", "https://support.microsoft.com/en-us/windows/troubleshooting-windows-unexpected-restarts-and-stop-code-errors-60b01860-58f2-be66-7516-5c45a66ae3c6", "https://support.microsoft.com/en-us/topic/use-the-system-file-checker-tool-to-repair-missing-or-corrupted-system-files-79aa86cb-ca52-166a-92a3-966e85d4094e", "https://www.elevenforum.com/t/enable-or-disable-bsod-automatic-restart-in-windows-11.8084/", "https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/stop-code-error-troubleshooting", "https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/", "https://learn.microsoft.com/en-us/windows-hardware/drivers/debuggercmds/windbg-file-preview", "https://www.dell.com/support/kbdoc/en-bb/000149411/windbg?lang=en", "https://techcommunity.microsoft.com/blog/windows-itpro-blog/-/4434571", "https://redmondmag.com/articles/2025/07/23/windows-11-update-brings-faster-recovery.aspx"]}
+-->
+<p>A blue screen with a sad face and "Your device ran into a problem", or on current Windows 11 a plain black screen with the same message that stays up for about two seconds. Then it restarts before you can read anything. The blue screen of death causes are fewer than they seem: a handful of driver and hardware problems make up most of them, and Windows tells you which one it was if you know where to look. This works the same on Windows 11 and Windows 10.</p>
+
+<h2>What a blue screen actually is</h2>
+
+<p>Microsoft calls it a stop error or bug check. Drivers and the core of Windows run with full access to the system. When one of them does something that could corrupt memory or your files if it carried on, Windows stops everything on purpose. It saves a dump file and shows a stop code that names the kind of fault.</p>
+
+<p>Microsoft estimates that about three quarters of stop errors are caused by faulty drivers. In its own breakdown, hardware problems are about one in ten, and a share can't be traced at all because the memory was too damaged to read.</p>
+
+<h2>Find the stop code and the driver</h2>
+
+<p>The stop code is on the blue screen itself, such as <code>Stop code: VIDEO_TDR_FAILURE</code>, and sometimes a line saying <code>What failed: nvlddmkm.sys</code>. That second line is the driver Windows blames. If the PC restarts too fast to read it:</p>
+
+<ol>
+  <li>Open <strong>Settings &gt; System &gt; About</strong> and click <strong>Advanced system settings</strong>.</li>
+  <li>Under <strong>Startup and Recovery</strong>, click <strong>Settings</strong>.</li>
+  <li>Clear <strong>Automatically restart</strong> under <strong>System failure</strong>, and check that <strong>Write debugging information</strong> isn't set to <strong>(none)</strong>.</li>
+</ol>
+
+<p>For crashes that already happened, you don't need any extra tool to get the code:</p>
+
+<ul>
+  <li>Reliability Monitor: type <strong>reliability</strong> into Start and open <strong>View reliability history</strong>. A blue screen shows as "Shut down unexpectedly" with the problem name BlueScreen. The <code>BCCode</code> line is the stop code in hex.</li>
+  <li>Event Viewer: open <strong>Windows Logs &gt; System</strong> and look for event 1001 from the source BugCheck. It reads "The computer has rebooted from a bugcheck" with the code, its four parameters and where the dump was saved. Kernel-Power 41 has the same code in decimal; <a href="kernel-power-41">our Kernel-Power 41 guide</a> shows how to convert it.</li>
+</ul>
+
+<p>To find the driver behind an old crash without WhoCrashed or other third-party tools, use Microsoft's own debugger:</p>
+
+<ol>
+  <li>Install <strong>WinDbg</strong>. Microsoft offers it from its WinDbg download page and the Microsoft Store.</li>
+  <li>Open it as administrator, choose <strong>File &gt; Start debugging &gt; Open dump file</strong>, and pick the newest file in <code>C:\Windows\Minidump</code>.</li>
+  <li>Type <code>!analyze -v</code> and press Enter. Give it a minute to download symbols.</li>
+  <li>Look for <code>MODULE_NAME</code>, <code>IMAGE_NAME</code> and the line "Probably caused by". A file ending in .sys is the driver. If it names <code>ntoskrnl.exe</code>, that's Windows itself, and the real cause is usually a driver or hardware further back.</li>
+</ol>
+
+<h2>Common stop codes and what they point to</h2>
+
+<ul>
+  <li><code>0x124</code> WHEA_UNCORRECTABLE_ERROR: the hardware reported an error it couldn't recover from. Usually CPU or memory tuning: undo overclocks, undervolts, Curve Optimizer and XMP or EXPO, and update the BIOS.</li>
+  <li><code>0x101</code> CLOCK_WATCHDOG_TIMEOUT: a CPU core stopped responding. Usually unstable CPU tuning.</li>
+  <li><code>0x1A</code> MEMORY_MANAGEMENT, <code>0x50</code> PAGE_FAULT_IN_NONPAGED_AREA, <code>0x4E</code> PFN_LIST_CORRUPT: memory. Test with XMP or EXPO turned off and run Windows Memory Diagnostic.</li>
+  <li><code>0x116</code> VIDEO_TDR_FAILURE and <code>0x119</code> VIDEO_SCHEDULER_INTERNAL_ERROR: the graphics driver. Clean-reinstall it and undo any GPU overclock.</li>
+  <li><code>0xD1</code> DRIVER_IRQL_NOT_LESS_OR_EQUAL and <code>0xA</code> IRQL_NOT_LESS_OR_EQUAL: a driver touched memory it shouldn't. Network, audio and graphics drivers are frequent culprits.</li>
+  <li><code>0x133</code> DPC_WATCHDOG_VIOLATION: a driver took too long. Often storage, chipset or network drivers, or SSD firmware.</li>
+  <li><code>0x7A</code> KERNEL_DATA_INPAGE_ERROR and <code>0x154</code> UNEXPECTED_STORE_EXCEPTION: Windows couldn't read from the drive. Check the drive's health and its cable.</li>
+  <li><code>0x9F</code> DRIVER_POWER_STATE_FAILURE: a driver failed during sleep or wake. Update chipset and graphics drivers.</li>
+  <li><code>0x3B</code> SYSTEM_SERVICE_EXCEPTION, <code>0x7E</code> SYSTEM_THREAD_EXCEPTION_NOT_HANDLED and <code>0x139</code> KERNEL_SECURITY_CHECK_FAILURE: a driver crashed. Anti-cheat and recently installed software are common.</li>
+  <li><code>0xEF</code> CRITICAL_PROCESS_DIED: a core Windows process stopped. Run <code>sfc /scannow</code> and check the drive.</li>
+</ul>
+
+<p>Microsoft's Bug Check Code Reference lists every code with its parameters, if yours isn't here.</p>
+
+<h2>Fixes, safest first</h2>
+
+<ol>
+  <li>Undo what changed last. A new driver: open <strong>Device Manager</strong>, double-click the device, then <strong>Driver &gt; Roll Back Driver</strong>. New hardware: take it out and test. New software, especially anything with its own driver: uninstall it.</li>
+  <li>Install updates from <strong>Settings &gt; Windows Update</strong>, then get the newest drivers for the device the stop code or WinDbg named, from its maker.</li>
+  <li>Put all tuning back to default: load BIOS defaults, turn off XMP or EXPO for a test, reset GPU tools.</li>
+  <li>Run <strong>Windows Memory Diagnostic</strong> from Start. Several memory codes in a row deserve a longer test with MemTest86.</li>
+  <li>Repair Windows files in <strong>Terminal (Admin)</strong>: <code>sfc /scannow</code>, and if it can't fix everything, <code>DISM /Online /Cleanup-Image /RestoreHealth</code> followed by <code>sfc /scannow</code> again.</li>
+  <li>Check the drive's health with its maker's tool, and keep 10 to 15% of it free, as Microsoft suggests.</li>
+  <li>Check temperatures under load against your CPU and GPU maker's limit for your model.</li>
+  <li>If Windows won't stay up long enough, start in Safe Mode: <strong>Settings &gt; System &gt; Recovery &gt; Advanced startup &gt; Restart now</strong>, then <strong>Troubleshoot &gt; Advanced options &gt; Startup Settings &gt; Restart</strong> and press 4. From there you can roll back drivers or use <strong>System Restore</strong>.</li>
+</ol>
+
+<p>Updating the BIOS can fix 0x124 and 0x101 crashes on some boards, but a failed BIOS update can leave the PC unable to start. Only do it with your motherboard maker's instructions, on a stable PC, and never during a storm or on a laptop without its charger.</p>
+
+<h2>What RigSight records about a blue screen</h2>
+
+<p>RigSight is a free, open-source PC monitor for Windows. Every blue screen lands on its Crashes page with the stop code already named and explained, like "WHEA_UNCORRECTABLE_ERROR, 0x124", and what to try. When Windows names the driver at the next start, RigSight says it in plain words, such as "Windows crashed inside nvlddmkm.sys, the NVIDIA driver", and marks it Confirmed, because Windows' own record says so. A 0x124 or 0x101 with no driver named reads Likely a hardware fault.</p>
+
+{{fig pages/crash-open | An opened crash in RigSight with its cause marked Confirmed, What to try, What points to this, and What it wasn't with the temperatures, memory and installs ruled out | An opened crash on RigSight's Crashes page. A blue screen opens the same way, with its code and the driver Windows named.}}
+
+<p>Then it checks the things you'd otherwise check by hand. Was a driver or Windows update installed in the 7 days before? It names it, or rules it out when the same blue screen already happened before that update. Did the hardware hand over errors at the next start, or did a drive log errors in the half hour before? Was the CPU or GPU over your alert limit? It also says how many times the same blue screen has happened before, and since when. Open the crash for the 45 minutes before it, minute by minute, and use <strong>Copy report</strong> to paste the whole thing into a forum post. CPU temperature and power need RigSight running with admin rights.</p>
+
+<p>Your next step: find the BCCode of your last blue screen in Reliability Monitor and match it against the list above. If your last few crashes all have the same code, fix that one thing first. If they're all different, start with memory and tuning.</p>

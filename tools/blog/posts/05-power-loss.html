@@ -1,0 +1,65 @@
+<!--meta
+{"slug": "power-loss-while-asleep", "series": "build", "happened": "2026-10-01", "published": "2026-10-26", "version": "0.14.2",
+ "title": "My PC wasn't losing power in its sleep",
+ "summary": "RigSight said my PC kept losing power while asleep. It didn't. I had misread a number in Windows' own crash record.",
+ "short": "RigSight said my PC kept losing power in its sleep. I had read a field in Windows' crash record as yes or no. It's actually the power state Windows was moving into.",
+ "mark": "41"}
+-->
+<p>When Windows goes down without a proper shutdown, it writes an entry to its event log the next time it starts. It's event 41, from a source called Kernel-Power, and if you have ever looked into random restarts you have probably met it. RigSight reads these entries so the Crashes page can show when your PC went down and why.</p>
+
+<p>By the start of October, RigSight was telling me my own PC lost power while it was asleep. Again and again. In the 30 days up to 1 October, it counted 22 shutdowns that didn't finish properly and only 7 that did.</p>
+
+<p>That's the kind of thing that makes you look at your power supply with suspicion. But I don't switch my PC off at the wall, and the lights in my house hadn't been flickering 22 times a month.</p>
+
+<h2>A field with a misleading name</h2>
+
+<p>Event 41 has a field called <code>SleepInProgress</code>. I read it the way the name reads: was the PC asleep when it went down? If the value was anything but zero, RigSight said yes.</p>
+
+<p>That's not what it means. The field holds the power state Windows was moving into when things stopped. It's a number, and each number is a different state:</p>
+
+<figure class="fig">
+<svg viewBox="0 0 640 170" role="img" aria-labelledby="pl-t">
+  <title id="pl-t">SleepInProgress values: 0 nothing in progress, 2 to 4 going to sleep, 5 going into hibernation, which every Fast Startup shutdown does, 6 switching off</title>
+  <g>
+    <rect class="box" x="0" y="10" width="140" height="100" rx="10"/>
+    <rect class="box" x="160" y="10" width="140" height="100" rx="10"/>
+    <rect x="320" y="10" width="140" height="100" rx="10" style="fill: rgba(91,141,239,.12); stroke: var(--cpu)"/>
+    <rect x="480" y="10" width="160" height="100" rx="10" style="fill: rgba(91,141,239,.12); stroke: var(--cpu)"/>
+  </g>
+  <g class="tm" style="font-size: 26px">
+    <text x="20" y="52">0</text><text x="180" y="52">2 to 4</text><text x="340" y="52">5</text><text x="500" y="52">6</text>
+  </g>
+  <g class="t">
+    <text x="20" y="84">Nothing going on</text>
+    <text x="180" y="84">Going to sleep</text>
+    <text x="340" y="84">Hibernating, and</text><text x="340" y="101">every Fast Startup</text>
+    <text x="500" y="84">Switching off</text>
+  </g>
+  <text class="tb" x="320" y="146">5 and 6: the PC didn't finish shutting down</text>
+</svg>
+<figcaption>What the number in event 41 means. My first reading treated anything above 0 as "asleep".</figcaption>
+</figure>
+
+<p>On my PC the number was a 6. Windows was switching off, and the shutdown never quite finished. RigSight saw "not zero" and called it a power loss during sleep.</p>
+
+<p>Fast Startup makes it worse. It's on by default in Windows, and it makes "Shut down" work a bit like hibernating, so the PC starts faster next time. That means a normal shutdown with Fast Startup goes through state 5. Any of those that didn't finish would also have looked like sleep.</p>
+
+<p>There was a second field I had leaned on, <code>SystemSleepTransitionsToOn</code>. It counts how many times the PC has woken up since it last started. That tells you nothing about what was happening at the moment it went down, so RigSight stopped using it for that.</p>
+
+<h2>The fix, including the old entries</h2>
+
+<p>Version 0.14.2 reads the number as a state. A 5 or a 6 now means "the PC didn't finish shutting down", which is what it really means, and true sleep only comes from 2 to 4.</p>
+
+<p>Fixing it going forward wasn't enough, because RigSight keeps history. Every wrong label from before would have stayed wrong. So the next scan of Windows' log went back over the stored shutdowns and corrected them too.</p>
+
+<h2>Being careful with the word "power"</h2>
+
+<p>That bug made me careful with anything that sounds like a power cut. Two weeks later, when crashes started getting a cause and a confidence word, the rules for power got strict:</p>
+
+<ul>
+  <li>A shut-off is only a likely power cut when the PC was idle and cool, nobody held the power button and Windows logged nothing else.</li>
+  <li>A shut-off under load is only a possible problem with the mains or the power supply.</li>
+  <li>The time a PC went down comes from the last minute RigSight recorded, not the earlier time Windows sometimes gives.</li>
+</ul>
+
+<p>The lesson I took from it is a plain one. A field's name is a hint, not a definition. When a reading tells a dramatic story, like power failing every night, check what the number really holds before believing the story.</p>

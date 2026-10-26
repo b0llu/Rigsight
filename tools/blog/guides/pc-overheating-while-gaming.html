@@ -1,0 +1,119 @@
+<!--meta
+{"slug": "pc-overheating-while-gaming", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+ "topic": "Temperatures",
+ "keyword": "pc overheating while gaming",
+ "also": ["how to stop computer from overheating when playing games", "how to prevent pc from overheating while gaming", "is it normal for pc to get hot when gaming", "why does my pc get hot when i play games", "laptop overheating when gaming", "cpu overheating while gaming"],
+ "title": "PC overheating while gaming? How to find the cause and fix it",
+ "summary": "How to tell if your PC is really overheating while gaming, and how to stop it, from dust and airflow to frame caps, fan curves and thermal paste.",
+ "short": "A PC overheating while gaming is usually dust, poor airflow, or a game running far more frames than your screen shows. Clean the filters and coolers, give the case room to breathe, and cap the frame rate. Check fan curves and paste after that. Compare the same game before and after each change.",
+ "faq": [["Is it normal for a PC to get hot when gaming?", "Yes. Games load the graphics card and CPU hard, and both turn that power into heat. GPU temperatures in the 60s to 80s °C and CPU temperatures in the 60s to mid 80s °C are common. It's overheating when a part sits at its maker's maximum and slows down, or the PC shuts off."],
+         ["Why does my PC get hot when I play games?", "A graphics card can draw a few hundred watts in a game, and almost all of it ends up as heat inside the case. If the case can't move that heat out fast enough, everything inside warms up. Dust, blocked vents and uncapped frame rates make it worse."],
+         ["How do I stop my laptop overheating when gaming?", "Play on a hard, flat surface so the vents underneath aren't blocked, clean the vents, cap the frame rate and use the maker's balanced or quiet mode. A stand that lifts the back edge helps air reach the fans."],
+         ["Can overheating make my PC shut off while gaming?", "Yes. When a part reaches a temperature it can't safely run at, the PC can switch itself off to protect it. A sudden power cut looks the same afterwards, so check the temperatures just before the shut-off before blaming heat."]],
+ "cover_img": "pages/reports-month", "cover_crop": [263, 250, 1131, 660], "cover_alt": "RigSight's Reports for a month with an Against your usual table: GPU and CPU in Counter-Strike 2, at rest, fans and PC problems, each against this PC's usual",
+ "app": ["Reports: Against your usual, the most played game's temperatures at the same power with the room taken out (0.28.0)", "Home: a game running hotter than usual opens that game (0.29.0); PC health Temperatures as usual", "Games page: every play with its GPU temperature and power (0.29.0)", "Temperatures: resting temperature next to its usual (0.12.0) and At rest, last 30 days (0.21.0)", "Temperature graph: Average, Highest and Lowest (0.18.0)", "Temperature alerts in Settings > Notifications", "Crash close-up: It was running hot when it shut off (CrashFinding, 0.24.0 crash cases)"],
+ "sources": ["https://www.intel.com/content/www/us/en/support/articles/000005791/processors.html",
+             "https://intel.com/content/www/us/en/support/articles/000088048.html",
+             "https://www.intel.com/content/www/us/en/support/articles/000090029.html",
+             "https://www.amd.com/en/resources/support-articles/faqs/DH-033.html",
+             "https://www.nvidia.com/content/Control-Panel-Help/vLatest/en-us/mergedProjects/nv3d/Manage_3D_Settings_(reference).htm",
+             "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7800x3d.html",
+             "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9800x3d.html",
+             "https://www.intel.com/content/www/us/en/products/sku/236773/intel-core-i9-processor-14900k-36m-cache-up-to-6-00-ghz/specifications.html",
+             "https://www.intel.com/content/www/us/en/products/sku/241060/intel-core-ultra-9-processor-285k-36m-cache-up-to-5-70-ghz/specifications.html",
+             "https://www.pcworld.com/article/3105980/gpu-running-hot-heres-how-to-diagnose-and-fix-it-yourself.html",
+             "https://www.igorslab.de/en/using-a-frame-limiter-might-de-noise-your-gaming-laptop-without-losing-performance-and-its-now-easier-to-do-than-ever-before/",
+             "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4070-family/"]}
+-->
+<p>Your fans roar, the case is warm to the touch, and the frame rate sags after twenty minutes of play. Maybe the PC even shut off mid match. A PC overheating while gaming nearly always comes down to a handful of causes, and most of them cost nothing to fix. Start by checking it really is heat, then work through the fixes in order.</p>
+
+<h2>Is it normal for a PC to get hot when gaming?</h2>
+
+<p>Yes, up to a point. A graphics card can draw a few hundred watts in a game, and nearly all of that power turns into heat inside the case. Warm air out of the back and fans that speed up are signs the cooling is working.</p>
+
+<p>Each part has a maximum temperature set by its maker, and it changes from model to model. NVIDIA lists 85 to 93°C for its recent GeForce cards. AMD lists 89 to 95°C for recent Ryzen CPUs, and Intel lists 100°C for the Core i9 14900K and 105°C for the Core Ultra 9 285K. The guides on <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a> and <a href="normal-cpu-temperature-while-gaming">normal CPU temperature while gaming</a> list the figures by model.</p>
+
+<p>Your PC is really overheating when one of these is true:</p>
+
+<ul>
+  <li>A part sits at its maker's maximum during play and the frame rate drops as it gets there.</li>
+  <li>The PC shuts off or restarts in games, and the temperatures just before were at the limit.</li>
+  <li>The same game, at the same settings, runs clearly hotter than it used to.</li>
+</ul>
+
+<p>If none of those fit, your PC is probably just warm. Loud fans alone aren't a sign of overheating, and <a href="pc-fans-loud-while-gaming">PC fans loud while gaming</a> covers that case. If the frame rate drops but temperatures are fine, see <a href="fps-drops-in-games">FPS drops in games</a> instead.</p>
+
+<h2>How to stop your computer from overheating when playing games</h2>
+
+<p>Do these in order. Change one thing at a time, so you know what helped.</p>
+
+<h3>1. Clean out the dust</h3>
+
+<ol>
+  <li>Shut down Windows and switch off the power supply, then unplug the PC.</li>
+  <li>Take out and rinse or brush the dust filters, usually at the front, top and bottom of the case.</li>
+  <li>Blow dust out of the CPU cooler, the graphics card and any radiator with compressed air. Hold each fan still while you do, so it doesn't spin up.</li>
+  <li>Let anything you washed dry fully before it goes back in.</li>
+</ol>
+
+<p>Dust packed into a cooler's fins is the most common reason a PC that used to run cool now runs hot.</p>
+
+<h3>2. Give the case room to breathe</h3>
+
+<p>Air should come in at the front or bottom and leave at the back or top. Check that the case fans face the right way: most have small arrows on the frame for airflow. Pull the PC out of a desk cubby, keep it a hand's width from the wall, and don't put it on carpet if the power supply draws air from underneath.</p>
+
+<p>A quick test: play with the side panel off for 20 minutes. If temperatures drop a lot, the case isn't moving enough air, and another intake fan or a clearer path will help more than anything you do to the coolers.</p>
+
+<h3>3. Cap your frame rate</h3>
+
+<p>If a game runs at 250 frames per second on a 144 Hz screen, your graphics card is working flat out for frames you never see. A cap a little under your screen's refresh rate often cuts the heat noticeably.</p>
+
+<ul>
+  <li>Many games have a frame rate limit in their own video settings. Use that first.</li>
+  <li>On NVIDIA, open the NVIDIA Control Panel, go to <strong>Manage 3D settings</strong> and set <strong>Max Frame Rate</strong>.</li>
+  <li>On AMD, Radeon Chill in AMD Software lowers the frame rate when there's little movement on screen. AMD says it saves power and helps lower GPU temperature.</li>
+</ul>
+
+<h3>4. Check every fan spins</h3>
+
+<p>Look through the side panel while a game is running. Every case fan, the CPU cooler fan and every fan on the graphics card should be turning. Many graphics cards stop their fans when cool, so check under load. If one stays still, see <a href="gpu-fan-not-spinning">GPU fan not spinning</a>.</p>
+
+<h3>5. Set a better fan curve</h3>
+
+<p>A fan curve decides how fast fans spin at each temperature. Some motherboards ship with quiet curves that let the CPU get hot before the fans react. You can change the case and CPU fan curves in the BIOS or the motherboard maker's app, and the graphics card's curve in the card maker's app. Raise the speed a little at the temperatures you see in games, then test again.</p>
+
+<h3>6. Check the cooler and BIOS settings</h3>
+
+<p>Intel's own checklist for a CPU that runs hot asks you to confirm the cooler is rated for your CPU, that it's mounted properly with the protective film removed from its base, and on a liquid cooler that the pump and radiator fans are plugged into the right headers. Intel also notes that some motherboards ship with power settings that go past its guidelines. Loading the BIOS defaults can bring the temperature down. Change BIOS settings only if you're comfortable, and note what you change.</p>
+
+<h3>7. Replace the thermal paste last</h3>
+
+<p>Thermal paste dries out over years. If the PC is old, and the steps above didn't help, new paste on the CPU can bring the temperature down. Repasting a graphics card is a bigger job and can void the warranty, so check that first. A big gap between the GPU's main reading and its hot spot is the clearest sign a card needs it, as explained in <a href="gpu-hotspot-temperature">GPU hotspot temperature</a>.</p>
+
+<h2>Laptop overheating when gaming</h2>
+
+<p>Laptops run hotter than desktops by design, and the maker sets their limits. The fixes are simpler: play on a desk, not a bed or your lap, so the vents underneath stay open. Clean the vents with short bursts of compressed air. Cap the frame rate, and try the maker's balanced mode to see whether the temperature falls more than the frame rate does. A stand that lifts the back edge helps the fans pull in air.</p>
+
+<h2>Why you should compare like for like</h2>
+
+<p>The trap with overheating is comparing two things that were never the same. A light game in winter against a heavy one in summer will always look like your PC got worse. So when you test a fix:</p>
+
+<ul>
+  <li>Use the same game, the same settings and the same scene or map.</li>
+  <li>Play long enough for temperatures to level off, about 10 to 15 minutes.</li>
+  <li>Note how warm the room is. A room 5°C warmer makes every part run warmer too.</li>
+</ul>
+
+<p>Write down the highest GPU and CPU temperatures before the change and after. Only then do you know what worked.</p>
+
+<h2>How RigSight takes the guesswork out</h2>
+
+<p>RigSight is a free, open-source PC monitor for Windows. It records temperatures all day and keeps them, so your before and after are already saved when you start looking. CPU temperature needs RigSight to run with admin rights.</p>
+
+<p>It's built around that like-for-like idea. For a week, a month or a custom range, Reports has an Against your usual table. It compares the GPU and CPU temperature in the game you played most with your own usual in that game from the weeks before, at the same power, and uses the PC's temperature at rest to take the room out. The PC health card on Home says it in one line when a game runs hotter than usual, or says Temperatures as usual. The Games page keeps every play with its GPU temperature and power, so you can line up one evening against another.</p>
+
+{{fig pages/home | RigSight's Home page with today's activity, CPU and GPU peaks with the app in use, and a PC health card that says temperatures are as usual | RigSight's Home. The PC health card says whether temperatures are as usual for this PC.}}
+
+<p>If the PC shut off in a game, RigSight's crash details say whether it was running hot just before, and point out that a power cut would look the same. You can also turn on <strong>Temperature alerts</strong> under <strong>Notifications</strong> in Settings to get a warning, naming the game, when a part stays over your limit for a few seconds.</p>
+
+<p>Start with the dust and the frame cap tonight. Then play your usual game for 15 minutes and compare the highest temperatures with what you had before.</p>

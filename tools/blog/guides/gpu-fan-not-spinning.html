@@ -1,0 +1,111 @@
+<!--meta
+{"slug": "gpu-fan-not-spinning", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+ "topic": "Fans",
+ "keyword": "gpu fan not spinning",
+ "also": ["gpu fan not spinning while gaming", "gpu fan not spinning on startup", "gpu fan not spinning when idle", "why is one gpu fan not spinning", "gpu fan not spinning under load"],
+ "title": "GPU fan not spinning? When it's normal and when it's a fault",
+ "summary": "Most GPU fans stop on purpose when the card is cool. Here is how to tell that apart from a GPU fan not spinning while gaming, and what to check when it really is a fault.",
+ "short": "A GPU fan not spinning at idle is usually normal: most modern cards stop their fans while cool to stay silent, often until somewhere around 50 to 60°C. It's a fault when the fan stays at 0 RPM while the GPU is hot in a game. Then check the fan software, cables and dust, and stop gaming until it spins.",
+ "faq": [["Is it normal for GPU fans to not spin?", "Yes, at idle. Most current NVIDIA and AMD cards have a zero RPM or fan stop mode that keeps the fans still while the GPU is cool, often below somewhere around 50 to 60°C. The exact point depends on the card. The fans start once the card warms past that point."],
+         ["Why are my GPU fans not spinning on startup?", "When the PC first starts, the GPU is cold, so a card with fan stop has no reason to spin. Some cards give the fans a short spin at power on and some don't. As long as they start once you game, nothing is wrong."],
+         ["Why is one GPU fan not spinning?", "Some cards stop one fan before the others at light load, and some run only part of their fans until the card is warm. If one fan stays still while the others spin hard in a game, it may be stuck, unplugged at its small connector on the card, or worn out."],
+         ["What should I do if my GPU fan is not spinning while gaming?", "Watch the GPU temperature. If it climbs past about 70°C and the fan still reads 0 RPM, close the game. Reset any custom fan curve to default, update the graphics driver, and check the fan isn't blocked by a cable or dust. If it still won't spin, contact the card maker about the warranty."],
+         ["Can a GPU fan not spinning and no display be the same problem?", "Often, yes. If the fans don't move and there's no picture, the card may not be getting power. Check that the PCIe power cables are pushed fully into the card and the power supply, and that the card sits firmly in its slot."]],
+ "cover_img": "pages/fans", "cover_crop": [582, 288, 810, 540], "cover_alt": "RigSight's Fans page showing GPU fans that start spinning around 51 degrees and stood still for 16 hours while the GPU was cool",
+ "app": ["Fans page (0.12.0)", "Day, week, month and year on Fans (0.12.1)", "Warning when a GPU fan stops while it should be spinning, on Reports and Home (0.11.0)", "Warning when a fan runs slower than usual at the same temperature (0.12.0)"],
+ "sources": ["https://www.amd.com/en/resources/support-articles/faqs/DH3-020.html",
+             "https://www.amd.com/en/resources/support-articles/faqs/DH3-038.html",
+             "https://www.dell.com/support/kbdoc/en-us/000179087/how-to-troubleshoot-fan-issues",
+             "https://helpdeskgeek.com/why-your-gpu-fans-arent-spinning-and-how-to-fix/",
+             "https://evezone.evetech.co.za/quick-bytes/zero-rpm-mode-explained-gpu-fans-do-not",
+             "https://guru3d.com/story/amd-adrenalin-2651-reportedly-triggers-radeon-zero-rpm-fan-issue/"]}
+-->
+<p>You open the side panel, look at your graphics card, and the fans are standing still. It's a scary sight, but a GPU fan not spinning is usually the card doing what it was built to do. What matters is whether the fan stays still when the GPU is hot. Here's how to tell the two apart, and what to check when it really is a fault.</p>
+
+<h2>Why most GPU fans stop on purpose</h2>
+
+<p>Most graphics cards made in the last several years have a fan stop mode. NVIDIA card makers call it things like zero RPM, 0dB or fan stop. AMD calls it Zero RPM and says it is on by default. The idea is simple. When you're on the desktop or watching a video, the heatsink alone can keep the GPU cool, so the fans stay off and the card is silent.</p>
+
+<p>The fans start once the GPU warms past a set point. On many cards that's somewhere around 50 to 60°C, but the exact number is set by the card maker, so it differs between models. Once started, cards often keep spinning until the GPU drops a few degrees below that point. That gap stops the fans from flicking on and off every few seconds.</p>
+
+<p>So these are all normal:</p>
+
+<ul>
+  <li>A GPU fan not spinning when idle, with the GPU at 30 to 50°C.</li>
+  <li>A GPU fan not spinning on startup, because the card is cold.</li>
+  <li>Fans that start and stop a few times while you browse, as the GPU drifts around its start point.</li>
+  <li>One fan of three stopping before the others at light load, on cards that do that.</li>
+</ul>
+
+<h2>How to tell if it's a fault</h2>
+
+<p>The test is heat. A healthy fan with fan stop spins once the GPU is warm. A broken one doesn't. To check:</p>
+
+<ol>
+  <li>Open a tool that shows both GPU temperature and fan speed. For AMD cards, <b>AMD Software</b> has this under <b>Performance</b> &gt; <b>Metrics</b>. For any card, MSI Afterburner or HWiNFO show both.</li>
+  <li>Start a demanding game or a benchmark, windowed so you can watch the numbers.</li>
+  <li>Watch the fan speed as the temperature climbs past 60°C.</li>
+  <li>If the temperature reaches about 70°C or more and the fan still reads 0 RPM, close the game. That's a GPU fan not spinning under load, and it needs fixing before you play again.</li>
+</ol>
+
+<p>If the fans spin up and the GPU settles at a normal gaming temperature, the card is fine. Our guide to <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a> has the ranges.</p>
+
+<p>A GPU that runs hot with no fan won't usually break at once. It will throttle, which means it slows itself down to stay under its limit. You'll see lower frame rates and the clock speed dropping. If it gets too hot it can shut the PC off. Either way, don't keep gaming on it.</p>
+
+<h2>GPU fan not spinning while gaming: what to check</h2>
+
+<p>Try these in order. The first ones are the most common causes and the safest to fix.</p>
+
+<h3>1. A fan curve or tool that holds the fans back</h3>
+
+<p>Fan tools like MSI Afterburner, EVGA Precision X1, ASUS GPU Tweak and AMD Software can all set their own fan curve. A curve copied from another card, a profile that loads at startup, or a fixed speed of 0% can keep the fans still at any heat. Two of these tools running at once can also fight over the fans.</p>
+
+<ol>
+  <li>Open the fan tool you use and choose its default or auto fan setting.</li>
+  <li>In AMD Software, open <b>Performance</b> &gt; <b>Tuning</b> and reset the tuning to default. The fan tuning there also has the <b>Zero RPM</b> switch.</li>
+  <li>Close any second fan tool, then test again in a game.</li>
+</ol>
+
+<p>Turning fan stop off is a fair test. If the fans spin with it off and never with it on, the card's fan stop isn't waking up. A driver can cause that, which is the next step.</p>
+
+<h3>2. The graphics driver</h3>
+
+<p>Fan control on modern cards goes through the driver. A bad install, or a driver release with a fan bug, can leave the fans still. Restart the PC first, since that clears a stuck state. If it keeps happening, install the latest driver from NVIDIA or AMD, or go back one version if the trouble started right after an update.</p>
+
+<h3>3. Something blocking the fan</h3>
+
+<p>Shut the PC down and switch the power supply off at its switch. Then look closely:</p>
+
+<ul>
+  <li>A cable resting against the blades. Cables tied near the card can drift into them.</li>
+  <li>Thick dust or pet hair around the hub, which can stall a weak fan.</li>
+  <li>A blade that rubs the shroud, often after a card was dropped or the shroud bent.</li>
+</ul>
+
+<p>Turn each fan gently with a finger. It should spin freely and coast for a moment. If it feels gritty, stiff or stops at once, the bearing is worn. When you clean it with compressed air, hold the blades still so the air doesn't spin them too fast.</p>
+
+<h3>4. Power and the fan's own cable</h3>
+
+<p>Each fan connects to the card's board through a small cable under the shroud. If the card was opened, repasted or cleaned, one may have come loose. That's the usual reason one GPU fan isn't spinning when the others are. If you're not comfortable opening the shroud, leave it to the maker's support, since opening it can affect the warranty on some cards.</p>
+
+<p>If no fan spins and you get no display, the card likely has no power at all. Check that the PCIe power cables are pushed fully into the card and the power supply, with no gap at the latch, and that the card is seated in its slot.</p>
+
+<h3>5. Laptops</h3>
+
+<p>Laptop GPUs usually share fans and heat pipes with the CPU, and the laptop's maker sets how they behave. Silent or quiet modes in the maker's app can hold the fans low. Switch to its balanced or performance mode and test again. If the fans never come on and the laptop gets hot, contact the maker.</p>
+
+<h3>6. When it's the fan itself</h3>
+
+<p>If the fan stays still in a game after all of the above, it has failed. Contact the card maker about a repair or replacement under the warranty. Until it's fixed, don't game on the card.</p>
+
+<h2>How RigSight makes this easier</h2>
+
+<p>RigSight is a free, open source app that records your PC all day and keeps it as history. Its Fans page shows each fan with the state it's in right now, and it knows the difference between a resting GPU fan and a stuck one. A GPU fan at 0 RPM with a cool GPU shows as "Resting while cool". The same fan at 0 RPM with the GPU at 70°C or more shows as "Stopped while hot" and counts as needing a look.</p>
+
+<p>For a card with fan stop, the page also works out where your fans start. It says "Starts spinning: Around 51°" for the card in the picture, with "Silent below that, faster as it warms". It shows how long they stood still and how many times they started up, for a day, a week, a month or a year.</p>
+
+{{fig pages/fans | RigSight's Fans page with GPU fans that start spinning around 51 degrees, a speed chart for each day and a chart of speed at each GPU temperature | RigSight's Fans page. The shaded band on the speed at each GPU temperature chart is where the card keeps its fans off on purpose.}}
+
+<p>You don't have to be watching when it goes wrong. If your GPU fan sits at 0 RPM for a few minutes while the GPU is at 70°C or more, and it always spins at that heat, RigSight says so on Reports and in Home's PC health card, with the time it started: "Check it isn't blocked or unplugged." It also notices fans that spin slower than usual at the same temperature, and names MSI Afterburner or another fan tool if one was running, since a changed curve is the likely reason. GPU fans show without admin rights.</p>
+
+<p>If your GPU fan isn't spinning right now, start with the heat test above. Five minutes in a game with the temperature and fan speed on screen tells you whether you have a quiet card or a broken fan.</p>

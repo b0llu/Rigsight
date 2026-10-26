@@ -1,0 +1,186 @@
+{
+ "_": "Cover for each post, 1200x800. crop = [x, y, w, h] in the full-size docs/img picture (1424 wide). tiles = app-style tiles: label, value, sub. Colour: cpu | gpu | hot.",
+ "day-one": {
+  "img": "pages/home",
+  "crop": [
+   263,
+   138,
+   668,
+   455
+  ],
+  "alt": "RigSight's Home card for today: time active, PC on and away, CPU and GPU peaks with the app in use, and the most used apps"
+ },
+ "overlay-in-fullscreen-games": {
+  "colour": "gpu",
+  "tiles": [
+   [
+    "See-through value sent to RivaTuner",
+    "00",
+    "read as fully solid, a black box"
+   ]
+  ]
+ },
+ "like-for-like": {
+  "img": "pages/reports-day",
+  "crop": [
+   263,
+   237,
+   1131,
+   687
+  ],
+  "alt": "RigSight Reports for a Saturday: where the time went, the day minute by minute, what stood out and the peaks"
+ },
+ "how-light": {
+  "colour": "gpu",
+  "tiles": [
+   [
+    "Inside Windows and drivers",
+    "73%",
+    "of the recorder's processor time"
+   ],
+   [
+    "RigSight's own code",
+    "27%",
+    "all a C++ rewrite could touch"
+   ]
+  ]
+ },
+ "power-loss-while-asleep": {
+  "colour": "cpu",
+  "tiles": [
+   [
+    "Kernel-Power 41, SleepInProgress",
+    "6",
+    "Switching off. Read as \"asleep\" until 0.14.2"
+   ]
+  ]
+ },
+ "quiet-bugs": {
+  "img": "pages/timeline",
+  "crop": [
+   263,
+   178,
+   815,
+   475
+  ],
+  "alt": "RigSight's Timeline listing app updates, a power plan change and a Windows update, day by day"
+ },
+ "honest-charts": {
+  "img": "pages/temperatures",
+  "crop": [
+   263,
+   118,
+   1131,
+   754
+  ],
+  "alt": "RigSight's Temperatures page: CPU and GPU gauges and a 24 hour history with Average, Highest and Lowest switches"
+ },
+ "driver-update-crash": {
+  "img": "pages/crash-open",
+  "crop": [
+   263,
+   80,
+   1131,
+   754
+  ],
+  "alt": "An opened crash in RigSight: the NVIDIA graphics driver failed while running Crimson Desert, Confirmed, with what it wasn't and the minutes around it"
+ },
+ "tests-passed-app-froze": {
+  "colour": "hot",
+  "tiles": [
+   [
+    "Made-up history",
+    "15 ms",
+    "a page switch, said the tests"
+   ],
+   [
+    "My real history",
+    "205 ms",
+    "the window froze on Network"
+   ]
+  ]
+ },
+ "standard-accounts": {
+  "colour": "cpu",
+  "tiles": [
+   [
+    "Admin prompts on a standard account",
+    "0",
+    "Readings it can't take are named, never stored as zero"
+   ]
+  ]
+ },
+ "how-sure-is-it": {
+  "img": "pages/crashes",
+  "crop": [
+   263,
+   118,
+   1131,
+   754
+  ],
+  "alt": "RigSight's Crashes page: three crashes, each with a word for how sure the cause is: Possibly a fault in the app, Confirmed, Not enough to say"
+ },
+ "rigsight-in-spanish": {
+  "colour": "cpu",
+  "tiles": [
+   [
+    "Texts in the app",
+    "3,097",
+    "every one in English and Spanish"
+   ]
+  ]
+ },
+ "riggy": {
+  "colour": "hot",
+  "tiles": [
+   [
+    "Kinds of question Riggy knew",
+    "17",
+    "each answer written ahead of time"
+   ],
+   [
+    "Time it was out",
+    "2 days",
+    "then removed"
+   ]
+  ]
+ },
+ "bringing-ai-back": {
+  "colour": "hot",
+  "chips_label": "Every answer is one of",
+  "chips": [
+   "Here's the problem",
+   "This is normal for your PC",
+   "I can't tell, here's what I'd need"
+  ]
+ },
+ "three-ways-to-ask": {
+  "colour": "hot",
+  "chips_label": "Three ways to ask",
+  "chips": [
+   "On your PC: nothing leaves it",
+   "Your own key: the provider you pick",
+   "RigSight AI: nothing to set up"
+  ]
+ },
+ "choosing-a-model-blind": {
+  "colour": "hot",
+  "letters": "ABCDEF",
+  "votes": {
+   "F": 12,
+   "E": 5
+  },
+  "label": "Blind votes on 19 questions",
+  "sub": "F, Gemini 3.8 Flash, won my vote. E, Claude Haiku 5.5, got the job."
+ },
+ "testing-ai-on-fake-pcs": {
+  "colour": "hot",
+  "tiles": [
+   [
+    "Checks passed, first run",
+    "7 of 11",
+    "on five pretend PCs"
+   ]
+  ]
+ }
+}

@@ -1,0 +1,74 @@
+<!--meta
+{"slug": "bringing-ai-back", "series": "ai", "happened": "2026-10-17", "published": "2026-10-26", "order": 2,
+ "title": "Bringing AI back, with rules this time",
+ "summary": "Nine days after removing Riggy, I started on a real AI helper. Before writing any of it, I wrote down what it would never be allowed to do.",
+ "short": "The new helper is a real AI that explains your PC's records and never changes anything by itself. Only the results of look-ups it asks for leave the PC, and each kind of data has a switch. It's still in testing.",
+ "mark": "3 answers"}
+-->
+<p>Riggy taught me what didn't work. A helper with answers written ahead of time is a form with a face. If RigSight was going to answer questions, it needed a real AI, one that can read your records and say something it wasn't told to say.</p>
+
+<p>On 17 October I started planning one. The idea, in the words I wrote down that day: a helper which understands the system better than the user, to tell them easily what the issue is, or that it lacks the information to say.</p>
+
+<p>That last part is the important bit.</p>
+
+<h2>Three kinds of answer</h2>
+
+<p>Every answer from the helper is meant to be one of three things:</p>
+
+<ol>
+  <li><strong>Here's the problem.</strong> One plain sentence, then why, then what to do about it.</li>
+  <li><strong>This is normal for your PC.</strong> Because a lot of worry is about things that are fine.</li>
+  <li><strong>I can't tell, and here's what I'd need.</strong> For example: start RivaTuner before the game and ask again, so there's frame data to look at.</li>
+</ol>
+
+<p>The third kind is the one I care about most. An AI that always has an answer will sometimes make one up. I would much rather it said "I don't have enough to go on" and told you how to get it.</p>
+
+<h2>It explains, you decide</h2>
+
+<p>The helper never changes anything on your PC by itself. It can tell you what's likely wrong and what to try, and show you the chart or the crash it's talking about. Some answers come with a button, like opening the right Windows settings screen, scanning a drive or closing an app that's stuck. Nothing happens until you press it. A tool that reads your crash history shouldn't be able to uninstall your graphics driver because it thinks that's a good idea.</p>
+
+<h2>What leaves your PC</h2>
+
+<p>This was the reason Riggy went: a real AI means either a big download or your data going to a server. So the design starts from the question of what gets sent.</p>
+
+<p>The AI model doesn't get your history. It gets a set of look-ups it can ask for: this crash, temperatures for that day, what changed last week, how this game ran. The app runs each look-up on your PC and sends back only its result.</p>
+
+<p>Your Windows user name is never sent. Neither are the names of your own files. There is one place where folder names do go: if you ask what's filling up a drive, the AI gets that drive's biggest folders, so it can tell a Steam library from a Downloads folder. Even then, your own user folder is sent as "your user folder", and the files inside are described only by their kind and size.</p>
+
+<figure class="fig">
+<svg viewBox="0 0 640 196" role="img" aria-labelledby="ai-t">
+  <title id="ai-t">Your whole history stays on your PC. The AI asks for a look-up, such as one crash or one day's temperatures, the app runs it on your PC and sends only that result, never your user name or the names of your own files.</title>
+  <rect x="0" y="10" width="300" height="176" rx="12" style="fill: rgba(91,141,239,.07); stroke: var(--cpu)"/>
+  <text class="tb" x="18" y="40">On your PC</text>
+  <g class="t"><text x="18" y="70">Months of readings, apps, crashes</text><text x="18" y="92">The names of your own files</text><text x="18" y="114">Your Windows user name</text></g>
+  <rect class="box" x="18" y="132" width="264" height="38" rx="8"/>
+  <text class="tm" x="32" y="156">look-up: get_crash(Wed 10:06 PM)</text>
+  <rect class="box" x="400" y="62" width="240" height="72" rx="12"/>
+  <text class="tb" x="418" y="92">The AI model</text>
+  <text class="tf" x="418" y="114">sees only look-up results</text>
+  <g style="stroke: var(--hot); stroke-width: 1.5; fill: none">
+    <path d="M396 88 L300 140"/><path d="M300 160 L396 112"/>
+  </g>
+  <text class="tf" x="318" y="104" style="fill: var(--hot)">asks</text>
+  <text class="tf" x="318" y="172" style="fill: var(--hot)">gets one result</text>
+</svg>
+<figcaption>The model can ask for a look-up. The app answers it on your PC, and only that answer leaves.</figcaption>
+</figure>
+
+<p>Every page of RigSight the AI can look at has its own switch in Settings: Crashes, Temperatures, Games, Storage and the rest. Switch off Storage and no drive or folder is ever sent. If you turn one off and then ask about it, the AI is told it isn't shared, and it tells you which switch to turn on. Under each answer, a short line shows which of your records it looked at, and each one opens the page it came from.</p>
+
+<h2>Off means gone</h2>
+
+<p>Two more rules came from watching how other apps handled AI.</p>
+
+<p>Turning the helper off hides every Ask and Explain button in the app. They disappear completely. People get rightly annoyed by AI buttons they can't remove.</p>
+
+<p>And RigSight doesn't contact the AI service at all until you choose it and ask a question. Opening Settings doesn't count. Starting the app doesn't count. Nothing checks in by itself.</p>
+
+<h2>Where it shows up</h2>
+
+<p>You can ask from a small window that floats over any page. But the place I think it'll help most is next to problems RigSight already shows. An opened crash has an "Explain this crash" button, so you get the helper's take on that exact crash, with everything RigSight recorded around it.</p>
+
+<p>It's also meant to talk like a friend who knows PCs. Someone who just had a game crash will type "why did this crash?", not a carefully worded question. A casual question gets a casual answer, and numbers only show up when they help.</p>
+
+<p>The helper is being tested now. I'm not giving it a date. When it's ready, the privacy page will say exactly what it sends before anyone can use it. The next posts are about how it's being built: <a href="three-ways-to-ask">where the answers come from</a>, <a href="choosing-a-model-blind">picking the model</a> and <a href="testing-ai-on-fake-pcs">testing it on PCs that don't exist</a>.</p>

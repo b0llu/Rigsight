@@ -1,0 +1,52 @@
+<!--meta
+{"slug": "riggy", "series": "ai", "happened": "2026-10-06", "published": "2026-10-26", "version": "0.16.0 to 0.18.0", "order": 2,
+ "title": "Riggy: the helper I shipped, then removed two days later",
+ "summary": "The first try at letting you ask RigSight questions. It was clever, it was careful, and it wasn't really AI. So it went.",
+ "short": "Riggy answered questions about your PC from a corner of the window. A small model picked the topic and code filled in answers written ahead of time. It wasn't really AI, so I removed it two days later.",
+ "mark": "23 MB"}
+-->
+<p>Early on, I wanted RigSight to answer questions as well as draw charts. Questions like "why did my game crash last night?" or "was I gaming more this week than last?". The data was all there. The problem was getting from a question in plain words to the right piece of it.</p>
+
+<p>On 5 October I built a first answer to that. On 6 October it shipped as an experiment called Riggy. On 8 October I took it out.</p>
+
+<h2>What Riggy was</h2>
+
+<p>Riggy was a small robot face that peeked out of the bottom right corner of the window. I drew it myself: a chunky screen for a head, big white eyes, a little smile. Hover it and it popped out. Click it and a chat opened.</p>
+
+<p>Behind the face there was no chatbot. There was a 23 MB model whose only job was to read your question and decide which of about 17 topics it was about: crashes, heat, what changed, where your time went, internet, storage, fans and so on. Rules picked out the time, the app and the part you meant. Then code put an answer together from the same reports the pages use.</p>
+
+<figure class="fig">
+<svg viewBox="0 0 640 132" role="img" aria-labelledby="rg-t">
+  <title id="rg-t">How Riggy worked: your question went to a small model that picked one of about 17 topics, rules found the time and app, and a pre-written answer was filled in from the reports.</title>
+  <g>
+    <rect class="box" x="0" y="30" width="138" height="64" rx="10"/>
+    <rect class="box" x="166" y="30" width="138" height="64" rx="10"/>
+    <rect class="box" x="332" y="30" width="138" height="64" rx="10"/>
+    <rect x="498" y="30" width="142" height="64" rx="10" style="fill: rgba(167,139,250,.1); stroke: var(--hot)"/>
+  </g>
+  <g class="tb"><text x="14" y="57">Your question</text><text x="180" y="57">Pick a topic</text><text x="346" y="57">Find the details</text><text x="512" y="57">Fill in an answer</text></g>
+  <g class="tf"><text x="14" y="78">"why did it crash?"</text><text x="180" y="78">one of about 17</text><text x="346" y="78">time, app, part</text><text x="512" y="78">written ahead of time</text></g>
+  <g style="stroke: var(--faint); stroke-width: 1.5"><line x1="140" y1="62" x2="162" y2="62"/><line x1="306" y1="62" x2="328" y2="62"/><line x1="472" y1="62" x2="494" y2="62"/></g>
+  <text class="t" x="0" y="122">It could only ever say things someone had written in advance.</text>
+</svg>
+<figcaption>Riggy's insides. The model understood which kind of question it was. It never wrote a word itself.</figcaption>
+</figure>
+
+<p>I was careful with it. It never guessed: if it wasn't sure what you meant, it asked back. It could compare two periods, like this week against last week, and it only compared heat like for like. It could follow up on "that", as in "when did that start?". If it misunderstood you, you could tell it what you meant, and it would remember that wording next time.</p>
+
+<h2>Why it went</h2>
+
+<p>Using it for a couple of days, the problem was obvious. Without a real AI behind it, it wasn't that useful.</p>
+
+<p>Every answer had been written ahead of time, for about 17 kinds of question. Ask something a little outside those and you got a polite "I'm not sure". Ask something inside them and you got an answer that felt like a form being filled in, because it was one. It could learn new ways to ask the same question. It could never learn a new kind of answer.</p>
+
+<p>A real AI would have meant one of two things. Either a download of around a gigabyte to run a model on your PC, or your PC's history sent to a server somewhere. At that time, RigSight's promise was that your data never leaves your PC, and I wasn't going to quietly break it for a feature that was "experimental".</p>
+
+<p>So it all went: the robot, the model, the chat, the settings. The installer dropped from 73.9 MB to 54.5 MB. Memory, Timeline and Crashes got plain search boxes instead, where every word you type has to be in the row. No model, no pretending.</p>
+
+
+<h2>Saying so out loud</h2>
+
+<p>I didn't want Riggy to just disappear in an update. The What's new card for 0.18.0 had a plain grey "Removed" card that said why: it wasn't a real AI, its answers were written ahead of time, and a real one would mean a big download or sending your history to the cloud.</p>
+
+<p>Removing your own feature two days after shipping it doesn't feel great. But I think it was the right call, and it taught me what a helper in RigSight would need to be. It would have to understand any question, not 17. It would have to work from your real records and show which ones it used. And it would have to say "I can't tell" when it can't. About ten days later, I started on that.</p>

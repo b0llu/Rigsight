@@ -1,0 +1,52 @@
+<!--meta
+{"slug": "day-one", "series": "build", "happened": "2026-09-23", "published": "2026-10-26", "version": "0.2.0 to 0.4.8",
+ "title": "Day one: 25 versions in a single day",
+ "summary": "The first public day of RigSight, what it set out to do, and the first mistake it shipped: counting the page file as RAM.",
+ "short": "On 23 September RigSight went from 0.2.0 to 0.4.8 in one day. The idea was a PC monitor that keeps what it sees. The first mistake shipped that day too: the page file counted as RAM.",
+ "cover": "pages/home", "mark": "25"}
+-->
+<p>Every PC monitor I had used works the same way. You open it, it shows what your PC is doing right now, and when you close it, all of that is gone. If your GPU hit 85 degrees at 2 AM in the middle of a game, you will never know, unless the window happened to be open and you happened to be looking.</p>
+
+<p>That was the whole idea behind RigSight. Record the temperatures, the apps, the crashes, all day, and keep them. Then let me look back at any day the way I would look at a bank statement.</p>
+
+<p>I built RigSight for more than one reason. The first was HWiNFO. It's a great tool and it shows almost every sensor in a PC, but it wasn't giving me the history I wanted. I could see what my PC was doing right now. I couldn't easily see what it did yesterday, or last week, or how this month compared with the one before.</p>
+
+<p>The second reason is simply me. I have always loved looking back at time: what I did, how much of it, when. Hours in a game, how late the PC stayed on, which week was the busiest. A PC already knows all of that. It just never writes it down.</p>
+
+<h2>Two programs, on purpose</h2>
+
+<p>The first decision shaped everything after it. RigSight is two programs. One is a small recorder that starts with Windows and writes a reading every couple of seconds. The other is the window you open to look at your history. The window can close whenever you like. The recorder keeps going.</p>
+
+<p>This split is why RigSight can remember anything at all. It also set the bar for the next month: the recorder has to be so light that nobody ever thinks about it.</p>
+
+<h2>A very long day</h2>
+
+<p>The project had lived under another name, ThermoDeck, before 23 September. That day it became RigSight and went public. It also went through 25 versions before midnight.</p>
+
+<p>Some of what went out that day:</p>
+
+<ul>
+  <li>Home got its own tiles for the day's CPU and GPU peaks.</li>
+  <li>Peaks started saying what you were doing at that minute, like "while playing Counter-Strike 2".</li>
+  <li>Custom pages built from tiles you drag around, which later became Dashboards.</li>
+  <li>A game overlay that a shortcut turns on and off, and then the same overlay inside fullscreen games.</li>
+  <li>FPS in the overlay, today's highs and lows, 24 hours of history and drive health.</li>
+</ul>
+
+<p>That second item is the one I still like most. A number like "GPU 79°" is trivia. "GPU 79° while playing a game for three hours" is something you can do something about.</p>
+
+{{fig pages/home | RigSight's Home page with today's time on the PC, CPU and GPU peaks with the app in use, the most used apps and yesterday's summary | Home today. The peaks still say what was in front of you when they happened, an idea from that first day.}}
+
+<h2>The first thing I got wrong</h2>
+
+<p>Moving that fast has a cost, and it showed up within hours. The memory reading was wrong.</p>
+
+<p>Windows reports a few different numbers for memory. The one I picked first included the page file, the space on your drive that Windows uses when RAM runs out. So RigSight was showing RAM plus a chunk of disk and calling it RAM, a number that had little to do with the memory sticks in the PC.</p>
+
+<p>The fix was one line: read physical memory only. Finding it took longer, because the number looked plausible most of the time. That turned into a habit I kept for the rest of the month. When a reading looks fine, check it against something you trust anyway. For memory, that is Task Manager.</p>
+
+<h2>What I'd tell myself on day one</h2>
+
+<p>Shipping 25 versions in a day felt like progress, and a lot of it was. But the following weeks were mostly about making the numbers right, not adding more of them. A monitor that keeps history has a special problem. If a reading is wrong, it is wrong in your history forever, and you might make decisions from it weeks later.</p>
+
+<p>That idea comes up again and again in the posts after this one.</p>

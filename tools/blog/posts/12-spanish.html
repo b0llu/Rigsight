@@ -1,0 +1,57 @@
+<!--meta
+{"slug": "rigsight-in-spanish", "series": "build", "happened": "2026-10-19", "published": "2026-10-26", "version": "0.30.0", "order": 1,
+ "title": "Putting RigSight into Spanish, all 3,097 lines of it",
+ "summary": "People asked for Spanish. Translating the words was the easy part. Sentences built from English pieces, and a history stored in English, were the hard part.",
+ "short": "RigSight 0.30.0 came out in Spanish as a download you pick in Settings. The hard part wasn't translating 3,097 texts. It was sentences glued from English pieces, and history stored in English.",
+ "mark": "3,097"}
+-->
+<p>On 19 October people asked for RigSight in Spanish. It was a fair ask. A lot of PC gamers don't use English as their first language, and a monitor full of half-understood warnings isn't much use.</p>
+
+<p>I thought it would take a day. It did take a day, but a very long one, and almost none of the time went into the actual translating.</p>
+
+<h2>A pack, not a bigger installer</h2>
+
+<p>The first choice was how Spanish should arrive. I didn't want every user downloading every language forever. So English is built in, and other languages are packs. You pick Spanish in Settings, RigSight downloads that one file, and from then on it comes along with each update.</p>
+
+<p>I also chose not to follow Windows' display language. Plenty of people run Windows in English and would rather read RigSight in Spanish, or the other way round. It's your pick, in Settings.</p>
+
+<h2>Finding every word</h2>
+
+<p>Before anything could be translated, every piece of text in the app had to go through one place that knows about languages. Page titles, buttons, tooltips, notifications, the tray menu, the overlay, chart labels, crash findings, exported spreadsheets. It came to 3,097 texts.</p>
+
+<p>Then a check that fails the release if any of them is missing a translation. That one matters more than it sounds. If I reword an English sentence later, its Spanish version no longer matches, and without the check that line would quietly turn back into English for Spanish users.</p>
+
+<h2>Sentences glued from pieces</h2>
+
+<p>The real work was sentences. In English it's tempting to build a sentence from parts: an app's name, then "crashed", then "in", then a cause. That works in English. In Spanish the parts change shape, need an article, or go in a different order.</p>
+
+<figure class="fig">
+<svg viewBox="0 0 640 176" role="img" aria-labelledby="es-t">
+  <title id="es-t">A sentence glued from English pieces turns into broken Spanish. Written as one whole sentence with places for the names, each language can put the words in its own order.</title>
+  <text class="tf" x="0" y="16">GLUED FROM PIECES</text>
+  <g>
+    <rect class="box" x="0" y="28" width="150" height="34" rx="8"/><rect class="box" x="158" y="28" width="96" height="34" rx="8"/>
+    <rect class="box" x="262" y="28" width="44" height="34" rx="8"/><rect class="box" x="314" y="28" width="168" height="34" rx="8"/>
+  </g>
+  <g class="tm"><text x="12" y="50">Crimson Desert</text><text x="170" y="50">se cerró</text><text x="274" y="50">en</text><text x="326" y="50">NVIDIA driver</text></g>
+  <text class="t" x="496" y="50" style="fill: #f0a35e">missing "el", half English</text>
+  <text class="tf" x="0" y="104">ONE WHOLE SENTENCE PER LANGUAGE</text>
+  <rect x="0" y="116" width="640" height="40" rx="8" style="fill: rgba(52,211,153,.08); stroke: rgba(52,211,153,.5)"/>
+  <text class="tm" x="12" y="141">{app} se cerró en el controlador de NVIDIA</text>
+</svg>
+<figcaption>An example of the problem. Glued pieces can't follow another language's grammar. A whole sentence with a gap for the name can.</figcaption>
+</figure>
+
+<p>So every sentence like that was rewritten as one whole sentence with gaps for the names and numbers. Sometimes Spanish needed more than one sentence where English had one: one day versus many days, a time versus a day, a culprit that needs "el" or "la". Dates got their own care too, so 19 October reads "19 de octubre". Numbers and dates still follow your Windows region, whatever the language.</p>
+
+<h2>A history that was stored in English</h2>
+
+<p>The trickiest question was the history. RigSight saves lines like change titles and crash causes when they happen. Months of them were already stored, in English.</p>
+
+<p>I could have saved new lines in the language in use. But then switching languages would leave your history half in one and half in the other. So history keeps one fixed form, and every saved line is translated when it's shown. Old lines included. Switch to Spanish today, and your crash from September reads in Spanish too.</p>
+
+<h2>What happens when the download fails</h2>
+
+<p>One last rule, because downloads fail. If this version's Spanish pack can't be fetched, RigSight uses the newest earlier pack. A few new words might show in English for a while, and nothing crashes. And a working pack is never replaced by an older one.</p>
+
+<p>The translation itself was checked against one glossary, so a word like "crash" or "1% low" means the same thing on every page. Then a fluency pass on the whole app, page by page, because a correct sentence can still sound like a machine wrote it.</p>

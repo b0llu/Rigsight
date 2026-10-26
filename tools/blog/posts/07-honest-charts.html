@@ -1,0 +1,44 @@
+<!--meta
+{"slug": "honest-charts", "series": "build", "happened": "2026-10-07", "published": "2026-10-26", "version": "0.16.1 to 0.18.0",
+ "title": "Three ways my temperature chart was lying",
+ "summary": "Peaks that moved every second, a 74° high that never showed on the line, and a gap that looked exactly like a cool PC.",
+ "short": "Three ways a chart drawn from real numbers still misled people: peaks that shifted as it moved, averages that hid the high, and missing time drawn exactly like a calm PC.",
+ "cover": "pages/temperatures", "mark": "74°"}
+-->
+<p>The temperature chart is the most looked-at thing in RigSight. It's also the one I thought was done. Then, in the first week of October, I found it was misleading people in three different ways.</p>
+
+<h2>Peaks that moved every second</h2>
+
+<p>A user on a laptop wrote that on the one hour view, the peaks seemed to jump around every second. A spike would be in one place, then a bit to the left, then a different height.</p>
+
+<p>A chart an hour wide has more readings than it has pixels, so readings get grouped. Mine grouped them by where they landed on the screen. Every second the chart slid along by a little, the groups changed, and a reading that jumped around a lot, as laptop CPU temperatures do, landed in a different group and changed the line's shape.</p>
+
+<p>Version 0.16.1 groups readings by the clock instead: one point for each minute, the same minute every time. The chart still moves along, but a minute that already happened keeps the shape it had.</p>
+
+<h2>A 74° high that the line never showed</h2>
+
+<p>The next one was a mismatch between two numbers on the same page. A day's highest GPU temperature was 74°, but the line on the chart topped out at 68°. Both were right. The line showed each minute's average, and inside one minute the GPU had touched 74 for a few seconds.</p>
+
+<p>That's confusing if you're looking for the moment it got hot. So from 0.18.0 the chart has a switch: each minute's average, its highest, or its lowest. Hovering a minute shows all three. I kept the average as the default because it shows the trend, and the highest is one click away when you're hunting a spike.</p>
+
+<div class="stat hot"><b>74° vs 68°</b><span>The day's real high, and the highest point on a line of minute averages. Both were correct numbers.</span></div>
+
+<h2>A gap that looked like a cool PC</h2>
+
+<p>The third came from someone on X. They pointed out that a gap in the chart, time when RigSight recorded nothing, looked exactly the same as a PC that had stayed cool.</p>
+
+<p>They were right. A gap and a quiet PC looked identical. Since 0.18.0, any stretch with nothing recorded is shaded and labelled "Not recorded". Hovering it gives the times and, when Windows' own log says, the reason: the PC was off, or asleep, or it started up again.</p>
+
+{{fig pages/temperatures | RigSight's Temperatures page with CPU and GPU gauges and a 24 hour history chart with breaks where nothing was recorded, and switches for average, highest and lowest | Temperatures today. The history chart has the average, highest and lowest switch, and the breaks are time when the PC wasn't recording.}}
+
+<h2>What I check now</h2>
+
+<p>All three charts were drawn from correct numbers. Each one still told people something untrue. So now, when I change a chart, I ask three questions:</p>
+
+<ul>
+  <li>Does a point keep its shape while the chart moves?</li>
+  <li>Can the highest reading of the period be found on the chart?</li>
+  <li>Can you tell missing time from calm time?</li>
+</ul>
+
+<p>The same goes for the pictures on this website. A spiky chart full of gaps looks broken, even when it's honest, so the pictures on the site use a stretch of time where the test PC was on the whole way through.</p>

@@ -1,0 +1,102 @@
+<!--meta
+{"slug": "check-gpu-temperature-history", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+ "topic": "Temperatures",
+ "keyword": "check gpu temperature history",
+ "also": ["cpu temperature history", "pc temperature history", "check gpu temps", "how to check temp on gpu", "when should i worry about gpu temp"],
+ "title": "How to check GPU temperature history on Windows",
+ "summary": "Windows doesn't keep a GPU or CPU temperature history. Here is how to check GPU temperature history with HWiNFO, GPU-Z or Afterburner logs, and how to keep a PC temperature history all day.",
+ "short": "Windows keeps no temperature history. Task Manager shows only the GPU temperature right now. To check GPU temperature history, record it with a sensor app: HWiNFO, GPU-Z and MSI Afterburner can each log readings to a file while you play. For a history of every day without starting a log, use a monitor that records in the background.",
+ "faq": [["Does Windows keep a history of GPU or CPU temperature?", "No. Task Manager shows the graphics card's temperature at this moment, and Windows has no CPU temperature reading of its own. Neither is saved. To look back, you need an app that was recording at the time."],
+         ["How do I check my CPU temperature history?", "Use a sensor app that logs to a file, such as HWiNFO, and start the log before you play. Open the file afterwards in a spreadsheet and look at the highest values. Apps that record all day, like RigSight, keep it without you starting anything, though CPU temperature needs admin rights."],
+         ["How do I check my GPU temps while gaming?", "Task Manager's Performance tab shows the GPU temperature, but you have to tab out of the game. An on-screen overlay from MSI Afterburner with RivaTuner Statistics Server, or your graphics driver's own overlay, shows it during play. A log shows how hot it got afterwards."],
+         ["When should I worry about GPU temp?", "Worry when the card sits at its maker's listed maximum, which is 85 to 93°C on recent NVIDIA cards depending on the model, when the frame rate drops as it gets there, or when the same game runs clearly hotter than it did a few weeks ago. A history is what shows you that last one."]],
+ "cover_img": "pages/temperatures", "cover_crop": [263, 118, 1131, 754], "cover_alt": "RigSight's Temperatures page with CPU and GPU gauges and a 24 hour temperature history graph with Average, Highest and Lowest switches",
+ "app": ["Temperatures range menu from the last 5 minutes to the last 12 months, and Custom range (0.27.0)", "Week, Month and Year are rolling 7 days, 30 days, 12 months (0.27.0)", "Temperature graph: each minute's Average, Highest or Lowest (0.18.0)", "Not recorded gaps marked with the reason (0.18.0)", "Drag across a graph to zoom (0.26.0)", "Warmest hours this week (0.21.0)", "At rest, last 30 days (0.21.0)", "Reports: Your day, minute by minute, for one day, and Peaks with the app (0.9.0, 0.26.0)", "Export with temperatures as CSV (0.21.0), Export on each page (0.33.0)", "Keep history for as long as you choose, in Settings > History", "CPU temperature needs admin rights"],
+ "sources": ["https://pureinfotech.com/check-gpu-temperature-windows-10/",
+             "https://winaero.com/monitor-gpu-temperature-task-manager-windows-10",
+             "https://help.xmg.gg/hc/en-gb/articles/17824800029725",
+             "https://rtech.support/docs/guides/hwinfo",
+             "https://blogs.windows.com/windows-insider/2019/08/16/announcing-windows-10-insider-preview-build-18963/",
+             "https://www.techpowerup.com/gpuz/",
+             "https://www.amd.com/en/resources/support-articles/faqs/DH3-038.html",
+             "https://www.tweaktown.com/news/113475/nvidia-app-overlay-finally-adds-cpu-temperature-and-clock-speed-monitoring/index.html",
+             "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4070-family/",
+             "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5070-family/"]}
+-->
+<p>Your game stuttered an hour ago, or the PC shut off last night, and you want to know how hot the graphics card got. So you look for a way to check GPU temperature history in Windows, and find there isn't one. Windows shows the temperature right now and forgets it. Here is how to start keeping a GPU and CPU temperature history, and how to read it.</p>
+
+<h2>Does Windows keep a temperature history?</h2>
+
+<p>No. Windows records crashes, updates and errors in its logs, but not temperatures. Task Manager can show the temperature of a dedicated graphics card, and that's the only temperature Windows itself shows. It has no CPU temperature reading at all, and it saves neither.</p>
+
+<p>That means you can only look back at times when some app was already recording. If nothing was running last night, last night's temperatures are gone. The useful habit is to set up recording before you need it.</p>
+
+<h2>How to check GPU temps right now</h2>
+
+<p>For a quick look at the current reading in Windows 10 version 2004 or later, or Windows 11:</p>
+
+<ol>
+  <li>Press <strong>Ctrl + Shift + Esc</strong> to open Task Manager.</li>
+  <li>Open the <strong>Performance</strong> tab.</li>
+  <li>Click your graphics card, usually <strong>GPU 0</strong> or <strong>GPU 1</strong>.</li>
+  <li>Read <strong>GPU Temperature</strong> under the graphs.</li>
+</ol>
+
+<p>Integrated graphics built into the CPU don't show a temperature here. The graphs on this tab cover only the last minute, and they aren't temperature graphs.</p>
+
+<h2>How to check GPU temperature history with HWiNFO</h2>
+
+<p>HWiNFO is a free sensor app that reads nearly every chip in a PC, CPU included, and can write the readings to a CSV file you open in a spreadsheet.</p>
+
+<ol>
+  <li>Download HWiNFO from its official site and run it.</li>
+  <li>Tick <strong>Sensors-only</strong> and click <strong>Start</strong>.</li>
+  <li>At the bottom of the sensors window, click the logging button, the icon with a green plus.</li>
+  <li>Pick a folder and a file name for the CSV log.</li>
+  <li>Play as you normally would.</li>
+  <li>Click the same button, now a red cross, to stop.</li>
+</ol>
+
+<p>Open the CSV in Excel or Google Sheets and find the column for <strong>GPU Temperature</strong>, or the CPU column for your chip. Sort it or make a quick line chart. Some guides suggest lowering HWiNFO's polling interval for finer detail, but the default is fine for temperatures.</p>
+
+<p>The catch is that it only records while HWiNFO is open and logging. You have to remember to start it, and a log left running for days grows into a very large file.</p>
+
+<h2>Other ways to log GPU temperature</h2>
+
+<ul>
+  <li>GPU-Z has a <strong>Log to file</strong> box on its <strong>Sensors</strong> tab. It records the graphics card only.</li>
+  <li>MSI Afterburner draws a monitoring graph of the last few minutes, and its <strong>Settings</strong> > <strong>Monitoring</strong> tab has a <strong>Log history to file</strong> box that saves it. With RivaTuner Statistics Server it can also show the temperature on screen while you play.</li>
+</ul>
+
+<p>All of them have the same limit as HWiNFO: they only know about the time they were running and logging.</p>
+
+<h2>How to check GPU temps while you play</h2>
+
+<p>Tabbing out to Task Manager mid game changes what you're measuring, because the card relaxes as soon as the game is in the background. An overlay shows the reading while the game keeps running. The NVIDIA app and AMD Software each have a performance overlay that can include GPU temperature. MSI Afterburner can show it too, drawn in the game by RivaTuner Statistics Server, which installs alongside it.</p>
+
+<p>An overlay is good for watching, but it's still only now. Glance at it once the game has run for 10 minutes, then let a log or a background recorder keep the rest.</p>
+
+<h2>What to look for in a temperature history</h2>
+
+<p>A pile of numbers is only useful if you know what to ask of it.</p>
+
+<ul>
+  <li>The highest reading in a session, and when it happened. Compare it with your card's maximum: NVIDIA lists 85 to 93°C for its recent GeForce cards depending on the model, for example 90°C for the RTX 4070 family.</li>
+  <li>Where the temperature levels off. A short spike to the high 80s is less worrying than an hour spent there.</li>
+  <li>The same game over weeks. If one game settles 6 or 8 degrees hotter than it did last month, at the same settings, dust or paste may be building up.</li>
+  <li>The temperature at rest. A PC idling warmer than it used to, with the room the same, points the same way.</li>
+</ul>
+
+<p>For what counts as normal, see <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a> and <a href="normal-cpu-temperature-while-gaming">normal CPU temperature while gaming</a>. If the history shows a real problem, <a href="pc-overheating-while-gaming">PC overheating while gaming</a> has the fixes.</p>
+
+<h2>Keeping a PC temperature history all day with RigSight</h2>
+
+<p>RigSight is a free, open-source PC monitor for Windows that does the logging for you. It records CPU, GPU, GPU hot spot and GPU memory temperatures all day, with no log to start, and keeps the history for as long as you choose. Motherboard and drive temperatures show live on the same page. CPU temperature, motherboard and drive readings need RigSight to run with admin rights.</p>
+
+<p>The Temperatures page has a history graph with one range menu, from the last 5 minutes to the last 12 months, plus a Custom range. Week, Month and Year are the last 7 days, 30 days and 12 months. Each minute can be drawn as its average, highest or lowest, so a short spike shows up instead of hiding in an average. Drag across any stretch to zoom in. Time when nothing was recorded is marked with a strip along the bottom of the graph, and hovering it gives the reason when Windows knows it, such as the PC being off or asleep, so a gap never looks like a cool PC. The same page shows the warmest hours of the past week and the CPU's and GPU's resting temperature over the last 30 days.</p>
+
+{{fig pages/reports-day | RigSight's Reports for one day, with a minute by minute graph of CPU and GPU temperature under a strip showing the app in front, and the day's peaks with the game behind each | RigSight's Reports for one day. The temperature lines sit under the app that was in front, and Peaks names the game behind each high.}}
+
+<p>Reports covers any day, week, month, year or custom range. For a single day, its minute by minute graph lines temperatures up with the app in front. For any period, Peaks lists the highest CPU, GPU and GPU hot spot readings with the app that was running. If you want the raw numbers, the Export button on the page saves what it shows, and the Export in Settings can save temperatures as CSV files for a spreadsheet.</p>
+
+<p>Whichever tool you pick, start recording today. The next time a game stutters or the PC shuts off, you'll have the hour before it to look at instead of a blank.</p>

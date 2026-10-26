@@ -1,0 +1,155 @@
+<!--meta
+{
+ "slug": "fps-drops-in-games",
+ "series": "guide",
+ "published": "2026-10-26",
+ "updated": "2026-10-26",
+ "topic": "FPS and games",
+ "keyword": "fps drops in games",
+ "also": [
+  "fps drops in games all of a sudden",
+  "fps drop in games after windows update",
+  "why my fps drops in games",
+  "fps drops in games windows 11",
+  "fps drops in game while streaming"
+ ],
+ "title": "FPS drops in games: how to find the cause and fix it",
+ "summary": "FPS drops in games come from heat, background apps, power settings, drivers, a full graphics memory or a frame cap. Here is how to measure first and fix the right one.",
+ "short": "Measure before you change anything. Turn on an FPS counter with GPU load and temperature, then watch when the drop happens. A drop after 10 or 20 minutes points to heat. Low GPU load points to the CPU or a cap. A drop that started on one day points to an update or a driver.",
+ "faq": [
+  [
+   "Why does my FPS drop in games all of a sudden?",
+   "Look at what changed that day first: a Windows update, a new graphics driver, a game patch or a power setting. If nothing changed, check temperatures and background apps, since a hot GPU or an app updating itself can pull frames away mid game."
+  ],
+  [
+   "Can a Windows update cause FPS drops in games?",
+   "Yes, sometimes. An update can replace your graphics driver, reset a power setting or turn a setting back on. Check Settings > Windows Update > Update history for the date, reinstall your graphics driver from NVIDIA, AMD or Intel, and only remove the update if that doesn't help."
+  ],
+  [
+   "Why my FPS drops in games when the PC is new or fast?",
+   "Fast parts still slow down when they get too hot, when Windows runs them in a power saving mode or when a frame cap holds them back. A laptop on battery also runs slower than on the charger. Check power mode and temperatures before blaming the hardware."
+  ],
+  [
+   "Why does FPS drop in game while streaming?",
+   "Streaming adds a video encoder and often a browser or chat app on top of the game. Use the hardware encoder on your graphics card in your streaming app, lower the stream resolution, and close anything else that plays video."
+  ]
+ ],
+ "cover_img": "pages/game",
+ "cover_crop": [
+  252,
+  354,
+  1132,
+  540
+ ],
+ "cover_alt": "Dota 2 on RigSight's Games page: How it runs with a 235 fps average, a 170 fps 1% low and a driver update marked on the chart, above the Can it run better card",
+ "app": [
+  "Games page with FPS and 1% low per play, and driver and game updates between plays (0.29.0)",
+  "Every play list with Windows, driver, BIOS, hardware and fan changes between plays (0.29.0)",
+  "Heat and power card on a game's page (0.29.0), the game's own graphics memory (0.31.2)",
+  "Timeline with driver, Windows update and setting changes (0.15.0), power plan changes (0.27.0)",
+  "Overlay with frame rate, GPU load, temperatures and video memory (0.4.0, RivaTuner in exclusive fullscreen 0.4.1)",
+  "Processes page (0.20.0)"
+ ],
+ "sources": [
+  "https://support.microsoft.com/en-us/windows/change-the-power-mode-for-your-windows-pc-c2aff038-22c9-f46d-5ca0-78696fdf2de8",
+  "https://support.microsoft.com/en-us/help/4028293/windows-using-game-mode-on-your-pc",
+  "https://support.microsoft.com/en-us/windows/deployment/updates-lifecycle/how-to-uninstall-a-windows-update",
+  "https://www.nvidia.com/content/Control-Panel-Help/vLatest/en-us/mergedProjects/nv3d/Manage_3D_Settings_(reference).htm",
+  "https://www.amd.com/en/products/software/adrenalin/frtc.html",
+  "https://www.digitalcitizen.life/how-to-tell-whether-your-cpu-or-gpu-is-limiting-gaming-performance/",
+  "https://support.xbox.com/en-US/help/games-apps/game-setup-and-play/use-game-mode-gaming-on-pc",
+  "https://help.steampowered.com/en/faqs/view/3462-CD4C-36BD-5767",
+  "https://nvidia.custhelp.com/app/answers/detail/a_id/5084/~/nvidia-app-in-game-performance-and-latency-overlay",
+  "https://www.amd.com/en/resources/support-articles/faqs/DH3-038.html",
+  "https://www.howtogeek.com/706162/how-to-see-fps-in-any-windows-10-game-without-extra-software/"
+ ]
+}
+-->
+<p>FPS drops in games feel random, but they almost never are. Something takes a share of the PC away from the game: heat, another app, a power setting, a driver, or settings that ask for more graphics memory than your card has. The fix depends on which one it is, so the first job is to measure, not to tweak.</p>
+
+<h2>Measure first: what kind of drop is it?</h2>
+
+<p>Turn on an FPS counter that also shows GPU load and GPU temperature. Steam, the NVIDIA app, AMD Software and Xbox Game Bar all have one. The steps for each are in <a href="how-to-show-fps-overlay">how to show an FPS overlay</a>. Then play the way you normally do for 20 minutes and watch the numbers when the drop comes.</p>
+
+<p>The pattern tells you where to look:</p>
+
+<ul>
+<li>FPS is fine at first and gets worse after 10 or 20 minutes. That is usually heat. The GPU or CPU warms up and slows itself down.</li>
+<li>FPS dips in busy scenes while GPU load is well under 95%. Something other than the graphics card sets the pace, usually the CPU. See <a href="gpu-not-at-100-usage-low-fps">GPU not at 100% usage but low FPS</a>.</li>
+<li>FPS sits on a flat line, such as exactly 60 or 30. That is a cap, often VSync. See <a href="vsync-fps-cap">VSync and FPS caps</a>.</li>
+<li>FPS dropped all of a sudden, from one day to the next. Something changed that day. Start with updates and drivers below.</li>
+<li>The average looks fine but the game hitches. Watch the 1% low, not the average. See <a href="one-percent-low-fps">what 1% low FPS means</a>.</li>
+</ul>
+
+<h2>Check for heat throttling</h2>
+
+<p>Graphics cards and processors protect themselves. When they reach their temperature limit, they lower their clock speed, and you lose frames. The limit depends on the model, so look up your card or CPU on the maker's site. A drop that comes back every session after the same amount of play is the classic sign.</p>
+
+<p>Watch the GPU temperature, the GPU hot spot if your card reports one, and the GPU clock speed together. If the clock falls as the temperature reaches its peak, heat is the cause. Clean the dust out of the case and the card, make sure the case fans pull air through, and give a laptop a hard flat surface. <a href="normal-gpu-temperature-while-gaming">Normal GPU temperature while gaming</a> has the numbers, and <a href="pc-overheating-while-gaming">PC overheating while gaming</a> has the fixes.</p>
+
+<h2>Close what runs in the background</h2>
+
+<p>A browser playing video, a launcher downloading an update, a cloud backup or an antivirus scan can each take CPU time and disk time from the game. Find them like this:</p>
+
+<ol>
+<li>Press Ctrl + Shift + Esc to open Task Manager.</li>
+<li>On <b>Processes</b>, click the <b>CPU</b> column to sort by it, then do the same with <b>Disk</b> and <b>GPU</b>.</li>
+<li>Close anything heavy you don't need while you play. Pause downloads in other launchers.</li>
+</ol>
+
+<p>Several overlays at once can also cost frames and cause conflicts. Keep one FPS counter, not three. If you stream, your streaming app should use the hardware encoder on your graphics card, which costs far less than encoding on the CPU.</p>
+
+<h2>Set Windows to its best performance mode</h2>
+
+<p>Windows can run your PC in a power saving mode, and some apps switch it without telling you. On a laptop, the battery makes this worse.</p>
+
+<ol>
+<li>Open <b>Settings > System > Power & battery</b>. On Windows 10, select the battery icon on the taskbar and move the slider instead.</li>
+<li>Under <b>Power mode</b>, pick <b>Best performance</b>. On a laptop, set it for when it is plugged in.</li>
+<li>Play on a laptop with the charger connected. Most laptops lower the graphics card's power on battery.</li>
+</ol>
+
+<p>Microsoft notes that if you can't change the power mode, a custom power plan may be active, and picking <b>Balanced</b> in <b>Control Panel > Power Options</b> brings the slider back. If your plan keeps changing by itself, see <a href="power-plan-keeps-changing">power plan keeps changing</a>. While you're in Settings, check that <b>Settings > Gaming > Game Mode</b> is on. It is on by default, and Microsoft says it holds off driver installs and restart prompts while you play.</p>
+
+<h2>FPS drop in games after a Windows update or a driver</h2>
+
+<p>If your FPS dropped from one day to the next, find what changed that day. Open <b>Settings > Windows Update > Update history</b> and look at the dates. A Windows update can bring its own graphics driver, reset a setting, or arrive at the same time as a game patch.</p>
+
+<ol>
+<li>Install the newest graphics driver straight from NVIDIA, AMD or Intel, even if Windows already installed one.</li>
+<li>If the drop started right after a new graphics driver, go back one version. In <b>Device Manager > Display adapters</b>, right-click your card, pick <b>Properties</b>, open the <b>Driver</b> tab and press <b>Roll Back Driver</b>. Or download the previous version from the maker's site.</li>
+<li>The first few minutes after a new driver or a game patch can stutter while the game builds its shaders again. Give it one full session before you judge.</li>
+<li>Remove a Windows update only as the last step. Go to <b>Settings > Windows Update > Update history > Uninstall updates</b>. Microsoft warns that removing a security update carries risks, so put it back once a fixed version is out.</li>
+</ol>
+
+<p>If the game also started crashing after the driver, <a href="games-crashing-after-driver-update">games crashing after a driver update</a> covers a clean driver reinstall.</p>
+
+<h2>Check graphics memory</h2>
+
+<p>When a game needs more graphics memory than your card has, it has to keep part of its data in system memory and swap it in, and you get sharp dips and hitches, often when you turn around or enter a new area. Show video memory in your overlay. If it sits at the card's full size, lower <b>Texture quality</b> first, then resolution scale or ray tracing. Texture settings are the biggest user of graphics memory in most games.</p>
+
+<h2>Rule out a frame cap</h2>
+
+<p>A drop to exactly 60, 30 or half your refresh rate isn't a drop in power. It is a limit. VSync, an in-game limiter, NVIDIA's <b>Max Frame Rate</b>, AMD's Frame Rate Target Control or Radeon Chill can all hold the frame rate down. NVIDIA also has a <b>Background Application Max Frame Rate</b> that applies when the game isn't the window in front. Check the game's display menu and your graphics driver's settings for any of these.</p>
+
+<h2>What the readings mean</h2>
+
+<ul>
+<li>GPU load at 95 to 100%: the graphics card is the limit. Lower graphics settings give more frames.</li>
+<li>GPU load well under 95% and no cap: the CPU or the game engine is the limit. Graphics settings won't help much.</li>
+<li>GPU clock falling while temperature climbs: heat throttling.</li>
+<li>Video memory at the card's full size: settings ask for too much memory.</li>
+<li>A big gap between average FPS and 1% low: the game hitches even when the average looks fine.</li>
+</ul>
+
+<h2>How RigSight helps you find the drop</h2>
+
+<p>The hard part of FPS drops is that they happened before you started looking. RigSight is free and open source, and it records each play of each game on its Games page, so you can look back. A game's page shows How it runs: the average FPS and the 1% low of every play on a chart, with a mark wherever a graphics driver or a game update came between two plays. Since the last update compares the frame rate of the plays before and after the game's last update. The frame rate comes from RivaTuner Statistics Server, which has to be running before the game starts. The Games page has a button to install or start it.</p>
+
+{{fig pages/game | RigSight's How it runs chart for a game, average FPS and 1% low per play with a graphics driver marked between plays | RigSight's How it runs chart on a game's page: each play's average FPS and 1% low, with a graphics driver install marked between plays.}}
+
+<p>Under it, Every play lists each session with its FPS and 1% low, and puts Windows updates, graphics drivers, BIOS updates, hardware changes and game updates between the plays where they happened. If the numbers fell right after one of them, you know where to start. The Heat and power card shows the GPU and CPU temperature while playing against what is usual for this game, the hot spot peak, and how much graphics memory the game used, its own share where Windows reports it. The CPU temperature needs RigSight to run with admin rights.</p>
+
+<p>The Timeline lists every driver, Windows update and setting change by day, including the power plan. While you play, RigSight's overlay can show frame rate, GPU load, temperatures and video memory, inside exclusive fullscreen games too through RivaTuner.</p>
+
+<p>Start with the pattern. Play one normal session with a counter on, note when the frames fall and what the GPU load and temperature were at that moment, and work through the matching section above.</p>

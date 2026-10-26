@@ -1,0 +1,87 @@
+<!--meta
+{"slug": "pc-restarts-randomly-while-gaming", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+ "topic": "Crashes",
+ "keyword": "pc restarts randomly while gaming",
+ "also": ["check why pc randomly restarts", "pc restarts randomly no blue screen", "pc randomly shuts off while gaming not overheating", "pc restarts randomly after windows update", "pc restarts randomly when idle", "pc shuts down randomly while gaming"],
+ "title": "PC restarts randomly while gaming: how to find the cause",
+ "summary": "Your PC restarts randomly while gaming, often with no blue screen. How to check why a PC randomly restarts, and how to tell heat, the power supply, tuning and Windows apart.",
+ "short": "A PC that restarts randomly while gaming is most often the power supply, an unstable overclock or memory profile, or heat. First check why: Event Viewer's System log shows Kernel-Power 41 for a sudden stop and User32 1074 for a planned restart. Turn off automatic restart to catch any hidden blue screen.",
+ "faq": [
+  ["Why does my PC restart randomly with no blue screen?", "Either Windows had no time to show one, because power was lost, or it showed one and restarted straight away. Turn off Automatically restart under Startup and Recovery to catch the second kind. If Kernel-Power 41 has a BugcheckCode of 0, it was a real loss of power or a reset, not a blue screen."],
+  ["My PC randomly shuts off while gaming but it's not overheating. Why?", "Then the power supply and tuning are the main suspects. A supply that can't handle the graphics card's short power spikes switches off to protect itself, and an unstable overclock, undervolt or XMP or EXPO profile can reset the PC with no blue screen. Reset tuning to defaults first, since it costs nothing."],
+  ["Why does my PC restart randomly after a Windows update?", "Look for event 1074 from User32 in the System log at that time. If it's there, Windows restarted on purpose to finish an update. Set your Active hours in Windows Update so it doesn't happen while you play. If it's a Kernel-Power 41 instead, a new driver from the update is worth suspecting."],
+  ["Why does my PC restart randomly when idle?", "Restarts at idle point away from heat and the power supply's limit and toward the mains, sleep and wake problems, or memory and CPU tuning that is unstable at low load. Check whether other devices flickered, turn off Fast Startup for a test, and try with XMP or EXPO off."]
+ ],
+ "cover_img": "pages/temperatures", "cover_crop": [263, 118, 1131, 754], "cover_alt": "RigSight's Temperatures page: CPU and GPU gauges with load, power and clocks, and a 24-hour history graph with gaps where nothing was recorded",
+ "app": ["Crashes page lists sudden shut-offs and blue screens (0.2.0)", "Shut-off findings: Likely a power cut, Possibly mains or power supply, Possibly heat, Likely a hardware fault, Confirmed held power button, back on N minutes later, power dip or reset (0.24.0)", "Shut-off timed by the last minute RigSight recorded, with what was running just before (0.19.1)", "The 45 minutes before an opened crash (0.24.0) and 10 after (0.25.0)", "Likely power cuts counted apart on the shut-offs tile and in Reports (0.24.0, 0.28.0)", "Temperature graph marks gaps and says the PC was off, asleep or had crashed (0.18.0)", "Games page names a shut-off or power cut after each play (0.32.0)", "First scan reads up to 90 days of Windows' crash records", "CPU temperature and power need admin rights"],
+ "sources": ["https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/event-id-41-restart", "https://support.microsoft.com/en-us/windows/troubleshooting-windows-unexpected-restarts-and-stop-code-errors-60b01860-58f2-be66-7516-5c45a66ae3c6", "https://www.elevenforum.com/t/enable-or-disable-bsod-automatic-restart-in-windows-11.8084/", "https://www.pcworld.com/article/3631488/one-cable-or-two-for-powering-a-graphics-card-heres-the-answer.html", "https://www.pcgamesn.com/amd/ryzen-7000-temperatures", "https://www.intel.com/content/www/us/en/products/sku/236773/intel-core-i9-processor-14900k-36m-cache-up-to-6-00-ghz/specifications.html", "https://www.profesionalreview.com/2023/01/07/amd-ryzen-7000-x3d-tjmax-89/amp/", "https://techcommunity.microsoft.com/blog/windows-itpro-blog/-/4434571"]}
+-->
+<p>The game is running fine, then the screen goes black and the PC is booting again. No warning, no blue screen. When your PC restarts randomly while gaming, it's tempting to start replacing parts. Don't yet. Windows keeps enough of a record to narrow it down, and the cause is usually one of a short list.</p>
+
+<h2>Check why the PC randomly restarted</h2>
+
+<p>First make sure it really was a crash. Windows restarts on purpose for updates, and a PC that "turned off" might have gone to sleep.</p>
+
+<ol>
+  <li>Right-click Start and open <strong>Event Viewer</strong>.</li>
+  <li>Go to <strong>Windows Logs &gt; System</strong> and click <strong>Filter Current Log</strong>.</li>
+  <li>Type <code>41,1001,6008,1074</code> in the event IDs box and click <strong>OK</strong>.</li>
+  <li>Look at the entries around the time it restarted.</li>
+</ol>
+
+<ul>
+  <li>1074 from User32: a planned restart. It names the program that asked for it, often Windows Update. Not a crash.</li>
+  <li>1001 from BugCheck: a blue screen, with its stop code. Go to <a href="blue-screen-of-death-causes">our blue screen guide</a>.</li>
+  <li>41 from Kernel-Power: Windows started again after not shutting down cleanly. Open its <strong>Details</strong> tab. A <code>BugcheckCode</code> of 0 with no 1001 means the PC lost power or was reset. <a href="kernel-power-41">Our Kernel-Power 41 guide</a> explains every field.</li>
+  <li>6008 from EventLog: the time Windows last noted it was running before the unexpected shutdown. Treat it as roughly right; it can be some minutes early.</li>
+</ul>
+
+<p>Reliability Monitor shows the same thing on a calendar. Type <strong>reliability</strong> into Start and open <strong>View reliability history</strong>.</p>
+
+<h2>Turn off automatic restart to catch hidden blue screens</h2>
+
+<p>By default Windows restarts straight after a blue screen. On current Windows 11 the crash screen is black and stays up for only about two seconds, so in a fullscreen game you may only see black and then the boot logo. To make it stop on the blue screen so you can read it:</p>
+
+<ol>
+  <li>Open <strong>Settings &gt; System &gt; About</strong> and click <strong>Advanced system settings</strong>.</li>
+  <li>Under <strong>Startup and Recovery</strong>, click <strong>Settings</strong>.</li>
+  <li>Clear <strong>Automatically restart</strong> under <strong>System failure</strong> and click <strong>OK</strong>.</li>
+</ol>
+
+<p>Now a blue screen stays up until you restart. If the next one still goes straight to black with no blue screen, you know Windows never got the chance, and you're looking at power, heat or a hard reset.</p>
+
+<h2>The usual causes, and how to tell them apart</h2>
+
+<p>Heat. CPUs and GPUs protect themselves by slowing down, and if that isn't enough the PC switches off. Watch temperatures while you play, with a monitor that logs them, and look at the last readings before it goes off. A part close to its maker's limit at that moment is your answer. Recent desktop CPUs list limits around 89 to 100°C: Intel gives 100°C for the Core i9-14900K, and AMD 95°C for most Ryzen 7000 chips and 89°C for the X3D ones. Check the page for your model. Dust in the filters, a dead fan or a pump that stopped are the common reasons.</p>
+
+<p>The power supply. If temperatures were fine, this is the top suspect for a PC that randomly shuts off while gaming. Games push the graphics card and CPU to full power at once, and modern cards can draw short spikes above their rated power. A supply that is too small or worn out trips its protection and the PC goes off, exactly like a power cut. Signs: it only happens under heavy load, often in the same demanding games or scenes, never at the desktop.</p>
+
+<p>Tuning. An overclock, an undervolt, Curve Optimizer or an XMP or EXPO memory profile can be stable for months and then not, after a BIOS update or on a warm day. Unstable tuning can reset the PC with no blue screen at all. This is the cheapest thing to rule out.</p>
+
+<p>Windows itself. Restarts after an update come from Windows Update, and you'll see a 1074. Restarts at shutdown, sleep or wake point to Fast Startup, sleep settings, the BIOS or chipset drivers rather than to your game.</p>
+
+<h2>What to do, in order</h2>
+
+<ol>
+  <li>Reset all tuning: load the BIOS defaults, turn off XMP or EXPO for a test, and reset any GPU tool such as MSI Afterburner to default. Play the game that restarts most.</li>
+  <li>Watch temperatures in that same game. If they're high, clean the dust filters and check that every fan and the pump are running.</li>
+  <li>Plug the PC straight into a wall socket. Reseat both ends of the power supply's cables, and the graphics card's power plugs. If the card takes several 8-pin plugs, check the manuals for the card and the power supply. Some ask for a separate cable for each plug.</li>
+  <li>Compare your power supply's wattage with what your graphics card maker recommends for the card. If it's close, or the supply is old, test with another one.</li>
+  <li>Set <strong>Active hours</strong> in <strong>Settings &gt; Windows Update &gt; Advanced options</strong> so update restarts don't land on your evenings.</li>
+  <li>If the restarts are at idle or overnight, turn off Fast Startup in <strong>Control Panel &gt; Hardware and Sound &gt; Power Options &gt; Choose what the power buttons do &gt; Change settings that are currently unavailable</strong> and see whether they stop.</li>
+  <li>Check for hardware errors: filter the System log by the event source <code>WHEA-Logger</code>. Errors the hardware couldn't correct point at the CPU, memory or motherboard, or at tuning that's too tight.</li>
+</ol>
+
+<h2>How RigSight shows what happened before each restart</h2>
+
+<p>The problem with sudden shut-offs is that the evidence is gone when you look. You can't measure the temperature from the minute before the last restart. RigSight, a free and open-source monitor for Windows, records it every minute, so the minute is still there.</p>
+
+<p>Its Crashes page keeps a history of every sudden shut-off and blue screen, read from Windows' records, up to 90 days back on its first run. Each shut-off is timed by the last minute RigSight recorded, not by Windows' 6008 time, and shows what was running just before. Each gets a cause with how sure it is. A shut-off under heavy load reads Possibly mains or power supply. One while running above your alert temperature reads Possibly heat. An error the hardware couldn't correct makes it Likely a hardware fault. Only a shut-off while the PC was doing little, with no power button press and nothing logged, is called Likely a power cut, and those are counted apart so they don't hide the PC's own problems. It also says when the PC was back on, and a PC running again within two minutes reads as a power dip or a reset.</p>
+
+{{fig pages/crash-around | The minutes around a problem in RigSight: lanes for temperature, load, power, memory, fans and network on one time axis, with the moment marked and a panel with every reading at that minute | Around the crash in RigSight. A sudden shut-off opens the same way, with the minutes before it on one time axis.}}
+
+<p>Open a shut-off to see the 45 minutes before it, minute by minute: CPU and GPU temperatures, load, how many watts the GPU was drawing, memory and fans, with the game in front. That's usually enough to tell heat from power. The Temperatures graph leaves a gap where nothing was recorded, and says whether the PC was off, asleep or had crashed. On the Games page, the play itself says it ended in a shut-off or a power cut. CPU temperature and power need RigSight running with admin rights.</p>
+
+{{fig pages/temperatures | RigSight's Temperatures page with a 24-hour history that leaves gaps where nothing was recorded | RigSight's Temperatures page. The history leaves a gap wherever nothing was recorded, and says why.}}
+
+<p>Your next step: turn off automatic restart now, then reset your tuning to defaults and play the game that restarts most. If it still goes off with no blue screen and your temperatures were normal just before, the power supply is the part to test next.</p>

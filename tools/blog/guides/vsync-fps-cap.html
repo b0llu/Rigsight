@@ -1,0 +1,144 @@
+<!--meta
+{
+ "slug": "vsync-fps-cap",
+ "series": "guide",
+ "published": "2026-10-26",
+ "updated": "2026-10-26",
+ "topic": "FPS and games",
+ "keyword": "vsync caps fps at 60",
+ "also": [
+  "vsync vs fps cap",
+  "is vsync good for fps",
+  "why does vsync cap fps",
+  "vsync caps fps at 30",
+  "gsync vsync fps cap",
+  "freesync vsync fps cap"
+ ],
+ "title": "VSync caps FPS at 60? VSync vs an FPS cap explained",
+ "summary": "Why VSync caps FPS at 60 or even 30, whether VSync is good for FPS, how it compares with an FPS cap, and the settings to use with G-Sync and FreeSync.",
+ "short": "VSync holds the frame rate to your monitor's refresh rate, so a 60 Hz screen caps at 60. If it caps at 60 on a faster screen, Windows is set to 60 Hz. VSync stops tearing but adds input lag. With G-Sync or FreeSync, a cap a few FPS below the refresh rate usually works best.",
+ "faq": [
+  [
+   "Why does VSync cap FPS at 60?",
+   "VSync makes the graphics card wait for the monitor to finish drawing before it shows the next frame. A 60 Hz monitor draws 60 times a second, so you get at most 60 FPS. On a 144 Hz monitor it caps at 144, unless Windows or the game is set to 60 Hz."
+  ],
+  [
+   "Why does VSync cap FPS at 30?",
+   "With classic double-buffered VSync, a frame that misses one refresh waits for the next one. If your PC can't hold 60 FPS on a 60 Hz screen, the frame rate falls to 30, which is half the refresh rate. Triple buffering, a variable refresh monitor or turning VSync off avoids the jump."
+  ],
+  [
+   "Is VSync good for FPS?",
+   "No, VSync never raises FPS. It limits FPS to stop screen tearing, and it adds some input lag. It is good for smooth, tear-free pictures in slower games, and less good in fast shooters."
+  ],
+  [
+   "VSync vs FPS cap: which should I use?",
+   "An FPS cap limits frames without waiting for the screen, so it adds less lag but can still tear. VSync removes tearing but adds lag. With a G-Sync or FreeSync monitor, use variable refresh with a cap a few FPS below the refresh rate."
+  ]
+ ],
+ "cover_img": "pages/game",
+ "cover_crop": [
+  252,
+  670,
+  560,
+  222
+ ],
+ "cover_alt": "RigSight's Can it run better card: flat at 236 fps most of the time, so a frame cap or V-Sync sets the pace; the 1% lows stay close to the average; the graphics card never hit full load",
+ "app": [
+  "Games page, Can it run better?: 'Flat at N fps most of the time, so a frame cap or V-Sync sets the pace' (0.32.0)",
+  "How it runs chart of average FPS and 1% low per play (0.29.0)",
+  "Overlay that doesn't turn off G-Sync when RivaTuner draws it (0.6.2); widgets over borderless games only where G-Sync stays on (0.26.0)"
+ ],
+ "sources": [
+  "https://www.blurbusters.com/gsync/gsync101-input-lag-tests-and-settings/14/",
+  "https://www.blurbusters.com/gsync/gsync101-input-lag-tests-and-settings/5/",
+  "https://www.nvidia.com/content/Control-Panel-Help/vLatest/en-us/mergedProjects/nv3d/Manage_3D_Settings_(reference).htm",
+  "https://www.amd.com/en/products/software/adrenalin/frtc.html",
+  "https://www.amd.com/en/products/software/adrenalin/radeon-software-chill.html",
+  "https://www.amd.com/en/resources/support-articles/faqs/DH3-033.html",
+  "https://www.amd.com/en/resources/support-articles/faqs/DH-012.html",
+  "https://support.microsoft.com/en-us/windows/hardware/display-graphics/change-the-refresh-rate-on-your-monitor-in-windows"
+ ]
+}
+-->
+<p>You turned on VSync and now your FPS sits at exactly 60, or worse, it jumps between 60 and 30. That is VSync doing its job. VSync caps FPS at 60 on a 60 Hz screen because it matches the frame rate to how often your monitor draws. Whether you want that depends on your monitor and the games you play.</p>
+
+<h2>Why VSync caps FPS</h2>
+
+<p>Your monitor redraws the picture a fixed number of times per second. That is its refresh rate: 60 Hz is 60 times, 144 Hz is 144 times. The graphics card makes frames at its own pace. When a new frame arrives halfway through a redraw, the top of the screen shows one frame and the bottom shows the next. That line between them is screen tearing.</p>
+
+<p>VSync, short for vertical sync, stops this by making the card wait until the monitor finishes a redraw before it sends the next frame. The card can't send frames faster than the monitor draws them, so the frame rate tops out at the refresh rate. On a 60 Hz screen that is 60 FPS.</p>
+
+<h2>VSync caps FPS at 60 on a 144 Hz monitor</h2>
+
+<p>If you have a faster monitor and still see a 60 cap, Windows or the game is running the screen at 60 Hz. Check Windows first:</p>
+
+<ol>
+<li>Open <b>Settings > System > Display</b>.</li>
+<li>Pick your gaming monitor at the top if you have more than one.</li>
+<li>Open <b>Advanced display</b> and set <b>Choose a refresh rate</b> to the highest number.</li>
+</ol>
+
+<p>Then check the game's own display menu for a refresh rate setting. Also check the cable. Older HDMI cables and ports can limit high refresh rates at high resolutions, so DisplayPort is often the safer choice.</p>
+
+<h2>Why VSync caps FPS at 30</h2>
+
+<p>With classic double-buffered VSync, a frame that misses a redraw has to wait for the next one. If your PC makes 55 frames a second on a 60 Hz screen, many frames miss their slot and wait a full extra redraw. The result jumps down to 30 FPS, half the refresh rate, then back up when the scene gets lighter. That jump is what people describe as VSync capping at 30.</p>
+
+<p>Ways out: lower settings until the game holds 60, turn on triple buffering if the game offers it, or use a G-Sync or FreeSync monitor, which removes the problem.</p>
+
+<h2>Is VSync good for FPS?</h2>
+
+<p>VSync never gives you more FPS. It only limits them. What it gives you is a picture without tearing. The cost is input lag, because finished frames wait in line for the screen. In slower games, racing games played with a pad, or anything where tearing bothers you more than a few milliseconds of delay, VSync is a fine choice. In fast competitive shooters, most players turn it off.</p>
+
+<h2>VSync vs FPS cap</h2>
+
+<p>An FPS cap, also called a frame limiter, tells the game to stop at a number you pick. It doesn't wait for the monitor, so it adds far less lag than VSync. It also doesn't stop tearing on its own. You can set one in several places:</p>
+
+<ul>
+<li>The game's own <b>Frame rate limit</b> setting. This is usually the best one, since the game paces itself.</li>
+<li>NVIDIA Control Panel: <b>Manage 3D settings > Max Frame Rate</b>. NVIDIA's help page lists a range of 20 to 1000 FPS.</li>
+<li>AMD Software: <b>Frame Rate Target Control</b>, or <b>Radeon Chill</b>, which can lower the frame rate when little moves on screen.</li>
+<li>RivaTuner Statistics Server's <b>Framerate limit</b>, per game or for all.</li>
+</ul>
+
+<p>A cap is useful even without VSync. It keeps the card from making hundreds of frames in a menu, lowers heat and fan noise, and makes frame pacing more even when you set it near what your PC holds in busy scenes.</p>
+
+<h2>G-Sync and FreeSync: the setup most people want</h2>
+
+<p>G-Sync and FreeSync turn the problem around. Instead of the card waiting for the monitor, the monitor waits for the card and redraws whenever a frame is ready. You get no tearing and little lag, as long as the frame rate stays inside the monitor's variable refresh range.</p>
+
+<p>Blur Busters' G-Sync testing gives the widely used setup:</p>
+
+<ol>
+<li>Turn on G-Sync in the NVIDIA Control Panel under <b>Set up G-SYNC</b>, or FreeSync in AMD Software and the monitor's own menu.</li>
+<li>Turn VSync on in the driver, <b>Manage 3D settings > Vertical sync</b> for NVIDIA, and off in the game.</li>
+<li>Cap the frame rate at least 3 FPS below the refresh rate: 141 FPS on a 144 Hz screen, 117 on 120 Hz, 57 on 60 Hz. Blur Busters gives 3 FPS as the minimum, so a little lower is fine too.</li>
+</ol>
+
+<p>The cap keeps you inside the variable refresh range. Without it, the frame rate hits the top of the range and VSync takes over again, with its lag. The driver VSync covers the moments when frame times jump past the limit. AMD notes that Frame Rate Target Control can keep you from going over your FreeSync range in the same way.</p>
+
+<h2>A flat line means a cap</h2>
+
+<p>If you watch your FPS and it sits on one number for minutes at a time, the PC isn't struggling. Something is holding it there. Common culprits:</p>
+
+<ul>
+<li>VSync, in the game or forced in the graphics driver.</li>
+<li>A frame limit in the game, the driver or RivaTuner that you forgot about.</li>
+<li>NVIDIA's <b>Background Application Max Frame Rate</b>, which only applies when the game isn't the window in front.</li>
+<li>Radeon Chill, which moves the frame rate between two caps by how much happens on screen.</li>
+<li>A game engine with its own fixed limit, such as 60 or 120.</li>
+</ul>
+
+<p>The giveaway is GPU load. A capped game leaves the graphics card well under full load, because it finishes each frame early and waits. If the frame rate isn't flat and GPU load is still low, the CPU is the more likely limit. <a href="gpu-not-at-100-usage-low-fps">GPU not at 100% usage but low FPS</a> shows how to tell.</p>
+
+<h2>RigSight spots the cap across your plays</h2>
+
+<p>RigSight is free and open source, and it records the average FPS and 1% low of every play on its Games page. On a game's page, How it runs charts each play. A capped game looks like a flat line that hardly moves from one play to the next.</p>
+
+{{fig pages/game | RigSight's How it runs chart for a game, the average frame rate flat across months of plays with the 1% low dashed below | RigSight's How it runs chart. An average this flat across every play is a cap at work, not the hardware's limit.}}
+
+<p>You don't have to read the chart yourself. Once a game has three plays with frame rates, the Can it run better? card checks whether at least half of them sit within 3% of the highest. If so, it says the game is flat at that frame rate most of the time, so a frame cap or V-Sync sets the pace. When your graphics card was at full load less than 30% of the time during those plays, it adds that you can raise the settings and keep that frame rate. That is the useful part: a cap leaves room, and better graphics cost you nothing.</p>
+
+<p>FPS readings come from RivaTuner Statistics Server, which must be running before the game starts. With RivaTuner running, RigSight's in-game overlay is drawn inside the game by RivaTuner, so it doesn't turn off G-Sync. Its widgets stay over borderless games only on screens that can show them without turning off G-Sync.</p>
+
+<p>Look at your FPS counter in your next game. If it sits on one number, decide whether that cap is the one you want, and set it on purpose.</p>

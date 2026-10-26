@@ -1,0 +1,92 @@
+<!--meta
+{"slug": "power-plan-keeps-changing", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+ "topic": "Drivers and updates",
+ "keyword": "power plan keeps changing to balanced windows 11",
+ "also": ["power plan keeps changing windows 11", "why does my power plan keep changing", "why does my power plan keep changing to balanced windows 11", "windows 11 power plan keeps changing to high performance", "windows 11 power plan keeps changing to power saver"],
+ "title": "Why your power plan keeps changing to Balanced in Windows 11",
+ "summary": "Power plan keeps changing to Balanced in Windows 11? Usually another program switches it. How to see the active plan, find what changed it in Event Viewer and set it back for good.",
+ "short": "Windows rarely changes your power plan by itself. A maker's tool like Armoury Crate or Lenovo Vantage, a game booster or a chipset driver install usually does. Run powercfg /getactivescheme to see the active plan, check Event Viewer for UserModePowerService event 12 to see which program set it, then change that program's setting.",
+ "faq": [["Why does my power plan keep changing to Balanced?", "Usually because another program sets it. Laptop and motherboard maker tools, game boosters and driver installers can all switch the plan, often when you change their performance mode or start a game. Windows' power mode in Settings also only works on the Balanced plan."],
+         ["Is High performance better than Balanced for gaming?", "Balanced is Windows' default and lets the CPU slow down when there's little to do. On modern desktops the gaming difference is often small, and Microsoft suggests that makers of gaming PCs consider giving Balanced the same settings as High performance. If you want more speed, set Power mode to Best performance under the Balanced plan."],
+         ["Why does my Windows 11 power plan keep changing to High performance or Power saver?", "Same causes, other direction. A maker's tool or a game booster can pick High performance when a game starts, and battery tools can pick Power saver when you unplug a laptop. Find the program with Event Viewer and change its setting."],
+         ["Why is High performance missing from Power Options?", "Many Windows 11 PCs only show Balanced. Microsoft's notes for PC makers say that once a PC is on Balanced, there's no way back to High performance from the settings pages, only from the powercfg command."]],
+ "cover_img": "pages/timeline", "cover_crop": [263, 250, 780, 520], "cover_alt": "RigSight's Timeline page with a line saying the power plan changed to AMD Ryzen Balanced, was High performance",
+ "app": ["Timeline: every power plan switch as 'Power plan changed to X' with what it was, checked every minute (0.17.1)", "Timeline 'This PC now': the power plan in use and since when (0.17.1)", "What changed? treats a power plan change as a big change (0.27.0)", "Timeline Settings filter (0.15.0)"],
+ "sources": ["https://learn.microsoft.com/en-us/windows-hardware/customize/desktop/customize-power-slider", "https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/powercfg-command-line-options", "https://winevt-kb.readthedocs.io/en/stable/sources/eventlog-providers/Provider-Microsoft-Windows-UserModePowerService.html", "https://www.elevenforum.com/t/puzzling-usermodepowerservice-event-id-12.38212/latest", "https://appuals.com/windows-keeps-changing-the-assigned-power-plan/", "https://www.elevenforum.com/t/missing-high-performance-power-scheme-confusion.13100", "https://bit-tech.net/news/tech/cpus/amd-ryzen-power-plan-release/1", "https://community.amd.com:443/t5/gaming/community-update-5-let-s-talk-clocks-voltages-and-destiny-2/ba-p/418197", "https://forums.veeam.com/viewtopic.php?p=454887"]}
+-->
+<p>You set High performance, and a day later Windows is back on Balanced. Or it flips while you play and you only notice because the game feels different. If your power plan keeps changing to Balanced in Windows 11, Windows itself is rarely the one doing it. Some other program on the PC is switching it, and the job is to find out which.</p>
+
+<h2>Check which power plan is active right now</h2>
+
+<p>Windows has two power settings that look alike, so start by checking the right one.</p>
+
+<ol>
+<li>Press <b>Win + R</b>, type <b>powercfg.cpl</b> and press <b>Enter</b>. This opens <b>Power Options</b>, where the selected plan is the power plan.</li>
+<li>Or open <b>Command Prompt</b> and type <b>powercfg /getactivescheme</b>. It prints the active plan's name and its ID.</li>
+<li>Type <b>powercfg /list</b> to see every plan on the PC. The one with a star next to it is active.</li>
+</ol>
+
+<p>Keep that list open. The long IDs are how you will recognise the plans in Event Viewer later. The ones every PC has are Balanced, which starts 381b4222, High performance, which starts 8c5e7fda, and Power saver, which starts a1841308.</p>
+
+<h2>Power plan and power mode are not the same thing</h2>
+
+<p>Windows 11 also has <b>Settings</b> &gt; <b>System</b> &gt; <b>Power &amp; battery</b> &gt; <b>Power mode</b>, with Best power efficiency, Balanced and Best performance. That is the power mode, and it sits on top of the power plan.</p>
+
+<p>Microsoft's documentation for PC makers says the power mode only appears when the Balanced plan, or a plan based on it, is selected. It also says that once a PC is on Balanced, there is no way back to High performance from the settings pages, only with the powercfg command. That explains a lot of what people see:</p>
+
+<ul>
+<li>If your Power Options window only lists Balanced, that is how many Windows 11 PCs ship. It isn't a fault.</li>
+<li>Choosing a power mode in Settings means using Balanced. If you pick High performance in Power Options, the power mode setting disappears.</li>
+<li>On a laptop, the power mode is set separately for plugged in and on battery, so unplugging can look like a change of plan.</li>
+</ul>
+
+<p>For most people, the simple fix is to stay on Balanced and set <b>Power mode</b> to <b>Best performance</b> while plugged in. That's the setup Windows 11 is built around. If you really want High performance, carry on below.</p>
+
+<h2>What switches the power plan behind your back</h2>
+
+<ul>
+<li>Laptop and motherboard maker tools. ASUS Armoury Crate, Lenovo Vantage, MSI Center, HP OMEN Gaming Hub, Dell and Alienware tools and others have their own performance or fan modes, and some of them work by setting the Windows power plan or power mode. Switching modes in the tool, or the tool starting with Windows, can change your plan.</li>
+<li>Game boosters and optimizers. These often set a fast plan when a game starts and put the old one back when it closes. If one crashes or is closed halfway, the plan can stay wrong.</li>
+<li>Chipset driver installs. Installing or updating a chipset driver can add the maker's own plan and select it. Older AMD chipset drivers added plans called AMD Ryzen Balanced and AMD Ryzen High Performance, and later versions stopped adding them for some Ryzen models.</li>
+<li>Battery tools on laptops can pick Power saver when you unplug.</li>
+<li>A work or school PC can have the plan set by its administrator through Group Policy, and it will change back however often you set it.</li>
+</ul>
+
+<h2>Find the program that changed it</h2>
+
+<p>Windows often records which program set the power plan. Here's how to look.</p>
+
+<ol>
+<li>Open <b>Event Viewer</b> and go to <b>Windows Logs</b> &gt; <b>System</b>.</li>
+<li>Press <b>Filter Current Log</b> on the right.</li>
+<li>Under <b>Event sources</b>, pick <b>UserModePowerService</b>, and type 12 in the event ID box. Press <b>OK</b>.</li>
+<li>Open the entries near the time the plan changed. Each one names a program with its full path and says it set the plan from one ID to another.</li>
+</ol>
+
+<p>Many of these entries are harmless, where the two IDs are the same and nothing really changed. Look for an entry where the two IDs differ and the second one matches the plan you didn't want. The program it names is your culprit. If it is a maker's tool, open it and look for a performance mode or power setting, and either pick the plan you want there or stop it from managing power. If you don't use the tool, you can stop it starting with Windows in <b>Task Manager</b> &gt; <b>Startup apps</b>, and see whether the plan stays put.</p>
+
+<p>If the log has nothing useful, do it by elimination. Turn off one startup program at a time, restart, and see whether the plan still changes.</p>
+
+<h2>Set the plan back</h2>
+
+<p>Once the program behind it is dealt with, set the plan you want in <b>Power Options</b>. If High performance isn't listed, the powercfg command can bring it back. Open <b>Command Prompt</b> as administrator and type:</p>
+
+<p><b>powercfg /duplicatescheme 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c</b></p>
+
+<p>That adds a copy of Windows' High performance plan, which then shows in <b>Power Options</b> and can be selected there. To go back to Balanced at any time, type <b>powercfg /setactive SCHEME_BALANCED</b>. None of this needs the registry, and it is easy to undo.</p>
+
+<p>Before you fight hard for High performance, know what it does. It mainly stops the CPU from slowing down and sleeping when there is little to do. On modern desktop CPUs the difference in games is often small, and it uses more power at idle. Microsoft suggests that makers of gaming PCs consider giving the Balanced plan the same settings as High performance.</p>
+
+<h2>How RigSight catches every switch</h2>
+
+<p>The frustrating part of this problem is that the change is silent. You notice it hours later and have no idea when it happened. RigSight is a free, open source PC monitor that checks the active power plan every minute while it runs and writes down every change.</p>
+
+<p>Each switch is its own line on the Timeline, such as "Power plan changed to Balanced", with what it was before and the time RigSight noticed it. Pick <b>Settings</b> in the Timeline's filter to see only setting changes. The "This PC now" panel shows the plan you are on and since what date.</p>
+
+{{fig pages/timeline | RigSight's Timeline page with a line saying the power plan changed to AMD Ryzen Balanced, was High performance | RigSight's Timeline with a power plan change: the new plan, the one before it and when it was noticed.}}
+
+<p>RigSight doesn't know which program made the switch. What it gives you is the time, and that is what makes the Event Viewer search above quick. Look at the UserModePowerService entries from that minute. The same day's Timeline also shows whether an app or a driver was installed or updated just before, which often answers it on its own.</p>
+
+<p>A power plan change also counts as a big change on the Timeline. If a game ran clearly hotter or cooler after it, the Timeline says so under the change, and because a plan changes power use by design, it shows the GPU's power next to the temperature.</p>
+
+<p>Start by checking Event Viewer for the last time the plan changed. If it names a maker's tool, change the setting there first. Most of the time the plan then stays where you put it.</p>

@@ -1,0 +1,78 @@
+<!--meta
+{"slug": "which-app-is-using-my-internet", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+ "topic": "Network",
+ "keyword": "which app is using my internet",
+ "also": ["background data usage windows 11", "how to check background data usage in windows 11", "how to stop background data usage in windows 11", "limit background data usage windows 11", "is windows data usage accurate"],
+ "title": "Which app is using my internet? How to check on Windows 11",
+ "summary": "Which app is using my internet right now, and which used it while I was away? How to check per-app and background data usage in Windows 11 with Task Manager, Resource Monitor and Settings, and how to limit it.",
+ "short": "For right now, open Task Manager and click the Network column, or Resource Monitor's Network tab. For the last 30 days, open Settings > Network & internet > Advanced network settings > Data usage. To cut background data, set the connection as metered and turn off Delivery Optimization's uploads to other PCs.",
+ "faq": [["How do I check background data usage in Windows 11?", "Settings > Network & internet > Advanced network settings > Data usage lists each app's data for the last 30 days, but it doesn't split use in the background from use while you had the app open. Task Manager's App history tab and Resource Monitor show other views, and a monitor that records all day can split it by whether the app was in front."],
+         ["How do I stop background data usage in Windows 11?", "Set your Wi-Fi or Ethernet connection as metered, which pauses most Windows Update downloads. Turn off Allow downloads from other devices under Delivery Optimization. Stop Store apps from running in the background, and set game launchers and cloud sync apps to update or sync only when you want."],
+         ["Is Windows data usage accurate?", "It is a fair total per app for the last 30 days, kept separately for Wi-Fi, Ethernet and mobile. It shows no times, so it can't tell you when an app used the data or whether you were using the app. It only ever covers the last 30 days."],
+         ["Why is my internet slow when I'm not downloading anything?", "Something else usually is. Game launchers updating, cloud backup, Windows Update and Delivery Optimization uploading updates to other PCs are the common ones. Open Resource Monitor's Network tab and sort by Total to see which process is moving data right now."]],
+ "cover_img": "pages/network", "cover_crop": [263, 170, 1131, 754], "cover_alt": "RigSight's Network page with a month of internet use, each day's bar split by app, and a list of apps with how much ran in the background",
+ "app": ["Network page: what each app downloads and uploads, in the background or while you were away (0.14.0)", "Network: usage by app hour by hour, click a bar for that hour's apps, sort by background use (0.19.0)", "Network: biggest days with their apps, connection card for a week, month or year (0.26.0)", "Network: a line when an app uploads far more than its usual (0.14.0)", "Apps sorted by most internet use, downloaded and uploaded per app (0.26.0)", "Home shows how much has been downloaded today (0.21.0)", "Per-app internet use needs admin rights; standard accounts see whole-PC use (0.23.0)"],
+ "sources": ["https://www.elevenforum.com/t/view-network-data-usage-by-apps-stats-in-windows-11.16372/",
+             "https://www.howtogeek.com/745090/how-to-set-an-internet-data-limit-in-windows-11/",
+             "https://support.microsoft.com/help/4468254",
+             "https://help.steampowered.com/faqs/view/71AB-698D-57EB-178C",
+             "https://support.microsoft.com/en-us/windows/tips-to-improve-pc-performance-in-windows-b3b3ef5b-5953-fb6a-2528-4bbed82fba96",
+             "https://www.windowscentral.com/how-make-network-connections-metered-windows-11",
+             "https://www.elevenforum.com/t/turn-on-or-off-show-app-history-for-all-processes-in-task-manager-in-windows-11.9598/",
+             "https://support.microsoft.com/en-us/windows/delivery-optimization-in-windows-dbcaf188-0cf9-427a-b791-a7c5d740a48c",
+             "https://www.digitalcitizen.life/how-to-check-internet-usage-in-windows-11/"]}
+-->
+<p>Your internet slows down in the evening, your data cap is nearly used up, or the router lights flicker while you are not doing anything. You want to know which app is using your internet. Windows can show you, in three places, and each answers a slightly different question.</p>
+
+<h2>Which app is using the internet right now</h2>
+<h3>Task Manager</h3>
+<ol>
+<li>Press Ctrl + Shift + Esc to open Task Manager.</li>
+<li>Pick <b>Processes</b>.</li>
+<li>Click the <b>Network</b> column header to put the busiest apps on top.</li>
+</ol>
+<p>The Network column shows each app's speed right now, in Mbps. It updates every second or so, which is good for catching something mid download, and useless for anything that happened an hour ago.</p>
+<h3>Resource Monitor</h3>
+<ol>
+<li>Press Start, type <b>resmon</b> and open Resource Monitor.</li>
+<li>Pick the <b>Network</b> tab.</li>
+<li>Open <b>Processes with Network Activity</b> and click <b>Total (B/sec)</b> to sort by it.</li>
+</ol>
+<p>Resource Monitor lists every process separately, including Windows services that Task Manager folds together. The <b>Network Activity</b> section below it shows which addresses each process talks to, and <b>TCP Connections</b> lists every open connection. If a process name means nothing to you, right-click it and choose <b>Search Online</b>.</p>
+
+<h2>Which apps used the most data in the last 30 days</h2>
+<ol>
+<li>Open <b>Settings > Network & internet > Advanced network settings > Data usage</b>. On some versions of Windows, Data usage sits straight under Network & internet.</li>
+<li>Pick the network at the top, such as Wi-Fi or Ethernet. Each is counted separately.</li>
+<li>Read the list of apps, biggest first.</li>
+</ol>
+<p>This is the best built-in answer to which app used the most. It has limits, though. It only covers the last 30 days. It shows totals with no times, so you can't tell whether that 40 GB was last night or three weeks ago. It also can't tell you how much an app used while it sat in the background.</p>
+<p>Task Manager's <b>App history</b> tab also shows network use per app since a date at the top. If it lists only Microsoft Store apps, turn on <b>Show history for all processes</b> in Task Manager's <b>Settings</b>.</p>
+
+<h2>What usually uses internet in the background</h2>
+<p>When nobody is at the PC and data still moves, it is nearly always one of these:</p>
+<ul>
+<li>Game launchers such as Steam, Epic, Battle.net and the EA app, downloading game updates. A single update can be tens of GB.</li>
+<li>Windows Update, plus Delivery Optimization, which can also upload updates you already have to other PCs.</li>
+<li>Cloud sync and backup, such as OneDrive, Google Drive, Dropbox or a phone photo backup. These upload as much as they download.</li>
+<li>Browsers and chat apps left open, with streams, videos or calls running in a tab you forgot.</li>
+</ul>
+
+<h2>How to stop background data usage in Windows 11</h2>
+<h3>Set the connection as metered</h3>
+<p>Open <b>Settings > Network & internet</b>, pick <b>Wi-Fi</b> or <b>Ethernet</b>, open your network's properties and turn on <b>Metered connection</b>. Windows then holds back most update downloads, and some apps, OneDrive for example, pause syncing. Some apps don't follow the setting at all, so check the big ones yourself.</p>
+<h3>Set a data limit</h3>
+<p>In the Data usage page, press <b>Enter limit</b> to set a monthly or one-off limit for that network. Windows warns you as you get close to it.</p>
+<h3>Stop uploading updates to other PCs</h3>
+<p>Open <b>Settings > Windows Update > Advanced options > Delivery Optimization</b>. Turn off <b>Allow downloads from other devices</b>, or limit it to devices on your local network. The <b>Activity monitor</b> on the same page shows how much your PC uploaded this month.</p>
+<h3>Stop apps running in the background</h3>
+<p>For apps from the Microsoft Store, open <b>Settings > Apps > Installed apps</b>, press the three dots beside an app, choose <b>Advanced options</b> and set <b>Let this app run in the background</b> to <b>Never</b>. For other apps, turn them off in Task Manager's <b>Startup apps</b> so they don't start with Windows, and set game launchers and sync apps to update or sync only when you want. Steam, for example, can be told to update games only within set hours in its Downloads settings.</p>
+
+<h2>See which app used your internet, and when, with RigSight</h2>
+<p>The Windows tools either show this second or a 30 day total. RigSight, a free and open source PC monitor, records each app's internet use all day and keeps it, so you can look at any day, week, month or year after it happened.</p>
+<p>The Network page shows how much each app downloaded and uploaded, with a chart you can colour by app or by in front and background. Background means what an app moved while it wasn't the window in front, or while nobody was at the PC, and RigSight counts while you were away apart. Click a bar to see which apps used the internet in that hour or day. Sort the apps by total, download, upload or background, and see your biggest days with the apps behind them. A line points it out when an app uploads far more than it usually does, which is how a runaway backup or sync usually shows.</p>
+{{fig pages/network | RigSight's Network page with total, downloaded, uploaded and background use for the month, a chart of each day's use by app, and the apps list showing Steam used 100 percent of its data in the background | RigSight's Network page for a month. The apps list shows how much of each app's data moved in the background, and the line at the top says how much Steam downloaded while nobody was there.}}
+<p>The Apps page can sort every app by internet use, and each app's card shows what it downloaded and uploaded, and how much of that was in the background. Home shows how much has been downloaded today. The Connection card also shows when your internet dropped.</p>
+<p>Per-app internet use needs RigSight to run with admin rights. On a standard Windows account, the Network page shows the whole PC's use instead, with what moved while you were away.</p>
+
+<p>Start with Resource Monitor's Network tab if something is using the internet right now, and the Data usage page for the last month. If the answer is a launcher or Windows Update, the settings above will tame it. If it is an app you don't recognise, search its name before you block or remove it.</p>

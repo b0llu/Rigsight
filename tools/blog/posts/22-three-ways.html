@@ -1,0 +1,64 @@
+<!--meta
+{"slug": "three-ways-to-ask", "series": "ai", "happened": "2026-10-20", "published": "2026-10-26",
+ "title": "Three ways to ask, including one that never leaves your PC",
+ "summary": "The helper can run on your own PC, on your own AI account, or through RigSight. Why there are three, and what each one sends.",
+ "short": "The helper can answer from a model on your own PC, from your own AI key, or through RigSight's service. The way where nothing leaves your PC was built first, on purpose.",
+ "mark": "3 ways"}
+-->
+<p>When I removed Riggy, the reason was simple. A real AI meant either a big download to run it on your PC, or your PC's records going to a server. In October those still looked like the only two choices. So rather than pick one for everyone, the new helper lets you pick.</p>
+
+<h2>One: on your own PC</h2>
+
+<p>The first way I built, starting on 20 October, runs the AI on your own PC with Ollama, a free app for running AI models locally. RigSight talks to it on your PC, and nothing leaves the machine. No account, no key, nobody else involved.</p>
+
+<p>There's a cost, and I'd rather be clear about it. A model good enough to reason about your PC needs a decent graphics card, takes a while to load the first time, and is slower than the big services. RigSight says what's happening while you wait: "Getting the model ready", then "Connecting the dots", then "Putting the findings together". Each answer says which model wrote it, so you always know what you're reading.</p>
+
+<p>I built this way first on purpose. If the helper only worked by sending your data somewhere, it would have been a step back from everything RigSight said about privacy.</p>
+
+<h2>Two: your own key</h2>
+
+<p>The second way is for people who already pay for an AI service. Paste your key from the provider you use, pick a model from a list you can search, and RigSight asks that model directly. Only the look-up results the model asks for are sent, the same as always, and only to the provider you chose.</p>
+
+<p>For both of these, you can edit the instructions the AI follows. Maybe you want shorter answers, or more detail, or answers in a different tone. Your edits stay on your PC. RigSight's own rules are added after yours, so a change in tone can't switch off the rules about only using your real records and saying when something isn't shared.</p>
+
+<p>I tested that by telling it to talk like a pirate. It did, every sentence. And it still used the look-ups, still pointed to the records it read, and still ended with a next step.</p>
+
+<h2>Three: RigSight AI</h2>
+
+<p>The third way is for people who just want it to work, without installing a model or signing up anywhere. Questions go through a small service I run, which passes them to the AI model and streams the answer back.</p>
+
+<p>This is the one that needed the most rules, because it's the one where I'm in the middle. So:</p>
+
+<ul>
+  <li>The app never contacts it until you've chosen RigSight AI and asked a question. No check-in at start-up.</li>
+  <li>Your IP address is never stored, not even scrambled.</li>
+  <li>There's no usage tracking of what you do in the app.</li>
+</ul>
+
+<p>How it will be paid for is still being worked out, so I won't put numbers here yet.</p>
+
+<figure class="fig">
+<svg viewBox="0 0 640 150" role="img" aria-labelledby="tw-t">
+  <title id="tw-t">The three ways compared. On your PC: nothing leaves the PC. Your own key: look-up results go to the provider you chose. RigSight AI: look-up results go through RigSight's service to its AI provider.</title>
+  <g>
+    <rect x="0" y="10" width="200" height="130" rx="12" style="fill: rgba(52,211,153,.07); stroke: rgba(52,211,153,.55)"/>
+    <rect class="box" x="220" y="10" width="200" height="130" rx="12"/>
+    <rect x="440" y="10" width="200" height="130" rx="12" style="fill: rgba(167,139,250,.08); stroke: var(--hot)"/>
+  </g>
+  <g class="tb"><text x="18" y="42">On your PC</text><text x="238" y="42">Your own key</text><text x="458" y="42">RigSight AI</text></g>
+  <g class="t">
+    <text x="18" y="72">Nothing leaves</text><text x="18" y="94">your PC</text>
+    <text x="238" y="72">Look-up results go</text><text x="238" y="94">to the provider</text><text x="238" y="116">you picked</text>
+    <text x="458" y="72">Look-up results go</text><text x="458" y="94">through RigSight's</text><text x="458" y="116">service</text>
+  </g>
+</svg>
+<figcaption>Where your look-up results go with each way of asking. In all three, your full history stays on your PC.</figcaption>
+</figure>
+
+<h2>Before the first question</h2>
+
+<p>Whichever way you pick, the first question you ask shows a short window first. It says, for that way, what gets sent and where, with a link to the switches. You read it once, and then you ask.</p>
+
+<p>Your conversations are kept on your PC, so you can come back to them. You can pin them, rename them, archive them or delete them.</p>
+
+<p>Three ways is more to explain than one. But each one exists because a real person would want it, and the one where nothing leaves your PC is the reason I felt alright bringing AI back at all.</p>

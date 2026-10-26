@@ -1,0 +1,80 @@
+<!--meta
+{"slug": "display-driver-stopped-responding", "series": "guide", "published": "2026-10-26", "updated": "2026-10-26",
+ "topic": "Crashes",
+ "keyword": "display driver stopped responding and has recovered",
+ "also": ["how to fix display driver stopped responding and has recovered", "display driver stopped responding and has recovered windows 11", "display driver stopped working and has recovered", "nvlddmkm crash", "nvlddmkm nvidia corporation video_tdr_error", "why does my graphics driver keep crashing"],
+ "title": "Display driver stopped responding and has recovered: fixes",
+ "summary": "\"Display driver stopped responding and has recovered\" means the graphics card took too long to answer and Windows reset its driver. What the message, LiveKernelEvent 141 and nvlddmkm events mean, and how to fix it.",
+ "short": "Windows waits about two seconds for the graphics card. If it doesn't answer, Windows resets the driver and shows \"display driver stopped responding and has recovered\". Update or clean install the driver first, then set the GPU back to stock clocks and check its temperature and power. Several in a row can end in a blue screen.",
+ "faq": [["What does \"display driver stopped responding and has recovered\" mean?", "It means the graphics card didn't finish a task within Windows' time limit, about two seconds by default, so Windows reset the graphics driver instead of letting the whole PC freeze. Your screen usually flickers or goes black for a moment and then comes back. The game running at the time often crashes or shows a black screen."],
+         ["What is LiveKernelEvent 141?", "It is the report Windows writes when part of the graphics card stopped answering and Windows recovered it. You see it in Reliability Monitor as Hardware error, with LiveKernelEvent and 141 or 117 in its details. 141 means one graphics engine timed out, 117 means the whole graphics card did. Both are graphics hangs that Windows recovered from."],
+         ["What is nvlddmkm event 153?", "nvlddmkm is the NVIDIA kernel driver. Event 153 in the System log usually says a TDR reset occurred on the GPU, so it is NVIDIA's own record of the same reset. Event 13 from nvlddmkm logs a graphics exception, and its data line holds the error code."],
+         ["Should I increase TdrDelay in the registry?", "Not as a fix. Microsoft documents the TDR registry keys for testing and debugging during driver development and says end users shouldn't change them. A longer delay can stop the message, but whatever made the card hang is still there, and the PC can sit frozen for longer instead of recovering."],
+         ["Can display driver resets damage my graphics card?", "The reset itself is Windows protecting the PC, and it doesn't harm the card. The cause can matter, though. Heat or a struggling power supply are worth fixing before they get worse."]],
+ "cover_img": "pages/crashes", "cover_crop": [263, 160, 1131, 754], "cover_alt": "RigSight's Crashes page for a month: tiles for app and game crashes, graphics driver resets, and blue screens and sudden shut-offs, a timeline of problems and a list of what went wrong",
+ "app": ["Crashes page: Graphics driver resets tile and list, read from Windows' Display event 4101 and LiveKernelEvent 141/117 hang reports (0.25.0)", "Opened driver reset with the minutes around it (0.25.0)", "Crashes 'What they have in common': resets in one game or across several apps (by 0.24.1)", "Games page: driver resets per game and per play (0.29.0)", "What changed? counts graphics driver resets after a graphics driver (0.27.0)"],
+ "sources": ["https://learn.microsoft.com/en-us/windows-hardware/drivers/display/timeout-detection-and-recovery", "https://learn.microsoft.com/en-us/windows-hardware/drivers/display/tdr-registry-keys", "https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-0x116---video-tdr-failure", "https://learn.microsoft.com/en-us/answers/questions/3964923/nvlddmkm-event-id-153-13-and-a-warning", "https://www.nvidia.com/en-us/drivers/", "https://www.amd.com/en/resources/support-articles/faqs/RSX2-UNINSTALL.html", "https://www.amd.com/en/resources/support-articles/faqs/RSX2-INSTALL.html", "https://learn.microsoft.com/en-us/answers/questions/1839732/hardware-error-livekernelevent-141", "https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-0x141---video-engine-timeout-detected", "https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-0x117---video-tdr-timeout-detected", "https://www.pcworld.com/article/3631488/one-cable-or-two-for-powering-a-graphics-card-heres-the-answer.html"]}
+-->
+<p>The screen goes black for a second, the game freezes or closes, and a note in the corner says "display driver stopped responding and has recovered". You may not see the note at all, only the flicker. Either way, Windows just reset your graphics driver. Here is what that means and how to stop it happening.</p>
+
+<h2>What "display driver stopped responding and has recovered" means</h2>
+
+<p>Windows has a safety net called Timeout Detection and Recovery, or TDR. When the graphics card takes on a task, Windows expects it done or paused within a time limit. Microsoft gives the default as two seconds. If the card misses it, Windows treats the card as frozen, resets the graphics driver, clears the graphics memory and redraws the desktop. That reset is the flicker you see.</p>
+
+<p>Most of the time the desktop comes back fine. The game that was running often doesn't, because it lost its connection to the graphics card. Some games recover, some show a black screen, and many simply crash.</p>
+
+<p>If resets pile up quickly, Windows stops trying. By default, once the card has hung and recovered five times within a minute, the next hang ends in a blue screen. A recovery that fails also ends in a blue screen, called VIDEO_TDR_FAILURE, stop code 0x116, often naming nvlddmkm.sys on NVIDIA cards or amdkmdag.sys on AMD cards.</p>
+
+<h2>Where Windows records the resets</h2>
+
+<p>Windows logs a reset in a few places, and the names are worth knowing, because forum answers use them all.</p>
+
+<ul>
+<li>Event Viewer, <b>Windows Logs</b> &gt; <b>System</b>: an entry from source <b>Display</b> with Event ID 4101, saying the display driver stopped responding and has recovered.</li>
+<li>On NVIDIA cards, the System log also holds entries from source <b>nvlddmkm</b>. Event 153 usually reads as a TDR reset on the GPU. Event 13 is a graphics exception with an error code in its data.</li>
+<li>Reliability Monitor: search Start for <b>reliability</b> and open <b>View reliability history</b>. A reset shows as <b>Hardware error</b>. Its details say LiveKernelEvent with code 141 or 117. 141 means one graphics engine stopped answering, 117 means the whole card did, and in both cases Windows recovered it.</li>
+</ul>
+
+<p>Write down the times. Whether the resets happen in one game or in everything, at idle or only under load, tells you more than the error itself.</p>
+
+<h2>Fix it, in this order</h2>
+
+<h3>1. Update, roll back or clean install the graphics driver</h3>
+
+<p>The driver is the most common cause and the easiest to test. If the resets started right after a driver update, roll it back: <b>Device Manager</b> &gt; <b>Display adapters</b> &gt; right-click your card &gt; <b>Properties</b> &gt; <b>Driver</b> &gt; <b>Roll Back Driver</b>. If you have been on the same driver for months, update it. Either way, use the clean install option: on NVIDIA, pick <b>Custom (Advanced)</b> and tick <b>Perform a clean installation</b>. On AMD, use the installer's <b>Factory Reset</b> option, which removes earlier versions of AMD Software and means you can't roll back to them afterwards. The full steps, and when DDU is worth it, are in <a href="games-crashing-after-driver-update">games crashing after a graphics driver update</a>.</p>
+
+<h3>2. Put the graphics card back to stock clocks</h3>
+
+<p>An overclock or undervolt that is almost stable is a classic cause of TDRs. The card makes a mistake under a certain load, stalls, and Windows resets it. Reset MSI Afterburner or your card maker's tool to default and turn off any automatic tuning. Some cards ship with a factory overclock, and some have a switch for a quiet BIOS that runs lower clocks. Try it if yours has one.</p>
+
+<h3>3. Check the GPU's temperature</h3>
+
+<p>A card that overheats slows itself down, and if that isn't enough it can hang. Watch the GPU temperature and the hot spot temperature while you play, using a monitor that keeps a history. NVIDIA lists a maximum GPU temperature on the specification page for many of its cards, and it differs by model. The hot spot, which AMD calls junction temperature, normally runs well above the main GPU reading, so judge each against its own limit. If your card sits at its limit, clean the dust out, check the fans spin and give the case more airflow.</p>
+
+<h3>4. Check the power</h3>
+
+<p>When a graphics card's power use jumps, a tired or undersized power supply can dip for a moment and the card stalls. Make sure every power plug on the card is fully seated. If your card takes two or three power plugs, check the manuals for the card and the power supply. Some ask for a separate cable from the power supply to each plug instead of one cable with two plugs on it, and with a card that draws a lot of power that is the safer choice where your supply has enough cables. If resets only come at the heaviest moments of a game, the power supply is a real suspect.</p>
+
+<h3>5. If it is always the same game</h3>
+
+<p>Resets in one game while others run fine point at that game. Update it, verify its files in the launcher, turn off its overlays, and try a lower graphics preset or a different graphics mode such as DirectX 11 instead of DirectX 12, if the game offers one.</p>
+
+<h3>6. Leave TdrDelay alone</h3>
+
+<p>Many old guides tell you to raise TdrDelay in the registry so Windows waits longer. Microsoft documents those registry keys only for testing and debugging during driver development, and says end users shouldn't change them. A longer wait can hide the message, but the card still hangs, and now the PC sits frozen for longer before anything happens. Wrong registry edits can stop Windows working, so leave it alone and fix the cause instead.</p>
+
+<h3>7. When nothing helps</h3>
+
+<p>If resets carry on with a clean driver, stock clocks, normal temperatures and a solid power supply, the card itself may be failing. Testing it in another PC, or another card in yours, settles it. If it is under warranty, the error codes and times you wrote down are exactly what the maker will ask for.</p>
+
+<h2>How RigSight tracks graphics driver resets</h2>
+
+<p>Resets are easy to miss. The game closes, the desktop comes back, and a week later you can't say how often it happened. RigSight is a free, open source PC monitor that records them as they happen and keeps them.</p>
+
+<p>The Crashes page counts graphics driver resets in a tile of their own, read from the same Windows records described above: the Display event and the LiveKernelEvent hang reports. Each one opens with what RigSight recorded in the minutes around it, such as GPU temperature, hot spot, power and load, so you can see whether the card was hot or pulling hard at that moment. When there are several, "What they have in common" says whether they all happened in one game or across different apps, which is the same question as step 5 above.</p>
+
+{{fig pages/crashes | RigSight's Crashes page for a month: tiles for app and game crashes, graphics driver resets, and blue screens and sudden shut-offs, a timeline of problems and a list of what went wrong | RigSight's Crashes page. Graphics driver resets get their own count, apart from app crashes and blue screens.}}
+
+<p>On the Games page, each game counts the resets during its plays, and each play says how it ended. On the Timeline, a graphics driver update that brought clearly more resets than before can be marked as having made things worse, and one that brought fewer as better.</p>
+
+<p>Start with a clean install of the driver and stock clocks, then play as you normally do. If the resets stop, you are done. If they come back, check the temperature and power at the moment they happen. A one-off reset after hours of play is rarely worth worrying about. Several a day is something to fix.</p>
