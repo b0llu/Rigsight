@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Game crashes to desktop with no error? How RigSight finds why · RigSight</title>
+  <meta name="description" content="When a game crashes to desktop with no error, Windows still logs the crash. How RigSight reads that record and names the cause, why games crash with no message, and how to find and fix it yourself." />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="canonical" href="https://rigsight.app/blog/game-crashes-to-desktop-no-error" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
+  <meta property="og:site_name" content="RigSight" />
+  <meta property="og:title" content="Game crashes to desktop with no error? How RigSight finds why · RigSight" />
+  <meta property="og:description" content="When a game crashes to desktop with no error, Windows still logs the crash. How RigSight reads that record and names the cause, why games crash with no message, and how to find and fix it yourself." />
+  <meta property="og:url" content="https://rigsight.app/blog/game-crashes-to-desktop-no-error" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
+  <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <meta property="og:image" content="https://rigsight.app/img/blog/game-crashes-to-desktop-no-error.webp" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="800" />
+  <meta property="og:type" content="article" />
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Game crashes to desktop with no error? How RigSight finds why", "description": "When a game crashes to desktop with no error, Windows still logs the crash. How RigSight reads that record and names the cause, why games crash with no message, and how to find and fix it yourself.", "datePublished": "2026-10-27", "dateModified": "2026-10-27", "image": "https://rigsight.app/img/blog/game-crashes-to-desktop-no-error.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/game-crashes-to-desktop-no-error", "keywords": "game crashes to desktop no error, game randomly crashes to desktop without error, games crashing to desktop windows 11, why does my game keep crashing pc, every game crashes to desktop, what causes a game to crash on pc"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Game crashes to desktop with no error? How RigSight finds why", "item": "https://rigsight.app/blog/game-crashes-to-desktop-no-error"}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does my game keep crashing on PC?", "acceptedAnswer": {"@type": "Answer", "text": "Most often it's the game itself, its files or mods, an overlay hooking into it, or the graphics driver. If one game crashes in the same file every time, look at that game. If every game crashes, look at the whole PC. Check memory settings, overclocks, temperatures and the power supply."}}, {"@type": "Question", "name": "Why does every game crash to desktop?", "acceptedAnswer": {"@type": "Answer", "text": "When several games crash, the cause is usually something they share. That can be the graphics driver, an overlay that hooks every game, an unstable overclock or XMP or EXPO memory profile, or heat. Turn overlays off, reset tuning to defaults and run Windows Memory Diagnostic before reinstalling games."}}, {"@type": "Question", "name": "What causes a game to crash on PC with no error message?", "acceptedAnswer": {"@type": "Answer", "text": "A crash to desktop means the game hit a fault it couldn't handle and Windows ended it, often too fast for the game to show anything. Windows still logs it as event 1000 in the Application log, with the faulting module and an exception code such as 0xc0000005."}}, {"@type": "Question", "name": "Are games crashing to desktop on Windows 11 different from Windows 10?", "acceptedAnswer": {"@type": "Answer", "text": "No. The logs, the fields and the fixes are the same on both. Windows 11 just moves some settings, and the steps here use the Windows 11 names."}}]}</script>
+  <style>
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
+/* Layout: the site's dark look. The list is picture-left rows like a magazine contents page; a post is a 680px column
+   under a cover that matches its row, with pictures a little wider than the text. */
+:root {
+  --bg: #000;
+  --surface: #0a0b0d;
+  --surface-2: #111317;
+  --line: rgba(255,255,255,.08);
+  --line-2: rgba(255,255,255,.14);
+  --fg: #f3f4f6;
+  --text: #c5cad2;
+  --muted: #a0a6b0;
+  --faint: #767c87;
+  --cpu: #5b8def;
+  --gpu: #22d3ee;
+  --hot: #a78bfa;
+  --ram: #c084fc;
+  --coffee: #ffdd00;
+  --display: "Geist", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 80px; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+a { color: var(--gpu); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
+img { max-width: 100%; height: auto; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+.wrap-narrow { max-width: 776px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+
+/* top bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(0,0,0,.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top-in { display: flex; align-items: center; gap: 24px; height: 62px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+.brand img { border-radius: 6px; }
+.top nav { display: flex; gap: 30px; margin-left: 24px; }
+.top nav a { color: var(--muted); text-decoration: none; font-size: 14.5px; font-weight: 600; }
+.top nav a:hover, .top nav a.on { color: var(--fg); }
+.top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.coffee-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; color: var(--coffee); font-weight: 600; font-size: 14.5px; text-decoration: none; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3); white-space: nowrap; }
+.coffee-pill:hover { color: #fde047; background: rgba(250,204,21,.14); }
+.icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; color: #c9cdd4; }
+.icon-btn:hover { color: var(--fg); background: rgba(255,255,255,.09); }
+.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--fg); color: #000; font-weight: 600; text-decoration: none; border-radius: 999px; padding: 11px 20px; font-size: 15px; white-space: nowrap; }
+.btn:hover { background: #fff; }
+.btn-sm { padding: 7px 14px; font-size: 13.5px; }
+.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.progress i { display: block; height: 100%; background: var(--gpu); transform-origin: 0 50%; transform: scaleX(0); }
+
+/* blog index */
+.blog-head { padding-block: 64px 36px; }
+.kicker { font: 500 13px/1 var(--mono); color: var(--gpu); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; }
+.blog-head h1 { font: 600 clamp(40px, 7vw, 72px)/1.02 var(--display); letter-spacing: -0.045em; margin: 0 0 18px; text-wrap: balance; }
+.intro { color: var(--muted); font-size: 18.5px; line-height: 1.6; max-width: 640px; margin: 0 0 14px; }
+.starts { color: var(--faint); font-size: 14.5px; margin: 0; }
+.starts a { color: var(--muted); }
+.starts a:hover { color: var(--fg); }
+.eyebrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--faint); margin: 0 0 10px; font-weight: 500; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.s-build { background: var(--cpu); }
+.s-ai { background: var(--hot); }
+.s-guide, .s-fix { background: var(--gpu); }
+.meta { font-size: 13.5px; color: var(--faint); margin: 0; font-variant-numeric: tabular-nums; }
+.filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.chip { font: 600 14px/1 var(--body); color: var(--muted); background: transparent; border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.chip span { color: var(--faint); font-weight: 500; margin-left: 4px; }
+.rss { margin-left: auto; align-self: center; font-size: 14px; color: var(--faint); text-decoration: none; }
+.rss:hover { color: var(--fg); }
+.chip:hover { color: var(--fg); }
+.chip[aria-pressed="true"] { color: #000; background: var(--fg); border-color: var(--fg); }
+.chip[aria-pressed="true"] span { color: #444; }
+.rows { list-style: none; margin: 8px 0 80px; padding: 0; }
+.row a { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 40px; align-items: center; padding: 30px 0; text-decoration: none; color: inherit; }
+.row + .row { border-top: 1px solid var(--line); }
+.row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
+.row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
+.row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
+.row a:hover .thumb img { transform: scale(1.015); }
+
+/* guides */
+.body h3 { font: 600 19px/1.3 var(--display); color: var(--fg); margin: 1.6em 0 .4em; }
+.body pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0 0 1.2em; max-width: 100%; }
+.body pre code { background: none; border: 0; padding: 0; font-size: 14.5px; line-height: 1.6; white-space: pre; }
+.body table { border-collapse: collapse; width: 100%; font-size: 16px; margin: 0 0 1.2em; display: block; overflow-x: auto; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.body th { color: var(--fg); font-weight: 600; }
+.faq { margin-top: 2.4em; }
+.qa { border-top: 1px solid var(--line); }
+.qa:last-child { border-bottom: 1px solid var(--line); }
+.qa summary { cursor: pointer; list-style: none; padding: 16px 32px 16px 0; position: relative; color: var(--fg); font-weight: 600; font-size: 17.5px; line-height: 1.45; }
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary::after { content: "+"; position: absolute; right: 4px; top: 14px; font: 400 22px/1 var(--mono); color: var(--faint); }
+.qa[open] summary::after { content: "\2212"; }
+.qa p { margin: 0 0 18px; color: var(--text); font-size: 17px; }
+.guide .short { border-color: rgba(34,211,238,.35); }
+.next.rel { grid-template-columns: 1fr 1fr; }
+
+/* a post */
+.post { padding-block: 40px 40px; }
+.crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--fg); }
+.dek { font-size: 19px; line-height: 1.55; color: var(--muted); margin: 0 0 18px; max-width: 680px; }
+.byline b { color: var(--fg); font-weight: 600; }
+.cover { margin: 0 0 32px; max-width: 728px; }
+.cover img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); }
+.post h1 { font: 600 clamp(34px, 5.6vw, 52px)/1.06 var(--display); letter-spacing: -0.04em; margin: 0 0 14px; text-wrap: balance; }
+.byline { color: var(--faint); font-size: 14.5px; margin: 0 0 30px; font-variant-numeric: tabular-nums; }
+.short { background: var(--surface); border: 1px solid var(--line-2); border-radius: 16px; padding: 20px 24px; margin-bottom: 40px; }
+.short p { margin: 0; color: var(--fg); font-size: 17.5px; line-height: 1.6; }
+.short .short-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+.body, .post h1, .dek, .short p, .qa summary { overflow-wrap: anywhere; }
+.body { font-size: 18px; line-height: 1.75; color: var(--text); max-width: 680px; }
+.body > p { margin: 0 0 1.15em; }
+.body h2 { font: 600 25px/1.25 var(--display); letter-spacing: -0.025em; color: var(--fg); margin: 1.9em 0 .55em; text-wrap: balance; }
+.body strong { color: var(--fg); font-weight: 600; }
+.body ul, .body ol { padding-left: 1.2em; margin: 0 0 1.2em; }
+.body li { margin: .35em 0; }
+.body li::marker { color: var(--faint); }
+.body code { font: 500 .86em var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--fg); }
+.body blockquote { margin: 1.5em 0; padding: 2px 0 2px 20px; border-left: 2px solid var(--hot); color: var(--fg); font-size: 19px; }
+.body blockquote p { margin: 0; }
+.body blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size: 14px; color: var(--faint); }
+.shot { margin: 2em 0; max-width: 728px; }
+.shot img { display: block; width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,.06); }
+figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top: 10px; }
+.stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin: 1.8em 0; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat b { font: 500 clamp(40px, 7vw, 60px)/1 var(--mono); letter-spacing: -0.04em; color: var(--gpu); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 16px; line-height: 1.5; flex: 1 1 260px; min-width: 0; }
+.stat.hot b { color: var(--hot); }
+.stat.cpu b { color: var(--cpu); }
+.fig { margin: 2em 0; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; max-width: 728px; overflow-x: auto; }
+.fig svg { display: block; width: 100%; height: auto; min-width: 520px; font-family: var(--body); }
+.fig figcaption { margin-top: 14px; }
+.fig .t { fill: var(--muted); font-size: 13px; }
+.fig .tf { fill: var(--faint); font-size: 12px; }
+.fig .tb { fill: var(--fg); font-size: 14px; font-weight: 600; }
+.fig .tm { fill: var(--fg); font-family: var(--mono); font-size: 13px; }
+.fig .box { fill: var(--surface-2); stroke: var(--line-2); }
+.fig .grid { stroke: var(--line); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 2em 0; }
+.pair > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; min-width: 0; }
+.pair p { margin: 0; font-size: 16px; line-height: 1.6; }
+.pair .k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px; color: var(--faint); }
+.pair .bad .k { color: #f0a35e; }
+.pair .good .k { color: #34d399; }
+.next { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 56px 0 28px; max-width: 728px; }
+.more { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 14px; text-decoration: none; min-width: 0; }
+.more span { font-size: 13px; color: var(--faint); }
+.more b { color: var(--fg); font-weight: 600; font-size: 16.5px; line-height: 1.35; }
+.more:hover { border-color: var(--line-2); background: var(--surface); }
+.get { display: flex; align-items: center; gap: 18px; padding: 20px 22px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 728px; }
+.get img { border-radius: 10px; flex: none; }
+.get p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; min-width: 0; }
+.get p b { color: var(--fg); }
+
+.foot { border-top: 1px solid var(--line); margin-top: 72px; }
+.foot-in { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; padding-block: 28px 40px; }
+.foot nav { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.foot nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+.foot nav a:hover { color: var(--fg); }
+
+@media (max-width: 760px) {
+  .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .top nav a:not(.on) { display: none; }
+  .top-end { gap: 8px; }
+  .top-in { gap: 14px; }
+  .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
+  .row h2 { font-size: 21px; }
+  .row .sum { font-size: 15px; }
+  .dek { font-size: 17px; }
+  .body { font-size: 17px; }
+  .pair, .next { grid-template-columns: 1fr; }
+  .get { flex-wrap: wrap; }
+  .blog-head { padding-block: 40px 28px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+
+  </style>
+</head>
+<body>
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="24" height="24"><span>RigSight</span></a>
+  <nav aria-label="Site"><a href="./" class="on">Blog</a><a href="../#faq">FAQ</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+  <div class="top-end"><a class="icon-btn" href="https://github.com/b0llu/Rigsight" aria-label="RigSight on GitHub"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5"/></svg></a><a class="btn btn-sm" href="https://github.com/b0llu/Rigsight/releases/latest">Download</a></div>
+</div><div class="progress" aria-hidden="true"><i></i></div></header><main><article class="post wrap-narrow guide">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Blog</a></nav>
+  <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Crashes</p>
+  <h1>Game crashes to desktop with no error? How RigSight finds why</h1>
+  <p class="dek">When a game crashes to desktop with no error, Windows still logs the crash. How RigSight reads that record and names the cause, why games crash with no message, and how to find and fix it yourself.</p>
+  <p class="byline"><b>Dhruv Samant</b> · Updated 27 October 2026 · 7 min read</p>
+  <figure class="cover"><img class="" src="../img/blog/game-crashes-to-desktop-no-error.webp" srcset="../img/blog/game-crashes-to-desktop-no-error-600.webp 600w, ../img/blog/game-crashes-to-desktop-no-error.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="An opened game crash in RigSight marked Confirmed. The NVIDIA graphics driver failed while running the game, with what to try, what it wasn&#x27;t and the minutes around the crash" fetchpriority="high" decoding="async"></figure>
+  <div class="short"><p class="short-k">The short answer</p><p>A game that crashes to desktop with no error still leaves an entry in Windows. Open Event Viewer, Windows Logs, Application, and find Application Error 1000 at that time. The faulting module names the file it crashed in, which can be the game, the graphics driver, an overlay or Windows. That tells you what to fix first.</p></div>
+  <div class="body">
+<p>You're mid-match, the screen flicks, and you're looking at your desktop. There's no message and no report. The game is just gone. A game that crashes to desktop with no error feels like it left nothing behind, but Windows almost always wrote down what happened. RigSight reads that record for you, and you can read it yourself too.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>The picture on this post is an example from RigSight's demo PC, not a crash of mine. Crimson Desert closed at 10:06 PM with no message. RigSight put it on the Crashes page as "The NVIDIA graphics driver failed while running Crimson Desert", marked Confirmed, with "Update the NVIDIA driver" as the first thing to try.</p>
+
+<p>That headline comes from the same entry you'd find in Event Viewer. Windows named <code>nvwgf2umx.dll</code> as the file the game crashed in. RigSight knows that file belongs to the NVIDIA driver, so it says so in plain words. It does the same for AMD and Intel drivers, DirectX, Vulkan, Unity, Unreal, and the Steam, Discord, RivaTuner and NVIDIA overlays.</p>
+
+<p>Every crash carries one word for how sure the cause is.</p>
+
+<ul>
+  <li>Confirmed means Windows named a file RigSight knows.</li>
+  <li>Likely means the evidence points one way.</li>
+  <li>Possibly means other causes fit too.</li>
+  <li>Not enough to say means it can't tell, and it says that instead of guessing.</li>
+</ul>
+
+<p>RigSight also looks for patterns across crashes. A game that crashes within a minute of starting reads "crashed as it was starting", which points at its files, an add-on or its anti-cheat, not at heat. Three crashes at the same place in the same file read "crashes at the same spot every time". That's a fault in the game, not your hardware. A crash while a graphics driver was being installed is put down to the install.</p>
+
+<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="The minutes around a game crash in RigSight, with lanes for temperature, load, power, memory, fans and network on one time axis, the crash marked, and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around the crash on the demo PC. Every lane shares one time axis, and the panel shows every reading at the minute you point at.</figcaption></figure>
+
+<p>Open a crash and you see the 45 minutes before it and the 10 after. You see temperatures, load, power, memory, fans and network, and which app was using the CPU and GPU. For a game, RigSight also keeps the last five minutes before the crash at a reading every 2 to 3 seconds. In the example, What it wasn't says "It wasn't overheating" and "Memory wasn't full", so you can stop worrying about those two. RigSight also says when graphics memory was well above that game's usual. You get a notification with the game's name the moment it happens, and the play on the Games page says it ended in a crash. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>
+
+<h2>Why a game crashes to desktop with no error</h2>
+
+<p>When a program hits a fault it can't handle, Windows ends it at once and logs an Application Error. The game often has no time to show its own message. So the crash looks silent, but the record is there.</p>
+
+<p>The fault can come from several places, and the file Windows names is the best clue to which one.</p>
+
+<ul>
+  <li>If it's the game's own .exe, <code>UnityPlayer.dll</code>, <code>GameAssembly.dll</code> or an Unreal Engine file, the crash was inside the game. Bugs, broken files and mods live here.</li>
+  <li><code>nvwgf2umx.dll</code>, <code>nvd3dumx.dll</code> and <code>nvlddmkm.sys</code> belong to the NVIDIA driver. <code>amdxx64.dll</code> and <code>atiumd64.dll</code> belong to the AMD driver. Files starting with <code>igd</code> belong to the Intel graphics driver.</li>
+  <li><code>d3d11.dll</code>, <code>d3d12.dll</code>, <code>dxgi.dll</code> and <code>vulkan-1.dll</code> are the graphics layer. The fault is usually the driver's or the game's, not DirectX itself.</li>
+  <li><code>gameoverlayrenderer64.dll</code> is the Steam overlay and <code>DiscordHook64.dll</code> is Discord's. <code>RTSSHooks64.dll</code> is RivaTuner Statistics Server, which MSI Afterburner uses for its overlay. <code>nvspcap64.dll</code> is the NVIDIA overlay. Overlays hook into the game, so a fault in one ends the game.</li>
+  <li><code>KERNELBASE.dll</code> and <code>ntdll.dll</code> are parts of Windows every program uses. The fault is most often still the game's, so treat it like the first case.</li>
+  <li>If it says unknown, Windows couldn't tell. Use the exception code instead.</li>
+</ul>
+
+<p>The exception code says what kind of fault it was. These are the common ones.</p>
+
+<ul>
+  <li><code>0xc0000005</code> is an access violation. The game touched memory it wasn't allowed to. Bugs, mods, overlays and unstable memory all cause it.</li>
+  <li><code>0xc0000409</code> is a stack buffer overrun. The game found that part of its memory had been overwritten, or stopped itself on purpose after a serious error.</li>
+  <li><code>0xc0000374</code> is heap corruption. Memory got damaged, often by a mod, an overlay or a bug.</li>
+  <li><code>0xc000001d</code> is an illegal instruction. The CPU hit an invalid instruction, which can point to an unstable overclock or undervolt.</li>
+</ul>
+
+<p>The pattern matters as much as the file. If the game crashes at the same place in the same file every time, it's the game or a mod. If it crashes in different files at random moments, or every game crashes, it's the PC. Then look at memory, tuning, heat and power.</p>
+
+<h2>How to find the crash yourself</h2>
+
+<ol>
+  <li>Right-click Start and open <strong>Event Viewer</strong>.</li>
+  <li>Go to <strong>Windows Logs &gt; Application</strong>.</li>
+  <li>Click <strong>Filter Current Log</strong>, type <code>1000,1002</code> in the event IDs box and click <strong>OK</strong>.</li>
+  <li>Find the entry at the time of the crash, with your game's .exe as the faulting application.</li>
+</ol>
+
+<p>Event 1000 is a crash. Event 1002 is a freeze that ended with the game being closed. In a 1000, three lines matter. Faulting application name is the game's .exe and its version. Faulting module name is the file the crash happened in, and it's your best lead. Exception code is the kind of fault, from the list above.</p>
+
+<p>Reliability Monitor shows the same thing as a calendar. Type <strong>reliability</strong> into Start, open <strong>View reliability history</strong>, and look for "Stopped working" under the game's name. A .NET game may also leave a .NET Runtime 1026 entry with the error's name, just before the 1000.</p>
+
+<p>If there's no 1000 at all and the whole PC restarted, it wasn't a game crash. See PC restarts randomly while gaming instead.</p>
+
+<h2>How to fix a game that crashes to desktop</h2>
+
+<p>Try these in order. The first ones are the safest.</p>
+
+<ol>
+  <li>Verify the game's files. In Steam, right-click the game in your <strong>Library</strong> and choose <strong>Properties &gt; Installed Files &gt; Verify integrity of game files</strong>. Epic, EA, Ubisoft and Battle.net have a <strong>Verify</strong> or <strong>Repair</strong> option in each game's menu. If it crashes within seconds of starting, also repair its anti-cheat if it has one. Easy Anti-Cheat, for example, has a <strong>Repair Service</strong> button in the setup file inside the game's folder.</li>
+  <li>Turn off overlays one at a time. That means Steam, Discord, the NVIDIA app or AMD Software, and RivaTuner. If the faulting module is one of their files, start with that one.</li>
+  <li>Remove mods, reshade files and injected tools, then test the plain game.</li>
+  <li>Update or clean-reinstall the graphics driver if the faulting module belongs to it. If the crashes began after a new driver, try the one before.</li>
+  <li>Undo tuning. Reset GPU overclocks, and in the BIOS turn off XMP or EXPO for a test. A memory profile that's slightly unstable is a classic cause of random crashes across several games.</li>
+  <li>Test memory. Open Start, type <strong>Windows Memory Diagnostic</strong>, and pick <strong>Restart now and check for problems</strong>. The result appears in the System log under the source MemoryDiagnostics-Results.</li>
+  <li>Check temperatures and memory use while playing. A GPU near its limit or RAM nearly full can both end a game. Windows logs event 2004, Resource-Exhaustion-Detector, in the System log when it's running out of memory.</li>
+  <li>Repair Windows files. Open <strong>Terminal (Admin)</strong> and run <code>sfc /scannow</code>. If it finds problems it can't fix, run <code>DISM /Online /Cleanup-Image /RestoreHealth</code> and then <code>sfc /scannow</code> again.</li>
+</ol>
+
+<p>Your next step is to find the Application Error 1000 for your last crash and read its faulting module. If it's the game's own file, verify the files first. If it's an overlay's file, turn that overlay off and play again.</p>
+  <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Why does my game keep crashing on PC?</summary><p>Most often it's the game itself, its files or mods, an overlay hooking into it, or the graphics driver. If one game crashes in the same file every time, look at that game. If every game crashes, look at the whole PC. Check memory settings, overclocks, temperatures and the power supply.</p></details><details class="qa"><summary>Why does every game crash to desktop?</summary><p>When several games crash, the cause is usually something they share. That can be the graphics driver, an overlay that hooks every game, an unstable overclock or XMP or EXPO memory profile, or heat. Turn overlays off, reset tuning to defaults and run Windows Memory Diagnostic before reinstalling games.</p></details><details class="qa"><summary>What causes a game to crash on PC with no error message?</summary><p>A crash to desktop means the game hit a fault it couldn't handle and Windows ended it, often too fast for the game to show anything. Windows still logs it as event 1000 in the Application log, with the faulting module and an exception code such as 0xc0000005.</p></details><details class="qa"><summary>Are games crashing to desktop on Windows 11 different from Windows 10?</summary><p>No. The logs, the fields and the fixes are the same on both. Windows 11 just moves some settings, and the steps here use the Windows 11 names.</p></details></section>
+  </div>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>Why did my PC crash? How RigSight caught one on mine</b></a><a class="more" href="kernel-power-41"><span>Crashes</span><b>Why Kernel-Power 41 happens, and how RigSight caught mine</b></a><a class="more" href="normal-gpu-temperature-while-gaming"><span>Temperatures</span><b>Normal GPU temperature while gaming, and when 85°C is too hot</b></a><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>Why GPU hotspot temperature runs high, and when the gap is bad</b></a></nav>
+  <aside class="get">
+    <img src="../img/logo-144.webp" alt="" width="40" height="40">
+    <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>
+    <a class="btn" href="https://github.com/b0llu/Rigsight/releases/latest">Download for Windows</a>
+  </aside>
+</article></main><footer class="foot"><div class="wrap foot-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="20" height="20"><span>RigSight</span></a>
+  <nav aria-label="Links"><a href="../">Home</a><a href="./">Blog</a><a href="https://github.com/b0llu/Rigsight">GitHub</a><a href="https://github.com/b0llu/Rigsight/releases">Releases</a><a href="../privacy.html">Privacy policy</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+</div></footer><script>
+(function () {
+  var bar = document.querySelector('.progress i');
+  if (!bar) return;
+  function tick() {
+    var post = [].find.call(document.querySelectorAll('.post'), function (a) { return a.offsetParent !== null; });
+    if (!post) { bar.style.transform = 'scaleX(0)'; return; }
+    var r = post.getBoundingClientRect(), h = r.height - innerHeight;
+    var f = h > 0 ? Math.min(1, Math.max(0, -r.top / h)) : 1;
+    bar.style.transform = 'scaleX(' + f.toFixed(3) + ')';
+  }
+  addEventListener('scroll', tick, { passive: true });
+  addEventListener('resize', tick);
+  window.__tick = tick; tick();
+})();
+(function () {
+  var chips = document.querySelectorAll('.chip[data-series]');
+  if (!chips.length) return;
+  function show(s) {
+    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
+    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
+  }
+  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
+})();
+</script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
+</body>
+</html>
