@@ -16,8 +16,14 @@ public sealed class AiSettings
     public AiMode Mode { get; set; } = AiMode.RigSight;
     public AskPlace Place { get; set; } = AskPlace.TopBar;
 
-    /// <summary>The keys that open the Ask window, as WPF writes them ("Ctrl+Shift+A"); empty while none are set.</summary>
-    public string Shortcut { get; set; } = "";
+    /// <summary>
+    /// The keys that open the ask box from anywhere, as WPF writes them ("Ctrl+K"); empty once cleared. Ctrl+K by default
+    /// (the person's call, 2026-10-27), given once to settings from before (see <see cref="ShortcutGiven"/>).
+    /// </summary>
+    public string Shortcut { get; set; } = "Ctrl+K";
+
+    /// <summary>The Ctrl+K default has been given (once, in SettingsStore.Normalize) or the shortcut was cleared: an empty one stays empty.</summary>
+    public bool ShortcutGiven { get; set; }
 
     /// <summary>How long conversations are kept, in days; 0 keeps them until they are cleared (like KeepHistoryDays).</summary>
     public int KeepConversationDays { get; set; } = 30;

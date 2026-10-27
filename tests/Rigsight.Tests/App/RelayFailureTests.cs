@@ -103,6 +103,46 @@ public sealed class RelayFailureTests
         Assert.Contains("stopped before it finished", reply.Problem);
     }
 
+    // 2026-10-27: a round that thought until its limit is asked again by the relay without thinking; the wait says so.
+    [Fact]
+    public async Task When_the_relay_asks_again_without_thinking_the_wait_says_its_writing_and_the_answer_comes()
+    {
+        await using var relay = new FakeRelay(async (_, s) =>
+        {
+            await FakeRelay.SseStart(s);
+            await FakeRelay.Write(s, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}\n\n");
+            await FakeRelay.Write(s, "data: {\"rigsight\":{\"step\":\"writing\"}}\n\n");
+            await FakeRelay.Write(s, Words("Your PC shut off 18 times this month."));
+            await FakeRelay.Write(s, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n");
+            s.Close();
+        });
+        using var _ = Point(relay.Url);
+        var steps = new List<string>();
+        var reply = await Relay.AskAsync([], "How was my PC last month?", Tools(), step: st => steps.Add(st.Text));
+        Assert.Equal("Your PC shut off 18 times this month.", reply.Text);
+        Assert.Contains("Writing your answer…", steps);
+    }
+
+    // 2026-10-27: a fifth round refused for size said "wasn't counted", but the relay keeps a question it already answered rounds of.
+    [Theory]
+    [InlineData(400, """{"error":"unavailable","reason":"bad_request","detail":"too long"}""")]
+    [InlineData(503, """{"error":"unavailable","reason":"stopped","detail":"too long"}""")]
+    public async Task A_round_refused_for_size_after_the_first_never_says_it_wasnt_counted(int code, string body)
+    {
+        int asked = 0;
+        await using var relay = new FakeRelay(async (_, s) =>
+        {
+            if (Interlocked.Increment(ref asked) > 1) { await FakeRelay.Reply(s, code, "application/json", body); return; }
+            await FakeRelay.SseStart(s);
+            await FakeRelay.Write(s, "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"get_today\",\"arguments\":\"{}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n");
+            s.Close();
+        });
+        using var _ = Point(relay.Url);
+        var reply = await Relay.AskAsync([], "Compare every month this year", Tools());
+        Assert.Null(reply.Text);
+        Assert.Equal("This answer grew too big to finish, so RigSight AI stopped it. Try asking about one part at a time.", reply.Problem);
+    }
+
     [Fact]
     public async Task An_answer_reset_halfway_says_so()
     {
@@ -259,8 +299,30 @@ public sealed class RelayFailureTests
         using var _ = Point(relay.Url);
         var reply = await Relay.AskAsync([], "Why?", Tools());
         Assert.Null(reply.Text);
-        Assert.Contains("too many steps", reply.Problem);
-        Assert.Equal(OwnKey.MaxRounds, asks);
+        // The real relay answers on its last round (MAX_ROUNDS) instead; only a relay that never does ends here.
+        Assert.Equal("RigSight AI couldn't finish this answer. Ask again, or ask about one part of it.", reply.Problem);
+        Assert.Equal(12, asks);
+    }
+
+    // "Needed too many steps" meant nothing to someone who asked a simple question (2026-10-27): own key's last round
+    // allows no look-ups, so the model answers from what it found.
+    [Fact]
+    public async Task Own_keys_last_round_allows_no_look_ups_and_answers()
+    {
+        var bodies = new List<string>();
+        await using var server = new FakeRelay(async (r, s) =>
+        {
+            lock (bodies) bodies.Add(r.Body);
+            bool last = r.Body.Contains("\"tool_choice\":\"none\"");
+            await FakeRelay.SseStart(s);
+            await FakeRelay.Write(s, (last ? Words("From what I found: 3 shut-offs.") + Finish() : Call("get_crashes", "{}") + Finish("tool_calls")) + "data: [DONE]\n\n");
+            s.Close();
+        });
+        var reply = await OwnKey.AskAsync("Test", server.Url, "key", "model", [], "Why?", Tools());
+        Assert.Equal("From what I found: 3 shut-offs.", reply.Text);
+        Assert.Equal(OwnKey.MaxRounds, bodies.Count);
+        Assert.Contains(OwnKey.LastRound[..40], bodies[^1]);
+        Assert.DoesNotContain("tool_choice", bodies[0]);
     }
 
     [Theory]

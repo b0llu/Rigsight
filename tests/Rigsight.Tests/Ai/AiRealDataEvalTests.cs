@@ -48,8 +48,12 @@ public sealed class AiRealDataEvalTests
         {
             sb.AppendLine($"## {tool} {args.ToJsonString()}\n\n```text\n{tools.Run(tool, args.ToJsonString()).Trim()}\n```\n");
         }
-        foreach (var tool in new[] { "get_pc_info", "get_today", "get_temperatures", "get_crashes", "get_apps", "get_memory", "get_storage", "get_changes" })
+        foreach (var tool in new[] { "get_pc_info", "get_today", "get_storage", "list_games" })
             Show(tool, []);
+        // The dated ones over the last 30 days, as a question about "lately" asks them.
+        var month = new JsonObject { ["from"] = $"{DateTime.Today.AddDays(-30):yyyy-MM-dd}", ["to"] = $"{DateTime.Today:yyyy-MM-dd}" };
+        foreach (var tool in new[] { "get_report", "get_crashes", "get_changes", "get_temperatures", "get_apps", "get_memory", "get_fans", "get_network" })
+            Show(tool, (JsonObject)month.DeepClone());
         foreach (var game in (Environment.GetEnvironmentVariable("EVAL_GAMES") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             Show("get_game", new JsonObject { ["name"] = game });
         File.WriteAllText(Path.Combine(Folder, "real-lookups.md"), sb.ToString());

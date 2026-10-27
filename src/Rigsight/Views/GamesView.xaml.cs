@@ -14,9 +14,36 @@ public partial class GamesView : UserControl
         // A game opened is its own page: it starts at its top, and the library keeps its place for the way back.
         DataContextChanged += (_, e) =>
         {
-            if (e.OldValue is ViewModels.GamesViewModel old) old.PropertyChanged -= OnChanged;
-            if (e.NewValue is ViewModels.GamesViewModel vm) vm.PropertyChanged += OnChanged;
+            if (e.OldValue is ViewModels.GamesViewModel old) { old.PropertyChanged -= OnChanged; old.RunsRangeEditRequested -= OpenRunsRangeEditor; }
+            if (e.NewValue is ViewModels.GamesViewModel vm) { vm.PropertyChanged += OnChanged; vm.RunsRangeEditRequested += OpenRunsRangeEditor; }
         };
+        // "How it runs": the range menu and editor as on Temperatures, and a play or week clicked on the chart.
+        RunsPager.LabelCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(OpenRunsMenu);
+        RunsMenu.CustomPopupPlacementCallback = (popup, target, _) =>
+            [new System.Windows.Controls.Primitives.CustomPopupPlacement(new Point(target.Width - popup.Width + 8, target.Height + 6), System.Windows.Controls.Primitives.PopupPrimaryAxis.Horizontal)];
+        RunsRangeEditor.Applied += (from, to) => (DataContext as ViewModels.GamesViewModel)?.SetRunsCustom(from, to);
+        Runs.Opened += point => (DataContext as ViewModels.GamesViewModel)?.OpenFromChart(point);
+    }
+
+    private long _runsMenuClosedAt;
+
+    private void OpenRunsMenu()
+    {
+        // In a play the label only says which play; a click on it while the menu is open closes it and must not open it again.
+        if (DataContext is not ViewModels.GamesViewModel { FramesView: false }) return;
+        if (Environment.TickCount64 - _runsMenuClosedAt < 250) return;
+        RunsMenu.IsOpen = true;
+    }
+
+    private void RunsMenu_Closed(object? sender, EventArgs e) => _runsMenuClosedAt = Environment.TickCount64;
+
+    private void RunsMenu_Click(object sender, RoutedEventArgs e) => RunsMenu.IsOpen = false;
+
+    private void OpenRunsRangeEditor()
+    {
+        if (DataContext is not ViewModels.GamesViewModel vm) return;
+        var (from, to) = (vm.RunsFrom, vm.RunsTo);
+        Dispatcher.BeginInvoke(() => RunsRangeEditor.Open(RunsPager, from, to, vm.RunsHistoryStart), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     /// <summary>

@@ -52,6 +52,7 @@ public static class OpenableApps
     /// or web page, a settings file, a Windows tool that could change the PC (a command line, the registry), or anything
     /// in the Windows folder; a name matching two entries opens neither.
     /// </summary>
+    /// <remarks>RivaTuner is left out of the other tools: RigSight starts it itself, and an answer opens the Overlay page for it.</remarks>
     public static StartApp? MatchByName(string name, IEnumerable<StartApp> start)
     {
         string wanted = Normal(name);
@@ -79,7 +80,7 @@ public static class OpenableApps
     }
 
     /// <summary>The makers and tools a PC tool's name starts with or holds: graphics, boards, cases, peripherals, drives, monitoring.</summary>
-    private static readonly Regex PcTool = new(@"\b(nvidia|geforce|amd|radeon|ryzen|intel|msi|asus|rog|armoury|gigabyte|aorus|asrock|corsair|icue|razer|logitech|steelseries|hyperx|nzxt|lian li|thermaltake|cooler master|be quiet|noctua|samsung magician|crucial|western digital|wd dashboard|seagate|kingston|hwinfo|hwmonitor|cpuid|cpu-z|gpu-z|afterburner|rivatuner|occt|fan control|signalrgb|openrgb|elgato|wallpaper engine|displayfusion|dell|alienware|lenovo vantage|legion|omen|predator|nitrosense|acer)\b",
+    private static readonly Regex PcTool = new(@"\b(nvidia|geforce|amd|radeon|ryzen|intel|msi|asus|rog|armoury|gigabyte|aorus|asrock|corsair|icue|razer|logitech|steelseries|hyperx|nzxt|lian li|thermaltake|cooler master|be quiet|noctua|samsung magician|crucial|western digital|wd dashboard|seagate|kingston|hwinfo|hwmonitor|cpuid|cpu-z|gpu-z|afterburner|occt|fan control|signalrgb|openrgb|elgato|wallpaper engine|displayfusion|dell|alienware|lenovo vantage|legion|omen|predator|nitrosense|acer)\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static string Normal(string s) => Regex.Replace(s.Trim().ToLowerInvariant().Replace("®", "").Replace("™", ""), @"\s+", " ");

@@ -11,6 +11,7 @@
             <TextBlock Text="&#xE76B;" />
         </Button>
         <Button x:Name="LabelButton" Style="{StaticResource GhostButton}" Margin="4,0" MinWidth="118" Height="32" Click="Label_Click"
+                IsHitTestVisible="{Binding Pickable, ElementName=Root}"
                 ToolTip="{Binding LabelText, ElementName=Root}" AutomationProperties.Name="{Binding LabelText, ElementName=Root}">
             <Button.Template>
                 <ControlTemplate TargetType="Button">
@@ -30,7 +31,8 @@
             </Button.Template>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding Label, ElementName=Root}" />
-                <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" Foreground="{DynamicResource MutedBrush}" />
+                <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" Foreground="{DynamicResource MutedBrush}"
+                           Visibility="{Binding Pickable, ElementName=Root, Converter={StaticResource Vis}}" />
             </StackPanel>
         </Button>
         <Button Style="{StaticResource IconButton}" Width="32" Height="32" Click="Next_Click" ToolTip="{ctl:T Next}" AutomationProperties.Name="Next"

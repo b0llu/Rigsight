@@ -50,6 +50,17 @@ public sealed class SettingsStoreTests
         Assert.Equal(WidgetCatalog.BuiltIn, s.Widgets.Select(w => w.Style));
     }
 
+    // Ctrl+K opens the ask box from anywhere by default (2026-10-27): given once to a setup with no shortcut, a shortcut
+    // someone set up kept, and one cleared afterwards left cleared.
+    [Fact]
+    public void Ctrl_K_is_given_once_and_a_cleared_shortcut_stays_cleared()
+    {
+        Assert.Equal("Ctrl+K", Load("\"Ai\": { \"Shortcut\": \"\" }").Ai.Shortcut);
+        Assert.Equal("Ctrl+Shift+A", Load("\"Ai\": { \"Shortcut\": \"Ctrl+Shift+A\" }").Ai.Shortcut);
+        Assert.Equal("", Load("\"Ai\": { \"Shortcut\": \"\", \"ShortcutGiven\": true }").Ai.Shortcut);
+        Assert.Equal("Ctrl+K", SettingsStore.Deserialize("{}").Ai.Shortcut);
+    }
+
     [Fact]
     public void Null_widgets_get_the_default_widgets() =>
         Assert.Equal([WidgetStyle.Pill], Load("\"Widgets\": null").Widgets.Where(w => w.Enabled).Select(w => w.Style));

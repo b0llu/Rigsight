@@ -14,7 +14,8 @@ public partial class MainWindow
 {
     private const int WM_NCHITTEST = 0x0084, WM_NCMOUSEMOVE = 0x00A0, WM_NCLBUTTONDOWN = 0x00A1, WM_NCLBUTTONUP = 0x00A2, WM_NCMOUSELEAVE = 0x02A2;
     private const int HTMAXBUTTON = 9;
-    private const double CaptionHeight = 32;
+    /// <summary>The bar's height at 100% (40 since the ask box, 2026-10-27); zoomed with the pages.</summary>
+    private const double CaptionHeight = 40;
     private bool _maxPressed;
 
     private void SetUpTitleBar()
@@ -23,7 +24,21 @@ public partial class MainWindow
         StateChanged += (_, _) => FitFrame();
         Activated += (_, _) => TitleText.Opacity = 1;
         Deactivated += (_, _) => TitleText.Opacity = 0.55;
+        TitleBar.SizeChanged += (_, _) => FitWhatsNew();
+        AskBox.IsVisibleChanged += (_, _) => FitWhatsNew();
         FitFrame();
+    }
+
+    /// <summary>
+    /// The What's new button's words, while the bar has room for them between the ask box (and its chat button) and the
+    /// window's buttons; otherwise its dot and icon alone, so it never runs into the box.
+    /// </summary>
+    private void FitWhatsNew()
+    {
+        // The chat button's right edge is 278 right of the middle; the window's buttons take 138 at the right; 16 to spare.
+        double room = AskBox.IsVisible ? TitleBar.ActualWidth / 2 - 278 - 138 - 16 : double.MaxValue;
+        string? tag = room < 112 ? "compact" : null;
+        if (!Equals(WhatsNewButton.Tag, tag)) WhatsNewButton.Tag = tag;
     }
 
     /// <summary>
@@ -35,7 +50,7 @@ public partial class MainWindow
         bool max = WindowState == WindowState.Maximized;
         var edge = max ? FrameEdge() : new Thickness(0);
         Frame.Padding = edge;
-        if (WindowChrome.GetWindowChrome(this) is { } chrome) chrome.CaptionHeight = CaptionHeight + edge.Top;
+        if (WindowChrome.GetWindowChrome(this) is { } chrome) chrome.CaptionHeight = CaptionHeight * _barZoom + edge.Top;
         MaxButton.Content = max ? "" : "";
         System.Windows.Automation.AutomationProperties.SetName(MaxButton, max ? "Restore" : "Maximize");
     }

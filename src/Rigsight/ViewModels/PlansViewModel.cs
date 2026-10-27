@@ -79,6 +79,9 @@ public sealed class PlanColumn(RelayPlanOffer offer, PlansViewModel owner, int r
     public bool CanSwitch => !Offer.IsFree && !owner.IsFree && !IsMine && owner.Plan is { CanManage: true, Ending: false };
     public string BuyText => Lang.T($"Get {Name}");
     public string SwitchText => Lang.T($"Switch to {Name}");
+    /// <summary>At the foot of the page by page list, under the plan's name: "Switch to Essentials" didn't fit its 130 px (2026-10-27).</summary>
+    public string BuyShort => Lang.T("Get");
+    public string SwitchShort => Lang.T("Switch");
     public string MineText => (Offer.IsFree ? owner.FreeLine : Lang.T("Your plan")) + (owner.HasGiven ? " · " + Lang.T($"{owner.Plan!.Given} given") : "");
     public bool ShowMine => IsMine;
     public bool ShowNothing => !IsMine && !CanBuy && !CanSwitch;
@@ -151,7 +154,7 @@ public sealed partial class PlansViewModel : ObservableObject
     /// <summary>What the plans are before the relay has said (no checkout links: buying waits for it).</summary>
     private static readonly IReadOnlyList<RelayPlanOffer> Defaults =
     [
-        new("free", "Free", "$0", 0, 10, "week", AiPages.DefaultFor(0), ""),
+        new("free", "Free", "$0", 0, 10, "week", AiPages.DefaultFor(0), "") { Search = false },
         new("essentials", "Essentials", "$5", 500, 100, "day", AiPages.DefaultFor(1), ""),
         new("complete", "Complete", "$10", 1000, 500, "day", AiPages.DefaultFor(2), ""),
     ];
@@ -209,8 +212,23 @@ public sealed partial class PlansViewModel : ObservableObject
         : "";
 
     public string Summary => Plan is not { IsFree: false } p ? ""
-        : p.Gift ? Lang.T($"Answers use {PagesText(p.Pages.Count)} · web search")
-        : Lang.T($"{p.Price} a month · answers use {PagesText(p.Pages.Count)} · web search");
+        : (p.Gift ? Lang.T($"Answers use {PagesText(p.Pages.Count)}") : Lang.T($"{p.Price} a month · answers use {PagesText(p.Pages.Count)}"))
+          + (PlanSearches ? " · " + Lang.T("web search") : "");
+
+    /// <summary>The plan now searches the web (Free doesn't, 2026-10-27).</summary>
+    public bool PlanSearches => Plan is { } now && Columns.FirstOrDefault(c => c.Offer.Id == now.Id)?.Offer.Search is not false && !now.IsFree;
+
+    /// <summary>The plans that search the web, by name: "Every plan searches the web", or "Essentials and Complete search the web".</summary>
+    public string WebHeading
+    {
+        get
+        {
+            var names = Columns.Where(c => c.Offer.Search).Select(c => c.Offer.Name).ToList();
+            return names.Count == Columns.Count ? Lang.T("Every plan searches the web")
+                : names.Count == 0 ? Lang.T("Web search")
+                : Lang.T($"{string.Join(" " + Lang.T("and") + " ", names)} search the web");
+        }
+    }
 
     private static string PagesText(int n) => n >= AiPages.All.Count ? Lang.T($"all {AiPages.All.Count} pages") : Lang.T($"{n} of {AiPages.All.Count} pages");
 
@@ -277,7 +295,7 @@ public sealed partial class PlansViewModel : ObservableObject
 
 
     public string Heading => IsFree ? Lang.T("Ask RigSight about anything on your PC") : Lang.T("Your RigSight AI plan");
-    public string Subheading => IsFree ? Lang.T("Answers come from what RigSight recorded on this PC, and from the web.")
+    public string Subheading => IsFree ? Lang.T("Answers come from what RigSight recorded on this PC.")
         : Lang.T("Switch, cancel or change your card here. Changes take effect straight away.");
 
     public IReadOnlyList<PlanCompareRow> CompareRows => Columns.Count < 3 ? []

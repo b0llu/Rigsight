@@ -149,6 +149,10 @@ public sealed class MemoryLeakTests(AppHost host) : IClassFixture<AppHost>
         host.Agent.Broadcast(Fixtures.Hello(host.Agent.Settings)); // live data and settings keep flowing
         Ui.Pump(200);
         Collect();
+        // A screen-reading program on the PC (Windows UI Automation) can hold the deleted tiles for a while after it was
+        // woken by a popup window, here the ask box's drop readied out of sight: WPF doesn't tell it they're gone, and it
+        // let go after about 40 seconds (2026-10-27, measured). A real leak never lets go, so up to a minute is allowed.
+        for (int waited = 0; waited < 60 && page.IsAlive; waited += 5) { Ui.Pump(5000); Collect(); }
         Assert.False(page.IsAlive, "the dashboard's view model is still in memory");
         Assert.False(view.IsAlive, "the dashboard's page is still in memory");
         Assert.False(tile.IsAlive, "a tile of the dashboard is still in memory");

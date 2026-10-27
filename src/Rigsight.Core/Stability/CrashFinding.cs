@@ -650,7 +650,8 @@ public static class CrashFindings
     /// The temperatures just before against the user's own alert limits (83Â° is where many graphics cards sit in every
     /// game, so no fixed figure), and for a PC doing little, against how it usually runs at rest.
     /// </summary>
-    /// <returns>Known: at least one of the two was read. Full: both were, so "cool" can be said of the PC.</returns>
+    /// <returns>Known: at least one of the two was read. Full: both were, and neither well above its usual at rest, so "cool"
+    /// can be said of the PC.</returns>
     private static (Evidence Evidence, bool Hot, bool Known, bool Full, string Short) Heat(CrashInput x)
     {
         var c = x.Context;
@@ -669,13 +670,15 @@ public static class CrashFindings
                 : Lang.T($"{now}, above your alert limit of {Units.TempShort(x.Alerts.CpuLimit)} for the CPU.")), true, true, both, now);
         bool light = (c.GpuLoad ?? 100) < LightLoad && (c.CpuLoad ?? 100) < LightLoad;
         string? restCpu = null, restGpu = null;
+        bool warmCpu = false, warmGpu = false;
         if (light && x.Rest is { Minutes: >= 60 } r)
         {
-            if (c.CpuBefore is not null && r.Cpu is double rc) restCpu = Units.TempShort(rc);
-            if (c.GpuBefore is not null && r.Gpu is double rg) restGpu = Units.TempShort(rg);
+            if (c.CpuBefore is double cb && r.Cpu is double rc) { restCpu = Units.TempShort(rc); warmCpu = cb - rc > CloseToRest; }
+            if (c.GpuBefore is double gb && r.Gpu is double rg) { restGpu = Units.TempShort(rg); warmGpu = gb - rg > CloseToRest; }
         }
-        // Close to this PC's usual at rest only where that is known for every part that was read.
-        bool close = (cpuT is null || restCpu is not null) && (gpuT is null || restGpu is not null);
+        // Close to this PC's usual at rest only where that is known for every part that was read, and the reading really
+        // is near it: 78° against 49° at rest was called "close" (real PC, 26 Oct 2026).
+        bool close = (cpuT is null || restCpu is not null && !warmCpu) && (gpuT is null || restGpu is not null && !warmGpu);
         string said = (cpuT, gpuT, close) switch
         {
             ({ }, { }, true) => Lang.T($"The CPU was at {cpuT} and the GPU at {gpuT}, close to the {restCpu} and {restGpu} this PC sits at when idle."),
@@ -688,8 +691,11 @@ public static class CrashFindings
         // One of the two wasn't read (a standard account has no CPU temperature): the other can't clear it.
         string missing = both ? "" : " " + (cpuT is null ? Lang.T("The CPU's temperature wasn't recorded, so this only covers the GPU.") : Lang.T("The GPU's temperature wasn't recorded, so this only covers the CPU."));
         return (new("ok", both ? Lang.T("It wasn't overheating") : cpuT is null ? Lang.T("The GPU wasn't overheating") : Lang.T("The CPU wasn't overheating"),
-            said + missing), false, true, both, now);
+            said + missing), false, true, both && !warmCpu && !warmGpu, now);
     }
+
+    /// <summary>How far above its usual at rest a part may be and still be "close" to it (and the PC "cool").</summary>
+    private const double CloseToRest = 10;
 
     private static Evidence? Memory(CrashInput x)
     {

@@ -924,8 +924,8 @@
                                   Visibility="{Binding ShowWebNote, Converter={StaticResource Vis}}">
                     <Grid>
                         <StackPanel>
-                            <TextBlock Text="{ctl:T 'Web search comes with RigSight AI'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
-                            <TextBlock Text="{ctl:T 'Answers can also check the web for known problems and fixes for your parts, drivers and games.'}"
+                            <TextBlock Text="{ctl:T 'Web search comes with a RigSight AI plan'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
+                            <TextBlock Text="{ctl:T 'Answers can also search the web for known problems and fixes for your parts, drivers and games.'}"
                                        FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Switch to RigSight AI'}" Command="{Binding UseRigSightCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" />
                         </StackPanel>
@@ -1582,7 +1582,7 @@
                                 </StackPanel>
                             </DockPanel>
                         </ctl:SmoothBorder>
-                        <TextBlock Text="{ctl:T 'Your Windows user name, the names or contents of your files and your licence key are never sent. Folder names and sizes go only for a drive you press Scan for.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
+                        <TextBlock Text="{ctl:T 'Your Windows user name, your licence key and your own files, what they\'re called and what\'s in them, are never sent. App and game names are, with their program files\' names in a crash record. Folder names and sizes go only for a drive you press Scan for.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
                 </ctl:SmoothBorder>
                 </Border>
@@ -2140,9 +2140,21 @@
                               ToolTip="{ctl:T 'When it\'s on, RigSight looks for a new version once a day and installs it. When it\'s off, it doesn\'t contact GitHub unless you press Check for updates.'}">
                         <TextBlock Text="{ctl:T 'Update automatically'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShowWhatsNew}" Margin="0,10">
-                        <TextBlock Text="{ctl:T 'Show What\'s new after an update'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </CheckBox>
+                    <!-- After an update (2026-10-27, people asked not to have What's new open up front): a button in the title bar,
+                         the card opened by itself, or nothing (approved mock-up "What's new in the title bar"). -->
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="WhatsNewAfter" Content="{ctl:T 'What\'s new button'}"
+                                             IsChecked="{Binding WhatsNewAfter, Converter={StaticResource Equals}, ConverterParameter=Button}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="WhatsNewAfter" Content="{ctl:T 'Open What\'s new'}"
+                                             IsChecked="{Binding WhatsNewAfter, Converter={StaticResource Equals}, ConverterParameter=Open}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="WhatsNewAfter" Content="{ctl:T 'Nothing'}"
+                                             IsChecked="{Binding WhatsNewAfter, Converter={StaticResource Equals}, ConverterParameter=Off}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="{ctl:T 'After an update'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
                     <!-- A standard account can't install an update: whether the PC does it for them, set on the Admin rights tab. -->
                     <DockPanel Style="{StaticResource Row}" Visibility="{Binding StandardAccount, Converter={StaticResource Vis}}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource Badge}" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Center">

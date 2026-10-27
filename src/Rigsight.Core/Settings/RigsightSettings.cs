@@ -162,8 +162,16 @@ public sealed class RigsightSettings
     /// </summary>
     public string? WhatsNewSeen { get; set; }
 
-    /// <summary>What's new opens by itself after an update (Settings › About). Off, it's still there from "See all updates".</summary>
-    public bool ShowWhatsNew { get; set; } = true;
+    /// <summary>
+    /// What happens after an update (Settings › General › Updates): a What's new button in the title bar (the default since
+    /// 2026-10-27: people asked not to have it open up front), the card opened by itself, or nothing. What's new stays in
+    /// the ⋯ menu whichever is picked.
+    /// </summary>
+    public WhatsNewAfter WhatsNewAfter { get; set; } = WhatsNewAfter.Button;
+
+    /// <summary>The switch this replaced: read once from settings from before (off becomes <see cref="WhatsNewAfter.Off"/>), then gone.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ShowWhatsNew { get; set; }
 
     /// <summary>
     /// The page an update's headline feature is on, dotted in the sidebar after its What's new was closed until it's
@@ -174,6 +182,13 @@ public sealed class RigsightSettings
 
     /// <summary>The app window's zoom, Ctrl + wheel (1 = 100%; see <see cref="AppZoom"/>).</summary>
     public double Zoom { get; set; } = 1;
+
+    /// <summary>
+    /// Where the app window was and how big, when it was last closed (its size before maximizing, in screen units), and
+    /// whether it was maximized: it opens the same again (2026-10-27). Empty: the first opening, centred at its usual size.
+    /// </summary>
+    public double[]? WindowBounds { get; set; }
+    public bool WindowMaximized { get; set; }
 
     /// <summary>The "Enjoying RigSight?" card's record (see <see cref="SupportAsk"/>).</summary>
     public SupportAskState Support { get; set; } = new();
@@ -328,3 +343,14 @@ public enum NotificationStyle
 }
 
 public enum AppCategory { Other, Game, Browser, Development, Communication, Media, Launcher, Productivity, System }
+
+/// <summary>What happens after an update: see <see cref="RigsightSettings.WhatsNewAfter"/>.</summary>
+public enum WhatsNewAfter
+{
+    /// <summary>A What's new button beside the window's buttons, until it's read.</summary>
+    Button,
+    /// <summary>The card opens by itself the first time the app opens.</summary>
+    Open,
+    /// <summary>Neither.</summary>
+    Off,
+}

@@ -75,7 +75,8 @@ public static class ReadableExport
 
     /// <summary>The period as the Reports page tells it, laid out as text: totals, peaks, what stood out, every app, the crashes.</summary>
     /// <param name="times">With the period's times (active, on, in games): off where they aren't to be shared.</param>
-    public static string ReportText(Report r, string title, string version, bool times = true)
+    /// <param name="tight">For the AI helper: the same words without the padding that lines them up for a person.</param>
+    public static string ReportText(Report r, string title, string version, bool times = true, bool tight = false)
     {
         var sb = new StringBuilder();
         sb.AppendLine(Lang.T("RigSight report"));
@@ -101,7 +102,7 @@ public static class ReadableExport
         {
             Heading(sb, Lang.T("The period"));
             int name = totals.Max(t => ((string)t[0]!).Length);
-            foreach (var t in totals) sb.AppendLine($"  {((string)t[0]!).PadRight(name)}  {t[1]}");
+            foreach (var t in totals) sb.AppendLine(tight ? $"  {t[0]}: {t[1]}" : $"  {((string)t[0]!).PadRight(name)}  {t[1]}");
         }
 
         if (r.Insights.Count > 0)
@@ -113,7 +114,7 @@ public static class ReadableExport
         {
             Heading(sb, Lang.T("Against your usual"));
             var rows = usual.Select(u => new object?[] { u.Label, u.Now, $"{u.Usual} ({u.UsualDetail})", u.MeansDetail is null ? u.Means : $"{u.Means}: {u.MeansDetail}" }).ToList();
-            foreach (var line in DataExport.TextTable([Lang.T("What"), Lang.T("This period"), Lang.T("Your usual"), Lang.T("What it means")], rows)) sb.AppendLine("  " + line);
+            foreach (var line in Table(tight, [Lang.T("What"), Lang.T("This period"), Lang.T("Your usual"), Lang.T("What it means")], rows)) sb.AppendLine("  " + line);
         }
         var apps = r.Apps.Where(a => a.ActiveSec >= 60).ToList();
         if (apps.Count > 0)
@@ -124,18 +125,33 @@ public static class ReadableExport
                 a.Name, AppCatalog.Label(a.Category), Units.Duration(a.ActiveSec), a.BackgroundSec > 0 ? Units.Duration(a.BackgroundSec) : null,
                 a.CpuTempMax is double c ? Units.TempShort(c) : null, a.GpuTempMax is double g ? Units.TempShort(g) : null, a.MemMax is double m ? Units.Megabytes(m) : null,
             }).ToList();
-            foreach (var line in DataExport.TextTable([Lang.T("App"), Lang.T("Kind"), Lang.T("In use"), Lang.T("Background"), Lang.T("CPU peak"), Lang.T("GPU peak"), Lang.T("Memory peak")], rows)) sb.AppendLine("  " + line);
+            foreach (var line in Table(tight, [Lang.T("App"), Lang.T("Kind"), Lang.T("In use"), Lang.T("Background"), Lang.T("CPU peak"), Lang.T("GPU peak"), Lang.T("Memory peak")], rows)) sb.AppendLine("  " + line);
         }
         if (r.Crashes.Count > 0)
         {
             Heading(sb, Lang.T("Crashes and sudden shut-offs"));
-            foreach (var c in r.Crashes.OrderBy(c => c.Ts)) sb.AppendLine($"  {TimeText.At(TimeUtil.FromUnix(c.Ts), "d MMM, h:mm tt")}  {CrashExplainer.Explain(c).Title}");
+            foreach (var c in r.Crashes.OrderBy(c => c.Ts)) sb.AppendLine($"  {TimeText.At(TimeUtil.FromUnix(c.Ts), "d MMM, h:mm tt")}{(tight ? ": " : "  ")}{CrashExplainer.Explain(c, CrashApp(r, c)).Title}");
         }
         return sb.AppendLine().AppendLine(Foot(r.BuiltAt, version)).ToString();
     }
 
+    /// <summary>
+    /// A crashed app by the name the rest of the report uses ("REMATCH froze", not "RuntimeClient-Win64-Shipping froze",
+    /// real PC 2026-10-27); null keeps the program's own name.
+    /// </summary>
+    private static string? CrashApp(Report r, CrashEvent c)
+    {
+        if (string.IsNullOrEmpty(c.AppExe)) return null;
+        string exe = Path.GetFileName(c.AppExe);
+        return AppCatalog.KnownName(exe) ?? r.Apps.FirstOrDefault(a => a.Exe.Equals(exe, StringComparison.OrdinalIgnoreCase))?.Name;
+    }
+
+    private static IEnumerable<string> Table(bool tight, IReadOnlyList<string> headings, IReadOnlyList<object?[]> rows) =>
+        tight ? DataExport.PipeTable(headings, rows) : DataExport.TextTable(headings, rows);
+
     /// <summary>The crashes, each with what was going on, as text.</summary>
-    public static string CrashesText(IReadOnlyList<CrashStory> stories, string period, DateTime made, string version)
+    /// <param name="tight">For the AI helper: the same words without the padding that lines them up for a person.</param>
+    public static string CrashesText(IReadOnlyList<CrashStory> stories, string period, DateTime made, string version, bool tight = false)
     {
         var sb = new StringBuilder();
         sb.AppendLine(Lang.T("RigSight crashes"));
@@ -160,7 +176,7 @@ public static class ReadableExport
             rows.Add((Lang.T("Code"), s.Crash.Code));
             var shown = rows.Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToList();
             int label = shown.Count == 0 ? 0 : shown.Max(x => x.Label.Length);
-            foreach (var (l, v) in shown) sb.AppendLine($"  {l.PadRight(label)}  {v}");
+            foreach (var (l, v) in shown) sb.AppendLine(tight ? $"  {l}: {v}" : $"  {l.PadRight(label)}  {v}");
         }
         return sb.AppendLine().AppendLine(Foot(made, version)).ToString();
     }
@@ -304,7 +320,7 @@ public static class ReadableExport
         {
             sb.Append($"<h2>{H(Lang.T("Crashes and sudden shut-offs"))}</h2><ul>");
             foreach (var c in r.Crashes.OrderBy(c => c.Ts))
-                sb.Append($"<li>{H(TimeUtil.FromUnix(c.Ts).ToString(TimeText.Fit("d MMM, h:mm tt")))}: {H(CrashExplainer.Explain(c).Title)}</li>");
+                sb.Append($"<li>{H(TimeUtil.FromUnix(c.Ts).ToString(TimeText.Fit("d MMM, h:mm tt")))}: {H(CrashExplainer.Explain(c, CrashApp(r, c)).Title)}</li>");
             sb.Append("</ul>");
         }
         return End(sb, r.BuiltAt, version);

@@ -22,7 +22,7 @@ public sealed class RelayTests
     [InlineData("""{"error":"unavailable","reason":"busy"}""", 503, "busy")]
     [InlineData("""{"error":"unavailable","reason":"model"}""", 503, "wasn't counted")]
     [InlineData("<html>bad gateway</html>", 502, "wasn't counted")]
-    [InlineData("""{"error":"unavailable","reason":"stopped","detail":"too many rounds"}""", 503, "too many steps")]
+    [InlineData("""{"error":"unavailable","reason":"stopped","detail":"too many rounds"}""", 503, "couldn't finish this answer")]
     public void Each_kind_of_refusal_has_its_own_words(string body, int status, string says) =>
         Assert.Contains(says, Relay.Problem(body, status));
 

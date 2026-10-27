@@ -132,7 +132,9 @@ public sealed class TileGrid : Panel
                 dc.DrawRoundedRectangle(null, pen, new Rect(col * (CellWidth + Gap) + 0.5, row * (RowHeight + Gap) + 0.5, CellWidth - 1, RowHeight - 1), 6, 6);
     }
 
-    private static readonly IEasingFunction Ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+    // The shared frozen one: an unfrozen ease kept in a static field holds on to the last animation that used it, and
+    // through its Completed handler the whole page (Settings stayed in memory after every theme change, 2026-10-27).
+    private static readonly IEasingFunction Ease = Services.Motion.Ease;
 
     private static void Slide(TranslateTransform move, DependencyProperty property, double from)
     {

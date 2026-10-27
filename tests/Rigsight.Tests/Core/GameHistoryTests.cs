@@ -165,6 +165,22 @@ public class GameHistoryTests
     }
 
     [Fact]
+    public void A_games_freeze_before_it_was_ever_a_play_still_counts()
+    {
+        // Real PC, 19 Oct 2026: REMATCH froze 19 seconds after it started, with no play recorded then, and the game said
+        // "hangs 0" while Crashes listed the freeze.
+        using var t = new TestDb("game-hang-outside");
+        long game = t.Db.UpsertApp("rematch.exe", "REMATCH", null, AppCategory.Game);
+        long a = U(2026, 10, 14, 23);
+        t.Db.InsertSession(Session(game, a, a + 1800, game: true));
+        t.Db.InsertCrashes([new CrashEvent { Ts = a + 5 * 86400, Kind = CrashKind.AppHang, AppExe = "rematch.exe" }]);
+        var entry = GameHistory.Library(t.Db, [], Settings()).Single();
+        var story = GameHistory.Story(t.Db, entry, Settings(), L(a + 6 * 86400));
+        Assert.Equal(PlayEnd.Closed, Assert.Single(story.Plays).Ending);
+        Assert.Equal((0, 1), (story.Crashes, story.Hangs));
+    }
+
+    [Fact]
     public void An_installed_game_never_played_is_in_the_library_without_a_story()
     {
         using var t = new TestDb("game-unplayed");

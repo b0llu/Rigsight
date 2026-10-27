@@ -13,6 +13,8 @@ using Rigsight.Core.Settings;
 //
 // The plan itself is the relay's: give the eval PC a plan in wrangler dev's local database before each run.
 
+// What each kind of conversation costs (CostRun.cs).
+if (args.Length > 0 && args[0] == "cost") return await CostRun.Run(args);
 if (args.Length < 2) { Console.Error.WriteLine("Rigsight.AskEval <out.md> <free|complete> [ids]"); return 2; }
 if (Environment.GetEnvironmentVariable("RIGSIGHT_RELAY_URL") is not { Length: > 0 } relayUrl || relayUrl.Contains("rigsight.app"))
 {

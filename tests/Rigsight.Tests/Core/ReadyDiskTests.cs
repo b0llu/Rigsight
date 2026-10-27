@@ -38,7 +38,10 @@ public sealed class ReadyDiskTests : IDisposable
         Assert.True(ReadyDisk.Holds(@"C:\Games\Golf\Golf.exe"));
         Assert.False(ReadyDisk.Holds(@"E:\Games\Old\Old.exe"));
         Assert.False(ReadyDisk.Holds(@"E:\Games\Other\Other.exe"));
-        Assert.Equal([@"C:\", @"E:\"], _asked);
+        // Each drive once. Not their order: a test in another collection can look at a drive in between (the hook is
+        // static), which failed the 2026-10-27 gate with E: asked first.
+        Assert.Equal(1, _asked.Count(r => r == @"C:\"));
+        Assert.Equal(1, _asked.Count(r => r == @"E:\"));
     }
 
     [Theory]

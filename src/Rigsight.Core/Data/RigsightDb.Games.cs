@@ -80,6 +80,9 @@ public sealed partial class RigsightDb
     /// <summary>The minutes from <paramref name="from"/> to <paramref name="to"/> with <paramref name="appId"/> in front, summed up.</summary>
     public PlayStats GetPlayStats(long appId, long from, long to)
     {
+        // Minutes are stored at their start: a play that began at 9:18:06 PM owns the 9:18 minute too (its 9 stutters
+        // were left out of the play while all plays together counted them, real PC 26 Oct 2026).
+        from -= from % 60;
         string vram = HasVram ? "max(vram_used), max(vram_total)" : "NULL, NULL";
         string fps = HasFps ? "AVG(fps), AVG(fps_low), COUNT(fps)" : "NULL, NULL, 0";
         string own = HasFgVram ? "max(fg_vram)" : "NULL";

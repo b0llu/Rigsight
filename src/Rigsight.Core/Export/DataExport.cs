@@ -340,6 +340,18 @@ public static class DataExport
         foreach (var row in text) yield return Line(row);
     }
 
+    /// <summary>
+    /// The same rows for the AI helper's look-ups: one line a row with the cells split by " | ", no padding and no rule
+    /// (the padding cost about a third of a report's words, 2026-10-26). Every cell is kept; an empty one is a dash, so
+    /// the columns still line up by count.
+    /// </summary>
+    public static IEnumerable<string> PipeTable(IReadOnlyList<string> headings, IReadOnlyList<object?[]> rows)
+    {
+        int n = headings.Count;
+        yield return string.Join(" | ", headings);
+        foreach (var r in rows) yield return string.Join(" | ", Enumerable.Range(0, n).Select(i => i < r.Length ? Plain(r[i]) : "–"));
+    }
+
     /// <summary>A value as it stands in a text table: on one line, numbers with a point, a dash for nothing.</summary>
     private static string Plain(object? value) => value switch
     {

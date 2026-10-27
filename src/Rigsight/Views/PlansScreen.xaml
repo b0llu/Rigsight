@@ -75,6 +75,11 @@
                     <Setter TargetName="Get" Property="Style" Value="{StaticResource PickButton}" />
                     <Setter TargetName="Switch" Property="Style" Value="{StaticResource PickButton}" />
                 </DataTrigger>
+                <!-- At the foot of the list the plan's name is right above, so the button says only what it does. -->
+                <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=ContentControl}}" Value="Foot">
+                    <Setter TargetName="Get" Property="Content" Value="{Binding BuyShort}" />
+                    <Setter TargetName="Switch" Property="Content" Value="{Binding SwitchShort}" />
+                </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
 
@@ -209,11 +214,20 @@
                                                         <TextBlock Text="{Binding QuestionsWhen}" Style="{StaticResource Small}" />
                                                     </StackPanel>
                                                 </DockPanel>
-                                                <DockPanel>
+                                                <!-- Web search: the paid plans' (Free answers from the PC's records only, 2026-10-27). Free's row says so,
+                                                     greyed, in the same place, so the columns stay alike. -->
+                                                <DockPanel Visibility="{Binding Offer.Search, Converter={StaticResource Vis}}">
                                                     <TextBlock DockPanel.Dock="Left" Text="&#xE774;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{Binding Tag, ElementName=Card}" />
                                                     <StackPanel>
-                                                        <TextBlock Text="{ctl:T 'Checks the web'}" FontSize="13.5" FontWeight="SemiBold" />
-                                                        <TextBlock Text="{ctl:T 'Looks up known problems, fixes and safe temperatures for your exact parts, drivers and games'}" Style="{StaticResource Small}" />
+                                                        <TextBlock Text="{ctl:T 'Searches the web'}" FontSize="13.5" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{ctl:T 'Finds known problems and fixes for your parts, drivers and games'}" Style="{StaticResource Small}" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                                <DockPanel Visibility="{Binding Offer.Search, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE774;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{DynamicResource FaintBrush}" />
+                                                    <StackPanel>
+                                                        <TextBlock Text="{ctl:T 'Your PC\'s records only'}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" />
+                                                        <TextBlock Text="{ctl:T 'Answers come only from what RigSight recorded on this PC'}" Style="{StaticResource Small}" />
                                                     </StackPanel>
                                                 </DockPanel>
                                                 <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,18,0,14" />
@@ -287,7 +301,7 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <!-- Every plan checks the web: the heading across the top, then three examples alike, each with what it reads -->
+                <!-- Which plans check the web: the heading across the top, then three examples alike, each with what it reads -->
                 <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="14" Padding="22,18" Margin="0,22,0,0">
                     <StackPanel>
                         <DockPanel>
@@ -296,7 +310,7 @@
                                 <TextBlock Text="&#xE774;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Grid>
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Every plan checks the web'}" FontSize="15" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding WebHeading}" FontSize="15" FontWeight="SemiBold" />
                                 <TextBlock Text="{ctl:T 'Your records say what happened. The web says what it means for your exact parts. Answers show the pages they used.'}" Style="{StaticResource Small}" />
                             </StackPanel>
                         </DockPanel>
@@ -464,9 +478,9 @@
                                         <ColumnDefinition Width="130" />
                                         <ColumnDefinition Width="130" />
                                     </Grid.ColumnDefinitions>
-                                    <ContentControl Grid.Column="1" Content="{Binding Columns[0]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" FontSize="12.5" />
-                                    <ContentControl Grid.Column="2" Content="{Binding Columns[1]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" />
-                                    <ContentControl Grid.Column="3" Content="{Binding Columns[2]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" />
+                                    <ContentControl Grid.Column="1" Content="{Binding Columns[0]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" FontSize="12.5" Tag="Foot" />
+                                    <ContentControl Grid.Column="2" Content="{Binding Columns[1]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" Tag="Foot" />
+                                    <ContentControl Grid.Column="3" Content="{Binding Columns[2]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" Tag="Foot" />
                                 </Grid>
                             </Border>
                         </StackPanel>

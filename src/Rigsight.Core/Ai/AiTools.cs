@@ -151,7 +151,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var report = BuildReport(db, from, to);
         Trim(report);
         string title = from == to ? from.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture) : $"{from:d MMM yyyy} to {to:d MMM yyyy}";
-        return WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports))) + Energy(report, from, to)
+        return WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports), tight: true)) + Energy(report, from, to)
             + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
     }
 
@@ -179,6 +179,9 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
 
     private static readonly ChangeKind[] Telling = [ChangeKind.Driver, ChangeKind.WindowsUpdate, ChangeKind.Windows, ChangeKind.Hardware, ChangeKind.Firmware, ChangeKind.Setting, ChangeKind.Fans];
 
+    /// <summary>Crashes told in full in one look-up; the rest are in its counts.</summary>
+    internal const int MaxCrashDetails = 30;
+
     // As ExportViewModel.Stories builds them for "Crashes with their context".
     private string Crashes(RigsightDb db, DateTime from, DateTime to)
     {
@@ -188,11 +191,12 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         // and a model left to count from those guesses (it once called 46 shut-offs, nearly all likely power cuts, a
         // failing power supply from the one it saw under load).
         string summary = Summary(stories);
-        // The newest 15 at most, so a long period stays readable.
+        // The newest 30 at most, laid out without padding (2026-10-26: was 15 with each field padded to a column, and a
+        // model asking again for the older ones pushed answers over their budget; about the same size now holds twice as many).
         int all = stories.Count;
-        stories = [.. stories.OrderByDescending(x => x.Crash.Ts).Take(15).Select(Shared)];
-        string text = WithoutMaker(ReadableExport.CrashesText(stories, $"{from:d MMM yyyy} to {to:d MMM yyyy}", DateTime.Now, "RigSight"));
-        return summary + (all > 15 ? $"Details of the newest 15 of {all} follow; ask for a shorter period for older ones. Use the counts above for totals.\n\n" : "\n") + text
+        stories = [.. stories.OrderByDescending(x => x.Crash.Ts).Take(MaxCrashDetails).Select(Shared)];
+        string text = WithoutMaker(ReadableExport.CrashesText(stories, $"{from:d MMM yyyy} to {to:d MMM yyyy}", DateTime.Now, "RigSight", tight: true));
+        return summary + (all > MaxCrashDetails ? $"Details of the newest {MaxCrashDetails} of {all} follow; ask for a shorter period for older ones. Use the counts above for totals.\n\n" : "\n") + text
             + LeftOut(Switch.Heat, Switch.Apps, Switch.Memory, Switch.Changes);
     }
 
@@ -380,7 +384,16 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var games = Library(db).Where(g => g.HasHistory).ToList();
         var entry = games.FirstOrDefault(g => g.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
             ?? games.FirstOrDefault(g => g.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
-        if (entry is null) return $"No game called '{name}' in the history. Known: {string.Join(", ", games.Select(g => g.Name))}.";
+        if (entry is null)
+        {
+            // An app asked about as a game ("What is Freedom to Stream?" was looked up here and answered "no such game",
+            // real PC 2026-10-27): say it's an app and where its records are.
+            var app = db.LoadApps().FirstOrDefault(a => a.Name.Equals(name, StringComparison.OrdinalIgnoreCase) || a.Exe.Equals(name, StringComparison.OrdinalIgnoreCase)
+                || Path.GetFileNameWithoutExtension(a.Exe).Equals(name, StringComparison.OrdinalIgnoreCase));
+            return app is not null
+                ? $"'{name}' isn't a game: it's an app on this PC ({app.Exe}, kind: {AppCatalog.Label(app.Category)}). get_apps has its time in use, load and memory; describe it only from its name, kind and records, or a web search."
+                : $"No game called '{name}' in the history. Known: {string.Join(", ", games.Select(g => g.Name))}.";
+        }
         var story = GameHistory.Story(db, entry, settings, DateTime.Now);
         var sb = new StringBuilder();
         sb.AppendLine($"{entry.Name}: {Units.Duration(entry.ActiveSec)} in {story.Plays.Count} plays."
@@ -399,8 +412,13 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var apps = db.LoadApps().ToDictionary(a => a.Id);
         var own = entry.AppIds.ToHashSet();
         foreach (var p in story.Plays.OrderByDescending(p => p.Start).Take(15))
-            sb.AppendLine($"  {p.StartTime:ddd d MMM h:mm tt} to {p.EndTime:h:mm tt}, {Units.Duration(p.ActiveSec)} in front{(settings.Ai.Sends(AiPages.Crashes) ? $", ended: {p.Ending}" : "")}. {Stats(p.Stats)}"
-                + Alongside(db, p, own, apps));
+        {
+            // A play of a few seconds has no minute of readings: no empty ". ." before what ran with it.
+            string stats = Stats(p.Stats, cardNote: false);
+            string alongside = Alongside(db, p, own, apps);
+            sb.AppendLine($"  {p.StartTime:ddd d MMM h:mm tt} to {p.EndTime:h:mm tt}, {Units.Duration(p.ActiveSec)} in front{(settings.Ai.Sends(AiPages.Crashes) ? $", ended: {p.Ending}" : "")}"
+                + (stats.Length > 0 ? $". {stats}" + alongside : alongside));
+        }
         // When the newest play with frames stuttered, and what else was going on then (as its page says it).
         if (story.Plays.LastOrDefault(p => p.Stats.Stutters is > 0) is { } rough && entry.AppIds.Count > 0)
         {
@@ -422,15 +440,17 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         int without = story.Plays.Count(p => p.Stats.Fps is null);
         if (without == 0) return null;
         string some = without == story.Plays.Count ? "No play of this game has a frame rate (FPS, lows or stutters)" : $"{without} of its {story.Plays.Count} plays have no frame rate";
+        // Running already: the next step is only to play (the person's ask, 2026-10-27: "rivatuner is already on and fps
+        // tracking works, the next step should just be play it"). Otherwise the Overlay page, never RivaTuner itself.
         string state = RivaTuner?.Invoke() switch
         {
-            "missing" or "install-failed" => "it isn't installed on this PC (the Games page has an Install RivaTuner button)",
-            "installing" => "it's being installed right now",
-            "stopped" => "it's installed but isn't running now, and it has to be running before the game starts (the Games page has a Start RivaTuner button)",
-            "running" => "it's running now, but it only measures a game started after it, so plays from before it ran have none",
-            _ => "it wasn't running for them",
+            "missing" or "install-failed" => "it isn't installed on this PC. Next step: install it from RigSight's Overlay page ([do: open overlay]), then play the game",
+            "installing" => "it's being installed right now. Next step: play the game once it's done",
+            "stopped" => "it's installed but isn't running now. Next step: start it from RigSight's Overlay page ([do: open overlay]), then play the game",
+            "running" => "it's already running, so frame rates are being recorded; these plays were simply before it ran. Next step: just play the game once more, then ask again. Don't tell them to start, install or open RivaTuner",
+            _ => "it wasn't running for them. Next step: play the game again, and if a play still has no frame rate, the Overlay page ([do: open overlay]) shows whether RivaTuner runs",
         };
-        return $"WHY NO FRAME RATE: {some}. RigSight reads frame rates from RivaTuner Statistics Server, a free tool anti-cheat accepts; {state}. Once it runs before a game starts, each play gets its frame rate, lows and stutters. Say this when the frame rate matters to the question, and never guess a frame rate.";
+        return $"WHY NO FRAME RATE: {some}. RigSight reads frame rates from RivaTuner Statistics Server, a free tool anti-cheat accepts; {state}. Say this when the frame rate matters to the question, use that next step as it is, and never guess a frame rate.";
     }
 
     /// <summary>
@@ -454,7 +474,9 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         return ". With it: " + string.Join("; ", parts) + ".";
     }
 
-    private string Stats(PlayStats s)
+    /// <param name="cardNote">Whether to say again what "graphics card memory in use" covers: said once, for all plays
+    /// together, and not on every play under it (15 times the same words, 2026-10-26).</param>
+    private string Stats(PlayStats s, bool cardNote = true)
     {
         var parts = new List<string>();
         bool heat = settings.Ai.Sends(AiPages.Temperatures), memory = settings.Ai.Sends(AiPages.Memory);
@@ -468,7 +490,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (s.FpsLow01 is double low01) parts.Add($"0.1% low {low01:0}");
         if (s.Stutters is int st && s.StuttersAnHour is double rate)
             parts.Add($"{st} stutters ({rate:0.#} an hour of play)" + (s.Worst is { } w ? $", the worst a {w.Ms:0} ms frame at {DateTimeOffset.FromUnixTimeMilliseconds(w.AtMs).LocalDateTime:h:mm:ss tt} against {w.UsualMs:0.#} ms usual" : ""));
-        if (memory && s.VramMax is double v && s.VramTotal is double tot) parts.Add($"graphics card memory in use max {v / 1024:0.0} of {tot / 1024:0.0} GB (the whole card, every app together, not this game alone)");
+        if (memory && s.VramMax is double v && s.VramTotal is double tot) parts.Add($"graphics card memory in use max {v / 1024:0.0} of {tot / 1024:0.0} GB" + (cardNote ? " (the whole card, every app together, not this game alone)" : ""));
         if (memory && s.VramOwnMax is double own) parts.Add($"the game's own video memory max {own / 1024:0.0} GB");
         if (heat && s.Minutes > 0) parts.Add($"GPU at 95%+ for {s.GpuFullMinutes} of {s.Minutes} min");
         return string.Join(", ", parts);

@@ -32,7 +32,7 @@ public static class StutterCauses
         bool bunched = best >= AtLeast && best >= times.Count / 3.0;
         if (!bunched)
             return times.Count == 1 ? Lang.T("The one stutter was on its own.")
-                : Lang.T($"The {times.Count} stutters were spread out, about one every {Math.Max(1, playMin / times.Count):0} minutes.");
+                : Lang.T($"The {times.Count} stutters were spread out, {Every(playMin / times.Count)}.");
 
         long from = times[bestAt], to = times[bestAt + best - 1];
         string when = Lang.T($"{best} of the {times.Count} stutters came between {TimeText.At(TimeUtil.FromUnix(from), "h:mm")} and {TimeText.At(TimeUtil.FromUnix(to), "h:mm tt")}");
@@ -43,10 +43,20 @@ public static class StutterCauses
         {
             0 => "",
             1 => " " + Lang.T("One more came on its own."),
-            _ => " " + Lang.T($"The rest were spread out, about one every {Math.Max(1, restMin / rest):0} minutes."),
+            _ => " " + Lang.T($"The rest were spread out, {Every(restMin / rest)}."),
         };
         return $"{when}, {cause}.{tail}";
     }
+
+    /// <summary>
+    /// How often, in the unit that reads right: 765 stutters in two and a half hours said "about one every 1 minutes"
+    /// (2026-10-27), when it was one every 12 seconds.
+    /// </summary>
+    internal static string Every(double minutesEach) =>
+        minutesEach >= 1.5 ? Lang.T($"about one every {minutesEach:0} minutes")
+        : minutesEach >= 0.75 ? Lang.T("about one a minute")
+        : minutesEach * 60 >= 1.5 ? Lang.T($"about one every {minutesEach * 60:0} seconds")
+        : Lang.T("about one a second");
 
     /// <summary>What stood out in those minutes against the rest of the play: another app on the disk, the card's memory full, another app on the CPU, Windows short of memory.</summary>
     private static string? Cause(RigsightDb db, long game, long from, long to, long playFrom, long playTo, RigsightSettings settings)

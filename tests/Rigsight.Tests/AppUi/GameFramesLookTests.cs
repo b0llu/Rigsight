@@ -66,7 +66,7 @@ public sealed class GameFramesLookTests(AppHost host) : IClassFixture<AppHost>
         // The library's covers can log a binding of their own mask while they draw (older than this test): only the opened game counts here.
         Ui.TakeProblems();
         Ui.Run(() => host.Shell.Games.OpenKeyAsync("cyberpunk2077.exe")).GetAwaiter().GetResult();
-        Ui.WaitFor(() => Ui.Run(() => host.Shell.Games.HasEveryFrame && host.Shell.Games.HasSettings), 10_000);
+        Ui.WaitFor(() => Ui.Run(() => host.Shell.Games.HasFramePlays && host.Shell.Games.HasSettings && host.Shell.Games.RunsPoints.Count > 0), 10_000);
         Ui.Pump(600);
         var games = host.Shell.Games;
         Ui.Run(() =>
@@ -77,21 +77,56 @@ public sealed class GameFramesLookTests(AppHost host) : IClassFixture<AppHost>
             Assert.Equal("Borderless window", rows["Display mode"]);
             Assert.Equal("DLSS Balanced", rows["Upscaling"]);
             Assert.StartsWith("From UserSettings.json · saved ", games.SettingsNote);
-            Assert.True(games.HasEveryFrame);
+            // "How it runs" opens on the last 30 days, its numbers for them (approved mock-up, 2026-10-27).
+            Assert.Equal("Last 30 days", games.RunsLabel);
+            Assert.StartsWith("Last 30 days · ", games.RunsScope);
+            Assert.Equal(30, games.RunsPick);
             Assert.Contains("stutters an hour", games.SmoothDetail);
             // About 40 stutters an hour in this play (two chances a minute, one in three): it stutters.
             Assert.Equal("It stutters", games.SmoothVerdict);
-            Assert.EndsWith("play, every frame", games.FramesViewName);
-            Assert.NotNull(games.EveryFrameP99);
-            Assert.True(games.HasStutterWhy);
+            Assert.EndsWith(" play", games.FramesViewName);
+            Assert.Contains(games.RunsPoints, p => p.CanOpen && p.StuttersAnHour is not null);
+            Assert.False(games.HasStutterWhy); // only over a play
             Assert.Contains(games.Rows, r => r.Stutters is not null);
         });
-        // The page from its top (all plays), then its second view (every frame), then down to the new cards.
+        // The page from its top (all plays), then the play (a minute at a time), then down to the new cards.
         Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "game-frames-1-top.png")));
         Ui.Run(() => games.ShowFramesCommand.Execute(null));
-        Ui.Pump(400);
+        Ui.WaitFor(() => Ui.Run(() => games.PlayMinutes.Count >= 2), 5_000);
+        Ui.Pump(700);
+        Ui.Run(() =>
+        {
+            Assert.True(games.FramesView);
+            Assert.True(games.HasStutterWhy);
+            Assert.EndsWith("stutters in this play", games.SmoothFrom);
+            Assert.Contains(games.PlayStutters, _ => true);
+            Assert.DoesNotContain("Last", games.RunsLabel); // the pager names the play
+        });
         Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "game-frames-1b-every-frame.png")));
+        // The page's own refresh keeps the view picked (2026-10-27: it went back to All plays after a while).
+        Ui.Run(() => games.LoadAsync()).GetAwaiter().GetResult();
+        Ui.Pump(400);
+        Ui.TakeProblems(); // the library's covers again, as above
+        Ui.Run(() => { Assert.True(games.FramesView); Assert.True(games.PlayMinutes.Count >= 2); });
+        // The range: 12 months is a point a week; a step back names its dates; a custom range is its own.
         Ui.Run(() => games.ShowPlaysCommand.Execute(null));
+        Ui.Run(() => games.PickRunsRangeCommand.Execute("365"));
+        Ui.Pump(500);
+        Ui.Run(() =>
+        {
+            Assert.Equal("Last 12 months", games.RunsLabel);
+            Assert.All(games.RunsPoints, p => Assert.True(p.IsWeek));
+            Ui.SavePng(host.Window, Path.Combine(Shots, "game-frames-1c-year.png"));
+        });
+        Ui.Run(() => games.PickRunsRangeCommand.Execute("7"));
+        Ui.Run(() => games.RunsPreviousCommand.Execute(null));
+        Ui.Pump(300);
+        Ui.Run(() => { Assert.Equal(-1, games.RunsPick); Assert.Contains("–", games.RunsLabel); Assert.True(games.CanRunsNext); });
+        Ui.Run(() => games.SetRunsCustom(DateTime.Now.AddDays(-3), DateTime.Now));
+        Ui.Pump(300);
+        Ui.Run(() => { Assert.Equal(-1, games.RunsPick); Assert.StartsWith(DateTime.Now.AddDays(-3).ToString("d MMM"), games.RunsLabel); });
+        Ui.Run(() => games.PickRunsRangeCommand.Execute("30"));
+        Ui.Pump(300);
         var page = Ui.Run(() => Visuals.Descendants<GamesView>(host.Window).Single());
         var scroller = Ui.Run(() => Visuals.Descendants<ScrollViewer>(page).Where(s => s.ScrollableHeight > 0).MaxBy(s => s.ScrollableHeight)!);
         Ui.Run(() => scroller.ScrollToVerticalOffset(Math.Min(scroller.ScrollableHeight, 560)));

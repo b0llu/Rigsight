@@ -22,7 +22,9 @@ public sealed class AskShortcutTests
     public void Set_listens_and_takes_a_key_with_ctrl_alt_or_shift()
     {
         var (vm, settings) = Make();
-        Assert.False(vm.HasShortcut);
+        // Ctrl+K out of the box (2026-10-27); Set replaces it.
+        Assert.True(vm.HasShortcut);
+        Assert.Equal("Ctrl+K", settings.Current.Ai.Shortcut);
         vm.SetShortcutCommand.Execute(null);
         Assert.True(vm.IsRecordingShortcut);
         Assert.Equal("Press the new shortcut…", vm.ShortcutText);
@@ -47,11 +49,12 @@ public sealed class AskShortcutTests
         vm.RecordShortcut(KeyO, HotkeyModifiers.Alt | HotkeyModifiers.Shift);
         Assert.True(vm.IsRecordingShortcut);
         Assert.Equal("That's the overlay's shortcut. Pick another.", vm.ShortcutHint);
-        Assert.Equal("", settings.Current.Ai.Shortcut);
+        Assert.Equal("Ctrl+K", settings.Current.Ai.Shortcut);
 
+        // Esc keeps the one it had.
         vm.CancelShortcut();
         Assert.False(vm.IsRecordingShortcut);
-        Assert.Equal("Not set", vm.ShortcutText);
+        Assert.Equal("Ctrl+K", vm.ShortcutText);
 
         vm.SetShortcutCommand.Execute(null);
         vm.RecordShortcut(KeyUnused, HotkeyModifiers.Ctrl);
@@ -65,5 +68,7 @@ public sealed class AskShortcutTests
         Assert.False(vm.HasShortcut);
         Assert.Equal("", settings.Current.Ai.Shortcut);
         Assert.Empty(vm.ShortcutWarning);
+        // Cleared on purpose: the next start doesn't hand Ctrl+K back.
+        Assert.True(settings.Current.Ai.ShortcutGiven);
     }
 }

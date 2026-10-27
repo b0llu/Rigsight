@@ -17,7 +17,7 @@ public sealed class WhatsNewTests
 
     private static (WhatsNewViewModel Card, SettingsModel Settings) Make(string? seen, Version? current = null)
     {
-        var settings = Kit.OfflineSettings(new RigsightSettings { WhatsNewSeen = seen });
+        var settings = Kit.OfflineSettings(new RigsightSettings { WhatsNewSeen = seen, WhatsNewAfter = WhatsNewAfter.Open });
         return (Ui.Run(() => new WhatsNewViewModel(settings, current ?? V070)), settings);
     }
 
@@ -64,7 +64,7 @@ public sealed class WhatsNewTests
     public void Switched_off_it_doesnt_open_after_an_update_but_see_all_still_does()
     {
         var (card, settings) = Make(seen: "0.6.3");
-        settings.Update(s => s.ShowWhatsNew = false);
+        settings.Update(s => s.WhatsNewAfter = WhatsNewAfter.Off);
         Ui.Run(() =>
         {
             card.CheckOnStart();
@@ -183,10 +183,10 @@ public sealed class WhatsNewTests
         var (off, offSettings) = Make(seen: before.ToString(3), current: feature.Version);
         Ui.Run(() =>
         {
-            offSettings.Update(s => s.ShowWhatsNew = false);
+            offSettings.Update(s => s.WhatsNewAfter = WhatsNewAfter.Off);
             off.CheckOnStart();
             Assert.False(off.IsOpen);
-            Assert.False(offSettings.Current.ShowWhatsNew);
+            Assert.Equal(WhatsNewAfter.Off, offSettings.Current.WhatsNewAfter);
             Assert.Null(offSettings.Current.NewFeaturePage);
         });
     }
@@ -283,7 +283,7 @@ public sealed class WhatsNewTests
     [Fact]
     public void Opening_a_feature_closes_the_card_and_goes_to_its_page()
     {
-        var settings = Kit.OfflineSettings(new RigsightSettings { WhatsNewSeen = "0.14.4" });
+        var settings = Kit.OfflineSettings(new RigsightSettings { WhatsNewSeen = "0.14.4", WhatsNewAfter = WhatsNewAfter.Open });
         var opened = new List<string>();
         var asked = new List<string>();
         var card = Ui.Run(() => new WhatsNewViewModel(settings, new Version(0, 15, 0), opened.Add, page =>
@@ -315,7 +315,7 @@ public sealed class WhatsNewTests
         Ui.Run(card.CheckOnStart);
         Ui.Run(() => Assert.All(card.Shown, n => Assert.Null(n.Feature)));
 
-        var settings = Kit.OfflineSettings(new RigsightSettings { WhatsNewSeen = "0.14.4" });
+        var settings = Kit.OfflineSettings(new RigsightSettings { WhatsNewSeen = "0.14.4", WhatsNewAfter = WhatsNewAfter.Open });
         var quiet = Ui.Run(() => new WhatsNewViewModel(settings, new Version(0, 15, 0), _ => { }, _ => Task.FromResult<string?>(null)));
         Ui.Run(quiet.CheckOnStart);
         Ui.Pump(50);
@@ -324,5 +324,47 @@ public sealed class WhatsNewTests
             Assert.True(quiet.IsOpen);
             Assert.Null(quiet.Shown[0].Feature!.Fact); // and the one from the card before is gone
         });
+    }
+
+    // The title bar's button (2026-10-27, the default: people asked not to have What's new open up front): nothing opens by
+    // itself, the button waits across restarts, opens the update's own card, and goes once that's closed.
+    [Fact]
+    public void As_a_button_it_waits_in_the_title_bar_until_read()
+    {
+        var (card, settings) = Make(seen: "0.6.3");
+        Ui.Run(() =>
+        {
+            settings.Update(s => s.WhatsNewAfter = WhatsNewAfter.Button);
+            card.CheckOnStart();
+            Assert.False(card.IsOpen);
+            Assert.True(card.IsWaiting);
+            Assert.Equal("0.6.3", settings.Current.WhatsNewSeen);
+        });
+        // Opened again before reading it: still waiting.
+        var again = Ui.Run(() => new WhatsNewViewModel(settings, V070));
+        Ui.Run(() =>
+        {
+            again.CheckOnStart();
+            Assert.True(again.IsWaiting);
+            again.OpenWaitingCommand.Execute(null);
+            Assert.True(again.IsOpen);
+            Assert.False(again.ShowingAll);
+            Assert.NotNull(again.Newest);
+            again.CloseCommand.Execute(null);
+            Assert.False(again.IsWaiting);
+            Assert.Equal("0.7.0", settings.Current.WhatsNewSeen);
+        });
+    }
+
+    // Settings from before the choice: the switch on becomes the button, off stays off.
+    [Theory]
+    [InlineData(true, WhatsNewAfter.Button)]
+    [InlineData(false, WhatsNewAfter.Off)]
+    public void The_old_switch_becomes_the_choice(bool shown, WhatsNewAfter after)
+    {
+        var s = SettingsStore.Deserialize($$"""{ "SettingsVersion": 10, "ShowWhatsNew": {{(shown ? "true" : "false")}} }""");
+        Assert.Equal(after, s.WhatsNewAfter);
+        Assert.Null(s.ShowWhatsNew);
+        Assert.DoesNotContain("ShowWhatsNew", System.Text.Json.JsonSerializer.Serialize(s, SettingsStore.JsonOptions));
     }
 }

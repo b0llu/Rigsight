@@ -198,6 +198,15 @@ public sealed class ExportTests
         Assert.Contains("Nothing was recorded in this time.", ReadableExport.ReportText(new Report { From = day, To = day.AddDays(1) }, "Empty", "0.21.0"));
 
         Assert.StartsWith($"RigSight crashes{Environment.NewLine}Last 7 days, none recorded.", ReadableExport.CrashesText([], "Last 7 days", day, "0.21.0"));
+
+        // For the AI helper the same words without the padding (2026-10-26): every value still there, each cell kept.
+        var tight = ReadableExport.ReportText(report, "Friday, 9 October 2026", "0.21.0", tight: true).Split(Environment.NewLine);
+        Assert.Contains("  Active: 5h 00m", tight);
+        Assert.Contains("  App | Kind | In use | Background | CPU peak | GPU peak | Memory peak", tight);
+        Assert.Contains(tight, l => l.StartsWith("  Apex Legends | ", StringComparison.Ordinal) && l.Contains("76°") && l.Split(" | ").Length == 7);
+        Assert.DoesNotContain(tight, l => l.TrimStart().StartsWith("---", StringComparison.Ordinal) || l.Contains("   "));
+        Assert.Equal(Words(text), Words(tight));
+        static string[] Words(IEnumerable<string> lines) => [.. lines.SelectMany(l => l.Split([' ', '|', ':'], StringSplitOptions.RemoveEmptyEntries)).Where(w => !w.All(c => c == '-')).Order()];
     }
 
     [Fact]

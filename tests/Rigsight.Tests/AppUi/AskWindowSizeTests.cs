@@ -44,4 +44,32 @@ public sealed class AskWindowSizeTests(AppHost host) : IClassFixture<AppHost>
         Ui.Pump(100);
         Assert.Empty(Ui.TakeProblems().Crashes);
     }
+
+    // A pull past 720 px (2026-10-27: "the chat box is stuck for a sec" as the conversations' column opened): the one list
+    // of conversations is built once and moved between the column and over the chat, never built again or doubled.
+    [Fact]
+    public void The_conversations_are_built_once_and_moved_not_rebuilt()
+    {
+        var vm = host.Shell.Ask;
+        var place = typeof(AskWindow).GetMethod("Place", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        Ui.Run(() => { vm.IsPoppedOut = false; vm.IsBig = false; vm.StuckSmall = new Size(600, 640); vm.IsOpen = true; });
+        Ui.Pump(600);
+        Ui.Run(() =>
+        {
+            var window = Visuals.Descendants<AskWindow>(host.Window).Single();
+            System.Windows.Controls.TextBox Search() => Visuals.Descendants<System.Windows.Controls.TextBox>(window).Single(t => t.Name == "HistorySearchBox");
+            var built = Search();
+            Assert.False(built.IsVisible, "built ahead, hidden while narrow");
+            vm.StuckSmall = new Size(760, 640); place.Invoke(window, null); window.UpdateLayout();
+            Assert.True(vm.ShowHistoryColumn);
+            Assert.Same(built, Search());
+            Assert.True(built.IsVisible);
+            vm.StuckSmall = new Size(600, 640); place.Invoke(window, null);
+            vm.IsHistoryOpen = true; window.UpdateLayout();
+            Assert.Same(built, Search());
+            Assert.True(built.IsVisible, "over the chat");
+            vm.IsHistoryOpen = false;
+            vm.IsOpen = false;
+        });
+    }
 }

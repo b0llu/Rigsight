@@ -146,7 +146,7 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
         var seen = Changelog.Releases[Math.Min(4, Changelog.Releases.Count - 1)].Version;
         Ui.Run(() =>
         {
-            host.Shell.Settings.Update(s => { s.WhatsNewSeen = seen.ToString(3); s.ShowWhatsNew = true; });
+            host.Shell.Settings.Update(s => { s.WhatsNewSeen = seen.ToString(3); s.WhatsNewAfter = Rigsight.Core.Settings.WhatsNewAfter.Open; });
             host.Shell.WhatsNew.CheckOnStart();
         });
         Ui.Pump(600);
@@ -343,5 +343,48 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
         var second = AppHost.Pages.Select(p => { host.Show(p, 100); return Ui.Run(() => host.Window.PageHost.Content); }).ToList();
         for (int i = 0; i < first.Count; i++) Assert.Same(first[i], second[i]);
         Ui.AssertNoProblems("revisiting pages");
+    }
+
+    // What's new waiting in the title bar after an update (approved mock-up, 2026-10-27): with its words beside the window's
+    // buttons, clear of the ask box's chat button even in the smallest window zoomed.
+    [Fact]
+    public void The_whats_new_button_waits_in_the_title_bar_clear_of_the_ask_box()
+    {
+        host.Show("home", 600);
+        var bar = Ui.Run(() => (FrameworkElement)host.Window.FindName("TitleBar"));
+        var button = Ui.Run(() => (System.Windows.Controls.Button)host.Window.FindName("WhatsNewButton"));
+        double zoom = Ui.Run(() => host.Shell.Settings.Current.Zoom), width = Ui.Run(() => host.Window.Width);
+        try
+        {
+            Ui.Run(() => { host.Shell.WhatsNew.IsWaiting = true; host.Window.Width = 1400; });
+            Ui.Pump(400);
+            Ui.Run(() =>
+            {
+                Assert.True(button.IsVisible);
+                Assert.Null(button.Tag);
+                var words = Visuals.Descendants<System.Windows.Controls.TextBlock>(button).Single(t => t.Name == "WhatsNewWords");
+                Assert.True(words.IsVisible);
+                // Clear of the chat button beside the ask box.
+                var chats = (FrameworkElement)host.Window.FindName("AskChats");
+                Assert.True(button.TranslatePoint(new Point(0, 0), bar).X > chats.TranslatePoint(new Point(chats.ActualWidth, 0), bar).X + 8);
+                Ui.SavePng(bar, Path.Combine(Shots, "whatsnew-button.png"));
+                host.Shell.Settings.Update(s => s.Zoom = 1.2);
+                host.Window.Width = 1140;
+            });
+            Ui.Pump(500);
+            Ui.Run(() =>
+            {
+                // The tightest the bar gets (the zoom never makes it narrower than the window's smallest): words and all, clear.
+                Assert.Null(button.Tag);
+                var chats = (FrameworkElement)host.Window.FindName("AskChats");
+                Assert.True(button.TranslatePoint(new Point(0, 0), bar).X > chats.TranslatePoint(new Point(chats.ActualWidth, 0), bar).X + 4);
+                Ui.SavePng(bar, Path.Combine(Shots, "whatsnew-button-narrow.png"));
+            });
+        }
+        finally
+        {
+            Ui.Run(() => { host.Shell.WhatsNew.IsWaiting = false; host.Shell.Settings.Update(s => s.Zoom = zoom); host.Window.Width = width; });
+            Ui.Pump(300);
+        }
     }
 }

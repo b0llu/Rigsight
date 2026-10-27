@@ -238,6 +238,7 @@ public sealed partial class AskSetup(AiAction action) : ObservableObject
 
     public string MainLabel => Kind switch
     {
+        AiActionKind.CreateWidget when ExistingName is { } name => Lang.T($"Turn on {name}"),
         AiActionKind.CreateWidget => Lang.T("Create and turn on"),
         AiActionKind.AddOverlay => Lang.T("Add to overlay"),
         _ => Lang.T("Add to taskbar"),
@@ -258,7 +259,20 @@ public sealed partial class AskSetup(AiAction action) : ObservableObject
     };
     public string Page => Kind switch { AiActionKind.CreateWidget => "widgets", AiActionKind.AddOverlay => "overlay", _ => "taskbar" };
     /// <summary>Everything is there already: said instead of the button.</summary>
-    public string AllOnText => Kind == AiActionKind.AddOverlay ? Lang.T("All of these are on your overlay already.") : Lang.T("All of these are in the taskbar already.");
+    public string AllOnText => Kind switch
+    {
+        AiActionKind.CreateWidget => Lang.T($"All of these are on {ExistingName} already."),
+        AiActionKind.AddOverlay => Lang.T("All of these are on your overlay already."),
+        _ => Lang.T("All of these are in the taskbar already."),
+    };
+
+    /// <summary>
+    /// A widget of theirs that already shows every one of these readings (made from an earlier answer, or by hand): turned
+    /// on, or said to be on, instead of a second widget of the same readings (the user, 2026-10-26: one made earlier and
+    /// switched off was offered again as a new one).
+    /// </summary>
+    internal string? ExistingId { get; private set; }
+    public string? ExistingName { get; private set; }
 
     [ObservableProperty] private IReadOnlyList<AskChip> _chips = [];
     [ObservableProperty] private string _where = "";
@@ -272,6 +286,7 @@ public sealed partial class AskSetup(AiAction action) : ObservableObject
 
     // What the press changed, for Undo.
     internal string? CreatedId { get; set; }
+    internal string? TurnedOnId { get; set; }
     internal List<OverlayMetric>? MetricsBefore { get; set; }
     internal List<OverlaySensor>? SensorsBefore { get; set; }
     internal bool? EnabledBefore { get; set; }
@@ -301,18 +316,33 @@ public sealed partial class AskSetup(AiAction action) : ObservableObject
             chips.Add(new AskChip(r.Name, false, r.IsFrame && noRiva ? Lang.T("(needs RivaTuner)") : null));
             add.Add(r);
         }
+        // A widget showing all of these: one that's on, or one of their own that's off (a ready-made one they never turned on
+        // wasn't made by them, so a new one is still offered). The one that's on first, then the one with the fewest other
+        // readings, then theirs over a ready-made one (the Slim bar shows CPU and GPU temperature and RAM in use too).
+        var keys = Readings.Select(r => r.Key).ToHashSet();
+        var existing = Kind != AiActionKind.CreateWidget ? null : s.Widgets
+            .Where(w => (w.Enabled || w.Style == WidgetStyle.Custom) && keys.IsSubsetOf(WidgetCatalog.ShownItems(w).Select(i => i.Id)))
+            .OrderByDescending(w => w.Enabled).ThenBy(w => WidgetCatalog.ShownItems(w).Count).ThenBy(w => w.Style != WidgetStyle.Custom)
+            .FirstOrDefault();
+        if (existing?.Enabled == true) chips = [.. chips.Select(c => c with { On = true })];
         ToAdd = add;
         Chips = chips;
         string onNames = string.Join(", ", chips.Where(c => c.On).Select(c => c.Name));
         string already = onNames.Length > 0 ? " " + Lang.T($"{onNames} already on.") : "";
+        (ExistingId, ExistingName) = (existing?.Id, existing is null ? null : WidgetCatalog.Title(existing));
+        OnPropertyChanged(nameof(MainLabel));
+        OnPropertyChanged(nameof(AllOnText));
         Where = Kind switch
         {
+            AiActionKind.CreateWidget when existing is { Enabled: true } => "", // said by the card's line instead
+            AiActionKind.CreateWidget when existing is not null => Lang.T($"{ExistingName} already shows these, but it's off."),
             AiActionKind.CreateWidget => Lang.T("As a slim bar, on your desktop, where you can drag it."),
             AiActionKind.AddOverlay => Lang.T($"Shown with {s.Overlay.Hotkey} in any game.") + already
                 + (s.Overlay.Enabled ? "" : " " + Lang.T("Adding turns the overlay on.")),
             _ => Lang.T("In the taskbar, always in view.") + (s.TraySensors.Count == 0 ? " " + Lang.T("Nothing is shown there yet.") : already),
         };
-        HasNew = add.Count > 0 || (Kind == AiActionKind.AddOverlay && !s.Overlay.Enabled && chips.Any(c => c.On));
+        HasNew = Kind == AiActionKind.CreateWidget ? existing?.Enabled != true
+            : add.Count > 0 || (Kind == AiActionKind.AddOverlay && !s.Overlay.Enabled && chips.Any(c => c.On));
     }
 }
 
@@ -480,6 +510,15 @@ public sealed partial class AskViewModel
         string asked = string.Join(", ", setup.Readings.Select(r => r.Name));
         switch (setup.Kind)
         {
+            case AiActionKind.CreateWidget when setup.ExistingId is { } existing:
+            {
+                // Theirs already shows these, switched off: turned on, not made again (Customize opens it as it is).
+                _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == existing) is { } w) w.Enabled = true; });
+                setup.TurnedOnId = existing;
+                setup.DoneText = Lang.T($"{setup.ExistingName} turned on");
+                Log.Write("ask", $"Widget from an answer: {existing} \"{setup.ExistingName}\" already shows {asked}; turned it on");
+                break;
+            }
             case AiActionKind.CreateWidget:
             {
                 var custom = now.Widgets.Where(w => w.Style == WidgetStyle.Custom).ToList();
@@ -546,6 +585,7 @@ public sealed partial class AskViewModel
         if (a?.Setup is not { } setup || !a.IsReady) return;
         if (setup.Kind == AiActionKind.CreateWidget)
         {
+            if (setup.ExistingId is { } existing) { OpenPageAt?.Invoke("widgets", existing); return; }
             ApplySetup(a, customize: true);
             if (a.IsDone) OpenPageAt?.Invoke("widgets", setup.CreatedId);
         }
@@ -556,7 +596,7 @@ public sealed partial class AskViewModel
     [RelayCommand]
     private void OpenSetup(AskAction? a)
     {
-        if (a?.Setup is { } setup) OpenPageAt?.Invoke(setup.Page, setup.Kind == AiActionKind.CreateWidget && a.IsDone ? setup.CreatedId : null);
+        if (a?.Setup is { } setup) OpenPageAt?.Invoke(setup.Page, setup.Kind == AiActionKind.CreateWidget ? setup.CreatedId ?? setup.TurnedOnId ?? setup.ExistingId : null);
     }
 
     /// <summary>Undo: exactly what was there before the press (the widget it made gone; the overlay's or taskbar's readings as they were), and the card ready again.</summary>
@@ -570,6 +610,11 @@ public sealed partial class AskViewModel
                 _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == id));
                 Log.Write("ask", $"Undo from an answer: removed widget {id}");
                 setup.CreatedId = null;
+                break;
+            case AiActionKind.CreateWidget when setup.TurnedOnId is { } id:
+                _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == id) is { } w) w.Enabled = false; });
+                Log.Write("ask", $"Undo from an answer: turned widget {id} off again");
+                setup.TurnedOnId = null;
                 break;
             case AiActionKind.AddOverlay when setup.MetricsBefore is { } metrics && setup.SensorsBefore is { } sensors && setup.EnabledBefore is { } enabled:
                 _settings.Update(s =>

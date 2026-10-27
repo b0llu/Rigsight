@@ -12,6 +12,8 @@ public partial class MainWindow : Window
 {
     private readonly ShellViewModel _vm;
     private readonly Dictionary<string, FrameworkElement> _pages = [];
+    /// <summary>The zoom the title bar is drawn at (the pages' own, see ApplyZoom).</summary>
+    private double _barZoom = 1;
 
     public MainWindow(ShellViewModel vm)
     {
@@ -31,6 +33,7 @@ public partial class MainWindow : Window
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
         SetUpTitleBar();
         SetUpSidebar();
+        SetUpAskBox();
         // Charts and lists grow with a taller window (see Roomy).
         // Zoomed, the pages have the window's room divided by the zoom.
         SizeChanged += (_, _) => ApplyZoom();
@@ -152,7 +155,8 @@ public partial class MainWindow : Window
         };
         // Closing ends the app, except where another window takes over (the tests host several in turn).
         Closed += (_, _) => ThemeManager.Changed -= RebuildPages;
-        Closing += (_, _) => _vm.WindowClosing();
+        Closing += (_, _) => { SaveBounds(); _vm.WindowClosing(); };
+        RestoreBounds_();
     }
 
     /// <summary>
@@ -165,6 +169,36 @@ public partial class MainWindow : Window
         _pages.Clear();
         PageHost.Content = null;
         ShowPage(_vm.CurrentPage);
+    }
+
+    /// <summary>Opens where it was last closed, at that size, maximized if it was (2026-10-27), when that place is still on a screen.</summary>
+    private void RestoreBounds_()
+    {
+        var s = _vm.Settings.Current;
+        if (s.WindowBounds is [var left, var top, var width, var height] && width >= MinWidth && height >= MinHeight)
+        {
+            // Still on a screen (a monitor may have gone): most of its title bar must be inside the desktop.
+            var desk = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop, SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+            var bar = new Rect(left, top, width, 40);
+            if (desk.IntersectsWith(bar) && Rect.Intersect(desk, bar).Width >= Math.Min(200, width / 2))
+            {
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                (Left, Top, Width, Height) = (left, top, Math.Min(width, desk.Width), Math.Min(height, desk.Height));
+            }
+        }
+        if (s.WindowMaximized) WindowState = WindowState.Maximized;
+    }
+
+    /// <summary>Its place and size before maximizing, and whether it's maximized, kept for the next opening.</summary>
+    private void SaveBounds()
+    {
+        var r = WindowState == WindowState.Normal ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
+        if (r.IsEmpty || double.IsNaN(r.Left) || r.Width <= 0) return;
+        bool max = WindowState == WindowState.Maximized;
+        double[] bounds = [Math.Round(r.Left), Math.Round(r.Top), Math.Round(r.Width), Math.Round(r.Height)];
+        var now = _vm.Settings.Current;
+        if (now.WindowMaximized == max && now.WindowBounds is { } was && was.SequenceEqual(bounds)) return;
+        _vm.Settings.Update(x => { x.WindowBounds = bounds; x.WindowMaximized = max; });
     }
 
     /// <summary>One step in or out (0: back to 100%), kept in the settings, and shown for a moment in the title bar.</summary>
@@ -195,11 +229,22 @@ public partial class MainWindow : Window
     /// </summary>
     private double ApplyZoom()
     {
-        double width = Frame.ActualWidth, height = Frame.ActualHeight - TitleBar.ActualHeight;
-        double room = width > 0 && height > 0 ? Math.Min(width / MinWidth, height / (MinHeight - TitleBar.ActualHeight)) : double.NaN;
+        // The room is worked out from the bar at 100%, so zooming the bar with the rest doesn't change it.
+        double width = Frame.ActualWidth, height = Frame.ActualHeight - CaptionHeight * _barZoom;
+        double room = width > 0 && height > 0 ? Math.Min(width / MinWidth, height / (MinHeight - CaptionHeight)) : double.NaN;
         double used = Core.Settings.AppZoom.Used(_vm.Settings.Current.Zoom, room);
         if (Body.LayoutTransform is not System.Windows.Media.ScaleTransform current ? used != 1 : current.ScaleX != used)
             Body.LayoutTransform = used == 1 ? System.Windows.Media.Transform.Identity : new System.Windows.Media.ScaleTransform(used, used);
+        // The title bar and the ask box's drop too (2026-10-27: they stayed at 100% while everything else grew).
+        if (used != _barZoom)
+        {
+            _barZoom = used;
+            var scale = used == 1 ? System.Windows.Media.Transform.Identity : new System.Windows.Media.ScaleTransform(used, used);
+            TitleBar.LayoutTransform = scale;
+            AskDropRoot.LayoutTransform = scale;
+            FitFrame();
+            PlaceDrop();
+        }
         Controls.Roomy.Fit(double.IsNaN(height) || height <= 0 ? ActualHeight : ActualHeight / used);
         return used;
     }

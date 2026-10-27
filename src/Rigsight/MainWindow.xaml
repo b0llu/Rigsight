@@ -14,7 +14,7 @@
     <!-- The window draws its own title bar: Windows' own one was made shorter when maximized, squeezing its buttons
          (see TitleBar below and MainWindow.TitleBar.cs). The frame, shadow, rounded corners and resizing stay Windows'. -->
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="32" GlassFrameThickness="-1" UseAeroCaptionButtons="False" CornerRadius="0"
+        <WindowChrome CaptionHeight="40" GlassFrameThickness="-1" UseAeroCaptionButtons="False" CornerRadius="0"
                       ResizeBorderThickness="{x:Static SystemParameters.WindowResizeBorderThickness}" />
     </WindowChrome.WindowChrome>
     <Window.Resources>
@@ -409,7 +409,7 @@
              from Tag for maximize, whose pointer Windows keeps (it is a maximize button to Windows, for snap layouts). -->
         <Style x:Key="CaptionButton" TargetType="Button">
             <Setter Property="Width" Value="46" />
-            <Setter Property="Height" Value="32" />
+            <Setter Property="Height" Value="40" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
@@ -456,38 +456,272 @@
     <!-- Maximized, Windows puts the window's edge a frame's width beyond the screen: Frame's padding takes it back. -->
     <Border x:Name="Frame">
     <DockPanel>
-    <Grid x:Name="TitleBar" DockPanel.Dock="Top" Height="32" Background="{DynamicResource BgBrush}">
-        <!-- The zoom, for a moment while it changes (Ctrl + wheel): up here, where it isn't zoomed itself -->
-        <TextBlock x:Name="ZoomText" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" Opacity="0"
-                   Foreground="{DynamicResource MutedBrush}" IsHitTestVisible="False" />
+    <!-- 40 px since the ask box (2026-10-27; Windows' own is 32, a search box in it wants more), zoomed with the pages. -->
+    <Grid x:Name="TitleBar" DockPanel.Dock="Top" Height="40" Background="{DynamicResource BgBrush}">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
             <!-- Icons only, or the pages' names: the sidebar's own switch, where Windows apps keep theirs (2026-10-25). -->
             <Image Source="Assets/Rigsight.png" Width="16" Height="16" Margin="12,0,0,0" RenderOptions.BitmapScalingMode="HighQuality" />
-            <TextBlock x:Name="TitleText" Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="12" Margin="10,0,0,0"
+            <TextBlock x:Name="TitleText" Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="12.5" Margin="10,0,0,0"
                        VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
         </StackPanel>
+        <!-- The ask box (approved mock-up "The ask box grows into a place to type", 2026-10-27): in the middle of the bar, clear
+             of the window's buttons so the bar either side still drags the window. A click or the Ask shortcut grows it into
+             the panel under it (AskDrop); while Ask is open it shows the chat's name and goes to Ask's own box. RigSight's
+             window is never narrower than 1140 px, so it always fits with its words (Settings › Ask RigSight can move Ask to
+             the sidebar instead). -->
+        <Button x:Name="AskBox" WindowChrome.IsHitTestVisibleInChrome="True" Click="AskBox_Click" Cursor="IBeam" Focusable="False" FocusVisualStyle="{x:Null}"
+                HorizontalAlignment="Center" VerticalAlignment="Center" Width="480" Height="30" AutomationProperties.Name="{ctl:T 'Ask about your PC'}"
+                Visibility="{Binding Ask.InTopBar, Converter={StaticResource Vis}}">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="7" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="12,0,7,0">
+                        <DockPanel>
+                            <Path DockPanel.Dock="Left" Data="{StaticResource AiSparkle}" Stroke="{DynamicResource AiBrush}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Stretch="Uniform" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <Border DockPanel.Dock="Right" CornerRadius="5" BorderBrush="{DynamicResource StrokeBrush}" Background="{DynamicResource HoverBrush}" BorderThickness="1" Padding="6,1,6,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Ask.BarKey}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
+                            </Border>
+                            <TextBlock x:Name="Words" Text="{Binding Ask.BarText}" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,1" />
+                        </DockPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AiStrokeBrush}" /></Trigger>
+                        <DataTrigger Binding="{Binding Ask.BarHasDraft}" Value="True"><Setter TargetName="Words" Property="Foreground" Value="{DynamicResource TextBrush}" /></DataTrigger>
+                        <DataTrigger Binding="{Binding Ask.BarLocked}" Value="True"><Setter Property="Cursor" Value="Hand" /></DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+        <!-- Ask itself, opened straight away on its chats without asking anything (2026-10-27: there was no other way since the
+             box replaced the Ask button); lit while Ask is open, and closes it. Beside the box, so the box stays the bar's middle. -->
+        <Button x:Name="AskChats" WindowChrome.IsHitTestVisibleInChrome="True" Command="{Binding Ask.ToggleCommand}" Cursor="Hand" Focusable="False" FocusVisualStyle="{x:Null}"
+                HorizontalAlignment="Center" VerticalAlignment="Center" Width="30" Height="30" Margin="526,0,0,0" ToolTip="{ctl:T 'Your chats'}" AutomationProperties.Name="{ctl:T 'Your chats'}"
+                Visibility="{Binding Ask.InTopBar, Converter={StaticResource Vis}}">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="7" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                        <ctl:InkCentered x:Name="Glyph" Text="&#xE8BD;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Width="16" Height="16" Fill="{DynamicResource MutedBrush}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AiStrokeBrush}" /></Trigger>
+                        <DataTrigger Binding="{Binding Ask.IsOpen}" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AiSoftBrush}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AiStrokeBrush}" />
+                            <Setter TargetName="Glyph" Property="Fill" Value="{DynamicResource AiBrush}" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+        <!-- The drop: grown down out of the box (AskDrop_Open), the box hidden under it. A big box to type in (Enter asks, Shift+
+             Enter a new line), questions to start from and the last chats while nothing is typed, and how it works at the foot. -->
+        <Popup x:Name="AskDrop" PlacementTarget="{Binding ElementName=AskBox}" Placement="Custom" AllowsTransparency="True" StaysOpen="True"
+               PopupAnimation="None" Focusable="True">
+            <Border x:Name="AskDropRoot" Width="640" Margin="14,0,14,20" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource AiStrokeBrush}"
+                    BorderThickness="1" CornerRadius="12" RenderTransformOrigin="0.5,0" KeyboardNavigation.TabNavigation="Cycle">
+                <Border.RenderTransform><ScaleTransform x:Name="AskDropScale" /></Border.RenderTransform>
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="8" Opacity="0.5" Color="Black" />
+                </Border.Effect>
+                <StackPanel x:Name="AskDropContent" Opacity="0">
+                    <!-- Before the first question (the person's call, 2026-10-27): the consent here, before anything is typed, instead of
+                         after Enter. Start asking turns the drop into the box to type in; nothing reaches RigSight's server before it. -->
+                    <StackPanel Margin="20,18,20,16" Visibility="{Binding Ask.ShowFirstQuestion, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <Path DockPanel.Dock="Left" Data="{StaticResource AiSparkle}" Stroke="{DynamicResource AiBrush}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Stretch="Uniform" Width="15" Height="15" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock Text="{ctl:T 'Before your first question'}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <TextBlock Text="{Binding Ask.FirstIntro}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
+                        <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0">
+                            <Run Text="{Binding Ask.FirstWhere, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding Ask.FirstWhereText, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Text="{Binding Ask.FirstNever}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   Visibility="{Binding Ask.FirstNever, Converter={StaticResource Vis}}" />
+                        <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="{Binding Ask.FirstKept, Converter={StaticResource Vis}}">
+                            <Run Text="{ctl:T 'What is kept.'}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding Ask.FirstKept, Mode=OneWay}" />
+                        </TextBlock>
+                        <DockPanel Margin="0,16,0,0">
+                            <Button DockPanel.Dock="Left" Style="{StaticResource AccentButton}" Content="{ctl:T 'Start asking'}" Command="{Binding Ask.StartAskingCommand}" />
+                            <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Content="{ctl:T 'Not now'}" Margin="8,0,0,0" Click="AskDropNotNow_Click" />
+                            <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Content="{ctl:T 'Settings'}" Margin="8,0,0,0" Click="AskDropSettings_Click" />
+                            <!-- Ask's own "Privacy page" link (LinkAction in AskWindow): muted words and an arrow, lit on hover. -->
+                            <Button Content="{ctl:T 'Privacy page'}" AutomationProperties.Name="{ctl:T 'Privacy page'}" Command="{Binding Ask.OpenPrivacyCommand}" Cursor="Hand" Focusable="False"
+                                    Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <StackPanel Orientation="Horizontal" Background="Transparent" Margin="0,6,4,6">
+                                            <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="12.5" />
+                                            <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="9" Margin="5,1,0,0" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </DockPanel>
+                    </StackPanel>
+                    <StackPanel Visibility="{Binding Ask.ShowFirstQuestion, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                        <DockPanel Margin="18,15,14,13">
+                            <Path DockPanel.Dock="Left" Data="{StaticResource AiSparkle}" Stroke="{DynamicResource AiBrush}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Stretch="Uniform" Width="16" Height="16" VerticalAlignment="Top" Margin="0,4,12,0" />
+                            <Button DockPanel.Dock="Right" Width="32" Height="32" VerticalAlignment="Top" Margin="12,-3,0,0" Command="{Binding Ask.AskFromBarCommand}" Cursor="Hand"
+                                    IsEnabled="{Binding Ask.CanAskFromBar}" ToolTip="{ctl:T 'Ask'}" AutomationProperties.Name="{ctl:T 'Ask'}" Focusable="False">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <!-- An arrow up, drawn on a 16 px square centred in the button (a glyph's box never sits true). -->
+                                        <Border x:Name="Bd" CornerRadius="9" Background="{DynamicResource AiBrush}">
+                                            <Canvas Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Path x:Name="Arrow" Data="M 8,13 L 8,3.5 M 3.5,8 L 8,3.5 L 12.5,8" Stroke="{DynamicResource BgBrush}" StrokeThickness="2"
+                                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                                            </Canvas>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                <Setter TargetName="Arrow" Property="Stroke" Value="{DynamicResource FaintBrush}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                            <Grid>
+                                <TextBlock Text="{Binding Ask.BarPlaceholder}" FontSize="15" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False" Margin="2,1,0,0"
+                                           Visibility="{Binding Ask.BarSuggests, Converter={StaticResource Vis}}" />
+                                <TextBox x:Name="AskDropText" Text="{Binding Ask.BarDraft, UpdateSourceTrigger=PropertyChanged}" FontSize="15" AcceptsReturn="True" TextWrapping="Wrap"
+                                         MaxHeight="184" VerticalScrollBarVisibility="Auto" Background="Transparent" BorderThickness="0" Padding="0" Foreground="{DynamicResource TextBrush}"
+                                         CaretBrush="{DynamicResource TextBrush}" PreviewKeyDown="AskDropText_PreviewKeyDown" AutomationProperties.Name="{ctl:T 'Ask about your PC'}">
+                                    <TextBox.Template>
+                                        <ControlTemplate TargetType="TextBox"><ScrollViewer x:Name="PART_ContentHost" Focusable="False" /></ControlTemplate>
+                                    </TextBox.Template>
+                                </TextBox>
+                            </Grid>
+                        </DockPanel>
+                        <TextBlock Text="{Binding Ask.BarCount}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="46,0,14,10"
+                                   Visibility="{Binding Ask.BarShowCount, Converter={StaticResource Vis}}" />
+                        <!-- Questions to start from and the last chats, while nothing is typed. ↓ from the box steps into them. -->
+                        <StackPanel x:Name="AskDropList" Visibility="{Binding Ask.BarSuggests, Converter={StaticResource Vis}}" KeyboardNavigation.DirectionalNavigation="Contained">
+                            <StackPanel.Resources>
+                                <Style x:Key="DropHead" TargetType="TextBlock">
+                                    <Setter Property="FontSize" Value="11.5" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                    <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                    <Setter Property="Margin" Value="18,12,0,6" />
+                                </Style>
+                                <Style x:Key="DropRow" TargetType="Button">
+                                    <Setter Property="Cursor" Value="Hand" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="10,9" Margin="8,0">
+                                                    <ContentPresenter />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </StackPanel.Resources>
+                            <Border Height="1" Background="{DynamicResource StrokeBrush}" />
+                            <TextBlock Text="{ctl:T 'TRY ASKING'}" Style="{StaticResource DropHead}" />
+                            <ItemsControl ItemsSource="{Binding Ask.Starters}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource DropRow}" Command="{Binding DataContext.Ask.AskStarterFromBarCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                                AutomationProperties.Name="{Binding Text}">
+                                            <DockPanel>
+                                                <ctl:InkCentered DockPanel.Dock="Left" Text="{Binding Glyph}" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Width="16" Height="20" Fill="{DynamicResource FaintBrush}" Margin="0,0,12,0" />
+                                                <TextBlock Text="{Binding Text}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <StackPanel Visibility="{Binding Ask.HasBarRecent, Converter={StaticResource Vis}}">
+                                <TextBlock Text="{ctl:T 'YOUR LAST CHATS'}" Style="{StaticResource DropHead}" />
+                                <ItemsControl ItemsSource="{Binding Ask.BarRecent}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource DropRow}" Command="{Binding DataContext.Ask.OpenFromBarCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                                    AutomationProperties.Name="{Binding Title}">
+                                                <DockPanel>
+                                                    <ctl:InkCentered DockPanel.Dock="Left" Text="&#xE8BD;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Width="16" Height="20" Fill="{DynamicResource FaintBrush}" Margin="0,0,12,0" />
+                                                    <TextBlock Text="{Binding Title}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                </DockPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            <Border Height="6" />
+                        </StackPanel>
+                        <!-- How it works, the questions left and the shortcut (set or changed in Settings › Ask RigSight). -->
+                        <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="18,9,16,10">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Command="{Binding Ask.SetBarShortcutCommand}" Cursor="Hand" Focusable="False" Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <TextBlock x:Name="T" FontSize="12" Foreground="{DynamicResource FaintBrush}">
+                                                <Run Text="{ctl:T 'From anywhere'}" /> <Run Text="{Binding Ask.BarShortcut, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" /> · <Run x:Name="Act" Text="{ctl:T 'Change'}" Foreground="{DynamicResource AiBrush}" />
+                                            </TextBlock>
+                                            <ControlTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Ask.HasBarShortcut}" Value="False">
+                                                    <Setter TargetName="T" Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                                <Button DockPanel.Dock="Right" Command="{Binding Ask.SetBarShortcutCommand}" Cursor="Hand" Focusable="False" Margin="12,0,0,0" VerticalAlignment="Center"
+                                        Visibility="{Binding Ask.HasBarShortcut, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button"><TextBlock Text="{ctl:T 'Set a shortcut for anywhere'}" FontSize="12" Foreground="{DynamicResource AiBrush}" /></ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Ask.QuestionsLine}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           Visibility="{Binding Ask.ShowQuestionsLine, Converter={StaticResource Vis}}" />
+                                <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center">
+                                    <Run Text="{ctl:T 'Enter'}" Foreground="{DynamicResource MutedBrush}" /> <Run Text="{ctl:T 'ask'}" />  ·  <Run Text="{ctl:T 'Shift+Enter'}" Foreground="{DynamicResource MutedBrush}" /> <Run Text="{ctl:T 'new line'}" />  ·  <Run Text="{ctl:T 'Esc'}" Foreground="{DynamicResource MutedBrush}" /> <Run Text="{ctl:T 'close'}" />
+                                </TextBlock>
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Popup>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <!-- The AI helper's Ask button, beside the window's own buttons (Settings › Ask RigSight can move it to the sidebar).
-                 In the AI's own look since 2026-10-26 (every AI button: the sparkle, a faint tint of the AI colour). -->
-            <Button x:Name="AskButton" WindowChrome.IsHitTestVisibleInChrome="True" Command="{Binding Ask.ToggleCommand}" Cursor="Hand" Focusable="False" FocusVisualStyle="{x:Null}"
-                    VerticalAlignment="Stretch" AutomationProperties.Name="Ask RigSight" ToolTip="{ctl:T 'Ask RigSight about this PC'}"
-                    Visibility="{Binding Ask.InTopBar, Converter={StaticResource Vis}}">
+            <!-- The zoom, for a moment while it changes (Ctrl + wheel): up here, where it isn't zoomed itself; beside the window's
+                 buttons, the middle being the ask box's. -->
+            <TextBlock x:Name="ZoomText" Margin="0,0,12,0" VerticalAlignment="Center" FontSize="12" Opacity="0"
+                       Foreground="{DynamicResource MutedBrush}" IsHitTestVisible="False" />
+            <!-- What's new after an update, waiting here instead of opening up front (approved mock-up "What's new in the title
+                 bar", 2026-10-27; Settings › Updates picks it, the card, or nothing). Gone once the card is read. Its words go
+                 when the bar has no room for them beside the ask box (FitWhatsNew), the dot and icon stay. -->
+            <Button x:Name="WhatsNewButton" WindowChrome.IsHitTestVisibleInChrome="True" Command="{Binding WhatsNew.OpenWaitingCommand}" Cursor="Hand"
+                    Focusable="False" FocusVisualStyle="{x:Null}" VerticalAlignment="Center" Height="28" Margin="0,0,8,0"
+                    ToolTip="{ctl:T 'What\'s new in this update'}" AutomationProperties.Name="{ctl:T 'What\'s new'}"
+                    Visibility="{Binding WhatsNew.IsWaiting, Converter={StaticResource Vis}}">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
-                        <!-- The bar's full height like the window's own buttons, in the AI look (A3: tint, hairline edge, sparkle), with a
-                             little rounding so its edge shows (the user, 2026-10-26: the tint alone was hard to see). -->
-                        <Grid Height="32">
-                            <!-- Off the window's top edge by a little, so its top border shows (the user, 2026-10-26). -->
-                            <Border Margin="0,3,0,0" CornerRadius="4" Background="{DynamicResource AiSoftBrush}" BorderBrush="{DynamicResource AiStrokeBrush}" BorderThickness="1" />
-                            <Border x:Name="Hover" Margin="0,3,0,0" CornerRadius="4" Background="{DynamicResource AiSoftBrush}" Opacity="0" />
-                            <StackPanel Orientation="Horizontal" Margin="14,3,16,0">
-                                <Path Data="{StaticResource AiSparkle}" Stroke="{DynamicResource AiBrush}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                      Stretch="Uniform" Width="13" Height="13" VerticalAlignment="Center" />
-                                <TextBlock Text="{ctl:T 'Ask'}" FontSize="12" FontWeight="SemiBold" Margin="7,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+                        <Border x:Name="Bd" CornerRadius="7" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="9,0,11,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="7" Height="7" Fill="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="WhatsNewIcon" Text="&#xE7C3;" Style="{StaticResource Icon}" FontSize="13" Margin="7,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" />
+                                <TextBlock x:Name="WhatsNewWords" Text="{ctl:T 'What\'s new'}" FontSize="12.5" Margin="7,0,0,1" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
                             </StackPanel>
-                        </Grid>
+                        </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Hover" Property="Opacity" Value="1" /></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                            <Trigger Property="Tag" Value="compact">
+                                <Setter TargetName="WhatsNewWords" Property="Visibility" Value="Collapsed" />
+                                <Setter TargetName="WhatsNewIcon" Property="Visibility" Value="Visible" />
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Button.Template>
@@ -972,8 +1206,8 @@
                                         <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding Support.HighlightMenu}" Value="True">
-                                                    <Setter Property="Foreground" Value="#FFDD00" />
-                                                    <Setter Property="BorderBrush" Value="#FFDD00" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource SupportBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource SupportBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

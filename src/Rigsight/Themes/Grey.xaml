@@ -43,6 +43,8 @@
     <SolidColorBrush x:Key="CpuBrush" Color="{StaticResource CpuColor}" />
     <SolidColorBrush x:Key="GpuBrush" Color="{StaticResource GpuColor}" />
     <SolidColorBrush x:Key="WarmBrush" Color="{StaticResource WarmColor}" />
+    <!-- Buy Me a Coffee's yellow (the menu's Support RigSight); Light has a deeper one that reads on white -->
+    <SolidColorBrush x:Key="SupportBrush" Color="#FFDD00" />
     <SolidColorBrush x:Key="HotBrush" Color="{StaticResource HotColor}" />
     <SolidColorBrush x:Key="PurpleBrush" Color="{StaticResource PurpleColor}" />
     <SolidColorBrush x:Key="OrangeBrush" Color="{StaticResource OrangeColor}" />

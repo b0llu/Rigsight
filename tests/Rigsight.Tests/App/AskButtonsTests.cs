@@ -114,6 +114,19 @@ public sealed class AskButtonsTests
         Assert.DoesNotContain("Spotify", text);
     }
 
+    // A person kept pressing "Open RivaTuner Statistics Server" and nothing showed (2026-10-27): it starts hidden in the tray.
+    [Theory]
+    [InlineData("RivaTuner Statistics Server")]
+    [InlineData("rivatuner")]
+    [InlineData("RTSS")]
+    public void RivaTuner_opens_the_overlay_page_and_is_never_listed_as_a_tool(string named)
+    {
+        StartApp[] start = [.. More, new("RivaTuner Statistics Server", @"{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}\RivaTuner Statistics Server\RTSS.exe")];
+        var b = Assert.Single(AiActions.Resolve([$"app {named}"], Context() with { StartMenu = () => start }));
+        Assert.Equal((AiActionKind.OpenPage, "Open Overlay", "overlay"), (b.Kind, b.Label, b.Target));
+        Assert.DoesNotContain(OpenableApps.OtherTools(start), s => s.Name.Contains("RivaTuner"));
+    }
+
     [Fact]
     public void A_name_that_fits_two_entries_opens_neither()
     {

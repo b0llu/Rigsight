@@ -179,6 +179,14 @@ public static class Changelog
     [
         // Version and date settled at release. The AI helper on this branch stays hidden (AiPreview) and out of here
         // until it launches.
+        V("0.36.0", 10, 27,
+            added: [Lang.T("After an update, What's new can now wait as a button beside minimise instead of opening by itself; choose which in Settings, About.")],
+            better: [Lang.T("How it runs on a game's page is now one frame-rate chart over a range you pick, with updates marked.")],
+            fixedBugs: [Lang.T("A play that started partway through a minute now counts that minute's frames and stutters too."),
+                Lang.T("A game that froze or crashed as it started, before it counted as a play, now shows in its crashes on Games."),
+                Lang.T("Crash explanations no longer call the PC cool or close to its idle temperature when it was running warm."),
+                Lang.T("Reports now name a crashed app as RigSight does everywhere else, like REMATCH rather than its program file."),
+                Lang.T("Support RigSight in the menu is now easy to read on the Light theme.")]),
         V("0.35.0", 10, 26,
             feature: new(Lang.T("Games, frame by frame"), Lang.T("See how smoothly each game really plays, from every frame RivaTuner draws."),
                 [Lang.T("A chart of every frame in a play, so the stutters stand out from the rest."),

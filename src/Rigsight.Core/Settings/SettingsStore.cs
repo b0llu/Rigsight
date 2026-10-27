@@ -170,6 +170,16 @@ public static class SettingsStore
         // The "record" switch became pausing until resumed (one way to stop tracking, and one way to start it again).
         if (s.Tracking.Enabled == false) s.Tracking.PausedUntil = -1;
         s.Tracking.Enabled = null;
+        // What's new as a title-bar button by default (2026-10-27): the old switch, where a file has it, says whether it was on.
+        if (s.ShowWhatsNew is { } shown) { s.WhatsNewAfter = shown ? WhatsNewAfter.Button : WhatsNewAfter.Off; s.ShowWhatsNew = null; }
+        // Ctrl+K opens the ask box from anywhere by default (2026-10-27), given once to setups that had no shortcut;
+        // one someone set up stays, and one cleared after this stays cleared (Clear marks it given). Settings that
+        // already have a shortcut are left as they are, so the defaults need no repair.
+        if (!s.Ai.ShortcutGiven && string.IsNullOrWhiteSpace(s.Ai.Shortcut))
+        {
+            s.Ai.Shortcut = "Ctrl+K";
+            s.Ai.ShortcutGiven = true;
+        }
         s.SettingsVersion = CurrentVersion;
 
         if (s.Theme is not ("dark" or "grey" or "midnight" or "forest" or "ember" or "light" or "system")) s.Theme = "dark";

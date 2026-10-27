@@ -13,6 +13,8 @@ public sealed record SavedMessage(string Kind, string Text, string? Model = null
     public const string Question = "question", Answer = "answer", Problem = "problem", Stopped = "stopped";
     /// <summary>What a button under an answer did ("Closed Python at 10:42 PM"), and a Check again ("1729615200 10 Fans").</summary>
     public const string Done = "done", Check = "check";
+    /// <summary>The summary of a long chat's older part, where it starts.</summary>
+    public const string Summary = "summary";
 }
 
 public sealed record SavedLookUp(string Tool, string Args, int Chars, IReadOnlyList<WebSource>? Web = null)

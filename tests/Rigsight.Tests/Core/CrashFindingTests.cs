@@ -58,6 +58,17 @@ public sealed class CrashFindingTests
     }
 
     [Fact]
+    public void A_warm_cpu_at_light_load_is_not_called_close_to_idle_or_cool()
+    {
+        // 26 Oct 2026, 11:24 AM on the real PC: CPU 78°, GPU 53° at light load said "close to the 49° and 48° this PC sits at
+        // when idle" and "it was cool".
+        var f = CrashFindings.Judge(Input(ShutOff(), Idle(cpu: 78, gpu: 53) with { LastActive = TimeUtil.ToUnix(At) }) with { Rest = new LoadTemps(49, 48, 3700) });
+        Assert.Contains(f.RuledOut, p => p is { Title: "It wasn't overheating", Detail: "The CPU was at 78° and the GPU at 53°, under your alert limits." });
+        Assert.DoesNotContain("cool", f.Text);
+        Assert.DoesNotContain("cool", f.Line);
+    }
+
+    [Fact]
     public void A_pc_that_is_running_again_within_two_minutes_is_not_called_a_power_cut()
     {
         // Back that fast, it lost power for a moment or reset itself (an unstable processor setting does that at idle).

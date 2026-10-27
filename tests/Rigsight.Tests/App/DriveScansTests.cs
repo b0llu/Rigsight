@@ -61,4 +61,51 @@ public sealed class DriveScansTests
             try { Directory.Delete(folder, true); } catch (IOException) { }
         }
     }
+    // File names in the chat without sending them (2026-10-27): the AI reads "file Q1", the answer's "[file Q1]" shows the
+    // real name from the scan on this PC, and a label with no such file stays plain words.
+    [Fact]
+    public async Task A_files_label_in_an_answer_shows_its_name_from_the_scan_here_and_never_goes_out()
+    {
+        string old = DriveScans.Folder, folder = Path.Combine(Path.GetTempPath(), $"rigsight-scans-{Guid.NewGuid():N}");
+        DriveScans.Folder = folder;
+        Directory.CreateDirectory(folder);
+        string big = Path.Combine(folder, "docker_data.vhdx"), gone = Path.Combine(folder, "old capture.mp4");
+        File.WriteAllText(big, "x");
+        var oldFileOf = Rigsight.Controls.Md.FileOf;
+        try
+        {
+            var root = new FolderNode { Name = "Q:", Path = @"Q:\", Size = 1000, Files = 2 };
+            var result = new ScanResult { Root = root, FileCount = 2, Elapsed = TimeSpan.FromSeconds(1), LargestFiles = [new(big, 900), new(gone, 100)] };
+            var at = new DateTime(2026, 10, 27, 13, 5, 0);
+            await DriveScans.Keep(@"Q:\", result, at);
+            string code = DriveScans.ScanCode(at);
+            string sent = DriveScans.Describe("Q", result, at, at, []);
+            Assert.Contains($"[file Q1 {code}]: 900 B, a .vhdx file", sent);
+            Assert.DoesNotContain("docker_data", sent);
+            Assert.DoesNotContain("old capture", sent);
+
+            Rigsight.Controls.Md.FileOf = DriveScans.FileAt;
+            string written = $"The biggest is [file Q1 {code}], then [file Q2 {code}], [file Q9 {code}] and [file Q1].";
+            var named = Assert.Single(Rigsight.Controls.Md.Parse(written), p => p.File is not null);
+            Assert.Equal("docker_data.vhdx", named.Text);
+            Assert.Equal(("Q", 900L), (named.File!.Drive, named.File.Size));
+            // A deleted file, a number past the list, and a label without its scan's code: plain words.
+            Assert.Equal("The biggest is docker_data.vhdx, then a file no longer there, a file from an older scan and a file.", Rigsight.Controls.Md.Plain(written));
+
+            // Rescanned since the answer: the old labels no longer name anything, rather than naming another file.
+            await DriveScans.Keep(@"Q:\", result, at.AddMinutes(30));
+            Assert.Equal("The biggest is a file from an older scan.", Rigsight.Controls.Md.Plain($"The biggest is [file Q1 {code}]."));
+
+            // The answer keeps the label as the AI wrote it (what goes back to the AI in a follow-up); only drawing names it.
+            var answer = Rigsight.ViewModels.AskViewModel.ToAnswer($"The biggest is [file Q1 {code}], Docker's disk.", []);
+            Assert.Contains(answer.Parts, p => p is Rigsight.ViewModels.AskLine l && l.Text.Contains($"[file Q1 {code}]", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Rigsight.Controls.Md.FileOf = oldFileOf;
+            DriveScans.Folder = old;
+            DriveScans.Clear();
+            try { Directory.Delete(folder, true); } catch (IOException) { }
+        }
+    }
 }

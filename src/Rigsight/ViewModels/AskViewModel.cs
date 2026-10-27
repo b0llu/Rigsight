@@ -57,8 +57,11 @@ public sealed record AskNext(string Text, string? Opens, string? OpensLabel)
     public IReadOnlyList<AskAction> LineActions => [.. Actions.Where(a => a != ScanAction && !a.Action.IsSetup)];
     public bool HasLineActions => LineActions.Count > 0;
     public bool IsLines => !IsCard && Actions.Any(a => !a.Action.IsSetup);
-    /// <summary>The step in words: with no buttons, or with only setup cards (they have their own title, so the step stays said).</summary>
-    public bool IsWords => HasText ? !Actions.Any(a => !a.Action.IsSetup) : !HasActions;
+    /// <summary>
+    /// The step in words, only with no buttons: a widget, overlay or taskbar card is the step itself, and the model's words
+    /// beside it told them to do by hand what the card's button does ("Add the widget from the Widgets page", 2026-10-26).
+    /// </summary>
+    public bool IsWords => !HasActions;
     public string CardTitle => Main?.Label ?? "";
     /// <summary>
     /// One short line under the title, from what RigSight measured ("Holds 3.0 GB with no window open"): the model's step
@@ -440,7 +443,38 @@ public sealed partial class AskConversation : ObservableObject
     public ObservableCollection<AskMessage> Messages { get; } = [];
     /// <summary>What was asked and answered, as sent to the model, so a follow-up question keeps its context.</summary>
     public List<AiTurn> Sent { get; } = [];
+    /// <summary>The summary of the older part of a long chat (RigSight AI only), sent instead of those messages.</summary>
+    public string? Summary { get; set; }
+    /// <summary>How many of <see cref="Sent"/>'s first messages the summary stands for.</summary>
+    public int SummaryCovers { get; set; }
+    /// <summary>A summary being made right now, which a question asked meanwhile waits for.</summary>
+    public Task<string?>? Summarising { get; set; }
     [ObservableProperty] private bool _isCurrent;
+}
+
+/// <summary>
+/// The line in a long chat where its summary starts (the approved mock-up "Long chats and big pastes", 2026-10-26): a
+/// spinner while it's made, then "Earlier messages summarised to keep this chat going", which opens to show what RigSight
+/// AI reads instead of the messages above it. The messages themselves stay on screen as they were.
+/// </summary>
+public sealed record AskSummary : AskMessage, System.ComponentModel.INotifyPropertyChanged
+{
+    public override string ToString() => IsBusy ? Lang.T("Summarising earlier messages…") : Lang.T("Earlier messages summarised to keep this chat going"); // its name for screen readers (and UI automation)
+    private bool _busy = true;
+    public bool IsBusy { get => _busy; set { _busy = value; Changed(nameof(IsBusy), nameof(IsDone)); } }
+    public bool IsDone => !IsBusy;
+    private bool _open;
+    public bool IsOpen { get => _open; set { _open = value; Changed(nameof(IsOpen)); } }
+    private string _text = "";
+    public string Text { get => _text; set { _text = value; Changed(nameof(Text), nameof(Points)); } }
+    /// <summary>How many messages above it the summary stands for.</summary>
+    public int Replaced { get; init; }
+    public string Heading => Lang.T($"What RigSight AI now reads instead of the {Replaced} messages above:");
+    /// <summary>The summary's points, one a line, without their "- ".</summary>
+    public IReadOnlyList<string> Points => [.. Text.Split('\n').Select(l => l.Trim().TrimStart('-', '•', '*').Trim()).Where(l => l.Length > 0).Select(Controls.Md.Plain)];
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    private void Changed(params string[] names) { foreach (var n in names) PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(n)); }
 }
 
 /// <summary>History's conversations under one heading: Today, Yesterday, Earlier.</summary>
@@ -517,11 +551,15 @@ public sealed partial class AskViewModel : ObservableObject
     {
         if (!IsEnabled) IsOpen = false;
         Gate();
+        ShortcutChanged();
         OnPropertyChanged(nameof(IsEnabled));
         OnPropertyChanged(nameof(InTopBar));
         OnPropertyChanged(nameof(InSidebar));
         OnPropertyChanged(nameof(ShowQuestionsLeft));
         OnPropertyChanged(nameof(ShowQuestionsLine));
+        OnPropertyChanged(nameof(ShowUnderBox));
+        OnPropertyChanged(nameof(ShowSeePlansUnder));
+        OnPropertyChanged(nameof(ShowNoteUnder));
         OnPropertyChanged(nameof(IsOutOfQuestions));
         OnPropertyChanged(nameof(ShowOutBox));
         OnPropertyChanged(nameof(ShowOffline));
@@ -613,7 +651,24 @@ public sealed partial class AskViewModel : ObservableObject
     public string? LookingAt => Current?.LookingAt is { } at ? Lang.T($"Looking at {at}") : null;
     public bool HasLookingAt => Current?.LookingAt is not null;
 
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendCommand))] private string _draft = "";
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+    [NotifyPropertyChangedFor(nameof(IsTooLong), nameof(ShowDraftCount), nameof(DraftCount), nameof(ShowUnderBox), nameof(ShowSeePlansUnder), nameof(ShowNoteUnder))] private string _draft = "";
+
+    /// <summary>
+    /// The most a question may hold (2026-10-26, the approved mock-up "Long chats and big pastes"): an Event Viewer entry, a
+    /// crash log or a DxDiag report fits whole. It was 4,000, and a longer paste was cut off without a word.
+    /// </summary>
+    public const int MaxQuestion = 100_000;
+    /// <summary>Past the most: said above the box, and Send greyed out, instead of cutting the text off.</summary>
+    public bool IsTooLong => Draft.Length > MaxQuestion;
+    /// <summary>Near the most (from 80,000): the count under the box, in amber.</summary>
+    public bool ShowDraftCount => Draft.Length >= 80_000;
+    public string DraftCount => Lang.T($"{Draft.Length:N0} of {MaxQuestion:N0} characters");
+    /// <summary>The line under the box: questions left (RigSight AI), or the count near the most.</summary>
+    public bool ShowUnderBox => ShowQuestionsLine || ShowDraftCount;
+    /// <summary>See plans and when questions come back, on the right of the line, unless the count is there.</summary>
+    public bool ShowSeePlansUnder => ShowSeePlans && !ShowDraftCount;
+    public bool ShowNoteUnder => QuestionsNote.Length > 0 && !ShowDraftCount;
 
     /// <summary>
     /// Questions to start a new chat from (approved mock-up 2026-10-24): this PC's own (today's shut-off, this week's
@@ -665,7 +720,7 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>Every PC gets this many free questions to try RigSight AI before buying any.</summary>
     public const int FreeQuestions = 10;
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(QuestionsLeftText), nameof(IsLow), nameof(IsOutOfQuestions), nameof(ShowOutBox), nameof(IsLastQuestion), nameof(OutOffer), nameof(OutText), nameof(QuestionsLine), nameof(QuestionsNote), nameof(ShowSeePlans))] private int _questionsLeft = FreeQuestions;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(QuestionsLeftText), nameof(IsLow), nameof(IsOutOfQuestions), nameof(ShowOutBox), nameof(IsLastQuestion), nameof(OutOffer), nameof(OutText), nameof(QuestionsLine), nameof(QuestionsNote), nameof(ShowSeePlans), nameof(ShowSeePlansUnder), nameof(ShowNoteUnder))] private int _questionsLeft = FreeQuestions;
     partial void OnQuestionsLeftChanged(int value) => SendCommand.NotifyCanExecuteChanged();
     /// <summary>A bought licence is on this PC; without one, the free questions are counted.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(QuestionsLeftText), nameof(QuestionsLine))] private bool _hasLicence;
@@ -874,8 +929,14 @@ public sealed partial class AskViewModel : ObservableObject
     {
         AiMode.OwnKey => Lang.T("Paid with your key."),
         AiMode.Ollama => Lang.T("The first answer can be slow"),
+        // Free answers from the PC's records only (2026-10-27): said plainly, with the plans that check the web.
+        _ when !PlanSearches => Lang.T("It answers from this PC's records."),
         _ => Lang.T("It can also search the web"),
     };
+
+    /// <summary>The plan now checks the web: Free doesn't (the relay's plans say which, 2026-10-27).</summary>
+    private bool PlanSearches => Standing is not { Plan: { } now } standing
+        || (standing.Plans.FirstOrDefault(p => p.Id == now.Id)?.Search ?? !now.IsFree);
     public string FirstMoreText => Ai.Mode switch
     {
         AiMode.OwnKey => PerQuestion?.Invoke() is { } each
@@ -884,15 +945,18 @@ public sealed partial class AskViewModel : ObservableObject
         AiMode.Ollama => Ai.OllamaModel.Length > 0
             ? Lang.T($"while Ollama loads {Ai.OllamaModel}. After that it's quicker.")
             : Lang.T("while Ollama loads the model. After that it's quicker."),
+        _ when !PlanSearches => Lang.T("Essentials and Complete also search the web for your parts, drivers and games."),
         _ => Lang.T("for your parts, drivers and games. A search never includes your name or files."),
     };
 
+    // What's never sent, and what is (2026-10-27: it said file names were never sent, while app and program file names go,
+    // "RiskOfRain2.exe", "UnityPlayer.dll" in a crash, a game's "UserSettings.json"; your own files' names never do).
     public string? FirstNever => Ai.Mode switch
     {
-        AiMode.OwnKey => Lang.T("Your Windows user name and the names or contents of your files are never sent. Folder names and sizes go only for a drive you press Scan for."),
+        AiMode.OwnKey => Lang.T("Your Windows user name and your own files, what they're called and what's in them, are never sent. App and game names are, with their program files' names in a crash record. Folder names and sizes go only for a drive you press Scan for."),
         AiMode.Ollama when OllamaHere => null,
-        AiMode.Ollama => Lang.T("Your Windows user name and the names or contents of your files are never sent. Folder names and sizes go only for a drive you press Scan for."),
-        _ => Lang.T("Your Windows user name, the names or contents of your files and your licence key are never sent. Folder names and sizes go only for a drive you press Scan for."),
+        AiMode.Ollama => Lang.T("Your Windows user name and your own files, what they're called and what's in them, are never sent. App and game names are, with their program files' names in a crash record. Folder names and sizes go only for a drive you press Scan for."),
+        _ => Lang.T("Your Windows user name, your licence key and your own files, what they're called and what's in them, are never sent. App and game names are, with their program files' names in a crash record. Folder names and sizes go only for a drive you press Scan for."),
     };
     /// <summary>
     /// The real count, only once the relay has said it (before Start asking it isn't asked: no usage tracking), never a guess:
@@ -1168,7 +1232,7 @@ public sealed partial class AskViewModel : ObservableObject
     }
 
     // Nothing goes before the first-question window is read: Start asking is the way past it.
-    private bool CanSend() => !string.IsNullOrWhiteSpace(Draft) && !CantAskNow && !ShowFirstQuestion;
+    private bool CanSend() => !string.IsNullOrWhiteSpace(Draft) && !IsTooLong && !CantAskNow && !ShowFirstQuestion;
 
     /// <summary>
     /// A question can't go now: one is being answered, none are left, or the PC is offline. A button that asks (a starter,
@@ -1347,6 +1411,15 @@ public sealed partial class AskViewModel : ObservableObject
                     return;
                 }
             }
+            // A summary of the chat being made right now: the question waits for it (a few seconds), saying so, as it waits
+            // for the plan above; Stop works meanwhile. Not done in time, it goes with the chat as it was.
+            if (Ai.Mode == AiMode.RigSight && talk.Summarising is { IsCompleted: false } making)
+            {
+                talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(Lang.T("Summarising earlier messages…"), Lang.T("Your question goes as soon as it's done."));
+                await Task.WhenAny(making, Task.Delay(TimeSpan.FromSeconds(45), stop.Token));
+                stop.Token.ThrowIfCancellationRequested();
+                talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show("");
+            }
             var lockedFrom = fromPage is null ? null : LockedFor(fromPage);
             if (lockedFrom is not null) aside = aside is null ? LockedAside(lockedFrom) : aside + "\n" + LockedAside(lockedFrom);
             string sent = aside is null ? question : question + "\n\n" + aside;
@@ -1386,6 +1459,7 @@ public sealed partial class AskViewModel : ObservableObject
                 if (at < 0) talk.Messages.Add(answer);
                 // A quiet line under it when something was missing (web search wasn't working).
                 if (reply.Note is { } note) talk.Messages.Add(new AskStopped(note));
+                if (Ai.Mode == AiMode.RigSight) Summarise(talk);
             }
             else
             {
@@ -1422,6 +1496,57 @@ public sealed partial class AskViewModel : ObservableObject
         }
         finally { IsAnswering = false; _answering = null; _questionId = null; longWait.Stop(); Save(); }
     }
+
+    /// <summary>
+    /// After an answer, a chat too long to send whole gets a summary of its older part (RigSight AI only), in the
+    /// background: the line shows where it starts with a spinner, then opens to show it. The latest messages
+    /// (<see cref="AiMemory.KeepRecent"/>) stay out of it. A summary already there is summarised again with the rest. If
+    /// it can't be made, the line goes (or the one before comes back) and the chat is sent as before.
+    /// </summary>
+    private async void Summarise(AskConversation talk)
+    {
+        if (talk.Summarising is { IsCompleted: false } || !AiMemory.Needs(talk.Sent, talk.SummaryCovers, talk.Summary)) return;
+        int keep = AiMemory.Keep(talk.Sent);
+        int upTo = talk.Sent.Count - keep;
+        var turns = talk.Sent.Skip(talk.SummaryCovers).Take(upTo - talk.SummaryCovers).ToList();
+        var before = talk.Messages.OfType<AskSummary>().FirstOrDefault();
+        int beforeAt = before is null ? -1 : talk.Messages.IndexOf(before);
+        if (before is not null) talk.Messages.Remove(before);
+        var line = new AskSummary { Replaced = upTo };
+        talk.Messages.Insert(KeptStart(talk, keep / 2), line);
+        Log.Write("ask", $"Summarising a long chat: {turns.Count} messages{(talk.Summary is null ? "" : " and its summary")}, keeping the latest {talk.Sent.Count - upTo} as they are");
+        var making = Relay.SummariseAsync(turns, talk.Summary);
+        talk.Summarising = making;
+        string? summary;
+        try { summary = await making; }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { Log.Error("ask", ex); summary = null; }
+        if (summary is not null)
+        {
+            (talk.Summary, talk.SummaryCovers) = (summary, upTo);
+            line.Text = summary;
+            line.IsBusy = false;
+            _ = Save();
+        }
+        else
+        {
+            talk.Messages.Remove(line);
+            if (before is not null) talk.Messages.Insert(Math.Clamp(beforeAt, 0, talk.Messages.Count), before);
+        }
+    }
+
+    /// <summary>Where the messages kept as they are begin: the question before the <paramref name="exchanges"/>-th last answer.</summary>
+    private static int KeptStart(AskConversation talk, int exchanges)
+    {
+        var answers = talk.Messages.Select((m, i) => (m, i)).Where(x => x.m is AskAnswer).Select(x => x.i).ToList();
+        if (answers.Count < exchanges) return 0;
+        int at = answers[^exchanges];
+        while (at > 0 && talk.Messages[at] is not AskQuestion) at--;
+        return at;
+    }
+
+    /// <summary>The summary line opens to show the summary, and closes again.</summary>
+    [RelayCommand]
+    private void ToggleSummary(AskSummary? line) { if (line is not null) line.IsOpen = !line.IsOpen; }
 
     /// <summary>Copy under an answer: its words as plain text, without the markers or RigSight's cards.</summary>
     [RelayCommand]
@@ -1709,7 +1834,7 @@ public sealed partial class AskViewModel : ObservableObject
         Tools();
         try
         {
-            return await Relay.AskAsync([.. talk.Sent], question, _tools!,
+            return await Relay.AskAsync([.. AiMemory.History(talk.Sent, talk.SummaryCovers, talk.Summary)], question, _tools!,
                 step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct, asking: id => _questionId = id);
         }
         finally { _ = RefreshQuestionsAsync(); }
@@ -1795,13 +1920,13 @@ public sealed partial class AskViewModel : ObservableObject
         HasLicence = status.HasLicence && status.LicenceStatus == "active";
         // A relay with plans counts this week's free ones or today's; an older one, what's left in all.
         QuestionsLeft = status.Plan?.AllLeft ?? status.QuestionsLeft;
-        foreach (var name in new[] { nameof(QuestionsLeftText), nameof(IsLow), nameof(QuestionsLine), nameof(QuestionsNote), nameof(ShowSeePlans), nameof(IsOutOfQuestions), nameof(ShowOutBox) })
+        foreach (var name in new[] { nameof(QuestionsLeftText), nameof(IsLow), nameof(QuestionsLine), nameof(QuestionsNote), nameof(ShowSeePlans), nameof(ShowSeePlansUnder), nameof(ShowNoteUnder), nameof(IsOutOfQuestions), nameof(ShowOutBox) })
             OnPropertyChanged(name);
         SendCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>The relay's latest word on this PC's questions and licence; null until it answers.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(LicenceOff), nameof(OutTitle), nameof(OutText), nameof(QuestionsLeftText), nameof(QuestionsLine), nameof(QuestionsNote), nameof(ShowSeePlans), nameof(IsLastQuestion), nameof(LastQuestionTitle), nameof(LastQuestionText), nameof(FirstExtra))] private RelayStatus? _standing;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(LicenceOff), nameof(OutTitle), nameof(OutText), nameof(QuestionsLeftText), nameof(QuestionsLine), nameof(QuestionsNote), nameof(ShowSeePlans), nameof(ShowSeePlansUnder), nameof(ShowNoteUnder), nameof(IsLastQuestion), nameof(LastQuestionTitle), nameof(LastQuestionText), nameof(FirstExtra))] private RelayStatus? _standing;
 
     /// <summary>
     /// The plan known (or changed): a new chat's starters are read again for its pages. Until the relay answers, Free's
@@ -2111,6 +2236,14 @@ public sealed partial class AskViewModel : ObservableObject
         foreach (var pair in saved.Zip(saved.Skip(1)))
             if (pair.First.Kind == SavedMessage.Question && pair.Second.Kind == SavedMessage.Answer)
                 talk.Sent.AddRange([new AiTurn(true, pair.First.Text), new AiTurn(false, pair.Second.Text, pair.Second.LookUps?.Select(l => l.ToLookUp()).ToList())]);
+        // Its summary, if it has one: it stands for the questions and answers before it.
+        int pairsBefore = 0, covers = 0;
+        for (int i = 0; i < saved.Count; i++)
+        {
+            if (i > 0 && saved[i - 1].Kind == SavedMessage.Question && saved[i].Kind == SavedMessage.Answer) pairsBefore++;
+            if (saved[i].Kind == SavedMessage.Summary) { covers = Math.Min(2 * pairsBefore, talk.Sent.Count); talk.Summary = saved[i].Text; }
+        }
+        talk.SummaryCovers = talk.Summary is null ? 0 : covers;
         Tools();
         var tools = _tools;
         var canRead = CanReadNow();
@@ -2129,6 +2262,7 @@ public sealed partial class AskViewModel : ObservableObject
                         case SavedMessage.Problem: list.Add(new AskProblem(m.Text)); break;
                         case SavedMessage.Stopped: list.Add(new AskStopped(m.Text)); break;
                         case SavedMessage.Done: list.Add(new AskDone(m.Text)); break;
+                        case SavedMessage.Summary: list.Add(new AskSummary { Text = m.Text, IsBusy = false, Replaced = covers }); break;
                         case SavedMessage.Check when AskCheck.FromSaved(m.Text) is { } check: list.Add(check); break;
                         case SavedMessage.Answer:
                             var looks = (m.LookUps ?? []).Select(l => l.ToLookUp()).ToList();
@@ -2197,6 +2331,7 @@ public sealed partial class AskViewModel : ObservableObject
             AskStoppedAnswer x => new SavedMessage(SavedMessage.Stopped, x.Text),
             AskDone d => new SavedMessage(SavedMessage.Done, d.Text),
             AskCheck k => new SavedMessage(SavedMessage.Check, k.Saved),
+            AskSummary { IsDone: true } y => new SavedMessage(SavedMessage.Summary, y.Text),
             _ => null,
         }).OfType<SavedMessage>()]);
 

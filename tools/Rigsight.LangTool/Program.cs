@@ -77,8 +77,12 @@ switch (command)
             Console.WriteLine($"DOESN'T FIT  {key}    [{Where(key)}]");
         foreach (var key in missing)
             Console.WriteLine($"NOT DONE     {key}    [{Where(key)}]");
-        Console.WriteLine($"{pack.Name}: {scan.Texts.Count} texts, {missing.Count} not translated, {pack.Dropped.Count} that don't fit.");
-        return missing.Count + pack.Dropped.Count == 0 ? 0 : 1;
+        // A text in the pack twice: "release" (and so the installer) can't make the pack from it (2026-10-27).
+        var twice = Twice(args[1]);
+        foreach (var key in twice)
+            Console.WriteLine($"TWICE        {key}");
+        Console.WriteLine($"{pack.Name}: {scan.Texts.Count} texts, {missing.Count} not translated, {pack.Dropped.Count} that don't fit{(twice.Count > 0 ? $", {twice.Count} in it twice" : "")}.");
+        return missing.Count + pack.Dropped.Count + twice.Count == 0 ? 0 : 1;
     }
 
     case "release" when args.Length == 4:
@@ -111,6 +115,14 @@ string Where(string key) =>
 
 static string? ReleaseVersion(string v) =>
     Version.TryParse(v.TrimStart('v'), out var parsed) ? parsed.ToString(3) : null;
+
+/// <summary>The texts that are in a pack's strings more than once.</summary>
+static List<string> Twice(string path)
+{
+    using var doc = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
+    if (!doc.RootElement.TryGetProperty("strings", out var strings)) return [];
+    return [.. strings.EnumerateObject().GroupBy(p => p.Name).Where(g => g.Count() > 1).Select(g => g.Key)];
+}
 
 static JsonObject ReadPack(string path)
 {

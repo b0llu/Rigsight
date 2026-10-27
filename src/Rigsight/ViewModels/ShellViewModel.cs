@@ -102,6 +102,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Ask = new AskViewModel(Settings, Core.Ai.AiConversations.File)
         {
             OpenSettings = () => { SettingsPage.Tab = "ai"; CurrentPage = "settings"; }, OpenPage = page => CurrentPage = page,
+            OpenShortcutSetting = () => { SettingsPage.Tab = "ai"; CurrentPage = "settings"; },
             // Today's lines, and yesterday's while the recap shows a day: what the new chat's starters are drawn from.
             Lines = () => Home.Today is null && Home.Recap is null ? null
                 : new Core.Ai.StarterLines(Home.Today?.Insights ?? [], Home.Recap is { Range: Core.Reports.ReportRange.Day } recap ? recap.Insights : []),
@@ -110,6 +111,9 @@ public sealed partial class ShellViewModel : ObservableObject
         Crashes.Ask = Ask;
         // An answer's buttons: a page at the right spot, the agent started, the problem report copied, a closed app on the Timeline.
         Ask.OpenPageAt = OpenPageFromAnswer;
+        // A drive scan's file named in an answer by its label: shown from the scan on this PC, its chip opening Storage.
+        Controls.Md.FileOf = Services.DriveScans.FileAt;
+        Controls.Md.OpenDrive = letter => OpenPageFromAnswer("storage", letter);
         Ask.StartAgent = () => StartAgentCommand.Execute(null);
         Ask.CopyReport = () => SettingsPage.CopyProblemReportCommand.Execute(null);
         Ask.SendAgent = (cmd, arg) => _client.SendCommand(cmd, arg);
@@ -750,11 +754,14 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public void Navigate(string? page, string? arg)
     {
-        // The Ask shortcut (the agent's): the window in front with Ask open, while the AI is on.
+        // The Ask shortcut (the agent's): the window in front, and the title bar's ask box open to type in (2026-10-27);
+        // Ask opened instead when its button is in the sidebar.
         if (page == "ask")
         {
-            if (Ask.IsEnabled) Ask.IsOpen = true;
             ActivateRequested?.Invoke();
+            if (!Ask.IsEnabled) return;
+            if (Ask.InTopBar) Ask.RequestBar();
+            else Ask.IsOpen = true;
             return;
         }
         if (!string.IsNullOrEmpty(page))

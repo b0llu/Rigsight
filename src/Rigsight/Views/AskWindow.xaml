@@ -672,8 +672,8 @@
                                            Visibility="{Binding ClosingWaits, Converter={StaticResource Vis}}" />
                             </StackPanel>
                             <DockPanel Margin="2,6,0,6" Visibility="{Binding IsSaid, Converter={StaticResource Vis}}">
-                                <TextBlock x:Name="Mark" DockPanel.Dock="Left" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}"
-                                           LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,7,0" />
+                                <ctl:InkCentered x:Name="Mark" DockPanel.Dock="Left" Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource GoodBrush}"
+                                           Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,7,-1" />
                                 <TextBlock Text="{Binding Said}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" MaxWidth="380" LineHeight="18" />
                             </DockPanel>
                         </Grid>
@@ -692,12 +692,12 @@
                             </MultiDataTrigger>
                             <DataTrigger Binding="{Binding IsFailed}" Value="True">
                                 <Setter TargetName="Mark" Property="Text" Value="&#xE7BA;" />
-                                <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                <Setter TargetName="Mark" Property="Fill" Value="{DynamicResource WarmBrush}" />
                             </DataTrigger>
                             <!-- "Checks at 9:51 PM" still to come: a clock, not a done tick (it read as done, 2026-10-24 audit). -->
                             <DataTrigger Binding="{Binding Pending}" Value="True">
                                 <Setter TargetName="Mark" Property="Text" Value="&#xE916;" />
-                                <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                <Setter TargetName="Mark" Property="Fill" Value="{DynamicResource MutedBrush}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding IsWorking}" Value="True">
                                 <DataTrigger.EnterActions>
@@ -759,8 +759,8 @@
                     </Button.Template>
                 </Button>
                 <DockPanel Margin="2,6,0,6" Visibility="{Binding IsSaid, Converter={StaticResource Vis}}">
-                    <TextBlock x:Name="Mark" DockPanel.Dock="Left" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}"
-                               LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,7,0" />
+                    <ctl:InkCentered x:Name="Mark" DockPanel.Dock="Left" Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource GoodBrush}"
+                               Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,7,-1" />
                     <!-- It didn't work: Try again where trying again can help (a Windows screen or an app that didn't open). -->
                     <Button x:Name="Again" DockPanel.Dock="Right" Style="{StaticResource PlainLink}" Content="{ctl:T 'Try again'}" Visibility="Collapsed" Margin="10,-6,0,-6"
                             AutomationProperties.Name="{ctl:T 'Try again'}" VerticalAlignment="Top"
@@ -771,7 +771,7 @@
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsFailed}" Value="True">
                     <Setter TargetName="Mark" Property="Text" Value="&#xE7BA;" />
-                    <Setter TargetName="Mark" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                    <Setter TargetName="Mark" Property="Fill" Value="{DynamicResource WarmBrush}" />
                 </DataTrigger>
                 <MultiDataTrigger>
                     <MultiDataTrigger.Conditions><Condition Binding="{Binding IsFailed}" Value="True" /><Condition Binding="{Binding CanRetry}" Value="True" /></MultiDataTrigger.Conditions>
@@ -934,7 +934,7 @@
                     </ItemsControl>
                     <!-- Only before the press: once done, "Adding turns the overlay on" or "Nothing is shown there yet" would no longer be
                          true; Undo brings the card back to ready with the note worked out again. -->
-                    <TextBlock Text="{Binding Setup.Where}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,0"
+                    <TextBlock x:Name="Where" Text="{Binding Setup.Where}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,0"
                                Visibility="{Binding IsDone, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     <Grid Margin="0,11,0,0">
                         <!-- Ready: the main button, and Customize or Open Taskbar. -->
@@ -953,8 +953,8 @@
                         <DockPanel x:Name="AllOn" Visibility="Collapsed">
                             <Button DockPanel.Dock="Right" Style="{StaticResource LinkAction}" Content="{Binding Setup.OpenLabel}" AutomationProperties.Name="{Binding Setup.OpenLabel}" Margin="10,-6,0,-6"
                                     Command="{Binding DataContext.OpenSetupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
-                            <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}"
-                                       LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,7,0" />
+                            <ctl:InkCentered Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource GoodBrush}"
+                                       Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,7,-1" />
                             <TextBlock Text="{Binding Setup.AllOnText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
                         </DockPanel>
                         <!-- Done: what it did, Undo and the page. -->
@@ -963,14 +963,14 @@
                                     Command="{Binding DataContext.OpenSetupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
                             <Button DockPanel.Dock="Right" Style="{StaticResource PlainLink}" Content="{ctl:T 'Undo'}" AutomationProperties.Name="{ctl:T 'Undo'}" Margin="10,-6,0,-6"
                                     Command="{Binding DataContext.UndoSetupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
-                            <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}"
-                                       LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,7,0" />
+                            <ctl:InkCentered Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource GoodBrush}"
+                                       Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,7,-1" />
                             <TextBlock Text="{Binding Setup.DoneText}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" TextWrapping="Wrap" LineHeight="18" />
                         </DockPanel>
                         <!-- Couldn't (a widget past the most there can be). -->
                         <DockPanel Visibility="{Binding IsFailed, Converter={StaticResource Vis}}">
-                            <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource WarmBrush}"
-                                       LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,7,0" />
+                            <ctl:InkCentered Text="&#xE7BA;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource WarmBrush}"
+                                       Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,7,-1" />
                             <TextBlock Text="{Binding Said}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
                         </DockPanel>
                     </Grid>
@@ -985,6 +985,10 @@
                     <MultiDataTrigger.Conditions><Condition Binding="{Binding IsReady}" Value="True" /><Condition Binding="{Binding Setup.AllOn}" Value="True" /></MultiDataTrigger.Conditions>
                     <Setter TargetName="AllOn" Property="Visibility" Value="Visible" />
                 </MultiDataTrigger>
+                <!-- Nothing to say (a widget of theirs already on: the line under the chips says so). -->
+                <DataTrigger Binding="{Binding Setup.Where}" Value="">
+                    <Setter TargetName="Where" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
 
@@ -1045,11 +1049,75 @@
             </StackPanel>
         </DataTemplate>
 
+        <!-- Where a long chat's summary starts (the approved mock-up "Long chats and big pastes", 2026-10-26): a hairline each
+             side of one quiet line, the spinner while it's made, then a line that opens to show what RigSight AI reads instead. -->
+        <DataTemplate DataType="{x:Type vm:AskSummary}">
+            <StackPanel Margin="0,0,0,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Border Height="1" Background="{DynamicResource StrokeBrush}" VerticalAlignment="Center" />
+                    <Border Grid.Column="2" Height="1" Background="{DynamicResource StrokeBrush}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,4" Visibility="{Binding IsBusy, Converter={StaticResource Vis}}"
+                                AutomationProperties.Name="{ctl:T 'Summarising earlier messages…'}">
+                        <ctl:Spinner Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="{ctl:T 'Summarising earlier messages…'}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Margin="4,0" Cursor="Hand" FocusVisualStyle="{x:Null}" Visibility="{Binding IsDone, Converter={StaticResource Vis}}"
+                            AutomationProperties.Name="{ctl:T 'Earlier messages summarised to keep this chat going'}"
+                            Command="{Binding DataContext.ToggleSummaryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bd" CornerRadius="6" Background="Transparent" Padding="6,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="Words" Text="{ctl:T 'Earlier messages summarised to keep this chat going'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                        <ctl:InkCentered x:Name="Chevron" Text="&#xE70D;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="9" Fill="{DynamicResource FaintBrush}"
+                                                         Width="10" Height="16" Margin="6,0,0,0" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                            <ctl:InkCentered.RenderTransform><RotateTransform /></ctl:InkCentered.RenderTransform>
+                                        </ctl:InkCentered>
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                        <Setter TargetName="Words" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                        <Setter TargetName="Chevron" Property="Fill" Value="{DynamicResource TextBrush}" />
+                                    </Trigger>
+                                    <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                        <Setter TargetName="Chevron" Property="RenderTransform"><Setter.Value><RotateTransform Angle="180" /></Setter.Value></Setter>
+                                    </DataTrigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+                <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                  Padding="12,10" Margin="0,8,0,0" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Heading}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="19" />
+                        <ItemsControl ItemsSource="{Binding Points}" Focusable="False" Margin="0,6,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,0,0,4">
+                                        <TextBlock DockPanel.Dock="Left" Text="•" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" LineHeight="19" Margin="2,0,8,0" />
+                                        <TextBlock Text="{Binding}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="19" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+            </StackPanel>
+        </DataTemplate>
+
         <!-- What a button did, kept in the conversation. -->
         <DataTemplate DataType="{x:Type vm:AskDone}">
             <DockPanel Margin="0,0,0,12" Visibility="{Binding Live, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                <TextBlock DockPanel.Dock="Left" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}"
-                           LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,8,0" />
+                <ctl:InkCentered DockPanel.Dock="Left" Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource GoodBrush}"
+                           Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,8,-1" />
                 <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
             </DockPanel>
         </DataTemplate>
@@ -1059,8 +1127,8 @@
             <ctl:SmoothBorder Style="{StaticResource AnswerCard}">
                 <StackPanel>
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Left" Text="&#xE916;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource AccentBrush}"
-                                   LineStackingStrategy="BlockLineHeight" LineHeight="18" Height="18" VerticalAlignment="Top" Margin="0,0,10,0" />
+                        <ctl:InkCentered DockPanel.Dock="Left" Text="&#xE916;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Fill="{DynamicResource AccentBrush}"
+                                   Width="14" Height="19" VerticalAlignment="Top" Margin="0,0,10,-1" />
                         <StackPanel>
                             <TextBlock Text="{Binding Heading}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" LineHeight="18" />
                             <TextBlock Text="{Binding SubLine}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
@@ -1642,9 +1710,12 @@
 
         <!-- The panel's shadow on an empty box of its own behind it: an effect on the panel itself drew every word of the
              chat without ClearType (greyscale, thinner and softer than the rest of the app). -->
-        <Border HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" IsHitTestVisible="False"
+        <!-- Kept as a picture (BitmapCache): the 40 px blur was worked out again on every frame of a drag, the heaviest part of
+             moving the window (2026-10-27, "the drag feels laggy"). It holds no text, so nothing loses ClearType. -->
+        <Border x:Name="Shade" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" IsHitTestVisible="False"
                 Width="{Binding Width, ElementName=Panel}" Height="{Binding Height, ElementName=Panel}" Margin="{Binding Margin, ElementName=Panel}"
                 Visibility="{Binding Visibility, ElementName=Panel}">
+            <Border.CacheMode><BitmapCache /></Border.CacheMode>
             <Border.Effect>
                 <DropShadowEffect BlurRadius="40" ShadowDepth="10" Opacity="0.55" Color="Black" />
             </Border.Effect>
@@ -1663,20 +1734,10 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Wide: the conversations as a column from top to bottom beside the chat. -->
-                <Border Grid.RowSpan="3" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0"
-                        Visibility="{Binding ShowHistoryColumn, Converter={StaticResource Vis}}">
-                    <!-- Built only while shown: a hidden copy kept its own ⋯ menus, which opened beside it with the shown one's. -->
-                    <ContentControl ContentTemplate="{StaticResource Sidebar}" Focusable="False" IsTabStop="False">
-                        <ContentControl.Style>
-                            <Style TargetType="ContentControl">
-                                <Setter Property="Content" Value="{x:Null}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ShowHistoryColumn}" Value="True"><Setter Property="Content" Value="{Binding}" /></DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ContentControl.Style>
-                    </ContentControl>
-                </Border>
+                <!-- Hidden, not collapsed, while not shown: the column is 0 wide then, and its conversations are already built when
+                     it opens (2026-10-27: building 46 rows as a pull crossed 720 px held the pull for 300-400 ms). The one list
+                     (AskWindow.Sidebar) sits here or over the chat, never in both: two copies opened each ⋯ menu twice. -->
+                <Border x:Name="ColumnHost" Grid.RowSpan="3" Width="260" HorizontalAlignment="Left" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0" Visibility="Hidden" />
 
                 <!-- The conversation, or where to start on a new one. -->
                 <Grid Grid.Column="1">
@@ -1972,6 +2033,10 @@
                                        Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
                         </DockPanel>
                     </ctl:SmoothBorder>
+                    <!-- Past the most a question holds: said here, Send greyed out (the approved mock-up "Long chats and big pastes"). -->
+                    <TextBlock Text="{ctl:T 'That\'s more than RigSight AI can read at once (100,000 characters). Remove some, or paste only the part about the problem.'}"
+                               FontSize="12" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" LineHeight="17" Margin="2,0,2,8"
+                               Visibility="{Binding IsTooLong, Converter={StaticResource Vis}}" AutomationProperties.LiveSetting="Polite" />
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Style="{StaticResource SendButton}" Margin="8,0,0,0" VerticalAlignment="Bottom"
                                 Command="{Binding SendCommand}" ToolTip="{ctl:T 'Send'}" AutomationProperties.Name="{ctl:T 'Send'}"
@@ -1981,19 +2046,23 @@
                                 Command="{Binding StopCommand}" ToolTip="{ctl:T 'Stop'}" AutomationProperties.Name="{ctl:T 'Stop'}"
                                 Visibility="{Binding IsAnswering, Converter={StaticResource Vis}}" />
                         <TextBox x:Name="Question" Style="{StaticResource ComposeBox}" Tag="{ctl:T 'Ask about your PC…'}" AutomationProperties.Name="{ctl:T 'Ask about your PC'}"
-                                 Text="{Binding Draft, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" MinHeight="38" MaxLength="4000"
+                                 Text="{Binding Draft, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" MinHeight="38"
                                  VerticalScrollBarVisibility="Auto" PreviewKeyDown="Question_KeyDown" />
                     </DockPanel>
                     <!-- Questions left, always in view with RigSight AI (board 6, 2026-10-26): the count on the left (amber when few
                          are left), when they come back or See plans on the right. -->
-                    <DockPanel Margin="2,7,2,0" Visibility="{Binding ShowQuestionsLine, Converter={StaticResource Vis}}">
+                    <DockPanel Margin="2,7,2,0" Visibility="{Binding ShowUnderBox, Converter={StaticResource Vis}}">
+                        <!-- Near the most a question holds, the count takes the right side (amber), where the questions' note goes. -->
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding DraftCount}" FontSize="11.5" Foreground="{DynamicResource WarmBrush}" Margin="12,0,0,0"
+                                   VerticalAlignment="Center" Visibility="{Binding ShowDraftCount, Converter={StaticResource Vis}}" />
                         <Button DockPanel.Dock="Right" Style="{StaticResource PlainLink}" Margin="12,-6,0,-6" AutomationProperties.Name="{ctl:T 'See plans'}"
-                                Command="{Binding SeePlansCommand}" Visibility="{Binding ShowSeePlans, Converter={StaticResource Vis}}">
+                                Command="{Binding SeePlansCommand}" Visibility="{Binding ShowSeePlansUnder, Converter={StaticResource Vis}}">
                             <TextBlock Text="{ctl:T 'See plans'}" FontSize="11.5" TextDecorations="Underline" />
                         </Button>
                         <TextBlock DockPanel.Dock="Right" Text="{Binding QuestionsNote}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0"
-                                   VerticalAlignment="Center" Visibility="{Binding QuestionsNote, Converter={StaticResource Vis}}" />
-                        <TextBlock x:Name="QuestionsLineText" Text="{Binding QuestionsLine}" FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                   VerticalAlignment="Center" Visibility="{Binding ShowNoteUnder, Converter={StaticResource Vis}}" />
+                        <TextBlock x:Name="QuestionsLineText" Text="{Binding QuestionsLine}" FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   Visibility="{Binding ShowQuestionsLine, Converter={StaticResource Vis}}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
@@ -2014,19 +2083,7 @@
                     <Border Width="290" HorizontalAlignment="Left" Background="{DynamicResource SurfaceBrush}" CornerRadius="14,0,0,14" IsHitTestVisible="False">
                         <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="0" Opacity="0.45" Color="Black" /></Border.Effect>
                     </Border>
-                    <Border Width="290" HorizontalAlignment="Left" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0" CornerRadius="14,0,0,14">
-                        <!-- Built only while shown: a hidden copy kept its own ⋯ menus, which opened beside it with the shown one's. -->
-                    <ContentControl ContentTemplate="{StaticResource Sidebar}" Focusable="False" IsTabStop="False" FocusVisualStyle="{x:Null}">
-                        <ContentControl.Style>
-                            <Style TargetType="ContentControl">
-                                <Setter Property="Content" Value="{x:Null}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ShowHistoryOver}" Value="True"><Setter Property="Content" Value="{Binding}" /></DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ContentControl.Style>
-                    </ContentControl>
-                    </Border>
+                    <Border x:Name="OverHost" Width="290" HorizontalAlignment="Left" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0" CornerRadius="14,0,0,14" />
                 </Grid>
                 <!-- The edges it resizes from: top and left while stuck (it grows up and to the left), bottom and right popped out. -->
                 <Thumb x:Name="TopEdge" Grid.RowSpan="3" Grid.ColumnSpan="2" Height="6" VerticalAlignment="Top" Cursor="SizeNS" DragStarted="Edge_Start" DragDelta="Edge_Drag" DragCompleted="Edge_End" Opacity="0" />

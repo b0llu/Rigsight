@@ -66,6 +66,7 @@ public static class AiActions
     {
         ["crashes"] = Lang.Key("Crashes"), ["timeline"] = Lang.Key("Timeline"), ["games"] = Lang.Key("Games"), ["reports"] = Lang.Key("Reports"), ["temperatures"] = Lang.Key("Temperatures"),
         ["fans"] = Lang.Key("Fans"), ["memory"] = Lang.Key("Memory"), ["storage"] = Lang.Key("Storage"), ["network"] = Lang.Key("Network"), ["processes"] = Lang.Key("Processes"),
+        ["overlay"] = Lang.Key("Overlay"),
     };
 
     /// <summary>The Windows screens a button can open: only screens, never a change.</summary>
@@ -102,6 +103,8 @@ public static class AiActions
         }
         return actions;
     }
+
+    private static readonly Regex RivaTunerName = new(@"\b(riva\s*tuner|rtss)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static (AiAction? Action, string Why) One(string marker, AiActionContext c)
     {
@@ -161,6 +164,9 @@ public static class AiActions
                 // on this PC it opens, otherwise its maker's download page (when it has one).
                 var parts = rest.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 if (parts.Length == 0) return (null, "no app named");
+                // RivaTuner starts hidden in the tray, so opening it showed nothing (a person kept pressing "Open RivaTuner
+                // Statistics Server", 2026-10-27); the Overlay page starts or installs it and says whether it runs.
+                if (RivaTunerName.IsMatch(rest)) return One("open overlay", c);
                 if (OpenableApps.Get(parts[0]) is not { } app)
                 {
                     // Any other tool, by its name on this PC's Start menu (the person's call, 2026-10-25); never downloaded.

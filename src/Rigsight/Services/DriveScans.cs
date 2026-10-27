@@ -164,14 +164,19 @@ public static class DriveScans
                 if (inner.Size >= r.Root.Size / 50) sb.AppendLine($"    {Shown(inner.Path)}: {Units.Bytes(inner.Size)}");
         }
 
-        var files = r.LargestFiles.OrderByDescending(f => f.Size).Take(8).ToList();
+        // By label (approved mock-up "File names in the chat, without sending them", 2026-10-27): the names stay on this PC,
+        // and RigSight shows them where the answer writes the label (see FileAt and Controls.Md).
+        // Each label carries this scan's code, so an answer read after a rescan never shows another file's name (2026-10-27).
+        var files = Biggest(r);
         if (files.Count > 0)
         {
-            sb.AppendLine("Biggest files (by kind and folder; their names aren't sent):");
-            foreach (var f in files)
+            string code = ScanCode(at);
+            sb.AppendLine($"Biggest files (their names stay on this PC: to name one, write its whole label exactly as shown, square brackets and all, and RigSight shows its name there; never guess a name):");
+            for (int i = 0; i < files.Count; i++)
             {
+                var f = files[i];
                 string kind = Path.GetExtension(f.Path) is { Length: > 1 } ext ? ext.ToLowerInvariant() + " file" : "file with no extension";
-                sb.AppendLine($"  {Units.Bytes(f.Size)}: a {kind} in {Shown(f.Folder)}");
+                sb.AppendLine($"  [file {letter}{i + 1} {code}]: {Units.Bytes(f.Size)}, a {kind} in {Shown(f.Folder)}");
             }
         }
 
@@ -188,6 +193,41 @@ public static class DriveScans
     }
 
     private static string Share(long part, long whole) => whole > 0 ? $"{100.0 * part / whole:0}%" : "";
+
+    /// <summary>
+    /// A scan's short code in its files' labels ("k3x"): from when it finished, to the minute, so a label from an earlier
+    /// scan of the same drive doesn't match the scan kept now.
+    /// </summary>
+    internal static string ScanCode(DateTime at)
+    {
+        const string digits = "0123456789abcdefghijklmnopqrstuvwxyz";
+        long n = (long)(at - DateTime.UnixEpoch).TotalMinutes % (36 * 36 * 36);
+        if (n < 0) n += 36 * 36 * 36;
+        return new string([digits[(int)(n / 1296)], digits[(int)(n / 36 % 36)], digits[(int)(n % 36)]]);
+    }
+
+    /// <summary>The biggest files in the order the AI reads them: "file C1" is the first.</summary>
+    private static List<LargeFile> Biggest(ScanResult r) => [.. r.LargestFiles.OrderByDescending(f => f.Size).Take(8)];
+
+    /// <summary>
+    /// A file an answer names by its label ("[file C1 k3x]"), from the scan kept on this PC: its name, where it is and how
+    /// big, for showing only (it never goes back to the AI). Null when there's no such file, or the label is from another
+    /// scan than the one kept now (rescanned since the answer).
+    /// </summary>
+    public static (string Name, string Path, string Folder, long Size)? FileAt(string letter, int n, string code)
+    {
+        LoadSaved();
+        ScanResult result;
+        lock (Gate)
+        {
+            if (!Last.TryGetValue(letter.ToUpperInvariant(), out var scan) || ScanCode(scan.At) != code) return null;
+            result = scan.Result;
+        }
+        var files = Biggest(result);
+        if (n < 1 || n > files.Count) return null;
+        var f = files[n - 1];
+        return (f.Name, f.Path, Shown(f.Folder), f.Size);
+    }
 
     /// <summary>A path as sent: the person's own folder as "your user folder", their user name nowhere.</summary>
     internal static string Shown(string path, string? bucket = null)

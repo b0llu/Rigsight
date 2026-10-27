@@ -93,6 +93,13 @@ public static class OwnKey
     /// <summary>A look-up loop stops here, as Ollama's does.</summary>
     public const int MaxRounds = 8;
 
+    /// <summary>
+    /// Told on the last round, when no more look-ups are allowed: an answer from what was found instead of "kept asking
+    /// for records" (the person's call, 2026-10-27), saying what it would still check, as the first Ask next question.
+    /// The relay tells RigSight AI the same.
+    /// </summary>
+    public const string LastRound = "This is your last step for this question: you can't look anything else up now. Write the full answer from what you've already found. If there is something you'd still want to look at, add one plain sentence just before the Next step line saying what you can check next (for example \"I can also look at your fan speeds during those shut-offs.\"), and make that the first Ask next question, worded as their question (\"Check my fan speeds during those shut-offs\").";
+
     /// <summary>Models answered and judged in RigSight's own model test, shown first in the list.</summary>
     public static readonly IReadOnlySet<string> Tested = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -194,13 +201,17 @@ public static class OwnKey
         step?.Invoke(new AiStep(""));
         for (int round = 0; round < MaxRounds; round++)
         {
+            bool last = round == MaxRounds - 1;
+            var sending = (JsonArray)JsonNode.Parse(messages.ToJsonString())!;
+            if (last) sending.Add(new JsonObject { ["role"] = "system", ["content"] = LastRound });
             var body = new JsonObject
             {
                 ["model"] = model,
-                ["messages"] = JsonNode.Parse(messages.ToJsonString()),
+                ["messages"] = sending,
                 ["tools"] = JsonNode.Parse(definitions.ToJsonString()),
                 ["stream"] = true,
             };
+            if (last) body["tool_choice"] = "none";
             // OpenRouter: room for thinking first, and only providers that don't keep what is sent.
             if (IsOpenRouter(root))
             {
@@ -316,7 +327,8 @@ public static class OwnKey
     /// Reads a streamed reply (server-sent events, "data: {...}" lines ending with "data: [DONE]"), handing on the words so
     /// far as they come and putting each look-up back together from its pieces (they arrive by index, the arguments in parts).
     /// </summary>
-    internal static async Task<Streamed> ReadStreamAsync(HttpResponseMessage res, Action<string?>? writing, CancellationToken ct, TimeSpan? quiet = null)
+    /// <param name="relayStep">The relay's own word on what it's doing ("writing": thinking ran out, so it asks again without), never the model's.</param>
+    internal static async Task<Streamed> ReadStreamAsync(HttpResponseMessage res, Action<string?>? writing, CancellationToken ct, TimeSpan? quiet = null, Action<string>? relayStep = null)
     {
         var text = new StringBuilder();
         var calls = new SortedDictionary<int, (string Id, string Name, StringBuilder Args)>();
@@ -349,6 +361,7 @@ public static class OwnKey
             try { chunk = JsonNode.Parse(data); } catch (JsonException) { continue; }
             if (chunk is not JsonObject) continue;
             if (chunk["error"] is { } err) return new(text.ToString(), [], finish, tokensIn, tokensOut, Str(err["message"]) ?? err.ToJsonString(), first);
+            if (Str(chunk["rigsight"]?["step"]) is { Length: > 0 } said) { relayStep?.Invoke(said); continue; }
             if (chunk["usage"] is JsonObject usage)
             {
                 tokensIn = Num(usage["prompt_tokens"]) ?? tokensIn;

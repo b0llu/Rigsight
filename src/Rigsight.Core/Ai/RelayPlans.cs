@@ -47,6 +47,8 @@ public sealed record RelayPlan(string Id, string Name, string Source, string Sta
 /// <summary>A plan to choose from: its price, questions, the pages it opens and the checkout link (carrying this PC's id).</summary>
 public sealed record RelayPlanOffer(string Id, string Name, string Price, int PriceCents, int Cap, string Period, IReadOnlyList<string> Pages, string Url)
 {
+    /// <summary>Its answers check the web (the relay's "search", 2026-10-27: Essentials and Complete, not Free; an older relay gave it to every plan).</summary>
+    public bool Search { get; init; } = true;
     public bool IsFree => Id == "free";
     public bool Weekly => Period == "week";
 }
@@ -116,7 +118,8 @@ public static partial class Relay
     private static RelayPlanOffer? ReadOffer(JsonObject p) =>
         Text(p["id"]) is not { Length: > 0 } id ? null
         : new RelayPlanOffer(id, Text(p["name"]) ?? id, Text(p["price_label"]) ?? "", (int)Math.Clamp(OwnKey.Num(p["price_cents"]) ?? 0, 0, int.MaxValue),
-            (int)Math.Clamp(OwnKey.Num(p["cap"]) ?? 0, 0, int.MaxValue), Text(p["period"]) ?? "day", Pages(p["pages"]), Text(p["url"]) ?? "");
+            (int)Math.Clamp(OwnKey.Num(p["cap"]) ?? 0, 0, int.MaxValue), Text(p["period"]) ?? "day", Pages(p["pages"]), Text(p["url"]) ?? "")
+        { Search = (bool?)(p["search"] as JsonValue) ?? true };
 
     private static IReadOnlyList<string> Pages(JsonNode? node) =>
         [.. (node as JsonArray ?? []).Select(Text).OfType<string>().Where(id => AiPages.Get(id) is not null)];

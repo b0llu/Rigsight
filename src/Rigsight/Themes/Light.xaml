@@ -42,6 +42,8 @@
     <SolidColorBrush x:Key="CpuBrush" Color="{StaticResource CpuColor}" />
     <SolidColorBrush x:Key="GpuBrush" Color="{StaticResource GpuColor}" />
     <SolidColorBrush x:Key="WarmBrush" Color="{StaticResource WarmColor}" />
+    <!-- Buy Me a Coffee's yellow, deepened to read on white (#FFDD00 was 1.35:1, this is 4.77:1, 2026-10-27) -->
+    <SolidColorBrush x:Key="SupportBrush" Color="#946C00" />
     <SolidColorBrush x:Key="HotBrush" Color="{StaticResource HotColor}" />
     <SolidColorBrush x:Key="PurpleBrush" Color="{StaticResource PurpleColor}" />
     <SolidColorBrush x:Key="OrangeBrush" Color="{StaticResource OrangeColor}" />

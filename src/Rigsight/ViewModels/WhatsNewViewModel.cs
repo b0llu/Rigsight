@@ -5,8 +5,9 @@ using Rigsight.Services;
 namespace Rigsight.ViewModels;
 
 /// <summary>
-/// The "What's new" card: once after an update, the first time the app opens (never on a new install, never on its
-/// own over a game, never when switched off in Settings → About), and any time from Settings → About. Shows what came since the version last seen, or every version.
+/// The "What's new" card after an update, as Settings › Updates says (<see cref="Core.Settings.WhatsNewAfter"/>): a button in
+/// the title bar until it's read (<see cref="IsWaiting"/>), the card opened the first time the app opens, or nothing; never on
+/// a new install, never on its own over a game. Any time from the ⋯ menu and Settings → About. Shows what came since the version last seen, or every version.
 /// </summary>
 /// <param name="go">Opens a page (a new feature's "Open" button).</param>
 /// <param name="factFor">Something true about this PC for a new feature's page ("31 changes already found…"), if there is.</param>
@@ -14,6 +15,9 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
     Func<string, Task<string?>>? factFor = null) : ObservableObject
 {
     [ObservableProperty] private bool _isOpen;
+
+    /// <summary>An update's notes not read yet, shown as the title bar's What's new button (until the card is closed).</summary>
+    [ObservableProperty] private bool _isWaiting;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Heading))]
@@ -127,17 +131,36 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
             return;
         }
         var since = Changelog.Since(seen, current);
-        if (since.Count == 0 || !settings.Current.ShowWhatsNew)
+        var after = settings.Current.WhatsNewAfter;
+        if (since.Count == 0 || after == Core.Settings.WhatsNewAfter.Off)
         {
-            // An update with nothing a person would notice, or the card switched off: only remember where we are.
+            // An update with nothing a person would notice, or nothing wanted after one: only remember where we are.
             if (seen < current) MarkSeen();
             return;
         }
         _seen = $"{seen.Major}.{seen.Minor}.{Math.Max(seen.Build, 0)}";
+        _since = since;
+        // The button: waits in the title bar, across restarts, until the card is opened and closed.
+        if (after == Core.Settings.WhatsNewAfter.Button) { IsWaiting = true; Core.Log.Write("whatsnew", $"Updated from {_seen}: the What's new button waits in the title bar"); return; }
+        ShowSince();
+    }
+
+    private IReadOnlyList<ReleaseNotes> _since = [];
+
+    private void ShowSince()
+    {
         ShowingAll = false;
-        Shown = since;
+        Shown = _since;
         _fromUpdate = true;
         IsOpen = true;
+    }
+
+    /// <summary>The title bar's What's new button: the card for this update, as it would have opened by itself.</summary>
+    [RelayCommand]
+    private void OpenWaiting()
+    {
+        Core.Log.Write("whatsnew", "What's new opened from the title bar");
+        ShowSince();
     }
 
     /// <summary>Settings → About: "See all updates".</summary>
@@ -154,6 +177,7 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
     private void Close()
     {
         IsOpen = false;
+        IsWaiting = false;
         MarkSeen();
         // After an update's own card: its feature's page keeps a dot in the sidebar until it's opened (a feature with a
         // page of the sidebar's, not one taken away). Someone who switched What's new off never sees the card, so never the dot.

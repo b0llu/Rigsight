@@ -550,7 +550,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     private void ClearShortcut()
     {
         ShortcutTaken = false;
-        Set(a => a.Shortcut = "");
+        // Cleared on purpose: Ctrl+K is never handed back (SettingsStore.Normalize).
+        Set(a => { a.Shortcut = ""; a.ShortcutGiven = true; });
         CancelShortcut();
         ShortcutChanged();
     }

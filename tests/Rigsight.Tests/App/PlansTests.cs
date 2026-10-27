@@ -179,6 +179,37 @@ public sealed class PlansTests
         return (ask, plans);
     });
 
+    // "Switch to Essentials is cut" (2026-10-27): the foot of the page by page list gives each plan 130 px.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("essentials")]
+    [InlineData("complete")]
+    public void Every_plan_button_fits_its_words(string? plan)
+    {
+        var (_, plans) = Shown(plan is null ? Status() : Status(plan, "subscription"));
+        Ui.Run(() =>
+        {
+            var screen = new Views.PlansScreen { DataContext = plans };
+            var window = new System.Windows.Window { Content = screen, Width = 1100, Height = 4000, Left = -20000, Top = 0, ShowActivated = false, ShowInTaskbar = false, WindowStyle = System.Windows.WindowStyle.None };
+            window.Show();
+            window.UpdateLayout();
+            try
+            {
+            var shown = Visuals.Descendants<System.Windows.Controls.Button>(screen).Where(b => b.IsVisible && b.Content is string { Length: > 0 }).ToList();
+            Assert.NotEmpty(shown);
+            foreach (var b in shown)
+            {
+                var text = Visuals.Descendants<System.Windows.Controls.TextBlock>(b).Single();
+                text.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+                double room = b.ActualWidth - b.Padding.Left - b.Padding.Right;
+                Assert.True(text.DesiredSize.Width <= room + 0.5, $"\"{b.Content}\" needs {text.DesiredSize.Width:0} px, has {room:0}");
+            }
+            if (plan is not null) Assert.Contains(shown, b => (string)b.Content == "Switch");
+            }
+            finally { window.Close(); }
+        });
+    }
+
     [Fact]
     public async Task The_plan_card_waits_for_the_relay_instead_of_showing_free()
     {

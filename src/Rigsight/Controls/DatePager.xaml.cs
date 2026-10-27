@@ -55,6 +55,12 @@ public partial class DatePager : UserControl
         DependencyProperty.Register(nameof(LabelCommand), typeof(ICommand), typeof(DatePager));
 
     /// <summary>What a click on the label does, in words (its tooltip and its name for screen readers): "Pick a date" unless it opens something else.</summary>
+    /// <summary>The label opens a picker (its arrow shows); off, it only says what's shown (a game's play, stepped by the arrows).</summary>
+    public static readonly DependencyProperty PickableProperty =
+        DependencyProperty.Register(nameof(Pickable), typeof(bool), typeof(DatePager), new PropertyMetadata(true));
+
+    public bool Pickable { get => (bool)GetValue(PickableProperty); set => SetValue(PickableProperty, value); }
+
     public static readonly DependencyProperty LabelTextProperty =
         DependencyProperty.Register(nameof(LabelText), typeof(string), typeof(DatePager), new PropertyMetadata(Lang.T("Pick a date")));
 

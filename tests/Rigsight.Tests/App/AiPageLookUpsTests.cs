@@ -61,6 +61,16 @@ public sealed class AiPageLookUpsTests(PageHistory history) : IClassFixture<Page
     }
 
     [Fact]
+    public void An_app_asked_about_as_a_game_is_said_to_be_an_app()
+    {
+        // Real PC, 2026-10-27: "What is Freedom to Stream?" was looked up as a game and answered "no such game".
+        string said = Tools().Run("get_game", """{"name":"Discord"}""");
+        Assert.StartsWith("'Discord' isn't a game: it's an app on this PC (discord.exe", said);
+        Assert.Contains("get_apps", said);
+        Assert.StartsWith("No game called", Tools().Run("get_game", """{"name":"Nothing Like It"}"""));
+    }
+
+    [Fact]
     public void Today_says_PC_health_and_todays_report()
     {
         string said = Run(Tools(), "get_today");

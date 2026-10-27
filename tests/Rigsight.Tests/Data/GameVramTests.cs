@@ -47,6 +47,17 @@ public sealed class GameVramTests
     }
 
     [Fact]
+    public void A_play_that_starts_partway_through_a_minute_keeps_that_minute()
+    {
+        // Real PC, 26 Oct 2026: a play from 9:18:06 PM lost the 9:18 minute (and its 9 stutters).
+        using var t = new TestDb();
+        long game = t.Db.UpsertApp("Risk of Rain 2.exe", "Risk of Rain 2", null, AppCategory.Game);
+        Minutes(t.Db, game, 10, cardMb: 11_500, ownMb: 3_900);
+        var stats = t.Db.GetPlayStats(game, TimeUtil.ToUnix(Start.AddSeconds(6)), TimeUtil.ToUnix(Start.AddHours(1)));
+        Assert.Equal(10, stats.Minutes);
+    }
+
+    [Fact]
     public void Nothing_recorded_says_so()
     {
         Assert.Equal("Not recorded", GamesViewModel.GraphicsMemory(new PlayStats()));

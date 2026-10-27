@@ -179,6 +179,7 @@ public static class GameHistory
 
         var plays = new List<GamePlay>();
         int gameCrashes = 0, hangs = 0, resets = 0, offs = 0;
+        var inPlay = new HashSet<long>();
         foreach (var (start, end, active, parts) in spans)
         {
             var ending = PlayEnd.Closed;
@@ -186,7 +187,10 @@ public static class GameHistory
             {
                 // The game's own crash or hang as it ended; the PC's problems while it ran or just after.
                 if (c.Kind is CrashKind.AppCrash or CrashKind.AppHang && exes.Contains(c.AppExe) && c.Ts >= start && c.Ts <= end + 120)
+                {
                     ending = c.Kind == CrashKind.AppCrash ? PlayEnd.Crashed : PlayEnd.Hung;
+                    inPlay.Add(c.Id);
+                }
                 else if (c.Kind == CrashKind.GpuDriverReset && c.Ts >= start && c.Ts <= end + 120) ending = PlayEnd.DriverReset;
                 else if (c.Kind == CrashKind.SystemCrash && c.Ts >= start && c.Ts <= end + 600) ending = PlayEnd.BlueScreen;
                 else if (c.Kind == CrashKind.UnexpectedShutdown && c.Ts >= end - 120 && c.Ts <= end + 600)
@@ -201,6 +205,10 @@ public static class GameHistory
             }
             plays.Add(new GamePlay(start, end, active, parts, db.GetPlayStats(mainApp, start, end + 60), ending));
         }
+        // The game's own crashes and freezes before it was ever in front long enough to be a play: REMATCH froze 19
+        // seconds after it started and the game said "hangs 0" while Crashes listed it (real PC, 19 Oct 2026).
+        foreach (var c in crashes.Where(c => c.Kind is CrashKind.AppCrash or CrashKind.AppHang && exes.Contains(c.AppExe) && !inPlay.Contains(c.Id)))
+            if (c.Kind == CrashKind.AppCrash) gameCrashes++; else hangs++;
 
         // Changes between plays: graphics drivers, Windows and BIOS updates, hardware and fan settings, and this game's own updates.
         var gameKey = entry.Installed is { } inst ? Inventory.Game + ":" + inst.Key : null;
@@ -307,6 +315,13 @@ public static class GameHistory
     /// All plays together with what every frame says (where frames were recorded): the true lows of all those frames,
     /// not an average of each play's, and every stutter.
     /// </summary>
+    /// <summary>
+    /// Some of a game's plays together, the way <see cref="GameStory.All"/> is for all of them: "How it runs" over the
+    /// range picked (2026-10-27). Empty for no plays.
+    /// </summary>
+    public static PlayStats StatsOf(RigsightDb db, long app, IReadOnlyList<GamePlay> plays) =>
+        plays.Count == 0 ? new PlayStats() : WithFrames(db, app, Sum(plays.Select(p => p.Stats)), plays.Min(p => p.Start) - 60, plays.Max(p => p.End) + 120);
+
     private static PlayStats WithFrames(RigsightDb db, long app, PlayStats all, long from, long to)
     {
         var (spread, minutes, stutters) = db.GetFrameSpread(app, from, to);

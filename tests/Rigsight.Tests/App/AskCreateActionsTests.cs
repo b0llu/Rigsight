@@ -74,7 +74,7 @@ public sealed class AskCreateActionsTests
     }
 
     [Fact]
-    public void An_answer_draws_the_card_under_its_step_and_keeps_the_step_said()
+    public void An_answer_draws_the_card_as_its_step_without_the_steps_words()
     {
         var answer = AskViewModel.ToAnswer("Your GPU runs hot in games.\nWatch its hot spot while you play.\nNext step: keep an eye on it while you play.\n[do: overlay GPU hot spot, Frame rate (FPS)]",
             [], actions: m => AiActions.Resolve(m, Context()));
@@ -84,7 +84,8 @@ public sealed class AskCreateActionsTests
         Assert.NotNull(card.Setup);
         Assert.Empty(next.LineActions);
         Assert.False(next.IsLines);
-        Assert.True(next.IsWords);
+        // The card is the step: words beside it told them to do by hand what its button does (2026-10-26).
+        Assert.False(next.IsWords);
     }
 
     [Fact]
@@ -121,11 +122,40 @@ public sealed class AskCreateActionsTests
             var (window, settings) = Window();
             (string Page, string? Focus)? opened = null;
             window.OpenPageAt = (page, focus) => opened = (page, focus);
-            var card = Card(window, settings, "widget CPU temperature");
+            var card = Card(window, settings, "widget GPU hot spot");
             window.SetupSecondCommand.Execute(card);
             var made = settings.Current.Widgets.Single(w => w.Id == card.Setup!.CreatedId);
             Assert.False(made.Enabled);
             Assert.Equal(("widgets", made.Id), opened);
+        });
+    }
+
+    [Fact]
+    public void A_widget_of_theirs_already_showing_the_readings_is_turned_on_and_Undo_turns_it_off()
+    {
+        Ui.Run(() =>
+        {
+            var start = new RigsightSettings();
+            start.Widgets.Add(new WidgetConfig { Style = WidgetStyle.Custom, Id = "mine", Name = "My widget 1", Layout = WidgetLayout.Bar, Enabled = false,
+                Items = [new WidgetItem { Id = "GpuHotSpot" }, new WidgetItem { Id = "GpuTemp" }, new WidgetItem { Id = "Fps" }] });
+            var (window, settings) = Window(start);
+            int before = settings.Current.Widgets.Count;
+            var card = Card(window, settings, "widget GPU hot spot, GPU temperature");
+            Assert.Equal("Turn on My widget 1", card.Setup!.MainLabel);
+            Assert.Equal("My widget 1 already shows these, but it's off.", card.Setup.Where);
+            window.ActCommand.Execute(card);
+            Assert.True(card.IsDone);
+            Assert.Equal(before, settings.Current.Widgets.Count);
+            Assert.True(settings.Current.Widgets.Single(w => w.Id == "mine").Enabled);
+            Assert.Equal("My widget 1 turned on", card.Setup.DoneText);
+            window.UndoSetupCommand.Execute(card);
+            Assert.False(settings.Current.Widgets.Single(w => w.Id == "mine").Enabled);
+            Assert.Equal(before, settings.Current.Widgets.Count);
+            // Turned on by hand since: said, no button.
+            settings.Update(s => s.Widgets.Single(w => w.Id == "mine").Enabled = true);
+            card.Setup.Refresh(settings.Current, "running");
+            Assert.True(card.Setup.AllOn);
+            Assert.Equal("All of these are on My widget 1 already.", card.Setup.AllOnText);
         });
     }
 

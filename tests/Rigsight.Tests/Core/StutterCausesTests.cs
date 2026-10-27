@@ -38,7 +38,7 @@ public class StutterCausesTests
             Assert.NotNull(why);
             Assert.StartsWith("14 of the 19 stutters came between ", why);
             Assert.Contains("while Steam was using the disk heavily (380 MB/s)", why);
-            Assert.Contains("The rest were spread out, about one every ", why);
+            Assert.Contains("The rest were spread out, about one ", why);
         }
     }
 
@@ -68,4 +68,12 @@ public class StutterCausesTests
             Assert.Contains("while the graphics card's memory was nearly full (11.6 of 12 GB)", why);
         }
     }
+    // "The 765 stutters were spread out, about one every 1 minutes" for a two-and-a-half-hour play (2026-10-27).
+    [Theory]
+    [InlineData(15.0, "about one every 15 minutes")]
+    [InlineData(1.0, "about one a minute")]
+    [InlineData(150.0 / 765, "about one every 12 seconds")]
+    [InlineData(0.001, "about one a second")]
+    public void How_often_reads_in_minutes_or_seconds(double minutesEach, string says) =>
+        Assert.Equal(says, StutterCauses.Every(minutesEach));
 }

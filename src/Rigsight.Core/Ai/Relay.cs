@@ -203,21 +203,26 @@ public static partial class Relay
         asking?.Invoke(id);
         var messages = new JsonArray();
         foreach (var turn in AiTurns.Recent(earlier)) messages.Add(AiTurns.Message(turn));
+        int questionAt = messages.Count;
         messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });
         var lookUps = new List<AiLookUp>();
         // The apps an answer can open, a look-up of RigSight AI's only for now (Ollama and own key keep theirs as they are).
         tools.OpenableAppsLookUp = Features.UseActions2;
         var definitions = tools.Definitions();
         bool searchFailed = false;
-        Log.Write("relay", $"Asking RigSight AI at {Root} (question {id[..8]}, {definitions.Count} kinds of look-up open on the plan, at most {OwnKey.MaxRounds} rounds, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
+        Log.Write("relay", $"Asking RigSight AI at {Root} (question {id[..8]}, {definitions.Count} kinds of look-up open on the plan, at most {MaxRounds} rounds, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
         step?.Invoke(new AiStep(""));
-        for (int round = 0; round < OwnKey.MaxRounds; round++)
+        for (int round = 0; round < MaxRounds; round++)
         {
+            // Under the size guard (AiMemory.SafeRequest): only huge pastes or many big look-ups come near it.
+            var sending = (JsonArray)JsonNode.Parse(messages.ToJsonString())!;
+            if (AiMemory.Fit(sending, questionAt, definitions.ToJsonString().Length + 300) is > 0 and var shortened)
+                Log.Write("relay", $"Round {round}: {shortened} long earlier message{(shortened == 1 ? "" : "s")} shortened in this request to keep it under {AiMemory.SafeRequest:N0} characters");
             var body = new JsonObject
             {
                 ["question_id"] = id,
                 ["now"] = started.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture),
-                ["messages"] = JsonNode.Parse(messages.ToJsonString()),
+                ["messages"] = sending,
                 ["tools"] = JsonNode.Parse(definitions.ToJsonString()),
                 // What this app reads in an answer beyond the words: a "Title:" line names the conversation.
                 ["features"] = Features.UseActions2 ? new JsonArray("title", Features.Actions2) : new JsonArray("title"),
@@ -233,9 +238,19 @@ public static partial class Relay
                 {
                     string text = await res.Content.ReadAsStringAsync(ct);
                     Log.Write("relay", $"Round {round}: expected an answer, got HTTP {(int)res.StatusCode} {text}");
+                    // Grown too big or too dear after its first round (2026-10-27: the app said "wasn't counted" for a
+                    // refused fifth round): the relay counted it, and gives no question back for that.
+                    if (round > 0 && TooBig(text))
+                        return new AiReply(null, Lang.T("This answer grew too big to finish, so RigSight AI stopped it. Try asking about one part at a time."), lookUps);
                     return new AiReply(null, Problem(text, (int)res.StatusCode), lookUps, Limit: ReadLimit(text));
                 }
-                got = await OwnKey.ReadStreamAsync(res, writing is null ? null : t => writing(t, lookUps), ct, QuietLimit);
+                // A round that thought until its limit is asked again without thinking (2026-10-27): said, so the long
+                // wait reads as progress.
+                got = await OwnKey.ReadStreamAsync(res, writing is null ? null : t => writing(t, lookUps), ct, QuietLimit, said =>
+                {
+                    Log.Write("relay", $"Round {round}: thinking ran out before any words, so the relay asked again without it");
+                    if (said == "writing") step?.Invoke(new AiStep(Lang.T("Writing your answer…")));
+                });
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or InvalidOperationException or UriFormatException && !ct.IsCancellationRequested)
             {
@@ -290,8 +305,8 @@ public static partial class Relay
             return new AiReply(answer, null, lookUps, Note: searchFailed ? Lang.T("Web search wasn't working, so this answer is from your records only.") : null);
         }
         // The relay counted it (its rounds were used), so no "wasn't counted".
-        Log.Write("relay", $"Still looking things up after {OwnKey.MaxRounds} rounds");
-        return new AiReply(null, Lang.T("This answer needed too many steps, so RigSight AI stopped it. Try asking about one thing at a time."), lookUps);
+        Log.Write("relay", $"Still looking things up after {MaxRounds} rounds");
+        return new AiReply(null, Lang.T("RigSight AI couldn't finish this answer. Ask again, or ask about one part of it."), lookUps);
     }
 
     /// <summary>A web search the model asked for, run by the relay; a failure is one line the model reads, and the answer goes on.</summary>
@@ -334,6 +349,19 @@ public static partial class Relay
     /// <summary>What a refusal from the relay means for the person (the mock-up of 2026-10-21).</summary>
     /// <param name="inSettings">Shown in Settings › Ask RigSight, beside Email support (questions left, Activate): no
     /// "from Settings › Ask RigSight" there, it's the page they're on.</param>
+    /// <summary>
+    /// More rounds than the relay allows (its MAX_ROUNDS, 8): the relay ends a question by having its last round answer
+    /// without look-ups, so the relay decides, and a higher limit there needs no app update (2026-10-27).
+    /// </summary>
+    private const int MaxRounds = 12;
+
+    /// <summary>The relay refused a round for its size or the question's budget ("detail": "too long").</summary>
+    internal static bool TooBig(string text)
+    {
+        try { return JsonNode.Parse(text) is JsonObject e && (string?)e["detail"] == "too long" && (string?)e["reason"] is "bad_request" or "stopped"; }
+        catch (JsonException) { return false; }
+    }
+
     public static string Problem(string text, int status, bool activating = false, bool inSettings = false)
     {
         string? kind = null, reason = null;
@@ -358,7 +386,7 @@ public static partial class Relay
             ("licence", _) => Lang.T("This licence is turned off. Contact support from Settings › Ask RigSight."),
             ("update_needed", _) => Lang.T("RigSight AI needs the latest RigSight. Update, then ask again."),
             // Past the relay's limits for one question (rounds, size): it was counted, so no "wasn't counted".
-            ("unavailable", "stopped") => Lang.T("This answer needed too many steps, so RigSight AI stopped it. Try asking about one thing at a time."),
+            ("unavailable", "stopped") => Lang.T("RigSight AI couldn't finish this answer. Ask again, or ask about one part of it."),
             ("unavailable", "busy") => Lang.T("RigSight AI is busy right now. Your question wasn't counted. Ask again in a moment."),
             _ when status >= 500 || kind == "unavailable" => Lang.T("RigSight AI couldn't answer this time. Your question wasn't counted. Ask again in a minute."),
             _ => Lang.T($"RigSight AI couldn't answer this time (error {status}). Ask again in a minute."),

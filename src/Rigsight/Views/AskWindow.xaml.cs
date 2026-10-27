@@ -25,7 +25,13 @@ public partial class AskWindow : UserControl
         InitializeComponent();
         DataContextChanged += (_, _) => Attach(DataContext as AskViewModel);
         Layer.SizeChanged += (_, _) => Place();
-        Loaded += (_, _) => { Place(); Hook(true); };
+        Loaded += (_, _) =>
+        {
+            Place();
+            Hook(true);
+            // The conversations built once Ask has drawn, hidden in the column, so neither opening Ask nor its column waits for them.
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, PlaceSidebar);
+        };
         Unloaded += (_, _) => { Hook(false); CloseRefs(); System.Windows.Media.CompositionTarget.Rendering -= Pull_Frame; };
     }
 
@@ -68,6 +74,7 @@ public partial class AskWindow : UserControl
         // The column's notice comes with every new width (twice the work a frame while resizing): placed again only when it shows or hides.
         if (e.PropertyName is nameof(AskViewModel.IsPoppedOut) or nameof(AskViewModel.IsBig)
             || e.PropertyName is nameof(AskViewModel.ShowHistoryColumn) && HistoryColumn.Width.Value != (_vm!.ShowHistoryColumn ? 260 : 0)) Place();
+        if (e.PropertyName is nameof(AskViewModel.ShowHistoryOver)) PlaceSidebar();
         // Another conversation: a list left open in the last one would open again by itself on the way back.
         if (e.PropertyName is nameof(AskViewModel.Current)) CloseRefs();
         // Another conversation opened (and again once a saved one has its messages), or a question asked: the chat goes to its end once laid out. An answer coming in
@@ -124,6 +131,29 @@ public partial class AskWindow : UserControl
         // The rail and the column follow the width.
         _vm.PanelWidth = Panel.Width;
         HistoryColumn.Width = new GridLength(_vm.ShowHistoryColumn ? 260 : 0);
+        ColumnHost.Visibility = _vm.ShowHistoryColumn ? Visibility.Visible : Visibility.Hidden;
+        if (_vm.ShowHistoryColumn) PlaceSidebar();
+    }
+
+    /// <summary>The one list of conversations, built the first time it's needed and then only moved.</summary>
+    private ContentControl? _sidebar;
+
+    /// <summary>
+    /// The conversations over the chat while they're open there (narrow), in the column otherwise, shown or not: moved,
+    /// never built again, so a pull past <see cref="AskViewModel.ColumnFrom"/> only lays out rows that already exist.
+    /// </summary>
+    private void PlaceSidebar()
+    {
+        if (_vm is null) return;
+        if (_sidebar is null)
+        {
+            _sidebar = new ContentControl { ContentTemplate = (DataTemplate)FindResource("Sidebar"), Focusable = false, IsTabStop = false, FocusVisualStyle = null };
+            _sidebar.SetBinding(ContentProperty, new System.Windows.Data.Binding());
+        }
+        var host = _vm.ShowHistoryOver ? OverHost : ColumnHost;
+        if (host.Child == _sidebar) return;
+        if (_sidebar.Parent is Border was) was.Child = null;
+        host.Child = _sidebar;
     }
 
     private static void AutomationProperties_Name(DependencyObject element, string name) => System.Windows.Automation.AutomationProperties.SetName(element, name);
@@ -207,15 +237,27 @@ public partial class AskWindow : UserControl
     }
 
     // ── Moving by the top strip (over the chat, or the sidebar's top) ────
+    // Smooth like the edges (2026-10-27, "the drag feels laggy"): the panel and its shadow follow the pointer by a shared
+    // move (a render transform, no layout) at most once a frame, on whole pixels; the real place (Margin) is set once,
+    // when it's let go. Every mouse move used to set the Margin, a layout pass each, several a frame with a fast mouse.
     private UIElement? _dragBy;
+    private readonly System.Windows.Media.TranslateTransform _drag = new();
+    private bool _moveDue;
+    private Point _moveTo;
 
     private void Bar_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (_vm is null || sender is not UIElement by || e.OriginalSource is DependencyObject d && FindButton(d, by)) return;
         _dragFrom = e.GetPosition(Layer);
         _panelFrom = new Point(Panel.Margin.Left, Panel.Margin.Top);
+        _moveTo = _panelFrom;
+        _moveDue = false;
+        (_drag.X, _drag.Y) = (0, 0);
+        Panel.RenderTransform = _drag;
+        Shade.RenderTransform = _drag;
         _dragBy = by;
         by.CaptureMouse();
+        System.Windows.Media.CompositionTarget.Rendering += Move_Frame;
         e.Handled = true;
     }
 
@@ -238,10 +280,21 @@ public partial class AskWindow : UserControl
             _vm.Floating = new Rect(_panelFrom.X, _panelFrom.Y, Panel.Width, Panel.Height);
             _vm.IsPoppedOut = true;
         }
+        _moveDue = true;
+    }
+
+    private void Move_Frame(object? sender, EventArgs e)
+    {
+        if (!_moveDue || _vm is null || _dragFrom is not { } from) return;
+        _moveDue = false;
+        var by = Mouse.GetPosition(Layer) - from;
         var room = Room;
-        double x = Math.Clamp(_panelFrom.X + by.X, 0, Math.Max(0, room.Width - Panel.Width)), y = Math.Clamp(_panelFrom.Y + by.Y, 0, Math.Max(0, room.Height - Panel.Height));
-        _vm.Floating = new Rect(x, y, Panel.Width, Panel.Height);
-        Panel.Margin = new Thickness(x, y, 0, 0);
+        double x = Math.Round(Math.Clamp(_panelFrom.X + by.X, 0, Math.Max(0, room.Width - Panel.Width)));
+        double y = Math.Round(Math.Clamp(_panelFrom.Y + by.Y, 0, Math.Max(0, room.Height - Panel.Height)));
+        _moveTo = new Point(x, y);
+        // From where the panel is laid out now (it moved once, popping out at its first pull).
+        _drag.X = x - Panel.Margin.Left;
+        _drag.Y = y - Panel.Margin.Top;
         // Near the corner: an outline shows where it will stick.
         var corner = Fit(_vm.IsBig ? _vm.StuckBig : _vm.StuckSmall, room);
         bool near = room.Width - (x + Panel.Width) < StickWithin && room.Height - (y + Panel.Height) < StickWithin;
@@ -257,6 +310,12 @@ public partial class AskWindow : UserControl
     private void Bar_MouseUp(object sender, MouseButtonEventArgs e)
     {
         if (_dragFrom is null) return;
+        System.Windows.Media.CompositionTarget.Rendering -= Move_Frame;
+        if (_moveDue) Move_Frame(null, EventArgs.Empty);
+        // Let go: the place it was dragged to becomes its real one, in the same frame as the move is taken away.
+        if (_vm is { IsPoppedOut: true }) _vm.Floating = new Rect(_moveTo.X, _moveTo.Y, Panel.Width, Panel.Height);
+        Panel.Margin = new Thickness(_moveTo.X, _moveTo.Y, 0, 0);
+        (_drag.X, _drag.Y) = (0, 0);
         _dragFrom = null;
         _dragBy?.ReleaseMouseCapture();
         _dragBy = null;

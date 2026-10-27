@@ -634,11 +634,11 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
         set { Set(s => s.AutoUpdate = value); Update?.OnAutoUpdateChanged(); }
     }
 
-    /// <summary>What's new opening by itself after an update.</summary>
-    public bool ShowWhatsNew
+    /// <summary>After an update: the title bar's What's new button, the card opened by itself, or nothing.</summary>
+    public Core.Settings.WhatsNewAfter WhatsNewAfter
     {
-        get => S.ShowWhatsNew;
-        set => Set(s => s.ShowWhatsNew = value);
+        get => S.WhatsNewAfter;
+        set => Set(s => s.WhatsNewAfter = value);
     }
 
     /// <summary>Supplied by the shell: the Updates section.</summary>

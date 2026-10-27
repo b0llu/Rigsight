@@ -470,34 +470,207 @@ public sealed partial class GamesViewModel : ObservableObject
     public bool ShowSinceUpdate => !HasSmooth;
     partial void OnSmoothVerdictChanged(string value) => OnPropertyChanged(nameof(ShowSinceUpdate));
 
-    /// <summary>"How it runs" shows the newest play's every frame instead of the plays (its second view).</summary>
+    // ── How it runs, as one chart (approved mock-up, 2026-10-27) ─────────
+    // The plays over a range (Last 7 days, 30 days, 12 months, stepped back, or custom; a point a week past two months),
+    // or one play with frame data a minute at a time, on the same scale. The numbers beside it follow what's shown.
+
+    /// <summary>Showing one play (its minutes) rather than the plays over the range.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(ShowPlaysChart))] private bool _framesView;
     public bool ShowPlaysChart => !FramesView;
-    [RelayCommand] private void ShowFrames() => FramesView = true;
-    [RelayCommand] private void ShowPlays() => FramesView = false;
-    /// <summary>The second view's name: "Sat 24 Oct play, every frame".</summary>
+    [RelayCommand] private void ShowFrames() { if (_play is null) return; FramesView = true; _ = ShowRunsAsync(); }
+    [RelayCommand] private void ShowPlays() { FramesView = false; _ = ShowRunsAsync(); }
+    /// <summary>The switch's second side: "Mon 26 Oct play".</summary>
     [ObservableProperty] private string _framesViewName = "";
-    /// <summary>The frame time the slowest 1% of the play's frames are above (the chart's dashed line), in ms.</summary>
-    [ObservableProperty] private double? _everyFrameP99;
-    /// <summary>When the stutters bunched up and what else was going on then (see StutterCauses).</summary>
+    /// <summary>When the play's stutters bunched up and what else was going on then (see StutterCauses), over the chart.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasStutterWhy))] private string _stutterWhy = "";
-    public bool HasStutterWhy => StutterWhy.Length > 0;
+    public bool HasStutterWhy => StutterWhy.Length > 0 && FramesView;
+    partial void OnFramesViewChanged(bool value) => OnPropertyChanged(nameof(HasStutterWhy));
 
-    // Every frame of the newest play still kept (14 days, see FrameStore): the chart, its stutters and what it's of.
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasEveryFrame))] private FrameRun? _everyFrame;
-    [ObservableProperty] private IReadOnlyList<Stutter> _everyFrameStutters = [];
-    [ObservableProperty] private string _everyFrameNote = "";
-    public bool HasEveryFrame => EveryFrame is { Count: >= 2 };
     [ObservableProperty] private string _sinceUpdate = "";
     [ObservableProperty] private string _updatedNote = "";
-    [ObservableProperty] private IReadOnlyList<FpsPoint> _fpsPoints = [];
-    [ObservableProperty] private IReadOnlyList<FpsMark> _fpsMarks = [];
-    /// <summary>The chart shows the only play's minutes, not plays: power cuts and updates have no place in it.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(FpsByPlay))] private bool _fpsByMinute;
-    public bool FpsByPlay => !FpsByMinute;
-    [ObservableProperty] private string _fpsChartNote = "";
-    public bool HasFpsChart => FpsPoints.Count >= 2;
-    partial void OnFpsPointsChanged(IReadOnlyList<FpsPoint> value) => OnPropertyChanged(nameof(HasFpsChart));
+    [ObservableProperty] private IReadOnlyList<RunsPoint> _runsPoints = [];
+    [ObservableProperty] private IReadOnlyList<RunsMark> _runsMarks = [];
+    [ObservableProperty] private DateTime _runsFrom = DateTime.Now.AddDays(-30);
+    [ObservableProperty] private DateTime _runsTo = DateTime.Now;
+    [ObservableProperty] private IReadOnlyList<RunsMinute> _playMinutes = [];
+    [ObservableProperty] private IReadOnlyList<Stutter> _playStutters = [];
+    [ObservableProperty] private DateTime? _playStart;
+    /// <summary>What the numbers are for: "Last 30 days · 14 plays", or "Mon 26 Oct, 2 h 28 min".</summary>
+    [ObservableProperty] private string _runsScope = "";
+    /// <summary>Under a play's smoothness: "765 stutters in this play". Empty over a range.</summary>
+    [ObservableProperty] private string _smoothFrom = "";
+    /// <summary>The pager's words: the range, or the play shown.</summary>
+    [ObservableProperty] private string _runsLabel = "";
+    [ObservableProperty] private bool _canRunsPrevious;
+    [ObservableProperty] private bool _canRunsNext;
+    /// <summary>A play with frame data to open: the switch shows.</summary>
+    [ObservableProperty] private bool _hasFramePlays;
+    /// <summary>The key's ringed dot: plays drawn one by one (not weeks), some with frame data.</summary>
+    [ObservableProperty] private bool _showRingKey;
+    /// <summary>The range picked, for the menu's tick: 7, 30 or 365 days, or -1 (custom or stepped back).</summary>
+    public int RunsPick => _runsCustom is null && _runsBack == 0 ? _runsDays : -1;
+    /// <summary>The earliest a range can start: the game's first play with a frame rate.</summary>
+    public DateTime RunsHistoryStart => _withFps.Count > 0 ? _withFps[0].StartTime.Date : DateTime.Now.Date;
+    /// <summary>"Custom range…" was picked: the page opens the range editor.</summary>
+    public event Action? RunsRangeEditRequested;
+
+    private List<GamePlay> _withFps = [], _framePlays = [];
+    private List<RunsMark> _allMarks = [];
+    private GamePlay? _play;
+    private int _runsDays = 30, _runsBack;
+    private (DateTime From, DateTime To)? _runsCustom;
+    private long _app;
+    private int _runsAsk;
+
+    [RelayCommand]
+    private void PickRunsRange(object? days)
+    {
+        int d = days is int i ? i : int.TryParse(days?.ToString(), out int n) ? n : 30;
+        if (d < 0) { RunsRangeEditRequested?.Invoke(); return; }
+        (_runsDays, _runsBack, _runsCustom) = (d, 0, null);
+        _ = ShowRunsAsync();
+    }
+
+    /// <summary>A custom range from the range editor.</summary>
+    public void SetRunsCustom(DateTime from, DateTime to)
+    {
+        _runsCustom = (from, to > DateTime.Now ? DateTime.Now : to);
+        _runsBack = 0;
+        _ = ShowRunsAsync();
+    }
+
+    /// <summary>The range's own length back (or the play before, in a play).</summary>
+    [RelayCommand]
+    private void RunsPrevious()
+    {
+        if (FramesView) { StepPlay(-1); return; }
+        if (_runsCustom is { } c) _runsCustom = (c.From - (c.To - c.From), c.From); else _runsBack++;
+        _ = ShowRunsAsync();
+    }
+
+    [RelayCommand]
+    private void RunsNext()
+    {
+        if (FramesView) { StepPlay(1); return; }
+        if (_runsCustom is { } c)
+        {
+            var to = c.To + (c.To - c.From);
+            _runsCustom = to >= DateTime.Now ? (DateTime.Now - (c.To - c.From), DateTime.Now) : (c.To, to);
+        }
+        else _runsBack = Math.Max(0, _runsBack - 1);
+        _ = ShowRunsAsync();
+    }
+
+    private void StepPlay(int by)
+    {
+        int at = _play is null ? -1 : _framePlays.IndexOf(_play);
+        if (at + by < 0 || at + by >= _framePlays.Count) return;
+        _play = _framePlays[at + by];
+        _ = ShowRunsAsync();
+    }
+
+    /// <summary>A play with frame data, or a week, clicked on the chart.</summary>
+    public void OpenFromChart(RunsPoint point)
+    {
+        if (point.IsWeek)
+        {
+            var monday = point.End.AddDays(-7).Date;
+            SetRunsCustom(monday, monday.AddDays(7) > DateTime.Now ? DateTime.Now : monday.AddDays(7));
+            return;
+        }
+        if (_framePlays.FirstOrDefault(p => p.StartTime == point.At) is not { } play) return;
+        _play = play;
+        FramesView = true;
+        _ = ShowRunsAsync();
+    }
+
+    private (DateTime From, DateTime To) RunsRange()
+    {
+        if (_runsCustom is { } c) return c;
+        var to = DateTime.Now.AddDays(-_runsDays * _runsBack);
+        return (to.AddDays(-_runsDays), to);
+    }
+
+    private static string RangeText(DateTime from, DateTime to) =>
+        from.Year == to.Year && to.Year == DateTime.Now.Year ? $"{from:d MMM} – {to:d MMM}" : $"{from:d MMM yyyy} – {to:d MMM yyyy}";
+
+    /// <summary>
+    /// What "How it runs" shows now: the plays over the range (a point a week past two months) with their numbers, or the
+    /// play picked a minute at a time with its own. Reads the records off the window's thread.
+    /// </summary>
+    private async Task ShowRunsAsync()
+    {
+        int ask = ++_runsAsk;
+        var (from, to) = RunsRange();
+        var inRange = _withFps.Where(p => p.EndTime >= from && p.StartTime <= to).ToList();
+        bool weekly = (to - from).TotalDays > 62;
+        RunsFrom = from;
+        RunsTo = to;
+        RunsPoints = weekly
+            ? inRange.GroupBy(p => p.StartTime.Date.AddDays(-(((int)p.StartTime.DayOfWeek + 6) % 7))).Select(g => Week(g.Key, g.ToList(), to)).ToList()
+            : inRange.Select(p => new RunsPoint(p.StartTime, p.EndTime, p.ActiveSec, p.Stats.Fps!.Value, p.Stats.FpsLow, p.Stats.StuttersAnHour, 1, false,
+                p.Stats.FrameMinutes > 0, p.Ending == PlayEnd.PowerCut, p.Stats.Gpu, p.Stats.GpuPower)).ToList();
+        RunsMarks = _allMarks;
+        ShowRingKey = !weekly && RunsPoints.Any(p => p.CanOpen);
+        CanRunsPrevious = FramesView ? _play is not null && _framePlays.IndexOf(_play) > 0 : from > RunsHistoryStart;
+        CanRunsNext = FramesView ? _play is not null && _framePlays.IndexOf(_play) < _framePlays.Count - 1 : to < DateTime.Now.AddMinutes(-1);
+        OnPropertyChanged(nameof(RunsPick));
+
+        if (FramesView && _play is { } play)
+        {
+            RunsLabel = $"{play.StartTime:ddd d MMM}, {TimeText.At(play.StartTime, "h:mm tt")}";
+            FramesViewName = Lang.T($"{play.StartTime:ddd d MMM} play");
+            RunsScope = $"{play.StartTime:ddd d MMM}, {Units.Duration(play.ActiveSec)}";
+            Numbers(play.Stats);
+            SmoothFrom = play.Stats.Stutters is int n ? (n == 1 ? Lang.T("1 stutter in this play") : Lang.T($"{n} stutters in this play")) : "";
+            long app = _app;
+            var (minutes, stutters, why) = await _reports.QueryAsync((db, settings) =>
+            {
+                var m = db.GetFrameMinutes(app, play.Start, play.End + 60).Select(x => new RunsMinute(TimeUtil.FromUnix(x.Ts), x.Fps, x.Low, x.Stutters)).ToList();
+                var s = db.GetStutters(app, play.Start * 1000, (play.End + 60) * 1000);
+                return (m, s, StutterCauses.Explain(db, app, s, play.Start, play.End + 60, settings));
+            });
+            if (ask != _runsAsk) return;
+            PlayMinutes = minutes ?? [];
+            PlayStutters = stutters ?? [];
+            PlayStart = play.StartTime;
+            StutterWhy = why ?? "";
+            return;
+        }
+
+        if (_play is { } shown) { PlayStart = shown.StartTime; FramesViewName = Lang.T($"{shown.StartTime:ddd d MMM} play"); }
+        RunsLabel = RunsPick switch { 7 => Lang.T("Last 7 days"), 30 => Lang.T("Last 30 days"), 365 => Lang.T("Last 12 months"), _ => RangeText(from, to) };
+        RunsScope = (RunsPick switch { 7 => Lang.T("Last 7 days"), 30 => Lang.T("Last 30 days"), 365 => Lang.T("Last 12 months"), _ => RangeText(from, to) })
+            + " · " + (inRange.Count == 1 ? Lang.T("1 play") : Lang.T($"{inRange.Count} plays"));
+        SmoothFrom = "";
+        long game = _app;
+        var stats = await _reports.QueryAsync((db, _) => GameHistory.StatsOf(db, game, inRange));
+        if (ask != _runsAsk) return;
+        Numbers(stats ?? new PlayStats());
+    }
+
+    /// <summary>A week of plays as one point: its plays' average and 1% low by time played, and its stutters an hour.</summary>
+    /// <param name="to">The range's end: this week's point sits in the middle of its days so far, not past the end.</param>
+    private static RunsPoint Week(DateTime monday, List<GamePlay> plays, DateTime to)
+    {
+        double sec = Math.Max(1, plays.Sum(p => p.ActiveSec));
+        double fps = plays.Sum(p => p.Stats.Fps!.Value * p.ActiveSec) / sec;
+        var lows = plays.Where(p => p.Stats.FpsLow is not null).ToList();
+        double? low = lows.Count == 0 ? null : lows.Sum(p => p.Stats.FpsLow!.Value * p.ActiveSec) / Math.Max(1, lows.Sum(p => p.ActiveSec));
+        var framed = plays.Where(p => p.Stats.FrameMinutes > 0).ToList();
+        int frameMin = framed.Sum(p => p.Stats.FrameMinutes);
+        double? rate = frameMin > 0 ? framed.Sum(p => p.Stats.Stutters ?? 0) * 60.0 / frameMin : null;
+        var end = monday.AddDays(7) < to ? monday.AddDays(7) : to;
+        return new RunsPoint(monday + (end - monday) / 2, monday.AddDays(7), plays.Sum(p => p.ActiveSec), fps, low, rate, plays.Count, true, true, false, null, null);
+    }
+
+    /// <summary>The numbers beside the chart, for what's shown.</summary>
+    private void Numbers(PlayStats stats)
+    {
+        FpsAvg = stats.Fps is double fps ? $"{fps:0}" : "—";
+        FpsLow = stats.FpsLow is double low ? $"{low:0}" : "—";
+        (SmoothVerdict, SmoothDetail) = SmoothOf(stats);
+    }
 
     /// <summary>Why a game has no frame rate yet, and what to do about it.</summary>
     public string FpsEmpty => _overlay.RtssState switch
@@ -565,12 +738,15 @@ public sealed partial class GamesViewModel : ObservableObject
     {
         if (!quiet) IsOpening = true;
         var story = await _reports.QueryAsync((db, s) => GameHistory.Story(db, entry, s, DateTime.Now)) ?? new GameStory { Entry = entry };
+        // Another game: "How it runs" starts again on the last 30 days. A quiet refresh of the same one keeps the range,
+        // the view and the play picked (2026-10-27: every refresh put it back on All plays).
+        if (!quiet || Opened?.Entry.Key != entry.Key) { (_runsDays, _runsBack, _runsCustom, _play) = (30, 0, null, null); FramesView = false; }
         Fill(story);
         Opened = story;
         IsOpening = false;
         OnPropertyChanged(nameof(GameName), nameof(GameInstalled), nameof(GameHasFolder), nameof(OpenedLive), nameof(OpenedNotRunning), nameof(ProblemsTitle), nameof(FpsEmpty), nameof(CanStartRtss), nameof(CanInstallRtss), nameof(BetterAsk), nameof(NoFpsAsk));
         await LoadSettingsAsync(story);
-        await LoadFramesAsync(story);
+        await ShowRunsAsync();
     }
 
     /// <summary>How smooth, from every frame: a verdict, then the stutters an hour and the 0.1% low. Empty without frames.</summary>
@@ -581,37 +757,6 @@ public sealed partial class GamesViewModel : ObservableObject
         var parts = new List<string> { rate < 0.5 ? Lang.T("no stutters") : Lang.T($"{rate:0} stutters an hour") };
         if (all.FpsLow01 is double low) parts.Add(Lang.T($"0.1% low {low:0} fps"));
         return (verdict, string.Join(Environment.NewLine, parts));
-    }
-
-    /// <summary>
-    /// Every frame of the newest play still kept (from the last 14 days), read off the window's thread: the "Every
-    /// frame" chart. Nothing while none is kept (older plays, or no RivaTuner).
-    /// </summary>
-    private async Task LoadFramesAsync(GameStory story)
-    {
-        EveryFrame = null;
-        EveryFrameStutters = [];
-        EveryFrameNote = "";
-        FramesView = false;
-        EveryFrameP99 = null;
-        StutterWhy = "";
-        var play = story.Plays.LastOrDefault(p => p.Stats.FrameMinutes > 0 && p.EndTime >= DateTime.Now.AddDays(-FrameStore.KeepDays));
-        if (play is null || story.Entry.AppIds.Count == 0) return;
-        long app = story.Entry.AppIds[0];
-        var stutters = await _reports.QueryAsync((db, _) => db.GetStutters(app, play.Start * 1000, (play.End + 60) * 1000)) ?? [];
-        var run = await Task.Run(() => FrameStore.Read(app, play.Start * 1000, (play.End + 60) * 1000));
-        if (Opened != story || run.Count < 2) return;
-        // The slowest 1%'s edge, and what was going on when the stutters bunched up: off the window's thread.
-        var p99 = await Task.Run(() => { var ms = (float[])run.Ms.Clone(); Array.Sort(ms); return (double)ms[Math.Min(ms.Length - 1, (int)(ms.Length * 0.99))]; });
-        var why = await _reports.QueryAsync((db, settings) => StutterCauses.Explain(db, app, stutters, play.Start, play.End + 60, settings));
-        if (Opened != story) return;
-        EveryFrameStutters = stutters;
-        EveryFrameP99 = p99;
-        StutterWhy = why ?? "";
-        FramesViewName = Lang.T($"{play.StartTime:ddd d MMM} play, every frame");
-        EveryFrame = run;
-        EveryFrameNote = Lang.T($"Your {play.StartTime:ddd d MMM} play, {run.Count:N0} frames") + " · "
-            + (stutters.Count == 0 ? Lang.T("no stutters") : stutters.Count == 1 ? Lang.T("1 stutter") : Lang.T($"{stutters.Count} stutters"));
     }
 
     // ── How it's set ────────────────────────────────────────────────────
@@ -701,31 +846,30 @@ public sealed partial class GamesViewModel : ObservableObject
         GamePills = pills;
         About = AboutRows(e, st);
 
-        // How it runs
+        // How it runs: the plays with a frame rate, those with frame data (they open), and the updates. What's shown is
+        // worked out for the range picked (ShowRunsAsync).
         var withFps = st.Plays.Where(p => p.Stats.Fps is not null).ToList();
         HasFps = withFps.Count > 0;
-        FpsAvg = st.All.Fps is double fps ? $"{fps:0}" : "—";
-        FpsLow = st.All.FpsLow is double low ? $"{low:0}" : "—";
-        (SmoothVerdict, SmoothDetail) = SmoothOf(st.All);
+        _withFps = withFps;
+        _framePlays = withFps.Where(p => p.Stats.FrameMinutes > 0).ToList();
+        _app = e.AppIds.Count > 0 ? e.AppIds[0] : 0;
+        HasFramePlays = _framePlays.Count > 0;
+        _play = _play is { } was ? _framePlays.FirstOrDefault(p => p.Start == was.Start) : null;
+        _play ??= _framePlays.LastOrDefault();
+        if (_play is null) FramesView = false;
+        // Opening on the last 30 days, or longer when the game wasn't played in them.
+        if (_runsCustom is null && _runsBack == 0 && withFps.Count > 0 && !withFps.Any(p => p.EndTime >= DateTime.Now.AddDays(-_runsDays)))
+        {
+            if (withFps.Any(p => p.EndTime >= DateTime.Now.AddDays(-365))) _runsDays = 365;
+            else _runsCustom = (withFps[0].StartTime.Date, DateTime.Now);
+        }
         SinceUpdate = st.SinceUpdate ?? (st.LastUpdate is null ? Lang.T("No update seen") : Lang.T("Too soon to tell"));
         UpdatedNote = st.LastUpdate is { } u ? Lang.T($"Updated {u:ddd d MMM}") : "";
-        // One play with frames: that play minute by minute, until a second gives the play-by-play line.
-        FpsByMinute = withFps.Count == 1 && st.OnlyPlayMinutes.Count >= 2;
-        FpsChartNote = FpsByMinute ? Lang.T($"Your {withFps[0].StartTime:ddd d MMM} play, minute by minute") : "";
-        FpsPoints = FpsByMinute
-            ? st.OnlyPlayMinutes.Select(m => new FpsPoint(TimeUtil.FromUnix(m.Ts), TimeUtil.FromUnix(m.Ts + 60), 60, m.Fps!.Value, m.FpsLow, m.GpuTemp, m.GpuPower, false)).ToList()
-            : withFps.Select(p => new FpsPoint(p.StartTime, p.EndTime, p.ActiveSec, p.Stats.Fps!.Value, p.Stats.FpsLow, p.Stats.Gpu, p.Stats.GpuPower, p.Ending == PlayEnd.PowerCut)).ToList();
-        var marks = new List<FpsMark>();
-        foreach (var c in st.Changes.Where(c => c.Change.IsGraphicsDriver || c.Change.Kind == ChangeKind.GameUpdated))
-        {
-            // Between the plays with frames on either side of it.
-            int before = st.Plays.Take(c.After + 1).Count(p => p.Stats.Fps is not null) - 1;
-            if (FpsByMinute || before < 0 || before >= withFps.Count - 1) continue;
-            string driver = c.Change.Now ?? c.Change.Title.Split(' ').LastOrDefault() ?? "";
-            string label = c.Change.Kind == ChangeKind.GameUpdated ? Lang.T("Game update") : Lang.T($"Driver {driver}");
-            marks.Add(new FpsMark(before + 0.5, label, c.Change.Shown, c.Change.Time));
-        }
-        FpsMarks = marks;
+        _allMarks = st.Changes.Where(c => c.Change.IsGraphicsDriver || c.Change.Kind == ChangeKind.GameUpdated)
+            .Select(c => new RunsMark(c.Change.Time,
+                c.Change.Kind == ChangeKind.GameUpdated ? Lang.T("Game update") : Lang.T($"Driver {c.Change.Now ?? c.Change.Title.Split(' ').LastOrDefault() ?? ""}"),
+                c.Change.Shown))
+            .ToList();
 
         Better = BetterLines(st, withFps);
 

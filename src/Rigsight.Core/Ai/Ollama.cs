@@ -225,14 +225,18 @@ public static class Ollama
             : new AiStep(Lang.T($"Getting {model} ready…"), Lang.T("The first answer can take a little longer while it loads."), Loading: true));
         for (int round = 0; round < MaxRounds; round++)
         {
+            // The last round has no look-ups: the answer comes from what was found (OwnKey.LastRound).
+            bool last = round == MaxRounds - 1;
+            var sending = (JsonArray)JsonNode.Parse(messages.ToJsonString())!;
+            if (last) sending.Add(new JsonObject { ["role"] = "system", ["content"] = OwnKey.LastRound });
             var body = new JsonObject
             {
                 ["model"] = model,
-                ["messages"] = JsonNode.Parse(messages.ToJsonString()),
+                ["messages"] = sending,
                 ["stream"] = false,
                 ["options"] = new JsonObject { ["num_ctx"] = ContextTokens },
             };
-            if (definitions is { Count: > 0 }) body["tools"] = JsonNode.Parse(definitions.ToJsonString());
+            if (definitions is { Count: > 0 } && !last) body["tools"] = JsonNode.Parse(definitions.ToJsonString());
             string text;
             int status;
             try

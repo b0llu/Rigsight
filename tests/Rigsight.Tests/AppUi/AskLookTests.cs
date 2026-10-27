@@ -400,6 +400,278 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
     }
 
     /// <summary>
+    /// A widget of theirs already showing the readings (made from an earlier answer and switched off, the user's own case of
+    /// 2026-10-26): the card turns that one on instead of making a second; with it on, the card says so and has no button.
+    /// </summary>
+    [Fact]
+    public void A_widget_that_already_shows_the_readings_is_turned_on_not_made_again()
+    {
+        Ui.TakeProblems();
+        const string Text = "Keep the temperatures in view while you play.\n[do: widget CPU temperature, GPU temperature, RAM in use]";
+        var (ask, answer) = Ui.Run(() =>
+        {
+            var (a, t, _) = Setup("Hey! Ask me anything about your PC.", []);
+            var drawn = AskViewModel.ToAnswer(Text, [], actions: m => AiActions.Resolve(m, new AiActionContext([], null, () => [], true)));
+            t.Messages[1] = drawn;
+            return (a, drawn);
+        });
+        var card = answer.Parts.OfType<AskNext>().Single().SetupActions.Single();
+        var keys = card.Setup!.Readings.Select(r => new WidgetItem { Id = r.Key }).ToList();
+        var mine = new WidgetConfig { Style = WidgetStyle.Custom, Id = "w-test", Name = "My widget 1", Layout = WidgetLayout.Bar, Items = keys, Enabled = false };
+        Ui.Run(() =>
+        {
+            var s = host.Shell.Settings.Current.Clone();
+            s.Widgets.Add(mine);
+            card.Setup.Refresh(s, "running");
+        });
+        Shot("53-setup-widget-off");
+        Ui.Run(() =>
+        {
+            Assert.Equal("Turn on My widget 1", card.Setup.MainLabel);
+            Assert.Contains("Turn on My widget 1", Visuals.Descendants<Button>(Panel()).Where(b => b.IsVisible).Select(b => AutomationProperties.GetName(b)));
+            Assert.Contains("My widget 1 already shows these, but it's off.", Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible).Select(t => t.Text));
+            // The step's words aren't shown beside the card: they told them to do by hand what the button does.
+            Assert.DoesNotContain(Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible), t => t.Text.StartsWith("Keep the temperatures in view"));
+        });
+        Ui.Run(() =>
+        {
+            var s = host.Shell.Settings.Current.Clone();
+            mine.Enabled = true;
+            s.Widgets.Add(mine);
+            card.Setup.Refresh(s, "running");
+        });
+        Shot("54-setup-widget-on");
+        Ui.Run(() =>
+        {
+            Assert.True(card.Setup.AllOn);
+            Assert.All(card.Setup.Chips, c => Assert.True(c.On));
+            Assert.Contains("All of these are on My widget 1 already.", Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible).Select(t => t.Text));
+        });
+        Ui.Run(() => { ask.IsOpen = false; foreach (var c in ask.Conversations.Where(c => c.Title == "Look").ToList()) ask.Conversations.Remove(c); });
+        Assert.Empty(Ui.TakeProblems().Crashes);
+    }
+
+    /// <summary>
+    /// Every icon on a line of words (a tick before "Created and turned on", the warning before a failure, the Check again
+    /// clock) sits in the middle of the words' capitals, measured from what's drawn at 4x (the user, 2026-10-26: "alignment
+    /// not proper with icon, audit these scenarios"). Every card in each of its states is on screen while it's measured.
+    /// </summary>
+    [Fact]
+    public void Every_icon_sits_in_the_middle_of_its_words()
+    {
+        Ui.TakeProblems();
+        AiReading package = new("CPU Package", SensorId: "/look/cpu/0", Part: "AMD Ryzen 7 7800X3D");
+        var context = new AiActionContext([], null, () => [], true, Sensors: [package], TrayOf: new Dictionary<OverlayMetric, AiReading> { [OverlayMetric.CpuTemp] = package });
+        const string Text = "Watching it while you play shows when it climbs.\n"
+            + "[do: widget GPU hot spot, GPU temperature, CPU temperature]\n[do: overlay GPU hot spot, Frame time, 1% low]\n[do: taskbar CPU temperature]";
+        var (ask, answer) = Ui.Run(() =>
+        {
+            var (a, t, _) = Setup("Hey! Ask me anything about your PC.", []);
+            var drawn = AskViewModel.ToAnswer(Text, [], actions: m => AiActions.Resolve(m, context));
+            t.Messages[1] = drawn;
+            t.Messages.Add(new AskDone("Closed Python at 10:42 PM"));
+            t.Messages.Add(new AskCheck(DateTime.Now, 10, CheckWhat.Memory));
+            t.Messages.Add(new AskSummary { Replaced = 6 });
+            return (a, drawn);
+        });
+        var cards = answer.Parts.OfType<AskNext>().Single().SetupActions;
+        var problems = new List<string>();
+        var seen = new List<string>();
+        void Measure(string state)
+        {
+            Ui.Pump(250);
+            Ui.Run(() =>
+            {
+                static bool IsIcon(FrameworkElement e) => e.IsVisible && e switch
+                {
+                    TextBlock t => t.FontFamily.Source.Contains("Icons") && t.Text.Length > 0,
+                    Rigsight.Controls.InkCentered i => i.Font is { Length: > 0 } && i.Text.Length > 0,
+                    _ => false,
+                };
+                foreach (var icon in Visuals.Descendants<FrameworkElement>(Panel()).Where(IsIcon).ToList())
+                {
+                    // In a square or a circle: centred on that, not on words.
+                    if (System.Windows.Media.VisualTreeHelper.GetParent(icon) is not Panel row || row is Grid || row is StackPanel { Orientation: Orientation.Vertical }) continue;
+                    // The words beside it, or the first line of the block of words beside it (Check again's heading).
+                    var words = row.Children.OfType<FrameworkElement>().Where(e => e != icon && e.IsVisible)
+                        .SelectMany(e => e is TextBlock t ? [t] : e is StackPanel { Orientation: Orientation.Vertical } sp ? sp.Children.OfType<TextBlock>().Take(1) : Enumerable.Empty<TextBlock>())
+                        .FirstOrDefault(t => t.IsVisible && t.Text.Length > 0 && !t.FontFamily.Source.Contains("Icons"));
+                    if (words is null) continue;
+                    string name = $"{state}: {words.Text}";
+                    double dy = IconOffset(row, icon, words);
+                    seen.Add($"{name} {dy:+0.00;-0.00}");
+                    // Half a pixel, closer than a screen shows. (A spinner isn't measured: caught mid-turn, it read anywhere from
+                    // -0.6 to +1.4 px run to run; its place is checked on the picture, ask-60-summary-busy.)
+                    if (Math.Abs(dy) > 0.5) problems.Add($"{name}: icon {dy:+0.00;-0.00} px from the middle of the capitals");
+                }
+            });
+        }
+        Ui.Run(() => { foreach (var c in cards) c.Setup!.Refresh(host.Shell.Settings.Current, "running"); });
+        Measure("ready");
+        Ui.Run(() =>
+        {
+            foreach (var c in cards) { c.Setup!.DoneText = "Created and turned on"; c.State = AskActionState.Done; }
+            var line = ask.Current!.Messages.OfType<AskSummary>().Single();
+            line.Text = "- x"; line.IsBusy = false;
+        });
+        Measure("done");
+        Ui.Run(() =>
+        {
+            var s = host.Shell.Settings.Current.Clone();
+            s.TraySensors = ["/look/cpu/0"];
+            foreach (var c in cards) c.State = AskActionState.Ready;
+            cards.Single(c => c.Kind == AiActionKind.AddTaskbar).Setup!.Refresh(s, "running");
+            var widget = cards.Single(c => c.Kind == AiActionKind.CreateWidget);
+            widget.Said = "You have 8 widgets of your own already, the most RigSight keeps. Delete one in Widgets first.";
+            widget.State = AskActionState.Failed;
+        });
+        Measure("all on, failed");
+        Directory.CreateDirectory(Shots);
+        File.WriteAllLines(Path.Combine(Shots, "ask-icon-offsets.txt"), seen);
+        Ui.Run(() => { ask.IsOpen = false; foreach (var c in ask.Conversations.Where(c => c.Title == "Look").ToList()) ask.Conversations.Remove(c); });
+        Assert.NotEmpty(seen);
+        Assert.True(problems.Count == 0, string.Join("\n", problems));
+        Assert.Empty(Ui.TakeProblems().Crashes);
+    }
+
+    /// <summary>
+    /// How far down the icon's ink middle is from the middle of the words' capitals on their first line, in pixels. The words
+    /// are drawn as capitals for the moment ("HHH": no descender or accent to move the middle), then put back.
+    /// </summary>
+    private static double IconOffset(Panel row, FrameworkElement icon, TextBlock words)
+    {
+        const int k = 4;
+        string text = words.Text;
+        words.Text = "HHH";
+        row.UpdateLayout();
+        try
+        {
+            int w = (int)Math.Ceiling(row.ActualWidth) * k, h = (int)Math.Ceiling(row.ActualHeight) * k;
+            var visual = new System.Windows.Media.DrawingVisual();
+            using (var dc = visual.RenderOpen())
+                dc.DrawRectangle(new System.Windows.Media.VisualBrush(row) { Stretch = System.Windows.Media.Stretch.None, AlignmentX = System.Windows.Media.AlignmentX.Left, AlignmentY = System.Windows.Media.AlignmentY.Top },
+                    null, new Rect(0, 0, row.ActualWidth, row.ActualHeight));
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(w, h, 96 * k, 96 * k, System.Windows.Media.PixelFormats.Pbgra32);
+            bitmap.Render(visual);
+            var px = new byte[w * h * 4];
+            bitmap.CopyPixels(px, w * 4, 0);
+            (double Top, double Bottom) Ink(FrameworkElement e)
+            {
+                var at = e.TransformToAncestor(row).Transform(new Point(0, 0));
+                int x0 = Math.Max(0, (int)(at.X * k)), x1 = Math.Min(w, (int)((at.X + e.ActualWidth) * k));
+                int y0 = Math.Max(0, (int)(at.Y * k)), y1 = Math.Min(h, (int)((at.Y + e.ActualHeight) * k));
+                int top = -1, bottom = -1;
+                for (int y = y0; y < y1; y++)
+                    for (int x = x0; x < x1; x++)
+                        if (px[(y * w + x) * 4 + 3] >= 128) { if (top < 0) top = y; bottom = y; break; }
+                return (top / (double)k, (bottom + 1) / (double)k);
+            }
+            var i = Ink(icon);
+            var c = Ink(words);
+            return (i.Top + i.Bottom) / 2 - (c.Top + c.Bottom) / 2;
+        }
+        finally
+        {
+            words.Text = text;
+            row.UpdateLayout();
+        }
+    }
+
+    /// <summary>
+    /// A long chat's summary line and the question box as drawn (the approved mock-up "Long chats and big pastes",
+    /// 2026-10-26): the spinner while it's made, a question asked meanwhile waiting for it, the line, the line opened, and
+    /// the box near and past the most it holds. Saved as screens\ask-60..65 to compare with the mock-up; the spinner and
+    /// the chevron are measured against their words.
+    /// </summary>
+    [Fact]
+    public void A_long_chats_summary_and_the_big_question_box_as_drawn()
+    {
+        Ui.TakeProblems();
+        var (ask, talk) = Ui.Run(() =>
+        {
+            var (a, t, _) = Setup("Hey! Ask me anything about your PC.", []);
+            t.Title = "Black screens after the driver update";
+            t.Messages.Clear();
+            string[] qs = ["My screen went black twice yesterday, what happened?", "was it too hot?", "is the driver the problem?", "what should I try?", "ok I rolled back to 617.42, anything since?"];
+            string[] ans = [
+                "Your graphics driver stopped answering and Windows reset it, at **5:13 PM** and **5:25 PM** on 22 Oct.",
+                "No. The graphics card was at 54 °C and 55 °C just before each reset, close to the 48 °C it sits at when idle.",
+                "Possibly. Both resets came the day you installed NVIDIA driver 621.01, with none in the 14 days before.",
+                "Go back to 617.42 with a clean install, then play as usual for a few days.",
+                "Nothing since. No reset in the 19 hours on 617.42, including 2h 51m of Risk of Rain 2 last night."];
+            for (int i = 0; i < qs.Length; i++)
+            {
+                t.Messages.Add(new AskQuestion(qs[i]));
+                t.Messages.Add(AskViewModel.ToAnswer(ans[i], []));
+            }
+            return (a, t);
+        });
+        // While it's made: the line with the spinner, above the last two questions and their answers.
+        var line = new AskSummary { Replaced = 6 };
+        Ui.Run(() => talk.Messages.Insert(6, line));
+        Ui.Run(() => Visuals.Descendants<ScrollViewer>(Panel()).First(sv => sv.Name == "Chat").ScrollToEnd());
+        Shot("60-summary-busy");
+        Ui.Run(() => Assert.Contains("Summarising earlier messages…", Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible).Select(t => t.Text)));
+        // A question asked meanwhile waits for it, saying so.
+        AskThinking? waiting = null;
+        Ui.Run(() =>
+        {
+            talk.Messages.Add(new AskQuestion("and the shut-offs?"));
+            waiting = new AskThinking();
+            talk.Messages.Add(waiting);
+            waiting.Show("Summarising earlier messages…", "Your question goes as soon as it's done.");
+            Visuals.Descendants<ScrollViewer>(Panel()).First(sv => sv.Name == "Chat").ScrollToEnd();
+        });
+        Shot("61-summary-asked");
+        Ui.Run(() => Assert.Contains("Your question goes as soon as it's done.", Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible).Select(t => t.Text)));
+        // Done: the line, closed, then opened.
+        Ui.Run(() =>
+        {
+            talk.Messages.Remove(waiting!);
+            talk.Messages.RemoveAt(talk.Messages.Count - 1);
+            line.Text = "- Two graphics driver resets on 22 Oct, at 5:13 PM and 5:25 PM.\n- Graphics card at 54 °C and 55 °C before them (idle is 48 °C), so not heat.\n- Suggested: go back to 617.42 with a clean install.";
+            line.IsBusy = false;
+            Visuals.Descendants<ScrollViewer>(Panel()).First(sv => sv.Name == "Chat").ScrollToEnd();
+        });
+        Shot("62-summary-done");
+        Ui.Run(() => Assert.Contains("Earlier messages summarised to keep this chat going", Visuals.Descendants<Button>(Panel()).Where(b => b.IsVisible).Select(b => AutomationProperties.GetName(b))));
+        Ui.Run(() =>
+        {
+            ask.ToggleSummaryCommand.Execute(line);
+            Assert.True(line.IsOpen);
+            Visuals.Descendants<ScrollViewer>(Panel()).First(sv => sv.Name == "Chat").ScrollToEnd();
+        });
+        Shot("63-summary-open");
+        Ui.Run(() =>
+        {
+            var words = Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible).Select(t => t.Text).ToList();
+            Assert.Contains("What RigSight AI now reads instead of the 6 messages above:", words);
+            Assert.Contains("Graphics card at 54 °C and 55 °C before them (idle is 48 °C), so not heat.", words);
+        });
+        // The box near the most it holds, then past it.
+        Ui.Run(() => ask.Draft = new string('x', 92_000));
+        Shot("64-box-near");
+        Ui.Run(() =>
+        {
+            Assert.True(ask.ShowDraftCount);
+            Assert.Contains("92,000 of 100,000 characters", Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible).Select(t => t.Text));
+            Assert.Equal(92_000, ((TextBox)Visuals.Descendants<AskWindow>(host.Window).Single().FindName("Question")).Text.Length);
+        });
+        Ui.Run(() => ask.Draft = new string('x', 130_000));
+        Shot("65-box-over");
+        Ui.Run(() =>
+        {
+            Assert.True(ask.IsTooLong);
+            Assert.False(ask.SendCommand.CanExecute(null));
+            Assert.Contains(Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible), t => t.Text.StartsWith("That's more than RigSight AI can read at once"));
+            // Nothing cut off: the box holds all of it.
+            Assert.Equal(130_000, ((TextBox)Visuals.Descendants<AskWindow>(host.Window).Single().FindName("Question")).Text.Length);
+        });
+        Ui.Run(() => { ask.Draft = ""; ask.IsOpen = false; foreach (var c in ask.Conversations.Where(c => c.Title is "Look" or "Black screens after the driver update").ToList()) ask.Conversations.Remove(c); });
+        Assert.Empty(Ui.TakeProblems().Crashes);
+    }
+
+    /// <summary>
     /// Every first letter a site can start with sits in the middle of its circle (the person saw an "N" off centre,
     /// 2026-10-23, and asked for every letter to be checked): A to Z, 0 to 9, accents, other scripts and a lowercase-only
     /// one, each drawn at 8x and its ink's middle measured against the circle's. Also saved as screens\ask-12-marks.png.
@@ -473,5 +745,194 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
             layer.Children.Remove(sheet);
         });
         Assert.True(problems.Count == 0, "Off the circle's middle:\n" + string.Join("\n", problems));
+    }
+    // The title bar's ask box and its drop (approved mock-up, 2026-10-27): drawn resting, open with its questions, typed
+    // in, and showing the chat's name once Ask is open; the drop keeps what's typed when it closes.
+    [Fact]
+    public void The_title_bars_ask_box_opens_its_drop_keeps_a_draft_and_names_the_open_chat()
+    {
+        host.Show("home", 600);
+        var ask = host.Shell.Ask;
+        Ui.Run(() => { ask.IsOpen = false; ask.BarDraft = ""; });
+        var box = Ui.Run(() => (System.Windows.Controls.Button)host.Window.FindName("AskBox"));
+        var drop = Ui.Run(() => (System.Windows.Controls.Primitives.Popup)host.Window.FindName("AskDrop"));
+        var root = Ui.Run(() => (FrameworkElement)host.Window.FindName("AskDropRoot"));
+        Ui.Run(() =>
+        {
+            Assert.True(box.IsVisible);
+            Assert.Equal("Ask about your PC…", ask.BarText);
+            var bar = (FrameworkElement)host.Window.FindName("TitleBar");
+            Ui.SavePng(bar, Path.Combine(Shots, "askbox-1-resting.png"));
+            ((System.Windows.Automation.Provider.IInvokeProvider)new System.Windows.Automation.Peers.ButtonAutomationPeer(box).GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)!).Invoke();
+        });
+        Ui.Pump(500);
+        Ui.Run(() =>
+        {
+            Assert.True(drop.IsOpen);
+            Assert.True(ask.BarSuggests);
+            Ui.SavePng(root, Path.Combine(Shots, "askbox-2-drop.png"));
+            ask.BarDraft = "Why did my GPU hot spot reach 88 °C yesterday?\nAnd is that safe?";
+        });
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            Assert.False(ask.BarSuggests);
+            Assert.True(ask.CanAskFromBar);
+            Ui.SavePng(root, Path.Combine(Shots, "askbox-3-typed.png"));
+        });
+        // Esc: back into the box, the draft kept and shown in it.
+        Ui.Run(() => root.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(root)!, 0, System.Windows.Input.Key.Escape)
+            { RoutedEvent = UIElement.PreviewKeyDownEvent }));
+        Ui.Pump(500);
+        Ui.Run(() =>
+        {
+            Assert.False(drop.IsOpen);
+            Assert.StartsWith("Why did my GPU hot spot", ask.BarText);
+            Assert.Contains("⏎", ask.BarText);
+            Ui.SavePng((FrameworkElement)host.Window.FindName("TitleBar"), Path.Combine(Shots, "askbox-4-draft.png"));
+            // Ask open on a chat: the box doesn't repeat its name (Ask's header says it); it starts a new chat.
+            ask.BarDraft = "";
+            var talk = new AskConversation { Title = "GPU hot spot at 88 °C" };
+            ask.Conversations.Insert(0, talk);
+            ask.Current = talk;
+            ask.IsOpen = true;
+        });
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            Assert.Equal("Ask about your PC…", ask.BarText);
+            Assert.Equal("Start a new chat…", ask.BarPlaceholder);
+            Ui.SavePng((FrameworkElement)host.Window.FindName("TitleBar"), Path.Combine(Shots, "askbox-5-open.png"));
+            ask.IsOpen = false;
+        });
+        // Zoomed (2026-10-27: the drop hung to the right at 125%): the box, the drop and the window share one middle.
+        double was = Ui.Run(() => host.Shell.Settings.Current.Zoom);
+        try
+        {
+            Ui.Run(() => { host.Shell.Settings.Update(s => s.Zoom = 1.2); host.Window.Width += 1; });
+            Ui.Pump(400);
+            Ui.Run(() => ((System.Windows.Automation.Provider.IInvokeProvider)new System.Windows.Automation.Peers.ButtonAutomationPeer(box).GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)!).Invoke());
+            Ui.Pump(600);
+            Ui.Run(() =>
+            {
+                var bar = (FrameworkElement)host.Window.FindName("TitleBar");
+                double Mid(FrameworkElement e) => e.PointToScreen(new Point(e.ActualWidth / 2, 0)).X;
+                Assert.True(drop.IsOpen, "drop open");
+                Assert.InRange(Mid(box) - Mid(bar), -1.5, 1.5);
+                // Placed from the sizes as drawn: centred on the box at any zoom (the test window is off screen, where
+                // Windows moves popups back on, so screen places can't be compared here).
+                Assert.Equal(System.Windows.Controls.Primitives.PlacementMode.Custom, drop.Placement);
+                var at = MainWindow.DropPlacement(new Size(600 * 1.2 + 28, 300), new Size(480 * 1.2, 36), default)[0].Point;
+                Assert.Equal((480 * 1.2 - (600 * 1.2 + 28)) / 2, at.X, 3);
+                Assert.Equal(0, at.Y);
+                Assert.True(root.ActualWidth * ((System.Windows.Media.ScaleTransform)root.LayoutTransform).ScaleX > 640, "the drop is zoomed with the bar");
+                root.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(root)!, 0, System.Windows.Input.Key.Escape) { RoutedEvent = UIElement.PreviewKeyDownEvent });
+            });
+            Ui.Pump(400);
+        }
+        finally
+        {
+            Ui.Run(() => { host.Shell.Settings.Update(s => s.Zoom = was); host.Window.Width -= 1; });
+            Ui.Pump(300);
+        }
+    }
+    // Before the first question (2026-10-27): the drop asks first, before anything is typed; Start asking turns it into
+    // the box to type in. And the chat button beside the box opens Ask on its chats and closes it.
+    [Fact]
+    public void The_drop_asks_before_the_first_question_and_the_chat_button_opens_ask()
+    {
+        host.Show("home", 600);
+        var ask = host.Shell.Ask;
+        var seen = Ui.Run(() => host.Shell.Settings.Current.Ai.FirstQuestionSeen);
+        var changed = typeof(AskViewModel).GetMethod("FirstQuestionChanged", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var box = Ui.Run(() => (System.Windows.Controls.Button)host.Window.FindName("AskBox"));
+        var chats = Ui.Run(() => (System.Windows.Controls.Button)host.Window.FindName("AskChats"));
+        var drop = Ui.Run(() => (System.Windows.Controls.Primitives.Popup)host.Window.FindName("AskDrop"));
+        var root = Ui.Run(() => (FrameworkElement)host.Window.FindName("AskDropRoot"));
+        var text = Ui.Run(() => (FrameworkElement)host.Window.FindName("AskDropText"));
+        static void Press(System.Windows.Controls.Button b) =>
+            ((System.Windows.Automation.Provider.IInvokeProvider)new System.Windows.Automation.Peers.ButtonAutomationPeer(b).GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)!).Invoke();
+        try
+        {
+            Ui.Run(() =>
+            {
+                ask.IsOpen = false;
+                host.Shell.Settings.Update(s => s.Ai.FirstQuestionSeen = []);
+                changed.Invoke(ask, null);
+                Assert.True(ask.ShowFirstQuestion, "first-question step");
+                Press(box);
+            });
+            Ui.Pump(500);
+            Ui.Run(() =>
+            {
+                Assert.True(drop.IsOpen, "drop open");
+                Assert.False(text.IsVisible, "nothing to type in before agreeing");
+                var buttons = Visuals.Descendants<System.Windows.Controls.Button>(root).Where(b => b.IsVisible).Select(b => b.Content as string).ToList();
+                Assert.Equal(["Start asking", "Not now", "Settings", "Privacy page"], buttons.Where(b => b is not null && !b.Contains('·')).Take(4).ToList());
+                Ui.SavePng(root, Path.Combine(Shots, "askbox-6-first.png"));
+                ask.StartAskingCommand.Execute(null);
+            });
+            Ui.Pump(400);
+            Ui.Run(() =>
+            {
+                Assert.False(ask.ShowFirstQuestion);
+                Assert.True(drop.IsOpen, "Start asking keeps the drop open, as the box to type in");
+                Assert.True(text.IsVisible, "typing box shown");
+                root.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(root)!, 0, System.Windows.Input.Key.Escape) { RoutedEvent = UIElement.PreviewKeyDownEvent });
+            });
+            Ui.Pump(400);
+            Ui.Run(() =>
+            {
+                Assert.True(chats.IsVisible, "chat button shown");
+                Ui.SavePng((FrameworkElement)host.Window.FindName("TitleBar"), Path.Combine(Shots, "askbox-7-chats.png"));
+                Press(chats);
+            });
+            Ui.Pump(300);
+            Ui.Run(() =>
+            {
+                Assert.True(ask.IsOpen, "Ask opened");
+                Ui.SavePng((FrameworkElement)host.Window.FindName("TitleBar"), Path.Combine(Shots, "askbox-8-chats-lit.png"));
+                Press(chats);
+            });
+            Ui.Pump(300);
+            Assert.False(Ui.Run(() => ask.IsOpen), "Ask closed again");
+        }
+        finally
+        {
+            Ui.Run(() => { host.Shell.Settings.Update(s => s.Ai.FirstQuestionSeen = seen); changed.Invoke(ask, null); ask.IsOpen = false; });
+            Ui.Pump(200);
+        }
+    }
+    // A drive scan's file named by its label: drawn as a chip with the real name, in line with the words (2026-10-27).
+    [Fact]
+    public void A_file_named_by_its_label_is_drawn_as_a_chip_in_the_line()
+    {
+        string old = Rigsight.Services.DriveScans.Folder, folder = Path.Combine(Path.GetTempPath(), $"rigsight-scans-{Guid.NewGuid():N}");
+        Rigsight.Services.DriveScans.Folder = folder;
+        Directory.CreateDirectory(folder);
+        string big = Path.Combine(folder, "docker_data.vhdx");
+        File.WriteAllText(big, "x");
+        try
+        {
+            var root = new Rigsight.Services.FolderNode { Name = "C:", Path = @"C:\", Size = 1000, Files = 1 };
+            var scanned = DateTime.Now;
+            Rigsight.Services.DriveScans.Keep(@"C:\", new Rigsight.Services.ScanResult { Root = root, FileCount = 1, Elapsed = TimeSpan.FromSeconds(1), LargestFiles = [new(big, 44_668_000_000)] }, scanned)
+                .GetAwaiter().GetResult();
+            host.Show("home", 400);
+            Ui.Run(() => Setup($"The biggest single thing is [file C1 {Rigsight.Services.DriveScans.ScanCode(scanned)}], 41.6 GB in **C:\\ProgramData\\DockerDesktop**: Docker Desktop's virtual disk, and it only shrinks from inside Docker. [src: storage]\nNext step: open Storage on the C drive.\n[do: open storage C]", []));
+            Shot("80-file-chip");
+            Ui.Run(() =>
+            {
+                var chip = Visuals.Descendants<System.Windows.Controls.Border>(Panel()).FirstOrDefault(b => System.Windows.Automation.AutomationProperties.GetName(b) == "docker_data.vhdx");
+                Assert.NotNull(chip);
+                host.Shell.Ask.IsOpen = false;
+            });
+        }
+        finally
+        {
+            Rigsight.Services.DriveScans.Folder = old;
+            Rigsight.Services.DriveScans.Clear();
+            try { Directory.Delete(folder, true); } catch (IOException) { }
+        }
     }
 }

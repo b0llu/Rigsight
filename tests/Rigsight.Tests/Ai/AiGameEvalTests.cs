@@ -94,7 +94,7 @@ public sealed class AiGameEvalTests
             p => Dota(p, vsync: false),
             [
                 ("what-fps", "What FPS do I get in Dota 2?", new Check(Names: ["RivaTuner"],
-                    Note: "no frame rate on record because RivaTuner isn't installed; how to get it (Install RivaTuner on the Games page); never a guessed number")),
+                    Note: "no frame rate on record because RivaTuner isn't installed; how to get it (install it from the Overlay page); never a guessed number")),
                 ("more-fps", "How can I get more FPS in Dota 2?", new Check(Names: ["RivaTuner"],
                     Note: "still advises from its settings and load (card at 55%), says it can't see the frame rate without RivaTuner and how to add it")),
             ], RivaTuner: "missing"),
