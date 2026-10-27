@@ -356,9 +356,18 @@ public sealed class WhatsNewTests
         });
     }
 
-    // Settings from before the choice: the switch on becomes the button, off stays off.
+    // A new install opens the card; 0.36.0's default button becomes the card once, and a button picked after that stays.
     [Theory]
-    [InlineData(true, WhatsNewAfter.Button)]
+    [InlineData(null, WhatsNewAfter.Open)]
+    [InlineData("""{ "SettingsVersion": 10, "WhatsNewAfter": "Button" }""", WhatsNewAfter.Open)]
+    [InlineData("""{ "SettingsVersion": 10, "WhatsNewAfter": "Off" }""", WhatsNewAfter.Off)]
+    [InlineData("""{ "SettingsVersion": 11, "WhatsNewAfter": "Button" }""", WhatsNewAfter.Button)]
+    public void What_s_new_opens_by_default(string? json, WhatsNewAfter after) =>
+        Assert.Equal(after, json is null ? new RigsightSettings().WhatsNewAfter : SettingsStore.Deserialize(json).WhatsNewAfter);
+
+    // Settings from before the choice: the switch on opens the card, off stays off.
+    [Theory]
+    [InlineData(true, WhatsNewAfter.Open)]
     [InlineData(false, WhatsNewAfter.Off)]
     public void The_old_switch_becomes_the_choice(bool shown, WhatsNewAfter after)
     {

@@ -163,11 +163,10 @@ public sealed class RigsightSettings
     public string? WhatsNewSeen { get; set; }
 
     /// <summary>
-    /// What happens after an update (Settings › General › Updates): a What's new button in the title bar (the default since
-    /// 2026-10-27: people asked not to have it open up front), the card opened by itself, or nothing. What's new stays in
-    /// the ⋯ menu whichever is picked.
+    /// What happens after an update (Settings › General › Updates): the card opened by itself (the default), a What's new
+    /// button in the title bar, or nothing. What's new stays in the ⋯ menu whichever is picked.
     /// </summary>
-    public WhatsNewAfter WhatsNewAfter { get; set; } = WhatsNewAfter.Button;
+    public WhatsNewAfter WhatsNewAfter { get; set; } = WhatsNewAfter.Open;
 
     /// <summary>The switch this replaced: read once from settings from before (off becomes <see cref="WhatsNewAfter.Off"/>), then gone.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]

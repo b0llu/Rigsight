@@ -103,7 +103,7 @@ public static class SettingsStore
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
 
-    private const int CurrentVersion = 10;
+    private const int CurrentVersion = 11;
 
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
@@ -170,8 +170,11 @@ public static class SettingsStore
         // The "record" switch became pausing until resumed (one way to stop tracking, and one way to start it again).
         if (s.Tracking.Enabled == false) s.Tracking.PausedUntil = -1;
         s.Tracking.Enabled = null;
-        // What's new as a title-bar button by default (2026-10-27): the old switch, where a file has it, says whether it was on.
-        if (s.ShowWhatsNew is { } shown) { s.WhatsNewAfter = shown ? WhatsNewAfter.Button : WhatsNewAfter.Off; s.ShowWhatsNew = null; }
+        // v11: What's new opens by itself by default again. 0.36.0 gave everyone the title-bar button as the default, so the
+        // button in a file from before becomes the card once; one picked after this stays.
+        if (s.SettingsVersion is > 0 and < 11 && s.WhatsNewAfter == WhatsNewAfter.Button) s.WhatsNewAfter = WhatsNewAfter.Open;
+        // The old switch, where a file has it, says whether What's new was on.
+        if (s.ShowWhatsNew is { } shown) { s.WhatsNewAfter = shown ? WhatsNewAfter.Open : WhatsNewAfter.Off; s.ShowWhatsNew = null; }
         // Ctrl+K opens the ask box from anywhere by default (2026-10-27), given once to setups that had no shortcut;
         // one someone set up stays, and one cleared after this stays cleared (Clear marks it given). Settings that
         // already have a shortcut are left as they are, so the defaults need no repair.
