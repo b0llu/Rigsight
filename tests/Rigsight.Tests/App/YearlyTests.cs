@@ -78,6 +78,25 @@ public sealed class YearlyTests
         Assert.False(plans.Columns[0].CanBuy);
     }
 
+    // "You're on Essentials now." stayed under Free after a refund in Lemon Squeezy (2026-10-28).
+    [Fact]
+    public void A_done_line_goes_once_the_plan_changes_elsewhere()
+    {
+        var (ask, plans) = Ui.Run(() =>
+        {
+            var a = new AskViewModel(Kit.OfflineSettings(new RigsightSettings()));
+            var p = new PlansViewModel(a);
+            a.Plans = p;
+            a.Show(Relay.ReadStatus(Status("essentials", "subscription"))!);
+            p.Done = "You're on Essentials now.";
+            return (a, p);
+        });
+        Ui.Run(() => ask.Show(Relay.ReadStatus(Status("essentials", "subscription"))!));
+        Assert.Equal("You're on Essentials now.", plans.Done);
+        Ui.Run(() => ask.Show(Relay.ReadStatus(Status())!));
+        Assert.Null(plans.Done);
+    }
+
     [Fact]
     public void Without_yearly_options_there_is_no_switch()
     {

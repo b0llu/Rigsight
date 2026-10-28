@@ -146,7 +146,11 @@ public sealed partial class PlansViewModel : ObservableObject
 
     private void Changed(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AskViewModel.Standing) or "") Rebuild();
+        if (e.PropertyName is nameof(AskViewModel.Standing) or "")
+        {
+            if (Done is not null && _doneFor != PlanKey) Done = null;
+            Rebuild();
+        }
         else if (e.PropertyName is nameof(AskViewModel.CheckingPlan) or nameof(AskViewModel.PlanUnknown))
             foreach (var name in new[] { nameof(Loading), nameof(CantTell), nameof(CantTellText), nameof(ShowPlan) }) OnPropertyChanged(name);
     }
@@ -384,6 +388,14 @@ public sealed partial class PlansViewModel : ObservableObject
     public bool HasProblem => Problem is not null;
 
     [ObservableProperty] private string? _done;
+
+    /// <summary>
+    /// The plan as it was when <see cref="Done"/> was said: once the plan changes without a press here (a refund or a
+    /// cancel in Lemon Squeezy, an admin change), the line goes. It said "You're on Essentials now." under Free (2026-10-28).
+    /// </summary>
+    private string? _doneFor;
+    partial void OnDoneChanged(string? value) => _doneFor = value is null ? null : PlanKey;
+    private string PlanKey => Plan is { } p ? $"{p.Id}|{p.Source}|{p.State}" : "";
 
     // ── Buying ───────────────────────────────────────────────────────────
     [ObservableProperty] private bool _waiting;
