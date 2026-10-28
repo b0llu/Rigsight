@@ -970,6 +970,12 @@
                                     </Border>
                                 </StackPanel>
                                 <TextBlock Text="{Binding Plans.FreeWhen}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="{Binding Plans.FreeWhen, Converter={StaticResource Vis}}" />
+                                <!-- The free trial waiting for the first question (2026-10-28) -->
+                                <DockPanel Margin="0,6,0,0" Visibility="{Binding Plans.HasTrialLine, Converter={StaticResource Vis}}">
+                                    <Path DockPanel.Dock="Left" Data="{StaticResource AiSparkle}" Stroke="{DynamicResource AiBrush}" StrokeThickness="2" StrokeLineJoin="Round" Stretch="Uniform"
+                                          Width="12" Height="12" Margin="0,2,8,0" VerticalAlignment="Top" />
+                                    <TextBlock Text="{Binding Plans.TrialLine}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                </DockPanel>
                                 <!-- Questions given, kept until used (2026-10-25) -->
                                 <DockPanel Margin="0,6,0,0" Visibility="{Binding Plans.HasGiven, Converter={StaticResource Vis}}">
                                     <TextBlock Text="&#xF133;" Style="{StaticResource Icon}" FontSize="12.5" Foreground="{DynamicResource PurpleBrush}" Margin="0,1,8,0" VerticalAlignment="Top" />

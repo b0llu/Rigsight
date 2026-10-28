@@ -46,6 +46,30 @@ public sealed class TrialTests
         Assert.Null(Relay.ReadStatus(Status())!.Trial);
     }
 
+    // Free's box said nothing of the trial waiting for the first question (2026-10-28).
+    [Fact]
+    public void Free_says_the_trial_is_waiting_until_it_starts()
+    {
+        var plans = Ui.Run(() =>
+        {
+            var ask = new AskViewModel(Kit.OfflineSettings(new RigsightSettings()));
+            var p = new PlansViewModel(ask);
+            ask.Plans = p;
+            ask.Show(Relay.ReadStatus(WithTrial(Status(), """{"state":"offered","days":7,"plan":"complete","cap":300}"""))!);
+            return p;
+        });
+        Assert.Equal("Try Complete free for 7 days. It starts with your first question. No card, nothing to cancel.", plans.TrialLine);
+        var ended = Ui.Run(() =>
+        {
+            var ask = new AskViewModel(Kit.OfflineSettings(new RigsightSettings()));
+            var p = new PlansViewModel(ask);
+            ask.Plans = p;
+            ask.Show(Relay.ReadStatus(WithTrial(Status(), """{"state":"ended","plan":"complete"}"""))!);
+            return p;
+        });
+        Assert.False(ended.HasTrialLine);
+    }
+
     [Theory]
     [InlineData(6.5, "Complete trial · 7 days left")]
     [InlineData(2.2, "Complete trial · 3 days left")]

@@ -241,6 +241,15 @@ public sealed partial class PlansViewModel : ObservableObject
     /// <summary>"7 of 10 left this week" on Free; the free column's own line on the Plans screen.</summary>
     public string FreeLine => Plan is { IsFree: true } p ? (FreePaused ? StateText : p.Left == 0 ? Lang.T("All 10 used this week") : StateText) : Lang.T("10 questions a week");
 
+    /// <summary>
+    /// The free trial on offer, on Free's box in Settings (the owner's word, 2026-10-28: Free said only "10 of 10 left
+    /// this week", so no one knew a trial was waiting). Gone once it has started or ended, or the relay offers none.
+    /// </summary>
+    public string TrialLine => _ask.Standing is { Trial: { Offered: true } t, Plan.IsFree: true } s && t.Days > 0
+        ? Lang.T($"Try {s.Plans.FirstOrDefault(p => p.Id == t.Plan)?.Name ?? "Complete"} free for {t.Days} days. It starts with your first question. No card, nothing to cancel.")
+        : "";
+    public bool HasTrialLine => TrialLine.Length > 0;
+
     /// <summary>Free questions paused on the relay (none this week for anyone): said so, never "0 of 0".</summary>
     public bool FreePaused => Plan is { IsFree: true, Cap: 0 };
 
