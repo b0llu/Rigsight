@@ -265,6 +265,8 @@ public sealed partial class PlansViewModel : ObservableObject
     public string Summary => Plan is not { IsFree: false } p ? ""
         : (p.Gift || p.IsTrial ? Lang.T($"Answers read {PagesText(p.Pages.Count)}")
            : p.Yearly ? Lang.T($"{p.Price} a year · answers read {PagesText(p.Pages.Count)}")
+           : MonthlyNext && MineColumn?.Offer.Yearly is { } paid && p.RenewsAt is { } yearEnd
+             ? Lang.T($"{paid.Price} paid to {TimeText.At(yearEnd, "d MMMM yyyy")} · then {p.Price} a month")
            : Lang.T($"{p.Price} a month · answers read {PagesText(p.Pages.Count)}"))
           + (PlanSearches ? " · " + Lang.T("web search") : "");
 
@@ -307,7 +309,7 @@ public sealed partial class PlansViewModel : ObservableObject
     // The facts as the plan box draws them: the amount in bold, when under it (approved mock-up 2026-10-24).
     public string NextAmount => Plan?.Price ?? "";
     // A yearly plan's next payment is months off, so its year is said.
-    public string NextWhen => Plan is { RenewsAt: { } on } p ? Lang.T($"on {TimeText.At(on, p.Yearly ? "d MMMM yyyy" : "d MMMM")}") + " · " + In(on) : "";
+    public string NextWhen => Plan is { RenewsAt: { } on } p ? Lang.T($"on {TimeText.At(on, p.Yearly || MonthlyNext ? "d MMMM yyyy" : "d MMMM")}") + " · " + In(on) : "";
     public string LastAmount => Plan?.LastPayment?.Amount ?? "";
     public string LastWhen => Plan?.LastPayment is { } last ? Lang.T($"on {TimeText.At(last.At, "d MMMM")}") : "";
     public string CardBrand => (Plan?.Card?.Brand ?? "").ToUpperInvariant();
@@ -483,6 +485,7 @@ public sealed partial class PlansViewModel : ObservableObject
     {
         CancelOpen = false;
         SwitchOpen = false;
+        BillingOpen = false;
         _switching?.TrySetResult(false);
         _switching = null;
     }
@@ -590,6 +593,81 @@ public sealed partial class PlansViewModel : ObservableObject
         _switching?.TrySetResult(true);
         _switching = null;
         Done = Lang.T($"You're on {status.Plan?.Name} now.");
+    }
+
+    // ── Monthly <-> yearly on the same plan (approved mock-up, 2026-10-28) ──────────────
+    private PlanColumn? MineColumn => Plan is { } p ? Columns.FirstOrDefault(c => c.Offer.Id == p.Id) : null;
+
+    /// <summary>
+    /// Paid monthly but a paid year still runs: switched to monthly, which starts at the year's end (the relay leaves the
+    /// renewal where the year ends, so a monthly plan renewing over 40 days away is one).
+    /// </summary>
+    public bool MonthlyNext => Plan is { Yearly: false, RenewsAt: { } on } p && !p.Ending && IsSubscription && on > DateTime.Now.AddDays(40);
+
+    /// <summary>The button beside Change plan: while the plan renews and it has a yearly option.</summary>
+    public bool CanChangeBilling => CanManage && IsSubscription && !IsEnding && MineColumn?.Offer.Yearly is not null;
+    public string BillingButton => Plan is { Yearly: true } ? Lang.T("Switch to monthly") : MonthlyNext ? Lang.T("Keep yearly") : Lang.T("Switch to yearly");
+    /// <summary>"save $9.89" beside it, in green, toward yearly only.</summary>
+    public string BillingSave => Plan is { Yearly: true } || MineColumn is not { Offer.Yearly: { } y } mine ? "" : Lang.T($"save {Dollars(12 * mine.Offer.PriceCents - y.PriceCents)}");
+    public bool HasBillingSave => BillingSave.Length > 0;
+    public string BillingSep => HasBillingSave ? " · " : "";
+
+    [ObservableProperty] private bool _billingOpen;
+    private bool ToYearly => Plan is not { Yearly: true };
+    public string BillingTitle => ToYearly ? (MonthlyNext ? Lang.T("Keep paying yearly?") : Lang.T("Switch to yearly?")) : Lang.T("Switch to monthly?");
+    public string BillingText
+    {
+        get
+        {
+            if (Plan is not { } p || MineColumn is not { Offer.Yearly: { } y } mine) return "";
+            string renews = p.RenewsAt is { } on ? TimeText.At(on, "d MMMM yyyy") : "";
+            if (!ToYearly) return Lang.T($"Your year runs to {renews} as paid. After that it's {mine.Offer.Price} a month. Nothing is charged or refunded now.");
+            if (MonthlyNext) return Lang.T($"Your year runs to {renews} as paid, then renews at {y.Price} a year. Nothing is charged now.");
+            return Lang.T($"{p.Name} stays as it is. You pay for a year now, less what's left of this month, then {y.Price} a year.");
+        }
+    }
+
+    /// <summary>To yearly from monthly: the year, what comes back for the rest of the month, and about what's paid today.</summary>
+    public bool ShowsBillingMoney => ToYearly && !MonthlyNext;
+    public string BillingYear => MineColumn?.Offer.Yearly?.Price ?? "";
+    public string BillingBack => "−" + Dollars(MonthLeftCents);
+    public string BillingToday => Dollars(Math.Max(0, (MineColumn?.Offer.Yearly?.PriceCents ?? 0) - MonthLeftCents));
+    public string BillingConfirm => !ToYearly ? Lang.T($"Switch from {(Plan?.RenewsAt is { } on ? TimeText.At(on, "d MMMM yyyy") : "")}")
+        : MonthlyNext ? Lang.T("Keep yearly") : Lang.T($"Switch and pay {BillingToday}");
+
+    /// <summary>What's left of this month's payment, rounded to the 10 cents as the switch's estimate is (Lemon Squeezy works out the real one).</summary>
+    private int MonthLeftCents
+    {
+        get
+        {
+            if (Plan is not { RenewsAt: { } renews } || MineColumn is not { } mine) return 0;
+            double month = (renews - renews.AddMonths(-1)).TotalDays;
+            double left = Math.Clamp((renews - DateTime.Now).TotalDays / month, 0, 1);
+            return (int)(Math.Round(mine.Offer.PriceCents * left / 10.0) * 10);
+        }
+    }
+
+    [RelayCommand]
+    private void AskBilling()
+    {
+        Problem = null;
+        if (!CanChangeBilling) return;
+        BillingOpen = true;
+        foreach (var name in new[] { nameof(BillingTitle), nameof(BillingText), nameof(ShowsBillingMoney), nameof(BillingYear), nameof(BillingBack), nameof(BillingToday), nameof(BillingConfirm) })
+            OnPropertyChanged(name);
+    }
+
+    [RelayCommand]
+    private async Task ConfirmBilling()
+    {
+        Problem = null;
+        bool yearly = ToYearly;
+        var (status, problem) = await Relay.SetBillingAsync(yearly);
+        if (status is null) { Problem = problem; return; }
+        _ask.Show(status);
+        BillingOpen = false;
+        Done = status.Plan is { Yearly: true } ? Lang.T($"{status.Plan.Name} is paid yearly now.")
+            : status.Plan?.RenewsAt is { } on ? Lang.T($"Monthly from {TimeText.At(on, "d MMMM yyyy")}.") : Lang.T("Monthly from your next payment.");
     }
 
     [RelayCommand] private Task ChangeCard() => OpenBilling("card");

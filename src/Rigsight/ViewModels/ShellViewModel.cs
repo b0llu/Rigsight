@@ -232,7 +232,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public bool ShowAskBar => Ask.InTopBar && !PageCovered;
 
     /// <summary>A screen over the whole window (updating, Plans, Rewind) or a box over the page (What's new, Support, Export, ...).</summary>
-    public bool PageCovered => Update.ShowOverlay || Plans.IsOpen || Plans.CancelOpen || Plans.SwitchOpen || Rewind.IsOpen
+    public bool PageCovered => Update.ShowOverlay || Plans.IsOpen || Plans.CancelOpen || Plans.SwitchOpen || Plans.BillingOpen || Rewind.IsOpen
         || WhatsNew.IsOpen || Support.IsOpen || Export.IsOpen || PageExport.IsOpen || Presets.IsOpen
         || SettingsPage.Ai.Editor.IsOpen || Processes.Question.IsOpen || Sidebar.AskPages;
 
@@ -245,7 +245,7 @@ public sealed partial class ShellViewModel : ObservableObject
             };
         Watch(Ask, nameof(AskViewModel.InTopBar));
         Watch(Update, nameof(UpdateViewModel.ShowOverlay));
-        Watch(Plans, nameof(PlansViewModel.IsOpen), nameof(PlansViewModel.CancelOpen), nameof(PlansViewModel.SwitchOpen));
+        Watch(Plans, nameof(PlansViewModel.IsOpen), nameof(PlansViewModel.CancelOpen), nameof(PlansViewModel.SwitchOpen), nameof(PlansViewModel.BillingOpen));
         Watch(Rewind, nameof(Rewind.IsOpen));
         Watch(WhatsNew, nameof(WhatsNewViewModel.IsOpen));
         Watch(Support, nameof(SupportViewModel.IsOpen));

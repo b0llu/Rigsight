@@ -77,7 +77,7 @@ public partial class MainWindow : Window
                     return;
                 }
             }
-            if (e.Key == System.Windows.Input.Key.Escape && (_vm.Plans.CancelOpen || _vm.Plans.SwitchOpen))
+            if (e.Key == System.Windows.Input.Key.Escape && (_vm.Plans.CancelOpen || _vm.Plans.SwitchOpen || _vm.Plans.BillingOpen))
             {
                 _vm.Plans.CloseDialogsCommand.Execute(null);
                 e.Handled = true;

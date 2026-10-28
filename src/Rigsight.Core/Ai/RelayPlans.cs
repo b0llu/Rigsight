@@ -194,6 +194,10 @@ public static partial class Relay
     public static Task<(RelayStatus? Status, string? Problem)> SwitchPlanAsync(string plan, CancellationToken ct = default) =>
         PlanAction("/v1/plan/switch", new JsonObject { ["plan"] = plan }, $"Switching to {plan}", ct);
 
+    /// <summary>The same plan paid monthly or yearly (2026-10-28): to yearly now, to monthly from the renewal.</summary>
+    public static Task<(RelayStatus? Status, string? Problem)> SetBillingAsync(bool yearly, CancellationToken ct = default) =>
+        PlanAction("/v1/plan/billing", new JsonObject { ["billing"] = yearly ? "year" : "month" }, yearly ? "Paying yearly" : "Paying monthly", ct);
+
     private static async Task<(RelayStatus?, string?)> PlanAction(string path, JsonObject body, string what, CancellationToken ct)
     {
         try

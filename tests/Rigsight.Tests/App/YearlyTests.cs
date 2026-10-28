@@ -3,6 +3,7 @@ using Rigsight.Core.Settings;
 using Rigsight.Tests.Support;
 using Rigsight.ViewModels;
 using static Rigsight.Tests.App.PlansTests;
+using static Rigsight.Tests.App.RelayFailureTests;
 
 namespace Rigsight.Tests.App;
 
@@ -95,6 +96,73 @@ public sealed class YearlyTests
         Assert.Equal("You're on Essentials now.", plans.Done);
         Ui.Run(() => ask.Show(Relay.ReadStatus(Status())!));
         Assert.Null(plans.Done);
+    }
+
+    // Monthly <-> yearly on the same plan from the plan box (approved mock-up, 2026-10-28).
+    [Fact]
+    public void A_monthly_plan_offers_yearly_with_what_it_saves_and_about_what_is_paid_today()
+    {
+        var plans = Shown(WithYearly(Status("essentials", "subscription"), "month").Replace("\"price_label\":\"$5\",\"card\"", "\"price_label\":\"$4.99\",\"card\""));
+        Assert.True(plans.CanChangeBilling);
+        Assert.False(plans.MonthlyNext);
+        Assert.Equal(("Switch to yearly", "save $9.89", " · "), (plans.BillingButton, plans.BillingSave, plans.BillingSep));
+        Ui.Run(() => plans.AskBillingCommand.Execute(null));
+        Assert.True(plans.BillingOpen);
+        Assert.Equal("Switch to yearly?", plans.BillingTitle);
+        Assert.True(plans.ShowsBillingMoney);
+        Assert.Equal("$49.99", plans.BillingYear);
+        Assert.StartsWith("Switch and pay $", plans.BillingConfirm);
+    }
+
+    [Fact]
+    public void A_yearly_plan_offers_monthly_from_its_renewal_with_no_sales_line()
+    {
+        var plans = Shown(WithYearly(Status("essentials", "subscription"), "year").Replace("\"price_label\":\"$5\",\"card\"", "\"price_label\":\"$49.99\",\"card\""));
+        Assert.Equal(("Switch to monthly", "", ""), (plans.BillingButton, plans.BillingSave, plans.BillingSep));
+        Ui.Run(() => plans.AskBillingCommand.Execute(null));
+        Assert.Equal("Switch to monthly?", plans.BillingTitle);
+        Assert.False(plans.ShowsBillingMoney);
+        Assert.Contains("Nothing is charged or refunded now.", plans.BillingText);
+        Assert.Equal("Switch from 22 November 2026", plans.BillingConfirm);
+    }
+
+    [Fact]
+    public void Monthly_next_says_the_year_is_paid_and_offers_to_keep_yearly_at_no_charge()
+    {
+        string renews = DateTime.UtcNow.AddDays(300).ToString("yyyy-MM-ddTHH:mm:ssZ");
+        var plans = Shown(WithYearly(Status("essentials", "subscription"), "month").Replace("2026-11-22T10:00:00Z", renews)
+            .Replace("\"price_label\":\"$5\",\"card\"", "\"price_label\":\"$4.99\",\"card\""));
+        Assert.True(plans.MonthlyNext);
+        Assert.StartsWith("$49.99 paid to ", plans.Summary);
+        Assert.Contains(" · then $4.99 a month", plans.Summary);
+        Assert.Equal(("Keep yearly", "save $9.89"), (plans.BillingButton, plans.BillingSave));
+        Ui.Run(() => plans.AskBillingCommand.Execute(null));
+        Assert.Equal("Keep paying yearly?", plans.BillingTitle);
+        Assert.False(plans.ShowsBillingMoney);
+        Assert.Equal("Keep yearly", plans.BillingConfirm);
+    }
+
+    [Fact]
+    public async Task Switching_billing_asks_the_relay_and_shows_what_it_says()
+    {
+        string? path = null, body = null;
+        await using var relay = new FakeRelay((r, s) =>
+        {
+            if (r.Path == "/v1/plan/billing") { path = r.Path; body = r.Body; }
+            return FakeRelay.Reply(s, 200, "application/json", WithYearly(Status("essentials", "subscription"), r.Path == "/v1/plan/billing" ? "year" : "month"));
+        });
+        var plans = Shown(WithYearly(Status("essentials", "subscription"), "month"));
+        Ui.Run(() =>
+        {
+            Relay.TestRoot.Value = relay.Url;
+            plans.AskBillingCommand.Execute(null);
+            plans.ConfirmBillingCommand.Execute(null);
+        });
+        Assert.True(Ui.WaitFor(() => !plans.BillingOpen && plans.Done is not null, 15_000), "the switch never finished");
+        Assert.Equal("/v1/plan/billing", path);
+        Assert.Contains("\"billing\":\"year\"", body);
+        Assert.Equal("Essentials is paid yearly now.", plans.Done);
+        Ui.Run(() => Relay.TestRoot.Value = null);
     }
 
     [Fact]

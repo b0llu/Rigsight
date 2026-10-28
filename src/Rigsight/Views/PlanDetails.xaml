@@ -165,6 +165,11 @@
                 <WrapPanel>
                     <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Change plan'}" Command="{Binding ShowCommand}" Margin="0,0,8,8"
                             Visibility="{Binding ShowChangePlan, Converter={StaticResource Vis}}" />
+                    <!-- Monthly <-> yearly on the same plan; toward yearly with what it saves, in green (approved mock-up 2026-10-28). -->
+                    <Button Style="{StaticResource GhostButton}" Command="{Binding AskBillingCommand}" Margin="0,0,8,8" AutomationProperties.Name="{Binding BillingButton}"
+                            Visibility="{Binding CanChangeBilling, Converter={StaticResource Vis}}">
+                        <TextBlock><Run Text="{Binding BillingButton, Mode=OneWay}" /><Run Text="{Binding BillingSep, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding BillingSave, Mode=OneWay}" Foreground="{DynamicResource GoodBrush}" FontWeight="SemiBold" /></TextBlock>
+                    </Button>
                     <!-- With a failed payment, the box above has the button: one Change card is enough. -->
                     <Button Style="{StaticResource GhostButton}" Command="{Binding ChangeCardCommand}" Margin="0,0,8,8"
                             Visibility="{Binding IsPastDue, Converter={StaticResource Vis}, ConverterParameter=Invert}">

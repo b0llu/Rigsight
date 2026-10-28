@@ -1822,6 +1822,7 @@
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding CancelOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
                         <DataTrigger Binding="{Binding SwitchOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                        <DataTrigger Binding="{Binding BillingOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
                     </Style.Triggers>
                 </Style>
             </Grid.Style>
@@ -1869,6 +1870,34 @@
                             <ctl:Spinner Width="14" Height="14" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="{Binding ConfirmSwitchCommand.IsRunning, Converter={StaticResource Vis}}" />
                             <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Not now'}" Command="{Binding CloseDialogsCommand}" Margin="0,0,8,0" />
                             <Button Style="{StaticResource AccentButton}" Content="{Binding SwitchConfirm}" Command="{Binding ConfirmSwitchCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <!-- Monthly <-> yearly: to yearly with about what's paid today -->
+                    <StackPanel Visibility="{Binding BillingOpen, Converter={StaticResource Vis}}" AutomationProperties.Name="{Binding BillingTitle}">
+                        <TextBlock Text="{Binding BillingTitle}" FontSize="17" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding BillingText}" FontSize="13.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                        <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,12,0,0" Visibility="{Binding ShowsBillingMoney, Converter={StaticResource Vis}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                                <TextBlock Text="{ctl:T 'A year of your plan'}" FontSize="13" />
+                                <TextBlock Grid.Column="1" Text="{Binding BillingYear}" FontSize="13" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Row="1" Text="{ctl:T 'Back for the rest of this month'}" FontSize="13" Margin="0,4,0,0" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding BillingBack}" FontSize="13" HorizontalAlignment="Right" Margin="0,4,0,0" />
+                                <Border Grid.Row="2" Grid.ColumnSpan="2" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Margin="0,6,0,0" Padding="0,6,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding BillingToday}" FontSize="13" FontWeight="SemiBold" />
+                                        <TextBlock Text="{ctl:T 'About, today'}" FontSize="13" FontWeight="SemiBold" />
+                                    </DockPanel>
+                                </Border>
+                            </Grid>
+                        </ctl:SmoothBorder>
+                        <TextBlock Text="{ctl:T 'Lemon Squeezy works out the exact sum.'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,6,0,0"
+                                   Visibility="{Binding ShowsBillingMoney, Converter={StaticResource Vis}}" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                            <ctl:Spinner Width="14" Height="14" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="{Binding ConfirmBillingCommand.IsRunning, Converter={StaticResource Vis}}" />
+                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Not now'}" Command="{Binding CloseDialogsCommand}" Margin="0,0,8,0" />
+                            <Button Style="{StaticResource AccentButton}" Content="{Binding BillingConfirm}" Command="{Binding ConfirmBillingCommand}" />
                         </StackPanel>
                     </StackPanel>
                     <TextBlock Text="{Binding Problem}" FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
