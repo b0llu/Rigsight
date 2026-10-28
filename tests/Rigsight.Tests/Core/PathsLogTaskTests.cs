@@ -101,11 +101,13 @@ public sealed class LogTests
         // Only once the other one is writing (PowerShell takes a moment to start), so the two really overlap.
         Assert.True(SpinWait.SpinUntil(() => new FileInfo(file).Length > 2000, 30_000), "the other writer never started");
         for (int i = 0; i < 300; i++) Log.WriteTo(file, "app", $"line {i}");
-        bool overlapped = !other.HasExited;
         other.WaitForExit(60_000);
         Assert.Equal(0, other.ExitCode);
-        Assert.True(overlapped, "the other writer finished first: nothing was tested");
         var lines = File.ReadAllLines(file);
+        // They overlapped when the other's lines also land after this one's first: read from the file, not from whether
+        // the other was still running after all 300 (under a busy gate it sometimes wasn't, and nothing was wrong, 2026-10-28).
+        int firstApp = Array.FindIndex(lines, l => l.Contains("[app] line "));
+        Assert.True(firstApp >= 0 && lines.Skip(firstApp).Any(l => l == "[agent] busy"), "the other writer finished first: nothing was tested");
         Assert.Equal(300, lines.Count(l => l.Contains("[app] line ")));
         Assert.Equal(30000, lines.Count(l => l == "[agent] busy"));
     }
