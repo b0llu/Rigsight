@@ -2071,7 +2071,7 @@
                         </Border>
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'Keep history for'}" Style="{StaticResource Title}" />
-                            <TextBlock Text="{ctl:T 'About 25 MB a year.'}" Style="{StaticResource Hint}" TextWrapping="Wrap" />
+                            <TextBlock Text="{ctl:T 'About 150 MB a year.'}" Style="{StaticResource Hint}" TextWrapping="Wrap" />
                         </StackPanel>
                     </DockPanel>
                     <TextBlock Text="{Binding TrackingSince}" Style="{StaticResource Hint}" Margin="0,12,0,0"
