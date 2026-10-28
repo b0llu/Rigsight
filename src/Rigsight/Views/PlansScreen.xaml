@@ -555,6 +555,10 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="10,2">
                         <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="{Binding RefundText}" Style="{StaticResource Small}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="10,2">
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <TextBlock Text="{ctl:T 'Your chats stay on this PC whatever the plan'}" Style="{StaticResource Small}" />
                     </StackPanel>
                 </WrapPanel>

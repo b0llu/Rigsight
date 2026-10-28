@@ -838,7 +838,7 @@ public sealed partial class AskViewModel : ObservableObject
         : Standing?.Plan is { Weekly: true, ResetsAt: { } at2 } ? Lang.T($"They're back on {TimeText.At(at2, "dddd")}.")
         : Standing?.Plan is { } now && Bigger(now) is { } bigger ? Lang.T($"More at midnight. {bigger.Name} gives up to {bigger.Cap} a day.")
         : Standing?.Plan is not null ? Lang.T("More at midnight.")
-        : Lang.T("Buy more in Settings › Ask RigSight, or switch to your API key there.");
+        : Lang.T("See plans in Settings › Ask RigSight, or switch to your API key there.");
 
     private static string PausedText => Lang.T("They'll be back. You can still get a plan.");
 

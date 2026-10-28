@@ -379,13 +379,13 @@ public static partial class Relay
             ("licence", "wrong_secret") => Lang.T("This PC's RigSight AI sign-in changed (often after a reinstall). Contact support with your key."),
             ("unavailable", "too_fast") => Lang.T("That's a lot of questions at once. Wait a minute, then ask again. Your question wasn't counted."),
             ("unavailable", "billing") => Lang.T("Your plan couldn't be changed right now. Nothing was charged. Try again in a minute."),
-            ("out_of_questions", "free") => Lang.T("This PC has used its free questions. Buy a pack to keep asking, or use your API key or Ollama."),
-            ("out_of_questions", _) => Lang.T("You're out of questions, so this one wasn't sent. Buy more in Settings › Ask RigSight."),
+            ("out_of_questions", "free") => Lang.T("This PC has used its free questions. See plans for more, or use your API key or Ollama."),
+            ("out_of_questions", _) => Lang.T("You're out of questions, so this one wasn't sent. See plans in Settings › Ask RigSight."),
             ("licence", "not_found") => Lang.T("That licence key wasn't found. Check it against your receipt email."),
             ("licence", "other_pc") => activating
                 ? Lang.T("This key is in use on another PC. A licence works on one PC.")
                 : Lang.T("Your licence is now in use on another PC, so this PC can't ask with it."),
-            ("licence", "refunded") => Lang.T("This licence was refunded, so it can't ask questions any more. Buy a pack to keep using RigSight AI."),
+            ("licence", "refunded") => Lang.T("This licence was refunded, so it can't ask questions any more. See plans to start a new one."),
             ("licence", _) when inSettings => Lang.T("Your licence is turned off, so this PC can't ask questions. Contact support with your key."),
             ("licence", _) => Lang.T("This licence is turned off. Contact support from Settings › Ask RigSight."),
             ("update_needed", _) => Lang.T("RigSight AI needs the latest RigSight. Update, then ask again."),

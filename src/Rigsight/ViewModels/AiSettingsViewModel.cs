@@ -129,7 +129,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         LicenceStopped = s?.HasLicence == true ? s.LicenceStatus switch
         {
             "disabled" => Lang.T("Your licence is turned off, so this PC can't ask questions. Contact support with your key."),
-            "refunded" => Lang.T("Your licence was refunded, so its questions are gone. Buy a pack to keep using RigSight AI."),
+            "refunded" => Lang.T("Your plan was refunded, so it has ended. See plans to start a new one."),
             _ => null,
         } : null;
         if (LicenceStopped is not null) { LicenceProblem = LicenceStopped; LicenceProblemNeedsSupport = s?.LicenceStatus == "disabled"; }

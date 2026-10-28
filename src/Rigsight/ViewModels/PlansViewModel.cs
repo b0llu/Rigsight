@@ -171,6 +171,9 @@ public sealed partial class PlansViewModel : ObservableObject
     public string AfterCancelText => HasYearly ? Lang.T("After cancelling, it works until the time you paid for ends")
         : Lang.T("After cancelling, it works until the month you paid for ends");
 
+    /// <summary>The refund rule (the owner's word, 2026-10-28): a full refund when support is emailed within 7 days of paying.</summary>
+    public string RefundText => Lang.T($"Changed your mind? Email {AiSettingsViewModel.SupportEmail} within 7 days of paying for a full refund");
+
     internal static string Dollars(int cents) => "$" + (cents / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
     private void Rebuild()
