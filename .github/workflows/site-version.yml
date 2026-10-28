@@ -1,0 +1,37 @@
+# Keeps the version on rigsight.app's home page the same as the latest release.
+name: Site version
+
+on:
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: site-version
+  cancel-in-progress: false
+
+jobs:
+  set-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Find the latest release
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # The latest full release, not the one that fired this run: editing an old release mustn't roll the page back.
+        run: echo "tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)" >> "$GITHUB_OUTPUT"
+      - name: Write it into the home page
+        run: python tools/site/set-version.py "${{ steps.latest.outputs.tag }}"
+      - name: Commit if it changed
+        run: |
+          git diff --quiet docs/index.html && { echo "Already ${{ steps.latest.outputs.tag }}"; exit 0; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Site: version ${{ steps.latest.outputs.tag }} on the home page"
+          git push origin HEAD:main
