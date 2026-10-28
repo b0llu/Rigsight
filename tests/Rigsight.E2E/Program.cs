@@ -229,8 +229,11 @@ internal static class Program
                 Console.WriteLine($"  {"",-14} opening: {ThreadCpu.Spent(threads, built, app!)}   |   scrolling: {ThreadCpu.Spent(built, scrolled, app!)}");
             }
             others.End();
+            // Storage reads the sizes of this PC's temp and cache folders for "Space you could free" on its first visit,
+            // already in batches as Explorer does: its cost is how many files sit there (15,000 in %TEMP% on 2026-10-28,
+            // most of them other programs'), so it gets the same room as the other pages that read a lot (owner's call).
             foreach (var (page, ms) in pageCpu)
-                Record($"app.page.{Key(page)}.cpu_ms", ms, "ms CPU", $"Opening {page} (first visit, 2.5 s)", budget: page is "Reports" or "Apps" or "Crashes" or "Everything" ? 3000 : 2000);
+                Record($"app.page.{Key(page)}.cpu_ms", ms, "ms CPU", $"Opening {page} (first visit, 2.5 s)", budget: page is "Reports" or "Apps" or "Crashes" or "Everything" or "Storage" ? 3000 : 2000);
             // One page's figure is a single reading; all of them together barely move from run to run, so a cost
             // added to every page shows here long before it would on any one of them.
             Record("app.pages.open_cpu_ms", pageCpu.Values.Sum(), "ms CPU", "Opening every page once, in all", budget: 12_000);
