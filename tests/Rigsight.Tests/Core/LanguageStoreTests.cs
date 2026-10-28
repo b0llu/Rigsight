@@ -15,7 +15,9 @@ namespace Rigsight.Tests.Core;
 public sealed class LanguageStoreTests : IDisposable
 {
     private static readonly Version Current = ReleaseFeed.Current;
-    private static readonly string Earlier = new Version(Current.Major, Current.Minor > 0 ? Current.Minor - 1 : 0, 0).ToString(3);
+    // A release before this one: the minor before it, or at x.0.0 (1.0.0) one from the major before.
+    private static readonly string Earlier = (Current.Minor > 0 ? new Version(Current.Major, Current.Minor - 1, 0)
+        : new Version(Math.Max(0, Current.Major - 1), 99, 0)).ToString(3);
     private static readonly string Oldest = "0.0.1";
 
     public LanguageStoreTests()
