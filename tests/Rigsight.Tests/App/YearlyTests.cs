@@ -65,6 +65,19 @@ public sealed class YearlyTests
         Assert.False(plans.Columns[2].Year);
     }
 
+    // The owner's word (2026-10-28): the trial isn't in the way of buying; buying ends it (the relay does).
+    [Fact]
+    public void During_the_trial_both_plans_can_be_bought()
+    {
+        var plans = Shown(WithYearly(Status("complete", "trial", endsAt: DateTime.UtcNow.AddDays(5).ToString("o")).Replace("\"search\":true", "\"search\":true,\"trial\":{\"state\":\"running\",\"plan\":\"complete\"}")));
+        Assert.True(plans.CanBuyPlans);
+        Assert.True(plans.ShowBillingSwitch);
+        Assert.True(plans.Columns[1].CanBuy);
+        Assert.True(plans.Columns[2].CanBuy);
+        Assert.False(plans.Columns[2].IsMine);
+        Assert.False(plans.Columns[0].CanBuy);
+    }
+
     [Fact]
     public void Without_yearly_options_there_is_no_switch()
     {

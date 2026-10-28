@@ -591,6 +591,11 @@
         <Path Data="{StaticResource AiSparkle}" Stroke="{DynamicResource AiBrush}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
               Stretch="Uniform" Width="15" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
     </Grid>
+    <!-- The sparkle in the colour of the words around it (What's new's feature square, white on the AI's colour). -->
+    <Grid x:Key="AiIconInk" x:Shared="False" Width="16" Height="16">
+        <Path Data="{StaticResource AiSparkle}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ContentControl}}" StrokeThickness="2" StrokeLineJoin="Round"
+              StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Width="15" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Grid>
     <Style x:Key="AiButton" TargetType="Button">
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />

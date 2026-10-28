@@ -260,6 +260,8 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>A What's new feature's "Open" button: its page.</summary>
     private void OpenFeature(string page)
     {
+        // "ask": the top bar's box, on its first-question step for someone new (1.0.0).
+        if (page == "ask") { Ask.RequestBar(); return; }
         // "settings:rewind": a Settings tab of its own.
         if (page.StartsWith("settings:", StringComparison.Ordinal)) { SettingsPage.Tab = page["settings:".Length..]; page = "settings"; }
         CurrentPage = page;
@@ -268,6 +270,17 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>What a new feature's page already holds for this PC, for its What's new ("31 changes already found…").</summary>
     private async Task<string?> FeatureFactAsync(string page)
     {
+        if (page == "ask")
+        {
+            var start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            int crashes = (await Reports.CrashesAsync(start, DateTime.Now))?.Count ?? 0;
+            return crashes switch
+            {
+                0 => null,
+                1 => Lang.T("RigSight can explain the crash on this PC this month."),
+                _ => Lang.T($"RigSight can explain the {crashes} crashes on this PC this month."),
+            };
+        }
         if (page != "timeline" || await Reports.TimelineAsync() is not { Changes.Count: > 0 } data) return null;
         var first = data.Changes.Min(c => c.Time);
         int count = data.Changes.Count;

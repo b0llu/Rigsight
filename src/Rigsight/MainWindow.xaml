@@ -178,6 +178,9 @@
                                                                                 <DataTrigger Binding="{Binding IsRemoval}" Value="True">
                                                                                     <Setter Property="Background" Value="{DynamicResource FaintBrush}" />
                                                                                 </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding Icon}" Value="ai">
+                                                                                    <Setter Property="Background" Value="{DynamicResource AiBrush}" />
+                                                                                </DataTrigger>
                                                                             </Style.Triggers>
                                                                         </Style>
                                                                     </Border.Style>
@@ -229,6 +232,19 @@
                                                             <TextBlock Text="{Binding Fact}" FontSize="13" FontWeight="SemiBold"
                                                                        TextWrapping="Wrap" Foreground="{DynamicResource CpuBrush}" Margin="0,16,0,0"
                                                                        Visibility="{Binding Fact, Converter={StaticResource Vis}}" />
+                                                            <!-- What comes with the feature (1.0.0: the free trial), inside its card. -->
+                                                            <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource AiSoftBrush}" BorderBrush="{DynamicResource AiStrokeBrush}" BorderThickness="1"
+                                                                              Padding="14,12" Margin="0,16,0,0" Visibility="{Binding HasAside, Converter={StaticResource Vis}}">
+                                                                <DockPanel>
+                                                                    <Border DockPanel.Dock="Left" Width="40" Height="40" CornerRadius="10" BorderBrush="{DynamicResource AiStrokeBrush}" BorderThickness="1" Margin="0,0,14,0" VerticalAlignment="Top">
+                                                                        <TextBlock Text="{Binding AsideNumber}" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource AiBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                    </Border>
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{Binding AsideTitle}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                                        <TextBlock Text="{Binding AsideText}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" />
+                                                                    </StackPanel>
+                                                                </DockPanel>
+                                                            </ctl:SmoothBorder>
                                                             <!-- Something new has a way straight to it; something gone has nowhere to send you. -->
                                                             <Button HorizontalAlignment="Left" Margin="0,16,0,0" Content="{Binding OpenText}"
                                                                     Command="{Binding DataContext.OpenFeatureCommand, RelativeSource={RelativeSource AncestorType=ctl:SmoothBorder}}" CommandParameter="{Binding}">

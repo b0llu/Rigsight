@@ -147,6 +147,15 @@ public sealed partial class ReleaseFeature(string name, string pitch, string[] p
     /// </summary>
     public string? Picture { get; init; }
     public bool HasPicture => Picture is not null;
+
+    /// <summary>
+    /// A box inside the card for what comes with the feature (1.0.0: the free trial), its big number, title and words, so
+    /// it reads as part of the feature, not an ad. None on most cards.
+    /// </summary>
+    public string? AsideNumber { get; init; }
+    public string? AsideTitle { get; init; }
+    public string? AsideText { get; init; }
+    public bool HasAside => AsideTitle is not null;
 }
 
 /// <summary>
@@ -178,6 +187,23 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.0.0", 10, 29,
+            feature: new(Lang.T("Ask RigSight"), Lang.T("Ask about your PC in plain words, and get answers from its own records."),
+                [Lang.T("Press Ctrl+K anywhere in RigSight and ask why it crashed, runs hot or stutters in a game."),
+                    Lang.T("Every answer says what it read, and many next steps come with a button that does them."),
+                    Lang.T("Answer with RigSight AI, your own API key, or Ollama right on this PC.")],
+                "ask", "ai", isPage: false)
+            {
+                OpenText = Lang.T("Ask your first question"),
+                AsideNumber = "7",
+                AsideTitle = Lang.T("Complete free for 7 days"),
+                AsideText = Lang.T("Answers read every page, search the web and take up to 300 questions a day. The 7 days start with your first question, and it goes back to Free by itself. No card needed."),
+            },
+            added: [Lang.T("Crashes, Games and more pages have their own AI buttons, like Explain on a crash."),
+                Lang.T("Keep several API keys in Settings, Ask RigSight, and switch between them in one click."),
+                Lang.T("On Games, a game's page lists every graphics setting it saves, and what the NVIDIA App would change where it has a pick.")],
+            better: [Lang.T("Turn the AI buttons off in Settings, Ask RigSight, and the pages look as they did before."),
+                Lang.T("Press the Ask shortcut again to close the chat.")]),
         V("0.36.0", 10, 27,
             added: [Lang.T("After an update, What's new can now wait as a button beside minimise instead of opening by itself; choose which in Settings, About.")],
             better: [Lang.T("How it runs on a game's page is now one frame-rate chart over a range you pick, with updates marked.")],

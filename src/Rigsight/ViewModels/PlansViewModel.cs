@@ -82,9 +82,10 @@ public sealed class PlanColumn(RelayPlanOffer offer, PlansViewModel owner, int r
         .Where(p => Offer.Pages.Contains(p.Id) && (rank == 0 || !owner.Columns[rank - 1].Offer.Pages.Contains(p.Id)))
         .Select(p => new PlanUse(Lang.T(Gives(p.Id)), p.Label, PageSwitchesViewModel.Glyph(p.Id)))];
 
-    public bool IsMine => owner.Plan is { } mine && mine.Id == Offer.Id && (Offer.IsFree || !mine.IsFree);
+    // The trial isn't a plan of their own: its plan's card still offers to buy it (2026-10-28).
+    public bool IsMine => owner.Plan is { } mine && mine.Id == Offer.Id && (Offer.IsFree || !mine.IsFree) && !mine.IsTrial;
     public bool IsBest => rank == owner.Columns.Count - 1 && !IsMine;
-    public bool CanBuy => !Offer.IsFree && owner.IsFree;
+    public bool CanBuy => !Offer.IsFree && owner.CanBuyPlans;
     public bool CanSwitch => !Offer.IsFree && !owner.IsFree && !IsMine && owner.Plan is { CanManage: true, Ending: false };
     public string BuyText => Lang.T($"Get {Name}");
     public string SwitchText => Lang.T($"Switch to {Name}");
@@ -206,6 +207,11 @@ public sealed partial class PlansViewModel : ObservableObject
     /// <summary>Known: the relay has said where this PC stands (it says nothing until RigSight AI is picked and used).</summary>
     public bool Known => Plan is not null;
     public bool IsFree => Plan?.IsFree ?? true;
+    /// <summary>
+    /// Plans can be bought: on Free, or during the free trial (the owner's word, 2026-10-28: buying ends the trial and the
+    /// plan starts; the relay does that).
+    /// </summary>
+    public bool CanBuyPlans => IsFree || Plan is { IsTrial: true };
     public bool IsPaid => Plan is { IsFree: false };
     /// <summary>Given by support, or the free trial: nothing to pay and nothing to manage.</summary>
     public bool IsGift => Plan is { IsFree: false } p && (p.Gift || p.IsTrial);
@@ -413,7 +419,8 @@ public sealed partial class PlansViewModel : ObservableObject
                 await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
                 var (status, problem) = await Relay.StatusAsync(cts.Token);
                 if (status is null) { Log.Write("plans", $"Waiting for {planId}: {problem}"); continue; }
-                if (status.Plan?.Id != planId) continue;
+                // The trial's own plan isn't bought yet: wait for the subscription.
+                if (status.Plan?.Id != planId || status.Plan.IsTrial) continue;
                 Log.Write("plans", $"This PC is on {planId} now (bought, or given from the admin site)");
                 _ask.Show(status);
                 Done = Lang.T($"You're on {status.Plan.Name} now.");

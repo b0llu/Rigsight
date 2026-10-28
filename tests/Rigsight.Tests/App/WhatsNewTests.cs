@@ -257,11 +257,13 @@ public sealed class WhatsNewTests
                 Assert.EndsWith(".", p);
             });
             // A page that exists, or one of Settings' tabs ("settings:rewind").
+            // Or "ask": the top bar's box (1.0.0's Ask RigSight), its button saying what it starts.
             if (f.Page.StartsWith("settings:")) Assert.Contains(f.Page["settings:".Length..], Rigsight.ViewModels.SettingsViewModel.Tabs);
+            else if (f.Page == "ask") Assert.Equal(("ai", "Ask your first question"), (f.Icon, f.OpenText));
             else Assert.Contains(f.Page, Pages);
-            Assert.StartsWith("Open ", f.OpenText);
+            if (f.Page != "ask") Assert.StartsWith("Open ", f.OpenText);
             Assert.Equal(f.HasButton && !f.IsRemoval, f.ShowsButton);
-            Assert.True(f.Icon.Length == 1 || f.Icon is "fan" or "network");
+            Assert.True(f.Icon.Length == 1 || f.Icon is "fan" or "network" or "ai");
             Assert.Contains(f.Tag, new[] { "NEW PAGE", "NEW FEATURE", "EXPERIMENTAL", "REMOVED" });
         });
         // A change in how Rigsight runs has no page to try it on, so its card has no button (0.23.0, standard accounts).

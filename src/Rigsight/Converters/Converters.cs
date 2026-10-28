@@ -136,6 +136,7 @@ public sealed class NavIconConverter : IValueConverter
     {
         "fan" => Application.Current.FindResource("FanIcon"),
         "network" => Application.Current.FindResource("NetworkIcon"),
+        "ai" => Application.Current.FindResource("AiIconInk"),
         _ => value,
     };
 
