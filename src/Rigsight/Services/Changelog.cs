@@ -196,8 +196,8 @@ public static class Changelog
             {
                 OpenText = Lang.T("Ask your first question"),
                 AsideNumber = "7",
-                AsideTitle = Lang.T("Complete free for 7 days"),
-                AsideText = Lang.T("Answers read every page, search the web and take up to 300 questions a day. The 7 days start with your first question, and it goes back to Free by itself. No card needed."),
+                AsideTitle = Lang.T("Try Complete free for 7 days"),
+                AsideText = Lang.T("Answers from every page, web search and up to 300 questions a day. It starts with your first question and then goes back to Free. No card, nothing to cancel."),
             },
             added: [Lang.T("Crashes, Games and more pages have their own AI buttons, like Explain on a crash."),
                 Lang.T("Keep several API keys in Settings, Ask RigSight, and switch between them in one click."),
