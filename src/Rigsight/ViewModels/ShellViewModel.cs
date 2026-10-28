@@ -221,6 +221,40 @@ public sealed partial class ShellViewModel : ObservableObject
             else AgentPending = false;
         };
         launchCheck.Start();
+        WatchAskBar();
+    }
+
+    /// <summary>
+    /// The title bar's ask box and its chats button: shown where Ask lives in the top bar and nothing covers the page
+    /// (the person's audit, 2026-10-27: not over the update screen or Plans, nor while a box is open over the page, where
+    /// it opened its panel on top of the box). Ask's own chat isn't a cover: there the box names the chat.
+    /// </summary>
+    public bool ShowAskBar => Ask.InTopBar && !PageCovered;
+
+    /// <summary>A screen over the whole window (updating, Plans, Rewind) or a box over the page (What's new, Support, Export, ...).</summary>
+    public bool PageCovered => Update.ShowOverlay || Plans.IsOpen || Plans.CancelOpen || Plans.SwitchOpen || Rewind.IsOpen
+        || WhatsNew.IsOpen || Support.IsOpen || Export.IsOpen || PageExport.IsOpen || Presets.IsOpen
+        || SettingsPage.Ai.Editor.IsOpen || Processes.Question.IsOpen || Sidebar.AskPages;
+
+    private void WatchAskBar()
+    {
+        void Watch(System.ComponentModel.INotifyPropertyChanged source, params string[] names) =>
+            source.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is null || names.Contains(e.PropertyName)) { OnPropertyChanged(nameof(ShowAskBar)); OnPropertyChanged(nameof(PageCovered)); }
+            };
+        Watch(Ask, nameof(AskViewModel.InTopBar));
+        Watch(Update, nameof(UpdateViewModel.ShowOverlay));
+        Watch(Plans, nameof(PlansViewModel.IsOpen), nameof(PlansViewModel.CancelOpen), nameof(PlansViewModel.SwitchOpen));
+        Watch(Rewind, nameof(Rewind.IsOpen));
+        Watch(WhatsNew, nameof(WhatsNewViewModel.IsOpen));
+        Watch(Support, nameof(SupportViewModel.IsOpen));
+        Watch(Export, "IsOpen");
+        Watch(PageExport, "IsOpen");
+        Watch(Presets, "IsOpen");
+        Watch(SettingsPage.Ai.Editor, "IsOpen");
+        Watch(Processes.Question, "IsOpen");
+        Watch(Sidebar, nameof(SidebarViewModel.AskPages));
     }
 
     /// <summary>A What's new feature's "Open" button: its page.</summary>
@@ -752,16 +786,24 @@ public sealed partial class ShellViewModel : ObservableObject
         CurrentPage = "games";
     }
 
+    /// <summary>The window is active and not minimised (set by MainWindow), for the Ask shortcut's second press.</summary>
+    public Func<bool>? WindowInFront { get; set; }
+
     public void Navigate(string? page, string? arg)
     {
         // The Ask shortcut (the agent's): the window in front, and the title bar's ask box open to type in (2026-10-27);
         // Ask opened instead when its button is in the sidebar.
         if (page == "ask")
         {
-            ActivateRequested?.Invoke();
+            // Off: nothing, not even the window brought forward (a press just before Off was set reached here after it).
             if (!Ask.IsEnabled) return;
-            if (Ask.InTopBar) Ask.RequestBar();
-            else Ask.IsOpen = true;
+            // Pressed with RigSight already in front: a second press closes what the first opened (the user, 2026-10-28).
+            bool inFront = WindowInFront?.Invoke() == true;
+            ActivateRequested?.Invoke();
+            // Over the update screen, Plans or a box over the page: only the window in front, nothing opened on top of it.
+            if (Ask.InTopBar && PageCovered) return;
+            if (Ask.InTopBar) Ask.RequestBar(toggle: inFront);
+            else Ask.IsOpen = !(inFront && Ask.IsOpen);
             return;
         }
         if (!string.IsNullOrEmpty(page))

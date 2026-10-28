@@ -217,7 +217,7 @@ public sealed class AskStatesTests
     }
 
     [Theory]
-    [InlineData("Add your API key in Settings › Ask RigSight and press Test.", true)]
+    [InlineData("Add your API key in Settings › Ask RigSight and press Connect.", true)]
     [InlineData("Ollama isn't answering at http://localhost:11434. Check that it's running, then ask again.", false)]
     public void Words_that_send_people_to_Settings_get_Open_Settings(string text, bool settings) =>
         Assert.Equal(settings, AskViewModel.SendsToSettings(text));
@@ -234,7 +234,7 @@ public sealed class AskStatesTests
             var ask = new AskViewModel(Kit.OfflineSettings(s));
             ask.Explain("The PC shut off suddenly at 4:44 PM");
             var problem = Assert.Single(ask.Current!.Messages.OfType<AskProblem>());
-            Assert.Equal("Explain needs the Crashes page switched on in Settings › Ask RigSight.", problem.Text);
+            Assert.Equal("Explain needs Crashes switched on in Settings › Ask RigSight.", problem.Text);
             Assert.True(problem.CanOpenSettings);
             Assert.False(problem.CanRetry);
         });

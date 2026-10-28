@@ -10,24 +10,43 @@ using Rigsight.Core.Settings;
 namespace Rigsight.Core.Ai;
 
 /// <summary>A model a service lists for the person's key, with about what a question costs when the service publishes its prices.</summary>
-public sealed record ServiceModel(string Id, double? CentsPerQuestion, bool Tested);
+/// <remarks>
+/// The facts beyond the id come from the service's own list (no ratings of our own: the user's ruling, 2026-10-27, so the
+/// model table shows only real facts). <see cref="Tier"/> marks the three suggested ones ("Best answers", "Balanced",
+/// "Cheapest", English keys for Lang.T); <see cref="Tested"/> stays for older callers and means the same as a tier.
+/// </remarks>
+public sealed record ServiceModel(string Id, double? CentsPerQuestion, bool Tested)
+{
+    /// <summary>The name to show: the service's display name (OpenRouter's without its "Maker: " start), else the id.</summary>
+    public string Name { get; init; } = Id;
+    /// <summary>Who made it ("Anthropic", "Google"), when the service says or the id makes it plain.</summary>
+    public string? Maker { get; init; }
+    /// <summary>How much it reads at once, in tokens, when the service says.</summary>
+    public int? ContextTokens { get; init; }
+    /// <summary>"Best answers", "Balanced" or "Cheapest" for the three suggested models; null for the rest.</summary>
+    public string? Tier { get; init; }
+    /// <summary>When the service says it came out (Anthropic's created_at, OpenAI's created), in UTC; null when it doesn't say.</summary>
+    public DateTime? Released { get; init; }
+}
 
 /// <summary>
-/// The person's own API key, kept in ai-key.bin beside the settings and locked to their Windows account by Windows itself
-/// (DPAPI), so it never sits in settings.json in plain text and another account on the PC can't read it.
+/// The person's own API key in use, kept with the others in ai-keys.bin (<see cref="SavedKeys"/>) and locked to their
+/// Windows account by Windows itself (DPAPI), so it never sits in settings.json in plain text and another account on the
+/// PC can't read it. Before saved keys there was one key in ai-key.bin; it moves into the list the first time it's read.
 /// </summary>
 public static class KeyStore
 {
-    public static string File => Path.Combine(RigsightPaths.DataDir, "ai-key.bin");
+    /// <summary>The old one-key file (before 2026-10-27), read once to move it into the saved keys.</summary>
+    public static string File => Path.Combine(SavedKeys.Folder, "ai-key.bin");
 
-    public static void Save(string key)
-    {
-        Directory.CreateDirectory(RigsightPaths.DataDir);
-        System.IO.File.WriteAllBytes(File, Protect(Encoding.UTF8.GetBytes(key)));
-    }
+    /// <summary>A key that works: the one in use gets it, or it is saved as a new key for the current service.</summary>
+    public static void Save(string key) => SavedKeys.SaveSecret(key);
 
-    /// <summary>The saved key; null when none is saved or it can't be read (another account, a copied file).</summary>
-    public static string? Load()
+    /// <summary>The key in use; null when none is saved or it can't be read (another account, a copied file).</summary>
+    public static string? Load() => SavedKeys.Active()?.Secret is { Length: > 0 } secret ? secret : LoadOld();
+
+    /// <summary>The old file's key, only while it hasn't moved (it couldn't be written, say).</summary>
+    internal static string? LoadOld()
     {
         try { return System.IO.File.Exists(File) ? Encoding.UTF8.GetString(Unprotect(System.IO.File.ReadAllBytes(File))) : null; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
@@ -127,7 +146,12 @@ public static class OwnKey
     /// Checks the key and lists the models it can use (on OpenRouter only those that can call tools, since a model that
     /// can't look at the records can't answer about this PC). The models, or why there are none, in words for the person.
     /// </summary>
-    public static async Task<(IReadOnlyList<ServiceModel>? Models, string? Problem)> ModelsAsync(string service, string root, string key, CancellationToken ct = default)
+    public static Task<(IReadOnlyList<ServiceModel>? Models, string? Problem)> ModelsAsync(string service, string root, string key, CancellationToken ct = default)
+        => ModelsAsync(service, root, key, filterTools: true, ct);
+
+    /// <param name="filterTools">Off for a server of the person's own: those don't say what their models can do, so
+    /// every model is listed and the one picked is tried instead (<see cref="ProbeToolsAsync"/>).</param>
+    internal static async Task<(IReadOnlyList<ServiceModel>? Models, string? Problem)> ModelsAsync(string service, string root, string key, bool filterTools, CancellationToken ct = default)
     {
         if (root.Length == 0) return (null, Lang.T("Type the service's address first."));
         try
@@ -142,15 +166,8 @@ public static class OwnKey
             using var req = Request(HttpMethod.Get, root + "/models", key);
             using var res = await Http.SendAsync(req, ct);
             if (!res.IsSuccessStatusCode) return (null, await ProblemAsync(service, res, ct, inSettings: true));
-            var list = new List<ServiceModel>();
-            foreach (var m in JsonNode.Parse(await res.Content.ReadAsStringAsync(ct))?["data"] as JsonArray ?? [])
-            {
-                string id = (string?)m?["id"] ?? "";
-                if (id.Length == 0) continue;
-                if (m?["supported_parameters"] is JsonArray can && !can.Any(p => (string?)p == "tools")) continue;
-                list.Add(new ServiceModel(id, Cents(m?["pricing"]), Tested.Contains(id)));
-            }
-            Log.Write("own-key", $"{service} key works: {list.Count} models it can use, {list.Count(m => m.Tested)} of them tested with RigSight");
+            var list = Parse(JsonNode.Parse(await res.Content.ReadAsStringAsync(ct))?["data"] as JsonArray ?? [], root, filterTools);
+            Log.Write("own-key", $"{service} key works: {list.Count} models it can use, {list.Count(m => m.Tier is not null)} of them suggested ({string.Join(", ", list.Where(m => m.Tier is not null).Select(m => $"{m.Tier}: {m.Id}"))})");
             return list.Count == 0 ? (null, Lang.T($"{service} accepted the key but listed no models that can look at RigSight's records.")) : (list, null);
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException or UriFormatException or InvalidOperationException)
@@ -158,9 +175,282 @@ public static class OwnKey
             if (ct.IsCancellationRequested) throw;
             Log.Write("own-key", $"No answer from {service} at {root}: expected its model list, got {ex.GetType().Name}: {ex.Message}");
             if (await Internet.ExplainsAsync(ex)) return (null, Internet.NoInternet(inSettings: true));
-            return (null, Lang.T($"{service} isn't answering. Check your internet connection, then press Test again."));
+            return (null, Lang.T($"{service} isn't answering. Check your internet connection, then press Connect again."));
         }
     }
+
+
+    /// <summary>OpenRouter's three suggested models by id; shown only when the key lists them.</summary>
+    private static readonly (string Id, string Tier)[] OpenRouterTiers =
+        [("anthropic/claude-sonnet-5.5", "Best answers"), ("google/gemini-3.8-flash", "Balanced"), ("deepseek/deepseek-v4.1-flash", "Cheapest")];
+
+    /// <summary>
+    /// A service's model list as RigSight shows it: each model's name, maker, context and cost from what the service says,
+    /// and the three suggested ones marked. Only models that can use look-ups, where the service says which can.
+    /// </summary>
+    internal static List<ServiceModel> Parse(JsonArray data, string root, bool filterTools = true)
+    {
+        bool anthropic = root.StartsWith("https://api.anthropic.com/", StringComparison.OrdinalIgnoreCase);
+        var list = new List<(ServiceModel Model, DateTime? Created)>();
+        foreach (var m in data)
+        {
+            string id = Str(m?["id"]) ?? "";
+            if (id.Length == 0) continue;
+            if (filterTools && m?["supported_parameters"] is JsonArray can && !can.Any(p => Str(p) == "tools")) continue;
+            string shown = Str(m?["display_name"]) ?? Str(m?["name"]) ?? id;
+            string? maker = null;
+            // OpenRouter names them "Anthropic: Claude Sonnet 5.5": the part before the colon is the maker.
+            int colon = shown.IndexOf(": ", StringComparison.Ordinal);
+            if (colon > 0 && Str(m?["display_name"]) is null) { maker = shown[..colon]; shown = shown[(colon + 2)..]; }
+            maker ??= anthropic ? "Anthropic" : id.Contains('/') ? MakerFrom(id[..id.IndexOf('/')]) : MakerFrom(Str(m?["owned_by"]));
+            long? context = Num(m?["context_length"]) ?? Num(m?["max_input_tokens"]) ?? Num(m?["max_model_len"]) ?? Num(m?["context_window"]);
+            DateTime? created = DateTime.TryParse(Str(m?["created_at"]), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var at) ? at
+                : Num(m?["created"]) is long unix && unix > 0 ? DateTimeOffset.FromUnixTimeSeconds(unix).UtcDateTime : null;
+            list.Add((new ServiceModel(id, Cents(m?["pricing"]), false)
+            {
+                Name = shown,
+                Maker = maker,
+                ContextTokens = context is > 0 and <= int.MaxValue ? (int)context : null,
+                Released = created,
+            }, created));
+        }
+        var tiers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (IsOpenRouter(root))
+            foreach (var (id, tier) in OpenRouterTiers)
+                if (list.Any(x => x.Model.Id.Equals(id, StringComparison.OrdinalIgnoreCase))) tiers[id] = tier;
+        if (anthropic)
+            // Anthropic lists the newest first; by its date when it gives one. The newest of each line is its pick.
+            foreach (var (line, tier) in new[] { ("claude-opus-", "Best answers"), ("claude-sonnet-", "Balanced"), ("claude-haiku-", "Cheapest") })
+            {
+                var newest = list.Select((x, i) => (x.Model, x.Created, Order: i))
+                    .Where(x => x.Model.Id.StartsWith(line, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(x => x.Created ?? DateTime.MinValue).ThenBy(x => x.Order).FirstOrDefault();
+                if (newest.Model is not null) tiers[newest.Model.Id] = tier;
+            }
+        return [.. list.Select(x => tiers.TryGetValue(x.Model.Id, out var t) ? x.Model with { Tested = true, Tier = t } : x.Model)];
+    }
+
+    /// <summary>A maker's usual name from an id's start or a service's owned_by ("meta-llama" is Meta); null for "system" and such.</summary>
+    private static string? MakerFrom(string? word) => (word ?? "").ToLowerInvariant() switch
+    {
+        "" or "system" or "user" or "organization-owner" or "library" or "llamacpp" or "vllm" => null,
+        "openai" or "openai-internal" => "OpenAI",
+        "anthropic" => "Anthropic",
+        "google" or "google-deepmind" => "Google",
+        "meta-llama" or "meta" => "Meta",
+        "mistralai" or "mistral" => "Mistral",
+        "deepseek" or "deepseek-ai" => "DeepSeek",
+        "x-ai" or "xai" => "xAI",
+        "qwen" => "Qwen",
+        "moonshotai" => "Moonshot",
+        "cohere" => "Cohere",
+        "microsoft" => "Microsoft",
+        "nvidia" => "NVIDIA",
+        string w => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(w.Replace('-', ' ')),
+    };
+
+    /// <summary>What connecting found: where it answered, its models or why none, and what the person should know.</summary>
+    /// <param name="Root">Where questions go: the service's address, or the server's with /v1 when it answered there.</param>
+    /// <param name="AddedV1">The address answered only with /v1 on its end; <paramref name="Root"/> has it.</param>
+    /// <param name="NoModelList">The server answers but doesn't list its models: the person types the model's name.</param>
+    /// <param name="IsOllama">Port 11434 is Ollama, which has its own setting; nothing was asked.</param>
+    /// <param name="NotPrivate">http:// to a computer outside the person's own network: the key and records would travel unprotected.</param>
+    public sealed record ConnectResult(string Root, IReadOnlyList<ServiceModel>? Models, string? Problem, bool AddedV1 = false, bool NoModelList = false, bool IsOllama = false, bool NotPrivate = false);
+
+    /// <summary>
+    /// Connects a pasted key or address: a named service lists its models for the key; an address (a server of their own)
+    /// is asked for its models at /models, and at /v1/models when that doesn't answer, since most such servers only
+    /// answer there (LiteLLM's "Not Found" is a missing /v1). The key is optional for an address.
+    /// </summary>
+    public static async Task<ConnectResult> ConnectAsync(string service, string key, string address, CancellationToken ct = default)
+    {
+        key = (key ?? "").Trim();
+        address = (address ?? "").Trim();
+        if (address.Length == 0 && service != "Custom")
+        {
+            string root = Root(service, "");
+            var (models, problem) = await ModelsAsync(service, root, key, ct);
+            return new ConnectResult(root, models, problem);
+        }
+        if (address.Length == 0) return new ConnectResult("", null, Lang.T("Type the server's address first."));
+        string bare = address.TrimEnd('/');
+        if (!bare.Contains("://", StringComparison.Ordinal)) bare = "http://" + bare;
+        if (!Uri.TryCreate(bare, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+            return new ConnectResult(bare, null, Lang.T($"{address} isn't an address RigSight can use. It looks like http://192.168.1.20:8000/v1."));
+        if (uri.Port == 11434)
+        {
+            Log.Write("own-key", $"{uri.Host}:11434 is Ollama's port: not connected as a server, Ollama has its own setting");
+            return new ConnectResult(bare, null, null, IsOllama: true);
+        }
+        bool notPrivate = uri.Scheme == "http" && !IsOwnNetwork(uri.Host);
+        string where = uri.GetLeftPart(UriPartial.Authority) + uri.AbsolutePath.TrimEnd('/');
+        string nothing = Lang.T($"Nothing answered at {address}. Check the server is running and the address is right; these usually end in /v1.");
+        string refused = Lang.T("The server didn't accept this key. Check that it was copied in full.");
+        var first = await ListAsync(where, key, ct);
+        if (first.Models is not null) return new ConnectResult(where, first.Models, null, NotPrivate: notPrivate);
+        if (first.Code is null)
+            return new ConnectResult(where, null, first.Failed is { } why && await Internet.ExplainsAsync(why) ? Internet.NoInternet(inSettings: true) : nothing, NotPrivate: notPrivate);
+        if (first.Code is 401 or 403) return new ConnectResult(where, null, refused, NotPrivate: notPrivate);
+        if (!where.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+        {
+            var withV1 = await ListAsync(where + "/v1", key, ct);
+            if (withV1.Models is not null)
+            {
+                Log.Write("own-key", $"{where} answered only with /v1 on the end: saved as {where}/v1");
+                return new ConnectResult(where + "/v1", withV1.Models, null, AddedV1: true, NotPrivate: notPrivate);
+            }
+            if (withV1.Code is 401 or 403) return new ConnectResult(where + "/v1", null, refused, NotPrivate: notPrivate);
+            if (withV1.Code == 404 && first.Code == 404)
+            {
+                Log.Write("own-key", $"{where} answers but lists no models at /models or /v1/models: the person types the model's name");
+                return new ConnectResult(where + "/v1", [], null, NoModelList: true, NotPrivate: notPrivate);
+            }
+        }
+        else if (first.Code == 404)
+        {
+            Log.Write("own-key", $"{where} answers but lists no models at /models: the person types the model's name");
+            return new ConnectResult(where, [], null, NoModelList: true, NotPrivate: notPrivate);
+        }
+        return new ConnectResult(where, null, Lang.T($"{address} answered, but not as an AI server does (HTTP {first.Code.Value.ToString(CultureInfo.InvariantCulture)})."), NotPrivate: notPrivate);
+    }
+
+    /// <summary>One try at a server's model list: its models, or the HTTP code it gave, or what stopped the request.</summary>
+    private static async Task<(List<ServiceModel>? Models, int? Code, Exception? Failed)> ListAsync(string root, string key, CancellationToken ct)
+    {
+        try
+        {
+            using var req = Request(HttpMethod.Get, root + "/models", key);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(15));
+            using var res = await Http.SendAsync(req, timeout.Token);
+            string body = await res.Content.ReadAsStringAsync(timeout.Token);
+            if (!res.IsSuccessStatusCode)
+            {
+                Log.Write("own-key", $"Expected a model list at {root}/models, got HTTP {(int)res.StatusCode}");
+                return (null, (int)res.StatusCode, null);
+            }
+            JsonArray? data = null;
+            try { data = JsonNode.Parse(body)?["data"] as JsonArray; } catch (JsonException) { }
+            if (data is null)
+            {
+                // A web page or anything else at that path: as good as no list there.
+                Log.Write("own-key", $"Expected a model list at {root}/models, got {body.Length} characters without one");
+                return (null, 404, null);
+            }
+            var list = Parse(data, root, filterTools: false);
+            Log.Write("own-key", $"{root} lists {list.Count} models");
+            return (list, null, null);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or UriFormatException or InvalidOperationException)
+        {
+            if (ct.IsCancellationRequested) throw;
+            Log.Write("own-key", $"Expected a model list at {root}/models, got {ex.GetType().Name}: {ex.Message}");
+            return (null, null, ex);
+        }
+    }
+
+    /// <summary>The person's own computer or network: localhost, 127.x, 10.x, 192.168.x, 172.16-31.x, 169.254.x or a .local name.</summary>
+    internal static bool IsOwnNetwork(string host)
+    {
+        host = host.Trim('[', ']').ToLowerInvariant();
+        if (host is "localhost" or "::1" || host.EndsWith(".local", StringComparison.Ordinal)) return true;
+        if (!IPAddress.TryParse(host, out var ip)) return false;
+        if (IPAddress.IsLoopback(ip)) return true;
+        var b = ip.GetAddressBytes();
+        return b.Length == 4 && (b[0] == 10 || (b[0] == 192 && b[1] == 168) || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 169 && b[1] == 254));
+    }
+
+    /// <summary>
+    /// Whether a model on a server of the person's own can use look-ups: there's no standard way to ask a server (vLLM, for
+    /// one, only calls tools when started with --enable-auto-tool-choice), so it is asked one tiny question with one harmless
+    /// tool. True when it calls the tool, false when it answers in words, null when it couldn't be asked.
+    /// </summary>
+    public static async Task<bool?> ProbeToolsAsync(string root, string key, string model, CancellationToken ct = default)
+    {
+        var body = new JsonObject
+        {
+            ["model"] = model,
+            ["max_tokens"] = 60,
+            ["stream"] = false,
+            ["tool_choice"] = "auto",
+            ["messages"] = new JsonArray(new JsonObject { ["role"] = "user", ["content"] = "What time is it? Use the get_time tool to find out." }),
+            ["tools"] = new JsonArray(new JsonObject
+            {
+                ["type"] = "function",
+                ["function"] = new JsonObject
+                {
+                    ["name"] = "get_time",
+                    ["description"] = "The current time on this PC.",
+                    ["parameters"] = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() },
+                },
+            }),
+        };
+        try
+        {
+            using var req = Request(HttpMethod.Post, root.TrimEnd('/') + "/chat/completions", key);
+            req.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(20));
+            using var res = await Http.SendAsync(req, timeout.Token);
+            string text = await res.Content.ReadAsStringAsync(timeout.Token);
+            if (!res.IsSuccessStatusCode)
+            {
+                Log.Write("own-key", $"Look-up check of {model} at {root}: expected an answer, got HTTP {(int)res.StatusCode}: {text[..Math.Min(200, text.Length)]}");
+                return null;
+            }
+            var message = JsonNode.Parse(text)?["choices"]?[0]?["message"];
+            bool calls = message?["tool_calls"] is JsonArray { Count: > 0 };
+            Log.Write("own-key", calls
+                ? $"Look-up check of {model} at {root}: it called the tool, so it can read the records"
+                : $"Look-up check of {model} at {root}: expected a tool call, got words instead ({(Str(message?["content"]) ?? "").Length} characters), so it can't read the records");
+            return calls;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException or UriFormatException or InvalidOperationException)
+        {
+            if (ct.IsCancellationRequested) throw;
+            Log.Write("own-key", $"Look-up check of {model} at {root}: expected an answer, got {ex.GetType().Name}: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>For a test: OpenRouter's address, pointed at a fake server.</summary>
+    internal static readonly AsyncLocal<string?> TestOpenRouter = new();
+
+    /// <summary>
+    /// An OpenRouter key's credit left and this month's spend, in dollars, from its /credits and /key: both shown on the
+    /// key's row. Each null when it can't be read (a key without the right, no answer).
+    /// </summary>
+    public static async Task<(double? CreditLeft, double? MonthSpent)> CreditAsync(string key, CancellationToken ct = default)
+    {
+        string root = TestOpenRouter.Value ?? "https://openrouter.ai/api/v1";
+        double? left = null, month = null;
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(15));
+            using (var req = Request(HttpMethod.Get, root + "/credits", key))
+            using (var res = await Http.SendAsync(req, timeout.Token))
+                if (res.IsSuccessStatusCode && JsonNode.Parse(await res.Content.ReadAsStringAsync(timeout.Token))?["data"] is { } d
+                    && Dollars(d["total_credits"]) is double total && Dollars(d["total_usage"]) is double used)
+                    left = Math.Max(0, total - used);
+            using (var req = Request(HttpMethod.Get, root + "/key", key))
+            using (var res = await Http.SendAsync(req, timeout.Token))
+                if (res.IsSuccessStatusCode && JsonNode.Parse(await res.Content.ReadAsStringAsync(timeout.Token))?["data"] is { } d)
+                    month = Dollars(d["usage_monthly"]);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException or UriFormatException or InvalidOperationException)
+        {
+            if (ct.IsCancellationRequested) throw;
+            Log.Write("own-key", $"Expected OpenRouter's credit and spend, got {ex.GetType().Name}: {ex.Message}");
+        }
+        Log.Write("own-key", $"OpenRouter credit: {(left is double l ? $"${l:0.00} left" : "unknown")}, this month {(month is double mo ? $"${mo:0.00}" : "unknown")}");
+        return (left, month);
+    }
+
+    private static double? Dollars(JsonNode? node) => node is JsonValue v
+        ? v.TryGetValue(out double d) && double.IsFinite(d) ? d
+        : v.TryGetValue(out string? s) && double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var p) ? p : null
+        : null;
 
     /// <summary>
     /// About what one question costs at the service's prices, from what questions took in the model test: about 25,000
@@ -191,6 +481,8 @@ public static class OwnKey
             return new AiReply(null, Internet.NoInternet(), []);
         }
         string system = AiPrompt.OwnKey(started, AiInstructions.Custom(AiMode.OwnKey), tools.Settings.Ai.OwnKeyPreferences);
+        // The apps an answer can open: the prompt's [do: app] button needs to know which are on this PC.
+        tools.OpenableAppsLookUp = true;
         var messages = new JsonArray { new JsonObject { ["role"] = "system", ["content"] = system } };
         foreach (var turn in AiTurns.Recent(earlier)) messages.Add(AiTurns.Message(turn));
         messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });
@@ -400,10 +692,18 @@ public static class OwnKey
         return new(text.ToString(), list, finish, tokensIn, tokensOut, null, first);
     }
 
-    private static HttpRequestMessage Request(HttpMethod method, string url, string key)
+    internal static HttpRequestMessage Request(HttpMethod method, string url, string key)
     {
         var req = new HttpRequestMessage(method, url);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+        // A server of their own may need no key: then no header at all, rather than "Bearer " with nothing.
+        if (key.Length > 0) req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+        // Anthropic wants its version on every request and the key as x-api-key: without the version, even its model
+        // list answered 400 "anthropic-version: header is required" (a real key, 2026-10-27), so no Anthropic key worked.
+        if (url.StartsWith("https://api.anthropic.com/", StringComparison.OrdinalIgnoreCase))
+        {
+            req.Headers.Add("anthropic-version", "2023-06-01");
+            if (key.Length > 0) req.Headers.Add("x-api-key", key);
+        }
         if (url.StartsWith("https://openrouter.ai/", StringComparison.OrdinalIgnoreCase))
         {
             req.Headers.Add("HTTP-Referer", "https://rigsight.app");
@@ -425,13 +725,13 @@ public static class OwnKey
         return res.StatusCode switch
         {
             HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => inSettings
-                ? Lang.T($"{service} didn't accept this key. Check that it was copied in full, then press Test again.")
+                ? Lang.T($"{service} didn't accept this key. Check that it was copied in full, then press Connect again.")
                 : Lang.T($"{service} didn't accept the API key. Check it in Settings › Ask RigSight."),
             HttpStatusCode.PaymentRequired => inSettings
-                ? Lang.T($"Your {service} account is out of credit. Add some on {service}'s site, then press Test again.")
+                ? Lang.T($"Your {service} account is out of credit. Add some on {service}'s site, then press Connect again.")
                 : Lang.T($"Your {service} account is out of credit. Add some on {service}'s site, then ask again."),
             HttpStatusCode.TooManyRequests => inSettings
-                ? Lang.T($"{service} is busy right now. Press Test again in a moment.")
+                ? Lang.T($"{service} is busy right now. Press Connect again in a moment.")
                 : Lang.T($"{service} is busy right now. Ask again in a moment."),
             _ => Lang.T($"{service} couldn't answer ({said ?? ((int)res.StatusCode).ToString(CultureInfo.InvariantCulture)})"),
         };

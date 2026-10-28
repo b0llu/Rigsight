@@ -33,16 +33,23 @@ public partial class SettingsView : UserControl
         // Signed up while the page is in a window, and off again as it leaves: the window outlives the page (a theme change
         // builds a new one), and a handler left on it kept every old Settings page in memory (MemoryLeakTests).
         Window? watched = null;
+        // The same for the key boxes' view model, which outlives the page too.
+        AiSettingsViewModel? keys = null;
         Loaded += (_, _) =>
         {
             if (watched is not null) watched.Deactivated -= OnWindowDeactivated;
             watched = Window.GetWindow(this);
             if (watched is not null) watched.Deactivated += OnWindowDeactivated;
+            if (keys is not null) { keys.PasteCleared -= OnPasteCleared; keys.ModelCardWanted -= OnModelCardWanted; }
+            keys = (DataContext as SettingsViewModel)?.Ai;
+            if (keys is not null) { keys.PasteCleared += OnPasteCleared; keys.ModelCardWanted += OnModelCardWanted; }
         };
         Unloaded += (_, _) =>
         {
             if (watched is not null) watched.Deactivated -= OnWindowDeactivated;
             watched = null;
+            if (keys is not null) { keys.PasteCleared -= OnPasteCleared; keys.ModelCardWanted -= OnModelCardWanted; }
+            keys = null;
         };
         DataContextChanged += (_, e) =>
         {
@@ -339,10 +346,6 @@ public partial class SettingsView : UserControl
         // A click inside an open list (a popup, its own window) reaches here too: it is a pick, so the list stays open
         // until the pick closes it (closing it on the press lost every pick).
         if (clicked is Visual inside && PresentationSource.FromVisual(inside) is { } source && source != PresentationSource.FromVisual(this)) return;
-        if (vm.Ai is { } ai)
-        {
-            if (ai.IsPickingModel && !On(ModelButton)) ai.IsPickingModel = false;
-        }
         if (vm.Rewind is { IsPicking: true } rewind && !On(LeaveSearchBox)) rewind.IsPicking = false;
     }
 
@@ -356,14 +359,29 @@ public partial class SettingsView : UserControl
         if (System.Windows.Input.Mouse.LeftButton == System.Windows.Input.MouseButtonState.Released) LeaveSearch_Open(sender, e);
     }
 
-    /// <summary>Settings › Ask RigSight → My own key: what's typed goes to the view model (the box keeps it out of bindings).</summary>
+    /// <summary>Settings › Ask RigSight → Your API key: what's pasted goes to the view model (a PasswordBox can't be bound).</summary>
     private void ApiKey_Changed(object sender, System.Windows.RoutedEventArgs e)
     {
-        if (DataContext is ViewModels.SettingsViewModel { Ai: { } ai } && sender is System.Windows.Controls.PasswordBox box) ai.ApiKey = box.Password;
+        if (DataContext is ViewModels.SettingsViewModel { Ai: { } ai } && sender is System.Windows.Controls.PasswordBox box && ai.ApiKey != box.Password) ai.ApiKey = box.Password;
     }
 
-    /// <summary>Settings › Ask RigSight: the model list opens with its search box ready to type in.</summary>
-    private void ModelPopup_Opened(object? sender, EventArgs e) => Dispatcher.BeginInvoke(() => ModelSearchBox.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+    /// <summary>A server's own key, beside its address.</summary>
+    private void ServerKey_Changed(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (DataContext is ViewModels.SettingsViewModel { Ai: { } ai } && sender is System.Windows.Controls.PasswordBox box) ai.ServerKey = box.Password;
+    }
+
+    /// <summary>Show turned off again: the dots get what was typed in the shown box meanwhile.</summary>
+    private void PasteShown_Changed(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.TextBox t && PasteBox.Password != t.Text) PasteBox.Password = t.Text;
+    }
+
+    /// <summary>A key saved or the box cancelled: both password boxes empty, as the view model's own text is.</summary>
+    private void OnPasteCleared() { PasteBox.Password = ""; ServerKeyBox.Password = ""; }
+
+    /// <summary>A key just added: the Model card scrolled into view once the page has laid out the new rows.</summary>
+    private void OnModelCardWanted() => Dispatcher.BeginInvoke(() => ModelCard.BringIntoView(), System.Windows.Threading.DispatcherPriority.Loaded);
 
     private void LeaveSearch_Key(object sender, System.Windows.Input.KeyEventArgs e)
     {

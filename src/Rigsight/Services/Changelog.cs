@@ -177,8 +177,7 @@ public static class Changelog
 
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
-        // Version and date settled at release. The AI helper on this branch stays hidden (AiPreview) and out of here
-        // until it launches.
+        // Version and date settled at release.
         V("0.36.0", 10, 27,
             added: [Lang.T("After an update, What's new can now wait as a button beside minimise instead of opening by itself; choose which in Settings, About.")],
             better: [Lang.T("How it runs on a game's page is now one frame-rate chart over a range you pick, with updates marked.")],

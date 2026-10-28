@@ -471,7 +471,7 @@
              the sidebar instead). -->
         <Button x:Name="AskBox" WindowChrome.IsHitTestVisibleInChrome="True" Click="AskBox_Click" Cursor="IBeam" Focusable="False" FocusVisualStyle="{x:Null}"
                 HorizontalAlignment="Center" VerticalAlignment="Center" Width="480" Height="30" AutomationProperties.Name="{ctl:T 'Ask about your PC'}"
-                Visibility="{Binding Ask.InTopBar, Converter={StaticResource Vis}}">
+                Visibility="{Binding ShowAskBar, Converter={StaticResource Vis}}">
             <Button.Template>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bd" CornerRadius="7" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="12,0,7,0">
@@ -496,7 +496,7 @@
              box replaced the Ask button); lit while Ask is open, and closes it. Beside the box, so the box stays the bar's middle. -->
         <Button x:Name="AskChats" WindowChrome.IsHitTestVisibleInChrome="True" Command="{Binding Ask.ToggleCommand}" Cursor="Hand" Focusable="False" FocusVisualStyle="{x:Null}"
                 HorizontalAlignment="Center" VerticalAlignment="Center" Width="30" Height="30" Margin="526,0,0,0" ToolTip="{ctl:T 'Your chats'}" AutomationProperties.Name="{ctl:T 'Your chats'}"
-                Visibility="{Binding Ask.InTopBar, Converter={StaticResource Vis}}">
+                Visibility="{Binding ShowAskBar, Converter={StaticResource Vis}}">
             <Button.Template>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bd" CornerRadius="7" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
@@ -1068,7 +1068,7 @@
                          small menu over it (Settings first, then the things people come looking for: updates, what's new,
                          reporting a bug); the menu floats, so nothing moves. Marked like a page while Settings is open. -->
                     <!-- Ask, when Settings › Ask RigSight puts its button in the sidebar instead of the top bar. -->
-                    <RadioButton Style="{StaticResource NavItem}" GroupName="AskSide" Tag="&#xE8F2;" Content="{ctl:T 'Ask'}" Command="{Binding Ask.ToggleCommand}"
+                    <RadioButton Style="{StaticResource NavItem}" GroupName="AskSide" Tag="{StaticResource AiIcon}" Content="{ctl:T 'Ask'}" Command="{Binding Ask.ToggleCommand}"
                                  IsChecked="{Binding Ask.IsOpen, Mode=OneWay}" AutomationProperties.Name="Ask RigSight" Margin="0,0,0,4"
                                  Visibility="{Binding Ask.InSidebar, Converter={StaticResource Vis}}" />
                     <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="12,4,12,10" />

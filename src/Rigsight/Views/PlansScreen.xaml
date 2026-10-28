@@ -83,6 +83,47 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
+        <!-- Monthly / Yearly: a pill each, the picked one filled (Tag On: picked when Yearly is, Off: when it isn't). -->
+        <ControlTemplate x:Key="BillingPicked" TargetType="Button">
+            <ctl:SmoothBorder CornerRadius="14" Background="{DynamicResource TextBrush}" Padding="18,6" MinWidth="86">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource BgBrush}" TextElement.FontWeight="SemiBold" />
+            </ctl:SmoothBorder>
+        </ControlTemplate>
+        <Style x:Key="BillingPick" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ctl:SmoothBorder x:Name="Bd" CornerRadius="14" Background="Transparent" Padding="18,6" MinWidth="86">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </ctl:SmoothBorder>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="On" />
+                        <Condition Binding="{Binding Yearly}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Template" Value="{StaticResource BillingPicked}" />
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Off" />
+                        <Condition Binding="{Binding Yearly}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Template" Value="{StaticResource BillingPicked}" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- What an example reads, as a source pill under a real answer. -->
         <Style x:Key="WebPill" TargetType="Border">
             <Setter Property="CornerRadius" Value="10" />
@@ -156,6 +197,15 @@
                     </DockPanel>
                 </ctl:SmoothBorder>
 
+                <!-- Monthly or Yearly (approved mock-up, 2026-10-28): nothing beside it, the saving shows on the cards. -->
+                <ctl:SmoothBorder HorizontalAlignment="Center" Margin="0,0,0,14" CornerRadius="17" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                  BorderThickness="1" Padding="3" Visibility="{Binding ShowBillingSwitch, Converter={StaticResource Vis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource BillingPick}" Content="{ctl:T 'Monthly'}" Command="{Binding PickMonthlyCommand}" Tag="Off" />
+                        <Button Style="{StaticResource BillingPick}" Content="{ctl:T 'Yearly'}" Command="{Binding PickYearlyCommand}" Tag="On" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
                 <!-- The plans, the same lines in each, each in its own colour (Free sky, the middle plan blue, the top one violet) -->
                 <ItemsControl ItemsSource="{Binding Columns}" Focusable="False" Margin="0,0,-14,0">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -205,7 +255,9 @@
                                                     <TextBlock Text="{ctl:T 'a month'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="6,0,0,6"
                                                                Visibility="{Binding Monthly, Converter={StaticResource Vis}}" />
                                                 </StackPanel>
-                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="0,16,0,18" />
+                                                <!-- For a year: the real charge, the monthly price crossed out, the saving. Always its line's height, so switching never moves the button. -->
+                                                <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" MinHeight="17" Margin="0,2,0,0"><Run Text="{Binding BilledOld, Mode=OneWay}" TextDecorations="Strikethrough" /><Run Text="{Binding BilledText, Mode=OneWay}" /><Run Text="{Binding SaveText, Mode=OneWay}" Foreground="{DynamicResource GoodBrush}" /></TextBlock>
+                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="0,14,0,18" />
                                                 <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,0,0,16" />
                                                 <DockPanel Margin="0,0,0,14">
                                                     <TextBlock DockPanel.Dock="Left" Text="&#xE8BD;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{Binding Tag, ElementName=Card}" />
@@ -311,7 +363,7 @@
                             </Grid>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding WebHeading}" FontSize="15" FontWeight="SemiBold" />
-                                <TextBlock Text="{ctl:T 'Your records say what happened. The web says what it means for your exact parts. Answers show the pages they used.'}" Style="{StaticResource Small}" />
+                                <TextBlock Text="{ctl:T 'Your records say what happened. The web says what it means for your exact parts. Answers show what they read.'}" Style="{StaticResource Small}" />
                             </StackPanel>
                         </DockPanel>
                         <UniformGrid Rows="1" Margin="0,14,-10,0">
@@ -386,7 +438,7 @@
                                     <ColumnDefinition Width="130" />
                                     <ColumnDefinition Width="130" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{ctl:T 'What answers can use, page by page'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" />
+                                <TextBlock Text="{ctl:T 'What answers can read'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" />
                                 <StackPanel Grid.Column="1" HorizontalAlignment="Center">
                                     <TextBlock Text="{Binding Columns[0].Name}" FontSize="13.5" FontWeight="SemiBold" HorizontalAlignment="Center" />
                                     <TextBlock Text="{Binding Columns[0].Price}" FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
@@ -491,7 +543,7 @@
                 <WrapPanel HorizontalAlignment="Center" Margin="0,22,0,0">
                     <StackPanel Orientation="Horizontal" Margin="10,2">
                         <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="{ctl:T 'Paid monthly, by card or PayPal'}" Style="{StaticResource Small}" />
+                        <TextBlock Text="{Binding PaidText}" Style="{StaticResource Small}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="10,2">
                         <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -499,7 +551,7 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="10,2">
                         <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="{ctl:T 'After cancelling, it works until the month you paid for ends'}" Style="{StaticResource Small}" />
+                        <TextBlock Text="{Binding AfterCancelText}" Style="{StaticResource Small}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="10,2">
                         <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />

@@ -11,7 +11,7 @@ namespace Rigsight.Core.Ai;
 public static class Internet
 {
     public static string NoInternet(bool inSettings = false) => inSettings
-        ? Lang.T("Your PC isn't connected to the internet. Connect, then press Test again.")
+        ? Lang.T("Your PC isn't connected to the internet. Once it is, press Connect again.")
         : Lang.T("Your PC isn't connected to the internet. Connect, then ask again.");
 
     /// <summary>Before sending: Windows has no network at all (Wi-Fi off, cable out, flight mode).</summary>

@@ -17,10 +17,17 @@ public sealed record GameSettingsFile(string Path, DateTime Saved, IReadOnlyList
 /// <summary>A setting said in plain words: "Display mode" · "Borderless window". The label is English, for Lang.T.</summary>
 public sealed record GameSettingFact(string Label, string Value);
 
-/// <summary>How a game is set: the files it was read from and the main settings in plain words.</summary>
+/// <summary>
+/// How a game is set: the files it was read from, the main settings in plain words, every graphics setting by its menu
+/// name (<see cref="Rows"/>) and NVIDIA's pick for this PC when the NVIDIA App has one.
+/// </summary>
 public sealed record GameSettingsRead(IReadOnlyList<GameSettingsFile> Files, IReadOnlyList<GameSettingFact> Facts)
 {
     public static readonly GameSettingsRead None = new([], []);
+    public IReadOnlyList<GameSettingRow> Rows { get; init; } = [];
+    public NvidiaPick? Nvidia { get; init; }
+    /// <summary>The settings NVIDIA would set otherwise.</summary>
+    public IReadOnlyList<GameSettingRow> Differing => [.. Rows.Where(r => r.Differs)];
     public bool Found => Files.Count > 0;
     /// <summary>When the newest of its files was saved: the last time the game wrote its settings.</summary>
     public DateTime? Saved => Files.Count == 0 ? null : Files.Max(f => f.Saved);
@@ -46,6 +53,8 @@ public static class GameSettings
         public string SavedGames { get; init; } = "";
         /// <summary>Steam's own folder (its userdata holds some games' settings).</summary>
         public string? Steam { get; init; }
+        /// <summary>The NVIDIA App's own folder of what it knows about games (empty: none; a test's own).</summary>
+        public string NvidiaBackend { get; init; } = "";
         /// <summary>A Unity game's saved preferences by maker and name (the registry on a real PC).</summary>
         public Func<string, string, (string Where, DateTime Saved, IReadOnlyList<GameSetting> Values)?> UnityPrefs { get; init; } = (_, _) => null;
 
@@ -61,6 +70,7 @@ public static class GameSettings
                 SavedGames = Path.Combine(profile, "Saved Games"),
                 Steam = SteamFolder(),
                 UnityPrefs = UnityRegistry,
+                NvidiaBackend = NvidiaPicks.ThisPc(),
             };
         }
     }
@@ -108,7 +118,15 @@ public static class GameSettings
                     files.AddRange(Best(SafeDirs(Path.Combine(steam, "userdata")).SelectMany(u => Candidates(Path.Combine(u, steamAppId), 3, names)), 2));
                 if (files.Count == 0 && installDir is not null) files.AddRange(Best(Candidates(installDir, 4, names), 2));
             }
-            return files.Count == 0 ? GameSettingsRead.None : new(files, Facts(files.SelectMany(f => f.Settings).ToList()));
+            if (files.Count == 0) return GameSettingsRead.None;
+            var all = files.SelectMany(f => f.Settings).ToList();
+            var facts = Facts(all);
+            var rows = GameSettingNames.Rows(all, facts);
+            string? size = facts.FirstOrDefault(f => f.Label == Resolution)?.Value.Replace(" × ", "x");
+            var nvidia = NvidiaPicks.Read(places.NvidiaBackend, exePath, installDir, size, MainScreen() is { } scr ? $"{scr.W}x{scr.H}" : null);
+            if (nvidia is not null)
+                rows = [.. rows.Select(r => r with { Recommended = Pick(nvidia, r.Label) })];
+            return new(files, facts) { Rows = rows, Nvidia = nvidia };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or ArgumentException)
         {
@@ -116,6 +134,11 @@ public static class GameSettings
             return GameSettingsRead.None;
         }
     }
+
+    /// <summary>NVIDIA's value for one of our settings, by the same name written any way ("Anti-aliasing" is its "Anti-Aliasing", "Corpses max" its "Max Corpses").</summary>
+    private static string? Pick(NvidiaPick pick, string label) =>
+        pick.Values.FirstOrDefault(p => Norm(p.Key) == Norm(label)).Value
+        ?? pick.Values.FirstOrDefault(p => GameSettingNames.NameKey(p.Key) == GameSettingNames.NameKey(label)).Value;
 
     // ── Where ───────────────────────────────────────────────────────────
 
@@ -361,7 +384,7 @@ public static class GameSettings
     // ── Which settings ──────────────────────────────────────────────────
 
     private static readonly Regex GraphicsWord = new(
-        @"res(olution)?|width|height|resx|resy|fullscreen|windowed|window_?mode|borderless|nowindowborder|display_?(type|mode)|vsync|v_sync|fps|frame|refresh|hz\b|quality|preset|shadow|texture|aniso|antialias|anti_alias|\baa\b|msaa|taa|fxaa|smaa|dlss|fsr|xess|upscal|upsampl|super_?res|sharpen|scale|ray|_rt_|\brt\b|reflection|lighting|illumination|ssao|ambient|occlusion|fog|volumetric|cloud|detail|lod|distance|draw|effect|particle|post_?process|bloom|blur|depth_of_field|dof|motion|hdr|gamma|render|foliage|grass|tree|water|tessellation|latency|reflex|boost|dynamic|streaming|stream_memory|picmip|mip|decal|ragdoll|gib|physics|crowd|graphics?|gpu|cpu_level|mem_level|shader|vram|budget|backbuffer|buffer|triple|level_?of|^r_|^pp_|_aa$|_ao$",
+        @"res(olution)?|width|height|resx|resy|fullscreen|windowed|window_?mode|borderless|nowindowborder|display_?(type|mode)|vsync|v_sync|fps|frame|refresh|hz\b|quality|preset|shadow|texture|aniso|antialias|anti_alias|\baa\b|msaa|taa|fxaa|smaa|dlss|fsr|xess|upscal|upsampl|super_?res|sharpen|scale|ray|_rt_|\brt\b|reflection|lighting|illumination|ssao|ambient|occlusion|fog|volumetric|cloud|detail|lod|distance|draw|effect|particle|post_?process|bloom|blur|depth_of_field|dof|motion|hdr|gamma|render|foliage|grass|tree|water|tessellation|latency|reflex|boost|dynamic|streaming|stream_memory|picmip|mip|decal|ragdoll|gib|physics|crowd|graphics?|gpu|cpu_level|mem_level|shader|vram|budget|backbuffer|buffer|triple|level_?of|^r_|^pp_|_aa$|_ao$|corpse|debris|gore",
         RegexOptions.IgnoreCase);
     // "path" is a file's (never kept), but not path tracing, a graphics setting (2026-10-25: Cyberpunk's RayTracedPathTracing
     // was dropped, and the AI never heard path tracing was on). A value with a slash is dropped anyway (SafeValue).
@@ -369,13 +392,19 @@ public static class GameSettings
         @"user|name|account|email|mail|token|password|passwd|secret|session|guid|uuid|steam_?id|login|path(?!_?trac)|folder|directory|\bdir\b|ip\b|address|server|region|device|monitor|adapter|vendor|machine|serial|hwid|\bid$|_id$|identifier|benchmark|cookie|auth|key$|language|locale|volume|sound|audio|music|voice|mouse|sensitivity|keyboard|bind|crosshair|chat",
         RegexOptions.IgnoreCase);
 
+    /// <summary>
+    /// Settings that are never graphics, whatever their names say: a controller's aim scale, the HUD, money pop-ups (Risk of
+    /// Rain 2's "aim_stick_global_scale", "memhudbudget", "exp_and_money_effects").
+    /// </summary>
+    private static readonly Regex NotGraphicsWord = new(@"aim|stick|hud|money|damage_?numbers|subtitle|tooltip", RegexOptions.IgnoreCase);
+
     /// <summary>Groups of settings that are never graphics, whatever their names say (Cyberpunk's "controls_vehicle.VehicleTPPCameraHeight").</summary>
     private static readonly Regex NotGraphicsGroup = new(@"(^|[._\[])(controls?|audio|sound|accessibility|input|keybind\w*|hud|interface|subtitles?)[._\]]", RegexOptions.IgnoreCase);
 
     /// <summary>The graphics settings only, and nothing that could name the person or their PC; at most 150.</summary>
     internal static List<GameSetting> Graphics(IEnumerable<GameSetting> all) => [.. all
         .Where(s => s.Key.Length is > 0 and <= 90 && s.Value.Length <= 40 && GraphicsWord.IsMatch(s.Key) && !PrivateWord.IsMatch(Leaf(s.Key))
-            && !NotGraphicsGroup.IsMatch(s.Key) && SafeValue(s.Value))
+            && !NotGraphicsWord.IsMatch(Leaf(s.Key)) && !NotGraphicsGroup.IsMatch(s.Key) && SafeValue(s.Value))
         .DistinctBy(s => s.Key, StringComparer.OrdinalIgnoreCase).Take(150)];
 
     private static bool SafeValue(string v) =>
@@ -392,7 +421,7 @@ public static class GameSettings
         RayTracing = Lang.Key("Ray tracing");
     public static readonly string Fullscreen = Lang.Key("Fullscreen"), Borderless = Lang.Key("Borderless window"), Windowed = Lang.Key("Windowed"),
         On = Lang.Key("On"), Off = Lang.Key("Off"), NoLimit = Lang.Key("No limit"), PathTracing = Lang.Key("Path tracing");
-    private static readonly string[] UnrealLevels = [Lang.Key("Low"), Lang.Key("Medium"), Lang.Key("High"), Lang.Key("Epic"), Lang.Key("Cinematic")];
+    internal static readonly string[] UnrealLevels = [Lang.Key("Low"), Lang.Key("Medium"), Lang.Key("High"), Lang.Key("Epic"), Lang.Key("Cinematic")];
 
     /// <summary>The main settings in plain words, from whichever names the game used. Only what was found is said.</summary>
     internal static List<GameSettingFact> Facts(List<GameSetting> s)
@@ -626,6 +655,14 @@ public static class GameSettings
             sb.AppendLine("HOW IT'S SET (the game's own saved settings, read just now; they're what it used the last time it was played"
                 + (read.Saved is { } saved && saved > DateTime.MinValue.AddYears(1) ? $" and were last saved {saved:d MMM yyyy h:mm tt}" : "") + "):");
             if (read.Facts.Count > 0) sb.AppendLine("  " + string.Join("; ", read.Facts.Select(f => $"{f.Label} {f.Value}")) + ".");
+            if (read.Rows.Count > 0)
+                sb.AppendLine("  Every graphics setting, named from the game's own keys as the Games page shows them (a number is what the game saves; its menu may call it by a word"
+                    + (read.Nvidia is { } n ? $"; after each, NVIDIA's pick for this PC at {n.Resolution.Replace("x", " × ")} from the NVIDIA App on this PC, step {n.Step} of {n.Steps} of its slider" : "")
+                    + "): " + string.Join("; ", read.Rows.Select(r => $"{r.Label} {r.Value}" + (read.Nvidia is null ? "" : r.Recommended is { } rec ? (GameSettingNames.Same(rec, r.Value) ? " (NVIDIA: same)" : $" (NVIDIA: {rec})") : " (NVIDIA: not covered)"))) + ".");
+            if (read.Nvidia is null)
+                sb.AppendLine("  No recommended settings from the NVIDIA App on this PC. To say what's recommended, look up guides for this game and this PC's graphics card on the web, and say the advice comes from guides and players online, not tests on this PC.");
+            else
+                sb.AppendLine("  NVIDIA's pick comes from NVIDIA's own tests of this game on cards like this one. Weigh it against how the game really ran here (its frame rate, how busy the graphics card was) before telling to change a setting.");
             foreach (var f in read.Files)
                 sb.AppendLine($"  Every graphics setting in {Shown(f.Path)} (the file's names, not always the menu's: say each change by its name in the game's menu): "
                     + string.Join(", ", f.Settings.Select(x => $"{x.Key}={x.Value}")));

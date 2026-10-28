@@ -42,8 +42,17 @@ public sealed class PlanColumn(RelayPlanOffer offer, PlansViewModel owner, int r
         1 => Lang.T("Keep an eye on your PC's health, heat, crashes and space"),
         _ => Lang.T("Everything RigSight records, games and network included"),
     };
-    public string Price => Offer.IsFree ? "$0" : Offer.Price;
+    public string Price => Offer.IsFree ? "$0" : Year ? PlansViewModel.Dollars(Offer.Yearly!.MonthCents) : Offer.Price;
     public bool Monthly => !Offer.IsFree;
+
+    /// <summary>
+    /// Shown for a year (the Yearly switch, or a yearly plan): the price a month, with the real charge under it, the
+    /// monthly price crossed out and what it saves (approved mock-up, 2026-10-28).
+    /// </summary>
+    public bool Year => owner.ShowsYearly && Offer.Yearly is not null;
+    public string BilledOld => Year ? Offer.Price : "";
+    public string BilledText => Year ? " · " + Lang.T($"{Offer.Yearly!.Price} billed once a year") + " · " : "";
+    public string SaveText => Year ? Lang.T($"save {PlansViewModel.Dollars(12 * Offer.PriceCents - Offer.Yearly!.PriceCents)}") : "";
     public string Questions => Offer is { IsFree: true, Cap: 0 } ? Lang.T("Free questions are paused for now")
         : Offer.Weekly ? Lang.T($"{Offer.Cap} questions a week") : Lang.T($"Up to {Offer.Cap} questions a day");
     public string QuestionsWhen => Offer is { IsFree: true, Cap: 0 } ? Lang.T("A plan keeps answering")
@@ -141,6 +150,24 @@ public sealed partial class PlansViewModel : ObservableObject
             foreach (var name in new[] { nameof(Loading), nameof(CantTell), nameof(CantTellText), nameof(ShowPlan) }) OnPropertyChanged(name);
     }
 
+    /// <summary>Monthly or Yearly on the Plans screen: Yearly when it opens (approved mock-up, 2026-10-28).</summary>
+    [ObservableProperty] private bool _yearly = true;
+    partial void OnYearlyChanged(bool value) => Rebuild();
+    [RelayCommand] private void PickMonthly() => Yearly = false;
+    [RelayCommand] private void PickYearly() => Yearly = true;
+
+    /// <summary>The relay has a yearly option for some plan (none from an older relay, or before the plans are set up).</summary>
+    public bool HasYearly => Columns.Any(c => c.Offer.Yearly is not null);
+    /// <summary>The switch shows while choosing; on a plan, the cards show how it's paid (switching keeps it, 2026-10-28).</summary>
+    public bool ShowBillingSwitch => HasYearly && !IsSubscription;
+    public bool ShowsYearly => IsSubscription ? Plan!.Yearly : Yearly;
+
+    public string PaidText => HasYearly ? Lang.T("Paid monthly or yearly, by card or PayPal") : Lang.T("Paid monthly, by card or PayPal");
+    public string AfterCancelText => HasYearly ? Lang.T("After cancelling, it works until the time you paid for ends")
+        : Lang.T("After cancelling, it works until the month you paid for ends");
+
+    internal static string Dollars(int cents) => "$" + (cents / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
     private void Rebuild()
     {
         var offers = _ask.Standing?.Plans is { Count: > 0 } given ? given : Defaults;
@@ -155,8 +182,8 @@ public sealed partial class PlansViewModel : ObservableObject
     private static readonly IReadOnlyList<RelayPlanOffer> Defaults =
     [
         new("free", "Free", "$0", 0, 10, "week", AiPages.DefaultFor(0), "") { Search = false },
-        new("essentials", "Essentials", "$5", 500, 100, "day", AiPages.DefaultFor(1), ""),
-        new("complete", "Complete", "$10", 1000, 500, "day", AiPages.DefaultFor(2), ""),
+        new("essentials", "Essentials", "$4.99", 499, 100, "day", AiPages.DefaultFor(1), ""),
+        new("complete", "Complete", "$9.99", 999, 300, "day", AiPages.DefaultFor(2), ""),
     ];
 
     public IReadOnlyList<PlanColumn> Columns { get; private set; } = [];
@@ -180,7 +207,8 @@ public sealed partial class PlansViewModel : ObservableObject
     public bool Known => Plan is not null;
     public bool IsFree => Plan?.IsFree ?? true;
     public bool IsPaid => Plan is { IsFree: false };
-    public bool IsGift => Plan is { Gift: true, IsFree: false };
+    /// <summary>Given by support, or the free trial: nothing to pay and nothing to manage.</summary>
+    public bool IsGift => Plan is { IsFree: false } p && (p.Gift || p.IsTrial);
     public bool IsSubscription => IsPaid && !IsGift;
     public bool IsEnding => Plan is { Ending: true, IsFree: false };
     public bool IsPastDue => Plan is { PastDue: true, IsFree: false };
@@ -192,6 +220,7 @@ public sealed partial class PlansViewModel : ObservableObject
         { IsFree: true, Cap: 0 } => Lang.T("Paused for now"),
         { IsFree: true } p => p.Left == 1 && p.Cap == 10 ? Lang.T("1 of 10 left this week") : Lang.T($"{p.Left} of {p.Cap} left this week"),
         { Gift: true } => Lang.T("Given by RigSight"),
+        { IsTrial: true, EndsAt: { } trialEnd } => Lang.T($"Free trial until {TimeText.At(trialEnd, "d MMMM")}"),
         { Ending: true, EndsAt: { } end } => Lang.T($"Ends {TimeText.At(end, "d MMMM")}"),
         { PastDue: true } => Lang.T("Payment didn't go through"),
         not null => Lang.T("Active"),
@@ -212,7 +241,9 @@ public sealed partial class PlansViewModel : ObservableObject
         : "";
 
     public string Summary => Plan is not { IsFree: false } p ? ""
-        : (p.Gift ? Lang.T($"Answers use {PagesText(p.Pages.Count)}") : Lang.T($"{p.Price} a month · answers use {PagesText(p.Pages.Count)}"))
+        : (p.Gift || p.IsTrial ? Lang.T($"Answers read {PagesText(p.Pages.Count)}")
+           : p.Yearly ? Lang.T($"{p.Price} a year · answers read {PagesText(p.Pages.Count)}")
+           : Lang.T($"{p.Price} a month · answers read {PagesText(p.Pages.Count)}"))
           + (PlanSearches ? " · " + Lang.T("web search") : "");
 
     /// <summary>The plan now searches the web (Free doesn't, 2026-10-27).</summary>
@@ -230,7 +261,7 @@ public sealed partial class PlansViewModel : ObservableObject
         }
     }
 
-    private static string PagesText(int n) => n >= AiPages.All.Count ? Lang.T($"all {AiPages.All.Count} pages") : Lang.T($"{n} of {AiPages.All.Count} pages");
+    private static string PagesText(int n) => n >= AiPages.All.Count ? Lang.T($"all {AiPages.All.Count}") : Lang.T($"{n} of {AiPages.All.Count}");
 
     public double UsedPart => Plan is { Cap: > 0 } p ? Math.Clamp((double)p.Used / p.Cap, 0, 1) : 0;
 
@@ -253,7 +284,8 @@ public sealed partial class PlansViewModel : ObservableObject
 
     // The facts as the plan box draws them: the amount in bold, when under it (approved mock-up 2026-10-24).
     public string NextAmount => Plan?.Price ?? "";
-    public string NextWhen => Plan is { RenewsAt: { } on } ? Lang.T($"on {TimeText.At(on, "d MMMM")}") + " · " + In(on) : "";
+    // A yearly plan's next payment is months off, so its year is said.
+    public string NextWhen => Plan is { RenewsAt: { } on } p ? Lang.T($"on {TimeText.At(on, p.Yearly ? "d MMMM yyyy" : "d MMMM")}") + " · " + In(on) : "";
     public string LastAmount => Plan?.LastPayment?.Amount ?? "";
     public string LastWhen => Plan?.LastPayment is { } last ? Lang.T($"on {TimeText.At(last.At, "d MMMM")}") : "";
     public string CardBrand => (Plan?.Card?.Brand ?? "").ToUpperInvariant();
@@ -271,7 +303,9 @@ public sealed partial class PlansViewModel : ObservableObject
     public string EndingText => Plan is { EndsAt: { } end } p
         ? Lang.T($"Cancelled. {p.Name} works until {TimeText.At(end, "d MMMM")}, and you won't be charged again. Then RigSight goes back to Free.") : "";
     public string KeepText => Lang.T($"Keep {PlanName}");
-    public string GiftText => Plan is { Gift: true } p
+    public string GiftText => Plan is { IsTrial: true, EndsAt: { } trialEnds } trial
+        ? Lang.T($"Your free trial of {trial.Name} ends on {TimeText.At(trialEnds, "d MMMM")} at {TimeText.At(trialEnds, "HH:mm")}. Nothing to pay; then RigSight goes back to Free.")
+        : Plan is { Gift: true } p
         ? p.EndsAt is { } end ? Lang.T($"RigSight gave this PC {p.Name} until {TimeText.At(end, "d MMMM yyyy")}. Nothing to pay.") : Lang.T($"RigSight gave this PC {p.Name}. Nothing to pay.")
         : "";
     public string CardText => Plan?.Card?.Text ?? Lang.T("Your card");
@@ -287,7 +321,7 @@ public sealed partial class PlansViewModel : ObservableObject
     public bool CanSwitchPlan => CanManage && !IsEnding && Other is not null;
     /// <summary>Not on the plans screen itself, where the plans are already shown.</summary>
     public bool ShowChangePlan => CanSwitchPlan && !IsOpen;
-    public string OtherText => Other is { } o ? Lang.T($"{o.Name} · {PagesText(o.Offer.Pages.Count)}") : "";
+    public string OtherText => Other is { } o ? Lang.T($"{o.Name} · answers read {PagesText(o.Offer.Pages.Count)}") : "";
     public bool SwitchGoesUp => Other is { } o && Plan is { } p && Columns.FirstOrDefault(c => c.Offer.Id == p.Id) is { } mine && o.Offer.PriceCents > mine.Offer.PriceCents;
 
     // ── The Plans screen ────────────────────────────────────────────────
@@ -354,20 +388,22 @@ public sealed partial class PlansViewModel : ObservableObject
     /// Opens the plan's checkout (Lemon Squeezy, in the browser; the link carries this PC's id) and waits for the relay to
     /// say this PC is on it. True once it is; the Ask window then sends the question that hit the limit.
     /// </summary>
-    public async Task<bool> BuyAsync(string planId)
+    /// <remarks><paramref name="yearly"/>: the plan's yearly checkout (the Plans screen's switch); an Ask card says a month's price, so buys monthly.</remarks>
+    public async Task<bool> BuyAsync(string planId, bool yearly = false)
     {
         Problem = null;
         if (_ask.Standing?.Plans is not { Count: > 0 } && await _ask.RefreshQuestionsAsync(theyAsked: true) is { } unreachable) { Problem = unreachable; return false; }
         var offer = _ask.Standing?.Plans.FirstOrDefault(p => p.Id == planId);
-        if (offer is null || !Uri.TryCreate(offer.Url, UriKind.Absolute, out var url) || url.Scheme != Uri.UriSchemeHttps)
+        string? checkout = yearly ? offer?.Yearly?.Url : offer?.Url;
+        if (offer is null || !Uri.TryCreate(checkout, UriKind.Absolute, out var url) || url.Scheme != Uri.UriSchemeHttps)
         {
-            Log.Write("plans", $"Get {planId}: the relay has no checkout for it yet");
+            Log.Write("plans", $"Get {planId} ({(yearly ? "yearly" : "monthly")}): the relay has no checkout for it yet");
             Problem = Lang.T("Buying isn't open yet. Try again later.");
             return false;
         }
-        Log.Write("plans", $"Opening the checkout for {planId}");
-        if (!Browser.Open(offer.Url)) { Problem = Lang.T("Your browser couldn't be opened. Try again."); return false; }
-        _wait?.Cancel();
+        Log.Write("plans", $"Opening the {(yearly ? "yearly" : "monthly")} checkout for {planId}");
+        if (!Browser.Open(checkout)) { Problem = Lang.T("Your browser couldn't be opened. Try again."); return false; }
+        StopWaiting();
         var cts = _wait = new CancellationTokenSource(BuyWait);
         Waiting = true;
         try
@@ -397,14 +433,16 @@ public sealed partial class PlansViewModel : ObservableObject
         }
     }
 
-    [RelayCommand] private async Task Buy(PlanColumn? column) { if (column is not null) await BuyAsync(column.Offer.Id); }
-    [RelayCommand] private void StopWaiting() => _wait?.Cancel();
+    [RelayCommand] private async Task Buy(PlanColumn? column) { if (column is not null) await BuyAsync(column.Offer.Id, column.Year); }
+    /// <summary>Stops waiting for a plan bought in the browser (its button, and the AI turned off or answering another way).</summary>
+    [RelayCommand] public void StopWaiting() => _wait?.Cancel();
 
     // ── Cancel, keep, switch ────────────────────────────────────────────
     public IReadOnlyList<CancelReason> Reasons { get; }
     [ObservableProperty] private bool _cancelOpen;
     public string CancelTitle => Lang.T($"Cancel {PlanName}?");
     public string CancelText => Plan is { RenewsAt: { } on } ? Lang.T($"You won't be charged again. {PlanName} keeps working until {TimeText.At(on, "d MMMM")}, then you're back on 10 free questions a week.")
+        : Plan is { Yearly: true } ? Lang.T($"You won't be charged again. {PlanName} keeps working until the year you paid for ends, then you're back on 10 free questions a week.")
         : Lang.T($"You won't be charged again. {PlanName} keeps working until the month you paid for ends, then you're back on 10 free questions a week.");
 
     [RelayCommand] private void AskCancel() { Problem = null; foreach (var r in Reasons) r.Picked = false; CancelOpen = true; }
@@ -469,11 +507,17 @@ public sealed partial class PlansViewModel : ObservableObject
     /// going down, it comes off the next payment. The app's figure is an estimate (Lemon Squeezy works out the real one).
     /// </summary>
     public string SwitchText2 => SwitchTo is not { } to || Plan is not { } p ? ""
+        // A yearly plan moves to the other plan's yearly option (the relay keeps it yearly).
+        : p.Yearly && to.Offer.Yearly is { } year
+            ? Up(to) && p.RenewsAt is { } yearOn
+                ? Lang.T($"{to.Name} opens straight away, with up to {to.Offer.Cap} questions a day. You pay the difference for the rest of this year now (about {Estimate(to)}), then {year.Price} a year from {TimeText.At(yearOn, "d MMMM yyyy")}.")
+                : Up(to) ? Lang.T($"{to.Name} opens straight away, with up to {to.Offer.Cap} questions a day. You pay the difference for the rest of this year now (about {Estimate(to)}), then {year.Price} a year.")
+                : Lang.T($"It starts now. Answers read {PagesText(to.Offer.Pages.Count)}, with up to {to.Offer.Cap} questions a day. What's left of this year comes off your next payment.")
         : Up(to) && p.RenewsAt is { } on
             ? Lang.T($"{to.Name} opens straight away, with up to {to.Offer.Cap} questions a day. You pay the difference for the rest of this month now (about {Estimate(to)}), then {to.Offer.Price} a month from {TimeText.At(on, "d MMMM")}.")
         : Up(to)
             ? Lang.T($"{to.Name} opens straight away, with up to {to.Offer.Cap} questions a day. You pay the difference for the rest of this month now (about {Estimate(to)}), then {to.Offer.Price} a month.")
-            : Lang.T($"It starts now. Answers use {PagesText(to.Offer.Pages.Count)}, with up to {to.Offer.Cap} questions a day. What's left of this month comes off your next payment.");
+            : Lang.T($"It starts now. Answers read {PagesText(to.Offer.Pages.Count)}, with up to {to.Offer.Cap} questions a day. What's left of this month comes off your next payment.");
 
     private bool Up(PlanColumn to) => Plan is { } p && Columns.FirstOrDefault(c => c.Offer.Id == p.Id) is { } mine && to.Offer.PriceCents > mine.Offer.PriceCents;
 
@@ -482,9 +526,11 @@ public sealed partial class PlansViewModel : ObservableObject
         if (Plan is not { RenewsAt: { } renews } p || Columns.FirstOrDefault(c => c.Offer.Id == p.Id) is not { } mine) return to.Offer.Price;
         // The share of this billing month still to come, from its own length: over 30 days it said "about $5.20" for a $5
         // difference on the day the plan was bought (31 days left of a 31-day month, divided by 30; 2026-10-24).
-        double month = (renews - renews.AddMonths(-1)).TotalDays;
+        bool year = p.Yearly && to.Offer.Yearly is not null && mine.Offer.Yearly is not null;
+        double month = (renews - (year ? renews.AddYears(-1) : renews.AddMonths(-1))).TotalDays;
         double left = Math.Clamp((renews - DateTime.Now).TotalDays / month, 0, 1);
-        double dollars = (to.Offer.PriceCents - mine.Offer.PriceCents) / 100.0 * left;
+        int difference = year ? to.Offer.Yearly!.PriceCents - mine.Offer.Yearly!.PriceCents : to.Offer.PriceCents - mine.Offer.PriceCents;
+        double dollars = difference / 100.0 * left;
         // To the 10 cents: Lemon Squeezy works out the exact figure, so a precise-looking one would mislead.
         return "$" + (Math.Round(Math.Max(0, dollars) * 10) / 10).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
     }

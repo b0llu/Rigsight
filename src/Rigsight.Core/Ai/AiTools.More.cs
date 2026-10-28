@@ -78,7 +78,7 @@ public sealed partial class AiTools
     private string AppsText()
     {
         if (!On(Switch.Apps))
-            return $"Not shared: the user switched off the \"{Label(Switch.Apps)}\" page in Settings › AI, so which apps are on this PC isn't sent. Give the step in words, with no app button.";
+            return $"Not shared: the user switched off \"{Label(Switch.Apps)}\" in Settings › Ask RigSight, so which apps are on this PC isn't sent. Give the step in words, with no app button.";
         var on = OpenableOnPc();
         var sb = new StringBuilder();
         var here = OpenableApps.All.Where(a => on.ContainsKey(a.Id)).ToList();
@@ -109,8 +109,8 @@ public sealed partial class AiTools
     {
         string page = AiPages.Of(name)!.Name;
         Log.Write("ask", $"{name} asked for, not shared (the {page} page is switched off)");
-        return $"Not shared: the user switched off the \"{page}\" page in Settings › AI, so none of its records are sent. "
-            + $"Tell them you couldn't look at this because it's switched off, and that they can switch \"{page}\" on there and ask again. Don't guess what it would show.";
+        return $"Not shared: the user switched off \"{page}\" in Settings › Ask RigSight, so none of its records are sent. "
+            + $"Tell them, naming it as \"{page}\" (never \"the {page} page\"), that it's switched off, and that they can switch it on there and ask again. Don't guess what it would show.";
     }
 
     /// <summary>A look-up from a page the person's RigSight AI plan doesn't open (the relay leaves it out too).</summary>
@@ -118,14 +118,14 @@ public sealed partial class AiTools
     {
         string page = AiPages.Of(name)!.Name;
         Log.Write("ask", $"{name} asked for, not in this plan (the {page} page)");
-        return $"Not in this plan: the person's RigSight AI plan doesn't include the \"{page}\" page. Answer from what you have, and don't guess what it would show.";
+        return $"Not in this plan: the person's RigSight AI plan doesn't include \"{page}\" (name it so, never \"the {page} page\"). Answer from what you have, and don't guess what it would show.";
     }
 
     /// <summary>A line at the foot of a look-up naming what it left out because a page is switched off ("" when nothing was).</summary>
     private string LeftOut(params Switch[] relevant)
     {
         var off = relevant.Where(s => !On(s)).ToList();
-        return off.Count == 0 ? "" : Environment.NewLine + $"Left out because the user switched these pages off in Settings › AI: {string.Join(", ", off.Select(Label))}. If the question needs it, tell them it's switched off and where to switch it on.";
+        return off.Count == 0 ? "" : Environment.NewLine + $"Left out because the user switched these off in Settings › Ask RigSight: {string.Join(", ", off.Select(Label))}. If the question needs it, tell them it's switched off and where to switch it on.";
     }
 
     private string? RunMore(string name, JsonObject args) => name switch

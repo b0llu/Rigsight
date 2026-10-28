@@ -139,8 +139,6 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
             if (value is null || value == _tab || !Tabs.Contains(value)) return;
             // "Admin rights" only exists on a standard account.
             if (value == "admin" && !StandardAccount) return;
-            // The AI helper's tab exists only with the AI preview on (Core.Ai.AiPreview).
-            if (value == "ai" && !Rigsight.Core.Ai.AiPreview.IsOn) return;
             Ai?.ClosePickers();
             _tab = value;
             OnPropertyChanged(string.Empty);
@@ -161,9 +159,6 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>About's "See all updates": What's new with every release, handed in by the shell (a binding that looked
     /// for it up the window's tree missed whenever the tab was built before the page sat in the window).</summary>
     public System.Windows.Input.ICommand? SeeAllUpdatesCommand { get; init; }
-
-    /// <summary>The Ask RigSight tab shows: the AI preview is on for this PC.</summary>
-    public bool ShowAiTab => Rigsight.Core.Ai.AiPreview.IsOn;
 
     /// <summary>Settings › Ask RigSight (set by the shell).</summary>
     public AiSettingsViewModel? Ai { get; set; }

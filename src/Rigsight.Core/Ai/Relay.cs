@@ -24,6 +24,9 @@ public sealed record RelayStatus(int QuestionsLeft, int FreeLeft, string? Key, i
 
     /// <summary>Questions given from the admin site that are still running, newest first; none from an older relay.</summary>
     public IReadOnlyList<RelayGift> Gifts { get; init; } = [];
+
+    /// <summary>The free trial: offered, running or ended; null when none is offered and this PC never had one.</summary>
+    public RelayTrial? Trial { get; init; }
 }
 
 /// <summary>
@@ -177,6 +180,7 @@ public static partial class Relay
             Plan = s["plan"] is JsonObject plan ? ReadPlan(plan) : null,
             Plans = [.. (s["plans"] as JsonArray ?? []).OfType<JsonObject>().Select(ReadOffer).OfType<RelayPlanOffer>()],
             Gifts = [.. (s["gifts"] as JsonArray ?? []).OfType<JsonObject>().Select(ReadGift).OfType<RelayGift>()],
+            Trial = ReadTrial(s["trial"]),
         };
     }
 
@@ -206,7 +210,7 @@ public static partial class Relay
         int questionAt = messages.Count;
         messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });
         var lookUps = new List<AiLookUp>();
-        // The apps an answer can open, a look-up of RigSight AI's only for now (Ollama and own key keep theirs as they are).
+        // The apps an answer can open (Ollama and own key look them up too since their prompts took RigSight AI's buttons, 2026-10-27).
         tools.OpenableAppsLookUp = Features.UseActions2;
         var definitions = tools.Definitions();
         bool searchFailed = false;

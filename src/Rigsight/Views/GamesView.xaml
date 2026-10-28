@@ -457,6 +457,8 @@
                                          play the same control steps from play to play. -->
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
                                                 Visibility="{Binding HasFps, Converter={StaticResource Vis}}">
+                                        <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Explain this chart'}" CommandParameter="{Binding RunsAsk}" Margin="0,0,10,0"
+                                                VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Explain this chart'}" />
                                         <ctl:DatePager x:Name="RunsPager" Label="{Binding RunsLabel}" CanGoPrevious="{Binding CanRunsPrevious}" CanGoNext="{Binding CanRunsNext}"
                                                        PreviousCommand="{Binding RunsPreviousCommand}" NextCommand="{Binding RunsNextCommand}" LabelText="{ctl:T 'Pick a range'}"
                                                        Pickable="{Binding ShowPlaysChart}" />
@@ -528,7 +530,7 @@
                                         <TextBlock FontSize="34" FontWeight="SemiBold"><Run Text="{Binding FpsAvg, Mode=OneWay}" /><Run Text=" fps" FontSize="14" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" /></TextBlock>
                                         <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                                             <TextBlock Text="{ctl:T '1% LOW'}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                                            <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="6,0,0,0" VerticalAlignment="Center" Cursor="Help"
+                                            <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="6,0,0,0" VerticalAlignment="Center" Cursor="Help" ToolTipService.InitialShowDelay="150"
                                                        ToolTip="{ctl:T 'The frame rate of the slowest 1 frame in 100. Close to the average means smooth; far below it, you feel it.'}" />
                                         </StackPanel>
                                         <TextBlock FontSize="34" FontWeight="SemiBold"><Run Text="{Binding FpsLow, Mode=OneWay}" /><Run Text=" fps" FontSize="14" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" /></TextBlock>
@@ -536,7 +538,7 @@
                                         <StackPanel Margin="0,14,0,0" Visibility="{Binding HasSmooth, Converter={StaticResource Vis}}">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{ctl:T 'SMOOTHNESS'}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                                                <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="6,0,0,0" VerticalAlignment="Center" Cursor="Help"
+                                                <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="6,0,0,0" VerticalAlignment="Center" Cursor="Help" ToolTipService.InitialShowDelay="150"
                                                            ToolTip="{ctl:T 'Counted from every frame. A stutter is one frame at least 2.5 times as long as the ones before it, a hitch you feel.'}" />
                                             </StackPanel>
                                             <TextBlock Text="{Binding SmoothVerdict}" FontSize="15" FontWeight="SemiBold" Margin="0,4,0,0" />
@@ -733,7 +735,8 @@
                             </ctl:SmoothBorder>
                         </Grid>
 
-                        <!-- How it's set: the game's own saved graphics settings, read from its file (2026-10-25). -->
+                        <!-- How it's set: the game's own saved graphics settings, read from its files when the page opens (2026-10-25); every
+                             one named from its key, with NVIDIA's pick beside it when the NVIDIA App has one (approved mock-up, 2026-10-27). -->
                         <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" AutomationProperties.Name="{ctl:T 'How it\'s set'}"
                                           Visibility="{Binding HasSettings, Converter={StaticResource Vis}}">
                             <StackPanel>
@@ -741,19 +744,91 @@
                                     <TextBlock DockPanel.Dock="Right" Text="{Binding SettingsNote}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" />
                                     <TextBlock Text="{ctl:T 'How it\'s set'}" Style="{StaticResource H2}" />
                                 </DockPanel>
-                                <ItemsControl ItemsSource="{Binding SettingsRows}">
-                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Style="{StaticResource KvLine}" Margin="0,0,18,0">
-                                                <DockPanel>
-                                                    <TextBlock Text="{Binding Label}" Style="{StaticResource Muted}" Width="130" />
-                                                    <TextBlock Text="{Binding Value}" FontWeight="SemiBold" TextAlignment="Right" TextTrimming="CharacterEllipsis" ToolTip="{Binding Value}" />
-                                                </DockPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                <!-- The main ones, each name over its value, all in one row (four, or five with a quality preset). -->
+                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0">
+                                    <ItemsControl ItemsSource="{Binding SettingsRows}" Focusable="False">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="0,10,14,10">
+                                                    <TextBlock Text="{Binding Label}" Style="{StaticResource Muted}" FontSize="13" />
+                                                    <TextBlock Text="{Binding Value}" FontSize="16" FontWeight="SemiBold" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Value}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+                                <!-- What NVIDIA would set otherwise, in one line. -->
+                                <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="10" Padding="14,10" Margin="0,4,0,8"
+                                        Visibility="{Binding HasSettingsDiff, Converter={StaticResource Vis}}">
+                                    <DockPanel>
+                                        <TextBlock Text="&#xE72A;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource AccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding SettingsDiff}" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    </DockPanel>
+                                </Border>
+                                <!-- Every graphics setting, by group: the names over the list stay put while it scrolls. -->
+                                <StackPanel Visibility="{Binding HasSettingLines, Converter={StaticResource Vis}}">
+                                    <!-- Clear of the list's scroll bar on the right, as the list itself, so each name sits over its column. -->
+                                    <Grid Margin="0,6,12,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="4*" />
+                                            <ColumnDefinition Width="3*" />
+                                            <ColumnDefinition Width="{Binding PickColumnWidth}" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{ctl:T 'SETTING'}" Style="{StaticResource Caption}" />
+                                        <TextBlock Grid.Column="1" Text="{ctl:T 'YOURS'}" Style="{StaticResource Caption}" />
+                                        <TextBlock Grid.Column="2" Text="{ctl:T 'NVIDIA\'S PICK'}" Style="{StaticResource Caption}" Visibility="{Binding HasNvidiaPick, Converter={StaticResource Vis}}" />
+                                    </Grid>
+                                    <ScrollViewer MaxHeight="372" VerticalScrollBarVisibility="Auto" Focusable="False" PanningMode="VerticalOnly">
+                                        <ItemsControl ItemsSource="{Binding SettingLines}" Focusable="False" Margin="0,0,12,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!-- A group's heading. -->
+                                                        <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" Foreground="{DynamicResource TextBrush}" Margin="0,14,0,6"
+                                                                   Visibility="{Binding IsGroup, Converter={StaticResource Vis}}" />
+                                                        <Border Style="{StaticResource KvLine}" Visibility="{Binding IsGroup, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="4*" />
+                                                                    <ColumnDefinition Width="3*" />
+                                                                    <ColumnDefinition Width="{Binding PickWidth}" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Text="{Binding Label}" Style="{StaticResource Muted}" FontSize="14" TextTrimming="CharacterEllipsis" ToolTip="{Binding Label}" Margin="0,0,10,0" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Value}" Margin="0,0,10,0" />
+                                                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                                    <TextBlock Text="&#xE72A;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource AccentBrush}" Margin="0,0,7,0" VerticalAlignment="Center"
+                                                                               Visibility="{Binding Differs, Converter={StaticResource Vis}}" />
+                                                                    <TextBlock Text="{Binding Pick}" FontSize="14" TextTrimming="CharacterEllipsis" ToolTip="{Binding Pick}">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding Differs}" Value="True">
+                                                                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                                                    </DataTrigger>
+                                                                                    <DataTrigger Binding="{Binding NotCovered}" Value="True">
+                                                                                        <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </Border>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                    <DockPanel Margin="0,16,0,0">
+                                        <Button DockPanel.Dock="Left" Style="{StaticResource AiButton}" Content="{Binding SettingsAskText}" CommandParameter="{Binding SettingsAsk}"
+                                                AutomationProperties.Name="{Binding SettingsAskText}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding SettingsAskNote}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                    </DockPanel>
+                                </StackPanel>
                             </StackPanel>
                         </ctl:SmoothBorder>
 

@@ -115,6 +115,9 @@ public sealed partial class AskAction(AiAction action) : ObservableObject
 /// </summary>
 public sealed record AskGift(IReadOnlyList<long> Ids, string Title, string Text, string? Note)
 {
+    /// <summary>A free-trial note instead of a gift ("ending:…", "ended:…"): told once, with See plans beside Got it.</summary>
+    public string? TrialKey { get; init; }
+    public bool IsTrial => TrialKey is not null;
     public override string ToString() => Title; // its name for screen readers (and UI automation)
 }
 

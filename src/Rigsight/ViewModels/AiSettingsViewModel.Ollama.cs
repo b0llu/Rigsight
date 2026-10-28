@@ -468,6 +468,13 @@ public sealed partial class AiSettingsViewModel
 
     private static string Minutes(double seconds) => seconds < 90 ? Lang.T("a minute") : Lang.T($"{Math.Ceiling(seconds / 60):0} min");
 
+    /// <summary>Ollama left for another way of answering: its downloads stop and a connect under way keeps its result to itself.</summary>
+    private void StopOllamaWork()
+    {
+        foreach (var card in Picks) card.Stop?.Cancel();
+        _check++;
+    }
+
     /// <summary>Download pressed: it starts at once (its size and room were on the card already).</summary>
     [RelayCommand(CanExecute = nameof(CanAskDownload))]
     private async Task Download(OllamaPickCard? card)

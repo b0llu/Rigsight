@@ -1950,7 +1950,7 @@ internal sealed class AgentContext : ApplicationContext
     /// </summary>
     private void ApplyAskShortcut(RigsightSettings settings)
     {
-        string? wanted = settings.Ai.Shortcut is { Length: > 0 } s && AiPreview.IsOn && settings.Ai.Mode != AiMode.Off
+        string? wanted = settings.Ai.Shortcut is { Length: > 0 } s && settings.Ai.Mode != AiMode.Off
                          && !(settings.Overlay.Enabled && string.Equals(s, settings.Overlay.Hotkey, StringComparison.OrdinalIgnoreCase)) ? s : null;
         if (wanted == _askRegistered) return;
         _askRegistered = wanted;

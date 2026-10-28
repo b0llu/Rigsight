@@ -54,7 +54,8 @@ public sealed class AiSharingTests
         string said = tools.Run(name, Args);
         Assert.StartsWith("Not shared", said);
         Assert.Contains(label, said);
-        Assert.Contains("Settings › AI", said);
+        Assert.Contains("Settings › Ask RigSight", said);
+        Assert.DoesNotContain("page in Settings", said);
     }
 
     // What is running now is the Processes page: switched off, nothing is looked at (so no Close button either).

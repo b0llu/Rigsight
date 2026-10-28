@@ -71,11 +71,14 @@ public sealed partial class AskViewModel
         if (IsEnabled && Ai.Mode == AiMode.RigSight && Standing is null && !CheckingPlan) _ = RefreshQuestionsAsync();
     }
 
-    /// <summary>The window opens the panel (the Ask shortcut was pressed); it decides what that means for its own state.</summary>
-    public event Action? BarOpenRequested;
+    /// <summary>
+    /// The window opens the panel (the Ask shortcut was pressed); it decides what that means for its own state. True: the
+    /// window was already in front, so a press with the panel or the chat open closes it (the user, 2026-10-28).
+    /// </summary>
+    public event Action<bool>? BarOpenRequested;
 
-    /// <summary>The Ask shortcut: the panel, or Ask's own box while Ask is open (ShellViewModel.Navigate).</summary>
-    public void RequestBar() => BarOpenRequested?.Invoke();
+    /// <summary>The Ask shortcut: the panel, or closes what's open when pressed again (ShellViewModel.Navigate).</summary>
+    public void RequestBar(bool toggle = false) => BarOpenRequested?.Invoke(toggle);
 
     /// <summary>Opens Settings at the Ask shortcut (the panel's foot), to set or change it.</summary>
     public Action? OpenShortcutSetting { get; set; }

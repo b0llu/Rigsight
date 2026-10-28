@@ -1870,7 +1870,7 @@
                                     </DockPanel>
                                 </ctl:SmoothBorder>
                                 <!-- The heading right above the switches, bigger than their names, so it reads as one. -->
-                                <TextBlock Text="{ctl:T 'Pick the pages it may read'}" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,8" />
+                                <TextBlock Text="{ctl:T 'Pick what it may read'}" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,8" />
                                 <TextBlock Text="{Binding Pages.OpenHeading}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="2,0,0,6"
                                            Visibility="{Binding Pages.HasOutside, Converter={StaticResource Vis}}" />
                                 <!-- One line a page, its own switch: the same pages as Settings › AI › What answers can read. -->
@@ -1991,8 +1991,12 @@
                                 </StackPanel>
                             </Border>
                             <!-- On the box's own colour a ghost button vanished into it: a shade lighter, so it's a button. -->
-                            <Button Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Content="{ctl:T 'Got it'}" Command="{Binding CloseGiftCommand}"
-                                    HorizontalAlignment="Left" Margin="0,10,0,0" />
+                            <!-- A trial note (ending, ended) also offers the plans, to keep what the trial gave. -->
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Button Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Content="{ctl:T 'Got it'}" Command="{Binding CloseGiftCommand}" />
+                                <Button Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Content="{ctl:T 'See plans'}" Command="{Binding SeePlansCommand}" Margin="8,0,0,0"
+                                        Visibility="{Binding Gift.IsTrial, Converter={StaticResource Vis}}" />
+                            </StackPanel>
                         </StackPanel>
                     </Grid>
                 </ctl:SmoothBorder>

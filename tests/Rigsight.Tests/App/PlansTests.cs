@@ -261,7 +261,7 @@ public sealed class PlansTests
         var (_, plans) = Shown(Status("essentials", "subscription", used: 46));
         Assert.True(plans.IsSubscription);
         Assert.Equal("Active", plans.StateText);
-        Assert.Equal("$5 a month · answers use 12 of 19 pages · web search", plans.Summary);
+        Assert.Equal("$5 a month · answers read 12 of 19 · web search", plans.Summary);
         Assert.StartsWith("$5 on ", plans.NextPayment);
         Assert.Equal("46 of 100 questions used today · starts again at midnight", plans.UsedText);
         Assert.Equal("Visa ending 4242", plans.CardText);
@@ -312,7 +312,7 @@ public sealed class PlansTests
         Assert.False(plans.IsSubscription);
         Assert.False(plans.CanManage);
         Assert.Contains("Nothing to pay", plans.GiftText);
-        Assert.Equal("Answers use all 19 pages · web search", plans.Summary);
+        Assert.Equal("Answers read all 19 · web search", plans.Summary);
     }
 
     [Fact]
@@ -337,7 +337,7 @@ public sealed class PlansTests
             // Free's own four and Widgets, Overlay and Taskbar (every plan has them, 2026-10-26).
             Assert.Equal(7, ask.Pages.Tiles.Count);
             Assert.Equal(12, ask.Pages.Outside.Count);
-            Assert.Equal("12 more pages with a plan", ask.Pages.OutsideTitle);
+            Assert.Equal("12 more with a plan", ask.Pages.OutsideTitle);
             ask.Pages.ToggleCommand.Execute(ask.Pages.Tiles[0]);
             Assert.Equal("6 of 7 on", ask.Pages.OnText);
             Assert.True(ask.Pages.SomeOff);

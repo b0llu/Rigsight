@@ -15,15 +15,6 @@ public sealed record AiPack(int Questions, string Price, string PerQuestion, boo
     public string Each => Lang.T($"{PerQuestion} a question");
 }
 
-/// <summary>A model a service offers for the person's key, with about what a question costs where the service says so.</summary>
-public sealed record AiModelOption(string Name, string? PerQuestion, bool Tested)
-{
-    public string? PriceText => PerQuestion is { } p ? Lang.T($"about {p} a question") : null;
-}
-
-/// <summary>A heading in a model list ("TESTED WITH RIGSIGHT", "OTHER MODELS (NOT TESTED)") and its models.</summary>
-public sealed record AiModelGroup(string Heading, IReadOnlyList<AiModelOption> Models);
-
 /// <summary>A RigSight AI licence on this PC: none yet, in use here, or locked to another PC.</summary>
 public enum AiLicenceState { None, Active, OtherPc }
 
@@ -49,12 +40,10 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             // A page switched in the Ask window's first-question window shows here too.
             else if (e.PropertyName == nameof(AskViewModel.PagesChanged)) Pages.Refresh();
         };
-        // Hidden until the AI preview is on: nothing reaches Ollama or a service at start-up either.
-        if (!AiPreview.IsOn) return;
         // Ollama chosen before: its models are listed straight away, as if Connect had been pressed.
         if (Ai.Mode == AiMode.Ollama) _ = ConnectOllama();
-        // A key saved before: its models are listed straight away, as if Test had been pressed.
-        if (Ai.Mode == AiMode.OwnKey && KeyStore.Load() is { Length: > 0 }) _ = TestKeyCommand.ExecuteAsync(null);
+        // Keys saved before: listed, and the models of the one in use asked for straight away.
+        if (Ai.Mode == AiMode.OwnKey) ShowOwnKey();
     }
 
     private void Set(Action<AiSettings> change, [System.Runtime.CompilerServices.CallerMemberName] string? property = null)
@@ -77,18 +66,16 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             _settings.Update(s => s.Ai.Mode = mode);
             Pages.Refresh();
             OnPropertyChanged(string.Empty);
+            // What was under way for the way of answering left behind stops with it: a purchase being waited for, an
+            // Ollama download or connect (the 2026-10-27 audit: they went on for up to 10 minutes after Off).
+            if (mode != AiMode.RigSight) StopWaiting();
+            if (mode != AiMode.Ollama) StopOllamaWork();
             if (mode == AiMode.RigSight) _ = _ask.RefreshQuestionsAsync();
-            if (mode == AiMode.OwnKey && !KeyChecked && KeyStore.Load() is { Length: > 0 }) _ = TestKeyCommand.ExecuteAsync(null);
+            if (mode == AiMode.OwnKey) ShowOwnKey();
             // Ollama picked: its models and the picks for this PC straight away, as if Connect had been pressed.
             if (mode == AiMode.Ollama) _ = ConnectOllama();
         }
     }
-
-    /// <summary>
-    /// Closes the model list. It is a window of its own, so it stays on screen when the box it opened from goes
-    /// (another way to answer picked, another tab or page).
-    /// </summary>
-    public void ClosePickers() => IsPickingModel = false;
 
     public bool IsOff => Ai.Mode == AiMode.Off;
     public bool IsOn => !IsOff;
@@ -108,8 +95,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         : Lang.T("They go through RigSight's server to OpenRouter, the AI service, which keeps them for at least 3 months.");
     [RelayCommand] private void CloseSendingNote() { _settings.Update(s => s.Ai.SendingNoteClosed = true); OnPropertyChanged(nameof(ShowSendingNote)); }
 
-    /// <summary>My own key or Ollama: what they miss without RigSight AI, until closed.</summary>
-    public bool ShowWebNote => (IsOwnKey || IsOllama) && !Ai.WebSearchNoteClosed;
+    /// <summary>Ollama: what it misses without RigSight AI, until closed. Not on Your API key (the user's ruling, 2026-10-27).</summary>
+    public bool ShowWebNote => IsOllama && !Ai.WebSearchNoteClosed;
     [RelayCommand] private void CloseWebNote() { _settings.Update(s => s.Ai.WebSearchNoteClosed = true); OnPropertyChanged(nameof(ShowWebNote)); }
     [RelayCommand] private void UseRigSight() => Mode = "rigsight";
 
@@ -305,131 +292,6 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Log.Error("ai-settings", ex); }
     }
 
-    // ── My own key ───────────────────────────────────────────────────────
-    public IReadOnlyList<string> Services { get; } = ["OpenRouter", "OpenAI", "Anthropic", "Google Gemini", "DeepSeek", "xAI", "Mistral", "Groq", Lang.T("Custom (OpenAI-compatible)")];
-
-    public string Service
-    {
-        get => Ai.Service;
-        set
-        {
-            if (value is null || value == Ai.Service) return;
-            _settings.Update(s => { s.Ai.Service = value; s.Ai.Model = ""; });
-            // Another service: its key has to be tested before any of its models show.
-            _models = [];
-            KeyChecked = false;
-            KeyProblem = null;
-            ModelSearch = "";
-            OnPropertyChanged(string.Empty);
-        }
-    }
-
-    public bool IsCustom => Ai.Service == Services[^1];
-    public string CustomAddress { get => Ai.CustomAddress; set => Set(a => a.CustomAddress = value ?? ""); }
-
-    /// <summary>The key goes to Windows' own protected store when tested; never into settings.json.</summary>
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(TestKeyCommand))] private string _apiKey = "";
-
-    /// <summary>A different key hasn't been tested: its models wait for Test.</summary>
-    partial void OnApiKeyChanged(string value)
-    {
-        KeyProblem = null;
-        if (!KeyChecked) return;
-        _models = [];
-        KeyChecked = false;
-        OnPropertyChanged(nameof(Model));
-        OnPropertyChanged(nameof(ModelPrice));
-    }
-    /// <summary>The key was tried and the service listed its models.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Model), nameof(ModelPrice))] private bool _keyChecked;
-    public string KeyWorks => Lang.T("Works · its models are loaded");
-    /// <summary>Why Test found no models: the key refused, no credit, the service not answering.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasKeyProblem))] private string? _keyProblem;
-    public bool HasKeyProblem => KeyProblem is not null;
-    /// <summary>A key typed in, or one saved before (the box stays empty: a saved key is never shown again).</summary>
-    private bool CanTestKey() => ApiKey.Trim().Length > 0 || KeyStore.Load() is { Length: > 0 };
-
-    /// <summary>
-    /// Tests the key with the service, which then lists the models it offers for it. A key that works is kept, locked to
-    /// this Windows account (<see cref="KeyStore"/>).
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanTestKey))]
-    private async Task TestKey()
-    {
-        string typed = ApiKey.Trim();
-        string? key = typed.Length > 0 ? typed : KeyStore.Load();
-        if (key is null) return;
-        var (found, problem) = await OwnKey.ModelsAsync(Ai.Service, OwnKey.Root(Ai.Service, Ai.CustomAddress), key);
-        _models = found is null ? [] : [.. found
-            .OrderByDescending(m => m.Tested).ThenBy(m => m.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(m => new AiModelOption(m.Id, m.CentsPerQuestion is double c ? PerQuestion(c) : null, m.Tested))];
-        KeyProblem = problem;
-        if (found is not null && typed.Length > 0)
-        {
-            try { KeyStore.Save(typed); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyStore.CryptographicException)
-            {
-                Log.Error("ai-settings", ex);
-                KeyProblem = Lang.T("The key works, but Windows couldn't keep it safely on this PC. Try Test again.");
-            }
-        }
-        // A model picked earlier that the key can't use any more: none until one is picked.
-        if (found is not null && Ai.Model.Length > 0 && !_models.Any(m => m.Name == Ai.Model)) Set(a => a.Model = "", nameof(Model));
-        KeyChecked = _models.Count > 0;
-        OnPropertyChanged(nameof(Model));
-        OnPropertyChanged(nameof(ModelPrice));
-        OnPropertyChanged(nameof(ModelGroups));
-        OnPropertyChanged(nameof(HasModels));
-    }
-
-    /// <summary>"0.4¢" under a dollar's tenth, "$0.07" from there.</summary>
-    private static string PerQuestion(double cents) => cents < 10
-        ? (cents < 0.1 ? "0.1¢" : $"{cents.ToString(cents < 1 ? "0.0" : "0", System.Globalization.CultureInfo.CurrentCulture)}¢")
-        : (cents / 100).ToString("$0.00", System.Globalization.CultureInfo.InvariantCulture);
-
-    private List<AiModelOption> _models = [];
-
-    /// <summary>The model picked, or, until the key is tested, what has to happen before its models can be listed.</summary>
-    public string Model => !KeyChecked ? Lang.T("Test your API key to see the models it supports")
-        : Ai.Model.Length > 0 ? Ai.Model : _models.FirstOrDefault()?.Name ?? "";
-    public bool HasModels => _models.Count > 0;
-    /// <summary>OpenRouter publishes its prices: about what a question costs on the picked model.</summary>
-    /// <summary>About what a question costs on the picked model ("0.3¢"), for the Ask window's first-question note.</summary>
-    public string? ModelPerQuestion => KeyChecked ? _models.FirstOrDefault(m => m.Name == Model)?.PerQuestion : null;
-    public string? ModelPrice => KeyChecked && _models.FirstOrDefault(m => m.Name == Model)?.PerQuestion is { } p
-        ? Lang.T($"About {p} a question at {Ai.Service}'s prices.") : null;
-
-    [ObservableProperty] private bool _isPickingModel;
-    [ObservableProperty] private string _modelSearch = "";
-    partial void OnModelSearchChanged(string value) => OnPropertyChanged(nameof(ModelGroups));
-
-    public IReadOnlyList<AiModelGroup> ModelGroups
-    {
-        get
-        {
-            var words = TextMatch.Words(ModelSearch);
-            var shown = _models.Where(m => TextMatch.Has(words, m.Name)).ToList();
-            return [.. new[]
-            {
-                new AiModelGroup(Lang.T("TESTED WITH RIGSIGHT"), [.. shown.Where(m => m.Tested)]),
-                new AiModelGroup(Lang.T("OTHER MODELS (NOT TESTED)"), [.. shown.Where(m => !m.Tested)]),
-            }.Where(g => g.Models.Count > 0)];
-        }
-    }
-
-    [RelayCommand] private void OpenModels() { if (HasModels) IsPickingModel = true; }
-
-    [RelayCommand]
-    private void PickModel(AiModelOption? model)
-    {
-        if (model is null) return;
-        Log.Write("settings", $"Ask RigSight model picked (own key): {model.Name}");
-        Set(a => a.Model = model.Name, nameof(Model));
-        OnPropertyChanged(nameof(ModelPrice));
-        IsPickingModel = false;
-        ModelSearch = "";
-    }
-
     // ── Ollama on my PC ──────────────────────────────────────────────────
     public string OllamaAddress
     {
@@ -495,6 +357,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     private IReadOnlyCollection<string>? PlanPages() => Ai.Mode != AiMode.RigSight ? null : _ask.Standing?.Plan?.Pages ?? AiPages.DefaultFor(0);
 
     // ── The Ask button and conversations ─────────────────────────────────
+    /// <summary>The AI buttons on the pages, shown by default; off hides every one at once (AiGate).</summary>
+    public bool PageButtons { get => Ai.PageButtons; set => Set(a => a.PageButtons = value); }
     public string Place { get => Ai.Place == AskPlace.Sidebar ? "sidebar" : "top"; set => Set(a => a.Place = value == "sidebar" ? AskPlace.Sidebar : AskPlace.TopBar); }
     // The Ask shortcut: opens RigSight on the Ask window from anywhere (the agent holds it, only while the AI is on).
     // Set listens for the next keys pressed on the page (SettingsView), as the overlay's shortcut does (2026-10-26).

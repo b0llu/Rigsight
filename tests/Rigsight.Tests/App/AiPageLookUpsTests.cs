@@ -87,7 +87,7 @@ public sealed class AiPageLookUpsTests(PageHistory history) : IClassFixture<Page
         string said = Run(tools, "get_today");
         Assert.Contains("Samsung SSD 980: health Good", said);
         Assert.DoesNotContain("No PC problems", said);
-        Assert.Contains("switched these pages off in Settings › AI: Crashes", said);
+        Assert.Contains("switched these off in Settings › Ask RigSight: Crashes", said);
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public sealed class AiPageLookUpsTests(PageHistory history) : IClassFixture<Page
     {
         string said = Run(Tools(s => s.Ai.SetSends(AiPages.Apps, false)), "get_rewind", new() { ["period"] = "year" });
         Assert.DoesNotContain("Top apps", said);
-        Assert.Contains("switched these pages off in Settings › AI: Apps", said);
+        Assert.Contains("switched these off in Settings › Ask RigSight: Apps", said);
     }
 
     private static void TwoDashboards(RigsightSettings s)

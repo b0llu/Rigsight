@@ -217,6 +217,8 @@ public static class Ollama
         foreach (var turn in AiTurns.Recent(earlier)) messages.Add(AiTurns.Message(turn));
         messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });
         var lookUps = new List<AiLookUp>();
+        // The apps an answer can open: the prompt's [do: app] button needs to know which are on this PC.
+        tools.OpenableAppsLookUp = canLookUp;
         var definitions = canLookUp ? tools.Definitions() : null;
         Log.Write("ollama", $"Asking {model} at {root} ({(canLookUp ? $"{definitions!.Count} look-ups allowed" : "no look-ups")}, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
         // A model not in memory yet takes a while to load onto the graphics card: say so, so the wait makes sense.

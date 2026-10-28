@@ -544,12 +544,22 @@ public sealed partial class AskViewModel : ObservableObject
         Changed();
     }
 
-    /// <summary>Every AI button on every page follows the AI and what's shared, at once (<see cref="AiGate"/>).</summary>
-    private void Gate() => AiGate.Update(IsEnabled, Ai.Sends, q => { if (q.Explain) Explain(q.Text); else AskNew(q.Text, q.Page); });
+    /// <summary>Every AI button on every page follows the AI, its switch in Settings and what's shared, at once (<see cref="AiGate"/>).</summary>
+    private void Gate() => AiGate.Update(IsEnabled && Ai.PageButtons, Ai.Sends, q => { if (q.Explain) Explain(q.Text); else AskNew(q.Text, q.Page); });
+
+    private AiMode _answeringMode;
 
     private void OnSettingsChanged()
     {
         if (!IsEnabled) IsOpen = false;
+        // Off, or another way of answering, stops what was under way: an answer being written stops, and a question still
+        // waiting (for the plan, or a summary) never goes out (the 2026-10-27 audit: it could still reach the relay after Off).
+        if (_answering is { } going && (!IsEnabled || Ai.Mode != _answeringMode))
+        {
+            Log.Write("ask", $"The answer under way was stopped: the AI is now {(IsEnabled ? Ai.Mode.ToString() : "off")}");
+            going.Cancel();
+        }
+        if (!IsEnabled || Ai.Mode != AiMode.RigSight) Plans?.StopWaiting();
         Gate();
         ShortcutChanged();
         OnPropertyChanged(nameof(IsEnabled));
@@ -572,8 +582,7 @@ public sealed partial class AskViewModel : ObservableObject
     }
 
     /// <summary>An answer can come from somewhere: Ask and Explain buttons show. Off hides every one of them.</summary>
-    /// <remarks>Hidden whatever the setting until the AI preview is on for this PC (<see cref="AiPreview"/>).</remarks>
-    public bool IsEnabled => AiPreview.IsOn && Ai.Mode != AiMode.Off;
+    public bool IsEnabled => Ai.Mode != AiMode.Off;
     public bool InTopBar => IsEnabled && Ai.Place == AskPlace.TopBar;
     public bool InSidebar => IsEnabled && Ai.Place == AskPlace.Sidebar;
 
@@ -739,6 +748,8 @@ public sealed partial class AskViewModel : ObservableObject
         : Standing.Plan is not { } plan ? QuestionsLeftText
         : plan is { IsFree: true, Cap: 0 } ? Lang.T("Free questions paused")
         : plan is { Left: 0, Given: > 0 } ? plan.Given == 1 ? Lang.T("1 given question left") : Lang.T($"{plan.Given} given questions left")
+        // The free trial counts days, said first; then today's questions (the approved mock-up, 2026-10-28).
+        : plan is { IsTrial: true, EndsAt: { } ends } ? TrialLeft(plan.Name, ends) + " · " + Lang.T($"{plan.Left} of {plan.Cap} left today")
         : (plan.IsFree, plan.Weekly, plan.Given > 0) switch
         {
             (true, true, false) => Lang.T($"{plan.Left} of {plan.Cap} free questions left this week"),
@@ -750,6 +761,16 @@ public sealed partial class AskViewModel : ObservableObject
             (false, false, false) => Lang.T($"{plan.Left} of {plan.Cap} left today"),
             (false, false, true) => Lang.T($"{plan.Left} of {plan.Cap} left today + {plan.Given} given"),
         };
+    /// <summary>"Complete trial · 6 days left", "… ends today at 10:12" on its last day.</summary>
+    internal static string TrialLeft(string plan, DateTime ends, DateTime? now = null)
+    {
+        var left = ends - (now ?? DateTime.Now);
+        int days = (int)Math.Ceiling(left.TotalDays);
+        return left.TotalHours <= 24 && ends.Date == (now ?? DateTime.Now).Date ? Lang.T($"{plan} trial ends today at {TimeText.At(ends, "HH:mm")}")
+            : days <= 1 ? Lang.T($"{plan} trial ends tomorrow at {TimeText.At(ends, "HH:mm")}")
+            : Lang.T($"{plan} trial · {days} days left");
+    }
+
     /// <summary>The right side when See plans isn't: when they come back ("Back Monday", "Resets at midnight"); empty when unknown.</summary>
     public string QuestionsNote => ShowSeePlans || LicenceOff || Standing?.Plan is not { } plan || plan is { IsFree: true, Cap: 0 } ? ""
         : plan is { Weekly: true, ResetsAt: { } at } ? Lang.T($"Back {TimeText.At(at, "dddd")}")
@@ -878,7 +899,9 @@ public sealed partial class AskViewModel : ObservableObject
 
     partial void OnIsOpenChanged(bool value)
     {
-        if (!value) return;
+        // Not now (or any close) on the first-question window drops the Explain that was waiting: a later Start asking,
+        // from the top bar say, must not send it unasked.
+        if (!value) { _afterFirst = null; return; }
         FocusWanted?.Invoke();
         _ = RefreshQuestionsAsync();
         // Read again as the window opens: what Home said since, and only now are they counted as seen.
@@ -934,9 +957,13 @@ public sealed partial class AskViewModel : ObservableObject
         _ => Lang.T("It can also search the web"),
     };
 
-    /// <summary>The plan now checks the web: Free doesn't (the relay's plans say which, 2026-10-27).</summary>
+    /// <summary>The plan now checks the web: Free doesn't (the relay's plans say which, 2026-10-27); a trial on offer is its plan's.</summary>
     private bool PlanSearches => Standing is not { Plan: { } now } standing
-        || (standing.Plans.FirstOrDefault(p => p.Id == now.Id)?.Search ?? !now.IsFree);
+        || (TrialOffer ?? standing.Plans.FirstOrDefault(p => p.Id == now.Id))?.Search == true
+        || (standing.Plans.All(p => p.Id != now.Id) && !now.IsFree);
+
+    /// <summary>The trial's plan while the trial is on offer: the first question starts it, so the consent shows that plan.</summary>
+    private RelayPlanOffer? TrialOffer => Standing is { Trial: { Offered: true } t, Plan.IsFree: true } s ? s.Plans.FirstOrDefault(p => p.Id == t.Plan) : null;
     public string FirstMoreText => Ai.Mode switch
     {
         AiMode.OwnKey => PerQuestion?.Invoke() is { } each
@@ -963,6 +990,7 @@ public sealed partial class AskViewModel : ObservableObject
     /// "10 free questions this week", or when they're back.
     /// </summary>
     public string? FirstExtra => Ai.Mode != AiMode.RigSight || Standing?.Plan is not { } plan ? null
+        : TrialOffer is { } offer ? Lang.T($"{offer.Name} free for {Standing.Trial!.Days} days, from your first question")
         : plan.Left <= 0 && plan.Weekly && plan.ResetsAt is { } at ? Lang.T($"Your free questions are back on {TimeText.At(at, "dddd")}.")
         : plan.IsFree ? Lang.T($"{plan.Left} free questions this week") : null;
 
@@ -1012,7 +1040,7 @@ public sealed partial class AskViewModel : ObservableObject
     private Action<AiTools>? _configureTools;
 
     /// <summary>The pages answers may use now: the plan's with RigSight AI (Free's until the relay has said), every page otherwise.</summary>
-    public IReadOnlyCollection<string>? PlanPagesNow() => Ai.Mode != AiMode.RigSight ? null : Standing?.Plan?.Pages ?? AiPages.DefaultFor(0);
+    public IReadOnlyCollection<string>? PlanPagesNow() => Ai.Mode != AiMode.RigSight ? null : TrialOffer?.Pages ?? Standing?.Plan?.Pages ?? AiPages.DefaultFor(0);
 
     /// <summary>The look-ups, made once, told the plan's pages before every question.</summary>
     private AiTools Tools()
@@ -1293,7 +1321,7 @@ public sealed partial class AskViewModel : ObservableObject
         if (!Ai.Sends(AiPages.Crashes))
         {
             talk.Messages.Clear();
-            talk.Messages.Add(new AskProblem(Lang.T("Explain needs the Crashes page switched on in Settings › Ask RigSight.")) { CanOpenSettings = true });
+            talk.Messages.Add(new AskProblem(Lang.T("Explain needs Crashes switched on in Settings › Ask RigSight.")) { CanOpenSettings = true });
             return;
         }
         Answer(talk, $"Explain this from my PC's records: {what}", fromPage: AiPages.Crashes);
@@ -1324,7 +1352,7 @@ public sealed partial class AskViewModel : ObservableObject
         // says once that the plan doesn't include that page, and the plan's card comes under it (2026-10-26).
         if (!Ai.Sends(page) && AiPages.Get(page) is { } off)
         {
-            talk.Messages.Add(new AskProblem(Lang.T($"This needs the {off.Label} page switched on in Settings › Ask RigSight.")) { CanOpenSettings = true });
+            talk.Messages.Add(new AskProblem(Lang.T($"This needs {off.Label} switched on in Settings › Ask RigSight.")) { CanOpenSettings = true });
             Changed();
             return;
         }
@@ -1376,6 +1404,7 @@ public sealed partial class AskViewModel : ObservableObject
         // Made before the wait for the plan, so Stop works there too: nothing has gone yet (board 6, 2026-10-26).
         using var stop = new CancellationTokenSource();
         _answering = stop;
+        _answeringMode = Ai.Mode;
         // One stage going on far longer than usual (but not the model loading, which says so): say it's still at it,
         // once, rather than rotating lines to fill the time.
         var longWait = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(0.5) };
@@ -1615,7 +1644,7 @@ public sealed partial class AskViewModel : ObservableObject
     /// </summary>
     private static AskProblem Problem(string text, string question, string? aside, string? fromPage)
     {
-        bool settingsOnly = text == Lang.T("Add your API key in Settings › Ask RigSight and press Test.") || text == Lang.T("Pick a model in Settings › Ask RigSight.")
+        bool settingsOnly = text == Lang.T("Add your API key in Settings › Ask RigSight and press Connect.") || text == Lang.T("Pick a model in Settings › Ask RigSight.")
             || text == Lang.T("Ollama has no models yet. Download one in Ollama, then pick it in Settings › Ask RigSight.");
         return new AskProblem(text) { Question = settingsOnly ? null : question, Aside = aside, FromPage = fromPage, CanOpenSettings = SendsToSettings(text) };
     }
@@ -1701,7 +1730,7 @@ public sealed partial class AskViewModel : ObservableObject
         var bigger = paid.FirstOrDefault(o => o.PriceCents > mine);
         return new AskWall(Lang.T($"That's all {current?.Cap ?? 0} questions for today."),
             bigger is null ? Lang.T("More at midnight. Your question stays in the box.")
-                : Lang.T($"More at midnight. {bigger.Name} gives up to {bigger.Cap} a day and answers use more pages; switching sends this question straight away."),
+                : Lang.T($"More at midnight. {bigger.Name} gives up to {bigger.Cap} a day and answers read more; switching sends this question straight away."),
             bigger?.Id, bigger?.Name, question) { Switch = current is { IsFree: false, CanManage: true } };
     }
 
@@ -1849,7 +1878,7 @@ public sealed partial class AskViewModel : ObservableObject
     /// <returns>Why it couldn't be refreshed (the relay unreachable, offline), or null when it was or wasn't asked.</returns>
     public async Task<string?> RefreshQuestionsAsync(bool theyAsked = false)
     {
-        if (Ai.Mode != AiMode.RigSight) return null;
+        if (!IsEnabled || Ai.Mode != AiMode.RigSight) return null;
         if (!theyAsked && !Ai.FirstQuestionSeen.Contains(AiMode.RigSight)) return null;
         // Nothing known yet: the plan card waits with a spinner instead of showing Free until the relay answers
         // (it showed Free, then the real plan a few seconds later, 2026-10-24).
@@ -1895,10 +1924,36 @@ public sealed partial class AskViewModel : ObservableObject
         return new AskGift([.. fresh.Select(g => g.Id)], title, text, note);
     }
 
-    /// <summary>"Got it", or a question asked: the card goes and isn't shown again for these gifts.</summary>
+    /// <summary>
+    /// The free trial's two notes, each told once above the question box: the day before it ends (what happens then, and
+    /// the plan to keep it), and once it has ended. The key carries the trial's end, so a later trial would be told again.
+    /// </summary>
+    internal static AskGift? TrialNoteFor(RelayStatus status, IReadOnlyCollection<string> seen, DateTime? now = null)
+    {
+        var at = now ?? DateTime.Now;
+        if (status.Trial is not { Ends: { } ends } trial) return null;
+        string name = status.Plans.FirstOrDefault(p => p.Id == trial.Plan)?.Name ?? status.Plan?.Name ?? trial.Plan;
+        int free = status.Plans.FirstOrDefault(p => p.IsFree)?.Cap ?? 10;
+        if (trial.Running && ends - at <= TimeSpan.FromDays(1) && !seen.Contains($"ending:{ends:o}"))
+            return new AskGift([], ends.Date == at.Date ? Lang.T($"Your {name} trial ends today at {TimeText.At(ends, "HH:mm")}.") : Lang.T($"Your {name} trial ends tomorrow at {TimeText.At(ends, "HH:mm")}."),
+                Lang.T($"Then you're on Free: {free} questions a week. Your conversations stay."), null) { TrialKey = $"ending:{ends:o}" };
+        if (trial.Ended && at - ends <= TimeSpan.FromDays(14) && !seen.Contains($"ended:{ends:o}"))
+            return new AskGift([], Lang.T($"Your {name} trial has ended"),
+                Lang.T($"You're on Free now: {free} questions a week. Everything from the trial is kept."), null) { TrialKey = $"ended:{ends:o}" };
+        return null;
+    }
+
+    /// <summary>"Got it", or a question asked: the card goes and isn't shown again for these gifts (or this trial note).</summary>
     [RelayCommand]
     private void CloseGift()
     {
+        if (Gift is { TrialKey: { } key })
+        {
+            Log.Write("ask", $"Trial note told and closed: {key}");
+            _settings.Update(s => s.Ai.TrialNotesSeen = [.. s.Ai.TrialNotesSeen.Append(key).Distinct().TakeLast(10)]);
+            Gift = null;
+            return;
+        }
         if (Gift is not { } gift) return;
         Log.Write("ask", $"Questions given told and closed: {gift.Title} (gifts {string.Join(", ", gift.Ids)})");
         // The newest 50 kept: a gift runs a week at most, so older ids are never sent again.
@@ -1915,7 +1970,7 @@ public sealed partial class AskViewModel : ObservableObject
     public void Show(RelayStatus status)
     {
         Standing = status;
-        Gift = GiftFor(status, Ai.GiftsSeen);
+        Gift = GiftFor(status, Ai.GiftsSeen) ?? TrialNoteFor(status, Ai.TrialNotesSeen);
         OnPropertyChanged(nameof(OutOffer));
         HasLicence = status.HasLicence && status.LicenceStatus == "active";
         // A relay with plans counts this week's free ones or today's; an older one, what's left in all.
@@ -1949,7 +2004,7 @@ public sealed partial class AskViewModel : ObservableObject
     private async Task<AiReply> AskOwnKey(AskConversation talk, string question, CancellationToken ct)
     {
         if (KeyStore.Load() is not { Length: > 0 } key)
-            return new AiReply(null, Lang.T("Add your API key in Settings › Ask RigSight and press Test."), []);
+            return new AiReply(null, Lang.T("Add your API key in Settings › Ask RigSight and press Connect."), []);
         if (Ai.Model.Length == 0)
             return new AiReply(null, Lang.T("Pick a model in Settings › Ask RigSight."), []);
         Tools();

@@ -68,9 +68,11 @@
              recorded; a day still to come is an empty outline. Hover: it lights up and says the day and how it went.
              The transparent frame takes the mouse in the gaps too, so moving along the strip never flickers. -->
         <DataTemplate DataType="{x:Type vm:NetDayCell}">
-            <Border x:Name="Slot" Background="Transparent" Padding="1.5,0" ToolTip="{Binding Tip}"
+            <!-- The gap after the square is its row's (PixelRow): whole screen pixels at any zoom. -->
+            <Border x:Name="Slot" Background="Transparent" ToolTip="{Binding Tip}"
                     ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.Placement="Top">
-                <Rectangle x:Name="Cell" RadiusX="2" RadiusY="2" Fill="{DynamicResource GoodBrush}" Opacity="0.55" />
+                <Rectangle x:Name="Cell" RadiusX="2" RadiusY="2" Fill="{DynamicResource GoodBrush}" Opacity="0.55"
+                           Margin="{Binding (ctl:PixelRow.Inset), RelativeSource={RelativeSource Self}}" />
             </Border>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding State}" Value="Dropped">
@@ -498,16 +500,18 @@
                                 <ItemsControl ItemsSource="{Binding Strip}" Height="22" Focusable="False">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <UniformGrid Rows="1" />
+                                            <ctl:PixelRow Gap="1" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <!-- Hover a quarter hour: it lights up and says its time and state. The transparent frame
-                                             takes the mouse in the gaps too, so moving along the strip never flickers. -->
+                                             takes the mouse in the gaps too, so moving along the strip never flickers; the
+                                             row (PixelRow) puts each on whole screen pixels at any zoom. -->
                                         <DataTemplate DataType="{x:Type vm:NetStripCell}">
-                                            <Border x:Name="Slot" Background="Transparent" Padding="0.5,0" ToolTip="{Binding Tip}"
+                                            <Border x:Name="Slot" Background="Transparent" ToolTip="{Binding Tip}"
                                                     ToolTipService.InitialShowDelay="0" ToolTipService.BetweenShowDelay="0" ToolTipService.Placement="Top">
-                                                <Rectangle x:Name="Cell" RadiusX="1" RadiusY="1" Fill="{DynamicResource GoodBrush}" Opacity="0.55" />
+                                                <Rectangle x:Name="Cell" RadiusX="1" RadiusY="1" Fill="{DynamicResource GoodBrush}" Opacity="0.55"
+                                                           Margin="{Binding (ctl:PixelRow.Inset), RelativeSource={RelativeSource Self}}" />
                                             </Border>
                                             <DataTemplate.Triggers>
                                                 <!-- The warm colour, as a week's, month's and year's dropped days have it. -->
@@ -548,7 +552,7 @@
                                 <ItemsControl ItemsSource="{Binding Days}" Height="22" Focusable="False" AutomationProperties.Name="Days">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <UniformGrid Rows="1" />
+                                            <ctl:PixelRow Gap="3" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                 </ItemsControl>
@@ -571,7 +575,7 @@
                                             <ItemsControl Grid.Column="1" ItemsSource="{Binding Days}" Height="10" Focusable="False">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
-                                                        <UniformGrid Rows="1" Columns="31" />
+                                                        <ctl:PixelRow Columns="31" Gap="3" />
                                                     </ItemsPanelTemplate>
                                                 </ItemsControl.ItemsPanel>
                                             </ItemsControl>

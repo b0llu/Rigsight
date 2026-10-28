@@ -586,6 +586,11 @@
          of the page's own goes on what holds the button: a Visibility set on the button would win over the AI's. -->
     <svc:AiShowConverter x:Key="AiShow" />
     <Geometry x:Key="AiSparkle">M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,3 L19,7 M17,5 L21,5</Geometry>
+    <!-- The sparkle as a sidebar item's icon (Ask in the sidebar), in the AI's colour as in the top bar's box; a new copy wherever it's used. -->
+    <Grid x:Key="AiIcon" x:Shared="False" Width="16" Height="16">
+        <Path Data="{StaticResource AiSparkle}" Stroke="{DynamicResource AiBrush}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+              Stretch="Uniform" Width="15" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Grid>
     <Style x:Key="AiButton" TargetType="Button">
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />

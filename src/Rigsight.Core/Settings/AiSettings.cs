@@ -25,6 +25,12 @@ public sealed class AiSettings
     /// <summary>The Ctrl+K default has been given (once, in SettingsStore.Normalize) or the shortcut was cleared: an empty one stays empty.</summary>
     public bool ShortcutGiven { get; set; }
 
+    /// <summary>
+    /// The AI buttons on the pages (Explain, a page's own question, "Ask what this is" in a menu) are shown; off hides them
+    /// all and keeps the ask box and the chat (the person's call, 2026-10-28: shown by default).
+    /// </summary>
+    public bool PageButtons { get; set; } = true;
+
     /// <summary>How long conversations are kept, in days; 0 keeps them until they are cleared (like KeepHistoryDays).</summary>
     public int KeepConversationDays { get; set; } = 30;
 
@@ -39,6 +45,9 @@ public sealed class AiSettings
 
     /// <summary>Questions given from the admin site whose card was shown in the chat and closed (the relay's ids, newest kept).</summary>
     public List<long> GiftsSeen { get; set; } = [];
+
+    /// <summary>The free trial's notes closed: "ending" (the day before it ends) and "ended", each told once.</summary>
+    public List<string> TrialNotesSeen { get; set; } = [];
 
     // Your own key: the service, and the model picked from the ones it lists for that key. The key itself is kept
     // apart from settings, protected by Windows (never in settings.json).

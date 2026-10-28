@@ -18,7 +18,8 @@ public partial class MainWindow
 
     private void SetUpAskBox()
     {
-        _vm.Ask.BarOpenRequested += () => Dispatcher.BeginInvoke(OpenFromBox, System.Windows.Threading.DispatcherPriority.Input);
+        _vm.Ask.BarOpenRequested += toggle => Dispatcher.BeginInvoke(() => { if (toggle) ToggleFromShortcut(); else OpenFromBox(); }, System.Windows.Threading.DispatcherPriority.Input);
+        _vm.WindowInFront = () => IsActive && WindowState != WindowState.Minimized;
         // Hangs from the box: its top on the box's, centred on it, from the sizes Windows gives as they are on screen (2026-10-27:
         // worked out by hand from the zoom, it was only centred at 100%).
         AskDrop.CustomPopupPlacementCallback = DropPlacement;
@@ -26,9 +27,15 @@ public partial class MainWindow
         Deactivated += (_, _) => { if (AskDrop.IsOpen) CloseDrop(instant: true); };
         LocationChanged += (_, _) => { if (AskDrop.IsOpen) CloseDrop(instant: true); };
         StateChanged += (_, _) => { if (AskDrop.IsOpen) CloseDrop(instant: true); };
-        AskDropRoot.PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { e.Handled = true; CloseDrop(); } };
+        // Esc, or Ctrl+K pressed again (the panel is its own window, so the window's Ctrl+K doesn't reach here).
+        AskDropRoot.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape || (e.Key == Key.K && Keyboard.Modifiers == ModifierKeys.Control)) { e.Handled = true; CloseDrop(); }
+        };
+        // A screen or a box coming over the page takes the box away, and the panel hanging from it with it.
+        System.ComponentModel.PropertyChangedEventManager.AddHandler(_vm, (_, _) => { if (!_vm.ShowAskBar && AskDrop.IsOpen) CloseDrop(instant: true); }, nameof(ViewModels.ShellViewModel.ShowAskBar));
         // Ctrl+K in RigSight: the box, as a command bar opens in most apps; the shortcut from anywhere is Settings' own.
-        InputBindings.Add(new KeyBinding(new CommunityToolkit.Mvvm.Input.RelayCommand(OpenFromBox), Key.K, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(new CommunityToolkit.Mvvm.Input.RelayCommand(ToggleFromShortcut), Key.K, ModifierKeys.Control));
         // Readied once the window has settled, so the first click doesn't wait for it (2026-10-27: the first opening lagged).
         Loaded += (_, _) =>
         {
@@ -69,12 +76,22 @@ public partial class MainWindow
 
     private void AskBox_Click(object sender, RoutedEventArgs e) => OpenFromBox();
 
+    /// <summary>The shortcut pressed with RigSight in front: closes the panel or the chat when one is open, else opens as the box does.</summary>
+    private void ToggleFromShortcut()
+    {
+        if (AskDrop.IsOpen) { CloseDrop(); return; }
+        if (_vm.Ask.IsOpen) { _vm.Ask.IsOpen = false; return; }
+        OpenFromBox();
+    }
+
     /// <summary>What the box (or the shortcut) does: Plans with no questions left, else the drop, Ask open or not (it starts a new chat).</summary>
     private void OpenFromBox()
     {
         var ask = _vm.Ask;
         if (!ask.IsEnabled) return;
         if (!ask.InTopBar) { ask.IsOpen = true; return; }
+        // Not over the update screen, Plans or a box over the page (the box is hidden there; Ctrl+K does nothing).
+        if (_vm.PageCovered) return;
         if (ask.BarLocked) { ask.SeePlansCommand.Execute(null); return; }
         if (!AskDrop.IsOpen) OpenDrop();
         else AskDropText.Focus();
@@ -87,7 +104,7 @@ public partial class MainWindow
     private void WarmDrop()
     {
         _vm.Ask.ReadyBar();
-        if (AskDrop.IsOpen || !IsVisible || WindowState == WindowState.Minimized || !_vm.Ask.InTopBar) return;
+        if (AskDrop.IsOpen || !IsVisible || WindowState == WindowState.Minimized || !_vm.ShowAskBar) return;
         AskDropRoot.Opacity = 0;
         AskDropRoot.IsHitTestVisible = false;
         AskDrop.IsOpen = true;

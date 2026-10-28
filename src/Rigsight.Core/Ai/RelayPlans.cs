@@ -33,7 +33,12 @@ public sealed record RelayPlan(string Id, string Name, string Source, string Sta
     public bool Ending => State == "cancelled";
     public bool PastDue => State == "past_due";
     public bool Gift => Source == "gift";
+    /// <summary>The free trial (2026-10-28): the plan for a few days from the first question, ending at <see cref="EndsAt"/>.</summary>
+    public bool IsTrial => Source == "trial";
     public RelayPayment? LastPayment { get; init; }
+
+    /// <summary>Paid once a year (the relay's "billing", 2026-10-28; <see cref="Price"/> is then the year's price). False for monthly, gifts and an older relay.</summary>
+    public bool Yearly { get; init; }
 
     /// <summary>
     /// Questions given from the admin site, kept until used: taken once the plan's day or the free week is used up
@@ -51,6 +56,27 @@ public sealed record RelayPlanOffer(string Id, string Name, string Price, int Pr
     public bool Search { get; init; } = true;
     public bool IsFree => Id == "free";
     public bool Weekly => Period == "week";
+
+    /// <summary>The same plan bought for a year (2026-10-28), its own checkout; null when the relay has none for it.</summary>
+    public RelayYearly? Yearly { get; init; }
+}
+
+/// <summary>A plan's yearly option: the year's price and its checkout link (carrying this PC's id).</summary>
+public sealed record RelayYearly(string Price, int PriceCents, string Url)
+{
+    /// <summary>What it comes to a month, to the cent ($49.99 a year: $4.17).</summary>
+    public int MonthCents => (int)Math.Round(PriceCents / 12m, MidpointRounding.AwayFromZero);
+}
+
+/// <summary>
+/// The free trial of a plan (the relay's "trial", 2026-10-28): offered (the first question starts it; <paramref name="Days"/>
+/// long), running (until <paramref name="Ends"/>), or ended. <paramref name="Plan"/>: the plan it gives (complete).
+/// </summary>
+public sealed record RelayTrial(string State, string Plan, int Days, int Cap, DateTime? Started, DateTime? Ends)
+{
+    public bool Offered => State == "offered";
+    public bool Running => State == "running";
+    public bool Ended => State == "ended";
 }
 
 /// <summary>Questions given from the admin site (kept until used), with the message written to them: told once in the chat.</summary>
@@ -110,6 +136,7 @@ public static partial class Relay
             Pages(p["pages"]), (bool?)(p["can_manage"] as JsonValue) ?? false)
         {
             Given = (int)Math.Clamp(OwnKey.Num(p["given"]) ?? 0, 0, 1_000_000),
+            Yearly = Text(p["billing"]) == "year",
             LastPayment = p["last_payment"] is JsonObject last && OwnKey.Num(last["amount_cents"]) is { } cents && Moment(last["at"]) is { } at
                 ? new RelayPayment((int)Math.Clamp(cents, 0, int.MaxValue), Text(last["currency"]) ?? "USD", at) : null,
         };
@@ -119,10 +146,20 @@ public static partial class Relay
         Text(p["id"]) is not { Length: > 0 } id ? null
         : new RelayPlanOffer(id, Text(p["name"]) ?? id, Text(p["price_label"]) ?? "", (int)Math.Clamp(OwnKey.Num(p["price_cents"]) ?? 0, 0, int.MaxValue),
             (int)Math.Clamp(OwnKey.Num(p["cap"]) ?? 0, 0, int.MaxValue), Text(p["period"]) ?? "day", Pages(p["pages"]), Text(p["url"]) ?? "")
-        { Search = (bool?)(p["search"] as JsonValue) ?? true };
+        {
+            Search = (bool?)(p["search"] as JsonValue) ?? true,
+            Yearly = p["yearly"] is JsonObject y && OwnKey.Num(y["price_cents"]) is { } cents && cents > 0 && Text(y["url"]) is { Length: > 0 } yUrl
+                ? new RelayYearly(Text(y["price_label"]) ?? "", (int)Math.Min(cents, int.MaxValue), yUrl) : null,
+        };
 
     private static IReadOnlyList<string> Pages(JsonNode? node) =>
         [.. (node as JsonArray ?? []).Select(Text).OfType<string>().Where(id => AiPages.Get(id) is not null)];
+
+    private static RelayTrial? ReadTrial(JsonNode? node) =>
+        node is JsonObject t && Text(t["state"]) is { Length: > 0 } state
+            ? new RelayTrial(state, Text(t["plan"]) ?? "complete", (int)Math.Clamp(OwnKey.Num(t["days"]) ?? 0, 0, 365),
+                (int)Math.Clamp(OwnKey.Num(t["cap"]) ?? 0, 0, int.MaxValue), Moment(t["started"]), Moment(t["ends_at"]))
+            : null;
 
     private static RelayGift? ReadGift(JsonObject g) =>
         OwnKey.Num(g["id"]) is { } id && OwnKey.Num(g["n"]) is { } n && n > 0

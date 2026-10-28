@@ -45,7 +45,7 @@ public static class TileCatalog
         ]),
         new(Lang.T("YOUR DAY"), [
             new("today", Lang.T("Today so far"), Lang.T("Active time, PC on and away."), "\uE823", 6, 2, MinW: 4, MinH: 2),
-            new("most-used", Lang.T("Most used today"), Lang.T("Your top apps today."), "\uECA5", 6, 4, MinW: 4, MinH: 3),
+            new("most-used", Lang.T("Most used today"), Lang.T("Your top apps today."), "\uE8A9", 6, 4, MinW: 4, MinH: 3),
             new("insights", Lang.T("What stands out"), Lang.T("Today's highlights, in plain words."), "\uE734", 6, 4, MinW: 4, MinH: 3),
             new("peaks", Lang.T("Today's peaks"), Lang.T("CPU peak and GPU peak today, and the app responsible."), "\uE9CA", 6, 2, MinW: 3, MinH: 2),
             new("yesterday", Lang.T("Yesterday"), Lang.T("Yesterday's active time and top apps."), "\uE708", 6, 4, MinW: 3, MinH: 3),

@@ -52,7 +52,7 @@ public sealed partial class PageSwitchesViewModel : ObservableObject
     public string OnText => Lang.T($"{OnCount} of {Tiles.Count} on");
     public bool SomeOff => OnCount < Tiles.Count;
     public bool HasOutside => Outside.Count > 0;
-    public string OutsideTitle => Outside.Any(p => p.Plan < 2) ? Lang.T($"{Outside.Count} more pages with a plan") : Lang.T($"{Outside.Count} more pages with Complete");
+    public string OutsideTitle => Outside.Any(p => p.Plan < 2) ? Lang.T($"{Outside.Count} more with a plan") : Lang.T($"{Outside.Count} more with Complete");
     public string OutsideList => string.Join(", ", Outside.Select(p => p.Label));
     /// <summary>Over the switches when some pages are outside the plan: "IN YOUR PLAN", or "FREE" on Free.</summary>
     public string OpenHeading => Outside.Any(p => p.Plan == 1) ? Lang.T("FREE") : Lang.T("IN YOUR PLAN");

@@ -346,7 +346,6 @@ public sealed class LookTests
         {
             var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings));
             Assert.Equal("general", vm.Tab);
-            // Ask RigSight is a tab with the AI preview on, as in every test copy (Core.Ai.AiPreview).
             bool[] Flags() => [vm.IsGeneral, vm.IsAppearance, vm.IsTracking, vm.IsSensors, vm.IsNotifications, vm.IsAi, vm.IsHistory, vm.IsRewind, vm.IsAbout];
             for (int i = 0; i < 9; i++)
             {
@@ -390,8 +389,7 @@ public sealed class LookTests
             try
             {
                 bool Shown(string text) => Visuals.Descendants<TextBlock>(window).Any(t => t.Text == text && t.IsVisible);
-                // "Admin rights" is the tenth, and only a standard account sees it. Ask RigSight shows with the AI preview
-                // on, as in every test copy.
+                // "Admin rights" is the tenth, and only a standard account sees it.
                 var every = Visuals.Descendants<RadioButton>(window).Where(r => r.GroupName == "SettingsTab").ToList();
                 Assert.Equal(10, every.Count);
                 Assert.False(every[9].IsVisible);

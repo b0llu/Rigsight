@@ -64,6 +64,16 @@ public sealed record HeatRow(string Label, string Value, Brush? Brush = null);
 /// <summary>One line in "Can it run better?": an icon in the part's colour and one statement.</summary>
 public sealed record BetterLine(string Glyph, string Text, Brush? Brush);
 
+/// <summary>
+/// A line of "How it's set": a group's heading, or a setting named from the game's key with its value and NVIDIA's pick (empty
+/// without the NVIDIA App; "Not covered" when NVIDIA leaves the setting out).
+/// </summary>
+public sealed record SettingLine(bool IsGroup, string Label, string Value = "", string Pick = "", bool Differs = false, bool NotCovered = false)
+{
+    /// <summary>The third column's width: none without NVIDIA's pick, so the list never leaves an empty strip.</summary>
+    public System.Windows.GridLength PickWidth => new(Pick.Length > 0 ? 3 : 0, System.Windows.GridUnitType.Star);
+}
+
 /// <summary>One week's bar in "Play time".</summary>
 public sealed record WeekBar(string Label, string Value, double Height, bool Current);
 
@@ -744,7 +754,7 @@ public sealed partial class GamesViewModel : ObservableObject
         Fill(story);
         Opened = story;
         IsOpening = false;
-        OnPropertyChanged(nameof(GameName), nameof(GameInstalled), nameof(GameHasFolder), nameof(OpenedLive), nameof(OpenedNotRunning), nameof(ProblemsTitle), nameof(FpsEmpty), nameof(CanStartRtss), nameof(CanInstallRtss), nameof(BetterAsk), nameof(NoFpsAsk));
+        OnPropertyChanged(nameof(GameName), nameof(GameInstalled), nameof(GameHasFolder), nameof(OpenedLive), nameof(OpenedNotRunning), nameof(ProblemsTitle), nameof(FpsEmpty), nameof(CanStartRtss), nameof(CanInstallRtss), nameof(BetterAsk), nameof(NoFpsAsk), nameof(RunsAsk), nameof(SettingsAsk));
         await LoadSettingsAsync(story);
         await ShowRunsAsync();
     }
@@ -768,27 +778,84 @@ public sealed partial class GamesViewModel : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSettings))] private IReadOnlyList<HeatRow> _settingsRows = [];
     /// <summary>Which file they came from and when the game last saved it.</summary>
     [ObservableProperty] private string _settingsNote = "";
-    public bool HasSettings => SettingsRows.Count > 0;
+    /// <summary>Every graphics setting named from the game's keys, by group (the person's ask, 2026-10-27; approved mock-up).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSettings), nameof(HasSettingLines))] private IReadOnlyList<SettingLine> _settingLines = [];
+    /// <summary>Whether NVIDIA's pick is shown beside them (the NVIDIA App is on this PC and has one for the game).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(SettingsAskText), nameof(SettingsAskNote), nameof(PickColumnWidth))] private bool _hasNvidiaPick;
+    /// <summary>"2 settings differ from NVIDIA's pick for this PC at 2560 × 1440: anti-aliasing and shadow distance."</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSettingsDiff))] private string _settingsDiff = "";
+    public bool HasSettings => SettingsRows.Count > 0 || SettingLines.Count > 0;
+    public bool HasSettingLines => SettingLines.Count > 0;
+    public bool HasSettingsDiff => SettingsDiff.Length > 0;
+    public System.Windows.GridLength PickColumnWidth => new(HasNvidiaPick ? 3 : 0, System.Windows.GridUnitType.Star);
+    public string SettingsAskText => HasNvidiaPick ? Lang.T("Should I change any of these?") : Lang.T("Compare with recommended settings");
+    public string SettingsAskNote => HasNvidiaPick ? Lang.T("NVIDIA's pick is read from the NVIDIA App on this PC.")
+        : Lang.T("The AI looks up what guides and players online recommend for your graphics card.");
+    /// <summary>The question "How it's set" asks: with NVIDIA's pick, whether to change any; without, against what's recommended online.</summary>
+    public AiQuestion? SettingsAsk => Opened?.Entry is { } g
+        ? new(HasNvidiaPick ? Lang.T($"Should I change any of {g.Name}'s settings?") : Lang.T($"How do {g.Name}'s settings compare with what's recommended for my PC?"), AiPages.Games)
+        : null;
 
     /// <summary>"Ask how to make it run better": the question its AI button asks about the game that's open.</summary>
     public AiQuestion? BetterAsk => Opened?.Entry is { } g ? new(Lang.T($"How can I make {g.Name} run better?"), AiPages.Games) : null;
     /// <summary>No frame rate on record (RivaTuner wasn't running): what it can still say from the rest.</summary>
     public AiQuestion? NoFpsAsk => Opened?.Entry is { } g ? new(Lang.T($"How does {g.Name} run, from what you can see without a frame rate?"), AiPages.Games) : null;
+    /// <summary>"Explain this chart", beside How it runs' range: how the game runs and what pulls it down.</summary>
+    public AiQuestion? RunsAsk => Opened?.Entry is { } g ? new(Lang.T($"How does {g.Name} run, and what makes it drop when it does?"), AiPages.Games) : null;
 
     /// <summary>Reads the game's settings off the window's thread, then says them and lets "Can it run better?" use them.</summary>
     private async Task LoadSettingsAsync(GameStory story)
     {
         SettingsRows = [];
+        SettingLines = [];
         SettingsNote = "";
+        SettingsDiff = "";
+        HasNvidiaPick = false;
         var places = SettingsPlaces;
         var read = await Task.Run(() => GameSettings.Read(story.Entry, places));
         if (Opened != story) return;
         SettingsRows = [.. read.Facts.Select(f => new HeatRow(Lang.T(f.Label), Shown(f.Value)))];
-        if (read.Files.FirstOrDefault() is { } file)
-            SettingsNote = file.Path.StartsWith("HKEY_", StringComparison.Ordinal) ? Lang.T("From its saved preferences in Windows")
-                : Lang.T($"From {Path.GetFileName(file.Path)} · saved {file.Saved.ToString(TimeText.Fit("ddd d MMM"))}");
+        HasNvidiaPick = read.Nvidia is not null;
+        SettingLines = Lines(read);
+        SettingsDiff = DiffSentence(read);
+        SettingsNote = SourceNote(read);
+        OnPropertyChanged(nameof(SettingsAsk));
         var withFps = story.Plays.Where(p => p.Stats.Fps is not null).ToList();
         Better = BetterLines(story, withFps, read);
+    }
+
+    /// <summary>The settings by group, each group under its heading, with NVIDIA's pick when there is one.</summary>
+    private static List<SettingLine> Lines(GameSettingsRead read)
+    {
+        var lines = new List<SettingLine>();
+        foreach (var group in read.Rows.GroupBy(r => r.Group))
+        {
+            lines.Add(new(true, Lang.T(group.Key)));
+            foreach (var r in group)
+                lines.Add(new(false, r.Label, Shown(r.Value), read.Nvidia is null ? "" : r.Recommended is { } rec ? Shown(rec) : Lang.T("Not covered"),
+                    r.Differs, read.Nvidia is not null && r.Recommended is null));
+        }
+        return lines;
+    }
+
+    /// <summary>"2 settings differ from NVIDIA's pick for this PC at 2560 × 1440: anti-aliasing and shadow distance." Empty when none do.</summary>
+    internal static string DiffSentence(GameSettingsRead read)
+    {
+        if (read.Nvidia is not { } pick || read.Differing is not { Count: > 0 } diff) return "";
+        string names = Wording.JoinAnd(diff.Select(r => GameSettingNames.InSentence(r.Label)));
+        string size = pick.Resolution.Replace("x", " × ");
+        return diff.Count == 1 ? Lang.T($"1 setting differs from NVIDIA's pick for this PC at {size}: {names}.")
+            : Lang.T($"{diff.Count} settings differ from NVIDIA's pick for this PC at {size}: {names}.");
+    }
+
+    /// <summary>Where the settings came from and when the game last saved them: "From config.cfg and its saved preferences in Windows · saved Mon 26 Oct".</summary>
+    private static string SourceNote(GameSettingsRead read)
+    {
+        if (read.Files.Count == 0) return "";
+        var where = read.Files.OrderBy(f => f.Path.StartsWith("HKEY_", StringComparison.Ordinal))
+            .Select(f => f.Path.StartsWith("HKEY_", StringComparison.Ordinal) ? Lang.T("its saved preferences in Windows") : Path.GetFileName(f.Path)).Distinct().ToList();
+        string files = Wording.JoinAnd(where);
+        return read.Saved is { } saved && saved > DateTime.MinValue.AddYears(1) ? Lang.T($"From {files} · saved {saved.ToString(TimeText.Fit("ddd d MMM"))}") : Lang.T($"From {files}");
     }
 
     /// <summary>A setting's value in the language shown: "Borderless window", "Mostly Epic", "144 fps".</summary>
@@ -960,6 +1027,12 @@ public sealed partial class GamesViewModel : ObservableObject
                 : cap is double c ? Lang.T($"Your graphics card averaged {busy:0}% busy and {load}, so you can raise the settings and keep {c:0} fps.")
                 : Lang.T($"Your graphics card averaged {busy:0}% busy and {load}, so something else sets the pace, most likely the CPU.");
             lines.Add(new("", say, Brush("GpuBrush")));
+        }
+        // NVIDIA's pick for this PC, when the NVIDIA App has one and it differs from how the game is set.
+        if (set?.Nvidia is not null && set.Differing is { Count: > 0 } diff)
+        {
+            string names = Wording.JoinAnd(diff.Select(r => GameSettingNames.InSentence(r.Label)));
+            lines.Add(new("", diff.Count == 1 ? Lang.T($"NVIDIA's pick for this PC differs on 1 setting: {names}.") : Lang.T($"NVIDIA's pick for this PC differs on {diff.Count} settings: {names}."), Brush("AccentBrush")));
         }
         if (lines.Count == 0) lines.Add(new("", Lang.T("Not enough recorded yet to say. Play it with RivaTuner running to see its frame rate here."), Brush("FaintBrush")));
         return lines;

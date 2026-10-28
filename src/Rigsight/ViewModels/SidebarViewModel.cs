@@ -207,7 +207,7 @@ public sealed partial class SidebarViewModel : ObservableObject
     [
         ("home", Lang.Key("Home"), "", MainSection),
         ("reports", Lang.Key("Reports"), "", MainSection),
-        ("apps", Lang.Key("Apps"), "", MainSection),
+        ("apps", Lang.Key("Apps"), "", MainSection),
         ("games", Lang.Key("Games"), "", MainSection),
         ("processes", Lang.Key("Processes"), "", MainSection),
         ("crashes", Lang.Key("Crashes"), "", MainSection),

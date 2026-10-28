@@ -33,32 +33,6 @@ public partial class App : Application
                 new FrameworkPropertyMetadata(System.Windows.Markup.XmlLanguage.GetLanguage(LanguageStore.BindingLanguage(pack))));
         DispatcherUnhandledException += OnUnhandledException;
 
-        // "Rigsight.exe --ai-preview on|off": turns the AI helper's preview on or off for this PC, says so, and ends
-        // (the running app shows the change after a restart).
-        int preview = Array.FindIndex(e.Args, a => a.Equals("--ai-preview", StringComparison.OrdinalIgnoreCase));
-        if (preview >= 0)
-        {
-            string said;
-            if (Core.Ai.AiPreview.Parse(preview + 1 < e.Args.Length ? e.Args[preview + 1] : null) is not { } on)
-                said = Lang.T("Use --ai-preview on or --ai-preview off.");
-            else
-            {
-                try
-                {
-                    Core.Ai.AiPreview.Set(on);
-                    said = on ? Lang.T("The AI preview is on for this PC. Restart RigSight to see Ask RigSight.")
-                              : Lang.T("The AI preview is off for this PC. Restart RigSight to hide it.");
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    Log.Error("ai-preview", ex);
-                    said = Lang.T($"Couldn't change the AI preview. {ex.Message}");
-                }
-            }
-            MessageBox.Show(said, "RigSight", MessageBoxButton.OK, MessageBoxImage.Information);
-            Shutdown();
-            return;
-        }
         // Off the UI thread nothing above sees an error: one on a thread of its own ends the app, so it's logged first;
         // one in a task nobody waited on is logged and kept from mattering.
         AppDomain.CurrentDomain.UnhandledException += (_, ev) => { if (ev.ExceptionObject is Exception ex) Log.Error("app", ex); };
