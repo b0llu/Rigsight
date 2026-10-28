@@ -217,17 +217,27 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="kicker">RigSight blog</p>
   <h1>The RigSight log</h1>
   <p class="intro">Building a PC monitor that keeps your PC's history. What broke, what got fixed, and the AI helper it is growing into. And the PC problems RigSight catches, why they happen and how to fix them.</p>
-  <p class="starts">Start at the beginning with <a href="day-one">Day one, and 25 versions before midnight</a>.</p>
+  <p class="starts">Start at the beginning with <a href="day-one">Day one, and 25 versions before midnight</a> or <a href="riggy">part 1 of the AI journey</a>.</p>
 </section>
 <section class="wrap">
   <div class="filter" role="group" aria-label="Show posts from">
-    <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>12</span></button><button class="chip" type="button" data-series="build" aria-pressed="false">Building RigSight <span>6</span></button><button class="chip" type="button" data-series="fix" aria-pressed="false">PC problems <span>6</span></button>
+    <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>14</span></button><button class="chip" type="button" data-series="build" aria-pressed="false">Building RigSight <span>6</span></button><button class="chip" type="button" data-series="ai" aria-pressed="false">The AI journey <span>1</span></button><button class="chip" type="button" data-series="fix" aria-pressed="false">PC problems <span>7</span></button>
     <a class="rss" href="feed.xml">RSS</a>
   </div>
   <ol class="rows" id="rows">
     <li class="row" data-series="fix">
+  <a href="display-driver-stopped-responding">
+    <div class="thumb"><img class="" src="../img/blog/display-driver-stopped-responding.webp" srcset="../img/blog/display-driver-stopped-responding-600.webp 600w, ../img/blog/display-driver-stopped-responding.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Crashes page for a month: tiles for app and game crashes, graphics driver resets, and blue screens and sudden shut-offs, a timeline of problems and a list of what went wrong" fetchpriority="high" decoding="async"></div>
+    <div class="row-text">
+      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Crashes</p>
+      <h2>Why my display driver stopped responding and has recovered</h2>
+      <p class="sum">"Display driver stopped responding and has recovered" means the graphics card took too long to answer and Windows reset its driver. How RigSight caught the resets on my own PC, what LiveKernelEvent 141 and nvlddmkm events mean, and how to fix it.</p>
+      <p class="meta">28 October 2026 · 7 min read</p>
+    </div>
+  </a>
+</li><li class="row" data-series="fix">
   <a href="game-crashes-to-desktop-no-error">
-    <div class="thumb"><img class="" src="../img/blog/game-crashes-to-desktop-no-error.webp" srcset="../img/blog/game-crashes-to-desktop-no-error-600.webp 600w, ../img/blog/game-crashes-to-desktop-no-error.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="An opened game crash in RigSight marked Confirmed. The NVIDIA graphics driver failed while running the game, with what to try, what it wasn&#x27;t and the minutes around the crash" fetchpriority="high" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/game-crashes-to-desktop-no-error.webp" srcset="../img/blog/game-crashes-to-desktop-no-error-600.webp 600w, ../img/blog/game-crashes-to-desktop-no-error.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="An opened game crash in RigSight marked Confirmed. The NVIDIA graphics driver failed while running the game, with what to try, what it wasn&#x27;t and the minutes around the crash" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Crashes</p>
       <h2>Game crashes to desktop with no error? How RigSight finds why</h2>
@@ -283,6 +293,16 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
       <h2>FPS drops in games and how to catch what causes them</h2>
       <p class="sum">FPS drops in games come from heat, background apps, power settings, drivers, a full graphics memory or a frame cap. How RigSight records every play so you can see which one, and how to fix it.</p>
       <p class="meta">26 October 2026 · 7 min read</p>
+    </div>
+  </a>
+</li><li class="row" data-series="ai">
+  <a href="riggy">
+    <div class="thumb"><img class="" src="../img/blog/riggy.webp" srcset="../img/blog/riggy-600.webp 600w, ../img/blog/riggy.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Kinds of question Riggy knew: 17, each answer written ahead of time. Time it was out: 2 days, then removed" loading="lazy" decoding="async"></div>
+    <div class="row-text">
+      <p class="eyebrow"><span class="dot s-ai"></span>The AI journey, part 1 of 5</p>
+      <h2>Riggy, the helper I shipped and removed two days later</h2>
+      <p class="sum">The first try at letting you ask RigSight questions. It was clever, it was careful, and it wasn't really AI. So it went.</p>
+      <p class="meta">6 October 2026 · 3 min read</p>
     </div>
   </a>
 </li><li class="row" data-series="build">

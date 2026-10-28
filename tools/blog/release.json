@@ -12,11 +12,11 @@
   "gpu-hotspot-temperature": "2026-10-26",
   "fps-drops-in-games": "2026-10-26",
   "game-crashes-to-desktop-no-error": "2026-10-27",
-  "quiet-bugs": "2026-10-27"
+  "quiet-bugs": "2026-10-27",
+  "display-driver-stopped-responding": "2026-10-28",
+  "riggy": "2026-10-28"
  },
  "queue": [
-  "display-driver-stopped-responding",
-  "riggy",
   "normal-cpu-temperature-while-gaming",
   "honest-charts",
   "gpu-not-at-100-usage-low-fps",
@@ -55,7 +55,6 @@
   "check-fan-speed-pc",
   "check-gpu-temperature-history",
   "did-windows-update-cause-crashes",
-  "display-driver-stopped-responding",
   "free-pc-monitoring-software",
   "games-crashing-after-driver-update",
   "gpu-fan-not-spinning",
