@@ -175,4 +175,24 @@
       try { navigator.clipboard.writeText(text).then(function () { say('Copied'); }, pick); } catch (e) { pick(); }
     });
   });
+  // Ask RigSight's example questions: each shows its own answer in the chat beside them.
+  document.querySelectorAll('[data-ask]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('[data-ask]').forEach(function (o) {
+        var on = o === b;
+        o.setAttribute('aria-pressed', on ? 'true' : 'false');
+        var p = document.getElementById('ask-' + o.dataset.ask);
+        if (p) p.hidden = !on;
+      });
+      count('Ask example: ' + b.dataset.ask);
+    });
+  });
+  // The plans' Monthly / Yearly switch: Yearly when the page opens, as in the app.
+  document.querySelectorAll('[data-bill] button[data-bill]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var plans = document.getElementById('plans');
+      plans.setAttribute('data-bill', b.dataset.bill);
+      plans.querySelectorAll('button[data-bill]').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+    });
+  });
 })();

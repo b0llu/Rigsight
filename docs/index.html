@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>RigSight: Free PC Monitoring App for Windows That Keeps History</title>
-  <meta name="description" content="Free PC monitoring app for Windows. RigSight records CPU and GPU temperatures, app usage and screen time, internet use and crashes all day, with reports for any day, week or month." />
+  <meta name="description" content="Free PC monitoring app for Windows. RigSight records CPU and GPU temperatures, app usage and screen time, internet use and crashes all day, with reports for any day, week or month, and an AI that answers from that history." />
   <meta name="theme-color" content="#000000" />
   <meta name="color-scheme" content="dark" />
   <link rel="canonical" href="https://rigsight.app/" />
@@ -14,7 +14,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="RigSight" />
   <meta property="og:title" content="RigSight: Free PC Monitoring App for Windows That Keeps History" />
-  <meta property="og:description" content="A free PC monitor for Windows that records temperatures, app usage, internet use and crashes all day and keeps them as history." />
+  <meta property="og:description" content="A free PC monitor for Windows that records temperatures, app usage, internet use and crashes all day, keeps them as history, and answers your questions about them." />
   <meta property="og:url" content="https://rigsight.app/" />
   <meta property="og:image" content="https://rigsight.app/img/og.png" />
   <meta property="og:image:width" content="1200" />
@@ -22,7 +22,7 @@
   <meta property="og:image:alt" content="RigSight, a free PC monitor for Windows, with its Reports page showing a day of CPU and GPU temperatures minute by minute" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="RigSight: Free PC Monitoring App for Windows That Keeps History" />
-  <meta name="twitter:description" content="A free PC monitor for Windows that records temperatures, app usage, internet use and crashes all day and keeps them as history." />
+  <meta name="twitter:description" content="A free PC monitor for Windows that records temperatures, app usage, internet use and crashes all day, keeps them as history, and answers your questions about them." />
   <meta name="twitter:image" content="https://rigsight.app/img/og.png" />
   <link rel="preload" href="fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" as="image" href="img/pages/reports-day-720.webp" imagesrcset="img/pages/reports-day-720.webp 720w, img/pages/reports-day.webp 1424w" imagesizes="(max-width: 640px) 92vw, (max-width: 1148px) 100vw, 1100px" fetchpriority="high" />
@@ -430,7 +430,62 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
 .skip { position: absolute; left: 12px; top: -60px; z-index: 100; background: var(--btn); color: var(--btn-fg); padding: 10px 14px; border-radius: 10px; font-weight: 600; text-decoration: none; }
 .skip:focus { top: 12px; }
 
-  </style>
+  
+/* Ask RigSight (the AI release): the chat drawn as the app draws it, the plans, the trial line. */
+:root { --ai: #e879f9; --ai-soft: rgba(232,121,249,.08); --ai-line: rgba(232,121,249,.28); }
+.label.ai { color: var(--ai); }
+.ai-sp { width: 13px; height: 13px; stroke: var(--ai); fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; flex: none; }
+.ticks.ai li::before { background: var(--ai); }
+.qs { display: flex; flex-wrap: wrap; gap: 8px; }
+.qs button { font: 400 14px/1.4 var(--body); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 6px 13px; color: var(--muted); background: rgba(255,255,255,.02); cursor: pointer; text-align: left; transition: border-color .15s, color .15s, background .15s; }
+.qs button:hover { color: var(--fg); border-color: rgba(255,255,255,.3); }
+.qs button[aria-pressed="true"] { color: var(--fg); border-color: var(--ai-line); background: var(--ai-soft); }
+.qs button:focus-visible { outline: 2px solid var(--ai); outline-offset: 2px; }
+.ask-ex[hidden] { display: none; }
+.askchat .body { min-height: 380px; }
+.askchat { margin: 0; background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.85); font-size: 14.5px; line-height: 1.55; }
+.askchat .bar { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid #1f1f1f; font-size: 13px; font-weight: 600; }
+.askchat .bar .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.askchat .bar .pill { font-weight: 400; font-size: 11.5px; color: var(--muted); background: #161616; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.askchat .body { padding: 16px 16px 6px; }
+.askchat .q { margin-left: auto; width: fit-content; max-width: 85%; background: #161616; border-radius: 12px; padding: 9px 13px; }
+.askchat .looked { margin: 12px 0 8px; font-size: 12px; color: var(--faint); }
+.askchat .a p { color: #e6e6e6; margin: 0 0 9px; }
+.askchat .a b { color: #fff; font-weight: 600; }
+.askchat .acts { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 12px; }
+.askchat .acts span { font-size: 12.5px; border: 1px solid #2a2a2a; background: #161616; border-radius: 8px; padding: 5px 10px; }
+.askchat .src { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.askchat .src span { font-size: 11.5px; color: var(--muted); background: #121212; border: 1px solid #1f1f1f; border-radius: 999px; padding: 2px 8px; }
+.askchat .foot { border-top: 1px solid #1f1f1f; padding: 10px 12px; display: flex; gap: 8px; align-items: center; color: var(--faint); font-size: 13.5px; }
+.askchat .foot .box { flex: 1; background: #161616; border: 1px solid #1f1f1f; border-radius: 10px; padding: 8px 12px; }
+.askchat .foot .send { width: 30px; height: 30px; border-radius: 9px; background: #fff; color: #000; display: grid; place-items: center; font-weight: 700; }
+.plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.plan { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; display: grid; gap: 8px; align-content: start; }
+.plan.hi { border-color: var(--ai-line); background: linear-gradient(180deg, rgba(232,121,249,.07), var(--surface) 60%); }
+.plan .n { color: var(--muted); font-size: 15px; }
+.plan .p { font: 600 44px/1 var(--display); letter-spacing: -0.045em; }
+.plan .p small { font: 400 15px var(--body); color: var(--faint); letter-spacing: 0; }
+/* The chip sits on the card's top edge, as the app's "Best value" does, so every card's name and price line up. */
+.plan { position: relative; }
+.plan .tag { position: absolute; top: -11px; left: 22px; font: 600 11.5px var(--body); border-radius: 6px; padding: 2px 8px; background: var(--ai); color: #000; }
+.plan ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 8px; }
+.plan li { color: var(--muted); font-size: 15px; padding-left: 20px; position: relative; }
+.plan li::before { content: ""; position: absolute; left: 0; top: .78em; width: 8px; height: 1px; background: var(--faint); }
+.trial-line { margin-top: 14px; border: 1px solid var(--ai-line); background: var(--ai-soft); border-radius: 14px; padding: 16px 20px; display: flex; gap: 16px; align-items: center; }
+.trial-line .d { width: 44px; height: 44px; border-radius: 11px; border: 1px solid var(--ai-line); display: grid; place-items: center; color: var(--ai); font: 600 20px var(--display); flex: none; }
+.trial-line p { margin: 0; color: var(--muted); }
+.trial-line b { color: var(--fg); font-weight: 500; }
+.plans-note { margin-top: 16px; color: var(--faint); font-size: 14px; }
+/* Monthly / Yearly, as in the app: Yearly first, nothing beside the switch, the saving on each card. */
+.bill { display: flex; justify-content: center; margin: 0 0 18px; }
+.bill div { display: inline-flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
+.bill button { font: 500 14px var(--body); color: var(--muted); background: none; border: 0; border-radius: 999px; padding: 7px 18px; cursor: pointer; }
+.bill button[aria-pressed="true"] { background: var(--fg); color: #000; font-weight: 600; }
+.plan .billed { color: var(--faint); font-size: 13.5px; min-height: 1.5em; }
+.plan .billed em { font-style: normal; color: var(--good); }
+#plans[data-bill="month"] .yr, #plans:not([data-bill="month"]) .mo { display: none; }
+@media (max-width: 960px) { .plans { grid-template-columns: minmax(0, 1fr); } }
+</style>
   <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -484,7 +539,23 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
       "name": "Is it really free?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. RigSight is free and open source under the MIT license. No trial, no premium tier, no ads."
+        "text": "Yes. The app is free and open source under the MIT license: every page, every reading and all your history, with no ads. Ask RigSight, the AI helper, has a free plan of 10 questions a week and paid plans for more, and every PC gets Complete free for 7 days from its first question. You can also use your own API key, or Ollama on your own PC."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does the AI send, and where?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Only when you ask it something: your question and the records that question needs, from the parts you leave switched on. Never your files, your Windows user name or your licence key. With RigSight AI it goes through RigSight's server to the AI model; with your own API key, straight to that service; with Ollama on your PC, nowhere."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I have to use the AI?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Everything else works without it. Turn it off in Settings, Ask RigSight, and nothing is sent and its buttons are gone."
       }
     },
     {
@@ -577,7 +648,7 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
       <div class="hero-copy">
         <img class="hero-logo hero-logo-lg" src="img/logo-144.webp" alt="" width="80" height="80">
         <h1 aria-label="RigSight"><span class="ltr" style="--i:0">R</span><span class="ltr" style="--i:1">i</span><span class="ltr" style="--i:2">g</span><span class="ltr" style="--i:3">s</span><span class="ltr" style="--i:4">i</span><span class="ltr" style="--i:5">g</span><span class="ltr" style="--i:6">h</span><span class="ltr" style="--i:7">t</span></h1>
-        <p class="lead step" style="--d:.45s">Know your rig. A free PC monitor for Windows that records your temperatures, app time, internet use and crashes all day, and keeps them as history.</p>
+        <p class="lead step" style="--d:.45s">Know your rig. A free PC monitor for Windows that records your temperatures, app time, internet use and crashes all day, keeps them as history, and answers your questions about them.</p>
         <div class="cta step" style="--d:.6s">
           <a class="btn btn-primary" data-download href="https://github.com/b0llu/Rigsight/releases/latest">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zm8.3 1.2L21 21.5v-8.6h-9.7zm0-16.2v7.3H21V2.5z"/></svg>
@@ -601,7 +672,7 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
         <div class="spec"><b>~0.02%</b><span>of the CPU in the background, on our test PC</span></div>
         <div class="spec"><b>Every minute</b><span>kept, for as long as you like</span></div>
         <div class="spec"><b>Every sensor</b><span>temperatures, fans, clocks, power, voltages, drives</span></div>
-        <div class="spec"><b>0 bytes</b><span>of your data sent anywhere. No account.</span></div>
+        <div class="spec"><b>Only if you ask</b><span>Nothing leaves your PC unless you ask the AI, and you pick where it goes.</span></div>
       </div>
     </div>
   </section>
@@ -622,12 +693,94 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
             <tr><td>Any past day, minute by minute</td><td class="no" data-label="Live monitors">No</td><td class="us yes" data-label="RigSight">Any day, week, month or year</td></tr>
             <tr><td>Which app was in front at the time</td><td class="no" data-label="Live monitors">No</td><td class="us yes" data-label="RigSight">Yes, on the same chart</td></tr>
             <tr><td>Why a game or the PC crashed</td><td class="no" data-label="Live monitors">No</td><td class="us yes" data-label="RigSight">In plain words, with how sure it is</td></tr>
+            <tr><td>Ask why, and get an answer from your own records</td><td class="no" data-label="Live monitors">No</td><td class="us yes" data-label="RigSight">Ask RigSight, with the next step</td></tr>
             <tr><td>Internet use per app over weeks</td><td class="no" data-label="Live monitors">Task Manager shows current use</td><td class="us yes" data-label="RigSight">Every day, split into in use, background and away</td></tr>
             <tr><td>Numbers inside a fullscreen game</td><td class="yes" data-label="Live monitors">MSI Afterburner, through RivaTuner</td><td class="us yes" data-label="RigSight">Yes, through RivaTuner</td></tr>
           </tbody>
         </table>
       </div>
       <p class="cmp-note">Live monitors are great tools and many people keep one open. RigSight is for the questions you ask later: did it overheat last night, what was running when it froze, where did the time go.</p>
+    </div>
+  </section>
+
+  <section class="block" id="ask" style="padding-top:0">
+    <div class="wrap">
+      <div class="group">
+        <div class="head">
+          <p class="label ai">New · Ask RigSight</p>
+          <h2>Ask about any of it.</h2>
+        </div>
+        <article class="feature">
+          <div class="copy">
+            <p>RigSight already knows what your PC did, minute by minute. Ask in plain words and the answer comes from those records, with the next step and a button that does it.</p>
+            <ul class="ticks ai">
+              <li>Ctrl+K anywhere, or Explain on a crash, a chart or a game</li>
+              <li>Every answer says what it read, so you can check it on its page</li>
+              <li>RigSight AI, your own API key, or Ollama on your own PC</li>
+            </ul>
+            <div class="qs" role="group" aria-label="Example questions"><button type="button" data-ask="crash" aria-pressed="true" aria-controls="ask-crash">Why does Crimson Desert keep crashing?</button><button type="button" data-ask="shutoff" aria-pressed="false" aria-controls="ask-shutoff">Why did my PC shut off last night?</button><button type="button" data-ask="temps" aria-pressed="false" aria-controls="ask-temps">Are my temperatures normal?</button><button type="button" data-ask="stutter" aria-pressed="false" aria-controls="ask-stutter">Why does it stutter in REMATCH?</button></div>
+          </div>
+          <figure class="askchat" aria-label="An answer from Ask RigSight, for the question picked beside it" aria-live="polite">
+            <div class="ask-ex" id="ask-crash">
+              <div class="bar"><svg class="ai-sp" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,3 L19,7 M17,5 L21,5"/></svg><span class="t">Why does Crimson Desert keep crashing?</span><span class="pill">Complete trial · 6 days left</span></div>
+              <div class="body">
+                <div class="q">Why does Crimson Desert keep crashing?</div>
+                <div class="looked">Looked at Crashes, Temperatures and Timeline · 6 s</div>
+                <div class="a">
+                  <p>All <b>3 crashes this month</b> stopped inside <b>nvwgf2umx.dll</b>, a file of NVIDIA's graphics driver, so the driver is failing, not the game. Windows' own record names it, so this is <b>Confirmed</b>.</p>
+                  <p>It isn't heat: the GPU was at <b>71 °C</b> at the last one, well under its limit, and memory was 58% full. Nothing changed the week before.</p>
+                  <p><b>Next step:</b> do a clean install of the NVIDIA driver, and if the card is overclocked, go back to stock clocks.</p>
+                </div>
+                <div class="acts"><span>Open Crashes</span><span>Open NVIDIA App</span></div>
+                <div class="src"><span>Crashes · 3 this month</span><span>Temperatures · 7 Oct</span><span>Timeline</span></div>
+              </div>
+            </div>
+            <div class="ask-ex" id="ask-shutoff" hidden>
+              <div class="bar"><svg class="ai-sp" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,3 L19,7 M17,5 L21,5"/></svg><span class="t">Why did my PC shut off last night?</span><span class="pill">Complete trial · 6 days left</span></div>
+              <div class="body">
+                <div class="q">Why did my PC shut off last night?</div>
+                <div class="looked">Looked at Crashes, Temperatures and Reports · 5 s</div>
+                <div class="a">
+                  <p>It lost power at <b>11:42 PM</b> while <b>Counter-Strike 2</b> was running. That wasn't Windows crashing: there was no blue screen, and Windows wrote <b>Kernel-Power 41</b>, which means the power was cut.</p>
+                  <p>It wasn't heat either: a minute before, the CPU was at <b>71 °C</b> and the GPU at <b>68 °C</b>, normal for this PC in that game.</p>
+                  <p><b>Next step:</b> check the power cable and the socket or power strip. If it happens again while gaming, the power supply may be struggling under load.</p>
+                </div>
+                <div class="acts"><span>Open Crashes</span></div>
+                <div class="src"><span>Crashes · last night</span><span>Temperatures · 11:41 PM</span><span>Reports</span></div>
+              </div>
+            </div>
+            <div class="ask-ex" id="ask-temps" hidden>
+              <div class="bar"><svg class="ai-sp" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,3 L19,7 M17,5 L21,5"/></svg><span class="t">Are my temperatures normal?</span><span class="pill">Complete trial · 6 days left</span></div>
+              <div class="body">
+                <div class="q">Are my temperatures normal?</div>
+                <div class="looked">Looked at Temperatures and Reports · 4 s</div>
+                <div class="a">
+                  <p>Yes. In games the CPU tops out around <b>71 °C</b> and the GPU around <b>68 °C</b>. In Counter-Strike 2 this month the GPU ran at <b>65°</b>, inside its usual <b>66–71°</b> at the same power.</p>
+                  <p>The hottest reading this week was the GPU hot spot at <b>79 °C</b>, also in Counter-Strike 2, still well under its limit. Idle, both sit in the 40s.</p>
+                  <p><b>Next step:</b> nothing to do. RigSight warns you if one stays hot.</p>
+                </div>
+                <div class="acts"><span>Open Temperatures</span></div>
+                <div class="src"><span>Temperatures · 7 days</span><span>Reports · October</span></div>
+              </div>
+            </div>
+            <div class="ask-ex" id="ask-stutter" hidden>
+              <div class="bar"><svg class="ai-sp" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,3 L19,7 M17,5 L21,5"/></svg><span class="t">Why does it stutter in REMATCH?</span><span class="pill">Complete trial · 6 days left</span></div>
+              <div class="body">
+                <div class="q">Why does it stutter in REMATCH?</div>
+                <div class="looked">Looked at Games and Temperatures · 5 s</div>
+                <div class="a">
+                  <p>Over your last 5 plays REMATCH averaged <b>141 fps</b>, but had <b>38 stutters</b> over 50 ms, most in the first minute of each match, while it loads the stadium.</p>
+                  <p>The graphics card sits at <b>97%</b> the rest of the time, so it sets the pace. It isn't heat: the GPU stays at 66 °C.</p>
+                  <p><b>Next step:</b> lower Shadows from Epic to High, or turn on DLSS Quality. That frees the card for the frames that drop.</p>
+                </div>
+                <div class="acts"><span>Open REMATCH on Games</span></div>
+                <div class="src"><span>Games · 5 plays</span><span>Temperatures</span></div>
+              </div>
+            </div>
+            <div class="foot"><span class="box">Ask a follow-up…</span><span class="send">↑</span></div>
+          </figure>
+        </article>
+      </div>
     </div>
   </section>
 
@@ -739,8 +892,9 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
             <h3>Every game on your PC, from any launcher.</h3>
             <p>Steam, Epic, Riot, GOG, Ubisoft, EA and Battle.net in one library with their covers. Open a game for how it runs on your PC, play after play.</p>
             <ul class="ticks">
-              <li>Frame rate and 1% low for every play, and whether a driver or the game's own update changed them</li>
+              <li>Every frame of every play, with true 1% and 0.1% lows and each stutter, and whether a driver or the game's own update changed them</li>
               <li>Can it run better: whether your graphics card, a frame cap or the CPU sets the pace, and how smooth it plays</li>
+              <li>How it's set: resolution, upscaling, frame cap and every other setting the game keeps, and what NVIDIA would change</li>
               <li>Play, open its folder or uninstall it through its own launcher</li>
             </ul>
             <div class="tabs" role="tablist" aria-label="Games pictures">
@@ -912,12 +1066,12 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
         <div class="privacy-top">
           <div>
             <p class="huge">0 bytes</p>
-            <p class="big-cap" style="margin-top:14px">of your data sent anywhere.</p>
+            <p class="big-cap" style="margin-top:14px">sent anywhere unless you ask the AI.</p>
           </div>
           <div class="right">
             <p class="label">Privacy</p>
-            <h2 style="font-size:clamp(30px,3.6vw,46px)">Your data never leaves your PC.</h2>
-            <p class="sub">No account. No telemetry. The only thing RigSight checks online is whether there's a new version. Everything else lives in one folder on your PC, and you can clear it with one click.</p>
+            <h2 style="font-size:clamp(30px,3.6vw,46px)">Your records stay on your PC. Unless you ask.</h2>
+            <p class="sub">No account. No telemetry. RigSight checks online for new versions, and sends nothing else unless you ask the AI a question: then only the records that question needs, to the AI you chose. Turn the AI off and nothing is ever sent. Everything lives in one folder on your PC, and you can clear it with one click. <a href="privacy.html">Privacy policy</a></p>
           </div>
         </div>
         <div class="lists">
@@ -942,6 +1096,25 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
           </div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="block" id="plans" style="padding-top:40px" data-bill="year">
+    <div class="wrap">
+      <div class="head">
+        <p class="label ai">Plans for Ask RigSight</p>
+        <h2><span class="dim">The app is free.</span><br>So is asking, to start.</h2>
+        <p class="sub">Every page, every reading and all your history are free, for good. Plans are only for how many questions RigSight AI answers, and how much of your PC it can read.</p>
+      </div>
+      <div class="bill"><div role="group" aria-label="Billing"><button type="button" data-bill="month" aria-pressed="false">Monthly</button><button type="button" data-bill="year" aria-pressed="true">Yearly</button></div></div>
+      <div class="plans">
+        <div class="plan"><span class="n">Free</span><span class="p">$0</span><span class="billed"></span><ul><li>10 questions a week</li><li>Home, your PC's parts, temperatures, what's running, widgets, overlay and taskbar</li></ul></div>
+        <div class="plan"><span class="n">Essentials</span><span class="p"><span class="yr">$4.17</span><span class="mo">$4.99</span><small> a month</small></span><span class="billed"><span class="yr"><s>$4.99</s> · $49.99 billed once a year · <em>save $9.89</em></span></span><ul><li>100 questions a day</li><li>Adds crashes, memory, storage, reports and games</li><li>Searches the web for your parts, drivers and games</li></ul></div>
+        <div class="plan hi"><span class="tag">7 days free</span><span class="n">Complete</span><span class="p"><span class="yr">$8.33</span><span class="mo">$9.99</span><small> a month</small></span><span class="billed"><span class="yr"><s>$9.99</s> · $99.99 billed once a year · <em>save $19.89</em></span></span><ul><li>300 questions a day</li><li>Everything RigSight records</li><li>Searches the web</li></ul></div>
+      </div>
+      <div class="trial-line"><span class="d">7</span><p><b>Try Complete free for 7 days.</b> It starts with your first question, then goes back to Free. No card, nothing to cancel.</p></div>
+      <p class="plans-note">Changed your mind? Email <a href="mailto:support@rigsight.app">support@rigsight.app</a> within 7 days of paying for a full refund.</p>
+      <p class="plans-note">Or skip plans: use your own API key from OpenRouter, OpenAI, Anthropic, Google and more, or Ollama on your own PC, with no limits from RigSight.</p>
     </div>
   </section>
 
@@ -972,7 +1145,7 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
       <ol class="install-steps">
         <li><span class="n">1</span><h3>Download</h3><p>Free, with no account and no ads.</p></li>
         <li><span class="n">2</span><h3>Install</h3><p>Accept the one admin prompt. Windows only lets programs with admin rights read CPU and motherboard sensors and each app's internet use, so the small background part runs as admin; the window doesn't, and you're asked once. Keep PawnIO and RivaTuner ticked if it offers them.</p></li>
-        <li><span class="n">3</span><h3>Use your PC as usual</h3><p>Open RigSight whenever you're curious. The history is already there, and new versions install themselves.</p></li>
+        <li><span class="n">3</span><h3>Use your PC as usual</h3><p>Open RigSight whenever you're curious. The history is already there to look at or ask about, and new versions install themselves.</p></li>
       </ol>
     </div>
   </section>
@@ -981,7 +1154,9 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
     <div class="wrap faq">
       <div class="head" style="margin:0"><p class="label">FAQ</p><h2>Questions</h2></div>
       <div class="faq-list">
-        <details><summary>Is it really free?</summary><p>Yes. RigSight is free and open source under the MIT license. No trial, no premium tier, no ads.</p></details>
+        <details><summary>Is it really free?</summary><p>Yes. The app is free and open source under the MIT license: every page, every reading and all your history, with no ads. Ask RigSight, the AI helper, has a free plan of 10 questions a week and paid plans for more, and every PC gets Complete free for 7 days from its first question. You can also use your own API key, or Ollama on your own PC.</p></details>
+        <details><summary>What does the AI send, and where?</summary><p>Only when you ask it something: your question and the records that question needs, from the parts you leave switched on. Never your files, your Windows user name or your licence key. With RigSight AI it goes through RigSight's server to the AI model; with your own API key, straight to that service; with Ollama on your PC, nowhere. <a href="privacy.html">Privacy policy</a></p></details>
+        <details><summary>Do I have to use the AI?</summary><p>No. Everything else works without it. Turn it off in Settings, Ask RigSight, and nothing is sent and its buttons are gone.</p></details>
         <details><summary>How is it different from HWiNFO or MSI Afterburner?</summary><p>Hardware monitors like HWiNFO, HWMonitor and MSI Afterburner show what your PC is doing right now. RigSight reads the same kind of sensors but records them all day, so you can open any past day and see what happened, minute by minute.</p></details>
         <details><summary>Can it show how long I use each app?</summary><p>Yes. RigSight is also a screen time and app usage tracker for Windows: it reports how long each app and game was in use, in the background or minimized, for any day, week, month or year.</p></details>
         <details><summary>Will it slow my games down?</summary><p>No. On our test PC (Ryzen 7 5700X3D) it uses about 0.02% of the CPU in the background, about half a percent of one core, and runs at low priority, so your games come first.</p></details>
@@ -1023,7 +1198,7 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
 </footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="app.js?v=1.0.1" defer></script>
+<script src="app.js?v=1.0.3" defer></script>
 <!-- Visit counts for this website only (Umami: no cookies, nothing that says who you are). The app itself sends nothing. -->
 <script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

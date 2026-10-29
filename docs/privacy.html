@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Privacy policy · RigSight</title>
-  <meta name="description" content="What RigSight records, where it keeps it, and the one thing it checks online." />
+  <meta name="description" content="What RigSight records, where it keeps it, what it checks online, and what Ask RigSight sends when you ask it a question." />
   <meta name="theme-color" content="#000000" />
   <meta name="color-scheme" content="dark" />
   <link rel="canonical" href="https://rigsight.app/privacy.html" />
@@ -40,6 +40,7 @@ h1 { font-size: clamp(36px, 6vw, 56px); line-height: 1.05; letter-spacing: -0.04
 .short { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px; margin-bottom: 44px; font-size: 18px; }
 .short p { margin: 0; }
 h2 { font-size: 22px; letter-spacing: -0.02em; font-weight: 600; margin: 44px 0 10px; }
+h3 { font-size: 17px; letter-spacing: -0.01em; font-weight: 600; margin: 26px 0 6px; }
 p, li { color: var(--muted); }
 p strong, li strong { color: var(--fg); font-weight: 600; }
 ul { padding-left: 20px; }
@@ -60,10 +61,10 @@ footer a { color: var(--muted); }
 <main>
 <div class="wrap">
   <h1>Privacy policy</h1>
-  <p class="date">Last updated 19 October 2026</p>
+  <p class="date">Last updated 28 October 2026</p>
 
   <div class="short">
-    <p>Everything RigSight records stays on your PC. There is no account, no ads and no usage tracking, and none of your readings, apps or history are ever sent anywhere. The only things the app does online on its own are asking GitHub whether there's a new version and, if you use RigSight in another language, fetching that language's file to go with an update. You can turn both off.</p>
+    <p>Everything RigSight records stays on your PC. There is no account, no ads and no usage tracking. Your readings, apps and history leave your PC only when you ask Ask RigSight, the AI helper, a question, and then only the records that question needs, sent where you chose. The only other things the app does online on its own are asking GitHub whether there's a new version and, if you use RigSight in another language, fetching that language's file to go with an update. You can turn all of these off.</p>
   </div>
 
   <h2>What RigSight records</h2>
@@ -73,16 +74,53 @@ footer a { color: var(--muted); }
   <h2>Where it's kept</h2>
   <p>All of it is kept in a file in your own Windows user folder, on your PC. Nobody else, including us, can see it. You choose how long history is kept in Settings, and you can clear it all from there at any time.</p>
 
-  <h2>The one thing it checks online</h2>
+  <h2>What it checks online by itself</h2>
   <p>With <strong>Update automatically</strong> on (Settings, About), RigSight asks GitHub for the latest version about once a day. Turn it off and, from version 0.27.0, RigSight never asks by itself: only when you press <strong>Check for updates</strong>. That request carries RigSight's version number and, like any request on the internet, your IP address. Nothing RigSight has recorded goes with it.</p>
   <p>When a new version is out, its installer is downloaded from GitHub: by itself if <strong>Update automatically</strong> is on, or when you press Update if it's off. GitHub's handling of these requests is covered by the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub General Privacy Statement</a>.</p>
   <p>RigSight is in English unless you pick another language in Settings. Picking one downloads that language's file from GitHub, only then. If you use another language, its file for a new version is downloaded together with the update, and once more after it if that didn't work, but only if <strong>Update automatically</strong> is on. These requests, like the update check, carry RigSight's version number and your IP address, and nothing RigSight has recorded.</p>
+
+  <h2>Ask RigSight, the AI helper</h2>
+  <p>Ask RigSight answers questions about your PC from what RigSight has recorded. Nothing is sent for it until you have read what it sends and pressed <strong>Start asking</strong>. You can turn it off in Settings, Ask RigSight, and then nothing is sent and its buttons are gone.</p>
+
+  <h3>What one question sends</h3>
+  <ul>
+    <li><strong>Your question</strong> and the earlier messages in that conversation.</li>
+    <li><strong>The records the answer needs</strong>, looked up for that question only, such as your temperatures for the last 7 days or your parts' names. Only from the parts you leave switched on in Settings, Ask RigSight.</li>
+    <li><strong>App and game names</strong>, and the names of their program files when a crash record has them (like UnityPlayer.dll).</li>
+    <li><strong>Folder names and sizes</strong> only for a drive you press Scan for.</li>
+  </ul>
+  <p>It never sends your Windows user name, your licence key, or your own files: not their names and not what's in them.</p>
+
+  <h3>Where it goes</h3>
+  <p>That depends on how you choose to answer, in Settings, Ask RigSight:</p>
+  <ul>
+    <li><strong>RigSight AI</strong> (the default): your question and its records go through RigSight's server to <a href="https://openrouter.ai/privacy">OpenRouter</a>, which passes them to the company that runs the AI model (today Anthropic's Claude). OpenRouter keeps the question, the answer and the records it read for at least 3 months, and never uses them for training; to have them deleted, write to support@openrouter.ai. On Essentials and Complete, the answer can also search the web: the search words go to <a href="https://parallel.ai/privacy-policy">Parallel</a>, and never your name or files.</li>
+    <li><strong>Your own API key</strong>: your question and its records go straight to the service you picked (OpenRouter, OpenAI, Anthropic, Google and others), with your key, under that service's own terms. They don't go to RigSight's server. So the answer can offer a button for a tool you have, the names of PC tools installed (like the NVIDIA App or MSI Afterburner) go too, unless you switch Apps off. Your keys are kept on your PC, locked to your Windows account, and are only ever sent to their own service.</li>
+    <li><strong>Ollama on this PC</strong>: nothing leaves your PC.</li>
+    <li><strong>Ollama on another computer</strong>: your question and its records go to that computer, and nowhere else.</li>
+  </ul>
+
+  <h3>What is kept, and where</h3>
+  <ul>
+    <li><strong>On your PC:</strong> your conversations, for 30 days unless you choose otherwise in Settings, Ask RigSight, where you can also clear them all.</li>
+    <li><strong>On RigSight's server</strong>, for RigSight AI only: an ID for your PC, made by scrambling Windows' own ID for your Windows install so it can't lead back to you or your PC's name; your app version; when it was first and last seen; and for each question, when it was asked, on which plan, which kinds of records it looked at, what it cost and whether it was answered. <strong>Never the words of your question or of the answer.</strong> It also keeps your free trial's start and end, and how many questions you have left.</li>
+    <li><strong>If you press Helpful or Not helpful</strong> under an answer, that is kept on RigSight's server with that question's record, and for Not helpful, the reason you pick and any words you write (up to 500 characters), so we can make the answers better.</li>
+    <li>RigSight's server runs on <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare</a>, which handles every request and may log IP addresses for security. RigSight's server itself doesn't store your IP address.</li>
+  </ul>
+
+  <h3>When the app checks with RigSight's server</h3>
+  <p>With RigSight AI, after you've pressed Start asking, the app asks RigSight's server how many questions you have left, when you open the chat and after each answer. That request carries your PC's ID, the app's version and your PC's local time (so a day ends at your midnight), and nothing RigSight has recorded.</p>
+
+  <h3>Plans and payments</h3>
+  <p>Plans are sold by <a href="https://www.lemonsqueezy.com/privacy">Lemon Squeezy</a>, which takes the payment and your card details. RigSight's server is told your email address, your plan, the payments and refunds, and your card's brand and last four digits, never the full card. Your licence key comes by email from Lemon Squeezy.</p>
 
   <h2>Things that only happen when you click</h2>
   <p>Some buttons open a web page in your browser. Nothing is sent unless you send it yourself, and those sites have their own privacy policies.</p>
   <ul>
     <li><strong>Reporting a problem</strong> copies a report to your clipboard and opens a Google Form. You see the report and decide what to paste. Your Windows user folder name is taken out of it.</li>
     <li><strong>Searching for a crash</strong> opens a Google search for that crash.</li>
+    <li><strong>Contact support</strong> in Settings, Ask RigSight opens an email to us in Gmail, with your app version. You see it and decide whether to send it.</li>
+    <li><strong>Buying a plan</strong> opens Lemon Squeezy's checkout page.</li>
     <li>Links to download RivaTuner Statistics Server, to PawnIO's site, and to Buy Me a Coffee open those sites.</li>
   </ul>
 
