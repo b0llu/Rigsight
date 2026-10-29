@@ -442,23 +442,8 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
 .qs button[aria-pressed="true"] { color: var(--fg); border-color: var(--ai-line); background: var(--ai-soft); }
 .qs button:focus-visible { outline: 2px solid var(--ai); outline-offset: 2px; }
 .ask-ex[hidden] { display: none; }
-.askchat .body { min-height: 380px; }
-.askchat { margin: 0; background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.85); font-size: 14.5px; line-height: 1.55; }
-.askchat .bar { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid #1f1f1f; font-size: 13px; font-weight: 600; }
-.askchat .bar .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.askchat .bar .pill { font-weight: 400; font-size: 11.5px; color: var(--muted); background: #161616; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
-.askchat .body { padding: 16px 16px 6px; }
-.askchat .q { margin-left: auto; width: fit-content; max-width: 85%; background: #161616; border-radius: 12px; padding: 9px 13px; }
-.askchat .looked { margin: 12px 0 8px; font-size: 12px; color: var(--faint); }
-.askchat .a p { color: #e6e6e6; margin: 0 0 9px; }
-.askchat .a b { color: #fff; font-weight: 600; }
-.askchat .acts { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 12px; }
-.askchat .acts span { font-size: 12.5px; border: 1px solid #2a2a2a; background: #161616; border-radius: 8px; padding: 5px 10px; }
-.askchat .src { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.askchat .src span { font-size: 11.5px; color: var(--muted); background: #121212; border: 1px solid #1f1f1f; border-radius: 999px; padding: 2px 8px; }
-.askchat .foot { border-top: 1px solid #1f1f1f; padding: 10px 12px; display: flex; gap: 8px; align-items: center; color: var(--faint); font-size: 13.5px; }
-.askchat .foot .box { flex: 1; background: #161616; border: 1px solid #1f1f1f; border-radius: 10px; padding: 8px 12px; }
-.askchat .foot .send { width: 30px; height: 30px; border-radius: 9px; background: #fff; color: #000; display: grid; place-items: center; font-weight: 700; }
+.askshot { margin: 0; }
+.askshot img { display: block; width: 100%; height: auto; border-radius: 12px; box-shadow: 0 30px 90px rgba(0,0,0,.85); }
 .plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .plan { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; display: grid; gap: 8px; align-content: start; }
 .plan.hi { border-color: var(--ai-line); background: linear-gradient(180deg, rgba(232,121,249,.07), var(--surface) 60%); }
@@ -718,66 +703,13 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
               <li>Every answer says what it read, so you can check it on its page</li>
               <li>RigSight AI, your own API key, or Ollama on your own PC</li>
             </ul>
-            <div class="qs" role="group" aria-label="Example questions"><button type="button" data-ask="crash" aria-pressed="true" aria-controls="ask-crash">Why does Crimson Desert keep crashing?</button><button type="button" data-ask="shutoff" aria-pressed="false" aria-controls="ask-shutoff">Why did my PC shut off last night?</button><button type="button" data-ask="temps" aria-pressed="false" aria-controls="ask-temps">Are my temperatures normal?</button><button type="button" data-ask="stutter" aria-pressed="false" aria-controls="ask-stutter">Why does it stutter in REMATCH?</button></div>
+            <div class="qs" role="group" aria-label="Example questions"><button type="button" data-ask="crash" aria-pressed="true" aria-controls="ask-crash">Why does Crimson Desert keep crashing?</button><button type="button" data-ask="shutoff" aria-pressed="false" aria-controls="ask-shutoff">Why did my PC shut off last night?</button><button type="button" data-ask="temps" aria-pressed="false" aria-controls="ask-temps">Are my temperatures normal?</button><button type="button" data-ask="stutter" aria-pressed="false" aria-controls="ask-stutter">Why does Crimson Desert stutter?</button></div>
           </div>
-          <figure class="askchat" aria-label="An answer from Ask RigSight, for the question picked beside it" aria-live="polite">
-            <div class="ask-ex" id="ask-crash">
-              <div class="bar"><svg class="ai-sp" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,3 L19,7 M17,5 L21,5"/></svg><span class="t">Why does Crimson Desert keep crashing?</span><span class="pill">Complete trial · 6 days left</span></div>
-              <div class="body">
-                <div class="q">Why does Crimson Desert keep crashing?</div>
-                <div class="looked">Looked at Crashes, Temperatures and Timeline · 6 s</div>
-                <div class="a">
-                  <p>All <b>3 crashes this month</b> stopped inside <b>nvwgf2umx.dll</b>, a file of NVIDIA's graphics driver, so the driver is failing, not the game. Windows' own record names it, so this is <b>Confirmed</b>.</p>
-                  <p>It isn't heat: the GPU was at <b>71 °C</b> at the last one, well under its limit, and memory was 58% full. Nothing changed the week before.</p>
-                  <p><b>Next step:</b> do a clean install of the NVIDIA driver, and if the card is overclocked, go back to stock clocks.</p>
-                </div>
-                <div class="acts"><span>Open Crashes</span><span>Open NVIDIA App</span></div>
-                <div class="src"><span>Crashes · 3 this month</span><span>Temperatures · 7 Oct</span><span>Timeline</span></div>
-              </div>
-            </div>
-            <div class="ask-ex" id="ask-shutoff" hidden>
-              <div class="bar"><svg class="ai-sp" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,3 L19,7 M17,5 L21,5"/></svg><span class="t">Why did my PC shut off last night?</span><span class="pill">Complete trial · 6 days left</span></div>
-              <div class="body">
-                <div class="q">Why did my PC shut off last night?</div>
-                <div class="looked">Looked at Crashes, Temperatures and Reports · 5 s</div>
-                <div class="a">
-                  <p>It lost power at <b>11:42 PM</b> while <b>Counter-Strike 2</b> was running. That wasn't Windows crashing: there was no blue screen, and Windows wrote <b>Kernel-Power 41</b>, which means the power was cut.</p>
-                  <p>It wasn't heat either: a minute before, the CPU was at <b>71 °C</b> and the GPU at <b>68 °C</b>, normal for this PC in that game.</p>
-                  <p><b>Next step:</b> check the power cable and the socket or power strip. If it happens again while gaming, the power supply may be struggling under load.</p>
-                </div>
-                <div class="acts"><span>Open Crashes</span></div>
-                <div class="src"><span>Crashes · last night</span><span>Temperatures · 11:41 PM</span><span>Reports</span></div>
-              </div>
-            </div>
-            <div class="ask-ex" id="ask-temps" hidden>
-              <div class="bar"><svg class="ai-sp" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,3 L19,7 M17,5 L21,5"/></svg><span class="t">Are my temperatures normal?</span><span class="pill">Complete trial · 6 days left</span></div>
-              <div class="body">
-                <div class="q">Are my temperatures normal?</div>
-                <div class="looked">Looked at Temperatures and Reports · 4 s</div>
-                <div class="a">
-                  <p>Yes. In games the CPU tops out around <b>71 °C</b> and the GPU around <b>68 °C</b>. In Counter-Strike 2 this month the GPU ran at <b>65°</b>, inside its usual <b>66–71°</b> at the same power.</p>
-                  <p>The hottest reading this week was the GPU hot spot at <b>79 °C</b>, also in Counter-Strike 2, still well under its limit. Idle, both sit in the 40s.</p>
-                  <p><b>Next step:</b> nothing to do. RigSight warns you if one stays hot.</p>
-                </div>
-                <div class="acts"><span>Open Temperatures</span></div>
-                <div class="src"><span>Temperatures · 7 days</span><span>Reports · October</span></div>
-              </div>
-            </div>
-            <div class="ask-ex" id="ask-stutter" hidden>
-              <div class="bar"><svg class="ai-sp" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,3 L19,7 M17,5 L21,5"/></svg><span class="t">Why does it stutter in REMATCH?</span><span class="pill">Complete trial · 6 days left</span></div>
-              <div class="body">
-                <div class="q">Why does it stutter in REMATCH?</div>
-                <div class="looked">Looked at Games and Temperatures · 5 s</div>
-                <div class="a">
-                  <p>Over your last 5 plays REMATCH averaged <b>141 fps</b>, but had <b>38 stutters</b> over 50 ms, most in the first minute of each match, while it loads the stadium.</p>
-                  <p>The graphics card sits at <b>97%</b> the rest of the time, so it sets the pace. It isn't heat: the GPU stays at 66 °C.</p>
-                  <p><b>Next step:</b> lower Shadows from Epic to High, or turn on DLSS Quality. That frees the card for the frames that drop.</p>
-                </div>
-                <div class="acts"><span>Open REMATCH on Games</span></div>
-                <div class="src"><span>Games · 5 plays</span><span>Temperatures</span></div>
-              </div>
-            </div>
-            <div class="foot"><span class="box">Ask a follow-up…</span><span class="send">↑</span></div>
+          <figure class="askshot" aria-label="A real answer from Ask RigSight, for the question picked beside it" aria-live="polite">
+            <img class="ask-ex" id="ask-crash" src="img/ask/crash.webp" width="780" height="620" alt="Ask RigSight's answer to why Crimson Desert keeps crashing: the crashes began after NVIDIA driver 621.01 was installed on 22 Oct, Windows confirmed a driver failure inside nvwgf2umx.dll, temperatures were normal, and an Open NVIDIA App button to reinstall the driver." decoding="async" loading="lazy">
+            <img class="ask-ex" id="ask-shutoff" src="img/ask/shutoff.webp" width="780" height="620" alt="Ask RigSight's answer to why the PC shut off last night: it shut off at 12:02 AM while doing very little, temperatures were normal, so the records point to a power cut or a freeze, with a next step to check for a power drop." decoding="async" loading="lazy" hidden>
+            <img class="ask-ex" id="ask-temps" src="img/ask/temps.webp" width="780" height="620" alt="Ask RigSight's answer to whether the temperatures are normal: yes, the CPU peaked at 72 °C and the GPU at 69 °C, both within their rated limits, with cards for each peak and bars comparing today with this PC's usual." decoding="async" loading="lazy" hidden>
+            <img class="ask-ex" id="ask-stutter" src="img/ask/stutter.webp" width="780" height="620" alt="Ask RigSight's answer to why Crimson Desert stutters: the graphics card is at its limit, with 1% lows of 56 against a 72 FPS average, and settings worth changing first, such as DLSS Quality and lower volumetric clouds." decoding="async" loading="lazy" hidden>
           </figure>
         </article>
       </div>
