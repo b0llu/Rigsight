@@ -82,9 +82,16 @@ public static partial class Relay
     public static string Version { get; } = typeof(Relay).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
     /// <summary>
-    /// This PC, as the relay knows it: a SHA-256 of Windows' own id for this install (MachineGuid), so it stays the same
-    /// when RigSight is reinstalled and says nothing about the person. Without one, a random id kept in the data folder.
+    /// This PC, as the relay knows it: a SHA-256 of Windows' own id for this install (MachineGuid) and the Windows account
+    /// using it, so it stays the same when RigSight is reinstalled and says nothing about the person. Without one, a random
+    /// id kept in the data folder.
     /// </summary>
+    /// <remarks>
+    /// The account is part of it since 1.0.0: each account keeps its own secret (ai-secret.bin, locked to that account), so
+    /// with one id for the whole PC only the first account to ask was let in; every other one was told its sign-in changed
+    /// (a family PC, or a work PC set up for everyone). Each account is its own "PC" to the relay now: its own free
+    /// questions, trial and plan, and no one else on the PC sees its licence or can cancel its plan.
+    /// </remarks>
     public static string DeviceId => _deviceId ??= MakeDeviceId();
     private static string? _deviceId;
 
@@ -107,10 +114,17 @@ public static partial class Relay
             }
             catch (IOException) { machine = Guid.NewGuid().ToString(); }
         }
+        string account = "";
+        try { account = System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value ?? ""; }
+        catch (System.Security.SecurityException) { }
         // A test copy is its own PC to the relay, so its tests never spend the real install's free questions.
         string salt = RigsightPaths.IsTestInstance ? "rigsight-test:" + RigsightPaths.InstanceSuffix + ":" : "rigsight:";
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(salt + machine))).ToLowerInvariant();
+        return IdFor(salt, machine, account);
     }
+
+    /// <summary>The id for this install of Windows and this account on it (the account's SID; none when it can't be read).</summary>
+    internal static string IdFor(string salt, string machine, string account) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(salt + machine + (account.Length > 0 ? ":" + account : "")))).ToLowerInvariant();
 
     // ── Questions left and the licence ───────────────────────────────────
     public static async Task<(RelayStatus? Status, string? Problem)> StatusAsync(CancellationToken ct = default)
