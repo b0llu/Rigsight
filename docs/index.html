@@ -136,7 +136,7 @@ p { margin: 0; }
 .scroll-cue i { width: 1px; height: 28px; background: linear-gradient(var(--faint), transparent); animation: cue 1.8s ease-in-out infinite; }
 @keyframes cue { 0%, 100% { transform: scaleY(.4); transform-origin: top; opacity: .4; } 50% { transform: scaleY(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .intro .hero-logo, .intro .ltr, .intro .step, .scroll-cue i { animation: none; } }
-.hero .lead { font-size: clamp(17px, 2vw, 21px); color: #c9cdd4; max-width: 40ch; line-height: 1.5; }
+.hero .lead { font-size: clamp(17px, 2vw, 21px); color: #c9cdd4; max-width: 40ch; line-height: 1.5; margin-top: -10px; }
 .cta { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 .meta { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; font: 400 13px/1 var(--mono); color: var(--faint); }
 .meta span + span::before { content: "·"; margin-right: 18px; color: #3a3e45; }
@@ -648,7 +648,7 @@ footer { border-top: 1px solid var(--line); padding-block: 36px 48px; }
       <div class="hero-copy">
         <img class="hero-logo hero-logo-lg" src="img/logo-144.webp" alt="" width="80" height="80">
         <h1 aria-label="RigSight"><span class="ltr" style="--i:0">R</span><span class="ltr" style="--i:1">i</span><span class="ltr" style="--i:2">g</span><span class="ltr" style="--i:3">s</span><span class="ltr" style="--i:4">i</span><span class="ltr" style="--i:5">g</span><span class="ltr" style="--i:6">h</span><span class="ltr" style="--i:7">t</span></h1>
-        <p class="lead step" style="--d:.45s">Know your rig. A free PC monitor for Windows that records your temperatures, app time, internet use and crashes all day, keeps them as history, and answers your questions about them.</p>
+        <p class="lead step" style="--d:.45s">Know your rig. A free Windows PC monitor that tracks temperatures, app usage, network activity, and crashes over time — with AI that answers questions about your PC's history.</p>
         <div class="cta step" style="--d:.6s">
           <a class="btn btn-primary" data-download href="https://github.com/b0llu/Rigsight/releases/latest">
             <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M3 5.1 10.4 4v7.2H3zm0 13.8 7.4 1.1v-7.1H3zm8.3 1.2L21 21.5v-8.6h-9.7zm0-16.2v7.3H21V2.5z"/></svg>
