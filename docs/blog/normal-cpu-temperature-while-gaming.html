@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Normal CPU temperature while gaming, and why yours jumps around · RigSight</title>
+  <meta name="description" content="How RigSight shows a CPU temperature that jumps around in games, what a normal CPU temperature while gaming is on Ryzen, Intel, an AIO and laptops, and the limits AMD and Intel give." />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="canonical" href="https://rigsight.app/blog/normal-cpu-temperature-while-gaming" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
+  <meta property="og:site_name" content="RigSight" />
+  <meta property="og:title" content="Normal CPU temperature while gaming, and why yours jumps around · RigSight" />
+  <meta property="og:description" content="How RigSight shows a CPU temperature that jumps around in games, what a normal CPU temperature while gaming is on Ryzen, Intel, an AIO and laptops, and the limits AMD and Intel give." />
+  <meta property="og:url" content="https://rigsight.app/blog/normal-cpu-temperature-while-gaming" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
+  <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <meta property="og:image" content="https://rigsight.app/img/blog/normal-cpu-temperature-while-gaming.webp" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="800" />
+  <meta property="og:type" content="article" />
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Normal CPU temperature while gaming, and why yours jumps around", "description": "How RigSight shows a CPU temperature that jumps around in games, what a normal CPU temperature while gaming is on Ryzen, Intel, an AIO and laptops, and the limits AMD and Intel give.", "datePublished": "2026-10-29", "dateModified": "2026-10-29", "image": "https://rigsight.app/img/blog/normal-cpu-temperature-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/normal-cpu-temperature-while-gaming", "keywords": "normal cpu temperature while gaming, normal cpu temperature while gaming ryzen, normal cpu temperature while gaming with aio, normal cpu temperature while gaming laptop, normal cpu temperature while gaming fahrenheit, cpu temperature monitor windows 11"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Normal CPU temperature while gaming, and why yours jumps around", "item": "https://rigsight.app/blog/normal-cpu-temperature-while-gaming"}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is a normal CPU temperature while gaming on Ryzen?", "acceptedAnswer": {"@type": "Answer", "text": "Most Ryzen desktops sit somewhere in the 60s to 80s \u00b0C in games. AMD has said that up to 90\u00b0C on the Ryzen 7 5800X and 95\u00b0C on the Ryzen 5 5600X is typical and by design at full load, and games are usually lighter than full load. The Ryzen 7 7800X3D has a lower limit, 89\u00b0C."}}, {"@type": "Question", "name": "What is normal CPU temperature while gaming with an AIO?", "acceptedAnswer": {"@type": "Answer", "text": "An AIO liquid cooler usually gives lower peaks than a small air cooler, and the 60s and low 70s \u00b0C are common in games. If an AIO CPU reaches its limit, check that the pump runs and is plugged into the right header, and that the radiator fans spin."}}, {"@type": "Question", "name": "What is normal CPU temperature while gaming on a laptop?", "acceptedAnswer": {"@type": "Answer", "text": "Laptop CPUs run hotter than desktop ones, and readings in the 80s and low 90s \u00b0C are common in games. The laptop maker sets the limits and the fan behaviour, so their support page has the right numbers for your model."}}, {"@type": "Question", "name": "What is normal CPU temperature while gaming in Fahrenheit?", "acceptedAnswer": {"@type": "Answer", "text": "60 to 85\u00b0C is 140 to 185\u00b0F. AMD's 95\u00b0C limit is 203\u00b0F, and Intel's 100\u00b0C limit is 212\u00b0F."}}, {"@type": "Question", "name": "Why is my CPU hotter than my GPU while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "CPUs have a smaller surface to move heat through, and many are tuned to boost until they reach a set temperature. A CPU that reads hotter than the GPU in the same game is common and not a fault on its own."}}]}</script>
+  <style>
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
+/* Layout: the site's dark look. The list is picture-left rows like a magazine contents page; a post is a 680px column
+   under a cover that matches its row, with pictures a little wider than the text. */
+:root {
+  --bg: #000;
+  --surface: #0a0b0d;
+  --surface-2: #111317;
+  --line: rgba(255,255,255,.08);
+  --line-2: rgba(255,255,255,.14);
+  --fg: #f3f4f6;
+  --text: #c5cad2;
+  --muted: #a0a6b0;
+  --faint: #767c87;
+  --cpu: #5b8def;
+  --gpu: #22d3ee;
+  --hot: #a78bfa;
+  --ram: #c084fc;
+  --coffee: #ffdd00;
+  --display: "Geist", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 80px; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+a { color: var(--gpu); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
+img { max-width: 100%; height: auto; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+.wrap-narrow { max-width: 776px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+
+/* top bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(0,0,0,.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top-in { display: flex; align-items: center; gap: 24px; height: 62px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+.brand img { border-radius: 6px; }
+.top nav { display: flex; gap: 30px; margin-left: 24px; }
+.top nav a { color: var(--muted); text-decoration: none; font-size: 14.5px; font-weight: 600; }
+.top nav a:hover, .top nav a.on { color: var(--fg); }
+.top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.coffee-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; color: var(--coffee); font-weight: 600; font-size: 14.5px; text-decoration: none; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3); white-space: nowrap; }
+.coffee-pill:hover { color: #fde047; background: rgba(250,204,21,.14); }
+.icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; color: #c9cdd4; }
+.icon-btn:hover { color: var(--fg); background: rgba(255,255,255,.09); }
+.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--fg); color: #000; font-weight: 600; text-decoration: none; border-radius: 999px; padding: 11px 20px; font-size: 15px; white-space: nowrap; }
+.btn:hover { background: #fff; }
+.btn-sm { padding: 7px 14px; font-size: 13.5px; }
+.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.progress i { display: block; height: 100%; background: var(--gpu); transform-origin: 0 50%; transform: scaleX(0); }
+
+/* blog index */
+.blog-head { padding-block: 64px 36px; }
+.kicker { font: 500 13px/1 var(--mono); color: var(--gpu); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; }
+.blog-head h1 { font: 600 clamp(40px, 7vw, 72px)/1.02 var(--display); letter-spacing: -0.045em; margin: 0 0 18px; text-wrap: balance; }
+.intro { color: var(--muted); font-size: 18.5px; line-height: 1.6; max-width: 640px; margin: 0 0 14px; }
+.starts { color: var(--faint); font-size: 14.5px; margin: 0; }
+.starts a { color: var(--muted); }
+.starts a:hover { color: var(--fg); }
+.eyebrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--faint); margin: 0 0 10px; font-weight: 500; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.s-build { background: var(--cpu); }
+.s-ai { background: var(--hot); }
+.s-guide, .s-fix { background: var(--gpu); }
+.meta { font-size: 13.5px; color: var(--faint); margin: 0; font-variant-numeric: tabular-nums; }
+.filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.chip { font: 600 14px/1 var(--body); color: var(--muted); background: transparent; border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.chip span { color: var(--faint); font-weight: 500; margin-left: 4px; }
+.rss { margin-left: auto; align-self: center; font-size: 14px; color: var(--faint); text-decoration: none; }
+.rss:hover { color: var(--fg); }
+.chip:hover { color: var(--fg); }
+.chip[aria-pressed="true"] { color: #000; background: var(--fg); border-color: var(--fg); }
+.chip[aria-pressed="true"] span { color: #444; }
+.rows { list-style: none; margin: 8px 0 80px; padding: 0; }
+.row a { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 40px; align-items: center; padding: 30px 0; text-decoration: none; color: inherit; }
+.row + .row { border-top: 1px solid var(--line); }
+.row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
+.row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
+.row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
+.row a:hover .thumb img { transform: scale(1.015); }
+
+/* guides */
+.body h3 { font: 600 19px/1.3 var(--display); color: var(--fg); margin: 1.6em 0 .4em; }
+.body pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0 0 1.2em; max-width: 100%; }
+.body pre code { background: none; border: 0; padding: 0; font-size: 14.5px; line-height: 1.6; white-space: pre; }
+.body table { border-collapse: collapse; width: 100%; font-size: 16px; margin: 0 0 1.2em; display: block; overflow-x: auto; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.body th { color: var(--fg); font-weight: 600; }
+.faq { margin-top: 2.4em; }
+.qa { border-top: 1px solid var(--line); }
+.qa:last-child { border-bottom: 1px solid var(--line); }
+.qa summary { cursor: pointer; list-style: none; padding: 16px 32px 16px 0; position: relative; color: var(--fg); font-weight: 600; font-size: 17.5px; line-height: 1.45; }
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary::after { content: "+"; position: absolute; right: 4px; top: 14px; font: 400 22px/1 var(--mono); color: var(--faint); }
+.qa[open] summary::after { content: "\2212"; }
+.qa p { margin: 0 0 18px; color: var(--text); font-size: 17px; }
+.guide .short { border-color: rgba(34,211,238,.35); }
+.next.rel { grid-template-columns: 1fr 1fr; }
+
+/* a post */
+.post { padding-block: 40px 40px; }
+.crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--fg); }
+.dek { font-size: 19px; line-height: 1.55; color: var(--muted); margin: 0 0 18px; max-width: 680px; }
+.byline b { color: var(--fg); font-weight: 600; }
+.cover { margin: 0 0 32px; max-width: 728px; }
+.cover img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); }
+.post h1 { font: 600 clamp(34px, 5.6vw, 52px)/1.06 var(--display); letter-spacing: -0.04em; margin: 0 0 14px; text-wrap: balance; }
+.byline { color: var(--faint); font-size: 14.5px; margin: 0 0 30px; font-variant-numeric: tabular-nums; }
+.short { background: var(--surface); border: 1px solid var(--line-2); border-radius: 16px; padding: 20px 24px; margin-bottom: 40px; }
+.short p { margin: 0; color: var(--fg); font-size: 17.5px; line-height: 1.6; }
+.short .short-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+.body, .post h1, .dek, .short p, .qa summary { overflow-wrap: anywhere; }
+.body { font-size: 18px; line-height: 1.75; color: var(--text); max-width: 680px; }
+.body > p { margin: 0 0 1.15em; }
+.body h2 { font: 600 25px/1.25 var(--display); letter-spacing: -0.025em; color: var(--fg); margin: 1.9em 0 .55em; text-wrap: balance; }
+.body strong { color: var(--fg); font-weight: 600; }
+.body ul, .body ol { padding-left: 1.2em; margin: 0 0 1.2em; }
+.body li { margin: .35em 0; }
+.body li::marker { color: var(--faint); }
+.body code { font: 500 .86em var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--fg); }
+.body blockquote { margin: 1.5em 0; padding: 2px 0 2px 20px; border-left: 2px solid var(--hot); color: var(--fg); font-size: 19px; }
+.body blockquote p { margin: 0; }
+.body blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size: 14px; color: var(--faint); }
+.shot { margin: 2em 0; max-width: 728px; }
+.shot img { display: block; width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,.06); }
+figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top: 10px; }
+.stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin: 1.8em 0; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat b { font: 500 clamp(40px, 7vw, 60px)/1 var(--mono); letter-spacing: -0.04em; color: var(--gpu); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 16px; line-height: 1.5; flex: 1 1 260px; min-width: 0; }
+.stat.hot b { color: var(--hot); }
+.stat.cpu b { color: var(--cpu); }
+.fig { margin: 2em 0; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; max-width: 728px; overflow-x: auto; }
+.fig svg { display: block; width: 100%; height: auto; min-width: 520px; font-family: var(--body); }
+.fig figcaption { margin-top: 14px; }
+.fig .t { fill: var(--muted); font-size: 13px; }
+.fig .tf { fill: var(--faint); font-size: 12px; }
+.fig .tb { fill: var(--fg); font-size: 14px; font-weight: 600; }
+.fig .tm { fill: var(--fg); font-family: var(--mono); font-size: 13px; }
+.fig .box { fill: var(--surface-2); stroke: var(--line-2); }
+.fig .grid { stroke: var(--line); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 2em 0; }
+.pair > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; min-width: 0; }
+.pair p { margin: 0; font-size: 16px; line-height: 1.6; }
+.pair .k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px; color: var(--faint); }
+.pair .bad .k { color: #f0a35e; }
+.pair .good .k { color: #34d399; }
+.next { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 56px 0 28px; max-width: 728px; }
+.more { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 14px; text-decoration: none; min-width: 0; }
+.more span { font-size: 13px; color: var(--faint); }
+.more b { color: var(--fg); font-weight: 600; font-size: 16.5px; line-height: 1.35; }
+.more:hover { border-color: var(--line-2); background: var(--surface); }
+.get { display: flex; align-items: center; gap: 18px; padding: 20px 22px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 728px; }
+.get img { border-radius: 10px; flex: none; }
+.get p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; min-width: 0; }
+.get p b { color: var(--fg); }
+
+.foot { border-top: 1px solid var(--line); margin-top: 72px; }
+.foot-in { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; padding-block: 28px 40px; }
+.foot nav { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.foot nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+.foot nav a:hover { color: var(--fg); }
+
+@media (max-width: 760px) {
+  .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .top nav a:not(.on) { display: none; }
+  .top-end { gap: 8px; }
+  .top-in { gap: 14px; }
+  .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
+  .row h2 { font-size: 21px; }
+  .row .sum { font-size: 15px; }
+  .dek { font-size: 17px; }
+  .body { font-size: 17px; }
+  .pair, .next { grid-template-columns: 1fr; }
+  .get { flex-wrap: wrap; }
+  .blog-head { padding-block: 40px 28px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+
+  </style>
+</head>
+<body>
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="24" height="24"><span>RigSight</span></a>
+  <nav aria-label="Site"><a href="./" class="on">Blog</a><a href="../#faq">FAQ</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+  <div class="top-end"><a class="icon-btn" href="https://github.com/b0llu/Rigsight" aria-label="RigSight on GitHub"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5"/></svg></a><a class="btn btn-sm" href="https://github.com/b0llu/Rigsight/releases/latest">Download</a></div>
+</div><div class="progress" aria-hidden="true"><i></i></div></header><main><article class="post wrap-narrow guide">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Blog</a></nav>
+  <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Temperatures</p>
+  <h1>Normal CPU temperature while gaming, and why yours jumps around</h1>
+  <p class="dek">How RigSight shows a CPU temperature that jumps around in games, what a normal CPU temperature while gaming is on Ryzen, Intel, an AIO and laptops, and the limits AMD and Intel give.</p>
+  <p class="byline"><b>Dhruv Samant</b> · Updated 29 October 2026 · 7 min read</p>
+  <figure class="cover"><img class="" src="../img/blog/normal-cpu-temperature-while-gaming.webp" srcset="../img/blog/normal-cpu-temperature-while-gaming-600.webp 600w, ../img/blog/normal-cpu-temperature-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s CPU card on the Temperatures page: a Ryzen 7 5700X3D at 65° with load, power, clock and voltage readings" fetchpriority="high" decoding="async"><figcaption>RigSight's Temperatures page on the site's example PC. The chart can show each minute's average, highest or lowest.</figcaption></figure>
+  <div class="short"><p class="short-k">The short answer</p><p>A normal CPU temperature while gaming is roughly 60 to 85°C on a desktop, lower with a strong cooler and higher on laptops and X3D chips. The limit depends on the model. AMD lists 89 to 95°C for recent Ryzen chips, Intel 100 to 105°C for recent Core chips. Worry when you sit at that limit.</p></div>
+  <div class="body">
+<p>A RigSight user on a laptop once wrote to me that the peaks on the one hour temperature chart jumped around every second. Part of that was my bug. The other part is something every gamer runs into when they ask what a normal CPU temperature while gaming is. A CPU's temperature doesn't sit still. It can go from 55 to 80°C and back within a second, and the number you happen to look at decides whether you worry.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>The laptop's chart was grouping readings by where they landed on the screen. Every time the chart slid along, the groups changed, and a CPU that jumped around a lot changed the line's shape each second. The whole story is in <a href="honest-charts">Three ways my temperature chart was lying</a>. Since 0.16.1 RigSight gives each minute one point, the same minute every time, so a minute that already happened keeps its shape.</p>
+
+<p>That left the real question. If a CPU spikes for a few seconds, what should you look at? In RigSight's temperature chart each minute can be shown as its average, its highest or its lowest, and hovering a minute shows all three. The average shows where the CPU settles in a game. The highest shows the short spikes that an average hides.</p>
+
+<p>RigSight records the CPU temperature all day and keeps it as history, so you can see how hot it got during last night's game without starting a log first. The Temperatures page shows today's lowest and highest under the gauge and a chart for any range up to the last 12 months. It also shows how warm the CPU is at rest next to its usual resting temperature, with the last 30 days drawn as a line. A slow climb there points to dust or old paste.</p>
+
+<p>Reports puts each peak next to the app that was doing the work. For a week, a month or a custom range, its Against your usual card compares the CPU in the game you played most with your own usual in that game from the weeks before. That tells you whether 83°C is normal for your PC, which matters more than any range online. Under <strong>Notifications</strong> > <strong>Temperature alerts</strong> in Settings you can set a CPU limit from 60 to 100°. It starts at 85°, and Reports tells you how many minutes the CPU spent at it. Like most tools that read the CPU's own sensors, RigSight needs admin rights for CPU temperature and power, and it says so when they're missing. RigSight is free and open source.</p>
+
+<h2>Normal CPU temperature while gaming on a desktop</h2>
+
+<p>On a desktop with a decent cooler, most CPUs sit somewhere between 60 and 85°C in a game. Games rarely load every core at once, so they run cooler than a stress test or a long video export. Look at where the temperature settles over a few minutes of play, not at single spikes.</p>
+
+<h2>Why CPUs run as hot as they do</h2>
+
+<p>Modern CPUs boost their clock speed until they run into a limit on power or temperature. A chip that reaches the high 80s isn't always struggling. Some are built to use all the room they have. Readings also jump more than a graphics card's, because a CPU has a small surface to move heat through and a game's load on it changes from one moment to the next.</p>
+
+<p>Every CPU has a maximum temperature in its spec, often called Tjmax or TJunction. At that point it slows itself down to protect the chip. Intel describes this throttling as the processor lowering its clock speed when it goes above that figure. There is no single number that fits every CPU. Here are the makers' figures for some common chips.</p>
+
+<ul>
+  <li>The AMD Ryzen 5 5600X is rated to 95°C. AMD has said up to 95°C is typical and by design at full load on this chip.</li>
+  <li>The AMD Ryzen 7 5800X, Ryzen 9 5900X and 5950X are rated to 90°C, which AMD called typical at full load.</li>
+  <li>The AMD Ryzen 7000 X series, such as the 7700X, is rated to 95°C.</li>
+  <li>The AMD Ryzen 7 7800X3D is rated to 89°C, lower than the other Ryzen 7000 chips.</li>
+  <li>The AMD Ryzen 7 9800X3D is rated to 95°C.</li>
+  <li>The Intel Core i9 14900K is rated to 100°C.</li>
+  <li>The Intel Core Ultra 9 285K is rated to 105°C.</li>
+</ul>
+
+<p>For any other chip, search its name on AMD's or Intel's own site and look for "Max. Operating Temperature" or "TJUNCTION".</p>
+
+<h3>Ryzen</h3>
+
+<p>Ryzen chips have a reputation for running hot, and AMD has been open that this is on purpose. Soon after the Ryzen 5000 series came out, AMD's technical marketing director said temperatures up to 90 or 95°C at full load were typical and by design, because a higher allowed temperature lets the chip boost for longer before it backs off. In games, most Ryzen desktops with a reasonable cooler sit in the 60s to 80s. The Ryzen 7 7800X3D is the one to watch more closely, with a ceiling of 89°C.</p>
+
+<h3>With an AIO</h3>
+
+<p>An all-in-one liquid cooler moves heat to a radiator, which usually gives you lower peaks than a small tower cooler. Readings in the 60s and low 70s are common in games. The liquid takes time to warm up, so an AIO can look very cool for the first few minutes and then rise to a steady level.</p>
+
+<h3>On a laptop</h3>
+
+<p>Laptop CPUs share a small cooler with the GPU, and readings in the 80s and low 90s are common in games. They also tend to jump around the most, as that user's chart showed. The laptop maker decides the power limits and how fast the fans spin, so a laptop that sits at 90°C may be doing exactly what it was tuned to do. Intel points laptop owners to the maker for this.</p>
+
+<h2>How to check your CPU temperature and fix it when it runs hot</h2>
+
+<p>Windows' Task Manager shows your graphics card's temperature, but not your CPU's. The BIOS shows it only at rest, which tells you little about gaming. AMD's Ryzen Master and Intel's Extreme Tuning Utility read their own chips, and a sensor app such as HWiNFO can log readings to a file while you play. Whichever you use, look at the highest reading during a session, because the number you see after you alt-tab out can be lower than the peak was.</p>
+
+<p>If it does run hot, Intel's support checklist is a good order for any brand.</p>
+
+<ol>
+  <li>Make sure the cooler is rated for your CPU. Intel's rule is that the cooler's rated wattage should be at least the processor's base power. A small cooler that came with a 65 W chip won't keep up with a 125 W one.</li>
+  <li>Check the cooler is mounted firmly and the protective plastic film was removed from its base. It's an easy thing to miss on a new build.</li>
+  <li>Check the thermal paste. If the PC is several years old, or the cooler has been taken off and put back, fresh paste can help.</li>
+  <li>Check that every fan spins, including the CPU cooler's own fan or the AIO's radiator fans. Intel's checklist also says to make sure an AIO's pump and fans are plugged into the right motherboard headers. A pump on a header that slows it down at idle, or a pump that has failed, can make an AIO CPU hit its limit in games.</li>
+  <li>Check case airflow, so the cooler isn't breathing air the graphics card already heated.</li>
+  <li>Look at the BIOS settings. Intel notes that some motherboards ship with settings that run beyond Intel's guidelines, and suggests loading the BIOS defaults or asking the motherboard maker whether overclocking settings are turned on. Change BIOS settings only if you're comfortable there, and write down what you change.</li>
+  <li>On a laptop, play on a hard surface, keep the vents clean, and try the maker's quieter or balanced mode to see whether the temperature falls more than the frame rate.</li>
+</ol>
+
+<p>A frame cap helps the CPU too, because fewer frames means less work per second. For the graphics card side, see <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a>.</p>
+
+<p>Next, look up your exact CPU's maximum on AMD's or Intel's site, then play for half an hour and note where the temperature settles. If it stays 10 degrees or more under the limit, you're fine. If it sits at the limit, start with the cooler mount and the fans.</p>
+  <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>What is a normal CPU temperature while gaming on Ryzen?</summary><p>Most Ryzen desktops sit somewhere in the 60s to 80s °C in games. AMD has said that up to 90°C on the Ryzen 7 5800X and 95°C on the Ryzen 5 5600X is typical and by design at full load, and games are usually lighter than full load. The Ryzen 7 7800X3D has a lower limit, 89°C.</p></details><details class="qa"><summary>What is normal CPU temperature while gaming with an AIO?</summary><p>An AIO liquid cooler usually gives lower peaks than a small air cooler, and the 60s and low 70s °C are common in games. If an AIO CPU reaches its limit, check that the pump runs and is plugged into the right header, and that the radiator fans spin.</p></details><details class="qa"><summary>What is normal CPU temperature while gaming on a laptop?</summary><p>Laptop CPUs run hotter than desktop ones, and readings in the 80s and low 90s °C are common in games. The laptop maker sets the limits and the fan behaviour, so their support page has the right numbers for your model.</p></details><details class="qa"><summary>What is normal CPU temperature while gaming in Fahrenheit?</summary><p>60 to 85°C is 140 to 185°F. AMD's 95°C limit is 203°F, and Intel's 100°C limit is 212°F.</p></details><details class="qa"><summary>Why is my CPU hotter than my GPU while gaming?</summary><p>CPUs have a smaller surface to move heat through, and many are tuned to boost until they reach a set temperature. A CPU that reads hotter than the GPU in the same game is common and not a fault on its own.</p></details></section>
+  </div>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="normal-gpu-temperature-while-gaming"><span>Temperatures</span><b>Normal GPU temperature while gaming, and when 85°C is too hot</b></a><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>Why GPU hotspot temperature runs high, and when the gap is bad</b></a><a class="more" href="game-crashes-to-desktop-no-error"><span>Crashes</span><b>Game crashes to desktop with no error? How RigSight finds why</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>Why did my PC crash? How RigSight caught one on mine</b></a></nav>
+  <aside class="get">
+    <img src="../img/logo-144.webp" alt="" width="40" height="40">
+    <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>
+    <a class="btn" href="https://github.com/b0llu/Rigsight/releases/latest">Download for Windows</a>
+  </aside>
+</article></main><footer class="foot"><div class="wrap foot-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="20" height="20"><span>RigSight</span></a>
+  <nav aria-label="Links"><a href="../">Home</a><a href="./">Blog</a><a href="https://github.com/b0llu/Rigsight">GitHub</a><a href="https://github.com/b0llu/Rigsight/releases">Releases</a><a href="../privacy.html">Privacy policy</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+</div></footer><script>
+(function () {
+  var bar = document.querySelector('.progress i');
+  if (!bar) return;
+  function tick() {
+    var post = [].find.call(document.querySelectorAll('.post'), function (a) { return a.offsetParent !== null; });
+    if (!post) { bar.style.transform = 'scaleX(0)'; return; }
+    var r = post.getBoundingClientRect(), h = r.height - innerHeight;
+    var f = h > 0 ? Math.min(1, Math.max(0, -r.top / h)) : 1;
+    bar.style.transform = 'scaleX(' + f.toFixed(3) + ')';
+  }
+  addEventListener('scroll', tick, { passive: true });
+  addEventListener('resize', tick);
+  window.__tick = tick; tick();
+})();
+(function () {
+  var chips = document.querySelectorAll('.chip[data-series]');
+  if (!chips.length) return;
+  function show(s) {
+    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
+    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
+  }
+  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
+})();
+</script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
+</body>
+</html>
