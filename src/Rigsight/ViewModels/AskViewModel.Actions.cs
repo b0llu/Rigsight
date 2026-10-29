@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -33,7 +33,7 @@ public sealed partial class AskRefs(IReadOnlyList<AiSource> list) : ObservableOb
     /// so the mark says where it's from (the one chart sign for every page meant nothing, the person asked, 2026-10-23).
     /// </summary>
     public string? Icon => !IsApp ? null : PageSwitchesViewModel.Glyph(First.Page ?? (First.Site == Lang.T("Rewind") ? AiPages.Rewind
-        : First.Site == Lang.T("Your dashboards") ? AiPages.Dashboards : AiPages.Parts));
+        : First.Site == Lang.T("Dashboards") ? AiPages.Dashboards : AiPages.Parts));
     /// <summary>The web mark's colour, the same for a site every time (0 to 4, one of the palette's own).</summary>
     public int Tone => IsApp ? -1 : First.Site.Aggregate(0, (h, ch) => (h * 31 + ch) & 0xFFFF) % 5;
     public string Label => First.Site.Length > 15 ? First.Site[..14].TrimEnd() + "…" : First.Site;
@@ -661,7 +661,7 @@ public sealed partial class AskViewModel
         if (answer.Locked is not { } page) return answer;
         // The plan they have now already reads the page (bought since, or the model said so wrongly): no card to buy what
         // they have (board 6, 2026-10-26).
-        if (Standing?.Plan?.Pages is { } open && open.Contains(page.Id))
+        if (Standing is not null && PlanPagesNow() is { } open && open.Contains(page.Id))
             return answer with { Locked = null, Parts = [.. answer.Parts.Where(p => p is not AskLockedCard)] };
         var offer = (Standing?.Plans ?? []).Where(o => !o.IsFree && o.Pages.Contains(page.Id)).OrderBy(o => o.PriceCents).FirstOrDefault();
         var withPlan = offer is null ? answer : answer with

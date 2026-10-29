@@ -60,6 +60,20 @@ public static class GameSettings
 
         public static Places ThisPc()
         {
+            // A test copy with games of its own (the site's showcase) reads their settings from that folder too, never this
+            // PC's: its made-up Crimson Desert showed the real one's saved settings in an answer (2026-10-29).
+            if (RigsightPaths.IsTestInstance && Environment.GetEnvironmentVariable("RIGSIGHT_GAMES_DIR") is { Length: > 0 } games)
+            {
+                string own = Path.Combine(games, "profile");
+                return new()
+                {
+                    LocalAppData = Path.Combine(own, "AppData", "Local"),
+                    RoamingAppData = Path.Combine(own, "AppData", "Roaming"),
+                    LocalLow = Path.Combine(own, "AppData", "LocalLow"),
+                    Documents = Path.Combine(own, "Documents"),
+                    SavedGames = Path.Combine(own, "Saved Games"),
+                };
+            }
             string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             return new()
             {
@@ -613,21 +627,6 @@ public static class GameSettings
         return lines;
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct DevMode
-    {
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string DeviceName;
-        public short SpecVersion, DriverVersion, Size, DriverExtra;
-        public int Fields, PositionX, PositionY, DisplayOrientation, DisplayFixedOutput;
-        public short Color, Duplex, YResolution, TTOption, Collate;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string FormName;
-        public short LogPixels;
-        public int BitsPerPel, PelsWidth, PelsHeight, DisplayFlags, DisplayFrequency;
-    }
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool EnumDisplaySettings(string? deviceName, int modeNum, ref DevMode devMode);
-
     /// <summary>The main screen's refresh rate now (Hz), or null where Windows doesn't say.</summary>
     public static int? ScreenHz() => MainScreen() is { Hz: > 1 } s ? s.Hz : null;
 
@@ -635,8 +634,8 @@ public static class GameSettings
     {
         try
         {
-            var mode = new DevMode { Size = (short)Marshal.SizeOf<DevMode>() };
-            return EnumDisplaySettings(null, -1, ref mode) && mode.PelsWidth > 0 ? (mode.PelsWidth, mode.PelsHeight, mode.DisplayFrequency) : null;
+            var main = Ai.Screens.Read().FirstOrDefault(x => x.Main);
+            return main is { Width: > 0 } ? (main.Width, main.Height, main.Hz) : null;
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { return null; }
     }

@@ -40,11 +40,11 @@ public static class AiPages
         new(Fans, Lang.Key("Fans"), Lang.Key("Fan speeds, how they respond to heat, and fans wearing out"), 2, ["get_fans"]),
         new(Sensors, Lang.Key("All sensors"), Lang.Key("Every reading your PC gives, like voltages and power draw"), 2, ["get_sensors_now"]),
         new(Rewind, Lang.Key("Rewind"), Lang.Key("Your month or year with this PC"), 2, ["get_rewind"]),
-        new(Dashboards, Lang.Key("Your dashboards"), Lang.Key("The dashboards you made"), 2, ["get_dashboard"]),
+        new(Dashboards, Lang.Key("Dashboards"), Lang.Key("The dashboards you made"), 2, ["get_dashboard"]),
         // What RigSight shows outside its window, for those pages' AI buttons (2026-10-26: every page a look-up). Free: they
         // help people set RigSight up, and say nothing a person's records do.
         new(Widgets, Lang.Key("Widgets"), Lang.Key("Your desktop widgets and the readings they can show"), 0, ["get_widgets"]),
-        new(Overlay, Lang.Key("Game overlay"), Lang.Key("Your in-game overlay and the readings it can show"), 0, ["get_overlay"]),
+        new(Overlay, Lang.Key("Overlay"), Lang.Key("Your in-game overlay and the readings it can show"), 0, ["get_overlay"]),
         new(Taskbar, Lang.Key("Taskbar"), Lang.Key("Your taskbar readings and the ones you could add"), 0, ["get_taskbar"]),
     ];
 

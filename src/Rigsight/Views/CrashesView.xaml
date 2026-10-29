@@ -63,9 +63,23 @@
                         </WrapPanel>
                         <TextBlock Text="{Binding Line}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                     </StackPanel>
-                    <!-- Explain without opening it first (mock-up, 2026-10-26); hidden while the AI is off. -->
-                    <Button Grid.Column="3" Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Explain'}" CommandParameter="{Binding ExplainAsk}"
-                            VerticalAlignment="Center" Margin="0,0,14,0" AutomationProperties.Name="{ctl:T 'Explain'}" />
+                    <!-- Explain without opening it first (mock-up, 2026-10-26); hidden while the AI is off. Shown on the newest row
+                         and on the row under the pointer, fading in; it keeps its place on every row, so nothing moves (audit
+                         item 8, 2026-10-29: six identical buttons down the list pulled the eye from the coloured tags). -->
+                    <Border x:Name="Ex" Grid.Column="3" VerticalAlignment="Center" Margin="0,0,14,0">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Opacity" Value="0" />
+                                <Style.Triggers>
+                                    <!-- The newest row (the list's first) always shows it, so it's still found. -->
+                                    <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource TemplatedParent}}" Value="0">
+                                        <Setter Property="Opacity" Value="1" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Explain'}" CommandParameter="{Binding ExplainAsk}" AutomationProperties.Name="{ctl:T 'Explain'}" />
+                    </Border>
                     <!-- A set width, so every row's Explain lines up in one column whatever the date's length. -->
                     <TextBlock Grid.Column="4" Text="{Binding WhenText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"
                                MinWidth="132" TextAlignment="Right" />
@@ -76,6 +90,14 @@
                 <DataTrigger Binding="{Binding IsMuted}" Value="True">
                     <Setter TargetName="Row" Property="Opacity" Value="0.55" />
                 </DataTrigger>
+                <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard x:Name="ExplainIn">
+                            <Storyboard><DoubleAnimation Storyboard.TargetName="Ex" Storyboard.TargetProperty="Opacity" To="1" Duration="{StaticResource MotionFast}" /></Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions><RemoveStoryboard BeginStoryboardName="ExplainIn" /></Trigger.ExitActions>
+                </Trigger>
             </DataTemplate.Triggers>
         </DataTemplate>
 
@@ -292,7 +314,7 @@
                             <ScrollViewer x:Name="ListScroller" Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto"
                                           ctl:InfiniteScroll.LoadMore="{Binding ShowMoreCommand}"
                                           Visibility="{Binding ReadingRecords, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                <ItemsControl x:Name="ListItems" ItemsSource="{Binding GroupsShown}" ItemTemplate="{StaticResource GroupTemplate}" />
+                                <ItemsControl x:Name="ListItems" ItemsSource="{Binding GroupsShown}" ItemTemplate="{StaticResource GroupTemplate}" AlternationCount="2147483647" />
                             </ScrollViewer>
                             <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"
                                          Visibility="{Binding ShowListLoader, Converter={StaticResource Vis}}" />

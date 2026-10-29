@@ -270,9 +270,6 @@
                                                  Visibility="{Binding HasLastYear, Converter={StaticResource Vis}}" />
                                 </StackPanel>
                             </Border>
-                            <!-- How the period went, asked of the AI (hidden while it's off). -->
-                            <Button DockPanel.Dock="Right" Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Ask about this'}" CommandParameter="{Binding RecapAsk}"
-                                    VerticalAlignment="Center" Margin="0,0,10,0" AutomationProperties.Name="{ctl:T 'Ask about this'}" />
                             <TextBlock Text="{Binding RecapTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
                         <!-- Another day standing in for yesterday: why. -->
@@ -288,13 +285,18 @@
                         </StackPanel>
 
                         <Border DockPanel.Dock="Bottom" Style="{StaticResource HiddenWhileLoading}">
-                        <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OpenRecap_Click"
-                                Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{ctl:T 'Open full recap'}" />
-                                <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
-                            </StackPanel>
-                        </Button>
+                        <!-- The recap, and beside it how the period went asked of the AI (audit item 6, 2026-10-29: it sat in the
+                             header with the tabs, next to Ask about today; here it reads as the card's second step). -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,14,0,0" Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
+                            <Button Style="{StaticResource AccentButton}" Click="OpenRecap_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{ctl:T 'Open full recap'}" />
+                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource AiButton}" Content="{Binding RecapAskText}" CommandParameter="{Binding RecapAsk}"
+                                    VerticalAlignment="Center" Margin="10,0,0,0" AutomationProperties.Name="{Binding RecapAskText}" />
+                        </StackPanel>
                         </Border>
 
                         <StackPanel DockPanel.Dock="Top" Style="{StaticResource HiddenWhileLoading}" Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">

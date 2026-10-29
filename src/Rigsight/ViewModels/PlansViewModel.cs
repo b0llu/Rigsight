@@ -233,7 +233,7 @@ public sealed partial class PlansViewModel : ObservableObject
         { IsFree: true, Cap: 0 } => Lang.T("Paused for now"),
         { IsFree: true } p => p.Left == 1 && p.Cap == 10 ? Lang.T("1 of 10 left this week") : Lang.T($"{p.Left} of {p.Cap} left this week"),
         { Gift: true } => Lang.T("Given by RigSight"),
-        { IsTrial: true, EndsAt: { } trialEnd } => Lang.T($"Free trial until {TimeText.At(trialEnd, "d MMMM")}"),
+        { IsTrial: true, EndsAt: { } trialEnd } => TrialLeft(trialEnd),
         { Ending: true, EndsAt: { } end } => Lang.T($"Ends {TimeText.At(end, "d MMMM")}"),
         { PastDue: true } => Lang.T("Payment didn't go through"),
         not null => Lang.T("Active"),
@@ -262,13 +262,23 @@ public sealed partial class PlansViewModel : ObservableObject
         : Plan?.ResetsAt is { } at ? Lang.T($"Back to {Plan.Cap} on {TimeText.At(at, "dddd")}.")
         : "";
 
+    // What it reads and does, said plainly (audit item 4, 2026-10-29: "Answers read all 19 · web search" didn't say 19 of what).
     public string Summary => Plan is not { IsFree: false } p ? ""
-        : (p.Gift || p.IsTrial ? Lang.T($"Answers read {PagesText(p.Pages.Count)}")
-           : p.Yearly ? Lang.T($"{p.Price} a year · answers read {PagesText(p.Pages.Count)}")
+        : (p.Gift || p.IsTrial ? Lang.T($"Reads {PagesText(p.Pages.Count)}")
+           : p.Yearly ? Lang.T($"{p.Price} a year · reads {PagesText(p.Pages.Count)}")
            : MonthlyNext && MineColumn?.Offer.Yearly is { } paid && p.RenewsAt is { } yearEnd
              ? Lang.T($"{paid.Price} paid to {TimeText.At(yearEnd, "d MMMM yyyy")} · then {p.Price} a month")
-           : Lang.T($"{p.Price} a month · answers read {PagesText(p.Pages.Count)}"))
-          + (PlanSearches ? " · " + Lang.T("web search") : "");
+           : Lang.T($"{p.Price} a month · reads {PagesText(p.Pages.Count)}"))
+          + (PlanSearches ? " · " + Lang.T("searches the web") : "");
+
+    /// <summary>The trial's chip: "Free trial · 7 days left", "Free trial · ends today", once (its end is said under the card).</summary>
+    internal static string TrialLeft(DateTime ends, DateTime? now = null)
+    {
+        var at = now ?? DateTime.Now;
+        int days = (int)Math.Ceiling((ends - at).TotalDays);
+        return ends.Date == at.Date || days <= 0 ? Lang.T("Free trial · ends today")
+            : days == 1 ? Lang.T("Free trial · 1 day left") : Lang.T($"Free trial · {days} days left");
+    }
 
     /// <summary>The plan now searches the web (Free doesn't, 2026-10-27).</summary>
     public bool PlanSearches => Plan is { } now && Columns.FirstOrDefault(c => c.Offer.Id == now.Id)?.Offer.Search is not false && !now.IsFree;
@@ -285,7 +295,7 @@ public sealed partial class PlansViewModel : ObservableObject
         }
     }
 
-    private static string PagesText(int n) => n >= AiPages.All.Count ? Lang.T($"all {AiPages.All.Count}") : Lang.T($"{n} of {AiPages.All.Count}");
+    private static string PagesText(int n) => n >= AiPages.All.Count ? Lang.T($"all {AiPages.All.Count} pages") : Lang.T($"{n} of {AiPages.All.Count} pages");
 
     public double UsedPart => Plan is { Cap: > 0 } p ? Math.Clamp((double)p.Used / p.Cap, 0, 1) : 0;
 
@@ -327,8 +337,8 @@ public sealed partial class PlansViewModel : ObservableObject
     public string EndingText => Plan is { EndsAt: { } end } p
         ? Lang.T($"Cancelled. {p.Name} works until {TimeText.At(end, "d MMMM")}, and you won't be charged again. Then RigSight goes back to Free.") : "";
     public string KeepText => Lang.T($"Keep {PlanName}");
-    public string GiftText => Plan is { IsTrial: true, EndsAt: { } trialEnds } trial
-        ? Lang.T($"Your free trial of {trial.Name} ends on {TimeText.At(trialEnds, "d MMMM")} at {TimeText.At(trialEnds, "HH:mm")}. Nothing to pay; then RigSight goes back to Free.")
+    public string GiftText => Plan is { IsTrial: true, EndsAt: { } trialEnds }
+        ? Lang.T($"Ends {TimeText.At(trialEnds, "ddd d MMM")}, {TimeText.Time(trialEnds)}. Nothing to pay; then back to Free.")
         : Plan is { Gift: true } p
         ? p.EndsAt is { } end ? Lang.T($"RigSight gave this PC {p.Name} until {TimeText.At(end, "d MMMM yyyy")}. Nothing to pay.") : Lang.T($"RigSight gave this PC {p.Name}. Nothing to pay.")
         : "";

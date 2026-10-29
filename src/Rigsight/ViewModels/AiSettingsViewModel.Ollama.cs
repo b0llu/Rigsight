@@ -143,22 +143,11 @@ public sealed partial class AiSettingsViewModel
     public string PicksHeading => OllamaHere ? Lang.T("Models for this PC") : Lang.T($"Models for Ollama on {Ollama.Host(Ai.OllamaAddress)}");
 
     /// <summary>
-    /// Under the heading: what they were picked for and where downloads go ("Picked for your RTX 3080 Ti (12 GB) and
-    /// 16 GB of memory · downloads go to C:\Users\…\.ollama\models").
+    /// Under the heading: where downloads go (audit item 10, 2026-10-29: "Picked for this PC" was said three times on one
+    /// screen; the notice says to start with the first, and its card's tag says it's the pick).
     /// </summary>
-    public string PicksLine
-    {
-        get
-        {
-            if (!OllamaHere) return Lang.T($"Picked by size; how they fit there can't be checked from here · downloads go to Ollama on {Ollama.Host(Ai.OllamaAddress)}");
-            string card = _card is null ? "" : _vramGb is { } v ? Lang.T($"your {_card} ({v.ToString("0.#", CultureInfo.CurrentCulture)} GB)") : Lang.T($"your {_card}");
-            string picked = card.Length > 0 && _ram is not null ? Lang.T($"Picked for {card} and {_ram} of memory")
-                : card.Length > 0 ? Lang.T($"Picked for {card}")
-                : _ram is not null ? Lang.T($"Picked for {_ram} of memory")
-                : Lang.T("Picked for this PC");
-            return picked + " · " + Lang.T($"downloads go to {OllamaPicks.ModelsFolder()}");
-        }
-    }
+    public string PicksLine => OllamaHere ? Lang.T($"Downloads go to {OllamaPicks.ModelsFolder()}")
+        : Lang.T($"Picked by size; how they fit there can't be checked from here · downloads go to Ollama on {Ollama.Host(Ai.OllamaAddress)}");
 
     /// <summary>The three cards for this PC (or, for another computer, by size alone), with what's on Ollama marked.</summary>
     private void ShowPicks()
@@ -298,7 +287,7 @@ public sealed partial class AiSettingsViewModel
 
     public string OllamaBoxText => OllamaState switch
     {
-        OllamaLink.Connected => Lang.T("Ollama is running but has none yet. The first one under Picked for this PC is the one to start with."),
+        OllamaLink.Connected => Lang.T("Ollama is running. Download one below to start; the first is the best fit for this PC."),
         OllamaLink.Stopped => Lang.T("Start it and RigSight connects by itself."),
         OllamaLink.Missing => Lang.T("It's free, and runs the models on your own graphics card. Install it, then press Check again."),
         OllamaLink.Offline => Lang.T("Ollama on another computer needs the network. Connect, then press Try again."),

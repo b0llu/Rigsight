@@ -187,6 +187,15 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.0.1", 10, 29,
+            better: [Lang.T("On a game's page, How it's set now shows when there's more below, with a button to step through the rest."),
+                Lang.T("The small AI buttons now say the question they ask, like What stood out yesterday? on Home."),
+                Lang.T("Crashes shows Explain on the newest crash and on the one you point at, so the list is easier to read."),
+                Lang.T("Settings, Ask RigSight says in two short lines what is never sent and what goes only when needed."),
+                Lang.T("The AI now knows your screen's refresh rate, and says when it can't check something instead of guessing.")],
+            fixedBugs: [Lang.T("During the free trial, answers to the first question no longer say your plan leaves a page out, or offer a plan you already have."),
+                Lang.T("Free trial end times now use the same clock as the rest of RigSight."),
+                Lang.T("The line under the Ask box no longer runs its words together.")]),
         V("1.0.0", 10, 29,
             feature: new(Lang.T("Ask RigSight"), Lang.T("Ask about your PC in plain words, and get answers from its own records."),
                 [Lang.T("Press Ctrl+K anywhere in RigSight and ask why it crashed, runs hot or stutters in a game."),

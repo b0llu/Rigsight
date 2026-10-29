@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -766,8 +766,8 @@ public sealed partial class AskViewModel : ObservableObject
     {
         var left = ends - (now ?? DateTime.Now);
         int days = (int)Math.Ceiling(left.TotalDays);
-        return left.TotalHours <= 24 && ends.Date == (now ?? DateTime.Now).Date ? Lang.T($"{plan} trial ends today at {TimeText.At(ends, "HH:mm")}")
-            : days <= 1 ? Lang.T($"{plan} trial ends tomorrow at {TimeText.At(ends, "HH:mm")}")
+        return left.TotalHours <= 24 && ends.Date == (now ?? DateTime.Now).Date ? Lang.T($"{plan} trial ends today at {TimeText.Time(ends)}")
+            : days <= 1 ? Lang.T($"{plan} trial ends tomorrow at {TimeText.Time(ends)}")
             : Lang.T($"{plan} trial · {days} days left");
     }
 
@@ -978,13 +978,8 @@ public sealed partial class AskViewModel : ObservableObject
 
     // What's never sent, and what is (2026-10-27: it said file names were never sent, while app and program file names go,
     // "RiskOfRain2.exe", "UnityPlayer.dll" in a crash, a game's "UserSettings.json"; your own files' names never do).
-    public string? FirstNever => Ai.Mode switch
-    {
-        AiMode.OwnKey => Lang.T("Your Windows user name and your own files, what they're called and what's in them, are never sent. App and game names are, with their program files' names in a crash record. Folder names and sizes go only for a drive you press Scan for."),
-        AiMode.Ollama when OllamaHere => null,
-        AiMode.Ollama => Lang.T("Your Windows user name and your own files, what they're called and what's in them, are never sent. App and game names are, with their program files' names in a crash record. Folder names and sizes go only for a drive you press Scan for."),
-        _ => Lang.T("Your Windows user name, your licence key and your own files, what they're called and what's in them, are never sent. App and game names are, with their program files' names in a crash record. Folder names and sizes go only for a drive you press Scan for."),
-    };
+    public string? FirstNever => Ai.Mode == AiMode.Off || Ai.Mode == AiMode.Ollama && OllamaHere ? null
+        : Lang.T("Never sent:") + " " + AiSettingsViewModel.NeverSentFor(Ai.Mode) + "\n" + Lang.T("Only when needed:") + " " + AiSettingsViewModel.OnlyWhenNeededText;
     /// <summary>
     /// The real count, only once the relay has said it (before Start asking it isn't asked: no usage tracking), never a guess:
     /// "10 free questions this week", or when they're back.
@@ -1382,8 +1377,10 @@ public sealed partial class AskViewModel : ObservableObject
     /// so to the AI, unseen in the chat, and its answer gets that page's card even if the AI leaves it out (2026-10-26).
     /// </summary>
     /// <remarks>Only from the plan the relay said, never a guess: an answer waits for it (see <see cref="Answer"/>).</remarks>
-    private AiPage? LockedFor(string page) =>
-        Ai.Mode == AiMode.RigSight && Standing?.Plan?.Pages is { } open && !open.Contains(page) ? AiPages.Get(page) : null;
+    /// <remarks>A new PC's trial starts with its first question: its plan's pages count already, or that first question
+    /// said "my plan doesn't include" Reports while the trial's Complete read it (2026-10-29).</remarks>
+    internal AiPage? LockedFor(string page) =>
+        Ai.Mode == AiMode.RigSight && Standing is not null && PlanPagesNow() is { } open && !open.Contains(page) ? AiPages.Get(page) : null;
 
     private static string LockedAside(AiPage page) => $"(Asked from RigSight's {page.Label} page, which my plan doesn't include.)";
 
@@ -1935,7 +1932,7 @@ public sealed partial class AskViewModel : ObservableObject
         string name = status.Plans.FirstOrDefault(p => p.Id == trial.Plan)?.Name ?? status.Plan?.Name ?? trial.Plan;
         int free = status.Plans.FirstOrDefault(p => p.IsFree)?.Cap ?? 10;
         if (trial.Running && ends - at <= TimeSpan.FromDays(1) && !seen.Contains($"ending:{ends:o}"))
-            return new AskGift([], ends.Date == at.Date ? Lang.T($"Your {name} trial ends today at {TimeText.At(ends, "HH:mm")}.") : Lang.T($"Your {name} trial ends tomorrow at {TimeText.At(ends, "HH:mm")}."),
+            return new AskGift([], ends.Date == at.Date ? Lang.T($"Your {name} trial ends today at {TimeText.Time(ends)}.") : Lang.T($"Your {name} trial ends tomorrow at {TimeText.Time(ends)}."),
                 Lang.T($"Then you're on Free: {free} questions a week. Your conversations stay."), null) { TrialKey = $"ending:{ends:o}" };
         if (trial.Ended && at - ends <= TimeSpan.FromDays(14) && !seen.Contains($"ended:{ends:o}"))
             return new AskGift([], Lang.T($"Your {name} trial has ended"),

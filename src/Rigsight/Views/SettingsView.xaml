@@ -1967,7 +1967,14 @@
                                 </StackPanel>
                             </DockPanel>
                         </ctl:SmoothBorder>
-                        <TextBlock Text="{ctl:T 'Your Windows user name, your licence key and your own files, what they\'re called and what\'s in them, are never sent. App and game names are, with their program files\' names in a crash record. Folder names and sizes go only for a drive you press Scan for.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
+                        <!-- What's never sent, and what goes only when needed: two short lines (audit item 7, 2026-10-29); from the AI settings,
+                             this card's own being the page switches. -->
+                        <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,0">
+                            <Run Text="{ctl:T 'Never sent:'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" /> <Run Text="{Binding DataContext.Ai.NeverSent, Mode=OneWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </TextBlock>
+                        <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0">
+                            <Run Text="{ctl:T 'Only when needed:'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" /> <Run Text="{Binding DataContext.Ai.OnlyWhenNeeded, Mode=OneWay, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </TextBlock>
                     </StackPanel>
                 </ctl:SmoothBorder>
                 </Border>

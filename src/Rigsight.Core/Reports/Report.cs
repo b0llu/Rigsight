@@ -391,6 +391,34 @@ public sealed class Report
             : $"{Day(from)}, {Hour(from)} – {Day(to)}, {Hour(to)}";
     }
 
+    /// <summary>
+    /// The AI button's words for this period, the question it asks by the period's own name (audit item 5, 2026-10-29):
+    /// "What stood out today?", "…last week?", "…in October?".
+    /// </summary>
+    public string StoodOut
+    {
+        get
+        {
+            var today = DateTime.Today;
+            bool now = From <= DateTime.Now && DateTime.Now < To;
+            return Range switch
+            {
+                ReportRange.Day when From.Date == today => Lang.T("What stood out today?"),
+                ReportRange.Day when From.Date == today.AddDays(-1) => Lang.T("What stood out yesterday?"),
+                ReportRange.Day => Lang.T($"What stood out on {From.ToString(TimeText.Fit("ddd d MMM"))}?"),
+                ReportRange.Week when now => Lang.T("What stood out this week?"),
+                ReportRange.Week when To.Date == today.AddDays(-(((int)today.DayOfWeek + 6) % 7)) => Lang.T("What stood out last week?"),
+                ReportRange.Week => Lang.T($"What stood out the week of {From:d MMM}?"),
+                ReportRange.Month when now => Lang.T("What stood out this month?"),
+                ReportRange.Month => Lang.T($"What stood out in {From.ToString(From.Year == today.Year ? "MMMM" : "MMMM yyyy")}?"),
+                ReportRange.Year when now => Lang.T("What stood out this year?"),
+                ReportRange.Year => Lang.T($"What stood out in {From.Year}?"),
+                ReportRange.All => Lang.T("What stood out over all this time?"),
+                _ => Lang.T("What stood out in this period?"),
+            };
+        }
+    }
+
     public string Title => Range switch
     {
         ReportRange.Custom => CustomTitle(From, To),

@@ -109,7 +109,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     public bool ShowNoChanges => Loaded && !HasChanges;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(RecapAsk), nameof(IsYesterday), nameof(IsLastWeek), nameof(IsLastMonth), nameof(IsLastYear))]
+    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(RecapAsk), nameof(RecapAskText), nameof(IsYesterday), nameof(IsLastWeek), nameof(IsLastMonth), nameof(IsLastYear))]
     private RecapPeriod _period;
 
     /// <summary>The periods there's history for, in order (a period only once it's whole and something was recorded in it).</summary>
@@ -133,7 +133,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// yesterday). A PC left off over a weekend opens on Friday's recap, not on an empty card.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(RecapAsk))]
+    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(RecapAsk), nameof(RecapAskText))]
     private DateTime? _lastUsedDay;
 
     /// <summary>The last day used stands in for yesterday (the "Day" recap, and that day isn't yesterday).</summary>
@@ -158,6 +158,16 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         _ when StandIn is { } day => Lang.T($"How did my PC do on {day:dddd d MMMM}, and is anything worth a look?"),
         _ => Lang.T("How did my PC do yesterday, and is anything worth a look?"),
     }, Core.Ai.AiPages.Reports);
+
+    /// <summary>The button's words: the question it asks, following the tab (audit item 5, 2026-10-29).</summary>
+    public string RecapAskText => Period switch
+    {
+        RecapPeriod.LastWeek => Lang.T("What stood out last week?"),
+        RecapPeriod.LastMonth => Lang.T("What stood out last month?"),
+        RecapPeriod.LastYear => Lang.T("What stood out last year?"),
+        _ when StandIn is { } day => (DateTime.Today - day).TotalDays <= 6 ? Lang.T($"What stood out on {day:dddd}?") : Lang.T($"What stood out on {day.ToString(TimeText.Fit("ddd d MMM"))}?"),
+        _ => Lang.T("What stood out yesterday?"),
+    };
 
     /// <summary>Under the title when another day stands in for yesterday: why ("Not used for 2 days.").</summary>
     public string? RecapNote => StandIn is not { } day ? null

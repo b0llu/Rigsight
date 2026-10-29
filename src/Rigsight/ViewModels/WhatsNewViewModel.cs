@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Services;
 
@@ -29,12 +29,20 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
 
     partial void OnShownChanged(IReadOnlyList<ReleaseNotes> value)
     {
-        _older = [.. value.Skip(1).Select(r => new ReleaseRow(r))];
+        _lead = Lead(value);
+        _older = [.. value.Where(r => r != _lead).Select(r => new ReleaseRow(r))];
         _ = LoadFactsAsync([.. value.Where(r => r.Feature is not null).Select(r => r.Feature!)]);
     }
 
-    /// <summary>The newest update shown, in full: its feature, then every line (approved mock-up, 2026-10-24).</summary>
-    public ReleaseNotes? Newest => Shown.Count > 0 ? Shown[0] : null;
+    /// <summary>The update shown in full: its feature, then every line (approved mock-up, 2026-10-24).</summary>
+    /// <remarks>After an update that skipped some, the newest of them with a feature, the rest as rows under it: going from
+    /// 0.36.0 to 1.0.1 put the small 1.0.1 in full and folded 1.0.0, the AI launch, into a row (2026-10-29).
+    /// All updates at once stay newest first.</remarks>
+    public ReleaseNotes? Newest => _lead;
+    private ReleaseNotes? _lead;
+
+    private ReleaseNotes? Lead(IReadOnlyList<ReleaseNotes> shown) => shown.Count == 0 ? null
+        : ShowingAll ? shown[0] : shown.FirstOrDefault(r => r.Feature is { IsRemoval: false }) ?? shown[0];
 
     /// <summary>The ones before it, one row each that opens in place.</summary>
     public IReadOnlyList<ReleaseRow> Older => _older;
@@ -50,7 +58,9 @@ public sealed partial class WhatsNewViewModel(SettingsModel settings, Version cu
     {
         get
         {
-            if (Newest is not { } newest) return "";
+            // The version is the newest one's, whichever update is shown in full.
+            if (Shown.Count == 0) return "";
+            var newest = Shown[0];
             if (ShowingAll) return Core.Lang.T($"{Shown.Count} updates, newest first");
             string version = $"{newest.Version.Major}.{newest.Version.Minor}.{Math.Max(newest.Version.Build, 0)}";
             return Shown.Count > 1 && _seen is { } seen

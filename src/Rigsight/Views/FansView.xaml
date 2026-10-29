@@ -263,8 +263,8 @@
                                 <StackPanel>
                                     <TextBlock Text="{Binding Alert}" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
                                     <!-- Why, and what to do, asked of the AI (hidden while it's off). -->
-                                    <Button Style="{StaticResource AiButtonSmall}" HorizontalAlignment="Left" Margin="0,8,0,0" Content="{ctl:T 'Ask about this fan'}"
-                                            CommandParameter="{Binding AlertAsk}" AutomationProperties.Name="{ctl:T 'Ask about this fan'}" />
+                                    <Button Style="{StaticResource AiButtonSmall}" HorizontalAlignment="Left" Margin="0,8,0,0" Content="{ctl:T 'Is this fan okay?'}"
+                                            CommandParameter="{Binding AlertAsk}" AutomationProperties.Name="{ctl:T 'Is this fan okay?'}" />
                                 </StackPanel>
                             </Border>
 

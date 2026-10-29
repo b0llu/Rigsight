@@ -46,7 +46,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     {
         var all = new JsonArray
         {
-            Def("get_pc_info", "The PC's parts: CPU, graphics card with driver version, motherboard, RAM, Windows version.", new JsonObject()),
+            Def("get_pc_info", "The PC's parts: CPU, graphics card with driver version, motherboard, RAM, Windows version, and each screen with its resolution and the refresh rate it runs at now.", new JsonObject()),
             Def("get_report", "RigSight's report for a period: time on, peaks for CPU and GPU temperature, what stood out, this period against the PC's own usual (temperatures, fans, problems), apps used with their peaks, crashes, and the electricity the CPU and graphics card used (kWh, average and highest watts). Dates are the user's local dates.", Dates()),
             Def("get_crashes", "Every crash, hang, graphics driver reset, blue screen and sudden shut-off in a period, each with what was going on (app in front, loads, temperatures, power), RigSight's finding with how sure it is, and changes in the 7 days before.", Dates()),
             Def("get_changes", "What changed on the PC in a period: drivers, Windows updates, hardware, BIOS/firmware, settings, fan settings, apps installed or updated.", Dates()),
@@ -520,6 +520,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         lines.Add($"RAM: {Math.Round(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1073741824.0):0} GB");
         using (var nt = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
             lines.Add($"Windows: build {nt?.GetValue("CurrentBuild")} {nt?.GetValue("DisplayVersion")}");
+        lines.AddRange(Screens.Lines());
         lines.Add("Cooling: not known (fan and pump speeds are recorded, not the cooler's model).");
         return string.Join("\n", lines);
     }

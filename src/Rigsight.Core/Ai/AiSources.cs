@@ -137,9 +137,9 @@ public static partial class AiSources
             "get_sensors_now" => ("sensors", Lang.T("All sensors"), Lang.T("Every reading now")),
             // Rewind and dashboards have no page of their own to open at (a rewind plays; a dashboard is found by its id).
             "get_rewind" => ("", Lang.T("Rewind"), Lang.T("Your rewind")),
-            "get_dashboard" => ("", Lang.T("Your dashboards"), (string?)l.Args["name"] ?? Lang.T("Your dashboards")),
+            "get_dashboard" => ("", Lang.T("Dashboards"), (string?)l.Args["name"] ?? Lang.T("Your dashboards")),
             "get_widgets" => ("widgets", Lang.T("Widgets"), Lang.T("Your widgets")),
-            "get_overlay" => ("overlay", Lang.T("Game overlay"), Lang.T("Your overlay")),
+            "get_overlay" => ("overlay", Lang.T("Overlay"), Lang.T("Your overlay")),
             "get_taskbar" => ("taskbar", Lang.T("Taskbar"), Lang.T("Your taskbar readings")),
             _ => null,
         };

@@ -1,4 +1,4 @@
-using Rigsight.Core.Ai;
+﻿using Rigsight.Core.Ai;
 using Rigsight.Core.Settings;
 using Rigsight.Services;
 using Rigsight.Tests.Support;
@@ -46,6 +46,18 @@ public sealed class TrialTests
         Assert.Null(Relay.ReadStatus(Status())!.Trial);
     }
 
+    // A new PC's first question, from Reports' AI button, told the AI "which my plan doesn't include" while the trial it
+    // started was Complete and read Reports (2026-10-29): the trial on offer counts as the plan already.
+    [Fact]
+    public void A_page_the_offered_trial_reads_is_not_locked_for_the_first_question()
+    {
+        string page = AiPages.All.Select(p => p.Id).First(id => !Free.Contains(id));
+        var offered = Shown(WithTrial(Status(), """{"state":"offered","days":7,"plan":"complete","cap":300}"""));
+        Assert.Null(Ui.Run(() => offered.LockedFor(page)));
+        var noTrial = Shown(Status());
+        Assert.NotNull(Ui.Run(() => noTrial.LockedFor(page)));
+    }
+
     // Free's box said nothing of the trial waiting for the first question (2026-10-28).
     [Fact]
     public void Free_says_the_trial_is_waiting_until_it_starts()
@@ -83,8 +95,17 @@ public sealed class TrialTests
     public void The_last_day_says_when_it_ends()
     {
         var now = new DateTime(2026, 10, 28, 9, 0, 0);
-        Assert.Equal("Complete trial ends today at 21:30", AskViewModel.TrialLeft("Complete", now.Date.AddHours(21.5), now));
-        Assert.Equal("Complete trial ends tomorrow at 08:00", AskViewModel.TrialLeft("Complete", now.Date.AddDays(1).AddHours(8), now));
+        Assert.Equal("Complete trial ends today at 9:30 PM", AskViewModel.TrialLeft("Complete", now.Date.AddHours(21.5), now));
+        Assert.Equal("Complete trial ends tomorrow at 8:00 AM", AskViewModel.TrialLeft("Complete", now.Date.AddDays(1).AddHours(8), now));
+    }
+
+    [Fact]
+    public void The_plan_card_says_the_trial_once_with_the_app_s_own_clock()
+    {
+        var now = new DateTime(2026, 10, 29, 9, 48, 0);
+        Assert.Equal("Free trial · 7 days left", PlansViewModel.TrialLeft(now.AddDays(7), now));
+        Assert.Equal("Free trial · 1 day left", PlansViewModel.TrialLeft(now.AddHours(20), now));
+        Assert.Equal("Free trial · ends today", PlansViewModel.TrialLeft(now.Date.AddHours(18), now));
     }
 
     [Fact]

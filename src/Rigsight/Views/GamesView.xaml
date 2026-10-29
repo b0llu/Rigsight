@@ -596,7 +596,7 @@
                                                 Visibility="{Binding CanStartRtss, Converter={StaticResource Vis}}" />
                                         <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Install RivaTuner'}" Command="{Binding InstallRtssCommand}" Margin="0,0,10,0"
                                                 Visibility="{Binding CanInstallRtss, Converter={StaticResource Vis}}" />
-                                        <Button Style="{StaticResource AiButton}" Content="{ctl:T 'What can it tell?'}" CommandParameter="{Binding NoFpsAsk}" AutomationProperties.Name="{ctl:T 'What can it tell?'}" />
+                                        <Button Style="{StaticResource AiButton}" Content="{ctl:T 'How does it run without FPS?'}" CommandParameter="{Binding NoFpsAsk}" AutomationProperties.Name="{ctl:T 'How does it run without FPS?'}" />
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
@@ -779,8 +779,12 @@
                                         <TextBlock Grid.Column="1" Text="{ctl:T 'YOURS'}" Style="{StaticResource Caption}" />
                                         <TextBlock Grid.Column="2" Text="{ctl:T 'NVIDIA\'S PICK'}" Style="{StaticResource Caption}" Visibility="{Binding HasNvidiaPick, Converter={StaticResource Vis}}" />
                                     </Grid>
-                                    <ScrollViewer MaxHeight="372" VerticalScrollBarVisibility="Auto" Focusable="False" PanningMode="VerticalOnly">
-                                        <ItemsControl ItemsSource="{Binding SettingLines}" Focusable="False" Margin="0,0,12,0">
+                                    <!-- Plain that it scrolls (approved mock-up A, 2026-10-29): the last line in sight is cut in half, the
+                                         end with more fades, and "N more settings" scrolls on until the end. -->
+                                    <Grid>
+                                    <ScrollViewer x:Name="SettingsScroll" MaxHeight="372" VerticalScrollBarVisibility="Auto" Focusable="False" PanningMode="VerticalOnly"
+                                                  ScrollChanged="SettingsScroll_ScrollChanged">
+                                        <ItemsControl x:Name="SettingsList" ItemsSource="{Binding SettingLines}" Focusable="False" Margin="0,0,12,0">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <Grid>
@@ -823,6 +827,14 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                     </ScrollViewer>
+                                    <Button x:Name="SettingsMore" Style="{StaticResource GhostButton}" Background="{DynamicResource AccentSoftBrush}" Padding="12,6"
+                                            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,26,8" Visibility="Collapsed" Click="SettingsMore_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock x:Name="SettingsMoreText" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    </Grid>
                                     <DockPanel Margin="0,16,0,0">
                                         <Button DockPanel.Dock="Left" Style="{StaticResource AiButton}" Content="{Binding SettingsAskText}" CommandParameter="{Binding SettingsAsk}"
                                                 AutomationProperties.Name="{Binding SettingsAskText}" VerticalAlignment="Center" />

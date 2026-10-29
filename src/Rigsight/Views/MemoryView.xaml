@@ -220,8 +220,8 @@
                             </DockPanel>
                             <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                             <!-- What to do about it, asked of the AI (hidden while it's off). -->
-                            <Button Style="{StaticResource AiButtonSmall}" HorizontalAlignment="Left" Margin="0,10,0,0" Content="{ctl:T 'Ask what to do'}"
-                                    CommandParameter="{Binding Ask}" AutomationProperties.Name="{ctl:T 'Ask what to do'}" />
+                            <Button Style="{StaticResource AiButtonSmall}" HorizontalAlignment="Left" Margin="0,10,0,0" Content="{ctl:T 'What should I do about it?'}"
+                                    CommandParameter="{Binding Ask}" AutomationProperties.Name="{ctl:T 'What should I do about it?'}" />
                         </StackPanel>
                     </ctl:SmoothBorder>
                     <DataTemplate.Triggers>

@@ -2,6 +2,7 @@
 using System.Windows.Controls;
 using System.Windows.Media;
 using Rigsight.Controls;
+using Rigsight.Core;
 
 namespace Rigsight.Views;
 
@@ -105,6 +106,66 @@ public partial class GamesView : UserControl
         double max = grid.RowHeight * 2.5 + grid.RowGap * 2 + 8;
         if (Math.Abs(LibraryBox.MaxHeight - max) > 0.5) LibraryBox.MaxHeight = max;
     }
+
+    // ── How it's set: a list that plainly scrolls ──
+
+    private const double SettingsTallest = 372, SettingsFade = 36;
+
+    /// <summary>
+    /// The list stops halfway through a line (a list that ended on a line's edge looked complete), the end with more fades as
+    /// the sidebar's does, and "N more settings" counts the lines not wholly in sight; none of it when everything fits.
+    /// </summary>
+    private void SettingsScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        var box = SettingsScroll;
+        double cut = SettingsTallest;
+        int below = 0;
+        for (int i = 0; i < SettingsList.Items.Count; i++)
+        {
+            if (SettingsList.ItemContainerGenerator.ContainerFromIndex(i) is not FrameworkElement line || line.ActualHeight <= 0) continue;
+            double top = line.TranslatePoint(new Point(), SettingsList).Y;
+            if (top < SettingsTallest && top + line.ActualHeight > SettingsTallest) cut = top + line.ActualHeight / 2;
+            double inView = line.TranslatePoint(new Point(), box).Y;
+            if (SettingsList.Items[i] is ViewModels.SettingLine { IsGroup: false } && inView + line.ActualHeight > box.ViewportHeight + 1) below++;
+        }
+        if (Math.Abs(box.MaxHeight - cut) > 0.5) box.MaxHeight = cut;
+
+        if (box.ScrollableHeight < 0.5) { box.OpacityMask = null; ShowSettingsMore(false); return; }
+        bool above = box.VerticalOffset > 1, more = box.VerticalOffset < box.ScrollableHeight - 1;
+        double f = SettingsFade / Math.Max(box.ActualHeight, SettingsFade * 2);
+        var mask = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+        mask.GradientStops.Add(new GradientStop(above ? Colors.Transparent : Colors.Black, 0));
+        mask.GradientStops.Add(new GradientStop(Colors.Black, f));
+        mask.GradientStops.Add(new GradientStop(Colors.Black, 1 - f));
+        mask.GradientStops.Add(new GradientStop(more ? Colors.Transparent : Colors.Black, 1));
+        mask.Freeze();
+        box.OpacityMask = mask;
+        if (more && below > 0)
+        {
+            SettingsMoreText.Text = below == 1 ? Lang.T("1 more setting") : Lang.T($"{below} more settings");
+            System.Windows.Automation.AutomationProperties.SetName(SettingsMore, SettingsMoreText.Text);
+        }
+        ShowSettingsMore(more && below > 0);
+    }
+
+    /// <summary>The button fades in and out (pop-ins fade only).</summary>
+    private void ShowSettingsMore(bool show)
+    {
+        bool shown = SettingsMore.Visibility == Visibility.Visible && SettingsMore.Tag is not "hiding";
+        if (show == shown) return;
+        var fade = new System.Windows.Media.Animation.DoubleAnimation(show ? 1 : 0, TimeSpan.FromMilliseconds(150));
+        if (show) { if (SettingsMore.Visibility != Visibility.Visible) fade.From = 0; SettingsMore.Tag = null; SettingsMore.Visibility = Visibility.Visible; }
+        else
+        {
+            SettingsMore.Tag = "hiding";
+            fade.Completed += (_, _) => { if (SettingsMore.Tag is "hiding") { SettingsMore.Visibility = Visibility.Collapsed; SettingsMore.Tag = null; } };
+        }
+        SettingsMore.BeginAnimation(OpacityProperty, fade);
+    }
+
+    /// <summary>On by most of a box, so the line that was cut in half is whole at the top.</summary>
+    private void SettingsMore_Click(object sender, RoutedEventArgs e) =>
+        SettingsScroll.ScrollToVerticalOffset(SettingsScroll.VerticalOffset + Math.Max(SettingsScroll.ViewportHeight - 60, 40));
 
     private static CoverGrid? FindGrid(DependencyObject root)
     {

@@ -179,7 +179,7 @@ public sealed class YearlyTests
     {
         var plans = Shown(WithYearly(Status("essentials", "subscription"), "year").Replace("\"price_label\":\"$5\",\"card\"", "\"price_label\":\"$49.99\",\"card\""));
         Assert.False(plans.ShowBillingSwitch);
-        Assert.StartsWith("$49.99 a year · answers read", plans.Summary);
+        Assert.StartsWith("$49.99 a year · reads", plans.Summary);
         Assert.Contains("2026", plans.NextWhen);
         Ui.Run(() => plans.PickMonthlyCommand.Execute(null));
         Assert.Equal("$8.33", plans.Columns[2].Price);

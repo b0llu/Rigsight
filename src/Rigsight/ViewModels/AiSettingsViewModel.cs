@@ -83,6 +83,16 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public bool IsOwnKey => Ai.Mode == AiMode.OwnKey;
     public bool IsOllama => Ai.Mode == AiMode.Ollama;
 
+    // ── What's never sent, and what goes only when needed (audit item 7, 2026-10-29: one dense paragraph became two
+    //    lines; the same facts, and no licence key with your own key or Ollama, which have none). ──
+    public string NeverSent => NeverSentFor(Ai.Mode);
+    public string OnlyWhenNeeded => OnlyWhenNeededText;
+    internal static string NeverSentFor(AiMode mode) => mode == AiMode.RigSight
+        ? Lang.T("your Windows user name, your licence key, and your own files, their names or what's in them.")
+        : Lang.T("your Windows user name, and your own files, their names or what's in them.");
+    internal static string OnlyWhenNeededText =>
+        Lang.T("app and game names, with their program files' names in a crash record; folder names and sizes for a drive you press Scan for.");
+
     // ── The two notes ────────────────────────────────────────────────────
     /// <summary>Off sends nothing, so the note about what is sent waits until a way to answer is picked.</summary>
     public bool ShowSendingNote => !Ai.SendingNoteClosed && !IsOff;

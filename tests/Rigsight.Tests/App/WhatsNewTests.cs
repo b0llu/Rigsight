@@ -117,6 +117,23 @@ public sealed class WhatsNewTests
         });
     }
 
+    // 0.36.0 straight to 1.0.1 showed the small 1.0.1 in full and folded 1.0.0, the AI launch, into a row (2026-10-29):
+    // the newest update with a feature is the one in full, the rest rows under it; the version said is still the newest.
+    [Fact]
+    public void Skipping_a_feature_update_still_shows_its_feature_in_full()
+    {
+        var (card, _) = Make(seen: "0.36.0", current: new Version(1, 0, 1));
+        Ui.Run(() =>
+        {
+            card.CheckOnStart();
+            Assert.Equal([new Version(1, 0, 1), new Version(1, 0, 0)], card.Shown.Select(r => r.Version));
+            Assert.Equal(new Version(1, 0, 0), card.Newest!.Version);
+            Assert.NotNull(card.Newest.Feature);
+            Assert.Equal([new Version(1, 0, 1)], card.Older.Select(r => r.Notes.Version));
+            Assert.StartsWith("RigSight 1.0.1 · 2 updates since 0.36.0", card.SubHeading);
+        });
+    }
+
     [Fact]
     public void The_summary_counts_what_came_and_a_single_update_says_its_version_and_date()
     {

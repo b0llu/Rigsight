@@ -677,7 +677,7 @@
                             </StackPanel>
                             <Border Height="6" />
                         </StackPanel>
-                        <!-- How it works, the questions left and the shortcut (set or changed in Settings › Ask RigSight). -->
+                        <!-- The questions left and the shortcut (set or changed in Settings › Ask RigSight). -->
                         <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="18,9,16,10">
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" Command="{Binding Ask.SetBarShortcutCommand}" Cursor="Hand" Focusable="False" Margin="12,0,0,0" VerticalAlignment="Center">
@@ -700,11 +700,10 @@
                                         <ControlTemplate TargetType="Button"><TextBlock Text="{ctl:T 'Set a shortcut for anywhere'}" FontSize="12" Foreground="{DynamicResource AiBrush}" /></ControlTemplate>
                                     </Button.Template>
                                 </Button>
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding Ask.QuestionsLine}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                           Visibility="{Binding Ask.ShowQuestionsLine, Converter={StaticResource Vis}}" />
-                                <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center">
-                                    <Run Text="{ctl:T 'Enter'}" Foreground="{DynamicResource MutedBrush}" /> <Run Text="{ctl:T 'ask'}" />  ·  <Run Text="{ctl:T 'Shift+Enter'}" Foreground="{DynamicResource MutedBrush}" /> <Run Text="{ctl:T 'new line'}" />  ·  <Run Text="{ctl:T 'Esc'}" Foreground="{DynamicResource MutedBrush}" /> <Run Text="{ctl:T 'close'}" />
-                                </TextBlock>
+                                <!-- The plan line takes the rest (audit item 1, 2026-10-29): the key hints ran into it and Esc was cut;
+                                     Enter, Shift+Enter and Esc work as in every chat box. -->
+                                <TextBlock Text="{Binding Ask.QuestionsLine}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Ask.QuestionsLine}" Visibility="{Binding Ask.ShowQuestionsLine, Converter={StaticResource Vis}}" />
                             </DockPanel>
                         </Border>
                     </StackPanel>

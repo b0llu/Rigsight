@@ -24,7 +24,7 @@ public sealed class PlansTests
 
     // As the relay sends them since migrations 0010 and 0011: Processes with Free, Games with Essentials, Widgets, Overlay
     // and Taskbar in every plan.
-    private static readonly string[] Free = ["home", "parts", "temperatures", "processes", "widgets", "overlay", "taskbar"];
+    internal static readonly string[] Free = ["home", "parts", "temperatures", "processes", "widgets", "overlay", "taskbar"];
     private static readonly string[] Essentials = [.. Free, "crashes", "memory", "storage", "reports", "games"];
 
     /// <summary>A status as the relay sends it, on <paramref name="plan"/>.</summary>
@@ -261,7 +261,7 @@ public sealed class PlansTests
         var (_, plans) = Shown(Status("essentials", "subscription", used: 46));
         Assert.True(plans.IsSubscription);
         Assert.Equal("Active", plans.StateText);
-        Assert.Equal("$5 a month · answers read 12 of 19 · web search", plans.Summary);
+        Assert.Equal("$5 a month · reads 12 of 19 pages · searches the web", plans.Summary);
         Assert.StartsWith("$5 on ", plans.NextPayment);
         Assert.Equal("46 of 100 questions used today · starts again at midnight", plans.UsedText);
         Assert.Equal("Visa ending 4242", plans.CardText);
@@ -312,7 +312,7 @@ public sealed class PlansTests
         Assert.False(plans.IsSubscription);
         Assert.False(plans.CanManage);
         Assert.Contains("Nothing to pay", plans.GiftText);
-        Assert.Equal("Answers read all 19 · web search", plans.Summary);
+        Assert.Equal("Reads all 19 pages · searches the web", plans.Summary);
     }
 
     [Fact]

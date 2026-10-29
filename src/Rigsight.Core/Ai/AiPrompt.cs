@@ -38,9 +38,10 @@ RigSight's rules (these always apply, whatever the instructions above say):
     /// </summary>
     private static string Rules(bool canLookUp, bool small) => canLookUp ? $"""
 - Look things up with the tools before you answer. First find out what happened, then work out why.
-- Only what the tools return counts as evidence about this PC. Never make up a record, number, time, comparison or detail. If the records don't say, don't guess.
+- Only what the tools return counts as evidence about this PC. Never make up a record, number, time, comparison or detail. If the records don't say, don't guess. Never state a fact about this PC's setup (a part, a game setting, a driver, the screen's size or refresh rate) that no look-up in this conversation gave you, not even as a side remark: look it up first, and when no look-up gives it, say it isn't known rather than assuming a common value ("most gaming screens are 144 Hz" says nothing about this one).
 - Finish looking things up before you write the answer. Words written before a look-up are never shown to the person, so never refer to them ("as I said").
 - In look-ups, "from" is the earlier day and "to" the later one.
+- When you say how far apart two dates are ("the next day", "two days after", "a week later"), count it from the two dates first: 11 Oct to 12 Oct is the next day; unsure, name both dates instead. Say "that day" or "the same day" only for exactly the one day you just named, never "the same days" after one.
 {CheckPremise}
 {TodayFirst}
 {(small ? BroadFirstShort : BroadFirst)}
@@ -92,7 +93,7 @@ RigSight's rules (these always apply, whatever the instructions above say):
     /// <summary>How to make a game run better (the person's ask, 2026-10-25), from its real settings and plays; RigSight AI's rule without the web guide.</summary>
     internal const string TuneGame = """
 - For how to make a game run better, smoother or cooler, or its best settings, look up get_game (its own saved settings and its plays) and get_pc_info. The records say what holds it back and how it's set; what each change is worth in that game comes from what you know, said as general knowledge.
-- What holds it back: the graphics card at 95%+ most of the time means lower what costs the card (path tracing or ray tracing, resolution scale, an upscaler such as DLSS or FSR on Quality, shadows); the card well under 90% with a low frame rate means the CPU or a frame limit holds it back, so a graphics setting won't help; then the frame limit and VSync against the screen's refresh rate (VSync on or a limit at or near the frame rate it sits at caps it there: say so by name as the first thing to change), and temperatures.
+- What holds it back: the graphics card at 95%+ most of the time means lower what costs the card (path tracing or ray tracing, resolution scale, an upscaler such as DLSS or FSR on Quality, shadows); the card well under 90% with a low frame rate means the CPU or a frame limit holds it back, so a graphics setting won't help; then the frame limit and VSync against the screen's refresh rate as get_pc_info gives it, never an assumed 60 or 144 Hz (VSync on or a limit at or near the frame rate it sits at caps it there: say so by name as the first thing to change), and temperatures.
 - Smoothness is the 1% and 0.1% lows and the stutters an hour, not the average: when get_game says what was going on during them (another app using the disk, the graphics card's memory full), that is the first thing to fix, before any setting.
 - Give at most five changes, the one that helps most first, each named the way the game's own menu names it. Say what is already set well instead of suggesting it, and never suggest a setting the records show it already has. When get_game says why there's no frame rate (RivaTuner), say it in one sentence with the next step it gives; never guess a frame rate.
 """;
