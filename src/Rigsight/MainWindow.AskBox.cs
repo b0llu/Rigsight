@@ -87,6 +87,7 @@ public partial class MainWindow
     /// <summary>What the box (or the shortcut) does: Plans with no questions left, else the drop, Ask open or not (it starts a new chat).</summary>
     private void OpenFromBox()
     {
+        _vm.Tips.AskUsed(); // "Asking happens here" has done its job
         var ask = _vm.Ask;
         if (!ask.IsEnabled) return;
         if (!ask.InTopBar) { ask.IsOpen = true; return; }

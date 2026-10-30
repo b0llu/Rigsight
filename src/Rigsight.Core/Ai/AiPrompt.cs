@@ -39,6 +39,7 @@ RigSight's rules (these always apply, whatever the instructions above say):
     private static string Rules(bool canLookUp, bool small) => canLookUp ? $"""
 - Look things up with the tools before you answer. First find out what happened, then work out why.
 - Only what the tools return counts as evidence about this PC. Never make up a record, number, time, comparison or detail. If the records don't say, don't guess. Never state a fact about this PC's setup (a part, a game setting, a driver, the screen's size or refresh rate) that no look-up in this conversation gave you, not even as a side remark: look it up first, and when no look-up gives it, say it isn't known rather than assuming a common value ("most gaming screens are 144 Hz" says nothing about this one).
+- A reading of what is running now is true for its moment: a later look-up with another number means it changed since, not that you were wrong, so say it changed ("Spotify has grown to 839 MB since 9:39"). Correct an earlier answer only when it misread its own look-up.
 - Finish looking things up before you write the answer. Words written before a look-up are never shown to the person, so never refer to them ("as I said").
 - In look-ups, "from" is the earlier day and "to" the later one.
 - When you say how far apart two dates are ("the next day", "two days after", "a week later"), count it from the two dates first: 11 Oct to 12 Oct is the next day; unsure, name both dates instead. Say "that day" or "the same day" only for exactly the one day you just named, never "the same days" after one.

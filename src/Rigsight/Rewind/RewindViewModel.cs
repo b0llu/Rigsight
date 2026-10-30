@@ -89,9 +89,13 @@ public sealed partial class RewindViewModel : ObservableObject
         if (IsOpen || DateTime.Now - _checked < TimeSpan.FromMinutes(30)) return;
         _checked = DateTime.Now;
         Reload();
-        foreach (var e in Entries.Where(e => !e.Facts.Announced)) { e.Facts.Announced = true; RewindStore.Save(e.Facts); }
+        // A rewind waiting its turn from this start keeps its full screen for the next start.
+        foreach (var e in Entries.Where(e => !e.Facts.Announced && !_waitingTurn.Contains(e.Facts.Id))) { e.Facts.Announced = true; RewindStore.Save(e.Facts); }
         RaiseWaiting();
     }
+
+    /// <summary>New rewinds that waited because another card showed this start: the sidebar's line now, full screen next start.</summary>
+    private readonly HashSet<string> _waitingTurn = [];
 
     public Action? OpenSettings { get; set; }
     public int KeepDays => _settings.Current.Tracking.KeepHistoryDays;
@@ -107,7 +111,7 @@ public sealed partial class RewindViewModel : ObservableObject
     public bool HasEntries => Entries.Count > 0;
 
     /// <summary>The newest one not watched yet, for the sidebar's line while it waits.</summary>
-    public RewindEntry? Waiting => IsRevealing || IsWatching ? null : Entries.FirstOrDefault(e => e.IsNew && e.Facts.Announced);
+    public RewindEntry? Waiting => IsRevealing || IsWatching ? null : Entries.FirstOrDefault(e => e.IsNew && (e.Facts.Announced || _waitingTurn.Contains(e.Facts.Id)));
     public bool HasWaiting => Waiting is not null;
     public string WaitingTitle => Waiting is { } w ? Lang.T($"{RewindCards.Title(w.Facts)} rewind is ready") : "";
     public string WaitingLine => Waiting is { } w ? (RewindCards.Of(w.Facts).Count is var n && n == 1 ? Lang.T("1 card") : Lang.T($"{RewindCards.Of(w.Facts).Count} cards")) : "";
@@ -126,7 +130,10 @@ public sealed partial class RewindViewModel : ObservableObject
     /// At start: makes what has finished since, then shows the biggest new one full screen (when that's wanted). A test
     /// copy can be asked to make the month so far (RIGSIGHT_REWIND_THIS_MONTH), to try it before a month ends.
     /// </summary>
-    public async Task StartAsync()
+    /// <param name="waitTurn">Another big card showed this start (the welcome, What's new): new ones wait as the sidebar's
+    /// line and open full screen next start, once (2026-10-30: from 1 Nov, What's new and the first rewind stacked).</param>
+    /// <param name="shown">Told when one opens full screen: this start's big card.</param>
+    public async Task StartAsync(bool waitTurn = false, Action? shown = null)
     {
         var now = DateTime.Now;
         await EnsureGamesAsync();
@@ -157,10 +164,17 @@ public sealed partial class RewindViewModel : ObservableObject
         Reload();
         var fresh = Entries.Where(e => !e.Facts.Announced && !e.Facts.Seen).ToList();
         if (fresh.Count == 0) return;
+        if (waitTurn)
+        {
+            foreach (var e in fresh) _waitingTurn.Add(e.Facts.Id);
+            Log.Write("rewind", $"{fresh.Count} new, waiting their turn: another card showed this start");
+            RaiseWaiting();
+            return;
+        }
         // Everything new is announced now: the biggest full screen, the rest in the list.
         foreach (var e in fresh) { e.Facts.Announced = true; RewindStore.Save(e.Facts); }
         var biggest = fresh.OrderByDescending(e => e.Facts.To).ThenByDescending(e => e.Facts.Kind).First();
-        if (S.FullScreen) Reveal(biggest.Facts);
+        if (S.FullScreen) { Reveal(biggest.Facts); shown?.Invoke(); }
         RaiseWaiting();
     }
 

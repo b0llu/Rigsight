@@ -45,12 +45,20 @@ public partial class MainWindow : Window
             e.Handled = true;
         };
         // What's new after an update: once the window is up, so it's the first thing seen, not a popup out of nowhere.
+        // One big card per start, in this order (approved journey, 2026-10-30): a new install's welcome, What's new after
+        // an update, then a finished rewind full screen; the support card only on a start where none of them showed.
         ContentRendered += (_, _) =>
         {
-            _vm.WhatsNew.CheckOnStart();
-            // A rewind finished since RigSight was last open: made now, and the biggest shown full screen.
-            _ = _vm.Rewind.StartAsync();
-            AskForSupportLater(whatsNewShown: _vm.WhatsNew.IsOpen);
+            if (_vm.Welcome.IsOpen) _vm.MarkBig("The welcome");
+            else
+            {
+                _vm.WhatsNew.CheckOnStart();
+                if (_vm.WhatsNew.IsOpen || _vm.WhatsNew.IsWaiting) _vm.MarkBig("What's new");
+            }
+            // A rewind finished since RigSight was last open: made now, and the biggest shown full screen, unless a card
+            // already showed this start (then it waits as the sidebar's line, full screen next start).
+            _ = _vm.Rewind.StartAsync(waitTurn: _vm.BigThisStart, shown: () => _vm.MarkBig("A rewind"));
+            AskForSupportLater();
         };
         // Listened to weakly: the card outlives any one window (the tests host several).
         PropertyChangedEventManager.AddHandler(vm.WhatsNew, OnWhatsNewOpened, nameof(WhatsNewViewModel.IsOpen));
@@ -251,12 +259,12 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// The opening moment for the support card: 20 seconds after the window opened, if it settled on Home with nothing
-    /// else over it, and What's new didn't show this time (one card an opening). Whether it may ask at all is
-    /// SupportAsk's to say.
+    /// else over it, and no big card showed this start or today (one big thing at a time, 2026-10-30). Whether it may ask
+    /// at all is SupportAsk's to say.
     /// </summary>
-    private void AskForSupportLater(bool whatsNewShown)
+    private void AskForSupportLater()
     {
-        if (whatsNewShown) return;
+        if (_vm.BigThisStart) return;
         var wait = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
         wait.Tick += (_, _) =>
         {
@@ -268,8 +276,8 @@ public partial class MainWindow : Window
     }
 
     private bool CalmOnHome() => IsVisible && WindowState != WindowState.Minimized && _vm.CurrentPage == "home"
-        && !_vm.WhatsNew.IsOpen && !_vm.Rewind.IsOpen && !_vm.Export.IsOpen && !_vm.PageExport.IsOpen && !_vm.Presets.IsOpen && !_vm.Plans.IsOpen
-        && !_vm.Processes.Question.IsOpen && !_vm.Update.ShowOverlay;
+        && !_vm.BigThisStart && _vm.Settings.Current.LastBigDay != DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
+        && !_vm.PageCovered && !_vm.Tips.IsOpen && !AskDrop.IsOpen && !_vm.Ask.IsOpen;
 
     /// <summary>The support card fades in over the window, as What's new does.</summary>
     private void OnSupportOpened(object? sender, PropertyChangedEventArgs e)

@@ -37,8 +37,11 @@ public sealed record RunningSnapshot(DateTime At, IReadOnlyList<RunningApp> Apps
             ?? Apps.FirstOrDefault(a => a.Name.Equals(n, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>The look-up's answer for the model: the apps using the most memory, CPU or graphics card now.</summary>
-    public string Text()
+    /// <summary>
+    /// The look-up's answer for the model: the apps using the most memory, CPU or graphics card now, each with its usual
+    /// memory when one is known (<see cref="Reports.MemoryPast.UsualOf"/>, the Memory page's own figure).
+    /// </summary>
+    public string Text(IReadOnlyDictionary<string, double>? usual = null)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Apps running now (looked at {At.ToString("h:mm:ss tt", CultureInfo.InvariantCulture)}, CPU and graphics card over one second):");
@@ -52,9 +55,11 @@ public sealed record RunningSnapshot(DateTime At, IReadOnlyList<RunningApp> Apps
             if (!a.HasWindow) notes.Add("no window, working in the background");
             if (a.Risk != EndRisk.None) notes.Add(a.Risk is EndRisk.OwnWindow or EndRisk.OwnAgent ? "RigSight itself" : "part of Windows, never closed from here");
             else if (!a.Ours || string.IsNullOrEmpty(a.Path)) notes.Add("a Windows or system process, never closed from here");
-            sb.AppendLine($"  {a.Name} ({a.Exe}{(a.Processes > 1 ? $", {a.Processes} processes" : "")}): memory {Units.Megabytes(a.MemMb)}, CPU {a.Cpu:0}%, graphics card {a.Gpu:0}%"
+            string usualMb = usual is not null && usual.TryGetValue(a.Exe, out double u) ? $" (usual {Units.Megabytes(u)})" : "";
+            sb.AppendLine($"  {a.Name} ({a.Exe}{(a.Processes > 1 ? $", {a.Processes} processes" : "")}): memory {Units.Megabytes(a.MemMb)}{usualMb}, CPU {a.Cpu:0}%, graphics card {a.Gpu:0}%"
                 + (notes.Count > 0 ? $"; {string.Join(", ", notes)}" : "") + (a.CanClose ? "; can be closed from an answer" : ""));
         }
+        if (usual is not null) sb.AppendLine($"An app's usual is its average memory over the {Reports.AppPast.UsualDays} days before today, the figure the Memory page shows.");
         sb.AppendLine("This is a moment, not history: an app's usual use is in get_apps and get_memory.");
         return sb.ToString();
     }

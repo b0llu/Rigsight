@@ -23,8 +23,9 @@ public static class SettingsStore
     /// </remarks>
     public static RigsightSettings Load(string path)
     {
-        // A new install: the app asks once which pages the sidebar shows (an unreadable file isn't one: see below).
-        if (!File.Exists(path)) { var fresh = Normalize(new RigsightSettings()); fresh.Sidebar.AskPages = true; return fresh; }
+        // A new install: the welcome, once, which asks which pages the sidebar shows, and a tip the first time each page
+        // opens (an unreadable file isn't one: see below).
+        if (!File.Exists(path)) { var fresh = Normalize(new RigsightSettings()); fresh.Sidebar.AskPages = true; fresh.FirstVisitTips = true; return fresh; }
         if (Read(path) is { } settings) return settings;
         try { File.Copy(path, path + BadSuffix, overwrite: true); }
         catch (Exception ex) { Log.Error("settings", ex); }

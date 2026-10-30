@@ -268,6 +268,8 @@ internal sealed class SensorHost
 
     private void Collect(IHardware hw)
     {
+        // Cleaned once here, for every page, the log and the copied logs: some drives pad their name with NULs.
+        if (Log.Printable(hw.Name).Trim() is var name && name != hw.Name && name.Length > 0) hw.Name = name;
         var tier = hw.HardwareType switch
         {
             HardwareType.Cpu or HardwareType.GpuNvidia or HardwareType.GpuAmd or HardwareType.GpuIntel => Tier.Fast,

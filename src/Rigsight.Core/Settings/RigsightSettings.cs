@@ -162,6 +162,18 @@ public sealed class RigsightSettings
     /// </summary>
     public string? WhatsNewSeen { get; set; }
 
+    /// <summary>A tip the first time each page opens: on for a new install only (2026-10-30), never after an update.</summary>
+    public bool FirstVisitTips { get; set; }
+
+    /// <summary>The pages whose first-visit tip was closed.</summary>
+    public List<string> TipsSeen { get; set; } = [];
+
+    /// <summary>
+    /// The day (yyyy-MM-dd) a big card last showed: the welcome, What's new, or a rewind full screen. The support card
+    /// never asks that day (one big thing at a time, 2026-10-30).
+    /// </summary>
+    public string? LastBigDay { get; set; }
+
     /// <summary>
     /// What happens after an update (Settings › General › Updates): the card opened by itself (the default), a What's new
     /// button in the title bar, or nothing. What's new stays in the ⋯ menu whichever is picked.

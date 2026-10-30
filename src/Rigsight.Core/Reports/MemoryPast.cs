@@ -47,8 +47,23 @@ public sealed class MemoryPast
             FullestApps = [.. inFullestHour.OrderByDescending(a => a.MB).Take(2).Select(a => a.Name)],
         };
         foreach (var (exe, of) in hours) past.Hours[exe] = of;
-        foreach (var (id, sum, n, days) in db.GetAppMemoryTotals(TimeUtil.ToUnix(today.AddDays(-AppPast.UsualDays)), from))
-            if (days >= AppPast.MinUsualDays && n > 0 && apps.TryGetValue(id, out var app)) past.Usual[app.Exe] = sum / n;
+        foreach (var (exe, usual) in UsualOf(db, now, apps)) past.Usual[exe] = usual;
         return past;
+    }
+
+    /// <summary>
+    /// Each app's usual memory (MB) by its program's name: its average over the <see cref="AppPast.UsualDays"/> days
+    /// before today, for apps with at least <see cref="AppPast.MinUsualDays"/> of them. The one figure the Memory page and
+    /// the AI's look-ups both give (2026-10-30: the page said Spotify "usually holds 356 MB", the AI's week average said
+    /// 414 MB, and the answer called the page's number missing from the records).
+    /// </summary>
+    public static Dictionary<string, double> UsualOf(RigsightDb db, DateTime now, IReadOnlyDictionary<long, AppRow>? apps = null)
+    {
+        apps ??= db.LoadApps().ToDictionary(a => a.Id);
+        var today = now.Date;
+        var usual = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (id, sum, n, days) in db.GetAppMemoryTotals(TimeUtil.ToUnix(today.AddDays(-AppPast.UsualDays)), TimeUtil.ToUnix(today)))
+            if (days >= AppPast.MinUsualDays && n > 0 && apps.TryGetValue(id, out var app)) usual[app.Exe] = sum / n;
+        return usual;
     }
 }

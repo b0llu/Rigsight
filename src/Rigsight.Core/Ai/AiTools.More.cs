@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using Rigsight.Core.Apps;
 using Rigsight.Core.Data;
+using Rigsight.Core.Games;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Stability;
 
@@ -31,7 +32,7 @@ public sealed partial class AiTools
         Def("get_apps", "Every app used in a period, busiest first: time in front and open behind, CPU and GPU use, memory, temperatures while in use, internet.", Dates()),
         Def("get_memory", "Memory (RAM) in use over a period: hour by hour (day by day for longer), its fullest minute with the apps holding the most then, how close Windows came to running out, and the apps using the most.", Dates()),
         Def("get_storage", "Each drive: how full it is now, how much it grew over the last week and month, and the days it grew the most.", new JsonObject()),
-        Def("get_network", "Internet use over a period: downloaded and uploaded day by day, the apps that used the most, big downloads, and times the connection dropped.", Dates()),
+        Def("get_network", "Internet use over a period: downloaded and uploaded day by day, the apps that used the most, big downloads (a Steam download named by its game, from Steam's own download log), and times the connection dropped.", Dates()),
         Def("get_on_times", "When the PC was on over a period, and when it was off or asleep: each stretch it was on (day by day for longer periods), with how much of it someone was using it.", Dates()),
         Def("get_running_now", "The apps running right now with their memory, CPU and graphics card use (over one second), which one is in front, which have no window, and which may be closed from an answer. For \"what's slowing it now\", loud fans or heat right now, and before offering to close an app.", new JsonObject()),
     ];
@@ -152,7 +153,12 @@ public sealed partial class AiTools
     {
         var snapshot = SampleRunning();
         LastRunning = snapshot;
-        return snapshot.Text();
+        // Each app's usual beside its memory now, the Memory page's own figure, when memory records are shared.
+        Dictionary<string, double>? usual = null;
+        if (settings.Ai.Sends(AiPages.Memory))
+            try { usual = WithDb(db => MemoryPast.UsualOf(db, DateTime.Now)); }
+            catch (Exception ex) { Log.Write("ai", $"running now: the usual memory couldn't be read ({ex.GetType().Name}: {ex.Message})"); }
+        return snapshot.Text(usual);
     }
 
     private static DateTime At(JsonObject args)
@@ -353,7 +359,12 @@ public sealed partial class AiTools
         if (settings.Ai.Sends(AiPages.Apps))
         {
             var most = db.GetAppMemoryTotals(f, t).Where(x => x.MemN > 0).OrderByDescending(x => x.MemSum / x.MemN).Take(8).ToList();
-            if (most.Count > 0) sb.AppendLine("Apps using the most memory on average while open: " + string.Join(", ", most.Select(m => $"{name(m.AppId)} {Units.Megabytes(m.MemSum / m.MemN)}")) + ".");
+            // Each with its usual, the Memory page's figure (30 days before today), so "usual" means one thing everywhere.
+            var usual = MemoryPast.UsualOf(db, DateTime.Now);
+            var exes = db.LoadApps().ToDictionary(a => a.Id, a => a.Exe);
+            string Usual(long app) => exes.TryGetValue(app, out var exe) && usual.TryGetValue(exe, out double u) ? $" (usual {Units.Megabytes(u)})" : "";
+            if (most.Count > 0) sb.AppendLine($"Apps using the most memory on average while open on {said}: " + string.Join(", ", most.Select(m => $"{name(m.AppId)} {Units.Megabytes(m.MemSum / m.MemN)}{Usual(m.AppId)}")) + ".");
+            if (most.Count > 0 && usual.Count > 0) sb.AppendLine($"An app's usual is its average memory over the {AppPast.UsualDays} days before today, the figure the Memory page shows; use it when they say \"usual\".");
         }
         return sb.ToString();
     }
@@ -396,13 +407,44 @@ public sealed partial class AiTools
             var apps = db.GetNetAppTotals(f, t).OrderByDescending(a => a.Down + a.Up).Take(10).ToList();
             if (apps.Count > 0) sb.AppendLine("Apps that used the most: " + string.Join(", ", apps.Select(a => $"{name(a.App)} {Units.Data(a.Down)} down, {Units.Data(a.Up)} up")) + ".");
             var big = db.GetNetTransfers(f, t, 8);
-            if (big.Count > 0) sb.AppendLine("Big downloads: " + string.Join("; ", big.Select(b => $"{TimeUtil.FromUnix(b.Start):d MMM h:mm tt} {name(b.App)} {Units.Data(b.Bytes)} at {Units.Speed(b.Speed)}")) + ".");
+            // What Steam downloaded, from its own log: a big Steam download is named by the game whose download was
+            // running then, for certain (the user, 2026-10-30: the AI called Phantom Blade Zero "a likely candidate"
+            // for a 133 GB Steam download that Steam's log names).
+            var steam = SteamDownloads.Read(db, TimeUtil.FromUnix(f), TimeUtil.FromUnix(t));
+            string Game(NetTransfer b)
+            {
+                if (!name(b.App).StartsWith("Steam", StringComparison.OrdinalIgnoreCase)) return "";
+                DateTime start = TimeUtil.FromUnix(b.Start), end = TimeUtil.FromUnix(b.End);
+                // A download a tenth the size of the transfer or less can't be what it was.
+                var during = steam.Where(d => d.Started <= end && d.Ended >= start && d.Bytes >= b.Bytes / 10).ToList();
+                return during.Count == 1 ? $" (Steam's own log: {DownloadName(during[0])})" : during.Count > 1 ? $" (Steam's own log: {during.Count} downloads then: {string.Join(", ", during.Select(DownloadName))})" : "";
+            }
+            if (big.Count > 0) sb.AppendLine("Big downloads: " + string.Join("; ", big.Select(b => $"{TimeUtil.FromUnix(b.Start):d MMM h:mm tt} {name(b.App)} {Units.Data(b.Bytes)} at {Units.Speed(b.Speed)}{Game(b)}")) + ".");
+            if (steam.Count > 0)
+                sb.AppendLine("What Steam downloaded, from Steam's own download log (exact: it names the game, so no guessing): " + string.Join("; ", steam.TakeLast(12).Select(d =>
+                    $"{DownloadName(d)}, {(d.NewInstall ? "a new install" : "an update")} of {Units.Data(d.Bytes)}, {d.Started:d MMM h:mm tt} " + Ending(d))) + ".");
+            if (big.Count > 0) sb.AppendLine("Only Steam keeps a record of what it downloaded: a big download by another launcher (Epic, EA, Ubisoft, Battle.net) can't be named.");
         }
         var drops = db.GetNetDrops(f, t);
         sb.AppendLine(drops.Count == 0 ? "The connection didn't drop." : $"The connection dropped {drops.Count} times: " + string.Join("; ", drops.TakeLast(10).Select(d =>
             $"{TimeUtil.FromUnix(d.Start):d MMM h:mm tt} for {Units.Duration(d.Seconds)} ({(d.Kind == NetDropKind.Link ? "the cable or Wi-Fi itself" : "past the PC: the router or the provider")})")) + ".");
         return sb.ToString();
     }
+
+    /// <summary>How a Steam download ended, in words: "to 7:35 PM", "stopped at 10:38 PM before it finished".</summary>
+    private static string Ending(GameDownload d)
+    {
+        string at = d.Ended.ToString(d.Ended.Date == d.Started.Date ? "h:mm tt" : "d MMM h:mm tt", CultureInfo.InvariantCulture);
+        return d.How switch
+        {
+            DownloadEnd.Finished => $"to {at}",
+            DownloadEnd.Stopped => $"until {at}, when it stopped before it finished (cancelled or uninstalled)",
+            _ => $"until at least {at}, with no finish in Steam's log (still going, or it stopped)",
+        };
+    }
+
+    /// <summary>A Steam download's game, or its app number when Steam no longer has the game installed.</summary>
+    private static string DownloadName(GameDownload d) => d.Name ?? $"Steam app {d.AppId} (not installed now)";
 
     // ── When the PC was on ───────────────────────────────────────────────
     private string OnTimes(RigsightDb db, DateTime from, DateTime to)

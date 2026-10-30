@@ -1349,6 +1349,9 @@ internal sealed class AgentContext : ApplicationContext
         catch (Exception ex) { Log.Error("rewind", ex); return; }
         if (made.Count == 0 || !settings.Rewind.Notify || _pipe.ClientCount > 0) return;
         var f = made[0];
+        // Told now: the app shows them as its sidebar line, not full screen again (2026-10-30: the first rewind, 1 Nov,
+        // would have come twice, as this notification and then full screen at RigSight's next start).
+        foreach (var m in made) { m.Announced = true; Core.Rewind.RewindStore.Save(m); }
         Log.Write("rewind", $"Announcing {f.Id} with a notification");
         _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Rewind, Core.Rewind.RewindCards.Ready(f), Core.Rewind.RewindCards.Teaser(f), Page: "rewind", Arg: f.Id)), null);
     }
@@ -1559,6 +1562,13 @@ internal sealed class AgentContext : ApplicationContext
                 Log.Write("crash", $"Windows logged at {e.Time:yyyy-MM-dd HH:mm:ss}: {e.Kind}{(e.AppExe.Length > 0 ? " of " + e.AppExe : "")}"
                     + $"{(e.Module is null ? "" : ", in " + e.Module)}{(e.Code is null ? "" : ", code " + e.Code)}{(e.Kind == CrashKind.UnexpectedShutdown ? ", " + e.Moment : "")}");
             if (!_settings.Alerts.CrashNotifications) return;
+            // A new install's first look at Windows' logs: nothing as a card (the Crashes page has them, and the welcome
+            // is up). Cards popped up beside the welcome for a crash the day before RigSight was installed (2026-10-30).
+            if (firstScan && (_db.FirstDataTime() is not long recordedFrom || DateTime.Now - Core.Data.TimeUtil.FromUnix(recordedFrom) < TimeSpan.FromHours(1)))
+            {
+                Log.Write("crash", "First look on a new install: no crash cards, the Crashes page has them");
+                return;
+            }
 
             // Tell the user about system-level problems they may not have noticed (app crashes are covered by sessions).
             // A shutdown that didn't finish is usually harmless and on some PCs happens every day: the Crashes page has it.

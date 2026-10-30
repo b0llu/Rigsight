@@ -187,6 +187,14 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.1.0", 10, 30,
+            added: [Lang.T("Ask RigSight now names what Steam downloaded, like a 138 GB Phantom Blade Zero install, from Steam's own download log."),
+                Lang.T("A new install starts with a short welcome: what RigSight records, which pages to show, and how to ask.")],
+            better: [Lang.T("Ask RigSight now gives each app's usual memory as the Memory page shows it, so both say the same."),
+                Lang.T("With web search in your plan, Ask RigSight looks up the app and its error code when a crash's cause isn't clear."),
+                Lang.T("One card at a time when RigSight opens: a new rewind waits for the next start instead of opening over What's new.")],
+            fixedBugs: [Lang.T("A rewind you were told about with a notification no longer opens full screen again when RigSight starts."),
+                Lang.T("Games played in a VR headset with SteamVR, Meta or Virtual Desktop are now recorded, even with no keyboard or mouse in use.")]),
         V("1.0.1", 10, 29,
             better: [Lang.T("On a game's page, How it's set now shows when there's more below, with a button to step through the rest."),
                 Lang.T("The small AI buttons now say the question they ask, like What stood out yesterday? on Home."),
@@ -205,8 +213,9 @@ public static class Changelog
             {
                 OpenText = Lang.T("Ask your first question"),
                 AsideNumber = "7",
-                AsideTitle = Lang.T("Try Complete free for 7 days"),
-                AsideText = Lang.T("Answers from every page, web search and up to 300 questions a day. It starts with your first question and then goes back to Free. No card, nothing to cancel."),
+                // The welcome's words for the trial too (wording A, 2026-10-30): what's in it, and the reassurance by the button.
+                AsideTitle = Lang.T("7 days of Complete, free"),
+                AsideText = Lang.T("Ask about every page, with web search, up to 300 questions a day. Your 7 days start with your first question and end on their own. No card needed."),
             },
             added: [Lang.T("Crashes, Games and more pages have their own AI buttons, like Explain on a crash."),
                 Lang.T("Keep several API keys in Settings, Ask RigSight, and switch between them in one click."),

@@ -51,6 +51,7 @@ public sealed class SchemaTests
         ["net_drop"] = ["start", "end", "kind"],
         ["changes"] = ["id", "ts", "kind", "subject", "title", "was", "now", "from_ts"],
         ["inventory"] = ["kind", "key", "name", "value"],
+        ["steam_download"] = ["app", "started", "ended", "bytes", "new_install", "how", "name"],
     };
 
     public static readonly Dictionary<string, string> Indexes = new()
@@ -59,6 +60,7 @@ public sealed class SchemaTests
         ["ix_sessions_app"] = "sessions(app_id, start)",
         ["ix_crashes_ts"] = "crashes(ts)",
         ["ix_changes_ts"] = "changes(ts)",
+        ["ix_steam_download_ended"] = "steam_download(ended)",
     };
 
     public static TheoryData<string> TableNames => [.. Tables.Keys];

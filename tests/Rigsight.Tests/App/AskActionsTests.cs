@@ -367,6 +367,20 @@ public sealed class AskActionsTests
         Assert.Contains("the app in front", text);
     }
 
+    /// <summary>
+    /// Each app's usual beside its memory now, the Memory page's own figure (2026-10-30: the page said 356 MB, the AI's
+    /// week average 414 MB, and the answer called the page's number missing from the records).
+    /// </summary>
+    [Fact]
+    public void Running_now_gives_each_app_its_usual_as_the_Memory_page_does()
+    {
+        string text = Running().Text(new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase) { ["PYTHON.exe"] = 4_100 });
+        Assert.Contains("Python (python.exe, 3 processes): memory 12.9 GB (usual 4.0 GB)", text);
+        Assert.DoesNotContain("usual", text.Split('\n').Single(l => l.Contains("chrome.exe")));
+        Assert.Contains("the figure the Memory page shows", text);
+        Assert.DoesNotContain("the figure the Memory page shows", Running().Text());
+    }
+
     [Fact]
     public void Running_now_is_looked_at_again_every_time()
     {

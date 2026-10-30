@@ -101,7 +101,8 @@ public static class ProblemReport
             var tail = new Queue<string>(Math.Min(lines, 1024) + 1);
             while (reader.ReadLine() is { } line)
             {
-                tail.Enqueue(line);
+                // Lines written before the log cleaned them can still hold a drive name's NULs.
+                tail.Enqueue(Log.Printable(line));
                 if (tail.Count > lines) tail.Dequeue();
             }
             return [.. tail];

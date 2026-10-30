@@ -86,6 +86,37 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         Ui.SavePng(host.Window, Path.Combine(Shots, shot + ".png"));
     });
 
+    /// <summary>
+    /// One big card per start (2026-10-30): a new rewind on a start where What's new (or the welcome) already showed waits
+    /// as the sidebar's line, still unannounced, and opens full screen on the next start, once.
+    /// </summary>
+    [Fact]
+    public void A_new_rewind_waits_its_turn_behind_another_card_then_opens_full_screen_next_start()
+    {
+        var vm = host.Shell.Rewind;
+        var f = October();
+        (f.Id, f.Announced, f.Seen) = ("2026-10-month~turn", false, false);
+        RewindStore.Save(f);
+        try
+        {
+            Ui.Run(() => vm.StartAsync(waitTurn: true), 30_000);
+            Assert.False(Ui.Run(() => vm.IsOpen));
+            Assert.Equal(f.Id, Ui.Run(() => vm.Waiting?.Facts.Id));
+            Assert.False(RewindStore.All().Single(r => r.Id == f.Id).Announced);
+            bool shown = false;
+            Ui.Run(() => vm.StartAsync(shown: () => shown = true), 30_000);
+            Assert.True(shown);
+            Assert.True(Ui.Run(() => vm.IsOpen));
+            Assert.True(RewindStore.All().Single(r => r.Id == f.Id).Announced);
+        }
+        finally
+        {
+            Ui.Run(() => { if (vm.IsOpen) vm.LaterCommand.Execute(null); });
+            File.Delete(Path.Combine(RewindStore.Folder, f.Id + ".json"));
+            Ui.Run(vm.Reload);
+        }
+    }
+
     [Fact]
     public void Every_way_into_a_rewind_ends_on_the_full_end_screen()
     {

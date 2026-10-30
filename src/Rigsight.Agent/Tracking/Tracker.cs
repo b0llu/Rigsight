@@ -35,6 +35,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     internal Func<int, (double Fps, double? Low)?> ReadFrames { get; set; } = pid =>
         Widgets.Rtss.ReadFrameStats(pid) is { } f && f.Fps > 0 ? (f.Fps, f.OnePercentLow) : null;
 
+    /// <summary>Whether RivaTuner measures the process's frames (so no frames from it means none drawn); a test sets its own.</summary>
+    internal Func<int, bool> FramesMeasured { get; set; } = Widgets.Rtss.IsHooked;
+
     /// <summary>
     /// Every frame the game in front drew since the last ask (µs each, into the list), and whether some went by unread
     /// (2026-10-25: true lows and stutters, see <see cref="FrameSpread"/>). RivaTuner's; a test sets its own.
@@ -146,6 +149,34 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     private AppInfo? _foreground;
     private bool _present;
 
+    /// <summary>
+    /// VR software that runs while a game plays in a headset (SteamVR, Meta's, Virtual Desktop's). The game is played
+    /// with the controllers then, which Windows doesn't count as use, and the desktop window can be anything
+    /// (2026-10-29: a Titanfall 2 VR session, windowed and with no keyboard or mouse, wasn't recorded).
+    /// </summary>
+    private static readonly HashSet<string> VrRuntimes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "vrserver.exe", "vrcompositor.exe", "OVRServer_x64.exe", "VirtualDesktop.Streamer.exe",
+    };
+
+    /// <summary>VR software's own windows: in front on the desktop while the game plays in the headset.</summary>
+    private static readonly HashSet<string> VrWindows = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "vrmonitor.exe", "vrwebhelper.exe", "vrcompositor.exe", "vrserver.exe", "vrdashboard.exe", "OculusClient.exe",
+        "VirtualDesktop.Streamer.exe",
+    };
+
+    /// <summary>A game this busy on the GPU while VR runs is the one in the headset.</summary>
+    private const double VrGameGpu = 10;
+
+    /// <summary>The VR runtime running (null: none), and the game playing in the headset, from the last process sample.</summary>
+    private string? _vr;
+    private (AppInfo App, int Pid)? _vrGame;
+
+    // What the log last said of the game in front (see LogGame): which game, and whether its time was counted.
+    private AppInfo? _loggedGame;
+    private bool _loggedCounted;
+
     /// <summary>The last few minutes, reading by reading, in memory only: what a crash's close-up is cut from (see CloseUpRing).</summary>
     public CloseUpRing Ring { get; } = new();
     // What the ring's next reading carries from the slower reads: the fans (every 10 s), the apps and the drives (every 5 s).
@@ -224,12 +255,23 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             return;
         }
 
-        bool fullscreenActive = s.Fullscreen && _settings.Tracking.FullscreenCountsAsActive;
-        bool present = !s.Locked && (s.IdleMs < _settings.Tracking.IdleMinutes * 60_000 || fullscreenActive);
-
         AppInfo? app = null;
+        int pid = s.Pid;
         if (s.Exe is not null && !s.Locked && !Excluded(s.Exe))
             app = apps.Get(s.Exe, s.Pid);
+        // In VR the game is in the headset whatever is in front on the desktop: the time is the game's when that is
+        // the VR software's own window or the desktop. Any other app in front is someone using it.
+        bool vrFront = !s.Locked && _vrGame is { } vg && (s.Exe is null || VrWindows.Contains(s.Exe)) && app != vg.App;
+        if (vrFront)
+            (app, pid) = _vrGame!.Value;
+
+        bool fullscreenActive = s.Fullscreen && _settings.Tracking.FullscreenCountsAsActive;
+        bool inputActive = s.IdleMs < _settings.Tracking.IdleMinutes * 60_000;
+        // The game in the headset is being played, keyboard and mouse or not: while it draws frames, when RivaTuner
+        // measures it (a headset taken off and left can leave the game running, but most stop drawing then).
+        bool vrPlay = !s.Locked && app is not null && _vrGame?.App == app && (!FramesMeasured(pid) || ReadFrames(pid) is not null);
+        bool present = !s.Locked && (inputActive || fullscreenActive || vrPlay);
+        LogGame(app, s, present, vrFront, inputActive, fullscreenActive, vrPlay);
 
         _minute.Seconds += dt;
         _today.OnSec += dt;
@@ -257,17 +299,18 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                 {
                     session = new Session { App = app, Start = now - (long)dt };
                     _sessions[app.Id] = session;
+                    if (IsGame(app)) Log.Write("games", $"Session started: {app.Exe}");
                 }
                 session.ActiveSec += dt;
                 session.LastActive = now;
 
-                LearnGame(app, s.Fullscreen, dt);
-                if (AppResolver.Category(app, _settings) == AppCategory.Game && ReadFrames(s.Pid) is var (fps, low))
+                LearnGame(app, s.Fullscreen && !vrFront, dt);
+                if (IsGame(app) && ReadFrames(pid) is var (fps, low))
                 {
                     _minute.FpsSum += fps;
                     _minute.FpsN++;
                     if (low is double l) { _minute.FpsLowSum += l; _minute.FpsLowN++; }
-                    TakeFrames(app, s.Pid);
+                    TakeFrames(app, pid);
                 }
             }
             else
@@ -278,7 +321,39 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
         _foreground = app;
         _present = present;
-        Activity = BuildActivity(app, present, s.Fullscreen);
+        Activity = BuildActivity(app, present, s.Fullscreen && !vrFront);
+    }
+
+    private bool IsGame(AppInfo app) => AppResolver.Category(app, _settings) == AppCategory.Game;
+
+    /// <summary>
+    /// The log's word on the game in front, said once and again only on change: which game, whether its time counts and
+    /// why, and what took its place. A session that wasn't recorded is explained by these lines.
+    /// </summary>
+    private void LogGame(AppInfo? app, ActivitySample s, bool present, bool vrFront, bool inputActive, bool fullscreenActive, bool vrPlay)
+    {
+        if (app is not null && IsGame(app))
+        {
+            if (app == _loggedGame && present == _loggedCounted) return;
+            string why = present
+                ? inputActive ? "keyboard or mouse in use"
+                : vrPlay ? $"playing in VR ({_vr})"
+                : "it fills the screen"
+                : _vrGame?.App == app ? "in the headset but drawing no frames"
+                : $"no keyboard or mouse for {_settings.Tracking.IdleMinutes} min and its window doesn't fill the screen";
+            string where = vrFront ? $" (in the headset; {s.Exe ?? "the desktop"} is in front on the screen)" : "";
+            Log.Write("games", app == _loggedGame
+                ? $"{app.Exe}: {(present ? "counted again" : "time not counted")}, {why}"
+                : $"{app.Exe} in front{where}: {(present ? "counted" : "time not counted")}, {why}");
+            _loggedGame = app;
+            _loggedCounted = present;
+        }
+        else if (_loggedGame is not null)
+        {
+            string instead = s.Locked ? "the PC is locked" : app is not null ? $"{app.Exe} is" : s.Exe is not null ? $"{s.Exe} is" : "the desktop is";
+            Log.Write("games", $"{_loggedGame.Exe} no longer in front: {instead}");
+            _loggedGame = null;
+        }
     }
 
     /// <summary>
@@ -496,6 +571,38 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         return kind == Load.Gpu ? GameWork.GpuApp(found, _foreground, CategoryOf) : found;
     }
 
+    /// <summary>Whether VR software runs, and the game in the headset: the running game working the GPU hardest.</summary>
+    private void FindVrGame(ProcessSnapshot snapshot)
+    {
+        string? vr = snapshot.Apps.Keys.FirstOrDefault(VrRuntimes.Contains);
+        (AppInfo App, int Pid)? game = null;
+        if (vr is not null)
+        {
+            var known = apps.All.ToDictionary(a => a.Exe, StringComparer.OrdinalIgnoreCase);
+            var best = snapshot.Gpu
+                .Where(g => g.Value >= VrGameGpu && !Excluded(g.Key) && snapshot.Apps.ContainsKey(g.Key)
+                            && known.TryGetValue(g.Key, out var a) && IsGame(a) && !VrWindows.Contains(g.Key) && !VrRuntimes.Contains(g.Key))
+                .OrderByDescending(g => g.Value)
+                .Select(g => g.Key)
+                .FirstOrDefault();
+            if (best is not null) game = (known[best], snapshot.Apps[best].FirstPid);
+            // A loading screen or a menu works the GPU less: the game stays the one in the headset while it runs.
+            else if (_vrGame is { } current && snapshot.Apps.TryGetValue(current.App.Exe, out var still)) game = (current.App, still.FirstPid);
+        }
+
+        if (vr != _vr)
+            Log.Write("games", vr is not null
+                ? $"VR running ({vr}): a game playing in the headset counts as played without keyboard or mouse"
+                : $"VR stopped ({_vr})");
+        if (vr is not null && game?.App != _vrGame?.App)
+            Log.Write("games", game is { } g2
+                ? $"In the headset: {g2.App.Exe} ({snapshot.Gpu.GetValueOrDefault(g2.App.Exe):0}% of the GPU)"
+                : snapshot.Gpu.Count == 0 ? "No game in the headset found: each app's GPU use can't be read"
+                : $"No game in the headset now (no game running uses {VrGameGpu:0}% of the GPU or more)");
+        _vr = vr;
+        _vrGame = game;
+    }
+
     // Not Windows' own parts without a file ("System", "Memory Compression"), apps left out of tracking, or Rigsight.
     private bool Nameable(string exe) =>
         exe.Contains('.') && !Excluded(exe) && !exe.Equals(RigsightPaths.AgentExe, StringComparison.OrdinalIgnoreCase);
@@ -504,8 +611,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     {
         // An app that is no longer running has finished its session right now (don't wait for the gap).
         foreach (var session in _sessions.Values.ToList())
-            if (!snapshot.Apps.ContainsKey(session.App.Exe)) CloseSession(session);
+            if (!snapshot.Apps.ContainsKey(session.App.Exe)) CloseSession(session, "it closed");
 
+        FindVrGame(snapshot);
         _netApps.Prune(snapshot.PidToExe);
         if (Paused) return;
         RecordLoad(snapshot);
@@ -783,7 +891,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
             foreach (var session in _sessions.Values.ToList())
             {
-                if (closeAllSessions || now - session.LastActive > SessionBreakSeconds) CloseSession(session);
+                if (closeAllSessions) CloseSession(session, "RigSight closing or Windows signing out");
+                else if (now - session.LastActive > SessionBreakSeconds)
+                    CloseSession(session, $"not in front and played for {SessionBreakSeconds / 60} min");
                 // Still going: saved as far as it has got, so a PC that loses power or freezes mid-game keeps the
                 // session up to this minute (it used to exist only here until it ended).
                 else if (session.ActiveSec > 0) SaveSession(session);
@@ -828,9 +938,11 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     }
 
     /// <summary>Ends a session: saves it (however short) and tells listeners (for the summary notification).</summary>
-    private void CloseSession(Session session)
+    private void CloseSession(Session session, string why)
     {
         _sessions.Remove(session.App.Id);
+        if (IsGame(session.App))
+            Log.Write("games", $"Session ended: {session.App.Exe}, {why}, {session.ActiveSec / 60:0} min counted");
         if (session.ActiveSec <= 0) return;
         SessionEnded?.Invoke(SaveSession(session), session.App);
     }

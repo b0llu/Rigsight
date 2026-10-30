@@ -259,7 +259,11 @@ internal sealed class NetTracker(RigsightDb db)
 
         if (closing)
             foreach (var (id, t) in _transfers.ToList()) EndTransfer(id, t);
+        else _steam.Tick(minute);
     }
+
+    /// <summary>What Steam downloaded, saved into the history beside the big downloads (see <see cref="SteamDownloadKeeper"/>).</summary>
+    private readonly SteamDownloadKeeper _steam = new(db);
 
     /// <summary>The first write since the agent started: what an agent before this one wrote for the same minute is kept
     /// and added to (each app's hour and day add up by themselves; the minute is written whole).</summary>

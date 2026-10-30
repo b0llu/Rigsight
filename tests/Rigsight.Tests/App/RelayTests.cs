@@ -5,6 +5,20 @@ namespace Rigsight.Tests.App;
 /// <summary>The app's side of RigSight AI: how it names this PC to the relay, and the relay's errors put in words.</summary>
 public sealed class RelayTests
 {
+    /// <summary>
+    /// A test copy reaches the relay only when pointed at one: each copy is a PC of its own to the relay, and the gate's
+    /// end-to-end runs added a "Free, no trial yet" PC to the live admin site each time (2026-10-30).
+    /// </summary>
+    [Fact]
+    public void A_test_copy_reaches_no_relay_unless_pointed_at_one()
+    {
+        Assert.Equal(Relay.Live, Relay.RootFor(testInstance: false, "http://elsewhere", "http://file"));
+        Assert.Equal(Relay.NoRelay, Relay.RootFor(testInstance: true, null, null));
+        Assert.Equal(Relay.NoRelay, Relay.RootFor(testInstance: true, "", "  " + Environment.NewLine));
+        Assert.Equal("http://localhost:8788", Relay.RootFor(testInstance: true, null, "http://localhost:8788/" + Environment.NewLine));
+        Assert.Equal("https://api.rigsight.app", Relay.RootFor(testInstance: true, "https://api.rigsight.app/", "http://localhost:8788"));
+    }
+
     [Fact]
     public void This_PC_is_a_hash_the_relay_accepts_and_the_same_every_time()
     {

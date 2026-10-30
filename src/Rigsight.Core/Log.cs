@@ -30,7 +30,7 @@ public static class Log
             lock (Gate)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-                var line = System.Text.Encoding.UTF8.GetBytes($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {message}{Environment.NewLine}");
+                var line = System.Text.Encoding.UTF8.GetBytes($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {Printable(message)}{Environment.NewLine}");
                 // The agent and the app share this file. Opened for appending only (no right to write anywhere else),
                 // Windows puts every write at the end as it is at that moment: two programs writing at once can't
                 // overwrite each other's lines, as they could when each wrote where it found the end on opening. No
@@ -65,4 +65,15 @@ public static class Log
     }
 
     public static void Error(string source, Exception ex) => Write(source, ex.ToString());
+
+    /// <summary>
+    /// The text without control characters (line breaks and tabs kept). Some drives give their name padded with NULs
+    /// (2026-10-29: "PCS3480 2TB" and 21 of them); one in the log cut a pasted problem report off at that line, as
+    /// mail and most text boxes end the text at the first NUL.
+    /// </summary>
+    public static string Printable(string text)
+    {
+        if (!text.Any(c => char.IsControl(c) && c is not ('\r' or '\n' or '\t'))) return text;
+        return string.Concat(text.Where(c => !char.IsControl(c) || c is '\r' or '\n' or '\t'));
+    }
 }

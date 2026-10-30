@@ -57,24 +57,37 @@ public static partial class Relay
     internal static TimeSpan QuietLimit { get; set; } = TimeSpan.FromSeconds(90);
 
     /// <summary>
-    /// The relay. A test copy can point at another: relay-url.txt in its data folder (e.g. wrangler dev's), or
-    /// RIGSIGHT_RELAY_URL (the tests, so they never reach the real one).
+    /// The relay. A test copy can point at another: relay-url.txt in its data folder (e.g. wrangler dev's, or the live
+    /// one's address on purpose), or RIGSIGHT_RELAY_URL (the tests). A test copy given neither reaches no relay at all:
+    /// each one is a PC of its own to the relay (its id comes from its data folder), so every end-to-end run of the gate
+    /// that opened Settings added a "Free, no trial yet" PC to the live admin site (the user, 2026-10-30).
     /// </summary>
     public static string Root
     {
         get
         {
             if (TestRoot.Value is { } forTest) return forTest;
-            if (RigsightPaths.IsTestInstance)
-            {
-                if (Environment.GetEnvironmentVariable("RIGSIGHT_RELAY_URL") is { Length: > 0 } fromTests) return fromTests.TrimEnd('/');
-                var file = Path.Combine(RigsightPaths.DataDir, "relay-url.txt");
-                try { if (File.Exists(file) && File.ReadAllText(file).Trim().TrimEnd('/') is { Length: > 0 } url) return url; }
-                catch (IOException) { }
-            }
-            return "https://api.rigsight.app";
+            if (!RigsightPaths.IsTestInstance) return Live;
+            string? file = null;
+            try { var path = Path.Combine(RigsightPaths.DataDir, "relay-url.txt"); if (File.Exists(path)) file = File.ReadAllText(path); }
+            catch (IOException) { }
+            return RootFor(testInstance: true, Environment.GetEnvironmentVariable("RIGSIGHT_RELAY_URL"), file);
         }
     }
+
+    public const string Live = "https://api.rigsight.app";
+
+    /// <summary>The relay for an install or a test copy: a test copy's RIGSIGHT_RELAY_URL, else its relay-url.txt, else none.</summary>
+    internal static string RootFor(bool testInstance, string? fromEnvironment, string? fromFile)
+    {
+        if (!testInstance) return Live;
+        if (fromEnvironment is { Length: > 0 }) return fromEnvironment.Trim().TrimEnd('/');
+        if (fromFile?.Trim().TrimEnd('/') is { Length: > 0 } url) return url;
+        return NoRelay;
+    }
+
+    /// <summary>Where a test copy with no relay of its own sends nothing: a closed port on this PC, refused at once.</summary>
+    internal const string NoRelay = "http://127.0.0.1:9";
 
     /// <summary>Tests: a relay for the calls made in this async flow only, so tests running side by side never share one.</summary>
     internal static readonly AsyncLocal<string?> TestRoot = new();

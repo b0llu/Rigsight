@@ -91,12 +91,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Rewind = new global::Rigsight.Rewind.RewindViewModel(Reports, Settings) { OpenSettings = () => { SettingsPage.Tab = "rewind"; CurrentPage = "settings"; } };
         SettingsPage.Rewind = Rewind;
         Support = new SupportViewModel(Settings, Reports);
-        // A rewind watched to its last card and closed: a good moment for the support card (it asks only if it may).
-        Rewind.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(Rewind.IsWatching) && !Rewind.IsWatching && Rewind.AtEnd)
-                _ = Support.TryAskAsync("end of a rewind", stillGood: () => !Rewind.IsOpen);
-        };
+        // (A rewind watched to its end no longer asks for support: never on a day a big card showed, 2026-10-30.)
         Language = new LanguageViewModel(Settings);
         SettingsPage.Language = Language;
         Ask = new AskViewModel(Settings, Core.Ai.AiConversations.File)
@@ -221,8 +216,50 @@ public sealed partial class ShellViewModel : ObservableObject
             else AgentPending = false;
         };
         launchCheck.Start();
+        Tips = new FirstVisitTipsViewModel(Settings, () => PageCovered);
+        Welcome = new WelcomeViewModel(Sidebar, Settings, askFirst: () => Ask.RequestBar(), later: Tips.ShowAskTip);
         WatchAskBar();
     }
+
+    /// <summary>A new install's welcome, once (approved mock-up, 2026-10-30).</summary>
+    public WelcomeViewModel Welcome { get; }
+
+    /// <summary>A new install's tip the first time each page opens.</summary>
+    public FirstVisitTipsViewModel Tips { get; }
+
+    /// <summary>
+    /// Whether a big card showed this start: the welcome, What's new (open or waiting in the title bar), or a rewind full
+    /// screen. One big thing per start (2026-10-30): the others wait their turn, and the support card doesn't ask that day.
+    /// </summary>
+    public bool BigThisStart { get; private set; }
+
+    /// <summary>A big card showed: the rest of this start stays quiet, and the support card doesn't ask today.</summary>
+    public void MarkBig(string what)
+    {
+        BigThisStart = true;
+        string today = DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        if (Settings.Current.LastBigDay != today) Settings.Update(s => s.LastBigDay = today);
+        Log.Write("start", $"{what} is this start's big card: the others wait");
+    }
+
+    /// <summary>
+    /// Something came over the page or went: a tip goes while it's covered and shows once it's clear, and the admin
+    /// prompt that waited for a card to close is asked for now.
+    /// </summary>
+    private void CoversChanged()
+    {
+        if (PageCovered) { Tips.Covered(); return; }
+        Tips.Visit(CurrentPage);
+        if (_elevationWaiting && IsConnected)
+        {
+            _elevationWaiting = false;
+            Log.Write("agent", "No card over the window now: asking for admin rights");
+            _client.SendCommand("restart-elevated");
+        }
+    }
+
+    /// <summary>The admin prompt, held back while a card was over the window when the agent said hello.</summary>
+    private bool _elevationWaiting;
 
     /// <summary>
     /// The title bar's ask box and its chats button: shown where Ask lives in the top bar and nothing covers the page
@@ -241,7 +278,7 @@ public sealed partial class ShellViewModel : ObservableObject
         void Watch(System.ComponentModel.INotifyPropertyChanged source, params string[] names) =>
             source.PropertyChanged += (_, e) =>
             {
-                if (e.PropertyName is null || names.Contains(e.PropertyName)) { OnPropertyChanged(nameof(ShowAskBar)); OnPropertyChanged(nameof(PageCovered)); }
+                if (e.PropertyName is null || names.Contains(e.PropertyName)) { OnPropertyChanged(nameof(ShowAskBar)); OnPropertyChanged(nameof(PageCovered)); CoversChanged(); }
             };
         Watch(Ask, nameof(AskViewModel.InTopBar));
         Watch(Update, nameof(UpdateViewModel.ShowOverlay));
@@ -532,6 +569,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     partial void OnCurrentPageChanged(string value)
     {
+        Tips?.Visit(value);
         OnPropertyChanged(nameof(PageUnreadable));
         Games.IsShown = value == "games";
         if (value != "settings") SettingsPage.Ai?.ClosePickers();
@@ -1031,7 +1069,9 @@ public sealed partial class ShellViewModel : ObservableObject
                 if (!msg.IsAdmin && !msg.StandardAccount && !_elevationRequested && !RigsightPaths.IsTestInstance)
                 {
                     _elevationRequested = true;
-                    _client.SendCommand("restart-elevated");
+                    // Not while a card is opening (the welcome, What's new, a rewind): Windows' prompt waits until it closes.
+                    if (PageCovered) { _elevationWaiting = true; Log.Write("agent", "Agent without admin rights: the prompt waits until no card is over the window"); }
+                    else _client.SendCommand("restart-elevated");
                 }
                 SettingsPage.AgentIsAdmin = msg.IsAdmin;
                 SettingsPage.StandardAccount = msg.StandardAccount;

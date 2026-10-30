@@ -226,6 +226,7 @@ public sealed partial class RigsightDb : IDisposable
 
         EnsureNetworkSchema();
         EnsureChangesSchema();
+        EnsureSteamDownloadSchema();
     }
 
     private const string FansFreshKey = "fans_fresh";
@@ -966,6 +967,7 @@ public sealed partial class RigsightDb : IDisposable
         using (var c6 = Cmd("DELETE FROM frame_minute WHERE ts < $t; DELETE FROM stutter WHERE ts_ms < $t * 1000", ("$t", before))) c6.ExecuteNonQuery();
         PruneNetwork(before);
         PruneChanges(before);
+        if (HasSteamDownloads) using (var c7 = Cmd("DELETE FROM steam_download WHERE ended < $t", ("$t", before))) c7.ExecuteNonQuery();
     }
 
     public void ClearHistory()
@@ -973,7 +975,7 @@ public sealed partial class RigsightDb : IDisposable
         Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes; DELETE FROM crash_signs; DELETE FROM close_up;"
             + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM app_minute;"
             + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop;"
-            + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new
+            + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter; DELETE FROM steam_download;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new
         Exec("VACUUM");
     }
 

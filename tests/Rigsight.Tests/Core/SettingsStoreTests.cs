@@ -377,9 +377,11 @@ public sealed class SettingsStoreTests
     public void A_missing_file_loads_the_defaults()
     {
         var s = SettingsStore.Load(Path.Combine(TestEnvironment.NewFolder("settings"), "none.json"));
-        // A new install, and the only difference from a file's defaults: it's asked once which pages to show (2026-10-25).
+        // A new install, and the only differences from a file's defaults: the welcome, which asks once which pages to
+        // show (2026-10-25), and the first-visit tips (2026-10-30).
         Assert.True(s.Sidebar.AskPages);
-        s.Sidebar.AskPages = false;
+        Assert.True(s.FirstVisitTips);
+        (s.Sidebar.AskPages, s.FirstVisitTips) = (false, false);
         Assert.Equal(SettingsStore.Serialize(SettingsStore.Deserialize("{}")), SettingsStore.Serialize(s));
     }
 
