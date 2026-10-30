@@ -149,10 +149,11 @@ def live_only(guides):
             g["published"] = released[g["slug"]]
             g["updated"] = max(g.get("updated", g["published"]), g["published"])
     held = {g["slug"] for g in guides} - live
+    unlinked = held | ({p["slug"] for p in B().load_posts()} - set(released))  # held posts too
     kept = [g for g in guides if g["slug"] in live]
     for g in kept:
-        g["body"] = re.sub(r'<a href="([a-z0-9-]+)">(.*?)</a>', lambda m: m.group(2) if m.group(1) in held else m.group(0), g["body"], flags=re.S)
-        g["faq"] = [[q, re.sub(r'<a href="([a-z0-9-]+)">(.*?)</a>', lambda m: m.group(2) if m.group(1) in held else m.group(0), a)] for q, a in g.get("faq", [])]
+        g["body"] = re.sub(r'<a href="([a-z0-9-]+)">(.*?)</a>', lambda m: m.group(2) if m.group(1) in unlinked else m.group(0), g["body"], flags=re.S)
+        g["faq"] = [[q, re.sub(r'<a href="([a-z0-9-]+)">(.*?)</a>', lambda m: m.group(2) if m.group(1) in unlinked else m.group(0), a)] for q, a in g.get("faq", [])]
     B().ALL_SLUGS.difference_update(held)
     return kept, held
 

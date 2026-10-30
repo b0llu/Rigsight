@@ -7,7 +7,7 @@ HERE = Path(__file__).resolve().parent
 DOCS = HERE.parents[1] / "docs"
 BANNED = ["crucial", "delve", "enhance", "leverage", "robust", "seamless", "landscape", "testament", "unlock", "elevate",
           "not just", "conclusion", "background agent", "two years by default", "kept two years", "game-changer", "ultimate", "boasts", "showcase",
-          "ask rigsight", "explain this crash", "every frame chart", "\"every frame\"", "stutter detection", "how it's set", "ai helper", "riggy"]
+          "ai helper", "riggy"]  # Ask RigSight, frame by frame and How it's set are released (0.35.0, 1.0.0)
 ALLOWED_IN = {"crucial": ["Crucial"]}  # the SSD brand
 files = sorted((HERE / "guides").glob("*.html")) + sorted((HERE / "posts").glob("*.html"))
 slugs = set()

@@ -62,10 +62,11 @@ navigate, unlock, elevate). No "In this guide we will". No "Conclusion" heading.
 ## Accuracy (most important)
 
 - RigSight facts: check every feature against the RELEASED code in `C:\Users\saman\AppData\Local\RigsightWork\blog\src`
-  (this is version 0.34.0, the newest release) and its What's new text (`src/Rigsight/**/WhatsNew*`, `ReleaseNotes*`,
+  (origin/main; check the newest tag with `git describe --tags`, 1.0.1 on 2026-10-30) and its What's new text (`src/Rigsight/**/WhatsNew*`, `ReleaseNotes*`,
   or grep the release feature list). If you can't find it in the code, don't claim it.
-- NOT released, never mention: the AI helper / Ask RigSight / Explain buttons, per-frame frame times, stutter detection,
-  the "Every frame" chart, reading a game's own settings files ("How it's set"). The older removed helper Riggy is history only.
+- Released since 0.35.0 and 1.0.0, fine to mention when checked in the code: frame by frame (true 1% and 0.1% lows, stutters),
+  How it's set (a game's own saved settings), Ask RigSight and the pages' AI buttons. Ask RigSight has paid plans, so never
+  push it in a PC-problem post. The older removed helper Riggy is history only.
 - RivaTuner Statistics Server is needed for FPS readings and for the overlay inside exclusive fullscreen games; say so where FPS comes up.
 - Some readings need RigSight to run with admin rights (CPU temperature and power, motherboard fans, drive health, per-app internet). Mention it when the guide depends on one.
 - Fix advice: check it against official docs with web search before writing it. Prefer safe steps. Never tell people to flash a

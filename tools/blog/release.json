@@ -16,11 +16,11 @@
   "display-driver-stopped-responding": "2026-10-28",
   "riggy": "2026-10-28",
   "normal-cpu-temperature-while-gaming": "2026-10-29",
-  "honest-charts": "2026-10-29"
+  "honest-charts": "2026-10-29",
+  "gpu-not-at-100-usage-low-fps": "2026-10-30",
+  "driver-update-crash": "2026-10-30"
  },
  "queue": [
-  "gpu-not-at-100-usage-low-fps",
-  "driver-update-crash",
   "games-crashing-after-driver-update",
   "tests-passed-app-froze",
   "pc-overheating-while-gaming",
@@ -58,7 +58,6 @@
   "free-pc-monitoring-software",
   "games-crashing-after-driver-update",
   "gpu-fan-not-spinning",
-  "gpu-not-at-100-usage-low-fps",
   "how-to-show-fps-overlay",
   "one-percent-low-fps",
   "pc-fans-loud-while-gaming",
