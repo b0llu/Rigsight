@@ -18,11 +18,11 @@
   "normal-cpu-temperature-while-gaming": "2026-10-29",
   "honest-charts": "2026-10-29",
   "gpu-not-at-100-usage-low-fps": "2026-10-30",
-  "driver-update-crash": "2026-10-30"
+  "driver-update-crash": "2026-10-30",
+  "games-crashing-after-driver-update": "2026-11-03",
+  "tests-passed-app-froze": "2026-11-03"
  },
  "queue": [
-  "games-crashing-after-driver-update",
-  "tests-passed-app-froze",
   "pc-overheating-while-gaming",
   "standard-accounts",
   "blue-screen-of-death-causes",
@@ -56,7 +56,6 @@
   "check-gpu-temperature-history",
   "did-windows-update-cause-crashes",
   "free-pc-monitoring-software",
-  "games-crashing-after-driver-update",
   "gpu-fan-not-spinning",
   "how-to-show-fps-overlay",
   "one-percent-low-fps",
