@@ -59,11 +59,23 @@ public sealed class RewindFitTests
         return f;
     }
 
-    public static TheoryData<string> Cases => ["month", "no-games", "two-games", "quiet", "quarter", "half", "year", "month in Spanish", "no-games in Spanish", "year in Spanish"];
+    public static TheoryData<string> Cases => ["month", "two-line name", "no-games", "two-games", "quiet", "quarter", "half", "year", "month in Spanish", "two-line name in Spanish", "no-games in Spanish", "year in Spanish"];
+
+    /// <summary>
+    /// A most played whose name takes two lines at the biggest size, with four more games under it: the fifth was cut off
+    /// at the card's foot (the person's October 2026, "Risk of Rain 2" over Dota 2, REMATCH, No Man's Sky and a fifth).
+    /// </summary>
+    private static RewindFacts TwoLineName()
+    {
+        var f = Month();
+        f.TopGames[0] = new("Risk of Rain 2", "ror2.exe", null, 33 * 3600, 22);
+        return f;
+    }
 
     private static RewindFacts Case(string name) => name.Replace(" in Spanish", "") switch
     {
         "month" => Month(),
+        "two-line name" => TwoLineName(),
         "quarter" => Longer(RewindKind.Quarter, 92),
         "half" => Longer(RewindKind.Half, 181),
         "year" => Longer(RewindKind.Year, 365),
@@ -104,10 +116,35 @@ public sealed class RewindFitTests
                     // a body taller than its room is a card whose foot cuts something off.
                     if (body.ActualHeight > room + 1)
                         problems.Add($"{name} {shape} card {i + 1} ({cards[i].Id}): needs {body.ActualHeight:0} of {room:0}");
+                    // A body can be just its room's height and still cut what's inside it off: one that docks its words to
+                    // the bottom under a picture is handed the room and its list runs past it (2026-11-03). So every word,
+                    // picture and cover ends inside the room too.
+                    double end = body.TranslatePoint(new Point(0, 0), frame).Y + room + 1;
+                    foreach (var part in Content(body))
+                        if (part.TranslatePoint(new Point(0, part.ActualHeight), frame).Y is var bottom && bottom > end)
+                        {
+                            problems.Add($"{name} {shape} card {i + 1} ({cards[i].Id}): {Said(part)} ends {bottom - end:0} past the room");
+                            break;
+                        }
                 }
         });
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
+
+    /// <summary>What a card shows: its words, pictures and covers (not glows or other backgrounds, which may run wide).</summary>
+    private static IEnumerable<FrameworkElement> Content(DependencyObject root)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is FrameworkElement { ActualHeight: > 0, Visibility: Visibility.Visible } e
+                && (e is System.Windows.Controls.TextBlock or System.Windows.Controls.Image || e is System.Windows.Controls.Border { Background: ImageBrush }))
+                yield return e;
+            foreach (var d in Content(child)) yield return d;
+        }
+    }
+
+    private static string Said(FrameworkElement e) => e is System.Windows.Controls.TextBlock t ? $"\"{t.Text}\"" : e.GetType().Name;
 
     private static FrameworkElement? Find(DependencyObject root)
     {

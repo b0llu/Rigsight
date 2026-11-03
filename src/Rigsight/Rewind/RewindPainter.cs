@@ -314,24 +314,33 @@ public static class RewindPainter
                 Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 4 * u, ShadowDepth = 1 * u, Opacity = 0.6, Direction = 270 },
             });
         else if (Art(exePath, banner: false, 500) is { } cover)
-            holder.Children.Add(new Border
+            // Smaller, never cut, where the card gives the mark less than its usual height (see Top).
+            holder.Children.Add(new Viewbox
             {
-                Width = 26 * u, Height = 39 * u, CornerRadius = new CornerRadius(2.4 * u), HorizontalAlignment = HorizontalAlignment.Center,
-                Background = Frozen(new ImageBrush(cover) { Stretch = Stretch.UniformToFill }),
-                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 6 * u, ShadowDepth = 2 * u, Opacity = 0.6, Direction = 270 },
+                Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, HorizontalAlignment = HorizontalAlignment.Center,
+                Child = new Border
+                {
+                    Width = 26 * u, Height = 39 * u, CornerRadius = new CornerRadius(2.4 * u),
+                    Background = Frozen(new ImageBrush(cover) { Stretch = Stretch.UniformToFill }),
+                    Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 6 * u, ShadowDepth = 2 * u, Opacity = 0.6, Direction = 270 },
+                },
             });
         return holder;
     }
 
     private static FrameworkElement Top(RewindCard card, double u, Color? accent)
     {
-        var all = new DockPanel { LastChildFill = false };
-        var mark = GameMark(card.Tag, u, accent);
-        DockPanel.SetDock(mark, Dock.Top);
-        all.Children.Add(Rise(mark, 0));
+        // The words and the list first, the logo in what room is left (up to its usual size): a name on two lines at full
+        // size with four more games ("Risk of Rain 2", 2026-11-03) pushed the fifth game past the card's foot.
+        var all = new DockPanel { LastChildFill = true };
         var body = new StackPanel { Margin = new Thickness(0, 0, 0, 3 * u) };
         DockPanel.SetDock(body, Dock.Bottom);
         all.Children.Add(body);
+        var mark = GameMark(card.Tag, u, accent);
+        mark.ClearValue(FrameworkElement.HeightProperty);
+        mark.MaxHeight = 40 * u;
+        mark.VerticalAlignment = VerticalAlignment.Top;
+        all.Children.Add(Rise(mark, 0));
         body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#FF9FD0"), u), 0));
         body.Children.Add(Rise(Mega(card.Big, 17, u, top: 1.6, bottom: 1.6, wrap: true), 1));
         body.Children.Add(Rise(Sub(card.Sub, u, bottom: 5), 2));
