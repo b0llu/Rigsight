@@ -503,17 +503,40 @@ public sealed class SettingsStoreTests
     }
 
     [Fact]
-    public void The_strips_side_and_graphs_are_kept_and_start_as_before()
+    public void The_strips_side_and_looks_are_kept_and_start_as_before()
     {
         // Settings from before them: next to the clock, every reading a number.
         var old = SettingsStore.Deserialize("""{ "SettingsVersion": 12, "TraySensors": ["/a", "/b"] }""");
         Assert.Equal(TraySide.Right, old.TraySide);
-        Assert.Empty(old.TrayGraphs);
+        Assert.Empty(old.TrayLooks);
 
         old.TraySide = TraySide.Left;
-        old.TrayGraphs.Add("/b");
+        old.TrayLooks["/b"] = TrayLook.Ring;
+        old.TrayLooks["/a"] = TrayLook.Number; // the same as none: not kept
         var back = SettingsStore.Deserialize(SettingsStore.Serialize(old));
         Assert.Equal(TraySide.Left, back.TraySide);
-        Assert.Equal(["/b"], back.TrayGraphs);
+        Assert.Equal(["/b"], back.TrayLooks.Keys);
+        Assert.Equal(TrayLook.Ring, back.TrayLooks["/b"]);
+
+        // A graph from before 1.2 is its filled graph now; a look already picked for it stays.
+        var graphs = SettingsStore.Deserialize("""{ "SettingsVersion": 11, "TrayGraphs": ["/a", "/b"], "TrayLooks": { "/b": "Bars" } }""");
+        Assert.Equal(TrayLook.Area, graphs.TrayLooks["/a"]);
+        Assert.Equal(TrayLook.Bars, graphs.TrayLooks["/b"]);
+        Assert.Empty(graphs.TrayGraphs);
+    }
+
+    [Fact]
+    public void Two_rows_names_and_readings_on_their_own_are_kept()
+    {
+        var old = SettingsStore.Deserialize("""{ "SettingsVersion": 12, "TraySensors": ["/a", "/b"] }""");
+        Assert.False(old.TrayLetterNames);
+        Assert.Empty(old.TrayAlone);
+
+        old.TrayStyle = TrayStyle.TwoRows;
+        old.TrayLetterNames = true;
+        old.TrayAlone = ["/b", "/b", " "];
+        var back = SettingsStore.Deserialize(SettingsStore.Serialize(old));
+        Assert.Equal((TrayStyle.TwoRows, true), (back.TrayStyle, back.TrayLetterNames));
+        Assert.Equal(["/b"], back.TrayAlone); // once, and no blanks
     }
 }

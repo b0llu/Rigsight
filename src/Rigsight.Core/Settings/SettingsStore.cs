@@ -253,11 +253,22 @@ public static class SettingsStore
             if (string.IsNullOrWhiteSpace(id) || c is null) continue;
             string? number = c.Number == TrayColors.Heat ? TrayColors.Heat : TrayColors.Parse(c.Number) is { } n ? TrayColors.Hex(n.R, n.G, n.B) : null;
             string? name = TrayColors.Parse(c.Name) is { } m ? TrayColors.Hex(m.R, m.G, m.B) : null;
-            if (number is not null || name is not null) colors[id] = new TrayColor { Number = number, Name = name };
+            string? tile = TrayColors.Parse(c.Tile) is { } p ? TrayColors.Hex(p.R, p.G, p.B) : null;
+            if (number is not null || name is not null || tile is not null) colors[id] = new TrayColor { Number = number, Name = name, Tile = tile };
         }
         s.TrayColors = colors;
         s.TrayNumberColors = CustomColors(s.TrayNumberColors);
         s.TrayNameColors = CustomColors(s.TrayNameColors);
+        s.TrayTileColors = CustomColors(s.TrayTileColors);
+        // 1.2: a graph behind a reading became one of its looks. Each reading that had one keeps it, as a filled graph
+        // (what it drew). Only known looks are kept, and Number is the same as none.
+        s.TrayLooks = new Dictionary<string, TrayLook>((s.TrayLooks ?? []).Where(kv => !string.IsNullOrWhiteSpace(kv.Key)
+            && Enum.IsDefined(kv.Value) && kv.Value != TrayLook.Number));
+        foreach (var id in s.TrayGraphs ?? []) if (!string.IsNullOrWhiteSpace(id)) s.TrayLooks.TryAdd(id, TrayLook.Area);
+        s.TrayGraphs = [];
+        if (!Enum.IsDefined(s.TrayWidth)) s.TrayWidth = TrayWidth.Standard;
+        if (!Enum.IsDefined(s.TrayStyle)) s.TrayStyle = TrayStyle.Strip;
+        s.TrayAlone = [.. (s.TrayAlone ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct()];
         s.MutedCrashApps = [.. (s.MutedCrashApps ?? []).Where(e => !string.IsNullOrWhiteSpace(e)).Distinct(StringComparer.OrdinalIgnoreCase)];
 
         var t = s.Tracking;

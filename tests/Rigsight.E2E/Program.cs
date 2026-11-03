@@ -106,6 +106,11 @@ internal static class Program
             }
             else SeedData.Generate(RigsightPaths.Database, SeedProfile.Typical);
             var settings = SeedData.QuietSettings();
+            // No rewind is made: in a month's first days last month's is due, and a fresh copy made it while being timed
+            // (the 2026-11-03 gate: the agent's start 2% of a core and, before it gave the memory back, 146 MB; 1.1.0
+            // the same), and opened it full screen over the window. A day in a month's first week now measures like any other.
+            settings.Rewind.Month = settings.Rewind.Quarter = settings.Rewind.Half = settings.Rewind.Year = false;
+            settings.Rewind.FullScreen = false;
             settings.CustomPages.Add(Dashboard());
             if (languagePack is not null)
             {

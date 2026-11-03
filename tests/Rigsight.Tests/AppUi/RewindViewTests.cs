@@ -97,6 +97,8 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         var f = October();
         (f.Id, f.Announced, f.Seen) = ("2026-10-month~turn", false, false);
         RewindStore.Save(f);
+        // The window tests start with it off (see SharedData.ResetSettings): on, as people have it.
+        Ui.Run(() => host.Shell.Settings.Update(s => s.Rewind.FullScreen = true));
         try
         {
             Ui.Run(() => vm.StartAsync(waitTurn: true), 30_000);
@@ -112,6 +114,7 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         finally
         {
             Ui.Run(() => { if (vm.IsOpen) vm.LaterCommand.Execute(null); });
+            Ui.Run(() => host.Shell.Settings.Update(s => s.Rewind.FullScreen = false));
             File.Delete(Path.Combine(RewindStore.Folder, f.Id + ".json"));
             Ui.Run(vm.Reload);
         }

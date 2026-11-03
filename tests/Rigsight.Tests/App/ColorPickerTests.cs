@@ -7,13 +7,13 @@ using Rigsight.Tests.Support;
 
 namespace Rigsight.Tests.App;
 
-/// <summary>A taskbar reading's colour picker: quick picks used at once, "+" for any colour, Default back to RigSight's.</summary>
+/// <summary>A taskbar reading's colour picker: quick picks used at once (number, name, tile), "+" for any colour, Default back to RigSight's.</summary>
 public sealed class ColorPickerTests
 {
     [Fact]
     public void A_pick_is_used_at_once_and_the_custom_colour_opens_from_the_plus()
     {
-        var picks = new List<(string? Number, string? Name)>();
+        var picks = new List<(string? Number, string? Name, string? Tile)>();
         Ui.Run(() =>
         {
             var target = new Button { Content = "Colors" };
@@ -24,10 +24,10 @@ public sealed class ColorPickerTests
                 Content = new StackPanel { Children = { target, picker } },
             };
             window.Show();
-            picker.Changed += (n, m) => picks.Add((n, m));
+            picker.Changed += (n, m, t) => picks.Add((n, m, t));
             var made = new List<(string Kind, string Hex)>();
             picker.CustomMade += (kind, hex) => made.Add((kind, hex));
-            picker.Open(target, "CPU Total", temperature: false, number: null, name: null, "#5B8CFF", "Default puts back RigSight's colors.", [], ["#123456"]);
+            picker.Open(target, "CPU Total", temperature: false, number: null, name: null, tile: null, "#5B8CFF", "Default puts back RigSight's colors.", [], ["#123456"], []);
 
             var card = (FrameworkElement)picker.Pop.Child;
             card.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
@@ -40,7 +40,7 @@ public sealed class ColorPickerTests
             Assert.Equal("on", nameTiles.Single(b => (string)b.ToolTip == "Blue").Tag);
 
             Click(picker.NumberTiles.Children.OfType<Button>().Single(b => (string)b.ToolTip == "Magenta"));
-            Assert.Equal(("#E879F9", (string?)null), picks[^1]);
+            Assert.Equal(("#E879F9", (string?)null, (string?)null), picks[^1]);
 
             // "+" on the name's row opens the custom colour, starting from the colour in use; Use applies it.
             Click(picker.NameTiles.Children.OfType<Button>().Last());
@@ -48,13 +48,21 @@ public sealed class ColorPickerTests
             Assert.Equal(Visibility.Visible, picker.Custom.Visibility);
             picker.Code.Text = "#FF6A00";
             Click(picker.UseButton);
-            Assert.Equal(("#E879F9", "#FF6A00"), picks[^1]);
+            Assert.Equal(("#E879F9", "#FF6A00", (string?)null), picks[^1]);
             // The new colour is kept for the name's row only, after the one made before and just before "+".
             Assert.Equal([("name", "#FF6A00")], made);
             var nameRow = picker.NameTiles.Children.OfType<Button>().Select(b => b.ToolTip as string).ToList();
             Assert.Equal(["Custom color #123456", "Custom color #FF6A00", "Custom color"], nameRow[^3..]);
             Assert.Equal("on", picker.NameTiles.Children.OfType<Button>().Single(b => (string)b.ToolTip == "Custom color #FF6A00").Tag);
             Assert.DoesNotContain(picker.NumberTiles.Children.OfType<Button>(), b => ((string)b.ToolTip).StartsWith("Custom color #"));
+
+            // The tile's row starts with Auto, in use while no tile colour is picked; a pick is the tile's alone.
+            var tileTiles = picker.TileTiles.Children.OfType<Button>().ToList();
+            Assert.Equal(("The usual tile", "on"), ((string)tileTiles[0].ToolTip, (string?)tileTiles[0].Tag));
+            Click(tileTiles.Single(b => (string)b.ToolTip == "Pink"));
+            Assert.Equal(("#E879F9", "#FF6A00", "#F472B6"), picks[^1]);
+            Click(picker.TileTiles.Children.OfType<Button>().First());
+            Assert.Equal(("#E879F9", "#FF6A00", (string?)null), picks[^1]);
 
             // Past three rows the tiles scroll, with the fourth half in sight.
             foreach (var hex in new[] { "#010101", "#020202", "#030303", "#040404", "#050505" }) { picker.Code.Text = hex; Click(picker.UseButton); }
@@ -68,7 +76,7 @@ public sealed class ColorPickerTests
             Ui.SavePng(card, Path.Combine(TestEnvironment.DataDir, "screens", "color-picker.png"));
 
             Click(Visuals.Descendants<Button>(card).Single(b => b.Content as string == "Default"));
-            Assert.Equal(((string?)null, (string?)null), picks[^1]);
+            Assert.Equal(((string?)null, (string?)null, (string?)null), picks[^1]);
             window.Close();
         });
     }

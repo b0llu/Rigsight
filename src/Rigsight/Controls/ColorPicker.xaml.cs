@@ -9,38 +9,40 @@ namespace Rigsight.Controls;
 
 /// <summary>
 /// The colours of one taskbar reading (Taskbar page), floating next to its Colors button: its number's (by heat, for a
-/// temperature, or a colour) and its name's, which also colours its mark and graph. The quick picks are
-/// <see cref="TrayColors.Palette"/>, then the colours made with that row's "+" (picked on a square and a hue bar or typed
-/// as a code), in the order made, kept for every reading. Each row shows three lines of tiles and scrolls past them. A pick is used at once (see
-/// <see cref="Changed"/>) and the picker stays open for the next.
+/// temperature, or a colour), its name's, which also colours its graph and its icon's tile, and its tile's (Auto: the
+/// usual tile). The quick picks are <see cref="TrayColors.Palette"/>, then the colours made with that row's "+" (picked
+/// on a square and a hue bar or typed as a code), in the order made, kept for every reading. Each row shows three lines
+/// of tiles and scrolls past them. A pick is used at once (see <see cref="Changed"/>) and the picker stays open for the next.
 /// </summary>
 public partial class ColorPicker : UserControl
 {
-    private string? _number, _name;
+    private string? _number, _name, _tile;
     private bool _temperature;
     private string _partHex = "#949494";
-    private string? _customFor;            // "number" or "name": what the custom colour is for, while it's open
+    private string? _customFor;            // "number", "name" or "tile": what the custom colour is for, while it's open
     private double _hue = 220, _sat = 0.64, _val = 1;
     private bool _typing;
-    private List<string> _numberCustoms = [], _nameCustoms = [];
+    private List<string> _numberCustoms = [], _nameCustoms = [], _tileCustoms = [];
 
     public ColorPicker() => InitializeComponent();
 
-    /// <summary>A colour picked: the number's and the name's now (null: as RigSight colours them).</summary>
-    public event Action<string?, string?>? Changed;
+    /// <summary>A colour picked: the number's, the name's and the tile's now (null: as RigSight colours them).</summary>
+    public event Action<string?, string?, string?>? Changed;
 
-    /// <summary>A colour made with "+": for the number ("number") or the name ("name"), and its code, to keep with the others.</summary>
+    /// <summary>A colour made with "+": for the number ("number"), the name ("name") or the tile ("tile"), and its code, to keep with the others.</summary>
     public event Action<string, string>? CustomMade;
 
     /// <summary>Opens under <paramref name="target"/> for a reading: its name, whether it's a temperature, its colours and its part's.</summary>
-    public void Open(FrameworkElement target, string heading, bool temperature, string? number, string? name, string partHex, string defaultText,
-        IReadOnlyList<string> numberCustoms, IReadOnlyList<string> nameCustoms)
+    public void Open(FrameworkElement target, string heading, bool temperature, string? number, string? name, string? tile, string partHex, string defaultText,
+        IReadOnlyList<string> numberCustoms, IReadOnlyList<string> nameCustoms, IReadOnlyList<string> tileCustoms)
     {
         _numberCustoms = [.. numberCustoms];
         _nameCustoms = [.. nameCustoms];
+        _tileCustoms = [.. tileCustoms];
         _temperature = temperature;
         _number = number;
         _name = name;
+        _tile = tile;
         _partHex = partHex;
         _customFor = null;
         Heading.Text = heading;
@@ -49,6 +51,7 @@ public partial class ColorPicker : UserControl
         Refresh();
         NumberScroll.ScrollToTop();
         NameScroll.ScrollToTop();
+        TileScroll.ScrollToTop();
         Pop.IsOpen = true;
     }
 
@@ -66,16 +69,39 @@ public partial class ColorPicker : UserControl
         HeatButton.Tag = NumberShown == TrayColors.Heat ? "on" : null;
         Fill(NumberTiles, NumberShown, "number");
         Fill(NameTiles, NameShown, "name");
+        Fill(TileTiles, _tile, "tile");
         Custom.Visibility = _customFor is null ? Visibility.Collapsed : Visibility.Visible;
-        CustomHeading.Text = _customFor == "name" ? Lang.T("Custom color for the name and mark") : Lang.T("Custom color for the number");
+        CustomHeading.Text = _customFor switch
+        {
+            "name" => Lang.T("Custom color for the name"),
+            "tile" => Lang.T("Custom color for the tile"),
+            _ => Lang.T("Custom color for the number"),
+        };
     }
 
-    /// <summary>The quick picks, the colours made with "+" (and one in use that isn't among them), then "+".</summary>
+    private List<string> CustomsOf(string kind) => kind switch { "number" => _numberCustoms, "tile" => _tileCustoms, _ => _nameCustoms };
+
+    /// <summary>
+    /// The quick picks, the colours made with "+" (and one in use that isn't among them), then "+"; the tile's row starts
+    /// with Auto (the usual tile), ticked while none is picked.
+    /// </summary>
     private void Fill(WrapPanel tiles, string? selected, string kind)
     {
         tiles.Children.Clear();
+        if (kind == "tile")
+        {
+            var auto = new Button
+            {
+                Style = (Style)Resources["Swatch"], Background = (Brush)FindResource("Surface2Brush"), Tag = selected is null ? "on" : null,
+                ToolTip = Lang.T("The usual tile"),
+                Content = new TextBlock { Text = Lang.T("Auto"), FontSize = 10.5, Foreground = (Brush)FindResource("TextBrush") },
+            };
+            AutomationProperties.SetName(auto, Lang.T("The usual tile"));
+            auto.Click += (_, _) => Pick("tile", null);
+            tiles.Children.Add(auto);
+        }
         foreach (var (name, hex) in TrayColors.Palette) tiles.Children.Add(Tile(Lang.T(name), hex, selected, kind));
-        var made = (kind == "number" ? _numberCustoms : _nameCustoms).Where(c => TrayColors.Palette.All(p => !Same(p.Hex, c))).ToList();
+        var made = CustomsOf(kind).Where(c => TrayColors.Palette.All(p => !Same(p.Hex, c))).ToList();
         if (selected is not null && selected != TrayColors.Heat && TrayColors.Palette.All(p => !Same(p.Hex, selected)) && made.All(c => !Same(c, selected)))
             made.Add(selected);
         foreach (var hex in made) tiles.Children.Add(Tile($"{Lang.T("Custom color")} {hex}", hex, selected, kind));
@@ -87,7 +113,7 @@ public partial class ColorPicker : UserControl
             else
             {
                 _customFor = kind;
-                string from = (kind == "number" ? NumberShown : NameShown) is { } h && h != TrayColors.Heat ? h : "#5B8CFF";
+                string from = (kind switch { "number" => NumberShown, "tile" => _tile, _ => NameShown }) is { } h && h != TrayColors.Heat ? h : "#5B8CFF";
                 SetFrom(from);
             }
             Refresh();
@@ -119,9 +145,10 @@ public partial class ColorPicker : UserControl
     private void Pick(string kind, string? value)
     {
         if (kind == "number") _number = value;
+        else if (kind == "tile") _tile = value;
         else _name = value;
         Refresh();
-        Changed?.Invoke(_number, _name);
+        Changed?.Invoke(_number, _name, _tile);
     }
 
     private void Heat_Click(object sender, RoutedEventArgs e) => Pick("number", TrayColors.Heat);
@@ -130,9 +157,10 @@ public partial class ColorPicker : UserControl
     {
         _number = null;
         _name = null;
+        _tile = null;
         _customFor = null;
         Refresh();
-        Changed?.Invoke(null, null);
+        Changed?.Invoke(null, null, null);
     }
 
     private void Use_Click(object sender, RoutedEventArgs e)
@@ -140,7 +168,7 @@ public partial class ColorPicker : UserControl
         if (_customFor is not { } kind) return;
         string hex = HexOf(_hue, _sat, _val);
         // Kept with the others made for this row, the newest last (one made before stays where it is).
-        var customs = kind == "number" ? _numberCustoms : _nameCustoms;
+        var customs = CustomsOf(kind);
         if (customs.All(c => !Same(c, hex)) && TrayColors.Palette.All(p => !Same(p.Hex, hex)))
         {
             customs.Add(hex);

@@ -341,6 +341,9 @@ public static class SeedData
         s.Alerts.DailyRecap = false;
         s.Alerts.SessionSummaries = false;
         s.Alerts.CrashNotifications = false;
+        // A rewind finished while the window is closed is a notification too (a test copy in a month's first days made
+        // last month's and told the tester, 2026-11-03).
+        s.Rewind.Notify = false;
         return s;
     }
 

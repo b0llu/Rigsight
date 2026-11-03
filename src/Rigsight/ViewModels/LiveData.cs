@@ -686,6 +686,12 @@ public sealed partial class LiveData : ObservableObject
     /// <summary>The internet this second: the connection's speed and each app's (null: not read, as without admin rights).</summary>
     public NetLive? Net { get; private set; }
 
+    /// <summary>The taskbar readings waiting for room in the strip's "+N" (by sensor id), as the agent last said.</summary>
+    public IReadOnlyList<string> TrayWaiting { get; private set; } = [];
+
+    /// <summary>Told when <see cref="TrayWaiting"/> changes.</summary>
+    public event Action? TrayWaitingChanged;
+
     /// <summary>The connection's speed over the last minute, oldest first (bytes a second).</summary>
     public IReadOnlyList<NetLive> NetHistory => _netHistory;
     private readonly List<NetLive> _netHistory = [];
@@ -741,6 +747,13 @@ public sealed partial class LiveData : ObservableObject
         }
         if (tick.Values is { } values && values.Length == _flat.Count)
         {
+            // Only the readings' tick says which taskbar readings wait for room (none listed: all fit).
+            var waiting = tick.TrayWaiting ?? [];
+            if (!waiting.SequenceEqual(TrayWaiting))
+            {
+                TrayWaiting = waiting;
+                TrayWaitingChanged?.Invoke();
+            }
             for (int i = 0; i < values.Length; i++)
                 _flat[i].Push(tick.Time, values[i]);
             foreach (var node in Hardware) node.RefreshKeys();

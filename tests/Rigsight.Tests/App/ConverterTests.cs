@@ -524,6 +524,13 @@ public sealed class ConverterTests
         Assert.Equal("–", text.Convert([DependencyProperty.UnsetValue, DependencyProperty.UnsetValue], typeof(string), null, CultureInfo.InvariantCulture));
         Assert.Empty(text.ConvertBack("62", [typeof(SensorKind)], null, CultureInfo.InvariantCulture));
 
+        // How full a reading draws in the Level, Blocks and Ring looks: out of 100, no reading empty.
+        var fill = new TrayFillConverter();
+        Assert.Equal(0.62, (double)fill.Convert((double?)62.0, typeof(double), null, CultureInfo.InvariantCulture), 3);
+        Assert.Equal(1.0, (double)fill.Convert((double?)140.0, typeof(double), null, CultureInfo.InvariantCulture), 3);
+        Assert.Equal(0.0, (double)fill.Convert(null, typeof(double), null, CultureInfo.InvariantCulture), 3);
+        Assert.Same(Binding.DoNothing, fill.ConvertBack(0.5, typeof(double?), null, CultureInfo.InvariantCulture));
+
         Ui.Run(() =>
         {
             var brush = new TrayBrushConverter();
@@ -637,7 +644,7 @@ public sealed class ConverterTests
             typeof(DurationConverter), typeof(TempShortConverter), typeof(MegabytesConverter), typeof(BytesConverter), typeof(IconConverter),
             typeof(CategoryBrushConverter), typeof(InitialConverter), typeof(CategoryLabelConverter), typeof(ToneBrushConverter),
             typeof(SeverityBrushConverter), typeof(KindBrushConverter), typeof(ResourceBrushConverter), typeof(FractionConverter),
-            typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(NavIconConverter), typeof(ScaledTempBrushConverter),
+            typeof(TrayTextConverter), typeof(TrayBrushConverter), typeof(TrayFillConverter), typeof(NavIconConverter), typeof(ScaledTempBrushConverter),
             typeof(DataSizeConverter), typeof(InsightBrushConverter), typeof(SureBrushConverter), typeof(TimeFormatConverter), typeof(ShareStarConverter),
             typeof(InkOnConverter), typeof(AiShowConverter),
         ];

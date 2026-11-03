@@ -236,6 +236,9 @@ public sealed class AgentMessage
     public bool ExtremesFull { get; set; }
     /// <summary>The internet this second (null: not read, no admin rights).</summary>
     public NetLive? Net { get; set; }
+    /// <summary>The taskbar readings waiting for room in "+N" (by sensor id); null when every one fits.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? TrayWaiting { get; set; }
 
     // procs
     public List<ProcInfo>? Procs { get; set; }

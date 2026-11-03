@@ -4,8 +4,9 @@ using System.Runtime.InteropServices;
 namespace Rigsight.Agent.Ui;
 
 /// <summary>
-/// Where Windows 11's taskbar buttons are, for the strip on the taskbar's left end: Start (the first of the centred
-/// icons, which the strip must stay clear of) and Widgets (the weather, at the far left when it's on). They are drawn
+/// Where Windows 11's taskbar buttons are, so the readings never cover them: Start (the first of the centred icons, which
+/// the left side must stay clear of), Widgets (the weather, at the far left when it's on) and where the apps' buttons
+/// end (which the readings by the clock must stay clear of: past it they get narrower, then wait in "+N"). They are drawn
 /// by the taskbar itself, with no windows of their own, so only UI Automation knows where they are: Windows' UI
 /// Automation through COM, as the managed one would load WPF into the agent.
 /// Asked on a thread of its own, never the strip's: the strip is a window inside the taskbar, so UI Automation asks it
@@ -22,8 +23,11 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
     // in 5 seconds, not twice a second.
     private static readonly TimeSpan Every = TimeSpan.FromSeconds(5), RefindEvery = TimeSpan.FromSeconds(30);
 
-    /// <summary>What was last found: Start (empty when not found) and Widgets (empty when not shown).</summary>
-    public sealed record Places(Rectangle Start, Rectangle Widgets);
+    /// <summary>
+    /// What was last found: Start (empty when not found), Widgets (empty when not shown) and the right edge of the last
+    /// app button, in screen pixels (0 when none was found).
+    /// </summary>
+    public sealed record Places(Rectangle Start, Rectangle Widgets, int AppsRight = 0);
 
     private readonly AutoResetEvent _wake = new(false);
     private Thread? _thread;
@@ -66,6 +70,7 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
         bool Stopped() => Volatile.Read(ref _turn) != turn;
         IUIAutomation? uia = null;
         IUIAutomationElement? start = null, widgets = null;
+        object? appsCondition = null;
         IntPtr foundOn = IntPtr.Zero;
         var found = DateTime.MinValue;
         string? lastError = null;
@@ -82,8 +87,10 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
                     var bar = uia.ElementFromHandle(taskbar);
                     start = bar.FindFirst(TreeScope_Descendants, uia.CreatePropertyCondition(UIA_AutomationIdPropertyId, "StartButton"));
                     widgets = bar.FindFirst(TreeScope_Descendants, uia.CreatePropertyCondition(UIA_AutomationIdPropertyId, "WidgetsButton"));
+                    appsCondition = uia.CreatePropertyCondition(UIA_ClassNamePropertyId, AppButtonClass);
                 }
-                var now = new Places(start is null ? Rectangle.Empty : Bounds(start), widgets is null ? Rectangle.Empty : Bounds(widgets));
+                var now = new Places(start is null ? Rectangle.Empty : Bounds(start), widgets is null ? Rectangle.Empty : Bounds(widgets),
+                    AppsRight(uia.ElementFromHandle(taskbar), appsCondition));
                 lastError = null;
                 if (!Stopped() && taskbar == _taskbar && now != _latest)
                 {
@@ -103,6 +110,22 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
         }
     }
 
+    /// <summary>The apps' buttons, pinned or running (Windows 11's own class name for them, checked on 22H2 and later).</summary>
+    private const string AppButtonClass = "Taskbar.TaskListButtonAutomationPeer";
+
+    /// <summary>
+    /// Where the last app button ends (screen pixels), 0 with none: asked afresh each turn, as apps come and go. A few
+    /// dozen buttons at most, one call each.
+    /// </summary>
+    private static int AppsRight(IUIAutomationElement bar, object? condition)
+    {
+        if (condition is null || bar.FindAll(TreeScope_Descendants, condition) is not { } buttons) return 0;
+        int right = 0;
+        for (int i = 0, n = buttons.Length; i < n; i++)
+            if (Bounds(buttons.GetElement(i)) is { IsEmpty: false } b) right = Math.Max(right, b.Right);
+        return right;
+    }
+
     private static Rectangle Bounds(IUIAutomationElement element)
     {
         // Left, top, width, height, in screen pixels; all zero for a button that isn't shown.
@@ -118,7 +141,7 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
     }
 
     private const int TreeScope_Descendants = 4;
-    private const int UIA_BoundingRectanglePropertyId = 30001, UIA_AutomationIdPropertyId = 30011;
+    private const int UIA_BoundingRectanglePropertyId = 30001, UIA_AutomationIdPropertyId = 30011, UIA_ClassNamePropertyId = 30012;
 
     [ComImport, Guid("ff48dba4-60ef-4201-aa87-54103eef594e")]
     private class CUIAutomation;
@@ -151,13 +174,20 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
         object CreatePropertyCondition(int propertyId, [MarshalAs(UnmanagedType.Struct)] object value);
     }
 
+    [ComImport, Guid("14314595-b4bc-4055-95f2-58f2e42c9855"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IUIAutomationElementArray
+    {
+        int Length { get; }
+        IUIAutomationElement GetElement(int index);
+    }
+
     [ComImport, Guid("d22108aa-8ac5-49a5-837b-37bbb3d7591e"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IUIAutomationElement
     {
         void SetFocus();
         void GetRuntimeId();
         IUIAutomationElement? FindFirst(int scope, [MarshalAs(UnmanagedType.Interface)] object condition);
-        void FindAll();
+        IUIAutomationElementArray? FindAll(int scope, [MarshalAs(UnmanagedType.Interface)] object condition);
         void FindFirstBuildCache();
         void FindAllBuildCache();
         void BuildUpdatedCache();

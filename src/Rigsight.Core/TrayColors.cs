@@ -4,10 +4,10 @@ using Rigsight.Core.Settings;
 namespace Rigsight.Core;
 
 /// <summary>
-/// The colours a taskbar reading can be given of its own (Taskbar page): its number's, and its name's, which also colours
-/// its mark and its graph. Unpicked, a reading looks as it always has: a temperature by how warm it is, any other number
-/// in the taskbar's text colour, the name in its part's colour (see <see cref="TrayParts.Color"/>). Shared by the agent,
-/// which draws the readings, and the page, which previews them.
+/// The colours a taskbar reading can be given of its own (Taskbar page): its number's; its name's, which also colours
+/// its graph and its icon's tile; and its tile's. Unpicked, a reading looks as it always has: a temperature by how warm
+/// it is, any other number in the taskbar's text colour, the name in its part's colour (see <see cref="TrayParts.Color"/>),
+/// a faint neutral tile on the strip. Shared by the agent, which draws the readings, and the page, which previews them.
 /// </summary>
 public static class TrayColors
 {
@@ -60,6 +60,19 @@ public static class TrayColors
 
     /// <summary>The name's colour picked for a reading (a code), or null for its part's.</summary>
     public static string? NameOf(RigsightSettings s, string id) => s.TrayColors.GetValueOrDefault(id)?.Name;
+
+    /// <summary>The tile's colour picked for a reading (a code), or null for the usual tile.</summary>
+    public static string? TileOf(RigsightSettings s, string id) => s.TrayColors.GetValueOrDefault(id)?.Tile;
+
+    /// <summary>
+    /// How strongly a tile shows its colour (of 255), over the taskbar: a picked colour soft enough that the number on it
+    /// stays readable; an icon's usual tile (its name's colour) a little fainter; the strip's usual tile, white or black,
+    /// faintest of all.
+    /// </summary>
+    public static int TileAlpha(bool picked, bool light) => picked ? (light ? 56 : 77) : light ? 41 : 61;
+
+    /// <summary>The strip's usual tile: white on a dark taskbar, black on a light one, this strong (of 255).</summary>
+    public static int NeutralTileAlpha(bool light) => light ? 15 : 20;
 
     private static double Luminance(byte r, byte g, byte b)
     {

@@ -92,8 +92,32 @@ public sealed class RigsightSettings
     /// <summary>Where the strip sits: next to the clock, or at the taskbar's left end (with its icons centred).</summary>
     public TraySide TraySide { get; set; }
 
-    /// <summary>Taskbar readings drawn on the strip with a graph of their last minutes behind the number (by sensor id).</summary>
+    /// <summary>
+    /// Before 1.2: taskbar readings drawn on the strip with a graph behind the number (by sensor id). Only read from older
+    /// settings: each becomes a <see cref="TrayLook.Area"/> in <see cref="TrayLooks"/>, so the strip looks as it did.
+    /// </summary>
     public List<string> TrayGraphs { get; set; } = [];
+
+    /// <summary>How each taskbar reading draws on the strip (by sensor id); a reading not listed is its number alone.</summary>
+    public Dictionary<string, TrayLook> TrayLooks { get; set; } = [];
+
+    /// <summary>
+    /// Each taskbar reading on a tile of its own (the strip, and the icons in the part's colour); on for everyone from
+    /// 1.2, readings or not (someone without any gets none added).
+    /// </summary>
+    public bool TrayTiles { get; set; } = true;
+
+    /// <summary>How much room the strip's readings take (see <see cref="TrayWidth"/>).</summary>
+    public TrayWidth TrayWidth { get; set; }
+
+    /// <summary>In two rows, each reading's name as one letter ("C", "L") instead of in full ("CPU", "Load").</summary>
+    public bool TrayLetterNames { get; set; }
+
+    /// <summary>
+    /// In two rows, the readings with a box of their own (by sensor id); the others share a box with the next in
+    /// <see cref="TraySensors"/>'s order, so the list's order is how they pair (see <see cref="TrayParts.Boxes"/>).
+    /// </summary>
+    public List<string> TrayAlone { get; set; } = [];
 
     /// <summary>Taskbar readings given colours of their own (by sensor id); a reading not listed looks as RigSight colours it.</summary>
     public Dictionary<string, TrayColor> TrayColors { get; set; } = [];
@@ -104,6 +128,7 @@ public sealed class RigsightSettings
     /// </summary>
     public List<string> TrayNumberColors { get; set; } = [];
     public List<string> TrayNameColors { get; set; } = [];
+    public List<string> TrayTileColors { get; set; } = [];
     public const int MaxTrayCustomColors = 30;
 
     /// <summary>Apps (exe names) whose crashes aren't counted, listed or notified about.</summary>
@@ -320,26 +345,46 @@ public sealed class AlertSettings
 }
 
 /// <summary>
-/// How the taskbar readings show. <see cref="Strip"/>: a strip inside the taskbar, next to the clock, each part's
-/// readings over its name (Windows 11; elsewhere the icons). <see cref="Icons"/>: an icon each in the notification area.
-/// <see cref="Grouped"/>: an icon per part, up to two readings stacked (see <see cref="TrayParts"/>).
+/// How the taskbar readings show. <see cref="Strip"/>: a strip inside the taskbar, each part's readings over its name
+/// (Windows 11; elsewhere the icons). <see cref="Icons"/>: an icon each. <see cref="Grouped"/>: an icon per part, up to two
+/// readings stacked (see <see cref="TrayParts"/>). <see cref="TwoRows"/>: the readings in boxes of two, paired as the person
+/// lists them (see <see cref="TrayParts.Boxes"/>), the name beside each number, no wider than the strip's numbers alone
+/// (Windows 11; elsewhere an icon each). On Windows 11 RigSight draws every
+/// style itself, at either end of the taskbar; on Windows 10 the icons are Windows' own.
 /// </summary>
-public enum TrayStyle { Strip, Icons, Grouped }
+public enum TrayStyle { Strip, Icons, Grouped, TwoRows }
 
 /// <summary>
-/// Where the taskbar strip sits. <see cref="Left"/>: at the taskbar's left end, before Start, which needs the taskbar's
-/// icons centred (Windows 11's own setting); left-aligned icons fill that end, so the strip stays next to the clock.
+/// Where the taskbar readings sit. <see cref="Left"/>: at the taskbar's left end, before Start, which needs the taskbar's
+/// icons centred (Windows 11's own setting); left-aligned icons fill that end, so they stay next to the clock. Icons on
+/// the left are drawn by RigSight itself (Windows puts its own tray icons by the clock only).
 /// </summary>
 public enum TraySide { Right, Left }
 
 /// <summary>
+/// How a reading draws on the strip, always under its number and name: <see cref="Number"/> alone; the last two minutes
+/// as a <see cref="Area"/> (filled), <see cref="Line"/> or <see cref="Bars"/> graph behind its name; or where it is now
+/// out of 100 as a <see cref="Level"/> behind its name, ten <see cref="Blocks"/> under it, or a <see cref="Ring"/>
+/// beside the number. The last three only for readings with a top (see <see cref="TrayParts.HasTop"/>).
+/// </summary>
+public enum TrayLook { Number, Area, Line, Bars, Level, Blocks, Ring }
+
+/// <summary>
+/// How much room the strip's readings take. <see cref="Standard"/>: graphs as wide as before (wider on a wide screen);
+/// <see cref="Compact"/>: graphs as narrow as their words, on tighter tiles; <see cref="Roomy"/>: graphs half as wide again.
+/// </summary>
+public enum TrayWidth { Standard, Compact, Roomy }
+
+/// <summary>
 /// A taskbar reading's own colours: its number's (null: as RigSight colours it; "heat": by how warm, temperatures
-/// only; else a code like "#5B8CFF") and its name's, which also colours its mark and graph (null: its part's).
+/// only; else a code like "#5B8CFF"), its name's, which also colours its graph and its icon's tile (null: its part's),
+/// and its tile's (null: a faint neutral tile on the strip, the name's colour on an icon).
 /// </summary>
 public sealed class TrayColor
 {
     public string? Number { get; set; }
     public string? Name { get; set; }
+    public string? Tile { get; set; }
 }
 
 /// <summary>The clock times are written in: Windows' own (its region's), 12-hour ("6:41 PM") or 24-hour ("18:41").</summary>

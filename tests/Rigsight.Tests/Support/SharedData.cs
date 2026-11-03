@@ -26,10 +26,16 @@ public static class SharedData
         }
     }
 
-    /// <summary>Resets settings.json to the quiet test settings (plus the everything-dashboard).</summary>
+    /// <summary>
+    /// Resets settings.json to the quiet test settings (plus the everything-dashboard). A finished rewind doesn't open
+    /// full screen by itself: in the first days of a month last month's is due, and it covered the window under test
+    /// (the title bar's ask box hides under it; the 2026-11-03 gate failed on that, the code unchanged). Tests that want
+    /// a rewind open it themselves.
+    /// </summary>
     public static RigsightSettings ResetSettings()
     {
         var settings = SeedData.QuietSettings();
+        settings.Rewind.FullScreen = false;
         settings.CustomPages.Add(AppUi.AppHost.Dashboard());
         SettingsStore.Save(settings);
         return settings;

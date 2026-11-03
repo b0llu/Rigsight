@@ -79,6 +79,14 @@ public sealed class TrayTextConverter : IMultiValueConverter
     public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) => [];
 }
 
+/// <summary>How full a taskbar reading is, 0 to 1, for its level, blocks or ring (see <see cref="TrayParts.Fill"/>): bind its Value.</summary>
+public sealed class TrayFillConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => (double)TrayParts.Fill(value as double?);
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
 /// <summary>
 /// A taskbar reading's colour: a temperature's (as everywhere), otherwise the taskbar's text colour. Kind, Value, and
 /// optionally whether the taskbar is light (else the app's text colour) and whether it's in grayscale (temperatures too

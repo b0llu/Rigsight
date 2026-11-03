@@ -1,3 +1,5 @@
+using Rigsight.Core.Settings;
+
 namespace Rigsight.Core;
 
 /// <summary>The part of the PC a taskbar reading is about, which its colour mark shows.</summary>
@@ -14,6 +16,18 @@ public static class TrayParts
 {
     /// <summary>Readings an icon holds at most, stacked (a third wouldn't be legible at 16 pixels).</summary>
     public const int PerIcon = 2;
+
+    /// <summary>
+    /// The icons RigSight draws in the taskbar itself, at 96 dpi: half as big again as Windows' own 16-pixel tray icons
+    /// (the user, 2026-11-03: "looks so small in taskbar"), this far apart, close as the strip's tiles are.
+    /// </summary>
+    public const int IconSize = 24, IconGap = 6;
+
+    /// <summary>
+    /// The room an icon's tile keeps on each side of its digits: a pixel at Windows' 16 (every pixel counts there), a
+    /// tenth of the icon when it's bigger, so the number doesn't touch the tile's edges.
+    /// </summary>
+    public static double IconInset(double size) => size <= 16 ? Math.Max(1, size / 16) : size / 10;
 
     /// <summary>The part, from LibreHardwareMonitor's hardware type ("Cpu", "GpuNvidia", "SuperIO"…).</summary>
     public static TrayPart PartOf(string? hardwareType) => hardwareType switch
@@ -40,16 +54,87 @@ public static class TrayParts
 
     /// <summary>
     /// The part's colour (red, green, blue), as on every Rigsight page, a shade deeper on a light taskbar so it holds
-    /// its own there; other parts are grey (drives too: a blue would pass for a cool temperature's colour). None is
-    /// green, amber or red: those say how a reading is doing.
+    /// its own there: drives pink, the network the sky blue of the Network page (since 1.2; they were grey), the board
+    /// and the rest grey. None is green, amber or red: those say how a reading is doing.
     /// </summary>
     public static (byte R, byte G, byte B) Color(TrayPart part, bool light = false) => part switch
     {
         TrayPart.Cpu => light ? ((byte)59, (byte)110, (byte)235) : ((byte)91, (byte)140, (byte)255),
         TrayPart.Gpu => light ? ((byte)8, (byte)145, (byte)178) : ((byte)34, (byte)211, (byte)238),
         TrayPart.Ram => light ? ((byte)140, (byte)95, (byte)230) : ((byte)177, (byte)140, (byte)255),
+        TrayPart.Drive => light ? ((byte)219, (byte)39, (byte)119) : ((byte)244, (byte)114, (byte)182),
+        TrayPart.Network => light ? ((byte)2, (byte)132, (byte)199) : ((byte)56, (byte)189, (byte)248),
         _ => light ? ((byte)128, (byte)128, (byte)128) : ((byte)148, (byte)148, (byte)148),
     };
+
+    /// <summary>
+    /// Whether a reading has a top, so it can be shown as how full it is (<see cref="TrayLook.Level"/>,
+    /// <see cref="TrayLook.Blocks"/>, <see cref="TrayLook.Ring"/>): percentages out of 100, temperatures out of 100°.
+    /// A speed, a clock or watts has none.
+    /// </summary>
+    public static bool HasTop(SensorKind kind) =>
+        kind is SensorKind.Load or SensorKind.Level or SensorKind.Control or SensorKind.Humidity or SensorKind.Temperature;
+
+    /// <summary>The look a reading draws with: the one picked, a filled graph in place of a fill-up look it can't have.</summary>
+    public static TrayLook LookFor(SensorKind kind, TrayLook picked) =>
+        picked is TrayLook.Level or TrayLook.Blocks or TrayLook.Ring && !HasTop(kind) ? TrayLook.Area : picked;
+
+    /// <summary>
+    /// The boxes of two rows (<see cref="TrayStyle.TwoRows"/>), as the person pairs them: in the list's order, each box
+    /// holds the next two readings; one with a box of its own (<paramref name="alone"/>) gets one, and the next starts a
+    /// new box. Shared by the agent, which draws them, and the Taskbar page, which lists the readings in them.
+    /// </summary>
+    public static List<List<T>> Boxes<T>(IReadOnlyList<T> readings, Func<T, bool> alone)
+    {
+        var boxes = new List<List<T>>();
+        List<T>? open = null;
+        foreach (var r in readings)
+        {
+            if (alone(r)) { boxes.Add([r]); open = null; }
+            else if (open is not null) { open.Add(r); open = null; }
+            else { open = [r]; boxes.Add(open); }
+        }
+        return boxes;
+    }
+
+    /// <summary>
+    /// A reading's word in its box: its part's name ("CPU", "GPU 2"); a part's second reading under its first says what
+    /// it is ("Load"; <paramref name="aboveGroup"/> is the top one's <see cref="GroupOf"/>), as speeds always say their
+    /// direction ("Down", "Up"). A short name the person gave it wins (it comes as <paramref name="shortLabel"/>, see
+    /// <see cref="ShortLabel"/>). One letter when <paramref name="letter"/>.
+    /// </summary>
+    public static string BoxLabel(string partName, string group, SensorKind kind, string shortLabel, bool custom, string? aboveGroup, bool letter)
+    {
+        string label = custom || kind == SensorKind.Throughput || aboveGroup == group ? shortLabel : partName;
+        return letter ? Letter(label) : label;
+    }
+
+    /// <summary>A name as one letter ("CPU" → "C", "Load" → "L"); a number in it kept ("GPU 2" → "G2").</summary>
+    public static string Letter(string label)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return "";
+        string digits = new([.. label.Where(char.IsDigit)]);
+        return char.ToUpperInvariant(label.TrimStart()[0]) + digits;
+    }
+
+    /// <summary>A look's name, as the Taskbar page and the strip's menu say it.</summary>
+    public static string LookName(TrayLook look) => look switch
+    {
+        TrayLook.Area => Lang.T("Filled graph"),
+        TrayLook.Line => Lang.T("Line graph"),
+        TrayLook.Bars => Lang.T("Bar graph"),
+        TrayLook.Level => Lang.T("Level"),
+        TrayLook.Blocks => Lang.T("Blocks"),
+        TrayLook.Ring => Lang.T("Ring"),
+        _ => Lang.T("Number only"),
+    };
+
+    /// <summary>The looks a reading can have: all of them with a top, else the number and the graphs.</summary>
+    public static IReadOnlyList<TrayLook> LooksFor(SensorKind kind) =>
+        HasTop(kind) ? Enum.GetValues<TrayLook>() : [TrayLook.Number, TrayLook.Area, TrayLook.Line, TrayLook.Bars];
+
+    /// <summary>How full a reading is, 0 to 1, for the fill-up looks (a temperature out of 100°, in Celsius).</summary>
+    public static float Fill(double? value) => value is double v && double.IsFinite(v) ? (float)Math.Clamp(v / 100, 0, 1) : 0;
 
     /// <summary>
     /// The device a sensor belongs to, from its ID ("/gpu-nvidia/0/temperature/0" → "/gpu-nvidia/0"): two GPUs or

@@ -137,12 +137,17 @@ public class TrayReadingsTests
     {
         Assert.Equal(((byte)91, (byte)140, (byte)255), TrayParts.Color(TrayPart.Cpu));
         Assert.Equal(((byte)34, (byte)211, (byte)238), TrayParts.Color(TrayPart.Gpu));
-        // No part is green, amber or red (those say how a reading is doing): blue is always the strongest of the three.
-        Assert.All(new[] { TrayPart.Cpu, TrayPart.Gpu, TrayPart.Ram }.SelectMany(p => new[] { TrayParts.Color(p), TrayParts.Color(p, light: true) }),
+        // Since 1.2 drives are pink and the network the Network page's sky blue (they were grey).
+        Assert.Equal(((byte)244, (byte)114, (byte)182), TrayParts.Color(TrayPart.Drive));
+        Assert.Equal(((byte)56, (byte)189, (byte)248), TrayParts.Color(TrayPart.Network));
+        // No part is green, amber or red (those say how a reading is doing): blue is always the strongest of the three,
+        // but for the drives' pink, whose red leads with more blue than green.
+        Assert.All(new[] { TrayPart.Cpu, TrayPart.Gpu, TrayPart.Ram, TrayPart.Network }.SelectMany(p => new[] { TrayParts.Color(p), TrayParts.Color(p, light: true) }),
             c => Assert.True(c.B > c.R && c.B > c.G, $"{c} isn't a blue, cyan or purple"));
+        Assert.All(new[] { TrayParts.Color(TrayPart.Drive), TrayParts.Color(TrayPart.Drive, light: true) }, c => Assert.True(c.B > c.G, $"{c} isn't a pink"));
         Assert.NotEqual(TrayParts.Color(TrayPart.Cpu), TrayParts.Color(TrayPart.Cpu, light: true)); // deeper on a light taskbar
-        Assert.Equal(TrayParts.Color(TrayPart.Drive), TrayParts.Color(TrayPart.Other));
-        Assert.Equal(3, new[] { TrayPart.Cpu, TrayPart.Gpu, TrayPart.Ram }.Select(p => TrayParts.Color(p)).Distinct().Count());
+        Assert.Equal(TrayParts.Color(TrayPart.Board), TrayParts.Color(TrayPart.Other));
+        Assert.Equal(5, new[] { TrayPart.Cpu, TrayPart.Gpu, TrayPart.Ram, TrayPart.Drive, TrayPart.Network }.Select(p => TrayParts.Color(p)).Distinct().Count());
     }
 
     [Theory]

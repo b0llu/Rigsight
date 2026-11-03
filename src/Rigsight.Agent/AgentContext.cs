@@ -93,6 +93,9 @@ internal sealed class AgentContext : ApplicationContext
     private readonly TrayController _tray;
     private readonly TrayReadings _trayReadings;
     private readonly TaskbarStrip _taskbarStrip;
+
+    /// <summary>The taskbar readings waiting for room in the strip's "+N" (set on the UI thread, sent with each tick for the Taskbar page).</summary>
+    private volatile IReadOnlyList<string> _trayWaiting = [];
     private readonly WidgetManager _widgets;
     private readonly OverlayManager _overlay;
     /// <summary>The Ask shortcut: opens the app on the Ask window from anywhere, while the AI is on (2026-10-26).</summary>
@@ -199,7 +202,7 @@ internal sealed class AgentContext : ApplicationContext
             setStyle: style => MutateSettings(s => s.TrayStyle = style),
             openPage: () => OpenApp("taskbar"),
             setSide: side => MutateSettings(s => s.TraySide = side),
-            setGraph: (id, on) => MutateSettings(s => { s.TrayGraphs.Remove(id); if (on) s.TrayGraphs.Add(id); }));
+            setLook: (id, look) => MutateSettings(s => { s.TrayLooks.Remove(id); if (look != TrayLook.Number) s.TrayLooks[id] = look; }));
         _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
@@ -492,6 +495,7 @@ internal sealed class AgentContext : ApplicationContext
                             ExtremesFull = full,
                             // No trace on an agent that should have one, after the remedies: the page says it isn't recording.
                             Net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : _isAdmin && _traceWatch.Stalled ? NotRecording : null,
+                            TrayWaiting = _trayWaiting is { Count: > 0 } waiting ? [.. waiting] : null,
                         });
                     }
 
@@ -1023,13 +1027,16 @@ internal sealed class AgentContext : ApplicationContext
     private List<TrayReading> TrayReadingsFor(RigsightSettings settings)
     {
         var list = new List<TrayReading>(settings.TraySensors.Count);
+        var alone = settings.TrayAlone.ToHashSet();
         foreach (var id in settings.TraySensors)
         {
+            string? own = settings.SensorLabels.GetValueOrDefault(id);
             list.Add(_sensors.ReadSensor(id) is { } r
-                ? new TrayReading(id, settings.SensorLabels.GetValueOrDefault(id) ?? SensorWords.Show(r.Name), r.Kind, r.Value, TrayParts.PartOf(r.HardwareType), r.HardwareName,
-                    TrayParts.ShortLabel(r.Kind, r.Name, TrayParts.PartOf(r.HardwareType), settings.SensorLabels.GetValueOrDefault(id)),
-                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id))
-                : new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, ""));
+                ? new TrayReading(id, own ?? SensorWords.Show(r.Name), r.Kind, r.Value, TrayParts.PartOf(r.HardwareType), r.HardwareName,
+                    TrayParts.ShortLabel(r.Kind, r.Name, TrayParts.PartOf(r.HardwareType), own),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), settings.TrayLooks.GetValueOrDefault(id), TrayColors.TileOf(settings, id),
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id))
+                : new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, "", Alone: alone.Contains(id)));
         }
         return list;
     }
@@ -1081,10 +1088,11 @@ internal sealed class AgentContext : ApplicationContext
         {
             long t0 = Stopwatch.GetTimestamp();
             _tray.Update(tip, health);
-            // In the taskbar where it can be (Windows 11), else as icons.
-            bool inStrip = settings.TrayStyle == TrayStyle.Strip && _taskbarStrip.Update(trayReadings, settings.TrayGrayscale, settings.TraySide, settings.TrayGraphs);
-            if (settings.TrayStyle != TrayStyle.Strip) _taskbarStrip.Hide();
-            _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped, settings.TrayGrayscale);
+            // In the taskbar, drawn by RigSight in any style, where it can be (Windows 11); else as Windows' own tray icons.
+            bool inStrip = _taskbarStrip.Update(trayReadings, settings.TrayGrayscale, settings.TraySide, settings.TrayStyle, settings.TrayTiles, settings.TrayWidth,
+                settings.TrayLetterNames);
+            _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped, settings.TrayGrayscale, settings.TrayTiles);
+            _trayWaiting = _taskbarStrip.Waiting;
             // Asked of Windows here, on this tick and for the same window, so Alt+Enter between windowed and borderless
             // is caught on the next tick (only with a game in front: a few cheap calls, no new polling).
             var front = gameInFront ? Win32.GetForegroundWindow() : IntPtr.Zero;
@@ -1347,6 +1355,13 @@ internal sealed class AgentContext : ApplicationContext
         List<Core.Rewind.RewindFacts> made;
         try { made = Core.Rewind.RewindStore.MakeDue(_db, settings, now); }
         catch (Exception ex) { Log.Error("rewind", ex); return; }
+        if (made.Count > 0)
+        {
+            // A month's history read once a month: given back, as after the long crash scan (the 2026-11-03 gate: 146 MB
+            // private with October's just made, still 116 MB 25 s after, against 62 when none is due).
+            MemoryAt("rewind made");
+            CompactMemory();
+        }
         if (made.Count == 0 || !settings.Rewind.Notify || _pipe.ClientCount > 0) return;
         var f = made[0];
         // Told now: the app shows them as its sidebar line, not full screen again (2026-10-30: the first rewind, 1 Nov,
@@ -2008,9 +2023,13 @@ internal sealed class AgentContext : ApplicationContext
     /// A line in the log for a change to what's shown or tracked (the taskbar readings, the overlay's sensors, the
     /// widgets on, the apps left out), saying where it came from: a list that vanished can be traced.
     /// </summary>
-    /// <summary>The taskbar readings' own colours in one line ("id=number/name; ..."), to compare and to log.</summary>
+    /// <summary>The taskbar readings' own colours in one line ("id=number/name/tile; ..."), to compare and to log.</summary>
     private static string TrayColorsText(RigsightSettings s) =>
-        string.Join("; ", s.TrayColors.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value.Number ?? "-"}/{kv.Value.Name ?? "-"}"));
+        string.Join("; ", s.TrayColors.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value.Number ?? "-"}/{kv.Value.Name ?? "-"}/{kv.Value.Tile ?? "-"}"));
+
+    /// <summary>The taskbar readings' looks in one line ("id=Area; ..."), to compare and to log.</summary>
+    private static string TrayLooksText(RigsightSettings s) =>
+        string.Join("; ", s.TrayLooks.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"));
 
     private static void LogSettingsChanges(RigsightSettings before, RigsightSettings after, string from)
     {
@@ -2018,7 +2037,12 @@ internal sealed class AgentContext : ApplicationContext
         Note("taskbar readings", before.TraySensors.Count, after.TraySensors.Count);
         if (before.TrayStyle != after.TrayStyle) Log.Write("settings", $"taskbar style: {before.TrayStyle} -> {after.TrayStyle} (from the {from})");
         if (before.TraySide != after.TraySide) Log.Write("settings", $"taskbar side: {before.TraySide} -> {after.TraySide} (from the {from})");
-        Note("taskbar graphs", before.TrayGraphs.Count, after.TrayGraphs.Count);
+        if (TrayLooksText(before) != TrayLooksText(after)) Log.Write("settings", $"taskbar looks: {TrayLooksText(before)} -> {TrayLooksText(after)} (from the {from})");
+        if (before.TrayTiles != after.TrayTiles) Log.Write("settings", $"taskbar tiles: {before.TrayTiles} -> {after.TrayTiles} (from the {from})");
+        if (before.TrayWidth != after.TrayWidth) Log.Write("settings", $"taskbar width: {before.TrayWidth} -> {after.TrayWidth} (from the {from})");
+        if (before.TrayLetterNames != after.TrayLetterNames) Log.Write("settings", $"taskbar names as one letter: {before.TrayLetterNames} -> {after.TrayLetterNames} (from the {from})");
+        if (!before.TrayAlone.SequenceEqual(after.TrayAlone))
+            Log.Write("settings", $"taskbar readings on their own: {string.Join(", ", before.TrayAlone)} -> {string.Join(", ", after.TrayAlone)} (from the {from})");
         if (TrayColorsText(before) != TrayColorsText(after)) Log.Write("settings", $"taskbar colours: {TrayColorsText(before)} -> {TrayColorsText(after)} (from the {from})");
         Note("overlay sensors", before.Overlay.Sensors.Count, after.Overlay.Sensors.Count);
         // A user's overlay background kept coming back after he had set it to none (Oct 2026), with nothing to say what moved it.
@@ -2044,7 +2068,9 @@ internal sealed class AgentContext : ApplicationContext
             change(replaceWith is null ? updated : current);
             yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
             trayChanged = updated.TrayStyle != current.TrayStyle || updated.TrayGrayscale != current.TrayGrayscale
-                          || updated.TraySide != current.TraySide || !updated.TrayGraphs.SequenceEqual(current.TrayGraphs)
+                          || updated.TraySide != current.TraySide || TrayLooksText(updated) != TrayLooksText(current)
+                          || updated.TrayTiles != current.TrayTiles || updated.TrayWidth != current.TrayWidth
+                          || updated.TrayLetterNames != current.TrayLetterNames || !updated.TrayAlone.SequenceEqual(current.TrayAlone)
                           || !updated.TraySensors.SequenceEqual(current.TraySensors) || TrayColorsText(updated) != TrayColorsText(current);
             LogSettingsChanges(current, updated, replaceWith is null ? "agent" : "app");
             _settings = updated;
