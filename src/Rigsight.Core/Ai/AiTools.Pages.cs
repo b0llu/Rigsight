@@ -73,9 +73,9 @@ public sealed partial class AiTools
     {
         "get_today" => WithDb(Today),
         "get_sensors_now" => SensorsText(),
-        "get_rewind" => WithDb(db => RewindText(db, (string?)args["period"] ?? "month", (string?)args["when"])),
-        "get_dashboard" => (string?)args["name"] is { Length: > 0 } dash ? DashboardText(dash) : DashboardList(),
-        "get_drive_scan" => DriveScanText((string?)args["drive"]),
+        "get_rewind" => WithDb(db => RewindText(db, AiArgs.Text(args["period"]) ?? "month", AiArgs.Text(args["when"]))),
+        "get_dashboard" => AiArgs.Text(args["name"]) is { Length: > 0 } dash ? DashboardText(dash) : DashboardList(),
+        "get_drive_scan" => DriveScanText(AiArgs.Text(args["drive"])),
         "get_widgets" => WidgetsText(),
         "get_overlay" => OverlayText(),
         "get_taskbar" => TaskbarText(),

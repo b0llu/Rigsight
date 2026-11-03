@@ -958,7 +958,8 @@ public sealed partial class GamesViewModel : ObservableObject
             new(Lang.T("GPU while playing"), st.Usual is { } uu ? Lang.T($"{Units.TempShort(uu.Gpu)} usual") : Units.TempShort(st.All.Gpu), Brush("GpuBrush")),
             new(Lang.T("CPU while playing"), st.Usual is { } uc ? Lang.T($"{Units.TempShort(uc.Cpu)} usual") : Units.TempShort(st.All.Cpu), Brush("CpuBrush")),
             new(Lang.T("Hot spot peak"), Units.TempShort(st.All.HotMax), Brush("PurpleBrush")),
-            new(Lang.T("CPU and GPU power"), st.All.Power is double p ? Lang.T($"{p:0} W · {p / 1000:0.00} kWh an hour") : "—"),
+            // Without the card's watts the figure is the CPU's alone (an RTX 3050 that gives no power reading, 2026-11-02).
+            new(st.All.GpuPower is null ? Lang.T("CPU power") : Lang.T("CPU and GPU power"), st.All.Power is double p ? Lang.T($"{p:0} W · {p / 1000:0.00} kWh an hour") : "—"),
             new(Lang.T("Graphics memory"), GraphicsMemory(st.All)),
         };
         Heat = heat;

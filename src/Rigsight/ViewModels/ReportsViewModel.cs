@@ -43,7 +43,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         SyncApps();
         foreach (var name in new[]
                  {
-                     nameof(ActiveLine), nameof(GamesText), nameof(GamesLine), nameof(InternetText), nameof(InternetLine), nameof(HasEnergy), nameof(EnergyText),
+                     nameof(ActiveLine), nameof(GamesText), nameof(GamesLine), nameof(InternetText), nameof(InternetLine), nameof(HasEnergy), nameof(EnergyText), nameof(EnergyParts),
                      nameof(TimeSplit), nameof(HasTimeSplit), nameof(TimeSplitNote), nameof(ShownInsights), nameof(UsualRows), nameof(HasUsual), nameof(UsualNow), nameof(ProblemsLine), nameof(ProblemsTone),
                  })
             OnPropertyChanged(name);
@@ -126,6 +126,13 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     /// <summary>What the CPU and the graphics card drew ("1.9 kWh", "410 Wh"); left out where no power is read.</summary>
     public bool HasEnergy => Report?.EnergyWh is > 0;
     public string EnergyText => Report?.EnergyWh is > 0 and var wh ? EnergyOf(wh) : "—";
+    /// <summary>Whose power it is: a part never read in the period isn't named (a card that gives no power reading, 2026-11-02).</summary>
+    public string EnergyParts => (Report?.CpuEnergyWh, Report?.GpuEnergyWh) switch
+    {
+        (not null, null) => Lang.T("CPU only"),
+        (null, not null) => Lang.T("GPU only"),
+        _ => Lang.T("CPU and GPU"),
+    };
     internal static string EnergyOf(double wattHours) => wattHours >= 1000 ? $"{wattHours / 1000:0.0} kWh" : $"{wattHours:0} Wh";
 
     // The PC's own problems (blue screens, graphics driver resets, sudden shut-offs in use), as Home and the "Against your

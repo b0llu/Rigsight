@@ -4736,6 +4736,8 @@
     "The PC was off, or the background agent wasn't running. Pick another period.": "El PC estaba apagado o el agente en segundo plano no se estaba ejecutando. Elige otro periodo.",
     "Worked out from the power the CPU and the GPU report each minute. The screen, the drives and the rest of the PC aren't measured.": "Calculado a partir de la potencia que la CPU y la GPU indican cada minuto. La pantalla, las unidades y el resto del PC no se miden.",
     "CPU and GPU": "CPU y GPU",
+    "CPU only": "Solo la CPU",
+    "GPU only": "Solo la GPU",
     "PC PROBLEMS": "PROBLEMAS DEL PC",
     "This PC's own history": "El propio historial de este PC",
     "WHAT": "QUÉ",

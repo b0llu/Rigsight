@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -125,7 +125,9 @@ public static class GameSettings
                 var folders = new List<string>();
                 foreach (var root in new[] { Path.Combine(places.Documents, "My Games"), places.Documents, places.SavedGames, places.LocalAppData, places.RoamingAppData })
                     folders.AddRange(Named(root, names));
-                foreach (var maker in SafeDirs(places.SavedGames).Concat(SafeDirs(places.LocalLow)).Concat(SafeDirs(places.LocalAppData)))
+                // Under its maker's folder: Saved Games\Respawn\Apex, and Documents\Respawn\Titanfall2 (missed until 2026-11-02,
+                // when Titanfall 2's size was read from another file).
+                foreach (var maker in SafeDirs(places.SavedGames).Concat(SafeDirs(places.LocalLow)).Concat(SafeDirs(places.LocalAppData)).Concat(SafeDirs(places.Documents)))
                     folders.AddRange(Named(maker, names));
                 files.AddRange(Best(folders.Distinct(StringComparer.OrdinalIgnoreCase).SelectMany(f => Candidates(f, 4, names)), 2));
                 if (files.Count == 0 && steamAppId is not null && places.Steam is { } steam)
@@ -134,7 +136,7 @@ public static class GameSettings
             }
             if (files.Count == 0) return GameSettingsRead.None;
             var all = files.SelectMany(f => f.Settings).ToList();
-            var facts = Facts(all);
+            var facts = Facts(all, files.Select(f => f.Settings));
             var rows = GameSettingNames.Rows(all, facts);
             string? size = facts.FirstOrDefault(f => f.Label == Resolution)?.Value.Replace(" × ", "x");
             var nvidia = NvidiaPicks.Read(places.NvidiaBackend, exePath, installDir, size, MainScreen() is { } scr ? $"{scr.W}x{scr.H}" : null);
@@ -437,12 +439,46 @@ public static class GameSettings
         On = Lang.Key("On"), Off = Lang.Key("Off"), NoLimit = Lang.Key("No limit"), PathTracing = Lang.Key("Path tracing");
     internal static readonly string[] UnrealLevels = [Lang.Key("Low"), Lang.Key("Medium"), Lang.Key("High"), Lang.Key("Epic"), Lang.Key("Cinematic")];
 
+    private static int? Int(string? v) => double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? (int)Math.Round(d) : null;
+
+    private static bool Called(GameSetting x, string name) =>
+        Leaf(x.Key).Equals(name, StringComparison.OrdinalIgnoreCase) || x.Key.Equals(name, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The resolution one file saves, "2560 × 1440", from the pair of names the game used. Width and height come from the
+    /// same group of the same file: taken from any two settings anywhere, Titanfall 2 (played through Northstar) was said
+    /// to run at "1788 × 1960" on a 2560 × 1440 screen (2026-11-02).
+    /// </summary>
+    private static string? SizeOf(IReadOnlyList<GameSetting> s)
+    {
+        static string Group(string key) => key[..(key.LastIndexOf('.') + 1)];
+        (string W, string H)[] pairs =
+        [
+            ("ResolutionSizeX", "ResolutionSizeY"), ("setting.defaultres", "setting.defaultresheight"), ("ResolutionWidth", "ResolutionHeight"),
+            ("ResX", "ResY"), ("ScreenWidth", "ScreenHeight"), ("resolution_width", "resolution_height"), ("Width", "Height"),
+        ];
+        foreach (var (wk, hk) in pairs)
+            foreach (var width in s.Where(x => Called(x, wk)))
+                if (Int(width.Value) is int w and > 300
+                    && s.FirstOrDefault(x => Called(x, hk) && Group(x.Key).Equals(Group(width.Key), StringComparison.OrdinalIgnoreCase)) is { } height
+                    && Int(height.Value) is int h and > 200)
+                    return $"{w} × {h}";
+        var unity = s.FirstOrDefault(x => x.Key.StartsWith("Screenmanager Resolution Width_", StringComparison.OrdinalIgnoreCase));
+        var unityH = s.FirstOrDefault(x => x.Key.StartsWith("Screenmanager Resolution Height_", StringComparison.OrdinalIgnoreCase));
+        if (Int(unity?.Value) is int uw and > 300 && Int(unityH?.Value) is int uh and > 200) return $"{uw} × {uh}";
+        if (s.FirstOrDefault(x => Leaf(x.Key).Equals("resolution", StringComparison.OrdinalIgnoreCase) && Regex.Match(x.Value, @"^(\d{3,5})\s*[x×]\s*(\d{3,5})(\s*[x×@]\s*\d{2,3})?$").Success) is { } r)
+            // "2560x1440x144" also has the refresh rate.
+            return Regex.Replace(Regex.Replace(r.Value, @"^(\d+\s*[x×]\s*\d+).*$", "$1"), @"\s*[x×]\s*", " × ");
+        return null;
+    }
+
     /// <summary>The main settings in plain words, from whichever names the game used. Only what was found is said.</summary>
-    internal static List<GameSettingFact> Facts(List<GameSetting> s)
+    /// <param name="each">Each file's own settings, in the order read: the resolution is the first file's that has one
+    /// (never a width from one file and a height from another). Null: <paramref name="s"/> is one file.</param>
+    internal static List<GameSettingFact> Facts(List<GameSetting> s, IEnumerable<IReadOnlyList<GameSetting>>? each = null)
     {
         var facts = new List<GameSettingFact>();
-        string? Get(params string[] leaves) => s.FirstOrDefault(x => leaves.Any(l => Leaf(x.Key).Equals(l, StringComparison.OrdinalIgnoreCase) || x.Key.Equals(l, StringComparison.OrdinalIgnoreCase)))?.Value;
-        static int? Int(string? v) => double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? (int)Math.Round(d) : null;
+        string? Get(params string[] leaves) => s.FirstOrDefault(x => leaves.Any(l => Called(x, l)))?.Value;
         static bool? Bool(string? v) => v?.Trim().ToLowerInvariant() switch
         {
             null => null,
@@ -455,23 +491,7 @@ public static class GameSettings
             _ => null,
         };
 
-        // Resolution, from the pair of names the game used.
-        (string W, string H)[] pairs =
-        [
-            ("ResolutionSizeX", "ResolutionSizeY"), ("setting.defaultres", "setting.defaultresheight"), ("ResolutionWidth", "ResolutionHeight"),
-            ("ResX", "ResY"), ("ScreenWidth", "ScreenHeight"), ("resolution_width", "resolution_height"), ("Width", "Height"),
-        ];
-        foreach (var (wk, hk) in pairs)
-            if (Int(Get(wk)) is int w and > 300 && Int(Get(hk)) is int h and > 200) { facts.Add(new(Resolution, $"{w} × {h}")); break; }
-        if (!facts.Any(f => f.Label == Resolution))
-        {
-            var unity = s.FirstOrDefault(x => x.Key.StartsWith("Screenmanager Resolution Width_", StringComparison.OrdinalIgnoreCase));
-            var unityH = s.FirstOrDefault(x => x.Key.StartsWith("Screenmanager Resolution Height_", StringComparison.OrdinalIgnoreCase));
-            if (Int(unity?.Value) is int uw and > 300 && Int(unityH?.Value) is int uh and > 200) facts.Add(new(Resolution, $"{uw} × {uh}"));
-            else if (s.FirstOrDefault(x => Leaf(x.Key).Equals("resolution", StringComparison.OrdinalIgnoreCase) && Regex.Match(x.Value, @"^(\d{3,5})\s*[x×]\s*(\d{3,5})(\s*[x×@]\s*\d{2,3})?$").Success) is { } r)
-                // "2560x1440x144" also has the refresh rate.
-                facts.Add(new(Resolution, Regex.Replace(Regex.Replace(r.Value, @"^(\d+\s*[x×]\s*\d+).*$", "$1"), @"\s*[x×]\s*", " × ")));
-        }
+        if ((each ?? [s]).Select(SizeOf).FirstOrDefault(size => size is not null) is { } size) facts.Add(new(Resolution, size));
 
         // Display mode: Unreal 0/1/2, Valve's fullscreen + no border, Unity's four, or a word. A Unity game's own word wins
         // over Unity's code, as it's what its menu says (Risk of Rain 2's "Fullscreen" is Unity's borderless window).

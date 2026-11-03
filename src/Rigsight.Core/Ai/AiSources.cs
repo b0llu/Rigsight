@@ -121,13 +121,13 @@ public static partial class AiSources
             "get_crashes" => ("crashes", Lang.T("Crashes"), Lang.T($"Crashes, {range}")),
             "get_changes" => ("timeline", Lang.T("Timeline"), Lang.T($"Changes, {range}")),
             "list_games" => ("games", Lang.T("Games"), Lang.T("Your games")),
-            "get_game" => ("games", Lang.T("Games"), (string?)l.Args["name"] ?? Lang.T("A game")),
+            "get_game" => ("games", Lang.T("Games"), AiArgs.Text(l.Args["name"]) ?? Lang.T("A game")),
             "get_temperatures" => ("temperatures", Lang.T("Temperatures"), Lang.T($"Temperatures, {range}")),
             "get_fans" => ("fans", Lang.T("Fans"), Lang.T($"Fans, {range}")),
             "get_apps" => ("apps", Lang.T("Apps"), Lang.T($"Apps, {range}")),
             "get_memory" => ("memory", Lang.T("Memory"), Lang.T($"Memory, {range}")),
             "get_storage" => ("storage", Lang.T("Storage"), Lang.T("Your drives")),
-            "get_drive_scan" => ("storage", Lang.T("Storage"), (string?)l.Args["drive"] is { Length: > 0 } d ? Lang.T($"Scan of {d.Trim().TrimEnd(':').ToUpperInvariant()}:") : Lang.T("A drive's scan")),
+            "get_drive_scan" => ("storage", Lang.T("Storage"), AiArgs.Text(l.Args["drive"]) is { Length: > 0 } d ? Lang.T($"Scan of {d.Trim().TrimEnd(':').ToUpperInvariant()}:") : Lang.T("A drive's scan")),
             "get_network" => ("network", Lang.T("Network"), Lang.T($"Internet, {range}")),
             "get_on_times" => ("reports", Lang.T("Reports"), Lang.T($"When it was on, {range}")),
             "get_running_now" => ("processes", Lang.T("Processes"), Lang.T("Running now")),
@@ -137,7 +137,7 @@ public static partial class AiSources
             "get_sensors_now" => ("sensors", Lang.T("All sensors"), Lang.T("Every reading now")),
             // Rewind and dashboards have no page of their own to open at (a rewind plays; a dashboard is found by its id).
             "get_rewind" => ("", Lang.T("Rewind"), Lang.T("Your rewind")),
-            "get_dashboard" => ("", Lang.T("Dashboards"), (string?)l.Args["name"] ?? Lang.T("Your dashboards")),
+            "get_dashboard" => ("", Lang.T("Dashboards"), AiArgs.Text(l.Args["name"]) ?? Lang.T("Your dashboards")),
             "get_widgets" => ("widgets", Lang.T("Widgets"), Lang.T("Your widgets")),
             "get_overlay" => ("overlay", Lang.T("Overlay"), Lang.T("Your overlay")),
             "get_taskbar" => ("taskbar", Lang.T("Taskbar"), Lang.T("Your taskbar readings")),
@@ -151,7 +151,7 @@ public static partial class AiSources
     /// <summary>"Around 8:57 AM, 23 Oct" for a look at one moment (the model writes it "2026-10-23 08:57").</summary>
     private static string Moment(AiLookUp l)
     {
-        string? at = (string?)l.Args["time"];
+        string? at = AiArgs.Text(l.Args["time"]);
         foreach (var f in new[] { "yyyy-MM-dd HH:mm", "yyyy-MM-ddTHH:mm", "yyyy-MM-dd H:mm", "yyyy-MM-dd HH:mm:ss" })
             if (DateTime.TryParseExact(at, f, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t))
                 return Lang.T($"Around {t.ToString(TimeText.Fit("h:mm tt"), CultureInfo.CurrentCulture)}, {t:d MMM}");
@@ -166,8 +166,8 @@ public static partial class AiSources
     public static string? Days(AiLookUp l)
     {
         var inv = CultureInfo.InvariantCulture;
-        if (!DateTime.TryParseExact((string?)l.Args["from"], "yyyy-MM-dd", inv, DateTimeStyles.None, out var from)
-            || !DateTime.TryParseExact((string?)l.Args["to"], "yyyy-MM-dd", inv, DateTimeStyles.None, out var to)) return null;
+        if (!DateTime.TryParseExact(AiArgs.Text(l.Args["from"]), "yyyy-MM-dd", inv, DateTimeStyles.None, out var from)
+            || !DateTime.TryParseExact(AiArgs.Text(l.Args["to"]), "yyyy-MM-dd", inv, DateTimeStyles.None, out var to)) return null;
         if (to < from) (from, to) = (to, from);
         return $"{from:yyyy-MM-dd}..{to:yyyy-MM-dd}";
     }
@@ -184,8 +184,8 @@ public static partial class AiSources
     public static string Range(AiLookUp l)
     {
         var inv = CultureInfo.InvariantCulture;
-        if (!DateTime.TryParseExact((string?)l.Args["from"], "yyyy-MM-dd", inv, DateTimeStyles.None, out var from)
-            || !DateTime.TryParseExact((string?)l.Args["to"], "yyyy-MM-dd", inv, DateTimeStyles.None, out var to)) return "";
+        if (!DateTime.TryParseExact(AiArgs.Text(l.Args["from"]), "yyyy-MM-dd", inv, DateTimeStyles.None, out var from)
+            || !DateTime.TryParseExact(AiArgs.Text(l.Args["to"]), "yyyy-MM-dd", inv, DateTimeStyles.None, out var to)) return "";
         if (to < from) (from, to) = (to, from);
         return from == to ? Lang.T($"{from:d MMM}") : Lang.T($"{from:d MMM} – {to:d MMM}");
     }

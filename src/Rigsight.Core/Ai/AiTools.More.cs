@@ -163,7 +163,7 @@ public sealed partial class AiTools
 
     private static DateTime At(JsonObject args)
     {
-        string? s = (string?)args["time"];
+        string? s = AiArgs.Text(args["time"]);
         foreach (var f in new[] { "yyyy-MM-dd HH:mm", "yyyy-MM-ddTHH:mm", "yyyy-MM-dd H:mm", "yyyy-MM-dd HH:mm:ss" })
             if (DateTime.TryParseExact(s, f, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t)) return t;
         throw new FormatException("'time' must be a local time like 2026-10-20 15:00.");
@@ -205,6 +205,10 @@ public sealed partial class AiTools
         else
         {
             var a = settings.Ai;
+            // Only the watts that were read: a card that gives no power reading (an RTX 3050's driver, 2026-11-02) was
+            // "GPU  W" in every minute, blank where the number goes.
+            if (a.Sends(AiPages.Temperatures) && minutes.All(m => m.GpuPower is null))
+                sb.AppendLine("The graphics card's power wasn't read in any of these minutes (the card gave no power reading), so it isn't below. Don't guess it.");
             sb.AppendLine("Each recorded minute:");
             foreach (var m in minutes)
             {
@@ -213,7 +217,8 @@ public sealed partial class AiTools
                 {
                     parts.Add($"CPU {T(m.CpuTempMax)} {Pct(m.CpuLoad)} busy");
                     parts.Add($"GPU {T(m.GpuTempMax)} {Pct(m.GpuLoad)} busy" + (m.GpuHotMax is double h ? $", hot spot {h:0} °C" : ""));
-                    if (m.CpuPower is double cp || m.GpuPower is double) parts.Add($"power CPU {m.CpuPower:0} W, GPU {m.GpuPower:0} W");
+                    var watts = new[] { m.CpuPower is double cp ? $"CPU {cp:0} W" : null, m.GpuPower is double gp ? $"GPU {gp:0} W" : null }.OfType<string>().ToList();
+                    if (watts.Count > 0) parts.Add("power " + string.Join(", ", watts));
                 }
                 if (a.Sends(AiPages.Memory) && m.RamUsed is double ram) parts.Add($"memory {ram:0.0} GB" + (m.CommitPct is double c && c >= 80 ? $" (Windows {c:0}% of what it can promise)" : ""));
                 if (a.Sends(AiPages.Apps) && m.FgApp is long fg) parts.Add($"in front: {name(fg)}" + (m.Fps is double fps ? $" at {fps:0} fps" : ""));

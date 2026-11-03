@@ -318,7 +318,7 @@ public static partial class Relay
                     string result;
                     if (name == "search_web")
                     {
-                        var (found, failed) = await SearchAsync(id, (string?)args["query"] ?? "", ct);
+                        var (found, failed) = await SearchAsync(id, AiArgs.Text(args["query"]) ?? "", ct);
                         result = found;
                         searchFailed |= failed;
                     }

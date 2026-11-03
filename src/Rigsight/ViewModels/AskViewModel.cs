@@ -1413,6 +1413,7 @@ public sealed partial class AskViewModel : ObservableObject
                 thinking.Show(StillWorking);
         };
         longWait.Start();
+        bool replied = false;
         try
         {
             // Never sent before the plan has come (opened and asked straight away): the look-ups it opens and a button's page
@@ -1455,6 +1456,7 @@ public sealed partial class AskViewModel : ObservableObject
                 AiMode.OwnKey => await AskOwnKey(talk, sent, stop.Token),
                 _ => await AskRelay(talk, sent, stop.Token),
             };
+            replied = true;
             if (reply.Text is { } text)
             {
                 talk.Sent.Add(new AiTurn(true, question));
@@ -1518,6 +1520,9 @@ public sealed partial class AskViewModel : ObservableObject
         {
             Log.Error("ask", ex);
             Unwait(talk);
+            // Broken off here before any answer came: RigSight AI gives the question back now, as for Stop. Otherwise the
+            // relay waited 15 quiet minutes for a next round that never came, and only then gave it back (2026-10-31).
+            if (!replied && Ai.Mode == AiMode.RigSight && _questionId is { } id) _ = GiveBackAsync(id);
             talk.Messages.Add(Problem(Lang.T("Something went wrong while answering. Ask again."), question, givenAside, fromPage));
         }
         finally { IsAnswering = false; _answering = null; _questionId = null; longWait.Stop(); Save(); }
@@ -2264,7 +2269,7 @@ public sealed partial class AskViewModel : ObservableObject
         foreach (var l in lookUps)
         {
             AskLook? chip = l.Tool == "search_web"
-                ? (string?)l.Args["query"] is { Length: > 0 } query ? new AskLook("", Lang.T($"Searched the web for \"{query}\""), "", null) { Page = Lang.T("the web") } : null
+                ? AiArgs.Text(l.Args["query"]) is { Length: > 0 } query ? new AskLook("", Lang.T($"Searched the web for \"{query}\""), "", null) { Page = Lang.T("the web") } : null
                 : AiSources.Record(l) is { } r ? new AskLook("", r.Title, "", r.Page) { Page = r.Site, Focus = r.Focus } : null;
             if (chip is not null && !chips.Any(c => c.Text == chip.Text)) chips.Add(chip);
         }

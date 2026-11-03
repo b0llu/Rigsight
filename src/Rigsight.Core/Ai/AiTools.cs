@@ -123,11 +123,18 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
                 "list_games" when args["from"] is not null || args["to"] is not null =>
                     WithDb(db => GamesIn(db, Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to"))),
                 "list_games" => WithDb(ListGames),
-                "get_game" => WithDb(db => Game(db, (string?)args["name"] ?? "")),
+                "get_game" => WithDb(db => Game(db, AiArgs.Text(args["name"]) ?? "")),
                 _ => RunMore(name, args) ?? RunPages(name, args) ?? $"Error: there is no tool called {name}.",
             };
         }
         catch (FormatException ex) { result = "Error: " + ex.Message; }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // RigSight's own fault, not the model's: a line it can answer around, and not kept, so asking again tries again.
+            // Thrown, it ended the whole question with no next round sent (see AiArgs).
+            Log.Write("ai", $"{name} {args.ToJsonString()} failed: {ex}");
+            return $"Error: RigSight couldn't read this just now ({ex.GetType().Name}). Answer from the other look-ups, and say this part couldn't be read.";
+        }
         if (!moment) _cache[key] = result;
         return result;
     }
@@ -139,7 +146,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     }
 
     private static DateTime Day(JsonObject args, string name) =>
-        DateTime.TryParseExact((string?)args[name], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+        DateTime.TryParseExact(AiArgs.Text(args[name]), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
             ? d : throw new FormatException($"'{name}' must be a date like 2026-10-19.");
 
     private Report BuildReport(RigsightDb db, DateTime from, DateTime to) =>
@@ -166,14 +173,22 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         static string Wh(double wh) => wh >= 1000 ? $"{wh / 1000:0.00} kWh" : $"{wh:0} Wh";
         double wh = report.EnergyWh.Value, hours = report.PoweredMinutes / 60.0;
         int days = Math.Max(1, (to.Date - from.Date).Days + 1);
-        var sb = new StringBuilder("\nENERGY (CPU and graphics card only)\n");
+        // Only the parts that were read: without the card's watts it was all the CPU's, said as "CPU and graphics card" with
+        // "graphics card 0 Wh" (an RTX 3050 that gives no power reading, 2026-11-02).
+        string parts = (report.CpuEnergyWh, report.GpuEnergyWh) switch
+        {
+            (null, not null) => "graphics card only: the CPU's power wasn't read in this period",
+            (not null, null) => "CPU only: the graphics card's power wasn't read in this period (the card gave no power reading), so don't guess it",
+            _ => "CPU and graphics card only",
+        };
+        var sb = new StringBuilder($"\nENERGY ({parts})\n");
         sb.AppendLine($"  Used: {Wh(wh)} over {hours:0.#} hours on" + (days > 1 ? $", about {Wh(wh / days)} a day" : "")
             + $"; on average {wh / hours:0} W while on.");
         if (report.CpuEnergyWh is double cpu && report.GpuEnergyWh is double gpu)
             sb.AppendLine($"  CPU {Wh(cpu)}, graphics card {Wh(gpu)}.");
         if (report.CpuPowerPeak is { } cp) sb.AppendLine($"  CPU's highest: {cp.Value:0} W at {cp.Time:d MMM h:mm tt}" + (cp.App is { } a ? $" ({a})" : "") + ".");
         if (report.GpuPowerPeak is { } gp) sb.AppendLine($"  Graphics card's highest: {gp.Value:0} W at {gp.Time:d MMM h:mm tt}" + (gp.App is { } b ? $" ({b})" : "") + ".");
-        sb.AppendLine("  From the two parts' own power readings each minute: the screen, drives, fans, the motherboard and the power supply's own loss aren't in it, so the PC at the wall uses more. No price is known: for a cost, multiply the kWh by the price on the person's electricity bill.");
+        sb.AppendLine("  From those parts' own power readings each minute: the screen, drives, fans, the motherboard and the power supply's own loss aren't in it, so the PC at the wall uses more. No price is known: for a cost, multiply the kWh by the price on the person's electricity bill.");
         return sb.ToString();
     }
 
@@ -403,6 +418,8 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         // How it's set: the game's own settings file and Windows' settings for it (the person's ask, 2026-10-25).
         sb.Append(GameSettings.Text(GameSettings.Read(entry, SettingsPlaces), entry.ExePath ?? GameSettings.ProgramIn(entry.Installed?.InstallDir)));
         sb.AppendLine("All plays together: " + Stats(story.All));
+        if (settings.Ai.Sends(AiPages.Temperatures) && story.All.Minutes > 0 && story.All.GpuPower is null)
+            sb.AppendLine("The graphics card's power wasn't read in any play (the card gave no power reading), so plays have no GPU watts. Don't guess them.");
         if (NoFrameRate(story) is { } noFps) sb.AppendLine(noFps);
         if (story.All.FrameMinutes > 0)
             sb.AppendLine("A stutter is one frame taking at least 2.5 times as long as the frames just before it, and at least 20 ms: a hitch you feel. Lows and stutters come from every frame RivaTuner drew; more stutters an hour than the game's own other plays means it ran less smoothly.");
@@ -483,7 +500,8 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         void Add(string label, double? v, string unit) { if (heat && v is double x) parts.Add($"{label} {x:0}{unit}"); }
         Add("GPU temp average", s.Gpu, " °C"); Add("GPU temp max", s.GpuMax, " °C"); Add("hot spot max", s.HotMax, " °C");
         Add("CPU temp average", s.Cpu, " °C"); Add("CPU temp max", s.CpuMax, " °C"); Add("GPU load", s.GpuLoad, "%");
-        Add("GPU power", s.GpuPower, " W"); Add("CPU+GPU power", s.Power, " W");
+        // Without the card's watts the two together are the CPU's alone, and said so (see Game for the line that says why).
+        Add("GPU power", s.GpuPower, " W"); Add(s.GpuPower is null ? "CPU power" : "CPU+GPU power", s.Power, " W");
         if (s.Fps is double fps) parts.Add($"FPS average {fps:0}");
         // From every frame where it was recorded (since 25 Oct 2026); before, RivaTuner's own 1% low averaged over minutes.
         if (s.FpsLow is double low) parts.Add(s.FrameMinutes > 0 ? $"1% low {low:0}" : $"1% low about {low:0} (RivaTuner's rolling figure, smoother than the true one)");

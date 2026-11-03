@@ -50,6 +50,11 @@ internal sealed class NvidiaFastPath
                 mask = m;
                 thermal = Marshal.GetDelegateForFunctionPointer<ThermalSensorsDelegate>(fn);
             }
+            // NVML is the only place an NVIDIA card's watts come from (the library's "GPU Package" is the same call; its
+            // "GPU Power" and "GPU Board Power" are a share of the limit, not watts), so a card it won't answer for has none.
+            // Said once, so a log shows why GPU power is empty (an RTX 3050 recorded none, 2026-11-02).
+            if (nvmlDeviceGetPowerUsage(device, out _) is var power and not 0)
+                Log.Write("sensors", $"{gpu.Name}: the driver gives no power reading (NVML {(power == 3 ? "says not supported" : $"error {power}")}), so GPU power isn't recorded");
             return new NvidiaFastPath(device, handle, mask, thermal) { FanCount = CountFans(device) };
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or MarshalDirectiveException)

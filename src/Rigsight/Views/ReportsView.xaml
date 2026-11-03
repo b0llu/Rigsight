@@ -104,7 +104,7 @@
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'ENERGY'}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding EnergyText}" Style="{StaticResource StatValue}" />
-                            <TextBlock Text="{ctl:T 'CPU and GPU'}" Style="{StaticResource TileLine}" />
+                            <TextBlock Text="{Binding EnergyParts}" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Tile}">

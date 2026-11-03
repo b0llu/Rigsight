@@ -158,6 +158,35 @@ public class GameSettingsTests
     }
 
     [Fact]
+    public void Titanfall_2_is_read_from_its_maker_s_folder_in_Documents()
+    {
+        var pc = NewPc();
+        // Titanfall 2, played through Northstar, keeps Documents\Respawn\Titanfall2\local\videoconfig.txt. It was never
+        // looked at there, and its size was read as "1788 × 1960" on a 2560 × 1440 screen (2026-11-02).
+        Write(Path.Combine(pc.Places.Documents, "Respawn", "Titanfall2", "local", "videoconfig.txt"),
+            "\"VideoConfig\"\n{\n\t\"setting.defaultres\"\t\t\"2560\"\n\t\"setting.defaultresheight\"\t\t\"1440\"\n\t\"setting.fullscreen\"\t\t\"1\"\n\t\"setting.nowindowborder\"\t\t\"0\"\n\t\"setting.mat_vsync_mode\"\t\t\"0\"\n\t\"setting.shadow_enable\"\t\t\"1\"\n}\n");
+        string install = Path.Combine(pc.Games, "Titanfall2");
+
+        var read = GameSettings.Read("Northstar", Path.Combine(install, "NorthstarLauncher.exe"), install, null, pc.Places);
+
+        Assert.EndsWith(@"Respawn\Titanfall2\local\videoconfig.txt", Assert.Single(read.Files).Path);
+        Assert.Equal("2560 × 1440", Value(read, GameSettings.Resolution));
+        Assert.Equal(GameSettings.Fullscreen, Value(read, GameSettings.DisplayMode));
+    }
+
+    [Fact]
+    public void A_width_and_a_height_from_different_settings_are_not_a_resolution()
+    {
+        // A window's width beside some other height is no size the game runs at.
+        var facts = GameSettings.Facts([new("window.Width", "1788"), new("console.Height", "1960"), new("display.Width", "2560"), new("display.Height", "1440"), new("vsync", "0")]);
+        Assert.Equal("2560 × 1440", Assert.Single(facts, f => f.Label == GameSettings.Resolution).Value);
+        Assert.DoesNotContain(GameSettings.Facts([new("window.Width", "1788"), new("console.Height", "1960")]), f => f.Label == GameSettings.Resolution);
+        // Nor one file's width with another's height.
+        List<IReadOnlyList<GameSetting>> each = [[new("Width", "1788"), new("Shadows", "2")], [new("Height", "1960"), new("Textures", "3")]];
+        Assert.DoesNotContain(GameSettings.Facts([.. each.SelectMany(x => x)], each), f => f.Label == GameSettings.Resolution);
+    }
+
+    [Fact]
     public void A_Unity_game_is_read_from_its_saved_preferences_by_maker_and_name()
     {
         string? asked = null;

@@ -387,8 +387,9 @@ public static class ReportBuilder
         if (minutes.Any(m => m.CpuPower is not null || m.GpuPower is not null))
         {
             report.EnergyWh = minutes.Sum(m => (m.CpuPower ?? 0) + (m.GpuPower ?? 0)) / 60;
-            report.CpuEnergyWh = minutes.Sum(m => m.CpuPower ?? 0) / 60;
-            report.GpuEnergyWh = minutes.Sum(m => m.GpuPower ?? 0) / 60;
+            // A part never read is no part of it (null), not 0 Wh: a card that gives no power reading isn't a card that used none.
+            report.CpuEnergyWh = minutes.Any(m => m.CpuPower is not null) ? minutes.Sum(m => m.CpuPower ?? 0) / 60 : null;
+            report.GpuEnergyWh = minutes.Any(m => m.GpuPower is not null) ? minutes.Sum(m => m.GpuPower ?? 0) / 60 : null;
             report.PoweredMinutes = minutes.Count(m => m.CpuPower is not null || m.GpuPower is not null);
         }
 
