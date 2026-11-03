@@ -260,7 +260,7 @@
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <!-- A narrow column, in the middle of a wide window (at the left of the frame it left half the window empty
              on one side only). -->
         <Grid MaxWidth="{StaticResource PageFrame}">
@@ -608,32 +608,16 @@
             <!-- What: the readings, in order, with adding at the top (search next to the title, the list floating under it) -->
             <DockPanel Margin="4,26,0,10">
                 <Grid DockPanel.Dock="Right" Width="300">
-                    <Border x:Name="AddBox" Background="{DynamicResource Surface2Brush}" CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource StrokeBrush}" Height="34">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Left" Text="&#xE721;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
-                                       VerticalAlignment="Center" Margin="11,0,0,0" />
-                            <Grid>
-                                <TextBox x:Name="AddSearchText" Style="{StaticResource InlineEdit}" Text="{Binding AddSearch, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"
-                                         Margin="4,0,8,0" GotKeyboardFocus="AddBox_Focus" PreviewMouseLeftButtonUp="AddBox_Focus" PreviewKeyDown="AddBox_KeyDown"
-                                         AutomationProperties.Name="{ctl:T 'Add a reading: search all sensors'}" />
-                                <TextBlock Text="{ctl:T 'Add a reading…'}" IsHitTestVisible="False" Foreground="{DynamicResource FaintBrush}" FontSize="13"
-                                           VerticalAlignment="Center" Margin="9,0,8,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Text, ElementName=AddSearchText}" Value="">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Grid>
-                        </DockPanel>
-                    </Border>
-                    <!-- The list: the common readings first, then every sensor by part; a click adds it and it stays open -->
-                    <Popup x:Name="AddPop" PlacementTarget="{Binding ElementName=AddBox}" Placement="Bottom" VerticalOffset="6" StaysOpen="False"
+                    <!-- The app's search box (its magnifier, its placeholder where the caret is, no box drawn inside it) -->
+                    <TextBox x:Name="AddSearchText" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Add a reading…'}" Text="{Binding AddSearch, UpdateSourceTrigger=PropertyChanged}"
+                             GotKeyboardFocus="AddBox_Focus" PreviewMouseLeftButtonUp="AddBox_Click" PreviewKeyDown="AddBox_KeyDown"
+                             AutomationProperties.Name="{ctl:T 'Add a reading: search all sensors'}" />
+                    <!-- The list: the common readings first, then every sensor by part; a click adds it and it stays open. Kept open by the
+                         page, not by Windows (StaysOpen): opened while the box was being clicked, the box took the mouse back to place its
+                         caret and Windows closed the list at once (it flashed), and a list that had lost the mouse missed clicks outside
+                         it. It closes as the title bar's ask drop does: a click elsewhere in the window, another window, Esc, Tab, or the
+                         page scrolling or going (see TaskbarView.xaml.cs). -->
+                    <Popup x:Name="AddPop" PlacementTarget="{Binding ElementName=AddSearchText}" Placement="Bottom" VerticalOffset="6" StaysOpen="True"
                            AllowsTransparency="True" PopupAnimation="Fade">
                         <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                                           CornerRadius="12" Padding="8" Margin="0,0,8,8" Width="380">
