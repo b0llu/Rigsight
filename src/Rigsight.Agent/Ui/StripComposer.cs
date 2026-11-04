@@ -228,7 +228,8 @@ internal sealed class StripComposer
                     return new StripCell("", ink, [new StripValue($"+{waitCount}", ink, Lang.T("more"), "+88", LabelColor: Color.FromArgb(160, ink),
                         Tile: look.Tiles ? neutral : null, More: true)]);
                 string name = nameOf.GetValueOrDefault(c[0].Group, TrayParts.Label(c[0].Part));
-                var labels = TrayParts.StripLabels([.. c.Select(r => r.Short)], name);
+                // Speeds say their direction ("Down", "Up"), not "Network".
+                var labels = c[0].Part == TrayPart.Network ? [.. c.Select(r => r.Short)] : TrayParts.StripLabels([.. c.Select(r => r.Short)], name);
                 return new StripCell(name, c[0].WordOn(o.Light, o.Gray), [.. c.Select((r, j) => Value(r, o, labels[j], now))]);
             }).ToList();
             string key = sizeKey + string.Join('|', strip.Select(c => c.Name + ":" + string.Join(',', c.Values.Select(v => v.Text + v.Second + v.Label + v.Color.ToArgb() + "/" + v.LabelColor?.ToArgb()

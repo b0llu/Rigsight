@@ -82,6 +82,8 @@ public static class TrayParts
     public static TrayLook LookFor(SensorKind kind, TrayLook picked, bool bothSpeeds = false) => picked switch
     {
         TrayLook.Level or TrayLook.Blocks or TrayLook.Ring or TrayLook.Half or TrayLook.Pie or TrayLook.Cores when !HasTop(kind) => TrayLook.Area,
+        // Number and spark became the line graph beside the number (1.3: no look draws over its text).
+        TrayLook.Spark => TrayLook.Line,
         TrayLook.DownUp when !bothSpeeds => TrayLook.Number,
         TrayLook.Mirror when !bothSpeeds => TrayLook.Area,
         _ => picked,
@@ -218,7 +220,7 @@ public static class TrayParts
     /// </summary>
     public static IReadOnlyList<TrayLook> LooksFor(SensorKind kind, bool cpuTotal = false, bool bothSpeeds = false, SensorKind? drawsFrom = null)
     {
-        var looks = new List<TrayLook> { TrayLook.Number, TrayLook.Big, TrayLook.Area, TrayLook.Line, TrayLook.Bars, TrayLook.Spark };
+        var looks = new List<TrayLook> { TrayLook.Number, TrayLook.Big, TrayLook.Area, TrayLook.Line, TrayLook.Bars };
         if (HasTop(drawsFrom ?? kind)) looks.AddRange([TrayLook.Level, TrayLook.Blocks, TrayLook.Ring, TrayLook.Half, TrayLook.Pie]);
         if (cpuTotal && drawsFrom is null) looks.Add(TrayLook.Cores);
         if (bothSpeeds) looks.AddRange([TrayLook.DownUp, TrayLook.Mirror]);

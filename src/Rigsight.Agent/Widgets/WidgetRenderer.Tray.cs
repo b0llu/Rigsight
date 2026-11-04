@@ -126,7 +126,9 @@ internal static partial class WidgetRenderer
         }
 
         int count = Math.Min(lines.Count, 2);
-        float band = size / (float)count, width = size - left - (tile is null && look is null ? 0 : left);
+        // Inside a ring the digits keep to the ring's inside, top and bottom too, so the ring never runs over them.
+        float digitsTop = look is { Look: TrayLook.Ring } ? left : 0, inside = size - 2 * digitsTop;
+        float band = inside / count, width = size - left - (tile is null && look is null ? 0 : left);
         using var family = new FontFamily("Segoe UI");
         // Two digits set the size: a wider reading ("100", "1.2k") shrinks to fit, a narrower one ("7", "–") isn't
         // blown up past it. The digits' box also places every reading on the same line.
@@ -146,7 +148,7 @@ internal static partial class WidgetRenderer
             using var m = new Matrix();
             m.Translate(-b.X, -digits.Y, MatrixOrder.Append);
             m.Scale(scale * narrow, scale, MatrixOrder.Append);
-            m.Translate(left + (width - b.Width * scale * narrow) / 2, i * band + (band - digits.Height * scale) / 2, MatrixOrder.Append);
+            m.Translate(left + (width - b.Width * scale * narrow) / 2, digitsTop + i * band + (band - digits.Height * scale) / 2, MatrixOrder.Append);
             path.Transform(m);
             using var brush = new SolidBrush(color);
             g.FillPath(brush, path);
