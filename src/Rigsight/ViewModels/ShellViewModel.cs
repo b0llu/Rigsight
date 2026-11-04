@@ -81,7 +81,13 @@ public sealed partial class ShellViewModel : ObservableObject
         Processes = new ProcessesViewModel(Reports, Live, (cmd, arg) => _client.SendCommand(cmd, arg));
         Storage = new StorageViewModel(Reports, Live);
         Fans = new FansViewModel(Reports, Live, Settings);
-        Network = new NetworkViewModel(Reports, Live);
+        Network = new NetworkViewModel(Reports, Live, Settings);
+        // An app row on the Network page opens that app on the Apps page, for the same period (its internet use is there).
+        Network.OpenAppRequested += (exe, unit, anchor) =>
+        {
+            Apps.ShowFor(exe, unit, anchor);
+            CurrentPage = "apps";
+        };
         Widgets = new WidgetsViewModel(Settings, client, Live);
         Overlay = new OverlayViewModel(Settings, client, Live);
         Taskbar = new TaskbarViewModel(Settings, Live);
@@ -750,6 +756,16 @@ public sealed partial class ShellViewModel : ObservableObject
         // Not if the range was changed again while this was read (the next load is on its way).
         if (id == _historyLoad && minutes is not null && window == Live.ChartWindowSeconds && day == Live.ChartDay
             && customFrom == Live.ChartCustomFrom && customTo == Live.ChartCustomTo) Live.LoadMinuteHistory(minutes, Live.ChartStepSeconds);
+        // A past period with nothing: why, said on the graph (the PC was off, asleep…), as the other pages say it.
+        string? emptyWhy = null;
+        if (minutes is { Count: 0 } && (Live.IsChartFixed || day < DateTime.Today))
+        {
+            var (ef, et) = Live.IsChartFixed ? (periodFrom, periodTo) : (day, day.AddDays(1));
+            string when = window == Core.Reports.ChartRange.Custom ? Controls.PeriodPicker.Words(Core.Reports.ReportRange.Custom, day)
+                : Live.IsChartFixed ? Core.Reports.ChartRange.Words(window, day, DateTime.Today) : Controls.PeriodPicker.Words(Core.Reports.ReportRange.Day, day);
+            emptyWhy = await Reports.EmptyWhyAsync(ef, et, when);
+        }
+        if (id == _historyLoad) Live.ChartEmptyText = emptyWhy;
         // Why its empty stretches are empty, from Windows' own log (a year would mean reading all of it: those just say "Not recorded").
         if (id == _historyLoad && Live.ChartStepSeconds < 86400)
         {

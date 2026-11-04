@@ -686,6 +686,9 @@ public sealed partial class LiveData : ObservableObject
     /// <summary>The internet this second: the connection's speed and each app's (null: not read, as without admin rights).</summary>
     public NetLive? Net { get; private set; }
 
+    /// <summary>The line check's last minute: the ping to the router and to the provider (null: not checked yet).</summary>
+    public LineLive? Line { get; private set; }
+
     /// <summary>The taskbar readings waiting for room in the strip's "+N" (by sensor id), as the agent last said.</summary>
     public IReadOnlyList<string> TrayWaiting { get; private set; } = [];
 
@@ -750,6 +753,7 @@ public sealed partial class LiveData : ObservableObject
     public void AgentGone()
     {
         Net = null;
+        Line = null;
         _netHistory.Clear();
         PushNet(null);
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -768,6 +772,7 @@ public sealed partial class LiveData : ObservableObject
         }
         // A readings tick without the internet: it isn't being read (no admin rights and no card counts yet).
         else if (tick.Values is not null) PushNet(null);
+        Line = tick.Line;
         if (tick.Values is { } values && values.Length == _flat.Count)
         {
             // Only the readings' tick says which taskbar readings wait for room (none listed: all fit).
@@ -824,6 +829,9 @@ public sealed partial class LiveData : ObservableObject
     public Func<long, long, Core.Stability.GapReason> ChartGapReason => (from, to) => Core.Stability.PowerLog.Reason(
         DateTimeOffset.FromUnixTimeMilliseconds(from).LocalDateTime, DateTimeOffset.FromUnixTimeMilliseconds(to).LocalDateTime, _power,
         TimeSpan.FromSeconds(Math.Max(120, _minuteStep)));
+
+    /// <summary>Why the period the graph shows has nothing recorded, when it has nothing (null otherwise): see <see cref="Core.Reports.WhyEmpty"/>.</summary>
+    [ObservableProperty] private string? _chartEmptyText;
 
     /// <summary>What Windows logged about the PC's power over the time the graph shows (null: couldn't be read).</summary>
     public void LoadPowerEvents(IReadOnlyList<Core.Stability.PowerEvent>? events)

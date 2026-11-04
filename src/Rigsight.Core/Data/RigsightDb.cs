@@ -974,7 +974,7 @@ public sealed partial class RigsightDb : IDisposable
     {
         Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes; DELETE FROM crash_signs; DELETE FROM close_up;"
             + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM app_minute;"
-            + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop;"
+            + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop; DELETE FROM net_ping; DELETE FROM net_ping_switch;"
             + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter; DELETE FROM steam_download;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new
         Exec("VACUUM");
     }
@@ -1518,6 +1518,30 @@ public sealed partial class RigsightDb : IDisposable
     {
         using var cmd = Cmd("SELECT max(ts) FROM system_minute WHERE ts < $ts", ("$ts", ts));
         return cmd.ExecuteScalar() is long v ? v : null;
+    }
+
+    /// <summary>The first minute recorded at or after <paramref name="ts"/> (Unix seconds), or null.</summary>
+    public long? FirstMinuteFrom(long ts)
+    {
+        using var cmd = Cmd("SELECT min(ts) FROM system_minute WHERE ts >= $ts", ("$ts", ts));
+        return cmd.ExecuteScalar() is long v ? v : null;
+    }
+
+    /// <summary>Whether any minute was recorded from <paramref name="from"/> to <paramref name="to"/>: the PC was on with RigSight running.</summary>
+    public bool HasMinutes(long from, long to)
+    {
+        using var cmd = Cmd("SELECT 1 FROM system_minute WHERE ts >= $f AND ts < $t LIMIT 1", ("$f", from), ("$t", to));
+        return cmd.ExecuteScalar() is not null;
+    }
+
+    /// <summary>The minutes recorded from <paramref name="from"/> to <paramref name="to"/>, their times only (Unix seconds).</summary>
+    public List<long> GetMinuteTimes(long from, long to)
+    {
+        using var cmd = Cmd("SELECT ts FROM system_minute WHERE ts >= $f AND ts < $t ORDER BY ts", ("$f", from), ("$t", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<long>();
+        while (r.Read()) list.Add(r.GetInt64(0));
+        return list;
     }
 
 

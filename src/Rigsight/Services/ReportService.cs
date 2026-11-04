@@ -136,6 +136,19 @@ public sealed class ReportService(SettingsModel settings)
         return buckets;
     });
 
+    /// <summary>
+    /// Why a page's period has nothing to show, in a sentence (see <see cref="WhyEmpty"/>); <paramref name="pcWasOn"/>
+    /// when the PC was on and recording but the page's own data wasn't (null: the period's own words instead).
+    /// </summary>
+    public async Task<string> EmptyWhyAsync(DateTime from, DateTime to, string when, string? pcWasOn = null)
+    {
+        // Null when the history couldn't be read: then only that nothing was recorded.
+        var why = await Run<(WhyEmpty.Kind Kind, DateTime? Began)?>(db => WhyEmpty.Of(db, from, to, DateTime.Now));
+        if (why is not { } w) return Lang.T($"Not recorded {when}");
+        return w.Kind == WhyEmpty.Kind.PcWasOn ? pcWasOn ?? Lang.T($"Not recorded {when}")
+            : WhyEmpty.Sentence(w.Kind, w.Began, when) ?? Lang.T($"Not recorded {when}");
+    }
+
     /// <summary>The Network page: the period's internet use (with its insights), and the first day any was recorded.</summary>
     public async Task<(NetReport Report, DateTime? FirstDay)> NetworkAsync(ReportRange range, DateTime anchor)
     {
@@ -144,8 +157,8 @@ public sealed class ReportService(SettingsModel settings)
         {
             var apps = db.LoadApps().ToDictionary(a => a.Id);
             var (from, to) = ReportBuilder.Bounds(range, anchor);
-            var report = NetReportBuilder.Build(db, range, anchor, apps, s, NetReportBuilder.GamesPlayed(db, from, to, apps, s));
-            IconCache.Warm(report.Apps.Select(a => a.Path).Concat(report.Downloads.Select(d => d.Path)));
+            var report = NetReportBuilder.Build(db, range, anchor, apps, s, NetReportBuilder.GamesPlayed(db, from, to, apps, s), forPage: true);
+            IconCache.Warm(report.Apps.Select(a => a.Path).Concat(report.Happenings.Select(h => h.Path)).Concat(report.Bins.Select(b => b.GamePath)));
             return (report, db.FirstNetDay() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
         });
         // An app given a colour on the chart keeps it: remembered, so the next report hands out the same ones.

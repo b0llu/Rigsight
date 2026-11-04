@@ -8,7 +8,9 @@ namespace Rigsight.Tests.App;
 
 /// <summary>
 /// The Network page on the seeded history: Chrome a trickle in front, Steam downloading in big bursts in the background
-/// (one a big download each afternoon), Discord sending as much as it takes in, and a drop early today.
+/// (one a big download each afternoon), Discord sending as much as it takes in, and a drop early today. Since 1.3.0: Right
+/// now always open (speeds, the line, every app), one line of figures, the graph with its Usage and Ping views and drag
+/// to zoom, the apps (each opening on the Apps page) and "What happened".
 /// </summary>
 [Collection("UI")]
 public sealed class NetworkPageTests
@@ -30,7 +32,7 @@ public sealed class NetworkPageTests
     private static readonly DateTime Yesterday = DateTime.Today.AddDays(-1);
 
     [Fact]
-    public void A_day_shows_its_totals_apps_and_big_download()
+    public void A_day_shows_its_figures_its_apps_and_its_hours()
     {
         var (vm, _) = Page(Yesterday);
         Ui.Run(() =>
@@ -39,18 +41,39 @@ public sealed class NetworkPageTests
             Assert.NotEqual("—", vm.DownText);
             Assert.Equal("Steam", vm.Apps[0].Name);
             Assert.Equal(100, vm.Apps[0].DownBar + vm.Apps[0].UpBar, 6); // the biggest app fills the bar
+            Assert.False(vm.Apps[0].HasSpark); // a day has no day-by-day chart
             Assert.Equal(24, vm.Bins.Count);
-            Assert.Equal("Usage each hour", vm.ChartTitle);
-            // The biggest hours, whole: an hour with everything every app moved then, and the apps it was.
-            Assert.StartsWith("Biggest hours", vm.DownloadsTitle);
-            Assert.InRange(vm.Downloads.Count, 1, Rigsight.Core.Reports.NetReportBuilder.DownloadsShown);
-            Assert.StartsWith("Steam ", vm.Downloads[0].AppsText);
-            Assert.Matches(@"^\d{1,2} [AP]M – \d{1,2} [AP]M$", vm.Downloads[0].When);
-            // Everything used, both ways, leads the tiles.
+            Assert.Equal("Each hour", vm.ChartTitle);
+            // The line of figures: everything used, both ways, the share in the background, the drops.
             Assert.NotEqual("—", vm.TotalText);
-            Assert.StartsWith("download and upload · ", vm.TotalNote);
+            Assert.EndsWith("%", vm.BackgroundText);
+            Assert.Equal(("No", "drops"), (vm.DropsCount, vm.DropsWord));
             Assert.Equal("No drops", vm.DropsTitle);
-            Assert.Equal(96, vm.Strip.Count);
+            // What happened: the day's insights as a summary on top, no time; the lines under it with no day heading
+            // (the period picker already says which day).
+            Assert.True(vm.HasSummary);
+            Assert.All(vm.Summary, s => Assert.Equal("", s.When));
+            Assert.DoesNotContain(vm.Happenings, h => h.IsHeader);
+            // No line check in the seeded history: no ping figure, and the Ping view says why in place of a graph.
+            Assert.False(vm.HasPing);
+            vm.View = "Ping";
+            Assert.True(vm.ShowPingNote);
+            Assert.Equal("", vm.LineText);
+            Assert.Equal("", vm.ChartHint);
+            Assert.Empty(vm.Legend);
+            Assert.StartsWith("Ping wasn't checked", vm.PingNoteTitle);
+            Assert.Equal("Ping hasn't been checked on this PC yet.", vm.PingNoteBody);
+            Assert.False(vm.PingNoteCollecting);
+            // The status line under it: what's being done, and Pause (asking first).
+            Assert.Equal("Checking every 5 seconds, to your internet provider's first router", vm.PingStatusText);
+            Assert.Equal("Pause", vm.PingStatusAction);
+            vm.PingStatusCommand.Execute(null);
+            Assert.True(vm.ConfirmStopOpen);
+            vm.CancelStopPingCommand.Execute(null);
+            Assert.False(vm.ConfirmStopOpen);
+            vm.View = "Usage";
+            Assert.Equal("", vm.LineText);
+            Assert.Equal("Drag across to zoom in · click an hour for its apps", vm.ChartHint);
         });
     }
 
@@ -71,40 +94,13 @@ public sealed class NetworkPageTests
     }
 
     [Fact]
-    public void A_drop_covers_every_quarter_hour_it_touches_its_last_one_too()
-    {
-        // 10:59 to 11:43: the quarter hour from 11:30 used to stay "online".
-        var strip = NetworkViewModel.StripStates(DayReport([(8, 14)], drops: [(10 + 59 / 60.0, 11 + 43 / 60.0)]));
-        Assert.Equal(NetQuarter.Online, strip[42]);                                       // 10:30
-        Assert.All(Enumerable.Range(43, 4), i => Assert.Equal(NetQuarter.Dropped, strip[i])); // 10:45 to 11:45
-        Assert.Equal(NetQuarter.Online, strip[47]);                                       // 11:45
-        // One that ends on the quarter hour doesn't spill into the next; a short one is one cell.
-        strip = NetworkViewModel.StripStates(DayReport([(8, 14)], drops: [(9, 9.25), (12, 12.05)]));
-        Assert.Equal([NetQuarter.Dropped, NetQuarter.Online], [strip[36], strip[37]]);
-        Assert.Equal([NetQuarter.Dropped, NetQuarter.Online], [strip[48], strip[49]]);
-        // One that runs past midnight stops at the day's end.
-        strip = NetworkViewModel.StripStates(DayReport([(8, 24)], drops: [(23.9, 24.5)]));
-        Assert.Equal(NetQuarter.Dropped, strip[95]);
-    }
-
-    [Fact]
-    public void Time_the_PC_was_on_with_nothing_written_shows_as_not_recorded()
+    public void Time_the_PC_was_on_with_nothing_written_is_said_with_the_drops()
     {
         // 5 Oct 2026: online till 1 PM, nothing written till 8:30 PM, online again; off before 8 and after 10.
         var r = DayReport([(8, 13), (20.5, 22)], unrecorded: [(13, 20.5)]);
-        var strip = NetworkViewModel.StripStates(r);
-        Assert.Equal(NetQuarter.None, strip[31]);
-        Assert.Equal(NetQuarter.Online, strip[51]);
-        Assert.All(Enumerable.Range(52, 30), i => Assert.Equal(NetQuarter.Unrecorded, strip[i]));
-        Assert.Equal(NetQuarter.Online, strip[82]);
-        Assert.Equal(NetQuarter.None, strip[88]);
-        // It isn't "No drops" for the whole day: the line under it says how much wasn't recorded.
+        // It isn't "No drops" for the whole day: the hover says how much wasn't recorded.
         Assert.Equal(("No drops", "7h 30m not recorded"), NetworkViewModel.DropsText(r, "that day"));
-        // A quarter hour with any use in it stays online; a drop goes over both.
         r = DayReport([(8, 13.25)], unrecorded: [(13.1, 20.5)], drops: [(14, 14.25)]);
-        strip = NetworkViewModel.StripStates(r);
-        Assert.Equal([NetQuarter.Online, NetQuarter.Unrecorded], [strip[52], strip[53]]);
-        Assert.Equal(NetQuarter.Dropped, strip[56]);
         Assert.Equal(("Dropped once", "Longest 15m at 2:00 PM · 7h 24m not recorded"), NetworkViewModel.DropsText(r, "that day"));
     }
 
@@ -130,6 +126,7 @@ public sealed class NetworkPageTests
             var whole = vm.Apps.Select(a => (a.Name, a.Amount)).ToList();
             // 2 PM, the hour of Steam's seeded download.
             vm.SelectedBin = 14;
+            Assert.False(vm.Apps[0].HasSpark);
             Assert.True(vm.HasSelection);
             Assert.Equal("Apps · 2 PM – 3 PM", vm.AppsTitle);
             Assert.Equal("Steam", vm.Apps[0].Name);
@@ -170,8 +167,8 @@ public sealed class NetworkPageTests
             Assert.True(vm.BackgroundOnly);
             Assert.All(vm.Apps, a => Assert.True(a.BackgroundOnly));
             Assert.DoesNotContain(vm.Apps, a => a.Name == "Google Chrome"); // always in front in the seeded day
-            vm.BackgroundOnly = false;
-            Assert.Equal("Total", vm.Sort);
+            vm.Sort = "Total";
+            Assert.False(vm.BackgroundOnly);
             // Each row says its direction and its background share, and has its chart colour.
             var steam = vm.Apps.First(a => a.Name == "Steam");
             Assert.Contains("in the background", steam.SubText);
@@ -201,7 +198,6 @@ public sealed class NetworkPageTests
             Assert.Equal(bin.Apps.First(a => a.App == steam).Total, pieces[vm.ColorApps.ToList().IndexOf(steam)].Bytes);
             Assert.StartsWith("Total ", chart.HoverLines(bin)[0]);
             Assert.Contains(chart.HoverLines(bin), l => l.StartsWith("Steam "));
-            Assert.Equal("2 PM – 3 PM", chart.Title(bin.Start));
             // In front / background: two pieces, the same bar.
             chart.Mode = Controls.NetBarsMode.Background;
             pieces = chart.Pieces(bin);
@@ -230,25 +226,42 @@ public sealed class NetworkPageTests
             chart.Pick(99);
             Assert.Equal(-1, chart.Selected);
 
-            // The legend names what the colours are, in either view.
+            // The legend names what the colours are; the Ping view has none while its note shows in place of a graph
+            // (no line check in the seeded history).
             Assert.Equal("Every other app", vm.Legend[^1].Text);
             Assert.Contains(vm.Legend, l => l.Text == "Steam");
-            vm.ChartMode = "Background";
-            Assert.Equal(["The app in front", "In the background, or while you were away"], vm.Legend.Select(l => l.Text));
+            vm.View = "Ping";
+            Assert.True(vm.ShowPingNote);
+            Assert.Empty(vm.Legend);
+            vm.View = "Usage";
         });
     }
 
     [Fact]
-    public void The_live_part_is_one_line_that_opens()
+    public void The_line_right_now_is_said_in_a_word()
     {
-        var (vm, _) = Page(Yesterday);
+        LineLive Line(int? isp, double lost = 0, int? lan = 1) => new() { IspMs = isp, LanMs = lan, LostPercent = lost, ProviderFound = isp is not null };
+        Assert.Equal(LineState.Checking, NetworkViewModel.LineNow(null, true, null).Item1);
+        Assert.Equal((LineState.Good, "Working well"), NetworkViewModel.LineNow(Line(19), true, 21));
+        Assert.Equal((LineState.Slow, "Slow right now"), NetworkViewModel.LineNow(Line(95), true, 21));
+        // A line that is never faster (satellite) isn't slow at its own usual.
+        Assert.Equal(LineState.Good, NetworkViewModel.LineNow(Line(600), true, 600).Item1);
+        Assert.Equal((LineState.Losing, "Losing data"), NetworkViewModel.LineNow(Line(19, lost: 8), true, 21));
+        Assert.Equal((LineState.Offline, "No internet"), NetworkViewModel.LineNow(Line(19), false, 21));
+        // Without the provider's router, the router's ping is the line's.
+        Assert.Equal(LineState.Good, NetworkViewModel.LineNow(Line(null, lan: 2), null, null).Item1);
+        // Ping checks off: Windows seeing the internet is all there is.
+        Assert.Equal((LineState.Good, "Working well"), NetworkViewModel.LineNow(null, true, 21, checksOn: false));
+        Assert.Equal(LineState.Offline, NetworkViewModel.LineNow(null, false, 21, checksOn: false).Item1);
+
+        var (vm, live) = Page(Yesterday);
+        var tick = Fixtures.Tick();
+        tick.Line = new LineLive { LanMs = 1, IspMs = 19, Jitter = 3, LostPercent = 0, ProviderFound = true };
+        Ui.Run(() => live.ApplyTick(tick));
         Ui.Run(() =>
         {
-            Assert.False(vm.ShowLive);
-            Assert.Equal("Expand", vm.LiveButtonText);
-            vm.ToggleLiveCommand.Execute(null);
-            Assert.True(vm.ShowLive);
-            Assert.Equal("Collapse", vm.LiveButtonText);
+            Assert.Equal(("19 ms", "3 ms", "0%"), (vm.PingNow, vm.JitterNow, vm.LostNow));
+            Assert.Equal("To your internet provider's first router", vm.PingTip);
         });
     }
 
@@ -327,50 +340,48 @@ public sealed class NetworkPageTests
         // one would have its rows built and laid out again: a fifth of a second on a real PC's Network page).
         // Yesterday, whose seeded day always has Steam's download (today has it only for some hours of the clock).
         var (vm, _) = Page(Yesterday);
-        var before = Ui.Run(() => (Apps: vm.Apps.ToList(), vm.Insights, vm.Strip, vm.Downloads, vm.Legend, vm.ColorApps, vm.AppNames, vm.Bins, vm.Facts));
+        var before = Ui.Run(() => (Apps: vm.Apps.ToList(), Happenings: vm.Happenings.ToList(), vm.Legend, vm.ColorApps, vm.AppNames, vm.Bins, vm.Drops));
         Kit.Wait(vm.RefreshAsync);
         Ui.Run(() =>
         {
             Assert.NotEmpty(before.Apps);
             Assert.Equal(before.Apps.Count, vm.Apps.Count);
             Assert.All(before.Apps.Zip(vm.Apps), x => Assert.Same(x.First, x.Second));
-            Assert.Same(before.Insights, vm.Insights);
-            Assert.Same(before.Strip, vm.Strip);
-            Assert.Same(before.Downloads, vm.Downloads);
+            Assert.All(before.Happenings.Zip(vm.Happenings), x => Assert.Same(x.First, x.Second));
             Assert.Same(before.Legend, vm.Legend);
             Assert.Same(before.ColorApps, vm.ColorApps);
             Assert.Same(before.AppNames, vm.AppNames);
             Assert.Same(before.Bins, vm.Bins);
-            Assert.Same(before.Facts, vm.Facts);
+            Assert.Same(before.Drops, vm.Drops);
 
             // What does change is said by the row that was there: counting only the background gives each app new figures.
             var steam = vm.Apps.First(r => r.Name == "Steam");
             string all = steam.DownText;
             var told = new List<string?>();
             steam.PropertyChanged += (_, e) => told.Add(e.PropertyName);
-            vm.BackgroundOnly = true;
+            vm.Sort = "Background";
             Assert.Same(steam, vm.Apps.First(r => r.Name == "Steam"));
             Assert.True(steam.BackgroundOnly);
             Assert.Contains("", told); // every figure of the row is read again
-            vm.BackgroundOnly = false;
+            vm.Sort = "Total";
             Assert.Equal(all, steam.DownText);
         });
     }
 
     [Fact]
-    public void Todays_drop_shows_on_the_strip()
+    public void Todays_drop_is_counted_drawn_on_the_graph_and_said_in_its_hour()
     {
         var (vm, _) = Page();
         Ui.Run(() =>
         {
+            Assert.Equal(("1", "drop"), (vm.DropsCount, vm.DropsWord));
             Assert.Equal("Dropped once", vm.DropsTitle);
-            Assert.StartsWith("Longest 3m at 1:00", vm.DropsNote);
-            Assert.Equal(NetQuarter.Dropped, vm.Strip[4].State);
-            // Hovering a quarter hour says when it was and what happened.
-            Assert.Equal("1:00 – 1:15 AM · Dropped", vm.Strip[4].Tip);
-            Assert.Equal("12:00 – 12:15 AM · " + (vm.Strip[0].State == NetQuarter.Online ? "Up" : "Not recorded"), vm.Strip[0].Tip);
-            Assert.StartsWith("11:45 PM – 12:00 AM · ", vm.Strip[^1].Tip);
-            if (DateTime.Now < DateTime.Today.AddHours(23.75)) Assert.EndsWith("· Still to come", vm.Strip[^1].Tip);
+            Assert.StartsWith("Longest 3m at 1:00", vm.DropsTip);
+            var drop = Assert.Single(vm.Drops);
+            Assert.Equal(DateTime.Today.AddHours(1), drop.From);
+            // The 1 AM hour's hover box says it, in the one warning colour of the box.
+            Assert.Equal("Dropped for 3m at 1:00 AM", vm.BuildHover(1).Drop);
+            Assert.Null(vm.BuildHover(5).Drop);
         });
     }
 
@@ -381,54 +392,103 @@ public sealed class NetworkPageTests
         Ui.Run(() =>
         {
             Assert.Contains(vm.Apps, a => a.Name == "Google Chrome");
-            vm.BackgroundOnly = true;
+            vm.Sort = "Background";
             Assert.DoesNotContain(vm.Apps, a => a.Name == "Google Chrome");
             Assert.All(vm.Apps, a => Assert.True(a.BackgroundOnly));
         });
     }
 
     [Fact]
-    public void One_app_is_open_at_a_time_and_stays_open_when_the_page_refreshes()
+    public void An_app_row_opens_that_app_on_the_apps_page_for_the_same_period()
     {
-        var (vm, _) = Page();
+        var (vm, _) = Page(Yesterday, ReportRange.Week);
         Ui.Run(() =>
         {
-            vm.ToggleCommand.Execute(vm.Apps[0]);
-            vm.ToggleCommand.Execute(vm.Apps[1]);
-            Assert.Equal([false, true], vm.Apps.Take(2).Select(a => a.IsOpen));
+            (string Exe, ReportRange Unit, DateTime Anchor)? asked = null;
+            vm.OpenAppRequested += (exe, unit, anchor) => asked = (exe, unit, anchor);
+            var steam = vm.Apps.First(a => a.Name == "Steam");
+            vm.OpenAppCommand.Execute(steam);
+            Assert.Equal((steam.Stat.Exe, ReportRange.Week, Yesterday), asked);
+            // A week's rows have its days, each hovered for its day and amount.
+            Assert.Equal(7, steam.Spark.Count);
+            Assert.Contains(steam.Spark, b => b.Height == 1);
+            Assert.All(steam.Spark, b => Assert.Contains(" · ", b.Tip));
         });
-        var open = Ui.Run(() => vm.Apps.Single(a => a.IsOpen).Name);
-        Kit.Wait(vm.RefreshAsync);
-        Ui.Run(() => Assert.Equal(open, vm.Apps.Single(a => a.IsOpen).Name));
     }
 
     [Fact]
-    public void An_open_app_splits_its_use_three_ways()
+    public void The_hover_box_says_the_hour_its_total_and_each_part_of_the_bar()
     {
         var (vm, _) = Page(Yesterday);
         Ui.Run(() =>
         {
-            var steam = vm.Apps.Single(a => a.Name == "Steam");
-            Assert.Equal(0, steam.FrontShare);
-            Assert.Equal(1, steam.BgShare + steam.AwayShare, 3);
-            var chrome = vm.Apps.Single(a => a.Name == "Google Chrome");
-            Assert.Equal(1, chrome.FrontShare, 3);
-            Assert.Equal("Busiest hour", chrome.BusiestLabel);
+            var box = vm.BuildHover(14);
+            Assert.Equal("2 PM – 3 PM", box.Title);
+            Assert.Equal(Rigsight.Core.Units.Data(vm.Bins[14].Total), box.Total);
+            Assert.StartsWith("↓ ", box.Split);
+            Assert.Equal("Steam", box.Rows[0].Name);
+            Assert.Contains(box.Rows[0].BrushKey, Controls.NetBarsChart.AppBrushKeys);
+            Assert.True(box.Rows.Count <= NetworkViewModel.HoverApps + 1);
+            Assert.False(box.HasPing); // no line check in the seeded history
+            Assert.Equal("Click to see this hour's apps · drag across to zoom in", box.Footer);
+            vm.SelectedBin = 14;
+            Assert.Equal("Click again to let go of this hour · drag across to zoom in", vm.BuildHover(14).Footer);
+            vm.SelectedBin = -1;
+            // The Ping view's box: an hour with no check says so.
+            vm.View = "Ping";
+            var ping = vm.BuildHover(14);
+            Assert.True(ping.IsPing);
+            Assert.False(ping.HasPingFigures);
+            Assert.Equal("Ping wasn't checked", ping.Empty);
+            vm.View = "Usage";
+            // An empty hour says so, and nothing else.
+            int empty = vm.Bins.ToList().FindIndex(b => b.Total == 0 && b.UnrecordedMinutes < Controls.NetBarsChart.MinUnrecorded);
+            // (or, with nothing recorded in it at all, why: "PC was off", read from Windows' own log)
+            if (empty >= 0) Assert.Equal(vm.Bins[empty].OffWhy ?? "No internet use", vm.BuildHover(empty).Empty);
+            // Pointing at a bar opens it; away, it goes.
+            vm.HoverIndex = 14;
+            Assert.True(vm.HoverOpen);
+            vm.HoverIndex = -1;
+            Assert.False(vm.HoverOpen);
+        });
+    }
+
+    [Fact]
+    public void Zooming_into_a_stretch_lists_its_apps_and_the_button_zooms_back_out()
+    {
+        var (vm, _) = Page(Yesterday);
+        Ui.Run(() =>
+        {
+            var whole = vm.Apps.Select(a => a.Amount).ToList();
+            vm.Zoomed = new Controls.NetDropSpan(Yesterday.AddHours(13), Yesterday.AddHours(16));
+            Assert.True(vm.IsZoomed);
+            Assert.StartsWith("Apps · ", vm.AppsTitle);
+            Assert.NotEqual("", vm.ZoomText);
+            Assert.Equal("Whole day", vm.ResetText);
+            long steam = vm.Apps.First(a => a.Name == "Steam").Stat.Id;
+            long inStretch = vm.Bins.Skip(13).Take(3).SelectMany(b => b.Apps).Where(u => u.App == steam).Sum(u => u.Total);
+            Assert.Equal(Rigsight.Core.Units.Data(inStretch), vm.Apps.First(a => a.Name == "Steam").Amount);
+            vm.ResetZoomCommand.Execute(null);
+            Assert.False(vm.IsZoomed);
+            Assert.Equal(whole, vm.Apps.Select(a => a.Amount).ToList());
+            // Another period lets go of the zoom.
+            vm.Zoomed = new Controls.NetDropSpan(Yesterday.AddHours(13), Yesterday.AddHours(16));
+            vm.Unit = ReportRange.Week;
+            Assert.Null(vm.Zoomed);
         });
     }
 
     [Theory]
-    [InlineData(ReportRange.Week, 7, "Usage each day")]
-    [InlineData(ReportRange.Month, 0, "Usage each day")]
-    [InlineData(ReportRange.Year, 12, "Usage each month")]
-    public void Longer_periods_chart_days_or_months(ReportRange unit, int bars, string title)
+    [InlineData(ReportRange.Week, 168, "Each hour")]
+    [InlineData(ReportRange.Month, 0, "Each day")]
+    [InlineData(ReportRange.Year, 12, "Each month")]
+    public void A_week_charts_its_hours_a_month_its_days_a_year_its_months(ReportRange unit, int bars, string title)
     {
         var (vm, _) = Page(unit: unit);
         Ui.Run(() =>
         {
             Assert.Equal(bars == 0 ? DateTime.DaysInMonth(DateTime.Today.Year, DateTime.Today.Month) : bars, vm.Bins.Count);
             Assert.Equal(title, vm.ChartTitle);
-            Assert.Empty(vm.Strip);
         });
     }
 
@@ -448,7 +508,7 @@ public sealed class NetworkPageTests
             Assert.True(vm.HasLive);
             Assert.Equal("11.4 MB/s", vm.DownNow);
             Assert.Equal(["Steam", "Discord"], vm.UsingNow.Select(r => r.Name));
-            Assert.Equal("↓ 11.3 MB/s", vm.UsingNow[0].DownText);
+            Assert.Equal("11.3 MB/s", vm.UsingNow[0].DownText);
             Assert.False(vm.NobodyNow);
             Assert.Single(live.NetHistory);
         });
@@ -518,13 +578,12 @@ public sealed class NetworkPageTests
             {
                 Ui.Pump(150);
                 var list = Visuals.Descendants<System.Windows.Controls.ItemsControl>(view).Single(i => System.Windows.Automation.AutomationProperties.GetName(i) == "Apps");
-                // The apps card is as tall as the chart's card beside it, and the list scrolls inside it (the innermost
+                // The apps card is as tall as What happened beside it, and the list scrolls inside it (the innermost
                 // scrolling box around the list; the page's own is the outer one).
                 var box = Visuals.Descendants<System.Windows.Controls.ScrollViewer>(view)
                     .Where(v => Visuals.Descendants<System.Windows.Controls.ItemsControl>(v).Contains(list)).MinBy(v => v.ActualHeight)!;
-                var chart = Visuals.Descendants<Controls.NetBarsChart>(view).Single();
                 Assert.True(box.ActualHeight > 100);
-                Assert.True(box.ActualHeight < chart.ActualHeight + 80);
+                Assert.True(box.ActualHeight < Views.NetworkView.ListHeight);
                 double before = box.ActualHeight;
                 var first = vm.Apps[0];
                 for (int i = 0; i < 20; i++) vm.Apps.Add(first); // a PC with many more apps than fit
@@ -553,15 +612,14 @@ public sealed class NetworkPageTests
                 Ui.Pump(150);
                 var chart = Visuals.Descendants<Controls.NetBarsChart>(view).Single();
                 Assert.True(chart.ActualWidth > 600);
-                // The live chart is there, behind the "Right now" line until it's opened.
+                Assert.True(chart.CanZoom);
+                // Right now is always open: its minute's chart shows from the start.
                 var live = Assert.Single(Visuals.Descendants<Controls.NetLiveChart>(view));
-                Assert.False(live.IsVisible);
-                vm.ToggleLiveCommand.Execute(null);
-                Ui.Pump(100);
                 Assert.True(live.IsVisible);
-                vm.ToggleCommand.Execute(vm.Apps[0]);
+                // The Ping view draws on the same graph.
+                vm.View = "Ping";
                 Ui.Pump(100);
-                Assert.Single(Visuals.Descendants<Controls.ShareBar>(view), b => b.IsVisible);
+                Assert.Equal(Controls.NetChartView.Ping, chart.View);
             }
             finally { window.Close(); }
         });

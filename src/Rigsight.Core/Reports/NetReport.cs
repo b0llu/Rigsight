@@ -1,5 +1,6 @@
 using Rigsight.Core.Apps;
 using Rigsight.Core.Data;
+using Rigsight.Core.Games;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Core.Reports;
@@ -18,12 +19,27 @@ public sealed record NetBin(DateTime Start, long Down, long BgDown, long Up)
     public int UnrecordedMinutes { get; init; }
     /// <summary>Each app's use in this bar, biggest first: who the bar is.</summary>
     public IReadOnlyList<NetAppUse> Apps { get; init; } = [];
+    /// <summary>How many apps used anything in it (the bar's hover box says how many it doesn't name).</summary>
+    public int AppCount { get; init; }
+    /// <summary>The line check in this bar (null: not checked then).</summary>
+    public NetLinePing? Ping { get; init; }
+    /// <summary>The game in front for most of the hour (an hourly chart only), and its program for the icon.</summary>
+    public string? Game { get; init; }
+    public string? GamePath { get; init; }
+    /// <summary>What Steam started downloading in this bar, by name (its own log).</summary>
+    public IReadOnlyList<GameDownload> Steam { get; init; } = [];
+    /// <summary>Ping checks were off for the whole of it (stopped from Settings or the Network page).</summary>
+    public bool PingOff { get; init; }
+    /// <summary>Why nothing at all was recorded in it, where Windows' log says ("PC was off", "PC was asleep"): an
+    /// empty bar of a PC that was off isn't "no internet use". Null for a bar with anything in it, or one still to come.</summary>
+    public string? OffWhy { get; init; }
 
     /// <summary>The same bar: the same figures and the same apps with the same use (not the same list object), so a
     /// report read again with nothing new is seen as nothing new and the chart isn't handed its bars afresh.</summary>
     public bool Equals(NetBin? other) =>
         other is not null && Start == other.Start && Down == other.Down && BgDown == other.BgDown && Up == other.Up
         && Background == other.Background && Away == other.Away && UnrecordedMinutes == other.UnrecordedMinutes
+        && AppCount == other.AppCount && Ping == other.Ping && Game == other.Game && OffWhy == other.OffWhy && PingOff == other.PingOff && Steam.SequenceEqual(other.Steam)
         && Apps.Count == other.Apps.Count
         && Apps.Zip(other.Apps).All(p => p.First.App == p.Second.App && p.First.Down == p.Second.Down && p.First.Up == p.Second.Up && p.First.Background == p.Second.Background);
 
@@ -82,6 +98,8 @@ public sealed record NetDayLink(DateTime Day, NetDayState State, int RecordedMin
 public sealed class NetReport
 {
     public ReportRange Range { get; init; }
+    /// <summary>The chart's bars are hours (a day, and a week on the Network page); else days (a month) or months (a year).</summary>
+    public bool Hourly { get; init; }
     public DateTime From { get; init; }
     public DateTime To { get; init; }
     public DateTime BuiltAt { get; init; } = DateTime.Now;
@@ -128,6 +146,22 @@ public sealed class NetReport
     /// <see cref="RigsightDb.GetNetUnrecorded"/>). They are not zeros.</summary>
     public List<(DateTime Start, DateTime End)> Unrecorded { get; set; } = [];
     public List<Insight> Insights { get; set; } = [];
+    /// <summary>The line check over the whole period (null: not checked in it), and the page's sentence about it.</summary>
+    public NetLinePing? Line { get; set; }
+    public string LineText { get; set; } = "";
+    /// <summary>When ping checks were turned off or on in the period, in order, and whether they were off as it began.</summary>
+    public List<(DateTime At, bool On)> PingSwitches { get; set; } = [];
+    public bool PingOffAtStart { get; set; }
+    /// <summary>The first minute ping was ever checked (null: never yet).</summary>
+    public DateTime? PingSince { get; set; }
+    /// <summary>When ping checks were paused, while they still are (whatever the period): the page's status line says since when.</summary>
+    public DateTime? PingPausedSince { get; set; }
+    /// <summary>The bars with ping checked, and how many the graph wants before it's drawn (see <see cref="NetLine.BarsToDraw"/>).</summary>
+    public int PingBars { get; set; }
+    public int PingBarsNeeded { get; set; }
+    public bool PingEnough => PingBars >= PingBarsNeeded;
+    /// <summary>The period told in lines: the Network page's "What happened" (built only when asked for).</summary>
+    public List<NetHappening> Happenings { get; set; } = [];
     /// <summary>
     /// The apps that have a colour of their own on the chart, in the order of the colours. An app keeps its colour while
     /// it goes on using the internet (the settings remember them, see <see cref="RigsightSettings.NetColorApps"/>); a
@@ -149,12 +183,16 @@ public static class NetReportBuilder
     /// <summary>How many of the biggest stretches a report lists.</summary>
     public const int DownloadsShown = 5;
 
+    /// <param name="forPage">For the Network page: a week's bars are its hours, and the bars carry the games played and
+    /// Steam's downloads, the line check, and "What happened" is told. Reports and Home don't show those.</param>
     public static NetReport Build(RigsightDb db, ReportRange range, DateTime anchor, IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings,
-        IReadOnlyList<string>? gamesPlayed = null, DateTime? asOf = null)
+        IReadOnlyList<string>? gamesPlayed = null, DateTime? asOf = null, bool forPage = false,
+        Func<DateTime, IReadOnlyList<Stability.PowerEvent>?>? readPower = null)
     {
         var (from, to) = ReportBuilder.Bounds(range, anchor);
         var now = asOf ?? DateTime.Now;
-        var r = new NetReport { Range = range, From = from, To = to, BuiltAt = now };
+        bool hourly = range == ReportRange.Day || range == ReportRange.Week && forPage;
+        var r = new NetReport { Range = range, From = from, To = to, BuiltAt = now, Hourly = hourly };
         long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to);
 
         var days = db.GetNetDays(f, t);
@@ -169,40 +207,43 @@ public static class NetReportBuilder
         r.Lan = days.Sum(d => d.Lan);
 
         // The chart.
-        if (range == ReportRange.Day)
+        if (hourly)
         {
-            var hours = new NetBin[24];
-            for (int h = 0; h < 24; h++) hours[h] = new NetBin(from.AddHours(h), 0, 0, 0);
+            // An hour by its place from the period's start (a day has 24; a week 168).
+            int count = (int)Math.Round((to - from).TotalHours);
+            int HourOf(long ts) => Math.Clamp((int)Math.Floor((TimeUtil.FromUnix(ts) - from).TotalHours), 0, count - 1);
+            var hours = new NetBin[count];
+            for (int h = 0; h < count; h++) hours[h] = new NetBin(from.AddHours(h), 0, 0, 0);
             var quarters = new bool[96];
+            var away = new long[count];
+            var behind = new long[count];
             foreach (var m in db.GetNetMinutes(f, t))
             {
                 var time = TimeUtil.FromUnix(m.Ts);
-                quarters[Math.Clamp((time.Hour * 60 + time.Minute) / 15, 0, 95)] = true;
-                int h = Math.Clamp(time.Hour, 0, 23);
+                if (range == ReportRange.Day) quarters[Math.Clamp((time.Hour * 60 + time.Minute) / 15, 0, 95)] = true;
+                int h = HourOf(m.Ts);
                 var b = hours[h];
                 hours[h] = b with { Down = b.Down + m.Down, BgDown = b.BgDown + m.BgDown + m.AwayDown, Up = b.Up + m.Up };
-            }
-            var away = new long[24];
-            var behind = new long[24];
-            foreach (var m in db.GetNetMinutes(f, t))
-            {
-                int h = Math.Clamp(TimeUtil.FromUnix(m.Ts).Hour, 0, 23);
                 behind[h] += m.BgDown + m.BgUp + m.AwayDown + m.AwayUp;
                 away[h] += m.AwayDown + m.AwayUp;
             }
-            var byHour = db.GetNetAppHours(f, t).ToLookup(u => Math.Clamp(TimeUtil.FromUnix(u.Ts).Hour, 0, 23));
-            r.Bins = [.. hours.Select((b, h) => b with { Background = behind[h], Away = away[h], Apps = Biggest(byHour[h]) })];
-            r.Quarters = quarters;
+            var byHour = db.GetNetAppHours(f, t).ToLookup(u => HourOf(u.Ts));
+            r.Bins = [.. hours.Select((b, h) => b with
+            {
+                Background = behind[h], Away = away[h], Apps = Biggest(byHour[h]), AppCount = byHour[h].Count(u => u.Total > 0),
+            })];
+            if (range == ReportRange.Day) r.Quarters = quarters;
         }
         else if (range == ReportRange.Year)
         {
             r.Bins = [.. Enumerable.Range(0, 12).Select(i => from.AddMonths(i)).Select(month =>
             {
                 var inMonth = days.Where(d => TimeUtil.FromUnix(d.Day) is var day && day >= month && day < month.AddMonths(1)).ToList();
+                var monthApps = inMonth.Count == 0 ? [] : db.GetNetAppTotals(TimeUtil.ToUnix(month), TimeUtil.ToUnix(month.AddMonths(1)));
                 return new NetBin(month, inMonth.Sum(d => d.Down), inMonth.Sum(d => d.BgDown + d.AwayDown), inMonth.Sum(d => d.Up))
                 {
                     Background = inMonth.Sum(d => d.Background), Away = inMonth.Sum(d => d.AwayDown + d.AwayUp),
-                    Apps = inMonth.Count == 0 ? [] : Biggest(db.GetNetAppTotals(TimeUtil.ToUnix(month), TimeUtil.ToUnix(month.AddMonths(1)))),
+                    Apps = Biggest(monthApps), AppCount = monthApps.Count(u => u.Total > 0),
                 };
             })];
         }
@@ -215,7 +256,7 @@ public static class NetReportBuilder
             var appDays = db.GetNetAppDays(f, t).ToLookup(u => TimeUtil.FromUnix(u.Ts).Date);
             r.Bins = [.. Enumerable.Range(0, (int)(to - from).TotalDays).Select(i => from.AddDays(i)).Select(day =>
                 byDay.TryGetValue(day, out var d)
-                    ? new NetBin(day, d.Down, d.Background, d.Up) { Background = d.Behind, Away = d.Away, Apps = Biggest(appDays[day]) }
+                    ? new NetBin(day, d.Down, d.Background, d.Up) { Background = d.Behind, Away = d.Away, Apps = Biggest(appDays[day]), AppCount = appDays[day].Count(u => u.Total > 0) }
                     : new NetBin(day, 0, 0, 0))];
         }
 
@@ -268,7 +309,7 @@ public static class NetReportBuilder
             if (stats.TryGetValue(g.Key, out var s)) s.Fastest = g.Max(x => x.Speed);
         r.Apps = [.. stats.Values.OrderByDescending(s => s.Use.Total)];
         // The biggest stretches: each app's hours (a day) or days (longer), biggest first, both directions counted.
-        var stretch = range == ReportRange.Day ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
+        var stretch = hourly ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
         r.Downloads = [.. busiest.Where(u => u.Total >= MinBiggest && apps.ContainsKey(u.App)).OrderByDescending(u => u.Total).Take(DownloadsShown).Select(u =>
             new NetDownload(NameOf(apps, settings, u.App), apps[u.App].Exe, apps[u.App].Path, TimeUtil.FromUnix(u.Ts), TimeUtil.FromUnix(u.Ts) + stretch, u.Total, 0))];
         // The biggest hours or days, whole: the chart's own bars, so a row and its bar say the same (a year's bars are
@@ -288,7 +329,7 @@ public static class NetReportBuilder
             r.Unrecorded = [.. db.GetNetUnrecorded(f, Math.Min(t, TimeUtil.ToUnix(now)))
                 .Where(u => !r.Drops.Any(d => d.Start < u.End && d.End > u.Start))
                 .Select(u => (TimeUtil.FromUnix(u.Start), TimeUtil.FromUnix(u.End)))];
-            var length = range == ReportRange.Day ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
+            var length = hourly ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
             if (r.Unrecorded.Count > 0)
                 r.Bins = [.. r.Bins.Select(bin => bin with
                 {
@@ -319,7 +360,90 @@ public static class NetReportBuilder
         }
 
         r.Insights = NetInsights.Generate(db, r, gamesPlayed ?? []);
+        if (forPage) ForPage(db, r, apps, settings, f, t, readPower ?? Stability.CrashLogReader.ReadPower);
         return r;
+    }
+
+    /// <summary>
+    /// What only the Network page shows: on each bar the line check, the game played (hours) and what Steam started
+    /// downloading; the period's line check and its sentence; and "What happened".
+    /// </summary>
+    private static void ForPage(RigsightDb db, NetReport r, IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long f, long t,
+        Func<DateTime, IReadOnlyList<Stability.PowerEvent>?> readPower)
+    {
+        DateTime End(NetBin b) => r.Hourly ? b.Start.AddHours(1) : r.Range == ReportRange.Year ? b.Start.AddMonths(1) : b.Start.AddDays(1);
+        var pings = db.GetNetPings(f, t);
+        r.Line = NetLine.Of(pings);
+        r.PingSince = db.FirstNetPing() is long firstPing ? TimeUtil.FromUnix(firstPing) : null;
+        var switches = db.GetNetPingSwitches(f, t);
+        r.PingOffAtStart = switches.Count > 0 && switches[0].Ts < f && !switches[0].On;
+        r.PingSwitches = [.. switches.Where(s => s.Ts >= f).Select(s => (TimeUtil.FromUnix(s.Ts), s.On))];
+        long nowTs = TimeUtil.ToUnix(r.BuiltAt);
+        r.PingPausedSince = db.GetNetPingSwitches(nowTs, nowTs + 1) is { Count: > 0 } latest && !latest[^1].On ? TimeUtil.FromUnix(latest[^1].Ts) : null;
+        var steam = db.GetSteamDownloads(f, t).Where(d => d.Started >= r.From && d.Started < r.To && d.Bytes >= NetHappenings.MinSteamBytes).ToList();
+        // The game in front for most of each hour (ten minutes or more of it).
+        var games = new Dictionary<DateTime, (string Name, string? Path)>();
+        if (r.Hourly)
+            foreach (var g in db.GetAppHours(f, t).Where(h => h.FgSec >= NetHappenings.PlayedHourSeconds && apps.TryGetValue(h.AppId, out var a)
+                         && (settings.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category) == AppCategory.Game).GroupBy(h => TimeUtil.FromUnix(h.Ts)))
+            {
+                var top = g.MaxBy(h => h.FgSec)!;
+                games[g.Key] = (NameOf(apps, settings, top.AppId), apps[top.AppId].Path);
+            }
+        // Whether ping checks were on at a moment: the last switch before it says (none: on, as they start).
+        bool OnAt(DateTime at)
+        {
+            bool on = !r.PingOffAtStart;
+            foreach (var s in r.PingSwitches) if (s.At <= at) on = s.On;
+            return on;
+        }
+        r.Bins = [.. r.Bins.Select(b =>
+        {
+            long bf = TimeUtil.ToUnix(b.Start), bt = TimeUtil.ToUnix(End(b));
+            var game = games.TryGetValue(b.Start, out var x) ? x : default;
+            var ping = NetLine.Of(pings.Where(p => p.Ts >= bf && p.Ts < bt));
+            bool off = ping is null && b.Start < r.BuiltAt && !OnAt(b.Start) && !r.PingSwitches.Any(s => s.On && s.At > b.Start && s.At < End(b));
+            return b with
+            {
+                Ping = ping, PingOff = off,
+                Game = game.Name, GamePath = game.Path,
+                Steam = [.. steam.Where(d => d.Started >= b.Start && d.Started < End(b))],
+            };
+        })];
+        r.PingBars = r.Bins.Count(b => b.Ping is not null);
+        r.PingBarsNeeded = NetLine.BarsToDraw(r.Hourly, r.Range);
+        if (r.Range != ReportRange.Year) r.Bins = OffReasons(db, r, f, t, readPower);
+        r.LineText = NetLine.Sentence(r, r.Apps.ToDictionary(a => a.Id, a => a.Name));
+        r.Happenings = NetHappenings.Build(db, r, apps, settings);
+    }
+
+    /// <summary>
+    /// The bars of a stretch the PC wasn't recorded at all (no minute of it), each with why, from Windows' log: the
+    /// stretch taken whole, from the last minute recorded before it to the first after (see <see cref="WhyEmpty"/>).
+    /// </summary>
+    private static List<NetBin> OffReasons(RigsightDb db, NetReport r, long f, long t, Func<DateTime, IReadOnlyList<Stability.PowerEvent>?> readPower)
+    {
+        var bins = r.Bins;
+        TimeSpan length = r.Hourly ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
+        var on = db.GetMinuteTimes(f, Math.Min(t, TimeUtil.ToUnix(r.BuiltAt)));
+        bool Off(NetBin b) => b.Start + length <= r.BuiltAt && b.Total == 0 && !on.Any(ts => ts >= TimeUtil.ToUnix(b.Start) && ts < TimeUtil.ToUnix(b.Start + length));
+        var off = bins.Select(Off).ToArray();
+        if (!off.Any(x => x)) return bins;
+        IReadOnlyList<Stability.PowerEvent>? power = (r.BuiltAt - r.From).TotalDays <= WhyEmpty.PowerLogDays ? readPower(r.From.AddDays(-1)) : null;
+        var result = bins.ToList();
+        for (int i = 0; i < bins.Count;)
+        {
+            if (!off[i]) { i++; continue; }
+            int start = i;
+            while (i < bins.Count && off[i]) i++;
+            long a = TimeUtil.ToUnix(bins[start].Start), b = TimeUtil.ToUnix(bins[i - 1].Start + length);
+            var gapFrom = db.LastMinuteBefore(a) is long last ? TimeUtil.FromUnix(last + 60) : bins[start].Start;
+            var gapTo = db.FirstMinuteFrom(b) is long next ? TimeUtil.FromUnix(next) : r.BuiltAt;
+            string? why = Stability.PowerLog.Words(Stability.PowerLog.Reason(gapFrom, gapTo, power, TimeSpan.FromMinutes(3)));
+            if (why is null) continue;
+            for (int k = start; k < i; k++) result[k] = bins[k] with { OffWhy = why };
+        }
+        return result;
     }
 
     /// <summary>The games played (a minute or more in front) from <paramref name="from"/> to <paramref name="to"/>, by name.</summary>

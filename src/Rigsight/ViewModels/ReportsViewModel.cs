@@ -407,14 +407,10 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private string When => Controls.PeriodPicker.Words(Range, Anchor);
 
     /// <summary>What the page says when the period has nothing.</summary>
-    public string EmptyTitle
-    {
-        get
-        {
-            string when = When;
-            return Lang.T($"Not recorded {when}");
-        }
-    }
+    public string EmptyTitle => _emptyWhy ?? Lang.T($"Not recorded {When}");
+
+    /// <summary>Why the period shown has nothing (the PC was off, asleep…: see <see cref="WhyEmpty"/>), once it has been worked out.</summary>
+    private string? _emptyWhy;
 
     /// <summary>
     /// Another period was picked and is taking a moment to read (a week or a month, the first time): the page shows
@@ -595,7 +591,16 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
             list.AddRange(Core.Stability.StorageChanges.From(db.GetDriveDays(from - 86400)).Where(c => c.Time >= report.From && c.Time < report.To));
             return list;
         }) ?? [];
+        // Nothing recorded: why, said plainly (it said "the PC was off, or the background agent wasn't running" for both).
+        string? why = null;
+        if (report is not { HasData: true })
+        {
+            var (f, t) = report is { } r0 ? (r0.From, r0.To) : Controls.PeriodPicker.Bounds(range, anchor, customFrom, customTo);
+            why = await reports.EmptyWhyAsync(f, t, Controls.PeriodPicker.Words(range, anchor));
+        }
         if (id != _loadId) return;
+        _emptyWhy = why;
+        OnPropertyChanged(nameof(EmptyTitle));
         // A different period starts with short lists again; the minute refresh of the same one keeps them open.
         if (report?.From != Report?.From || report?.To != Report?.To) _crashLimit = CrashesPage;
         FirstDay = first;

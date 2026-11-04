@@ -632,6 +632,23 @@
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding FullscreenCountsAsActive}" Margin="0,10">
                         <TextBlock Text="{ctl:T 'Fullscreen apps count as in use'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
+                    <!-- The line check for the Network page's ping: off, nothing is pinged and what was checked stays. -->
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding PingChecks}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Check my connection\'s ping'}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{ctl:T 'Check my connection\'s ping'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                            <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="8,1,0,0" VerticalAlignment="Center"
+                                       Background="Transparent" ToolTipService.InitialShowDelay="0" ToolTipService.ShowDuration="60000">
+                                <TextBlock.ToolTip>
+                                    <ToolTip MaxWidth="360">
+                                        <StackPanel>
+                                            <TextBlock Text="{ctl:T 'Ping checks'}" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                            <TextBlock Text="{ctl:T 'Every 5 seconds, a ping to your router and to your internet provider\'s first router: nothing goes anywhere else. Off, the Network page keeps the ping already checked.'}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </ToolTip>
+                                </TextBlock.ToolTip>
+                            </TextBlock>
+                        </StackPanel>
+                    </CheckBox>
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">

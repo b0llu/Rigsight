@@ -187,7 +187,17 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
-        // The taskbar release (issue #6); version settled at release (the Network rebuild waits on its own branch, network-1.3).
+        V("1.4.0", 11, 5,
+            feature: new(Lang.T("Network, rebuilt"), Lang.T("See how your internet is doing right now, and what used it hour by hour."),
+                [Lang.T("Right now sits on top: your speeds, whether the connection is working well, its ping and packet loss, and every app using it."),
+                    Lang.T("One graph of each hour with a Usage and a Ping view; drag across it to zoom in, or click an hour for its apps."),
+                    Lang.T("What happened names what Steam downloaded, what used the internet while you played, and apps online for the first time."),
+                    Lang.T("Ping is checked every 5 seconds to your router and your provider's first router; pause it under the graph or in Settings.")],
+                "network", "network", isPage: false) { OpenText = Lang.T("Open Network") },
+            added: [Lang.T("Click an app on the Network page to open it on the Apps page for the same day, week or month."),
+                Lang.T("Ask RigSight now knows your connection's usual ping, the hours it went high and which app was uploading then.")],
+            better: [Lang.T("A week on the Network page shows every hour, so a busy evening stands out from the rest of the day."),
+                Lang.T("When nothing was recorded, Network, Reports and Temperatures now say why: the PC was off or asleep, or RigSight wasn't running.")]),
         V("1.3.0", 11, 5,
             added: [Lang.T("Your download and upload speed can go in the taskbar, each on its own or both in one place."),
                 Lang.T("Each taskbar reading can have its own style, size, colors and background, so the strip, two rows and icons can sit side by side."),

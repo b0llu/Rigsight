@@ -27,12 +27,18 @@ public sealed partial class RigsightDb
             CREATE TABLE IF NOT EXISTS net_transfer(start INTEGER NOT NULL, app INTEGER NOT NULL, end INTEGER NOT NULL, bytes INTEGER NOT NULL,
                 sec INTEGER NOT NULL, PRIMARY KEY(start, app)) WITHOUT ROWID;
             CREATE TABLE IF NOT EXISTS net_drop(start INTEGER PRIMARY KEY, end INTEGER NOT NULL, kind INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS net_ping(ts INTEGER PRIMARY KEY, sent INTEGER NOT NULL, lan_ms INTEGER, lan_max INTEGER,
+                lan_lost INTEGER NOT NULL, isp_ms INTEGER, isp_max INTEGER, isp_lost INTEGER NOT NULL, jitter INTEGER);
+            CREATE TABLE IF NOT EXISTS net_ping_switch(ts INTEGER PRIMARY KEY, turned_on INTEGER NOT NULL);
             """);
     }
 
     // The app reads a database the agent made, which may be from before 0.14.0 (no network tables yet).
     private bool? _hasNetwork;
     private bool HasNetwork => _hasNetwork ??= HasTable("net_minute");
+    // …and one from before the line was checked (1.3.0: no net_ping yet).
+    private bool? _hasPing;
+    private bool HasPing => _hasPing ??= HasTable("net_ping");
 
     // ── Writer ────────────────────────────────────────────────────────────
 
@@ -94,6 +100,24 @@ public sealed partial class RigsightDb
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>A minute of the line check: how long the pings to the router and to the provider took, and how many went unanswered.</summary>
+    public void WriteNetPing(NetPing p)
+    {
+        using var cmd = Cmd("""
+            INSERT OR REPLACE INTO net_ping(ts, sent, lan_ms, lan_max, lan_lost, isp_ms, isp_max, isp_lost, jitter)
+            VALUES($ts, $n, $lm, $lx, $ll, $im, $ix, $il, $j)
+            """, ("$ts", p.Ts), ("$n", p.Sent), ("$lm", p.LanMs), ("$lx", p.LanMax), ("$ll", p.LanLost), ("$im", p.IspMs), ("$ix", p.IspMax),
+            ("$il", p.IspLost), ("$j", p.Jitter));
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Ping checks were turned on or off at <paramref name="ts"/> (Unix seconds).</summary>
+    public void WriteNetPingSwitch(long ts, bool on)
+    {
+        using var cmd = Cmd("INSERT OR REPLACE INTO net_ping_switch(ts, turned_on) VALUES($ts, $on)", ("$ts", ts), ("$on", on ? 1 : 0));
+        cmd.ExecuteNonQuery();
+    }
+
     private void PruneNetwork(long before)
     {
         using (var c = Cmd($"""
@@ -103,6 +127,8 @@ public sealed partial class RigsightDb
             DELETE FROM net_app_day WHERE day < {DayOf("$t")};
             DELETE FROM net_transfer WHERE start < $t;
             DELETE FROM net_drop WHERE start < $t;
+            DELETE FROM net_ping WHERE ts < $t;
+            DELETE FROM net_ping_switch WHERE ts < $t;
             """, ("$t", before))) c.ExecuteNonQuery();
         // The day the cutoff falls in, added up again from what's left of its minutes (its apps keep the whole day, as
         // app_month keeps the cutoff's month: a day isn't split).
@@ -242,6 +268,57 @@ public sealed partial class RigsightDb
         while (r.Read()) list.Add(new NetDrop(r.GetInt64(0), r.GetInt64(1), (NetDropKind)r.GetInt32(2)));
         return list;
     }
+
+    /// <summary>
+    /// The times ping checks were turned on or off from <paramref name="from"/> to <paramref name="to"/>, in order, with
+    /// the last one before it first (it says whether the stretch began with them on or off).
+    /// </summary>
+    public List<(long Ts, bool On)> GetNetPingSwitches(long from, long to)
+    {
+        var list = new List<(long, bool)>();
+        if (!HasPing || !HasTable("net_ping_switch")) return list;
+        using var cmd = Cmd("""
+            SELECT ts, turned_on FROM (SELECT ts, turned_on FROM net_ping_switch WHERE ts < $from ORDER BY ts DESC LIMIT 1)
+            UNION ALL SELECT ts, turned_on FROM net_ping_switch WHERE ts >= $from AND ts < $to ORDER BY ts
+            """, ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add((r.GetInt64(0), r.GetInt64(1) == 1));
+        return list;
+    }
+
+    /// <summary>The first minute the line was ever checked (null: never).</summary>
+    public long? FirstNetPing()
+    {
+        if (!HasPing) return null;
+        using var cmd = Cmd("SELECT min(ts) FROM net_ping");
+        return cmd.ExecuteScalar() is long v ? v : null;
+    }
+
+    /// <summary>Each app's first day with any internet use recorded (local midnight, unix seconds), by app id.</summary>
+    public Dictionary<long, long> GetNetFirstDays()
+    {
+        var map = new Dictionary<long, long>();
+        if (!HasNetwork) return map;
+        using var cmd = Cmd("SELECT app, min(day) FROM net_app_day GROUP BY app");
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) map[r.GetInt64(0)] = r.GetInt64(1);
+        return map;
+    }
+
+    /// <summary>The line check's minutes from <paramref name="from"/> to <paramref name="to"/>, in order.</summary>
+    public List<NetPing> GetNetPings(long from, long to)
+    {
+        if (!HasPing) return [];
+        using var cmd = Cmd("SELECT ts, sent, lan_ms, lan_max, lan_lost, isp_ms, isp_max, isp_lost, jitter FROM net_ping WHERE ts >= $from AND ts < $to ORDER BY ts",
+            ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<NetPing>();
+        while (r.Read())
+            list.Add(new NetPing(r.GetInt64(0), r.GetInt32(1), I(r, 2), I(r, 3), r.GetInt32(4), I(r, 5), I(r, 6), r.GetInt32(7), I(r, 8)));
+        return list;
+    }
+
+    private static int? I(SqliteDataReader r, int i) => r.IsDBNull(i) ? null : r.GetInt32(i);
 
     private static long? L(SqliteDataReader r, int i) => r.IsDBNull(i) ? null : r.GetInt64(i);
 }

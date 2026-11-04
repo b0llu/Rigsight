@@ -346,6 +346,12 @@ public sealed class TrackingSettings
     public bool FullscreenCountsAsActive { get; set; } = true;
 
     /// <summary>
+    /// The line check (1.3.0): a ping to this PC's router and to the internet provider's first router every few
+    /// seconds, for the Network page's ping. Off, nothing is pinged and what was checked before stays.
+    /// </summary>
+    public bool PingChecks { get; set; } = true;
+
+    /// <summary>
     /// How long history is kept, in days: minute-by-minute readings, hourly app time, sessions, crashes and drive
     /// fill all expire together, so every page covers the same dates. 0 keeps everything.
     /// </summary>

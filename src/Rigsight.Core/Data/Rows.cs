@@ -313,6 +313,14 @@ public sealed record NetTransfer(long Start, long App, long End, long Bytes, int
 /// <summary>Why the internet went: the cable or Wi-Fi itself, or past the PC (the router, the provider).</summary>
 public enum NetDropKind { Link, Internet }
 
+/// <summary>
+/// A minute of the line check (net_ping): the pings sent to each of the two stops (this PC's router, and the internet
+/// provider's first router after it), the middle and the longest time they took (milliseconds), how many of each went
+/// unanswered, and how much the provider's times jumped from one to the next (jitter). A stop not found (or not
+/// answering at all) has no times: null, never 0.
+/// </summary>
+public sealed record NetPing(long Ts, int Sent, int? LanMs, int? LanMax, int LanLost, int? IspMs, int? IspMax, int IspLost, int? Jitter);
+
 /// <summary>A time the internet dropped (net_drop), from when to when (unix seconds).</summary>
 public sealed record NetDrop(long Start, long End, NetDropKind Kind)
 {

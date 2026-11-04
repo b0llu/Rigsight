@@ -77,6 +77,7 @@ internal sealed class AgentContext : ApplicationContext
     private volatile AddressBook _addresses = AddressBook.Empty;
     private volatile bool _addressesChanged = true;
     private readonly ConnectionWatch _connection = new();
+    private LineCheck? _line;
     private readonly TraceWatch _traceWatch = new();
     private readonly SensorHealth _sensorHealth = new();
     private readonly DisplayDriverWatch _displayWatch = new();
@@ -511,6 +512,7 @@ internal sealed class AgentContext : ApplicationContext
                             ExtremesFull = full,
                             // No trace on an agent that should have one, after the remedies: the page says it isn't recording.
                             Net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : _isAdmin && _traceWatch.Stalled ? NotRecording : null,
+                            Line = _line?.Live(),
                             TrayWaiting = _trayWaiting is { Count: > 0 } waiting ? [.. waiting] : null,
                         });
                     }
@@ -615,6 +617,7 @@ internal sealed class AgentContext : ApplicationContext
         Step("extremes", () => SaveExtremes(force: true));
         Step("crash watch", () => _appCrashWatch?.Dispose());
         Step("network trace", () => _netTrace?.Dispose());
+        Step("line check", () => _line?.Dispose());
         NetworkChange.NetworkAddressChanged -= OnAddressChanged;
         NetworkChange.NetworkAvailabilityChanged -= OnAvailabilityChanged;
         Step("sensors", _sensors.Close);
@@ -1397,6 +1400,7 @@ internal sealed class AgentContext : ApplicationContext
         {
             _justTurnedOn = true;
             RunOnSampler(() => _connection.Settle(TimeUtil.NowUnix()));
+            _line?.FindAgain();
         }
         else if (e.Mode == PowerModes.Suspend)
             RunOnSampler(() =>
@@ -1417,6 +1421,7 @@ internal sealed class AgentContext : ApplicationContext
         _addressesChanged = false;
         _connection.Settle(TimeUtil.NowUnix());
         if (_isAdmin) _netTrace = NetworkTrace.Start(NetTraceName, () => _addresses);
+        _line = LineCheck.Start(_settings.Tracking.PingChecks);
         MemoryAt("network");
     }
 
@@ -1471,6 +1476,7 @@ internal sealed class AgentContext : ApplicationContext
     private void CheckNetworkTrace()
     {
         KeepOngoingDrop();
+        WriteLineMinutes();
         if (!_isAdmin) return;
         long now = TimeUtil.NowUnix();
         // No trace at all (Windows wouldn't start one, or ended it): there are no events to count, only the remedies.
@@ -1511,8 +1517,26 @@ internal sealed class AgentContext : ApplicationContext
         _traceWatch.Restarted();
     }
 
-    private void OnAddressChanged(object? sender, EventArgs e) => _addressesChanged = true;
-    private void OnAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e) => _addressesChanged = true;
+    private void OnAddressChanged(object? sender, EventArgs e)
+    {
+        _addressesChanged = true;
+        _line?.FindAgain();
+    }
+
+    private void OnAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
+    {
+        _addressesChanged = true;
+        _line?.FindAgain();
+    }
+
+    /// <summary>Sampler thread, each minute: the line check's whole minutes into the history (none while tracking is paused).</summary>
+    private void WriteLineMinutes()
+    {
+        if (_line is null) return;
+        var minutes = _line.TakeMinutes(TimeUtil.NowUnix());
+        if (_settings.Tracking.IsPaused(TimeUtil.NowUnix())) return;
+        foreach (var m in minutes) _db.WriteNetPing(m);
+    }
 
     /// <summary>Sampler thread, each second: what each app moved since the last time, and whether the internet is there.</summary>
     private void SampleNetwork(double seconds)
@@ -2309,13 +2333,14 @@ internal sealed class AgentContext : ApplicationContext
     private void MutateSettings(Action<RigsightSettings> change, RigsightSettings? replaceWith)
     {
         RigsightSettings updated;
-        bool yieldChanged, trayChanged;
+        bool yieldChanged, trayChanged, pingChanged;
         lock (_settingsLock)
         {
             var current = _settings;
             updated = replaceWith ?? current.Clone();
             change(replaceWith is null ? updated : current);
             yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
+            pingChanged = updated.Tracking.PingChecks != current.Tracking.PingChecks;
             trayChanged = updated.TrayStyle != current.TrayStyle || updated.TrayGrayscale != current.TrayGrayscale
                           || updated.TraySide != current.TraySide || TrayLooksText(updated) != TrayLooksText(current)
                           || updated.TrayTiles != current.TrayTiles || updated.TrayWidth != current.TrayWidth
@@ -2333,6 +2358,13 @@ internal sealed class AgentContext : ApplicationContext
         if (updated.Language != Lang.Code) LanguageStore.Apply(updated.Language);
         DarkMenuRenderer.Theme = updated.Theme;
         RunOnSampler(() => _tracker.SetSettings(updated));
+        // Ping checks turned on or off: at once, and the moment written down (the Network page marks it on its graph).
+        if (pingChanged && _line is { } line)
+        {
+            line.Enabled = updated.Tracking.PingChecks;
+            bool on = updated.Tracking.PingChecks;
+            RunOnSampler(() => _db.WriteNetPingSwitch(TimeUtil.NowUnix(), on));
+        }
         // A reading added to or removed from the taskbar, or another way of showing them: there now, not at the next read.
         if (trayChanged) RunOnSampler(() => _sensorsNow = true);
         // Stepping aside turned on or off: scan again now, with or without the parts those programs control.

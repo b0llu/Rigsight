@@ -97,7 +97,7 @@ public sealed class PageExportWindowTests(AppHost host) : IClassFixture<AppHost>
         {
             var vm = host.Shell.Network;
             vm.SelectedBin = vm.Bins.Count - 1;
-            vm.BackgroundOnly = true;
+            vm.Sort = "Background";
             host.Shell.ExportPageCommand.Execute(null);
             var box = host.Shell.PageExport;
             Assert.Equal("The bar picked", box.Periods.Single(p => p.IsOn).Label);
@@ -105,7 +105,7 @@ public sealed class PageExportWindowTests(AppHost host) : IClassFixture<AppHost>
             Assert.Equal([true], box.Scopes.Single().Picked);
             box.CloseCommand.Execute(null);
             vm.SelectedBin = -1;
-            vm.BackgroundOnly = false;
+            vm.Sort = "Total";
             host.Shell.ExportPageCommand.Execute(null);
             Assert.Equal(Rigsight.Core.Reports.ReportRange.Day, box.Periods.Single(p => p.IsOn).Unit);
             Assert.Equal([null], box.Scopes.Single().Picked);

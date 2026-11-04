@@ -207,6 +207,11 @@ internal static class Program
                     Thread.Sleep(600);
                 }
                 if (!ui.Has(page)) { Notes.Add($"No \"{page}\" in the sidebar (skipped)"); continue; }
+                // The page before may still be at work in the background (Storage's "Space you could free" reads the temp
+                // and cache folders for seconds after it opens): that is its cost, not this page's. On 3 Nov 2026 it ran
+                // into Network's 2.5 s and Network was blamed for 2.7 s of it.
+                if (Settle(app!) is { TotalSeconds: > 1 } waited)
+                    Console.WriteLine($"  (waited {waited.TotalSeconds:0.0} s for the page before to finish its work)");
                 double before = CpuMs(app!);
                 var at = DateTime.Now;
                 var threads = ThreadCpu.Take(app!);
@@ -565,6 +570,19 @@ internal static class Program
     }
 
     /// <summary>CPU time used so far, read with the least access Windows grants (works for elevated processes too).</summary>
+    /// <summary>Until the app has gone quiet (under 40 ms of CPU in half a second), at most 15 seconds: how long it took.</summary>
+    private static TimeSpan Settle(Process p)
+    {
+        var started = Stopwatch.StartNew();
+        while (started.Elapsed < TimeSpan.FromSeconds(15))
+        {
+            double was = CpuMs(p);
+            Thread.Sleep(500);
+            if (CpuMs(p) - was < 40) break;
+        }
+        return started.Elapsed;
+    }
+
     private static double CpuMs(Process p)
     {
         using var h = Query(p.Id);

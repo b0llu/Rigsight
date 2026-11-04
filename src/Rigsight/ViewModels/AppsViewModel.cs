@@ -339,6 +339,15 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         SelectExe(exe);
     }
 
+    /// <summary>An app picked on another page (the Network page's list), for that page's period.</summary>
+    public void ShowFor(string exe, ReportRange unit, DateTime anchor)
+    {
+        _pendingSelection = exe;
+        Anchor = anchor;
+        Unit = unit;
+        SelectExe(exe);
+    }
+
     public void SelectExe(string exe)
     {
         _pendingSelection = exe;

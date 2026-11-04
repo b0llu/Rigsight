@@ -346,7 +346,7 @@
                     </DockPanel>
                     <ctl:LineChart x:Name="HistoryChart" ctl:Roomy.Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" Day="{Binding ChartDay}"
                                    CustomFrom="{Binding ChartCustomFrom}" CustomTo="{Binding ChartCustomTo}"
-                                   Plot="{Binding ChartPlot}" GapReason="{Binding ChartGapReason}" CanZoom="True"
+                                   Plot="{Binding ChartPlot}" GapReason="{Binding ChartGapReason}" EmptyText="{Binding ChartEmptyText}" CanZoom="True"
                                    DetailWanted="{Binding ChartDetail, Mode=OneWayToSource}" />
                 </DockPanel>
             </ctl:SmoothBorder>

@@ -58,6 +58,12 @@ public sealed class LineChart : FrameworkElement
 
     public Func<long, long, Core.Stability.GapReason>? GapReason { get => (Func<long, long, Core.Stability.GapReason>?)GetValue(GapReasonProperty); set => SetValue(GapReasonProperty, value); }
 
+    /// <summary>What a past period with nothing recorded says in place of the lines ("Your PC was off yesterday."): null, "Not recorded …".</summary>
+    public static readonly DependencyProperty EmptyTextProperty = DependencyProperty.Register(
+        nameof(EmptyText), typeof(string), typeof(LineChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public string? EmptyText { get => (string?)GetValue(EmptyTextProperty); set => SetValue(EmptyTextProperty, value); }
+
     /// <summary>What a point is on this window: 1 its highest, -1 its lowest, 0 its average (and always on a short window, where every reading is drawn).</summary>
     private int Pick => !ByMinute ? 0 : Plot == "High" ? 1 : Plot == "Low" ? -1 : 0;
 
@@ -413,7 +419,7 @@ public sealed class LineChart : FrameworkElement
             // The period by its own name ("yesterday", "last week", "in August 2026"), as everywhere else.
             string? period = Fixed ? (custom ? PeriodPicker.Words(Core.Reports.ReportRange.Custom, day) : Core.Reports.ChartRange.Words(WindowSeconds, day, DateTime.Today))
                 : _pastDay ? PeriodPicker.Words(Core.Reports.ReportRange.Day, day) : null;
-            string nothing = period is null ? Lang.T("Collecting data…") : Lang.T($"Not recorded {period}");
+            string nothing = period is null ? Lang.T("Collecting data…") : EmptyText ?? Lang.T($"Not recorded {period}");
             DrawText(dc, nothing, new Point(plot.Left + plot.Width / 2, plot.Top + plot.Height / 2), dpi, center: true);
             return;
         }

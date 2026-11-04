@@ -417,6 +417,11 @@ public static class PageExports
     {
         var periods = Units(vm.Anchor, all: false, custom: false);
         int picked = IndexOf(periods, vm.Unit);
+        if (vm.ZoomedStretch is { } zoomed)
+        {
+            periods.Insert(0, new(Lang.T("The stretch zoomed into"), () => zoomed));
+            picked = 0;
+        }
         if (vm.PickedBar is { } bar)
         {
             periods.Insert(0, new(Lang.T("The bar picked"), () => bar));
@@ -426,9 +431,9 @@ public static class PageExports
             s => s.Picked.FirstOrDefault() is true ? Lang.T("only what moved in the background, as the list shows it") : Lang.T("everything each app moved"));
         return new(Lang.T("Export internet use"), From(Lang.T("Network")),
             [
-                // The bar picked is an hour on a day's chart: then the hours first.
-                Table(ExportTable.Internet, Lang.T("Internet by app"), Lang.T("What each app downloaded and uploaded, and how much in the background, each day."), on: vm.PickedBar is null || vm.Unit != ReportRange.Day),
-                Table(ExportTable.InternetHours, Lang.T("Usage each hour"), Lang.T("What each app downloaded and uploaded in each hour."), on: vm.PickedBar is not null && vm.Unit == ReportRange.Day),
+                // A bar picked, or a stretch zoomed into, on a graph of hours: then the hours first.
+                Table(ExportTable.Internet, Lang.T("Internet by app"), Lang.T("What each app downloaded and uploaded, and how much in the background, each day."), on: !vm.Hourly || vm.PickedBar is null && vm.ZoomedStretch is null),
+                Table(ExportTable.InternetHours, Lang.T("Usage each hour"), Lang.T("What each app downloaded and uploaded in each hour."), on: vm.Hourly && (vm.PickedBar is not null || vm.ZoomedStretch is not null)),
             ],
             periods, picked, null, [count], Now(_ => new ExportFilter { BackgroundOnly = count.Picked.FirstOrDefault() is true }), FirstDay: vm.FirstDay);
     }

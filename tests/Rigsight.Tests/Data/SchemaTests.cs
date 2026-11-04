@@ -49,6 +49,8 @@ public sealed class SchemaTests
         ["net_app_day"] = ["day", "app", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "game_down", "lan"],
         ["net_transfer"] = ["start", "app", "end", "bytes", "sec"],
         ["net_drop"] = ["start", "end", "kind"],
+        ["net_ping"] = ["ts", "sent", "lan_ms", "lan_max", "lan_lost", "isp_ms", "isp_max", "isp_lost", "jitter"],
+        ["net_ping_switch"] = ["ts", "turned_on"],
         ["changes"] = ["id", "ts", "kind", "subject", "title", "was", "now", "from_ts"],
         ["inventory"] = ["kind", "key", "name", "value"],
         ["steam_download"] = ["app", "started", "ended", "bytes", "new_install", "how", "name"],
@@ -117,6 +119,8 @@ public sealed class SchemaTests
     [InlineData("net_app_day", "day,app")]
     [InlineData("net_transfer", "start,app")]
     [InlineData("net_drop", "start")]
+    [InlineData("net_ping", "ts")]
+    [InlineData("net_ping_switch", "ts")]
     [InlineData("changes", "id")]
     [InlineData("inventory", "kind,key")]
     public void Tables_are_keyed_as_the_queries_expect(string table, string key)

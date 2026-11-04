@@ -185,6 +185,24 @@ public sealed class NetLive
     public bool Stalled { get; set; }
 }
 
+/// <summary>
+/// The line right now (the last minute of the line check): the middle ping to this PC's router (the home side) and to
+/// the internet provider's first router (the provider's side), in milliseconds, how much the provider's jumped, and the
+/// share of pings that went unanswered. Null times: that stop isn't known or didn't answer.
+/// </summary>
+public sealed class LineLive
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? LanMs { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? IspMs { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Jitter { get; set; }
+    public double LostPercent { get; set; }
+    /// <summary>The provider's router was found: without it only the home side is checked.</summary>
+    public bool ProviderFound { get; set; }
+}
+
 public sealed class NetAppLive
 {
     public string Exe { get; set; } = "";
@@ -236,6 +254,9 @@ public sealed class AgentMessage
     public bool ExtremesFull { get; set; }
     /// <summary>The internet this second (null: not read, no admin rights).</summary>
     public NetLive? Net { get; set; }
+    /// <summary>The line check's last minute (null: no router found yet, or an agent from before 1.3.0).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LineLive? Line { get; set; }
     /// <summary>The taskbar readings waiting for room in "+N" (by sensor id); null when every one fits.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? TrayWaiting { get; set; }

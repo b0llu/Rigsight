@@ -256,6 +256,9 @@ public sealed partial class AiTools
                 new(drops.ToString(CultureInfo.CurrentCulture), drops == 1 ? Lang.T("connection drop") : Lang.T("connection drops"), period, drops > 0 ? AiTone.Warm : AiTone.Good),
             ]),
         };
+        // The usual ping as a fourth tile, where the line was checked.
+        if (Reports.NetLine.Of(db.GetNetPings(f, t)) is { } line && blocks[0] is AiTiles tiles)
+            blocks[0] = new AiTiles([.. tiles.Tiles, new($"{line.Usual} ms", Lang.T("usual ping"), period, AiTone.Plain)]);
         if (settings.Ai.ShareApps)
         {
             var name = Namer(db);

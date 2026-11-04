@@ -433,6 +433,26 @@ public sealed partial class AiTools
         var drops = db.GetNetDrops(f, t);
         sb.AppendLine(drops.Count == 0 ? "The connection didn't drop." : $"The connection dropped {drops.Count} times: " + string.Join("; ", drops.TakeLast(10).Select(d =>
             $"{TimeUtil.FromUnix(d.Start):d MMM h:mm tt} for {Units.Duration(d.Seconds)} ({(d.Kind == NetDropKind.Link ? "the cable or Wi-Fi itself" : "past the PC: the router or the provider")})")) + ".");
+        // The line check (1.3.0): the ping to the router and to the provider's first router, every few seconds.
+        var pings = db.GetNetPings(f, t);
+        if (Reports.NetLine.Of(pings) is { } line)
+        {
+            sb.AppendLine($"The line check (a ping every 5 seconds to {(line.Provider ? "the internet provider's first router" : "this PC's router; the provider's didn't answer")}): usually {line.Usual} ms, highest {line.Highest} ms, "
+                + $"{line.LostPercent:0.#}% of pings unanswered" + (line.Provider && line.HomeUsual is int home ? $"; the home side (this PC to its router) usually {home} ms" : "")
+                + ". It measures the line up to the provider, not all the way to a game's or website's server.");
+            int high = Reports.NetLinePing.HighFor(line.Usual);
+            // The hours it went high, each with the app uploading the most then (one filling the upload slows everything else).
+            var hours = pings.GroupBy(p => TimeUtil.ToUnix(TimeUtil.FromUnix(p.Ts) is var t ? t.Date.AddHours(t.Hour) : default)).Select(g => (Hour: g.Key, Line: Reports.NetLine.Of(g))).Where(h => h.Line is { } l && l.Highest >= high).ToList();
+            if (hours.Count > 0)
+            {
+                var uploads = db.GetNetAppHours(f, t).ToLookup(u => u.Ts);
+                sb.AppendLine($"Hours the ping went past {high} ms: " + string.Join("; ", hours.TakeLast(12).Select(h =>
+                {
+                    var up = uploads[h.Hour].Where(u => u.Up >= Reports.NetLine.BusyUploadBytes).MaxBy(u => u.Up);
+                    return $"{TimeUtil.FromUnix(h.Hour):d MMM h tt} up to {h.Line!.Highest} ms" + (up is null ? "" : $" while {name(up.App)} uploaded {Units.Data(up.Up)}");
+                })) + ".");
+            }
+        }
         return sb.ToString();
     }
 

@@ -70,7 +70,7 @@
                 <StackPanel HorizontalAlignment="Center" Margin="0,30">
                     <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="34" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="{Binding EmptyTitle}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
-                    <TextBlock Text="{ctl:T 'The PC was off, or the background agent wasn\'t running. Pick another period.'}"
+                    <TextBlock Text="{ctl:T 'Pick another period to see its report.'}"
                                Style="{StaticResource Muted}" HorizontalAlignment="Center" />
                 </StackPanel>
             </ctl:SmoothBorder>
