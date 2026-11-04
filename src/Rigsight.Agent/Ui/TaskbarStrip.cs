@@ -18,15 +18,19 @@ namespace Rigsight.Agent.Ui;
 /// at the end, which names them when hovered. On the left (<see cref="TraySide.Left"/>) it sits at the taskbar's left
 /// end, after Widgets and clear of Start, wherever the centred icons have moved Start to; with no room there (icons
 /// aligned left, or too many) it goes next to the clock, and the log says why. Each reading has its look
-/// (<see cref="TrayLook"/>) and, with tiles, a tile of its own. A click opens Rigsight ("+N": the Taskbar page);
+/// (<see cref="TrayLook"/>) and, with tiles, a tile of its own. A click opens the clicked readings' card (ReadingCard: a
+/// reading on the strip, a Two rows box or an icon per part whole, an icon; "+N": the Taskbar page);
 /// right-click removes a part's readings, picks a reading's look, moves the readings to the other end, switches the
 /// style, or opens the Taskbar page; hovering names the hardware and each reading. When it can't be placed (Windows 10,
 /// whose taskbar lays out its buttons itself, or no taskbar) <see cref="Update"/> says so and the readings show as
 /// Windows' own tray icons. UI thread only.
 /// </summary>
 internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> remove, Action<TrayStyle> setStyle, Action openPage,
-    Action<TraySide> setSide, Action<string, TrayLook> setLook) : IDisposable
+    Action<TraySide> setSide, Action<string, TrayLook> setLook, Action<IReadOnlyList<string>, Rectangle, float> openCard, Func<bool> cardShowing) : IDisposable
 {
+    /// <summary>Each reading's right edge within its part, as the strip was last drawn (null for the other styles): a click opens the one under it.</summary>
+    private float[][]? _valueEdges;
+
     /// <summary>Windows 11 (build 22000) and later: the taskbar's buttons leave room beside the tray.</summary>
     public static bool Supported => Environment.OSVersion.Version.Build >= 22000;
 
@@ -92,8 +96,8 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         _side = side;
         _style = style;
         _letters = letters;
-        // Only the strip draws graphs (the icons show numbers alone); every look but the number keeps the last minutes,
-        // as a short taskbar draws the fill-up looks as a graph.
+        // Only the strip draws graphs (the icons show numbers alone); every look but the number keeps the last minutes
+        // (the fill-up looks only need the reading now, but switching one to a graph then has its minutes already).
         HashSet<string> graphIds = style == TrayStyle.Strip ? [.. readings.Where(r => r.StripLook != TrayLook.Number).Select(r => r.Id)] : [];
         if (!graphIds.SetEquals(_graphIds))
             Log.Write("taskbar", $"Graphs on the strip: {graphIds.Count} ({string.Join(", ", graphIds)}), of {readings.Count} readings ({string.Join(", ", readings.Select(r => r.Id))})");
@@ -155,6 +159,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             Size size = _size;
             if (key != _drawn)
             {
+                _valueEdges = null; // the strip's drawing sets them
                 using var bmp = drawing.Render(barHeight, scale, out _edges);
                 _size = size = bmp.Size;
                 Place(bar, notify, size, scale);
@@ -224,7 +229,12 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             string key = string.Join('|', strip.Select(c => c.Name + ":" + string.Join(',', c.Values.Select(v => v.Text + v.Label + v.Color.ToArgb() + "/" + v.LabelColor?.ToArgb()
                 + v.Look + v.Fill.ToString("0.###") + v.Tile?.ToArgb() + (v.Graph is { } graph ? string.Join(';', graph.Points.Select(pt => $"{pt.X:0.###},{pt.Y:0.###}")) : "")))));
             return new Drawing(key, (height, scale) => WidgetRenderer.MeasureStrip(strip, height, scale, graphWide, look),
-                (height, scale) => (WidgetRenderer.RenderStrip(strip, height, scale, out var edges, graphWide, look), edges));
+                (height, scale) =>
+                {
+                    var bmp = WidgetRenderer.RenderStrip(strip, height, scale, out var edges, out var valueEdges, graphWide, look);
+                    _valueEdges = valueEdges;
+                    return (bmp, edges);
+                });
         }
 
         if (_style == TrayStyle.TwoRows)
@@ -486,7 +496,32 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         HideTip();
         int index = CellIndexAt(e.X);
         bool more = index >= 0 && index == _moreCell;
-        if (e.Button == MouseButtons.Left) { if (more) openPage(); else open(); return; }
+        if (e.Button == MouseButtons.Left)
+        {
+            if (more) openPage();
+            else if (index < 0 || !GetWindowRect(_window.Handle, out var strip)) open();
+            else
+            {
+                // What was clicked: a reading on the strip; a Two rows box or an icon per part (all of its readings); an icon.
+                var clicked = _cells[index];
+                IReadOnlyList<TrayReading> targets = clicked;
+                float from = index == 0 ? 0 : _edges[index - 1], to = _edges[index];
+                if (_style == TrayStyle.Strip && _valueEdges is { } valueEdges && index < valueEdges.Length)
+                {
+                    var edges = valueEdges[index];
+                    int i = Array.FindIndex(edges, edge => e.X < edge);
+                    if (i < 0) i = edges.Length - 1;
+                    if (i >= 0 && i < clicked.Count)
+                    {
+                        targets = [clicked[i]];
+                        if (i > 0) from = edges[i - 1];
+                        to = Math.Min(to, edges[i]);
+                    }
+                }
+                openCard([.. targets.Select(t => t.Id)], new Rectangle(strip.L + (int)from, strip.T, Math.Max(1, (int)(to - from)), strip.B - strip.T), _scale);
+            }
+            return;
+        }
         if (e.Button != MouseButtons.Right) return;
         var cell = more ? null : CellAt(e.X);
         var menu = DarkMenuRenderer.Create();
@@ -553,7 +588,8 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     private void ShowTip()
     {
         _tipDelay.Stop();
-        if (_window is null || CellIndexAt(_tipX) is not (>= 0 and var index)) return;
+        // The card says it all, and the tip would sit over it.
+        if (_window is null || cardShowing() || CellIndexAt(_tipX) is not (>= 0 and var index)) return;
         var cell = _cells[index];
         _tipText = index == _moreCell
             ? Lang.T("Waiting for room on the taskbar:") + "\n" + string.Join('\n', cell.Select(r => $"{r.Name}: {Units.Format(r.Kind, r.Value)}"))

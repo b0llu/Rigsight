@@ -187,6 +187,12 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.2.1", 11, 4,
+            added: [Lang.T("Click a reading in the taskbar to see its last ten minutes, its part's other readings and the apps using it most."),
+                Lang.T("In Two rows or An icon per part, a click shows both readings of the box side by side.")],
+            better: [Lang.T("On a taskbar with Windows' smaller buttons, every reading sits on a tile of the same height, its name and number on one line."),
+                Lang.T("On a small taskbar, Two rows now leaves room above, between and below its two lines instead of filling the box edge to edge.")],
+            fixedBugs: [Lang.T("On a taskbar with Windows' smaller buttons, Level, Blocks and Ring now draw as picked instead of as a filled graph.")]),
         V("1.2.0", 11, 3,
             feature: new(Lang.T("Taskbar tiles"), Lang.T("Readings in your taskbar on tiles, each drawn the way you pick."),
                 [Lang.T("Give each reading its own look: a filled, line or bar graph, a level, blocks or a ring."),

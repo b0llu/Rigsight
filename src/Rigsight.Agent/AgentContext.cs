@@ -93,6 +93,10 @@ internal sealed class AgentContext : ApplicationContext
     private readonly TrayController _tray;
     private readonly TrayReadings _trayReadings;
     private readonly TaskbarStrip _taskbarStrip;
+    private readonly ReadingCard _card;
+
+    /// <summary>The latest process pass (sampler thread): what a reading card lists as the apps using a part.</summary>
+    private ProcessSnapshot? _lastProcs;
 
     /// <summary>The taskbar readings waiting for room in the strip's "+N" (set on the UI thread, sent with each tick for the Taskbar page).</summary>
     private volatile IReadOnlyList<string> _trayWaiting = [];
@@ -197,12 +201,14 @@ internal sealed class AgentContext : ApplicationContext
             remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
             setGrouped: on => MutateSettings(s => s.TrayStyle = on ? TrayStyle.Grouped : TrayStyle.Icons),
             openPage: () => OpenApp("taskbar"));
+        _card = new ReadingCard(page => OpenApp(page));
         _taskbarStrip = new TaskbarStrip(open: () => OpenApp(null),
             remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
             setStyle: style => MutateSettings(s => s.TrayStyle = style),
             openPage: () => OpenApp("taskbar"),
             setSide: side => MutateSettings(s => s.TraySide = side),
-            setLook: (id, look) => MutateSettings(s => { s.TrayLooks.Remove(id); if (look != TrayLook.Number) s.TrayLooks[id] = look; }));
+            setLook: (id, look) => MutateSettings(s => { s.TrayLooks.Remove(id); if (look != TrayLook.Number) s.TrayLooks[id] = look; }),
+            openCard: OpenCard, cardShowing: () => _card.Key is not null);
         _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
@@ -522,6 +528,7 @@ internal sealed class AgentContext : ApplicationContext
                     Measure("processes", t0);
                     t0 = Stopwatch.GetTimestamp();
                     _running = snapshot.PidToExe;
+                    _lastProcs = snapshot;
                     _activity.UpdateProcessMap(snapshot.PidToExe);
                     var windows = _activity.ScanWindows();
                     _tracker.OnProcesses(snapshot, windows, pdt);
@@ -1023,6 +1030,168 @@ internal sealed class AgentContext : ApplicationContext
         return map;
     }
 
+    // ── Reading cards (issue #5): what a click on a taskbar reading opens ──
+
+    /// <summary>Each taskbar reading's last minutes (sampler thread), for its card's graph: since it came to the taskbar or the agent started.</summary>
+    private readonly Dictionary<string, Queue<(long Ms, float Value)>> _trayHistory = [];
+
+    private void RememberTray(IReadOnlyList<TrayReading> readings)
+    {
+        long now = Environment.TickCount64, keep = ReadingCards.GraphMinutes * 60_000L;
+        foreach (var gone in _trayHistory.Keys.Where(id => readings.All(r => r.Id != id)).ToList()) _trayHistory.Remove(gone);
+        foreach (var r in readings)
+        {
+            if (!_trayHistory.TryGetValue(r.Id, out var q)) _trayHistory[r.Id] = q = new();
+            q.Enqueue((now, r.Value is double v && double.IsFinite(v) ? (float)v : float.NaN));
+            while (q.Count > 0 && now - q.Peek().Ms > keep) q.Dequeue();
+        }
+    }
+
+    /// <summary>
+    /// A click on taskbar readings (UI thread): their card, gathered on the sampler, opened above them. The same readings
+    /// again close it (as a click on Windows' clock closes its own card).
+    /// </summary>
+    private void OpenCard(IReadOnlyList<string> ids, Rectangle anchor, float scale)
+    {
+        string key = string.Join('\n', ids);
+        if (_card.CloseIfShowing(key) || _card.JustClosed(key)) return;
+        bool light = DarkMenuRenderer.Light;
+        RunOnSampler(() =>
+        {
+            var settings = _settings;
+            var sections = CardFor(key, TrayReadingsFor(settings), settings, light);
+            var (accent, onAccent) = CardAccent(settings, light);
+            _ui.Post(_ =>
+            {
+                // A reading not found on this PC has nothing to show: RigSight, as a click did before.
+                if (sections.Count == 0) OpenApp(null);
+                else _card.Open(key, sections, anchor, scale, accent, onAccent);
+            }, null);
+        });
+    }
+
+    /// <summary>The button's colours: the accent picked in Settings, else the theme's own (its text colour, the card's colour on it).</summary>
+    private static (Color Accent, Color OnAccent) CardAccent(RigsightSettings settings, bool light) =>
+        AccentColors.Of(settings.Accent, light) is { } c
+            ? (Color.FromArgb(c.R, c.G, c.B), AccentColors.DarkTextOn(c.R, c.G, c.B) ? Color.Black : Color.White)
+            : (DarkMenuRenderer.TextColor, DarkMenuRenderer.Bg);
+
+    /// <summary>
+    /// A card's sections (sampler thread, see <see cref="ReadingCards"/>): one per part among the readings in
+    /// <paramref name="key"/>, in the order they were clicked. Readings not found on this PC are left out.
+    /// </summary>
+    private List<CardSection> CardFor(string key, IReadOnlyList<TrayReading> readings, RigsightSettings settings, bool light)
+    {
+        var ids = key.Split('\n');
+        var clicked = ids.Select(id => readings.FirstOrDefault(r => r.Id == id)).Where(r => r.Id is not null && r.Hardware.Length > 0).ToList();
+        var sensors = _sensors;
+        var schema = sensors.Schema;
+        string? KeyId(string name) => sensors.Keys.TryGetValue(name, out int i) && i >= 0 && i < sensors.Ids.Length ? sensors.Ids[i] : null;
+        string? cpuTempId = KeyId(KeySensors.CpuTemp), gpuTempId = KeyId(KeySensors.GpuTemp);
+        var extremes = _extremes.Snapshot();
+        var today = _lastToday;
+        bool gray = settings.TrayGrayscale;
+        var clickedIds = clicked.Select(r => r.Id).ToHashSet();
+        CardLine Line(string label, SensorKind kind, double value) =>
+            new(label, Units.StripText(kind, value), kind == SensorKind.Temperature && !gray ? WidgetRenderer.TrayColor(kind, value, light) : null);
+
+        var sections = new List<CardSection>();
+        foreach (var group in clicked.GroupBy(r => r.Group))
+        {
+            var first = group.First();
+            var device = schema.FirstOrDefault(h => h.Sensors.Any(s => s.Id == first.Id));
+
+            // The part's other readings: its key sensors (the CPU's, the graphics card's, RAM's) when they're on this
+            // device; a fan's, the board's other fans and temperatures; else one of each kind on the same device.
+            var rows = new List<CardLine>();
+            var keyRows = ReadingCards.KeyRows(first.Part).Select(k => (Id: KeyId(k.Key), k.Label)).Where(k => k.Id is not null).ToList();
+            bool keysHere = device is not null && keyRows.Any(k => device.Sensors.Any(s => s.Id == k.Id));
+            if (keysHere)
+            {
+                foreach (var (id, label) in keyRows)
+                {
+                    if (rows.Count >= ReadingCards.MaxRows || clickedIds.Contains(id!)) continue;
+                    if (sensors.ReadSensor(id!) is { } s && s.Value is double v) rows.Add(Line(label, s.Kind, v));
+                }
+            }
+            else if (device is not null)
+            {
+                var kinds = first.Part == TrayPart.Board ? [SensorKind.Fan, SensorKind.Temperature, SensorKind.Fan] : ReadingCards.DeviceKinds;
+                var used = new HashSet<string>(clickedIds);
+                foreach (var kind in kinds)
+                {
+                    if (rows.Count >= ReadingCards.MaxRows) break;
+                    foreach (var m in device.Sensors.Where(m => m.Kind == kind && !used.Contains(m.Id)))
+                    {
+                        if (sensors.ReadSensor(m.Id) is not { } s || s.Value is not double v) continue;
+                        used.Add(m.Id);
+                        rows.Add(Line(SensorWords.Show(m.Name), kind, v));
+                        break;
+                    }
+                }
+            }
+
+            // What uses the part; a fan, what it cools.
+            var (by, appsTitle) = ReadingCards.Apps(first.Part);
+            var apps = CardApps(by);
+            var cools = new List<CardLine>();
+            if (group.Any(r => r.Kind is SensorKind.Fan or SensorKind.Control))
+                foreach (var (id, label) in new[] { (cpuTempId, "CPU"), (gpuTempId, "GPU") })
+                    if (id is not null && sensors.ReadSensor(id) is { } s && s.Value is double v) cools.Add(Line(label, SensorKind.Temperature, v));
+
+            var page = ReadingCards.Page(first.Part, first.Kind);
+            sections.Add(new CardSection(TrayParts.Label(first.Part), first.Hardware, first.NameOn(light, gray), [.. group.Select(Big)], rows,
+                apps.Count > 0 ? appsTitle : null, apps, cools.Count > 0 ? Lang.T("What the fans are cooling now") : null, cools, ReadingCards.Button(page), page));
+        }
+        return sections;
+
+        // A clicked reading, big: now, its last minutes, and today's highest (CPU and GPU temperatures with when and what ran).
+        CardBig Big(TrayReading r)
+        {
+            var history = _trayHistory.TryGetValue(r.Id, out var q) ? q.ToList() : [];
+            var oldest = history.Count > 0 ? DateTime.Now - TimeSpan.FromMilliseconds(Environment.TickCount64 - history[0].Ms) : DateTime.Now;
+            string? highest = null;
+            if (ReadingCards.ShowsHighest(r.Part, r.Kind))
+            {
+                if (r.Id == cpuTempId && today?.CpuPeak is double cp) highest = Peak(cp, today.CpuPeakTime, today.CpuPeakApp);
+                else if (r.Id == gpuTempId && today?.GpuPeak is double gp) highest = Peak(gp, today.GpuPeakTime, today.GpuPeakApp);
+                else if (extremes.TryGetValue(r.Id, out var mm) && mm.Length > 1 && double.IsFinite(mm[1])) highest = Lang.T($"Highest today {Units.StripText(r.Kind, mm[1])}");
+            }
+            return new CardBig(r.Name, r.Kind, r.Value, r.NumberOn(light, gray), history, ReadingCards.Span(oldest, DateTime.Now),
+                ReadingCards.LowAvgHigh(r.Kind, [.. history.Select(p => p.Value)]), highest);
+        }
+
+        static string Peak(double value, long? time, string? app)
+        {
+            string v = Units.StripText(SensorKind.Temperature, value);
+            if (time is not long t) return Lang.T($"Highest today {v}");
+            string at = TimeText.Time(DateTimeOffset.FromUnixTimeSeconds(t).LocalDateTime);
+            return app is { Length: > 0 } ? Lang.T($"Highest today {v} at {at}, while {app} ran") : Lang.T($"Highest today {v} at {at}");
+        }
+    }
+
+    /// <summary>The apps using a part most (sampler thread), from the latest process pass or, for the network, its live rates.</summary>
+    private List<CardApp> CardApps(CardApps by)
+    {
+        var snap = _lastProcs;
+        string Name(string exe) => _apps.Describe(exe, snap?.Apps.TryGetValue(exe, out var a) == true ? a.FirstPid : 0).Name;
+        IEnumerable<CardApp> list = by switch
+        {
+            Core.CardApps.Cpu when snap is not null => snap.Apps.Values.Where(a => a.Cpu >= 0.1).OrderByDescending(a => a.Cpu)
+                .Take(ReadingCards.MaxApps).Select(a => new CardApp(Name(a.Exe), a.Cpu, Units.StripText(SensorKind.Load, a.Cpu))),
+            Core.CardApps.Memory when snap is not null => snap.Apps.Values.OrderByDescending(a => a.MemMB)
+                .Take(ReadingCards.MaxApps).Select(a => new CardApp(Name(a.Exe), a.MemMB, Units.Megabytes(a.MemMB))),
+            Core.CardApps.Disk when snap is not null => snap.Apps.Values.Where(a => a.Disk >= 1024).OrderByDescending(a => a.Disk)
+                .Take(ReadingCards.MaxApps).Select(a => new CardApp(Name(a.Exe), a.Disk, Units.Speed(a.Disk))),
+            Core.CardApps.Gpu when snap is not null => snap.Gpu.Where(kv => kv.Value >= 1).OrderByDescending(kv => kv.Value)
+                .Take(ReadingCards.MaxApps).Select(kv => new CardApp(Name(kv.Key), kv.Value, Units.StripText(SensorKind.Load, kv.Value))),
+            Core.CardApps.Network => _tracker.NetNow.Apps.Where(a => a.Down + a.Up >= 1024).OrderByDescending(a => a.Down + a.Up)
+                .Take(ReadingCards.MaxApps).Select(a => new CardApp(a.Name, a.Down + a.Up, Units.Speed(a.Down + a.Up))),
+            _ => [],
+        };
+        return [.. list];
+    }
+
     /// <summary>The taskbar's sensors (sampler thread): the name given on All sensors, else the sensor's own.</summary>
     private List<TrayReading> TrayReadingsFor(RigsightSettings settings)
     {
@@ -1045,6 +1214,10 @@ internal sealed class AgentContext : ApplicationContext
     {
         var settings = _settings;
         var trayReadings = TrayReadingsFor(settings);
+        RememberTray(trayReadings);
+        // A reading card that's open: its readings again, a tick later.
+        string? cardKey = _card.Key;
+        var cardSections = cardKey is null ? null : CardFor(cardKey, trayReadings, settings, DarkMenuRenderer.Light);
         var activity = _tracker.Activity;
         // Only tiles and graphs draw history lines; skip scanning it otherwise.
         var historyOf = settings.Widgets.Where(w => w.Enabled && WidgetCatalog.LayoutOf(w) is WidgetLayout.Tiles or WidgetLayout.Graph)
@@ -1093,6 +1266,7 @@ internal sealed class AgentContext : ApplicationContext
                 settings.TrayLetterNames);
             _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped, settings.TrayGrayscale, settings.TrayTiles);
             _trayWaiting = _taskbarStrip.Waiting;
+            if (cardKey is not null && cardSections is { Count: > 0 }) _card.Renew(cardKey, cardSections);
             // Asked of Windows here, on this tick and for the same window, so Alt+Enter between windowed and borderless
             // is caught on the next tick (only with a game in front: a few cheap calls, no new polling).
             var front = gameInFront ? Win32.GetForegroundWindow() : IntPtr.Zero;
@@ -2344,7 +2518,7 @@ internal sealed class AgentContext : ApplicationContext
         _sampler.Join(5000);
 
         // Each step is independent: a failure in one must never leave the agent half-closed.
-        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _askHotkey.Dispose, _notices.CloseAll, _trayReadings.Dispose, _taskbarStrip.Dispose, _tray.Dispose })
+        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _askHotkey.Dispose, _notices.CloseAll, _trayReadings.Dispose, _card.Dispose, _taskbarStrip.Dispose, _tray.Dispose })
         {
             try { step(); }
             catch (Exception ex) { Log.Error("agent", ex); }

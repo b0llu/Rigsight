@@ -1,6 +1,5 @@
 ﻿using System.Windows;
 using System.Windows.Media;
-using Microsoft.Win32;
 using Rigsight.Core;
 
 namespace Rigsight.Services;
@@ -8,11 +7,11 @@ namespace Rigsight.Services;
 /// <summary>
 /// The app's accent (selected page bar, buttons, switches, picked dates): black and white by default, a colour the
 /// user picks in Settings, or Windows' own accent. Each colour has a lighter shade for the dark themes and a deeper
-/// one for Light, so it reads on both.
+/// one for Light, so it reads on both. The colours themselves are Core's (AccentColors), which the agent uses too.
 /// </summary>
 public static class Accents
 {
-    public const string Mono = "mono", Windows = "windows";
+    public const string Mono = AccentColors.Mono, Windows = AccentColors.Windows;
 
     /// <param name="Key">What settings.json stores.</param>
     public sealed record Accent(string Key, string Name, Color OnDark, Color OnLight);
@@ -20,52 +19,22 @@ public static class Accents
     public static readonly IReadOnlyList<Accent> All =
     [
         new(Mono, Lang.Key("The theme's own"), Colors.White, Colors.Black),
-        new("blue", Lang.Key("Blue"), Hex("#60A5FA"), Hex("#2563EB")),
-        new("teal", Lang.Key("Teal"), Hex("#2DD4BF"), Hex("#0D9488")),
-        new("green", Lang.Key("Green"), Hex("#4ADE80"), Hex("#16A34A")),
-        new("purple", Lang.Key("Purple"), Hex("#A78BFA"), Hex("#7C3AED")),
-        new("pink", Lang.Key("Pink"), Hex("#F472B6"), Hex("#DB2777")),
-        new("red", Lang.Key("Red"), Hex("#F87171"), Hex("#DC2626")),
-        new("orange", Lang.Key("Orange"), Hex("#FB923C"), Hex("#EA580C")),
-        new("yellow", Lang.Key("Yellow"), Hex("#FACC15"), Hex("#CA8A04")),
+        .. AccentColors.Named.Select(a => new Accent(a.Key, a.Name, Hex(a.OnDark), Hex(a.OnLight))),
     ];
 
-    public static string Normalize(string? key) =>
-        key == Windows || All.Any(a => a.Key == key) ? key! : Mono;
+    public static string Normalize(string? key) => AccentColors.Normalize(key);
 
     /// <summary>The colour for this accent on a light or dark page, or null for the palette's own black/white.</summary>
-    public static Color? ColorFor(string? key, bool light)
-    {
-        key = Normalize(key);
-        if (key == Mono) return null;
-        if (key == Windows) return WindowsAccent(light);
-        var accent = All.First(a => a.Key == key);
-        return light ? accent.OnLight : accent.OnDark;
-    }
+    public static Color? ColorFor(string? key, bool light) => AccentColors.Of(key, light) is { } c ? Color.FromRgb(c.R, c.G, c.B) : null;
 
     /// <summary>
     /// Windows' accent in the shade Windows itself uses for this mode (lighter on dark, deeper on light), from its
     /// accent palette; null if it can't be read.
     /// </summary>
-    public static Color? WindowsAccent(bool light)
-    {
-        try
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent");
-            // Eight RGBA colours: light 3, 2, 1, the accent, dark 1, 2, 3, and one more.
-            if (key?.GetValue("AccentPalette") is byte[] p && p.Length >= 32)
-            {
-                int i = light ? 4 : 1;
-                return Color.FromRgb(p[i * 4], p[i * 4 + 1], p[i * 4 + 2]);
-            }
-        }
-        catch { }
-        return null;
-    }
+    public static Color? WindowsAccent(bool light) => AccentColors.WindowsAccent(light) is { } c ? Color.FromRgb(c.R, c.G, c.B) : null;
 
     /// <summary>Black text on a bright accent, white on a deep one.</summary>
-    public static Color OnAccent(Color c) =>
-        0.2126 * Linear(c.R) + 0.7152 * Linear(c.G) + 0.0722 * Linear(c.B) > 0.3 ? Colors.Black : Colors.White;
+    public static Color OnAccent(Color c) => AccentColors.DarkTextOn(c.R, c.G, c.B) ? Colors.Black : Colors.White;
 
     /// <summary>Puts the accent into a freshly loaded palette (before it's merged in), keeping each brush's opacity.</summary>
     public static void ApplyTo(ResourceDictionary palette, Color accent)
@@ -183,12 +152,6 @@ public static class Accents
         var b = new SolidColorBrush(c) { Opacity = opacity };
         b.Freeze();
         return b;
-    }
-
-    private static double Linear(byte v)
-    {
-        double s = v / 255.0;
-        return s <= 0.04045 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
     }
 
     private static Color Hex(string hex) => (Color)ColorConverter.ConvertFromString(hex);

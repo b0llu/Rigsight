@@ -162,6 +162,62 @@ public sealed class TaskbarLooksTests
         Assert.Equal(TrayParts.HasTop(kind) ? 7 : 4, TrayParts.LooksFor(kind).Count);
     }
 
+    [Theory]
+    [InlineData(TrayLook.Level)]
+    [InlineData(TrayLook.Blocks)]
+    [InlineData(TrayLook.Ring)]
+    public void On_a_short_taskbar_each_look_draws_as_picked_not_as_a_graph(TrayLook look)
+    {
+        // Windows' smaller taskbar buttons: a 32-pixel bar, each reading on one line ("CPU 62%"). Before issue #5 these
+        // looks became a filled graph there (and a reading kept no graph for them, so nothing showed but the number).
+        Bitmap Short(TrayLook l, float fill) => WidgetRenderer.RenderStrip([new StripCell("CPU", Blue, [new StripValue("62%", Color.White, "Load", "88%", null, Blue, l, fill,
+            Color.FromArgb(20, Color.White))])], 32, 1, out _, WidgetRenderer.StripGraphWidth, new StripLook(true, TrayWidth.Standard, false));
+        using var low = Short(look, 0.1f);
+        using var high = Short(look, 0.9f);
+        Assert.True(BlueUnder(high, from: 0) > BlueUnder(low, from: 0) + 20, $"{look} fills up with the reading on one line");
+        // The ring has its own room beside the number, as on two lines: the strip is wider by about the ring.
+        if (look == TrayLook.Ring)
+        {
+            using var number = Short(TrayLook.Number, 0.9f);
+            Assert.True(high.Width >= number.Width + 18, $"ring {high.Width} px, number only {number.Width} px");
+        }
+    }
+
+    [Theory]
+    [InlineData(32, TrayLook.Number)]
+    [InlineData(32, TrayLook.Area)]
+    [InlineData(32, TrayLook.Ring)]
+    [InlineData(32, TrayLook.Blocks)]
+    [InlineData(32, TrayLook.Level)]
+    [InlineData(48, TrayLook.Number)]
+    [InlineData(48, TrayLook.Area)]
+    [InlineData(48, TrayLook.Ring)]
+    [InlineData(48, TrayLook.Blocks)]
+    [InlineData(48, TrayLook.Level)]
+    public void A_wide_reading_is_never_cut_by_its_tile(int height, TrayLook look)
+    {
+        // The widest a speed gets ("188.8 MB/s") under a long word: its number stays clear of the tile's padding on both
+        // sides, so nothing is clipped (the user's report on the mock-up, 2026-11-04: "readings getting cut").
+        var white = Color.White;
+        var strip = new[] { new StripCell("Network", Blue, [new StripValue("188.8 MB/s", white, "Down", "888.8 MB/s", look is TrayLook.Area ? new StripGraph(Rising, Blue) : null,
+            Blue, look, 0.5f, Color.FromArgb(20, white))]) };
+        using var bmp = WidgetRenderer.RenderStrip(strip, height, 1, out _, WidgetRenderer.StripGraphWidth, new StripLook(true, TrayWidth.Standard, false));
+        AssertNoInkIn(bmp, 4, 9, "left padding");
+        AssertNoInkIn(bmp, bmp.Width - 9, bmp.Width - 4, "right padding");
+
+        TwoRowColumn Box() => new([new TwoRowLine("Down", Blue, "188.8 MB/s", white, "888.8 MB/s"), new TwoRowLine("Up", Blue, "88.8 MB/s", white, "888.8 MB/s")], Color.FromArgb(20, white));
+        using var rows = WidgetRenderer.RenderTwoRows([Box()], height, 1, out _, new StripLook(true, TrayWidth.Standard, false));
+        AssertNoInkIn(rows, rows.Width - 9, rows.Width - 4, "Two rows' right padding");
+    }
+
+    /// <summary>No white digit's pixel between <paramref name="from"/> and <paramref name="to"/> (columns), top to bottom.</summary>
+    private static void AssertNoInkIn(Bitmap bmp, int from, int to, string where)
+    {
+        var hits = Enumerable.Range(Math.Max(0, from), Math.Min(bmp.Width, to) - Math.Max(0, from))
+            .SelectMany(x => Enumerable.Range(0, bmp.Height).Where(y => bmp.GetPixel(x, y) is { A: > 150, R: > 200, G: > 200, B: > 200 })).Count();
+        Assert.True(hits == 0, $"{hits} pixels of the number in the {where}");
+    }
+
     [Fact]
     public void Two_rows_pair_readings_in_the_lists_order_and_one_on_its_own_gets_a_box()
     {
