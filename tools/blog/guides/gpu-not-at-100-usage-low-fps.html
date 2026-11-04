@@ -5,6 +5,7 @@
  "also": ["why is my gpu not at 100 usage", "cpu bottleneck symptoms", "cpu bottleneck", "cpu and gpu usage not at 100 but low fps", "cpu bottleneck vs gpu bottleneck"],
  "title": "GPU not at 100% usage but low FPS? Find what your card waits for",
  "summary": "How RigSight tells whether a frame cap, VSync or the CPU keeps your GPU under 100% usage, why the card waits, and how to check a CPU bottleneck yourself.",
+ "description": "GPU under 95% usage with low FPS means the card is waiting. A flat frame rate points to a cap or VSync, a jumpy one to the CPU. How to tell which.",
  "short": "A graphics card under 95% load means it is waiting. If the frame rate sits flat at a round number, a cap or VSync is holding it. If it moves around and drops in busy scenes, the CPU or the game engine is the limit. Lowering the resolution tells you which. If FPS barely rises, it's the CPU.",
  "faq": [["Why is my GPU not at 100 usage?", "Because it has nothing more to do. Either a frame cap or VSync stops it after the target frame rate, or the CPU can't prepare frames fast enough to keep it busy. Low usage on its own is not a fault, it only matters when your FPS is also lower than you want."],
          ["What are CPU bottleneck symptoms?", "The usual signs are GPU load well under 95% with no frame cap, FPS that barely changes when you lower resolution or graphics settings, dips in crowded scenes and big fights, and one or two CPU threads near 100% in Task Manager while the total CPU usage looks modest."],

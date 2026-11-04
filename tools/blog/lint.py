@@ -28,7 +28,7 @@ def bad(f, msg):
 
 for f, (meta, body) in metas.items():
     guide = f.parent.name == "guides"
-    text = re.sub(r"<[^>]+>", " ", body) + " " + meta.get("short", "") + " " + meta.get("summary", "") + " " + meta["title"]
+    text = re.sub(r"<[^>]+>", " ", body) + " " + meta.get("short", "") + " " + meta.get("summary", "") + " " + meta.get("description", "") + " " + meta["title"]
     text += " " + " ".join(q + " " + a for q, a in meta.get("faq", []))
     for ch, name in (("—", "em dash"), ("–", "en dash")):
         if ch in text:

@@ -185,14 +185,14 @@ def build_guides():
     links = dict(home="../", blog="./", img=img)
     pages = []
     for g in guides:
-        pages.append((g["slug"], f"{g['title']} · RigSight", g["summary"], guide_html(g, guides, "site", img), g))
+        pages.append((g["slug"], f"{g['title']} · RigSight", g.get("description") or g["summary"], guide_html(g, guides, "site", img), g))
     for slug, title, desc, inner, g in pages:
         url = f"{b.SITE}/blog/{slug}"
         crumbs = [{"@type": "ListItem", "position": 1, "name": "Home", "item": f"{b.SITE}/"},
                   {"@type": "ListItem", "position": 2, "name": "Blog", "item": f"{b.SITE}/blog/"}]
         if g:
             crumbs.append({"@type": "ListItem", "position": 3, "name": g["title"], "item": url})
-            ld = [{"@context": "https://schema.org", "@type": "Article", "headline": g["title"], "description": g["summary"],
+            ld = [{"@context": "https://schema.org", "@type": "Article", "headline": g["title"], "description": g.get("description") or g["summary"],
                    "datePublished": g["published"], "dateModified": g["updated"], "image": f"{b.SITE}/img/blog/{g['slug']}.webp",
                    "author": {"@type": "Person", "name": b.AUTHOR}, "publisher": {"@type": "Organization", "name": "RigSight", "url": b.SITE},
                    "mainEntityOfPage": url, "keywords": ", ".join([g["keyword"]] + g.get("also", []))},
