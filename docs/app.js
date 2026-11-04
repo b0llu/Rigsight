@@ -195,4 +195,37 @@
       plans.querySelectorAll('button[data-bill]').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
     });
   });
+
+  // Going to a part of the page (FAQ from the blog, or from the top bar here): a section is only drawn once it comes
+  // near the screen, and until then it stands in at 1400 px. The browser aimed with those heights, the real sections
+  // came out shorter on the way down, and it stopped about 900 px into the FAQ. So every section before the part is
+  // drawn first, and the spot is worked out from their real heights.
+  function partOf(hash) { try { return hash && hash.length > 1 ? document.getElementById(decodeURIComponent(hash.slice(1))) : null; } catch (e) { return null; } }
+  function drawBefore(t) {
+    document.querySelectorAll('section.block').forEach(function (s) {
+      if (s !== t && !s.contains(t) && (s.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING)) s.style.contentVisibility = 'visible';
+    });
+  }
+  var arrived = partOf(location.hash);
+  if (arrived) {
+    var root = document.documentElement, touched = false;
+    root.style.scrollBehavior = 'auto';
+    drawBefore(arrived);
+    arrived.scrollIntoView();
+    ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(function (n) { window.addEventListener(n, function () { touched = true; }, { once: true, passive: true }); });
+    // Fonts and pictures can still change a height or two before the page has loaded; go there again unless the reader has moved.
+    window.addEventListener('load', function () {
+      if (!touched) arrived.scrollIntoView();
+      setTimeout(function () { root.style.scrollBehavior = ''; }, 0);
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]:not(.skip)');
+    var t = a && partOf(a.getAttribute('href'));
+    if (!t || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    drawBefore(t);
+    history.pushState(null, '', a.getAttribute('href'));
+    t.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' });
+  });
 })();

@@ -43,7 +43,7 @@
   --gpu: #22d3ee;
   --hot: #a78bfa;
   --ram: #c084fc;
-  --coffee: #ffdd00;
+  --coffee: #facc15;
   --display: "Geist", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
   --body: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -56,18 +56,23 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
-.wrap-narrow { max-width: 776px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
+   reading width: each part inside has its own max-width and starts at the same left edge as the top bar. */
+.wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
-/* top bar */
+/* top bar: the home page's, size for size */
 .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(0,0,0,.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
-.top-in { display: flex; align-items: center; gap: 24px; height: 62px; }
+.top-in { display: flex; align-items: center; gap: 48px; height: 68px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
 .brand img { border-radius: 6px; }
-.top nav { display: flex; gap: 30px; margin-left: 24px; }
-.top nav a { color: var(--muted); text-decoration: none; font-size: 14.5px; font-weight: 600; }
+.top .brand { gap: 11px; font: 700 19px/1 var(--display); }
+.top .brand img { width: 30px; height: 30px; border-radius: 8px; }
+.top nav { display: flex; gap: 30px; }
+.top nav a { color: #b9bec7; text-decoration: none; font: 500 15.5px/1 var(--body); }
 .top nav a:hover, .top nav a.on { color: var(--fg); }
 .top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.top nav a.coffee { font-weight: 700; }
+.top .btn-sm { height: 40px; padding: 0 20px; font-size: 15px; }
 .top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
 .coffee-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; color: var(--coffee); font-weight: 600; font-size: 14.5px; text-decoration: none; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3); white-space: nowrap; }
 .coffee-pill:hover { color: #fde047; background: rgba(250,204,21,.14); }
@@ -197,7 +202,10 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (max-width: 760px) {
   .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .top nav a:not(.on) { display: none; }
-  .top-end { gap: 8px; }
+  /* as on the home page: Blog sits with GitHub and Download on the right */
+  .top nav { margin-left: auto; }
+  .top nav a.on { font: 600 15px/1 var(--body); padding: 8px 4px; }
+  .top-end { gap: 14px; margin-left: 0; }
   .top-in { gap: 14px; }
   .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
   .row h2 { font-size: 21px; }
@@ -294,7 +302,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 <p>Next, look up your exact CPU's maximum on AMD's or Intel's site, then play for half an hour and note where the temperature settles. If it stays 10 degrees or more under the limit, you're fine. If it sits at the limit, start with the cooler mount and the fans.</p>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>What is a normal CPU temperature while gaming on Ryzen?</summary><p>Most Ryzen desktops sit somewhere in the 60s to 80s °C in games. AMD has said that up to 90°C on the Ryzen 7 5800X and 95°C on the Ryzen 5 5600X is typical and by design at full load, and games are usually lighter than full load. The Ryzen 7 7800X3D has a lower limit, 89°C.</p></details><details class="qa"><summary>What is normal CPU temperature while gaming with an AIO?</summary><p>An AIO liquid cooler usually gives lower peaks than a small air cooler, and the 60s and low 70s °C are common in games. If an AIO CPU reaches its limit, check that the pump runs and is plugged into the right header, and that the radiator fans spin.</p></details><details class="qa"><summary>What is normal CPU temperature while gaming on a laptop?</summary><p>Laptop CPUs run hotter than desktop ones, and readings in the 80s and low 90s °C are common in games. The laptop maker sets the limits and the fan behaviour, so their support page has the right numbers for your model.</p></details><details class="qa"><summary>What is normal CPU temperature while gaming in Fahrenheit?</summary><p>60 to 85°C is 140 to 185°F. AMD's 95°C limit is 203°F, and Intel's 100°C limit is 212°F.</p></details><details class="qa"><summary>Why is my CPU hotter than my GPU while gaming?</summary><p>CPUs have a smaller surface to move heat through, and many are tuned to boost until they reach a set temperature. A CPU that reads hotter than the GPU in the same game is common and not a fault on its own.</p></details></section>
   </div>
-  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="normal-gpu-temperature-while-gaming"><span>Temperatures</span><b>Normal GPU temperature while gaming, and when 85°C is too hot</b></a><a class="more" href="pc-overheating-while-gaming"><span>Temperatures</span><b>PC overheating while gaming, or just warm? How RigSight tells</b></a><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>Why GPU hotspot temperature runs high, and when the gap is bad</b></a><a class="more" href="game-crashes-to-desktop-no-error"><span>Crashes</span><b>Game crashes to desktop with no error? How RigSight finds why</b></a></nav>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="check-gpu-temperature-history"><span>Temperatures</span><b>How to check GPU temperature history without being misled</b></a><a class="more" href="normal-gpu-temperature-while-gaming"><span>Temperatures</span><b>Normal GPU temperature while gaming, and when 85°C is too hot</b></a><a class="more" href="pc-overheating-while-gaming"><span>Temperatures</span><b>PC overheating while gaming, or just warm? How RigSight tells</b></a><a class="more" href="gpu-hotspot-temperature"><span>Temperatures</span><b>Why GPU hotspot temperature runs high, and when the gap is bad</b></a></nav>
   <aside class="get">
     <img src="../img/logo-144.webp" alt="" width="40" height="40">
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>

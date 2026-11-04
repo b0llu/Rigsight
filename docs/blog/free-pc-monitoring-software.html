@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Free PC monitoring software, and why I built an HWiNFO alternative · RigSight</title>
+  <meta name="description" content="Free PC monitoring software compared. HWiNFO reads the most sensors, Afterburner tunes the GPU, RigSight keeps the history. Which one fits your question." />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="canonical" href="https://rigsight.app/blog/free-pc-monitoring-software" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
+  <meta property="og:site_name" content="RigSight" />
+  <meta property="og:title" content="Free PC monitoring software, and why I built an HWiNFO alternative · RigSight" />
+  <meta property="og:description" content="Free PC monitoring software compared. HWiNFO reads the most sensors, Afterburner tunes the GPU, RigSight keeps the history. Which one fits your question." />
+  <meta property="og:url" content="https://rigsight.app/blog/free-pc-monitoring-software" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
+  <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <meta property="og:image" content="https://rigsight.app/img/blog/free-pc-monitoring-software.webp" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="800" />
+  <meta property="og:type" content="article" />
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Free PC monitoring software, and why I built an HWiNFO alternative", "description": "Free PC monitoring software compared. HWiNFO reads the most sensors, Afterburner tunes the GPU, RigSight keeps the history. Which one fits your question.", "datePublished": "2026-11-04", "dateModified": "2026-11-04", "image": "https://rigsight.app/img/blog/free-pc-monitoring-software.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/free-pc-monitoring-software", "keywords": "pc monitoring software free, pc hardware monitoring software free, hwinfo alternative, hwinfo alternative free, hwinfo alternative open source, msi afterburner alternative, msi afterburner alternative for monitoring, msi afterburner alternative to show fps, pc temp monitoring software free"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Free PC monitoring software, and why I built an HWiNFO alternative", "item": "https://rigsight.app/blog/free-pc-monitoring-software"}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is the best free PC monitoring software?", "acceptedAnswer": {"@type": "Answer", "text": "It depends on the question. HWiNFO reads the most sensors, MSI Afterburner is the usual choice for GPU tuning and an in-game overlay, and RigSight keeps a history so you can look back. Many people run one of each."}}, {"@type": "Question", "name": "Is there an open source HWiNFO alternative?", "acceptedAnswer": {"@type": "Answer", "text": "LibreHardwareMonitor is open source under the MPL 2.0 licence and reads CPU, GPU, motherboard, drive and network sensors. RigSight is open source under the MIT licence and reads its sensors with LibreHardwareMonitor's library. Neither reads as many sensors as HWiNFO."}}, {"@type": "Question", "name": "What is an MSI Afterburner alternative to show FPS?", "acceptedAnswer": {"@type": "Answer", "text": "RivaTuner Statistics Server, which installs with Afterburner, can show a frame rate overlay on its own. NVIDIA's and AMD's own apps have performance overlays, and the Xbox Game Bar has a Performance widget. RigSight shows FPS in its overlay and records it per game, reading it from RivaTuner."}}, {"@type": "Question", "name": "Is HWiNFO free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, for personal and non-commercial use. Commercial use needs the paid Pro licence. The free version's shared memory feature, which other apps use to read HWiNFO's sensors, switches off after 12 hours until you turn it on again."}}, {"@type": "Question", "name": "Can I run more than one monitoring program at once?", "acceptedAnswer": {"@type": "Answer", "text": "Usually yes. Many people keep one running in the background and open another when they need a closer look. If readings look odd or a tool reports conflicts, close one of them and compare."}}]}</script>
+  <style>
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
+/* Layout: the site's dark look. The list is picture-left rows like a magazine contents page; a post is a 680px column
+   under a cover that matches its row, with pictures a little wider than the text. */
+:root {
+  --bg: #000;
+  --surface: #0a0b0d;
+  --surface-2: #111317;
+  --line: rgba(255,255,255,.08);
+  --line-2: rgba(255,255,255,.14);
+  --fg: #f3f4f6;
+  --text: #c5cad2;
+  --muted: #a0a6b0;
+  --faint: #767c87;
+  --cpu: #5b8def;
+  --gpu: #22d3ee;
+  --hot: #a78bfa;
+  --ram: #c084fc;
+  --coffee: #facc15;
+  --display: "Geist", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 80px; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+a { color: var(--gpu); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
+img { max-width: 100%; height: auto; }
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
+   reading width: each part inside has its own max-width and starts at the same left edge as the top bar. */
+.wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+
+/* top bar: the home page's, size for size */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(0,0,0,.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top-in { display: flex; align-items: center; gap: 48px; height: 68px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+.brand img { border-radius: 6px; }
+.top .brand { gap: 11px; font: 700 19px/1 var(--display); }
+.top .brand img { width: 30px; height: 30px; border-radius: 8px; }
+.top nav { display: flex; gap: 30px; }
+.top nav a { color: #b9bec7; text-decoration: none; font: 500 15.5px/1 var(--body); }
+.top nav a:hover, .top nav a.on { color: var(--fg); }
+.top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.top nav a.coffee { font-weight: 700; }
+.top .btn-sm { height: 40px; padding: 0 20px; font-size: 15px; }
+.top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.coffee-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; color: var(--coffee); font-weight: 600; font-size: 14.5px; text-decoration: none; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3); white-space: nowrap; }
+.coffee-pill:hover { color: #fde047; background: rgba(250,204,21,.14); }
+.icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; color: #c9cdd4; }
+.icon-btn:hover { color: var(--fg); background: rgba(255,255,255,.09); }
+.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--fg); color: #000; font-weight: 600; text-decoration: none; border-radius: 999px; padding: 11px 20px; font-size: 15px; white-space: nowrap; }
+.btn:hover { background: #fff; }
+.btn-sm { padding: 7px 14px; font-size: 13.5px; }
+.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.progress i { display: block; height: 100%; background: var(--gpu); transform-origin: 0 50%; transform: scaleX(0); }
+
+/* blog index */
+.blog-head { padding-block: 64px 36px; }
+.kicker { font: 500 13px/1 var(--mono); color: var(--gpu); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; }
+.blog-head h1 { font: 600 clamp(40px, 7vw, 72px)/1.02 var(--display); letter-spacing: -0.045em; margin: 0 0 18px; text-wrap: balance; }
+.intro { color: var(--muted); font-size: 18.5px; line-height: 1.6; max-width: 640px; margin: 0 0 14px; }
+.starts { color: var(--faint); font-size: 14.5px; margin: 0; }
+.starts a { color: var(--muted); }
+.starts a:hover { color: var(--fg); }
+.eyebrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--faint); margin: 0 0 10px; font-weight: 500; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.s-build { background: var(--cpu); }
+.s-ai { background: var(--hot); }
+.s-guide, .s-fix { background: var(--gpu); }
+.meta { font-size: 13.5px; color: var(--faint); margin: 0; font-variant-numeric: tabular-nums; }
+.filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.chip { font: 600 14px/1 var(--body); color: var(--muted); background: transparent; border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.chip span { color: var(--faint); font-weight: 500; margin-left: 4px; }
+.rss { margin-left: auto; align-self: center; font-size: 14px; color: var(--faint); text-decoration: none; }
+.rss:hover { color: var(--fg); }
+.chip:hover { color: var(--fg); }
+.chip[aria-pressed="true"] { color: #000; background: var(--fg); border-color: var(--fg); }
+.chip[aria-pressed="true"] span { color: #444; }
+.rows { list-style: none; margin: 8px 0 80px; padding: 0; }
+.row a { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 40px; align-items: center; padding: 30px 0; text-decoration: none; color: inherit; }
+.row + .row { border-top: 1px solid var(--line); }
+.row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
+.row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
+.row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
+.row a:hover .thumb img { transform: scale(1.015); }
+
+/* guides */
+.body h3 { font: 600 19px/1.3 var(--display); color: var(--fg); margin: 1.6em 0 .4em; }
+.body pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0 0 1.2em; max-width: 100%; }
+.body pre code { background: none; border: 0; padding: 0; font-size: 14.5px; line-height: 1.6; white-space: pre; }
+.body table { border-collapse: collapse; width: 100%; font-size: 16px; margin: 0 0 1.2em; display: block; overflow-x: auto; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.body th { color: var(--fg); font-weight: 600; }
+.faq { margin-top: 2.4em; }
+.qa { border-top: 1px solid var(--line); }
+.qa:last-child { border-bottom: 1px solid var(--line); }
+.qa summary { cursor: pointer; list-style: none; padding: 16px 32px 16px 0; position: relative; color: var(--fg); font-weight: 600; font-size: 17.5px; line-height: 1.45; }
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary::after { content: "+"; position: absolute; right: 4px; top: 14px; font: 400 22px/1 var(--mono); color: var(--faint); }
+.qa[open] summary::after { content: "\2212"; }
+.qa p { margin: 0 0 18px; color: var(--text); font-size: 17px; }
+.guide .short { border-color: rgba(34,211,238,.35); }
+.next.rel { grid-template-columns: 1fr 1fr; }
+
+/* a post */
+.post { padding-block: 40px 40px; }
+.crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--fg); }
+.dek { font-size: 19px; line-height: 1.55; color: var(--muted); margin: 0 0 18px; max-width: 680px; }
+.byline b { color: var(--fg); font-weight: 600; }
+.cover { margin: 0 0 32px; max-width: 728px; }
+.cover img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); }
+.post h1 { font: 600 clamp(34px, 5.6vw, 52px)/1.06 var(--display); letter-spacing: -0.04em; margin: 0 0 14px; text-wrap: balance; }
+.byline { color: var(--faint); font-size: 14.5px; margin: 0 0 30px; font-variant-numeric: tabular-nums; }
+.short { background: var(--surface); border: 1px solid var(--line-2); border-radius: 16px; padding: 20px 24px; margin-bottom: 40px; }
+.short p { margin: 0; color: var(--fg); font-size: 17.5px; line-height: 1.6; }
+.short .short-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+.body, .post h1, .dek, .short p, .qa summary { overflow-wrap: anywhere; }
+.body { font-size: 18px; line-height: 1.75; color: var(--text); max-width: 680px; }
+.body > p { margin: 0 0 1.15em; }
+.body h2 { font: 600 25px/1.25 var(--display); letter-spacing: -0.025em; color: var(--fg); margin: 1.9em 0 .55em; text-wrap: balance; }
+.body strong { color: var(--fg); font-weight: 600; }
+.body ul, .body ol { padding-left: 1.2em; margin: 0 0 1.2em; }
+.body li { margin: .35em 0; }
+.body li::marker { color: var(--faint); }
+.body code { font: 500 .86em var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--fg); }
+.body blockquote { margin: 1.5em 0; padding: 2px 0 2px 20px; border-left: 2px solid var(--hot); color: var(--fg); font-size: 19px; }
+.body blockquote p { margin: 0; }
+.body blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size: 14px; color: var(--faint); }
+.shot { margin: 2em 0; max-width: 728px; }
+.shot img { display: block; width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,.06); }
+figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top: 10px; }
+.stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin: 1.8em 0; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat b { font: 500 clamp(40px, 7vw, 60px)/1 var(--mono); letter-spacing: -0.04em; color: var(--gpu); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 16px; line-height: 1.5; flex: 1 1 260px; min-width: 0; }
+.stat.hot b { color: var(--hot); }
+.stat.cpu b { color: var(--cpu); }
+.fig { margin: 2em 0; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; max-width: 728px; overflow-x: auto; }
+.fig svg { display: block; width: 100%; height: auto; min-width: 520px; font-family: var(--body); }
+.fig figcaption { margin-top: 14px; }
+.fig .t { fill: var(--muted); font-size: 13px; }
+.fig .tf { fill: var(--faint); font-size: 12px; }
+.fig .tb { fill: var(--fg); font-size: 14px; font-weight: 600; }
+.fig .tm { fill: var(--fg); font-family: var(--mono); font-size: 13px; }
+.fig .box { fill: var(--surface-2); stroke: var(--line-2); }
+.fig .grid { stroke: var(--line); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 2em 0; }
+.pair > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; min-width: 0; }
+.pair p { margin: 0; font-size: 16px; line-height: 1.6; }
+.pair .k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px; color: var(--faint); }
+.pair .bad .k { color: #f0a35e; }
+.pair .good .k { color: #34d399; }
+.next { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 56px 0 28px; max-width: 728px; }
+.more { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 14px; text-decoration: none; min-width: 0; }
+.more span { font-size: 13px; color: var(--faint); }
+.more b { color: var(--fg); font-weight: 600; font-size: 16.5px; line-height: 1.35; }
+.more:hover { border-color: var(--line-2); background: var(--surface); }
+.get { display: flex; align-items: center; gap: 18px; padding: 20px 22px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 728px; }
+.get img { border-radius: 10px; flex: none; }
+.get p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; min-width: 0; }
+.get p b { color: var(--fg); }
+
+.foot { border-top: 1px solid var(--line); margin-top: 72px; }
+.foot-in { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; padding-block: 28px 40px; }
+.foot nav { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.foot nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+.foot nav a:hover { color: var(--fg); }
+
+@media (max-width: 760px) {
+  .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .top nav a:not(.on) { display: none; }
+  /* as on the home page: Blog sits with GitHub and Download on the right */
+  .top nav { margin-left: auto; }
+  .top nav a.on { font: 600 15px/1 var(--body); padding: 8px 4px; }
+  .top-end { gap: 14px; margin-left: 0; }
+  .top-in { gap: 14px; }
+  .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
+  .row h2 { font-size: 21px; }
+  .row .sum { font-size: 15px; }
+  .dek { font-size: 17px; }
+  .body { font-size: 17px; }
+  .pair, .next { grid-template-columns: 1fr; }
+  .get { flex-wrap: wrap; }
+  .blog-head { padding-block: 40px 28px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+
+  </style>
+</head>
+<body>
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="24" height="24"><span>RigSight</span></a>
+  <nav aria-label="Site"><a href="./" class="on">Blog</a><a href="../#faq">FAQ</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+  <div class="top-end"><a class="icon-btn" href="https://github.com/b0llu/Rigsight" aria-label="RigSight on GitHub"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5"/></svg></a><a class="btn btn-sm" href="https://github.com/b0llu/Rigsight/releases/latest">Download</a></div>
+</div><div class="progress" aria-hidden="true"><i></i></div></header><main><article class="post wrap-narrow guide">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Blog</a></nav>
+  <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Tools</p>
+  <h1>Free PC monitoring software, and why I built an HWiNFO alternative</h1>
+  <p class="dek">HWiNFO showed me every sensor but not what my PC did yesterday, so I built RigSight. Free PC monitoring software compared, from Task Manager and HWiNFO to MSI Afterburner, LibreHardwareMonitor and RigSight, and which one answers your question.</p>
+  <p class="byline"><b>Dhruv Samant</b> · Updated 4 November 2026 · 7 min read</p>
+  <figure class="cover"><img class="" src="../img/blog/free-pc-monitoring-software.webp" srcset="../img/blog/free-pc-monitoring-software-600.webp 600w, ../img/blog/free-pc-monitoring-software.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Home page on the demo PC with today&#x27;s time on the PC, CPU and GPU peaks with the app in use, yesterday&#x27;s summary and PC health" fetchpriority="high" decoding="async"></figure>
+  <div class="short"><p class="short-k">The short answer</p><p>For the most sensors, use HWiNFO. For GPU overclocking, fan curves and an FPS overlay, use MSI Afterburner with RivaTuner Statistics Server. For an open source sensor reader, LibreHardwareMonitor. For history, meaning what your PC did yesterday or last month, RigSight. Task Manager covers the basics.</p></div>
+  <div class="body">
+<p>Before RigSight existed, I used HWiNFO. It's a great tool, and it shows almost every sensor in a PC. What it didn't give me was the history I wanted. I could see what my PC was doing right now. I couldn't easily see what it did yesterday, or last week, or how this month compared with the one before. That gap is why I built RigSight. Search for free PC monitoring software, or an HWiNFO alternative, and you get the same few names every time. They aren't really rivals. Each one answers a different question about your PC.</p>
+
+<h2>How RigSight came out of HWiNFO</h2>
+
+<p>HWiNFO can keep a record. You switch on logging, it writes every sensor to a CSV file, and you open the file in a spreadsheet afterwards. That works when you know a problem is coming. It doesn't help with the evening you didn't plan for, like the game that stuttered at 11 PM or the PC that shut off while you were away. To look back at those, something has to have been recording all along.</p>
+
+<p>So RigSight is two programs. A small recorder starts with Windows and writes readings all day. The window you open is only for looking back, and you can close it whenever you like. The full story of that first day is in <a href="day-one">Day one, and 25 versions before midnight</a>.</p>
+
+<p>What you get from that is history in plain words. Home says each day's CPU and GPU peak with the app that was in front at the time. The Temperatures page shows the CPU and GPU from the last 5 minutes up to the last 12 months, or any custom range. The Crashes page lists app crashes, blue screens, driver resets and sudden shut-offs with what most likely caused each one. The Timeline lists what changed on the PC, such as drivers and Windows updates, and whether things ran hotter or less stable afterwards. RigSight keeps the history as long as you choose in Settings, from 3 months up to forever.</p>
+
+<figure class="shot"><img src="../img/pages/temperatures.webp" srcset="../img/pages/temperatures-720.webp 720w, ../img/pages/temperatures.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="RigSight&#x27;s Temperatures page on the demo PC with live CPU and GPU temperature, load, power and clocks, and a 24 hour history chart of CPU, GPU, hot spot and memory temperatures" loading="lazy" decoding="async"><figcaption>RigSight's Temperatures page on the demo PC. The history chart keeps every minute, so you can look back at a game you played hours or months ago.</figcaption></figure>
+
+<p>It also keeps time per app, internet use per app, fan speeds over months, and each game's frame rate and 1% low for every play. Live readings can go in the taskbar on tiles, where a click shows that reading's last ten minutes. They can also go in desktop widgets and an in-game overlay. Everything can be exported as CSV. RigSight is free and open source.</p>
+
+<p>It falls short in a few places too. It reads its sensors with LibreHardwareMonitor's library, so it shows fewer sensors than HWiNFO. It can't overclock, undervolt or control fans. Afterburner and your motherboard's software do that. FPS readings and the overlay in exclusive full screen games need RivaTuner Statistics Server. CPU temperature and power, motherboard fans, drive health and per-app internet use need RigSight to run with admin rights. It runs on Windows 10 and 11 only.</p>
+
+<h2>Why every monitoring tool answers a different question</h2>
+
+<p>Most sensor apps are built to show what is happening now, because that's what you need while you tune or test. Keeping everything is a different job. It needs a recorder that runs all the time without getting in the way, and a way to read months of numbers without a spreadsheet. So the tools split by question.</p>
+
+<ul>
+<li>Is my CPU or GPU too hot right now, and what is every sensor saying? Use HWiNFO.</li>
+<li>Can I overclock or undervolt my graphics card, set a fan curve and see FPS in game? Use MSI Afterburner with RivaTuner Statistics Server.</li>
+<li>Do I want a small open source sensor reader? Use LibreHardwareMonitor.</li>
+<li>What did my PC do last night, last week or before it crashed? Use RigSight.</li>
+<li>Which app is eating CPU or memory right now? Task Manager is already on your PC.</li>
+</ul>
+
+<h2>Free PC monitoring software, tool by tool</h2>
+
+<h3>Task Manager</h3>
+<p>It's built into Windows, so there's nothing to install. Press Ctrl + Shift + Esc and open <b>Performance</b> for graphs of CPU, memory, disk, network and GPU use. On many PCs with a dedicated graphics card it also shows the GPU temperature, as long as the driver supports it. It doesn't show CPU temperature, fan speeds or voltages, and its graphs only cover the last minute. It's good for finding which app is busy, not for checking temperatures.</p>
+
+<h3>HWiNFO</h3>
+<p>HWiNFO reads more sensors than any other tool here. It reads nearly every sensor on the CPU, graphics card, motherboard and drives, down to individual voltages, power limits and memory timings, and it is updated often for new hardware. It can log every sensor to a CSV file, raise alerts on any reading, show readings in the tray and on screen, and share its sensor data with other apps.</p>
+<p>It is free for personal and non-commercial use. Commercial use needs the paid Pro licence. In the free version, the shared memory feature that lets other apps such as overlays read HWiNFO's sensors switches itself off after 12 hours, and you turn it on again by hand. It isn't open source.</p>
+<p>Where it falls short is the sensor window, which is a long list of numbers that doesn't tell you which ones matter or what is normal for your PC. It only logs while you have logging switched on, and you read the CSV files yourself. If you are diagnosing a fault and know what you are looking for, nothing beats it.</p>
+
+<h3>MSI Afterburner and RivaTuner Statistics Server</h3>
+<p>MSI Afterburner is a free graphics card tool that works with cards from other makers too, not only MSI. It is the usual choice for overclocking and undervolting a GPU, setting your own fan curve and watching GPU readings on a graph. Its in-game overlay comes from RivaTuner Statistics Server, a separate free tool that installs alongside it. RivaTuner also has a frame rate limiter that many players use on its own.</p>
+<p>Its weak spot is that it is built around the graphics card. CPU and motherboard readings are thinner than HWiNFO's, and the graphs show the recent past while the app is open. Unless you turn on its log file, it keeps no record of how a game ran last week, and it doesn't tell you what the numbers mean. MSI recommends downloading it only from msi.com or Guru3D, because fake copies exist.</p>
+<p>If you only want an MSI Afterburner alternative to show FPS, you may not need Afterburner at all. RivaTuner can show a frame rate counter by itself. NVIDIA's and AMD's own apps have performance overlays, and the Xbox Game Bar, opened with Win + G, has a Performance widget with FPS.</p>
+
+<h3>LibreHardwareMonitor</h3>
+<p>LibreHardwareMonitor is free and open source, under the MPL 2.0 licence. It reads temperatures, fan speeds, voltages, load and clocks from motherboards, Intel and AMD processors, NVIDIA, AMD and Intel graphics cards, drives and network cards. Some sensors need it to run as administrator. Its library is also used inside other apps, RigSight among them, which makes it the usual pick when someone wants an open source HWiNFO alternative.</p>
+<p>Its weak spots are that it reads fewer sensors than HWiNFO, and it shows what is happening now unless you turn on <b>Log Sensors</b>, which saves the readings to a file. Get it from the project's GitHub page. The project warns that librehardwaremonitor.com is not its site.</p>
+
+<h3>Side by side</h3>
+<table>
+<thead><tr><th>Tool</th><th>Best at</th><th>Keeps history</th><th>Open source</th></tr></thead>
+<tbody>
+<tr><td>Task Manager</td><td>Which app is busy right now</td><td>Last minute only</td><td>No</td></tr>
+<tr><td>HWiNFO</td><td>Every sensor, alerts, CSV logs</td><td>While logging is on</td><td>No</td></tr>
+<tr><td>MSI Afterburner with RivaTuner</td><td>GPU tuning, fan curves, FPS overlay</td><td>Recent graph while open, optional log file</td><td>No</td></tr>
+<tr><td>LibreHardwareMonitor</td><td>Open source sensor readings</td><td>While Log Sensors is on</td><td>Yes, MPL 2.0</td></tr>
+<tr><td>RigSight</td><td>History in plain words for heat, crashes, changes, app time and internet</td><td>Yes, all day, kept as long as you choose</td><td>Yes, MIT</td></tr>
+</tbody>
+</table>
+
+<p>A common setup is RigSight running all the time for the history, with HWiNFO or Afterburner opened when you need a closer look or want to tune something. That's how I still use HWiNFO today.</p>
+
+<p>Pick the tool for the question you have right now. If it's about heat, see how to <a href="check-gpu-temperature-history">check your GPU temperature history</a>. If your PC crashed and you don't know why, start with <a href="find-out-why-pc-crashed">how to find out why your PC crashed</a>.</p>
+  <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>What is the best free PC monitoring software?</summary><p>It depends on the question. HWiNFO reads the most sensors, MSI Afterburner is the usual choice for GPU tuning and an in-game overlay, and RigSight keeps a history so you can look back. Many people run one of each.</p></details><details class="qa"><summary>Is there an open source HWiNFO alternative?</summary><p>LibreHardwareMonitor is open source under the MPL 2.0 licence and reads CPU, GPU, motherboard, drive and network sensors. RigSight is open source under the MIT licence and reads its sensors with LibreHardwareMonitor's library. Neither reads as many sensors as HWiNFO.</p></details><details class="qa"><summary>What is an MSI Afterburner alternative to show FPS?</summary><p>RivaTuner Statistics Server, which installs with Afterburner, can show a frame rate overlay on its own. NVIDIA's and AMD's own apps have performance overlays, and the Xbox Game Bar has a Performance widget. RigSight shows FPS in its overlay and records it per game, reading it from RivaTuner.</p></details><details class="qa"><summary>Is HWiNFO free?</summary><p>Yes, for personal and non-commercial use. Commercial use needs the paid Pro licence. The free version's shared memory feature, which other apps use to read HWiNFO's sensors, switches off after 12 hours until you turn it on again.</p></details><details class="qa"><summary>Can I run more than one monitoring program at once?</summary><p>Usually yes. Many people keep one running in the background and open another when they need a closer look. If readings look odd or a tool reports conflicts, close one of them and compare.</p></details></section>
+  </div>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="game-crashes-to-desktop-no-error"><span>Crashes</span><b>Game crashes to desktop with no error? How RigSight finds why</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>Why did my PC crash? How RigSight caught one on mine</b></a><a class="more" href="kernel-power-41"><span>Crashes</span><b>Why Kernel-Power 41 happens, and how RigSight caught mine</b></a><a class="more" href="display-driver-stopped-responding"><span>Crashes</span><b>Why my display driver stopped responding and has recovered</b></a></nav>
+  <aside class="get">
+    <img src="../img/logo-144.webp" alt="" width="40" height="40">
+    <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>
+    <a class="btn" href="https://github.com/b0llu/Rigsight/releases/latest">Download for Windows</a>
+  </aside>
+</article></main><footer class="foot"><div class="wrap foot-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="20" height="20"><span>RigSight</span></a>
+  <nav aria-label="Links"><a href="../">Home</a><a href="./">Blog</a><a href="https://github.com/b0llu/Rigsight">GitHub</a><a href="https://github.com/b0llu/Rigsight/releases">Releases</a><a href="../privacy.html">Privacy policy</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+</div></footer><script>
+(function () {
+  var bar = document.querySelector('.progress i');
+  if (!bar) return;
+  function tick() {
+    var post = [].find.call(document.querySelectorAll('.post'), function (a) { return a.offsetParent !== null; });
+    if (!post) { bar.style.transform = 'scaleX(0)'; return; }
+    var r = post.getBoundingClientRect(), h = r.height - innerHeight;
+    var f = h > 0 ? Math.min(1, Math.max(0, -r.top / h)) : 1;
+    bar.style.transform = 'scaleX(' + f.toFixed(3) + ')';
+  }
+  addEventListener('scroll', tick, { passive: true });
+  addEventListener('resize', tick);
+  window.__tick = tick; tick();
+})();
+(function () {
+  var chips = document.querySelectorAll('.chip[data-series]');
+  if (!chips.length) return;
+  function show(s) {
+    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
+    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
+  }
+  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
+})();
+</script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
+</body>
+</html>

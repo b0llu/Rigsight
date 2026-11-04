@@ -22,10 +22,12 @@
   "games-crashing-after-driver-update": "2026-11-03",
   "tests-passed-app-froze": "2026-11-03",
   "pc-overheating-while-gaming": "2026-11-04",
-  "standard-accounts": "2026-11-04"
+  "standard-accounts": "2026-11-04",
+  "taskbar-tiles": "2026-11-04",
+  "free-pc-monitoring-software": "2026-11-04",
+  "check-gpu-temperature-history": "2026-11-04"
  },
  "queue": [
-  "taskbar-tiles",
   "blue-screen-of-death-causes",
   "how-sure-is-it",
   "pc-restarts-randomly-while-gaming",
@@ -43,20 +45,16 @@
   "pc-fans-loud-while-gaming",
   "did-windows-update-cause-crashes",
   "power-plan-keeps-changing",
-  "check-gpu-temperature-history",
   "ssd-health-check",
   "check-fan-speed-pc",
   "which-app-is-using-my-internet",
-  "screen-time-on-pc",
-  "free-pc-monitoring-software"
+  "screen-time-on-pc"
  ],
  "_rework": "PC-problem posts still in the old how-to shape. Each must be rewritten in the new shape (GUIDES.md: how RigSight caught it, why it happens, then the fix) and shown to the user before release, even when queued or already live.",
  "rework": [
   "blue-screen-of-death-causes",
   "check-fan-speed-pc",
-  "check-gpu-temperature-history",
   "did-windows-update-cause-crashes",
-  "free-pc-monitoring-software",
   "gpu-fan-not-spinning",
   "how-to-show-fps-overlay",
   "one-percent-low-fps",

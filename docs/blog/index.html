@@ -38,7 +38,7 @@
   --gpu: #22d3ee;
   --hot: #a78bfa;
   --ram: #c084fc;
-  --coffee: #ffdd00;
+  --coffee: #facc15;
   --display: "Geist", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
   --body: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -51,18 +51,23 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
-.wrap-narrow { max-width: 776px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
+   reading width: each part inside has its own max-width and starts at the same left edge as the top bar. */
+.wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
-/* top bar */
+/* top bar: the home page's, size for size */
 .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(0,0,0,.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
-.top-in { display: flex; align-items: center; gap: 24px; height: 62px; }
+.top-in { display: flex; align-items: center; gap: 48px; height: 68px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
 .brand img { border-radius: 6px; }
-.top nav { display: flex; gap: 30px; margin-left: 24px; }
-.top nav a { color: var(--muted); text-decoration: none; font-size: 14.5px; font-weight: 600; }
+.top .brand { gap: 11px; font: 700 19px/1 var(--display); }
+.top .brand img { width: 30px; height: 30px; border-radius: 8px; }
+.top nav { display: flex; gap: 30px; }
+.top nav a { color: #b9bec7; text-decoration: none; font: 500 15.5px/1 var(--body); }
 .top nav a:hover, .top nav a.on { color: var(--fg); }
 .top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.top nav a.coffee { font-weight: 700; }
+.top .btn-sm { height: 40px; padding: 0 20px; font-size: 15px; }
 .top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
 .coffee-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; color: var(--coffee); font-weight: 600; font-size: 14.5px; text-decoration: none; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3); white-space: nowrap; }
 .coffee-pill:hover { color: #fde047; background: rgba(250,204,21,.14); }
@@ -192,7 +197,10 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (max-width: 760px) {
   .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .top nav a:not(.on) { display: none; }
-  .top-end { gap: 8px; }
+  /* as on the home page: Blog sits with GitHub and Download on the right */
+  .top nav { margin-left: auto; }
+  .top nav a.on { font: 600 15px/1 var(--body); padding: 8px 4px; }
+  .top-end { gap: 14px; margin-left: 0; }
   .top-in { gap: 14px; }
   .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
   .row h2 { font-size: 21px; }
@@ -221,18 +229,48 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 </section>
 <section class="wrap">
   <div class="filter" role="group" aria-label="Show posts from">
-    <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>22</span></button><button class="chip" type="button" data-series="build" aria-pressed="false">Building RigSight <span>10</span></button><button class="chip" type="button" data-series="ai" aria-pressed="false">The AI journey <span>1</span></button><button class="chip" type="button" data-series="fix" aria-pressed="false">PC problems <span>11</span></button>
+    <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>25</span></button><button class="chip" type="button" data-series="build" aria-pressed="false">Building RigSight <span>11</span></button><button class="chip" type="button" data-series="ai" aria-pressed="false">The AI journey <span>1</span></button><button class="chip" type="button" data-series="fix" aria-pressed="false">PC problems <span>13</span></button>
     <a class="rss" href="feed.xml">RSS</a>
   </div>
   <ol class="rows" id="rows">
     <li class="row" data-series="fix">
+  <a href="check-gpu-temperature-history">
+    <div class="thumb"><img class="" src="../img/blog/check-gpu-temperature-history.webp" srcset="../img/blog/check-gpu-temperature-history-600.webp 600w, ../img/blog/check-gpu-temperature-history.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Temperatures page on the demo PC with CPU and GPU gauges and a 24 hour temperature history graph with Average, Highest and Lowest switches" fetchpriority="high" decoding="async"></div>
+    <div class="row-text">
+      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
+      <h2>How to check GPU temperature history without being misled</h2>
+      <p class="sum">RigSight's own chart once showed a GPU topping out at 68° on a day that hit 74°. How to check GPU temperature history on Windows with HWiNFO, GPU-Z or Afterburner logs, or a temperature monitor with history, and how to read it.</p>
+      <p class="meta">4 November 2026 · 6 min read</p>
+    </div>
+  </a>
+</li><li class="row" data-series="fix">
   <a href="pc-overheating-while-gaming">
-    <div class="thumb"><img class="" src="../img/blog/pc-overheating-while-gaming.webp" srcset="../img/blog/pc-overheating-while-gaming-600.webp 600w, ../img/blog/pc-overheating-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Reports for October on the demo PC with an Against your usual table. GPU and CPU in Counter-Strike 2 are 3° cooler, too little to count, and fans and PC problems are as usual" fetchpriority="high" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/pc-overheating-while-gaming.webp" srcset="../img/blog/pc-overheating-while-gaming-600.webp 600w, ../img/blog/pc-overheating-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Reports for October on the demo PC with an Against your usual table. GPU and CPU in Counter-Strike 2 are 3° cooler, too little to count, and fans and PC problems are as usual" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
       <h2>PC overheating while gaming, or just warm? How RigSight tells</h2>
       <p class="sum">How RigSight tells a PC overheating while gaming from one that is only warm, by setting each game against its own usual. Why PCs get hot in games, and how to stop it, from dust and airflow to frame caps, fan curves and thermal paste.</p>
       <p class="meta">4 November 2026 · 7 min read</p>
+    </div>
+  </a>
+</li><li class="row" data-series="fix">
+  <a href="free-pc-monitoring-software">
+    <div class="thumb"><img class="" src="../img/blog/free-pc-monitoring-software.webp" srcset="../img/blog/free-pc-monitoring-software-600.webp 600w, ../img/blog/free-pc-monitoring-software.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Home page on the demo PC with today&#x27;s time on the PC, CPU and GPU peaks with the app in use, yesterday&#x27;s summary and PC health" loading="lazy" decoding="async"></div>
+    <div class="row-text">
+      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Tools</p>
+      <h2>Free PC monitoring software, and why I built an HWiNFO alternative</h2>
+      <p class="sum">HWiNFO showed me every sensor but not what my PC did yesterday, so I built RigSight. Free PC monitoring software compared, from Task Manager and HWiNFO to MSI Afterburner, LibreHardwareMonitor and RigSight, and which one answers your question.</p>
+      <p class="meta">4 November 2026 · 7 min read</p>
+    </div>
+  </a>
+</li><li class="row" data-series="build">
+  <a href="taskbar-tiles">
+    <div class="thumb"><img class="" src="../img/blog/taskbar-tiles.webp" srcset="../img/blog/taskbar-tiles-600.webp 600w, ../img/blog/taskbar-tiles.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="My taskbar: 48 px, every look drew as picked. Their taskbar: 32 px, three looks showed only the number" loading="lazy" decoding="async"></div>
+    <div class="row-text">
+      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
+      <h2>Taskbar tiles worked on my taskbar, not on theirs</h2>
+      <p class="sum">A GitHub issue asked for more colourful taskbar readings. RigSight 1.2.0 gave every reading a tile and a look of its own, and a bug report 94 minutes later showed a fallback I had never told anyone about.</p>
+      <p class="meta">3 November 2026 · 4 min read</p>
     </div>
   </a>
 </li><li class="row" data-series="fix">
