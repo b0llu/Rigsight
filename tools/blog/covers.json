@@ -182,5 +182,20 @@
     "on five pretend PCs"
    ]
   ]
+ },
+ "taskbar-tiles": {
+  "colour": "gpu",
+  "tiles": [
+   [
+    "My taskbar",
+    "48 px",
+    "every look drew as picked"
+   ],
+   [
+    "Their taskbar",
+    "32 px",
+    "three looks showed only the number"
+   ]
+  ]
  }
 }

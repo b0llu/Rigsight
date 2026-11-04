@@ -25,6 +25,7 @@
   "standard-accounts": "2026-11-04"
  },
  "queue": [
+  "taskbar-tiles",
   "blue-screen-of-death-causes",
   "how-sure-is-it",
   "pc-restarts-randomly-while-gaming",
