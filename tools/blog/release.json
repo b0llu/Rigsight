@@ -20,11 +20,11 @@
   "gpu-not-at-100-usage-low-fps": "2026-10-30",
   "driver-update-crash": "2026-10-30",
   "games-crashing-after-driver-update": "2026-11-03",
-  "tests-passed-app-froze": "2026-11-03"
+  "tests-passed-app-froze": "2026-11-03",
+  "pc-overheating-while-gaming": "2026-11-04",
+  "standard-accounts": "2026-11-04"
  },
  "queue": [
-  "pc-overheating-while-gaming",
-  "standard-accounts",
   "blue-screen-of-death-causes",
   "how-sure-is-it",
   "pc-restarts-randomly-while-gaming",
@@ -60,7 +60,6 @@
   "how-to-show-fps-overlay",
   "one-percent-low-fps",
   "pc-fans-loud-while-gaming",
-  "pc-overheating-while-gaming",
   "pc-restarts-randomly-while-gaming",
   "power-plan-keeps-changing",
   "screen-time-on-pc",
