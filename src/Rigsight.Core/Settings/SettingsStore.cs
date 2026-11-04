@@ -269,6 +269,14 @@ public static class SettingsStore
         if (!Enum.IsDefined(s.TrayWidth)) s.TrayWidth = TrayWidth.Standard;
         if (!Enum.IsDefined(s.TrayStyle)) s.TrayStyle = TrayStyle.Strip;
         s.TrayAlone = [.. (s.TrayAlone ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct()];
+        // 1.3: a style, a size and a look drawn from another reading, each reading's own. Only known ones are kept; the
+        // style everyone has and Auto are the same as none, and a look can't come from the reading itself.
+        s.TrayStyles = new Dictionary<string, TrayStyle>((s.TrayStyles ?? []).Where(kv => !string.IsNullOrWhiteSpace(kv.Key)
+            && Enum.IsDefined(kv.Value) && kv.Value != s.TrayStyle));
+        s.TraySizes = new Dictionary<string, TraySize>((s.TraySizes ?? []).Where(kv => !string.IsNullOrWhiteSpace(kv.Key)
+            && Enum.IsDefined(kv.Value) && kv.Value != TraySize.Auto));
+        s.TrayLookFrom = new Dictionary<string, string>((s.TrayLookFrom ?? []).Where(kv => !string.IsNullOrWhiteSpace(kv.Key)
+            && !string.IsNullOrWhiteSpace(kv.Value) && kv.Key != kv.Value));
         s.MutedCrashApps = [.. (s.MutedCrashApps ?? []).Where(e => !string.IsNullOrWhiteSpace(e)).Distinct(StringComparer.OrdinalIgnoreCase)];
 
         var t = s.Tracking;

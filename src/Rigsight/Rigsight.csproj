@@ -42,6 +42,18 @@
     <ProjectReference Include="..\Rigsight.Core\Rigsight.Core.csproj" />
   </ItemGroup>
 
+  <!-- The agent's own taskbar drawing, so the Taskbar page previews exactly what the taskbar will show (at its real
+       height, in each reading's style and size). In the app these sit in Rigsight.TaskbarDrawing (see RIGSIGHT_APP). -->
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);RIGSIGHT_APP</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Rigsight.Agent\Ui\TrayReading.cs" Link="TaskbarDrawing\TrayReading.cs" />
+    <Compile Include="..\Rigsight.Agent\Ui\StripComposer.cs" Link="TaskbarDrawing\StripComposer.cs" />
+    <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Strip.cs" Link="TaskbarDrawing\WidgetRenderer.Strip.cs" />
+    <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Tray.cs" Link="TaskbarDrawing\WidgetRenderer.Tray.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Rigsight.Tests" />
   </ItemGroup>

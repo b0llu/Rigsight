@@ -692,6 +692,25 @@ public sealed partial class LiveData : ObservableObject
     /// <summary>Told when <see cref="TrayWaiting"/> changes.</summary>
     public event Action? TrayWaitingChanged;
 
+    /// <summary>
+    /// RigSight's own network readings, for the taskbar: the whole PC's download and upload speed and both together, as
+    /// the Network page counts them (not sensors of the hardware library; see <see cref="TrayParts.NetDown"/>).
+    /// </summary>
+    public IReadOnlyList<SensorItem> NetSensors { get; } = [NetItem(TrayParts.NetDown), NetItem(TrayParts.NetUp), NetItem(TrayParts.NetBoth)];
+
+    private static SensorItem NetItem(string id) =>
+        new(new SensorMeta { Id = id, Name = TrayParts.NetName(id), Kind = SensorKind.Throughput }, TrayParts.NetHardware, "Network");
+
+    /// <summary>The speeds this second into <see cref="NetSensors"/> (none: not known, as when the agent has gone).</summary>
+    private void PushNet(NetLive? net)
+    {
+        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        float? down = net is { Stalled: false } ? (float)net.Down : null, up = net is { Stalled: false } ? (float)net.Up : null;
+        NetSensors[0].Push(now, down);
+        NetSensors[1].Push(now, up);
+        NetSensors[2].Push(now, down);
+    }
+
     /// <summary>The connection's speed over the last minute, oldest first (bytes a second).</summary>
     public IReadOnlyList<NetLive> NetHistory => _netHistory;
     private readonly List<NetLive> _netHistory = [];
@@ -732,6 +751,7 @@ public sealed partial class LiveData : ObservableObject
     {
         Net = null;
         _netHistory.Clear();
+        PushNet(null);
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         foreach (var item in _flat) item.Push(now, null);
         if (_flat.Count > 0) UpdateDerived();
@@ -744,7 +764,10 @@ public sealed partial class LiveData : ObservableObject
         {
             Net = net;
             AddNet(net);
+            PushNet(net);
         }
+        // A readings tick without the internet: it isn't being read (no admin rights and no card counts yet).
+        else if (tick.Values is not null) PushNet(null);
         if (tick.Values is { } values && values.Length == _flat.Count)
         {
             // Only the readings' tick says which taskbar readings wait for room (none listed: all fit).

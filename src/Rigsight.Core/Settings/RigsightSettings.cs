@@ -80,8 +80,29 @@ public sealed class RigsightSettings
     /// <summary>Sensors shown as numbers in the taskbar's notification area, in this order (by sensor id).</summary>
     public List<string> TraySensors { get; set; } = [];
 
-    /// <summary>How <see cref="TraySensors"/> show: a strip in the taskbar (Windows 11), or notification-area icons.</summary>
+    /// <summary>
+    /// How <see cref="TraySensors"/> show: a strip in the taskbar (Windows 11), or notification-area icons. Since 1.3 the
+    /// style of every reading not in <see cref="TrayStyles"/>, and what "Set all to" sets.
+    /// </summary>
     public TrayStyle TrayStyle { get; set; }
+
+    /// <summary>
+    /// Readings with a style of their own (by sensor id), since 1.3: the taskbar draws each reading in its style, side by
+    /// side in the list's order. A reading not listed shows as <see cref="TrayStyle"/>.
+    /// </summary>
+    public Dictionary<string, TrayStyle> TrayStyles { get; set; } = [];
+
+    /// <summary>Readings with a size of their own (by sensor id, see <see cref="TraySize"/>); a reading not listed fits the taskbar.</summary>
+    public Dictionary<string, TraySize> TraySizes { get; set; } = [];
+
+    /// <summary>
+    /// Readings whose look is drawn from another reading (by sensor id → the other's id): the number is its own, the
+    /// ring, blocks or graph the other's ("Together": CPU temperature as the number, CPU load as its ring).
+    /// </summary>
+    public Dictionary<string, string> TrayLookFrom { get; set; } = [];
+
+    /// <summary>Speeds on the taskbar in bits a second ("99 Mbps", as internet plans say them), not bytes ("12 MB/s").</summary>
+    public bool TraySpeedBits { get; set; }
 
     /// <summary>
     /// The taskbar readings in the taskbar's text colour and grey, without the parts' colours (on a new install; settings
@@ -365,9 +386,21 @@ public enum TraySide { Right, Left }
 /// How a reading draws on the strip, always under its number and name: <see cref="Number"/> alone; the last two minutes
 /// as a <see cref="Area"/> (filled), <see cref="Line"/> or <see cref="Bars"/> graph behind its name; or where it is now
 /// out of 100 as a <see cref="Level"/> behind its name, ten <see cref="Blocks"/> under it, or a <see cref="Ring"/>
-/// beside the number. The last three only for readings with a top (see <see cref="TrayParts.HasTop"/>).
+/// beside the number. The last three only for readings with a top (see <see cref="TrayParts.HasTop"/>). Since 1.3 also a
+/// <see cref="Half"/> ring (a gauge), a <see cref="Pie"/>, <see cref="Cores"/> (a thin bar per CPU core), a <see cref="Big"/>
+/// number alone, a <see cref="Spark"/> graph beside the number, and for the network <see cref="DownUp"/> (both speeds in
+/// one place) and <see cref="Mirror"/> (download above the middle, upload under it). Saved by name: new ones go at the end.
+/// On an icon, <see cref="Level"/> fills the icon from the bottom and <see cref="Ring"/> rings its edge.
 /// </summary>
-public enum TrayLook { Number, Area, Line, Bars, Level, Blocks, Ring }
+public enum TrayLook { Number, Area, Line, Bars, Level, Blocks, Ring, Half, Pie, Cores, Big, Spark, DownUp, Mirror }
+
+/// <summary>
+/// How tall a reading is drawn in the taskbar. <see cref="Auto"/>: as tall as the taskbar has room for; <see cref="Small"/>:
+/// one line, the name beside the number (needs 30 px at 100%); <see cref="Medium"/>: the number over its name (40 px);
+/// <see cref="Large"/>: the number over its name with the most room for its look (48 px, Windows' usual taskbar). A size
+/// the taskbar is too short for draws at the taskbar's height until there is room (see <see cref="TrayParts.SizeHeight"/>).
+/// </summary>
+public enum TraySize { Auto, Small, Medium, Large }
 
 /// <summary>
 /// How much room the strip's readings take. <see cref="Standard"/>: graphs as wide as before (wider on a wide screen);

@@ -1,16 +1,18 @@
 using System.Collections.ObjectModel;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core;
 using Rigsight.Core.Settings;
 using Rigsight.Models;
 using Rigsight.Services;
+using Rigsight.TaskbarDrawing;
 
 namespace Rigsight.ViewModels;
 
-/// <summary>A common reading offered with one click ("CPU temperature").</summary>
-public sealed record TaskbarQuickPick(string Label, SensorItem Sensor);
+/// <summary>A common reading offered with one click ("CPU temperature"), or two at once ("CPU load and temperature": <see cref="Second"/>).</summary>
+public sealed record TaskbarQuickPick(string Label, SensorItem Sensor, SensorItem? Second = null);
 
 /// <summary>
 /// A line in the "Add a reading" list: a part's heading, or a sensor to add (greyed with a tick when already in the
@@ -23,63 +25,158 @@ public sealed record TaskbarAddItem(string? Heading, SensorItem? Sensor, bool Ad
     public string TypeLabel => Sensor is null ? "" : Units.TypeLabel(Sensor.Kind);
 
     /// <summary>A tick when it's in the taskbar, else "+".</summary>
-    public string Glyph => Added ? "" : "";
+    public string Glyph => Added ? "" : "";
 }
 
-/// <summary>A look a reading can have, in its Look picker: its name, and whether it's the one in use.</summary>
-public sealed record TaskbarLookChoice(TaskbarSensorRow Row, TrayLook Look, bool Selected)
+/// <summary>
+/// A look a reading can have, in its "Shows as" picker: its name, its picture (as the taskbar will draw it, at its real
+/// height), and whether it's the one in use.
+/// </summary>
+public sealed record TaskbarLookChoice(TaskbarSensorRow Row, TrayLook Look, bool Selected, string Name, BitmapSource? Picture)
 {
-    public string Name => TrayParts.LookName(Look);
-
-    /// <summary>Its picture's text up at the top, as on a strip where something draws under the number.</summary>
-    public bool TextTop => Look is not (TrayLook.Number or TrayLook.Ring);
-
-    /// <summary>Its picture's tile: the reading's own on the strip (on the dark picture).</summary>
-    public Brush Tile => TaskbarViewModel.TileBrush(Row, light: false, gray: false, icon: false);
-
     /// <summary>"on" for the look in use (outlined).</summary>
     public string? Tag => Selected ? "on" : null;
 }
 
+/// <summary>A reading a look can be drawn from ("Together"): its id (null: the reading's own), its name, whether it's the one in use.</summary>
+public sealed record TaskbarLookFromChoice(TaskbarSensorRow Row, string? Id, string Name, bool Selected)
+{
+    public string? Tag => Selected ? "on" : null;
+}
+
 /// <summary>
-/// A sensor in the taskbar: what it is, the part it's about (its colour), its live reading for the preview, its look on
-/// the strip and its own colours.
+/// A sensor in the taskbar: what it is, the part it's about (its colour), its live reading, how it shows (its own style,
+/// size and look, and the reading its look is drawn from) and its own colours.
 /// </summary>
 public sealed partial class TaskbarSensorRow(string id, string name, string hardware, SensorItem? sensor) : ObservableObject
 {
-    /// <summary>How it draws on the strip (see <see cref="TrayLook"/>).</summary>
+    /// <summary>How it draws (see <see cref="TrayLook"/>): on the strip every look, on an icon its number, Fill (Level) or Ring.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LookName), nameof(Looks), nameof(ShownLook), nameof(TextTop), nameof(LookButtonName))]
+    [NotifyPropertyChangedFor(nameof(LookName), nameof(Looks), nameof(ShownLook), nameof(ShowsAsText), nameof(LookButtonName))]
     private TrayLook _look;
 
-    /// <summary>The look as it draws: a filled graph in place of a fill-up look it can't have.</summary>
-    public TrayLook ShownLook => Sensor is null ? TrayLook.Number : TrayParts.LookFor(Sensor.Kind, Look);
-
-    public string LookName => TrayParts.LookName(ShownLook);
-
-    /// <summary>The looks it can have, for its picker.</summary>
-    public IReadOnlyList<TaskbarLookChoice> Looks =>
-        Sensor is null ? [] : [.. TrayParts.LooksFor(Sensor.Kind).Select(l => new TaskbarLookChoice(this, l, l == ShownLook))];
-
-    /// <summary>Whether the readings show as the strip (the only style with looks): its Look button shows then.</summary>
+    /// <summary>Its style: its own, else the taskbar's (see <see cref="RigsightSettings.TrayStyles"/>).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowLookButton))]
-    private bool _inStrip;
+    [NotifyPropertyChangedFor(nameof(StyleText), nameof(InBoxes), nameof(HasLooks), nameof(LookName), nameof(Looks), nameof(ShownLook),
+        nameof(ShowsAsText), nameof(LookButtonName), nameof(ShowLookFrom), nameof(LookFromChoices))]
+    private TrayStyle _style;
 
-    public bool ShowLookButton => InStrip && Found;
+    /// <summary>Its size (see <see cref="TraySize"/>).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SizeText), nameof(ShowsAsText))]
+    private TraySize _size;
+
+    /// <summary>The reading its look is drawn from (null: its own).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LookFromChoices), nameof(Looks), nameof(ShownLook), nameof(LookName), nameof(ShowsAsText))]
+    private string? _lookFrom;
+
+    /// <summary>The kind its look is drawn from (another reading's, with one; else its own).</summary>
+    public SensorKind? LookFromKind => LookFrom is null ? null : LookFromSensor?.Invoke(LookFrom)?.Kind;
+
+    /// <summary>The look as it draws: on the strip a filled graph in place of a fill-up look it can't have; on an icon its number, Fill or Ring.</summary>
+    public TrayLook ShownLook => Sensor is null ? TrayLook.Number
+        : Style is TrayStyle.Icons or TrayStyle.Grouped ? TrayParts.IconLook(LookFromKind ?? Sensor.Kind, Look)
+        : TrayParts.LookFor(LookFromKind ?? Sensor.Kind, Look, Id == TrayParts.NetBoth);
+
+    public string LookName => Style is TrayStyle.Icons or TrayStyle.Grouped ? TrayParts.IconLookName(ShownLook) : TrayParts.LookName(ShownLook);
+
+    /// <summary>The looks it can have in its style, each with its picture, for its picker (none in two rows).</summary>
+    public IReadOnlyList<TaskbarLookChoice> Looks
+    {
+        get
+        {
+            if (Sensor is null || Style == TrayStyle.TwoRows) return [];
+            bool icon = Style is TrayStyle.Icons or TrayStyle.Grouped;
+            var looks = icon ? TrayParts.IconLooksFor(Sensor.Kind, LookFromKind)
+                : TrayParts.LooksFor(Sensor.Kind, TrayParts.IsCpuTotal(Sensor.Kind, Part, Sensor.Name), Id == TrayParts.NetBoth, LookFromKind);
+            return [.. looks.Select(l => new TaskbarLookChoice(this, l, l == ShownLook, icon ? TrayParts.IconLookName(l) : TrayParts.LookName(l), LookPictureOf?.Invoke(this, l)))];
+        }
+    }
+
+    /// <summary>Whether it has looks to pick in its style (two rows has none).</summary>
+    public bool HasLooks => Style != TrayStyle.TwoRows && Found;
+
+    /// <summary>"In the taskbar · Blocks · Small": how it shows, on its button.</summary>
+    public string ShowsAsText
+    {
+        get
+        {
+            var parts = new List<string> { TrayParts.StyleName(Style) };
+            if (HasLooks && ShownLook != TrayLook.Number) parts.Add(LookName);
+            if (Size != TraySize.Auto) parts.Add(TrayParts.SizeName(Size));
+            return string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>Its picture as the taskbar draws it now, on its button.</summary>
+    [ObservableProperty]
+    private BitmapSource? _picture;
+
+    /// <summary>The taskbar's colour behind its pictures (Windows' light or dark taskbar, as the pictures are drawn for it).</summary>
+    public Brush BarBrush { get; internal set; } = Brushes.Black;
+
+    /// <summary>Under its name in two rows: the box it's in ("Box 2", "Box 3 · on its own").</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HardwareLine))]
+    private string _boxTitle = "";
+
+    /// <summary>Under its name: its hardware, and in two rows the box it's in ("NVIDIA GeForce RTX 3050 · Box 2").</summary>
+    public string HardwareLine => BoxTitle.Length > 0 ? $"{Hardware} · {BoxTitle}" : Hardware;
+
+    /// <summary>In its picker: why a size it can't have now is off, and what to do (empty: every size fits).</summary>
+    [ObservableProperty]
+    private string _sizeNote = "";
+
+    /// <summary>Whether a size fits the taskbar as it is (set by the page as it measures the taskbar).</summary>
+    [ObservableProperty]
+    private bool _canSmall = true, _canMedium = true, _canLarge = true;
+
+    /// <summary>"Shown as Small for now": its size doesn't fit this taskbar (empty when it does).</summary>
+    [ObservableProperty]
+    private string _sizeNow = "";
+
+    /// <summary>"Strip", "TwoRows", "Icons" or "Grouped", for its style switch.</summary>
+    public string StyleText
+    {
+        get => Style.ToString();
+        set { if (Enum.TryParse<TrayStyle>(value, out var style) && style != Style) StylePicked?.Invoke(this, style); }
+    }
+
+    /// <summary>"Auto", "Small", "Medium" or "Large", for its size switch.</summary>
+    public string SizeText
+    {
+        get => Size.ToString();
+        set { if (Enum.TryParse<TraySize>(value, out var size) && size != Size) SizePicked?.Invoke(this, size); }
+    }
+
+    /// <summary>The readings its look can be drawn from: its own, or another of its part's (Together).</summary>
+    public IReadOnlyList<TaskbarLookFromChoice> LookFromChoices =>
+        [new(this, null, Lang.T("Its own reading"), LookFrom is null), .. (LookFromCandidates?.Invoke(this) ?? []).Select(s => new TaskbarLookFromChoice(this, s.Id, s.DisplayName, s.Id == LookFrom))];
+
+    /// <summary>Whether its look can come from another reading: on the strip or an icon, with another reading of its part to draw from.</summary>
+    public bool ShowLookFrom => HasLooks && (LookFromCandidates?.Invoke(this).Count ?? 0) > 0;
 
     /// <summary>In two rows, a box of its own (else it shares one with the next in the list, see <see cref="TrayParts.Boxes"/>).</summary>
     [ObservableProperty]
     private bool _alone;
 
-    /// <summary>Whether the readings show in two rows: its "On its own" switch shows then.</summary>
-    [ObservableProperty]
-    private bool _inBoxes;
+    /// <summary>Whether it shows in two rows: its "On its own" switch shows then.</summary>
+    public bool InBoxes => Style == TrayStyle.TwoRows;
 
     public string AloneName => Lang.T($"{Name} on its own");
 
-    /// <summary>Told when "On its own" is switched, to save it.</summary>
+    /// <summary>Told when "On its own", a style, a size, a look or where it's drawn from is picked, to save it.</summary>
     internal Action<TaskbarSensorRow, bool>? AlonePicked;
+    internal Action<TaskbarSensorRow, TrayStyle>? StylePicked;
+    internal Action<TaskbarSensorRow, TraySize>? SizePicked;
+    internal Action<TaskbarSensorRow, string?>? LookFromPicked;
+    internal Action<TaskbarSensorRow, TrayLook>? LookPicked;
+
+    /// <summary>The page's: a look's picture for this reading, the readings it can draw from, a sensor by id.</summary>
+    internal Func<TaskbarSensorRow, TrayLook, BitmapSource?>? LookPictureOf;
+    internal Func<TaskbarSensorRow, IReadOnlyList<SensorItem>>? LookFromCandidates;
+    internal Func<string, SensorItem?>? LookFromSensor;
 
     partial void OnAloneChanged(bool value) => AlonePicked?.Invoke(this, value);
 
@@ -92,7 +189,9 @@ public sealed partial class TaskbarSensorRow(string id, string name, string hard
     public string PartLabel => TrayParts.Label(Part);
 
     /// <summary>The word under it on the strip (after its part's first, see <see cref="TrayParts.ShortLabel"/>).</summary>
-    public string Short => Sensor is null ? "" : TrayParts.ShortLabel(Sensor.Kind, Sensor.Name, Part, Sensor.CustomLabel);
+    public string Short => Sensor is null ? ""
+        : TrayParts.IsNet(Id) ? (OwnShort ? Sensor.CustomLabel!.Trim() : Id == TrayParts.NetUp ? Lang.T("Up") : Lang.T("Down"))
+        : TrayParts.ShortLabel(Sensor.Kind, Sensor.Name, Part, Sensor.CustomLabel);
 
     /// <summary>Whether <see cref="Short"/> is a name given on All sensors (it wins in two rows too).</summary>
     public bool OwnShort => Sensor?.CustomLabel?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel };
@@ -112,14 +211,8 @@ public sealed partial class TaskbarSensorRow(string id, string name, string hard
 
     /// <summary>The tile's colour picked (null: the usual tile).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TileDot), nameof(HasTileColor), nameof(StripTile))]
+    [NotifyPropertyChangedFor(nameof(TileDot), nameof(HasTileColor))]
     private string? _tileColor;
-
-    /// <summary>Its tile on the strip, for the picture on its Look button (on the dark picture).</summary>
-    public Brush StripTile => TaskbarViewModel.TileBrush(this, light: false, gray: false, icon: false);
-
-    /// <summary>Its picture's text up at the top, as on a strip where something draws under the number.</summary>
-    public bool TextTop => ShownLook is not (TrayLook.Number or TrayLook.Ring);
 
     public bool IsTemperature => Sensor?.Kind == SensorKind.Temperature;
 
@@ -134,10 +227,7 @@ public sealed partial class TaskbarSensorRow(string id, string name, string hard
     public bool HasTileColor => TileColor is not null;
 
     public string ColorsName => Lang.T($"Colors for {Name}");
-    public string LookButtonName => Lang.T($"Look for {Name}: {LookName}");
-
-    /// <summary>Told when a look is picked, to save it.</summary>
-    internal Action<TaskbarSensorRow, TrayLook>? LookPicked;
+    public string LookButtonName => Lang.T($"How {Name} shows: {ShowsAsText}");
 
     [RelayCommand]
     private void PickLook(TrayLook look)
@@ -145,72 +235,29 @@ public sealed partial class TaskbarSensorRow(string id, string name, string hard
         Look = look;
         LookPicked?.Invoke(this, look);
     }
+
+    [RelayCommand]
+    private void PickLookFrom(string? id) => LookFromPicked?.Invoke(this, id);
 }
 
-/// <summary>A part on the taskbar strip, in the preview: its readings side by side, its name under them in its colour.</summary>
-public sealed record TaskbarStripPart(IReadOnlyList<TaskbarStripReading> Readings, string Tooltip);
-
 /// <summary>
-/// A reading on the strip, in the preview: its number and the word under it (bold for the part's name), its look, its
-/// tile (null: none), and the strip's layout (text at the top when anything draws under a number, the width).
+/// A box of two rows, in the taskbar's order: its readings (one or two). Its title goes on its readings' rows in the list.
 /// </summary>
-public sealed record TaskbarStripReading(TaskbarSensorRow Row, string Label, bool First, Brush LabelBrush, TrayLook Look, Brush? Tile, bool TextTop,
-    TrayWidth WidthMode, bool Light, double Gap)
-{
-    /// <summary>The room after it: to the next reading of its part, or the next part.</summary>
-    public System.Windows.Thickness Space => new(0, 0, Gap, 0);
-}
+public sealed record TaskbarBox(int Number, IReadOnlyList<TaskbarSensorRow> Rows);
 
 /// <summary>
-/// One taskbar icon in the preview: its readings (one, or two stacked), its tile (null: none), its part's name, and how
-/// far it is from the next (more between parts, for the name under them).
-/// </summary>
-public sealed record TaskbarPreviewIcon(IReadOnlyList<TaskbarSensorRow> Rows, Brush? Tile, string Label, bool ShowLabel)
-{
-    public TaskbarSensorRow First => Rows[0];
-    public TaskbarSensorRow? Second => Rows.Count > 1 ? Rows[1] : null;
-    public bool HasSecond => Rows.Count > 1;
-
-    /// <summary>What hovering the real icon says: the hardware, then each reading.</summary>
-    public string Tooltip => string.Join('\n', Rows.Select(r => r.Name).Prepend(Rows[0].Hardware));
-}
-
-/// <summary>A reading in a box of two rows: its word (see <see cref="TrayParts.BoxLabel"/>) in its name's colour.</summary>
-public sealed record TaskbarBoxLine(TaskbarSensorRow Row, string Label, Brush LabelBrush);
-
-/// <summary>
-/// A box of two rows, in the taskbar's order: its readings (one or two) and their lines as drawn, on its tile (null:
-/// none). The Readings list shows the readings under it, the preview the box itself. Kept while the pairs stay, its
-/// words and tile changed in place (a colour picked doesn't rebuild the list under the picker).
-/// </summary>
-public sealed partial class TaskbarBox(int number, IReadOnlyList<TaskbarSensorRow> rows) : ObservableObject
-{
-    public int Number { get; } = number;
-    public IReadOnlyList<TaskbarSensorRow> Rows { get; } = rows;
-
-    [ObservableProperty]
-    private IReadOnlyList<TaskbarBoxLine> _lines = [];
-
-    [ObservableProperty]
-    private Brush? _tile;
-
-    /// <summary>"Box 1", "Box 2 · on its own", "Box 3 · one reading" (the last, with none after it to pair with).</summary>
-    [ObservableProperty]
-    private string _title = "";
-
-    /// <summary>What hovering the box says: each reading's name and hardware.</summary>
-    public string Tooltip => string.Join('\n', Rows.Select(r => r.Found ? $"{r.Name} · {r.Hardware}" : r.Name));
-}
-
-/// <summary>
-/// The Taskbar page: readings shown in the taskbar as a strip, in two rows, an icon each or an icon per part, at either end, on tiles
-/// in their parts' colours (the agent draws them, see its TaskbarStrip and TrayReadings; both group them with
-/// <see cref="TrayParts"/>). As many as the user likes, in their order: the ones that don't fit wait in "+N".
+/// The Taskbar page: readings shown in the taskbar, each in its own style (a strip, two rows, an icon each or an icon
+/// per part) and size, at either end, on tiles in their parts' colours. Its preview is the agent's own drawing (its
+/// StripComposer, linked into the app) at the taskbar's real height, so what is picked is what the taskbar shows. As many
+/// readings as the user likes, in their order: the ones that don't fit wait in "+N".
 /// </summary>
 public sealed partial class TaskbarViewModel : ObservableObject
 {
     private readonly SettingsModel _settings;
     private readonly LiveData _live;
+
+    /// <summary>The preview's drawing, and the pictures' (every reading as if on the strip, so each look has its minutes).</summary>
+    private readonly StripComposer _preview = new(), _pictures = new();
 
     public TaskbarViewModel(SettingsModel settings, LiveData live)
     {
@@ -228,8 +275,8 @@ public sealed partial class TaskbarViewModel : ObservableObject
         LoadSensors();
     }
 
-    /// <summary>Every sensor on this PC, for the picker.</summary>
-    public IReadOnlyList<SensorItem> AllSensors => _live.PickableSensors;
+    /// <summary>Every sensor on this PC, for the picker, and RigSight's own network speeds.</summary>
+    public IReadOnlyList<SensorItem> AllSensors => [.. _live.PickableSensors, .. _live.NetSensors];
 
     public ObservableCollection<TaskbarSensorRow> Sensors { get; } = [];
     public bool HasSensors => Sensors.Count > 0;
@@ -237,17 +284,32 @@ public sealed partial class TaskbarViewModel : ObservableObject
     /// <summary>"3 in the taskbar".</summary>
     public string CountText => Sensors.Count switch { 0 => "", 1 => Lang.T("1 in the taskbar"), var n => Lang.T($"{n} in the taskbar") };
 
-    /// <summary>The usual ones, one click each (those already in the taskbar, or missing on this PC, left out).</summary>
-    public IReadOnlyList<TaskbarQuickPick> QuickPicks =>
-    [
-        .. new (string Label, SensorItem? Sensor)[]
-            {
-                (Lang.T("CPU temperature"), _live.CpuTemp), (Lang.T("GPU temperature"), _live.GpuTemp), (Lang.T("CPU load"), _live.CpuLoad),
-                (Lang.T("GPU load"), _live.GpuLoad), (Lang.T("RAM in use"), _live.RamLoad), (Lang.T("GPU power"), _live.GpuPower),
-            }
-            .Where(p => p.Sensor is not null && !Sensors.Any(r => r.Id == p.Sensor.Id))
-            .Select(p => new TaskbarQuickPick(p.Label, p.Sensor!)),
-    ];
+    /// <summary>
+    /// The usual ones, one click each (those already in the taskbar, or missing on this PC, left out): single readings,
+    /// a part's load and temperature together, and the network's speeds.
+    /// </summary>
+    public IReadOnlyList<TaskbarQuickPick> QuickPicks
+    {
+        get
+        {
+            bool In(SensorItem? s) => s is not null && Sensors.Any(r => r.Id == s.Id);
+            var picks = new List<TaskbarQuickPick>();
+            void One(string label, SensorItem? s) { if (s is not null && !In(s)) picks.Add(new(label, s)); }
+            void Two(string label, SensorItem? temp, SensorItem? load) { if (temp is not null && load is not null && !In(temp) && !In(load)) picks.Add(new(label, temp, load)); }
+            One(Lang.T("CPU temperature"), _live.CpuTemp);
+            One(Lang.T("GPU temperature"), _live.GpuTemp);
+            One(Lang.T("CPU load"), _live.CpuLoad);
+            One(Lang.T("GPU load"), _live.GpuLoad);
+            One(Lang.T("RAM in use"), _live.RamLoad);
+            One(Lang.T("GPU power"), _live.GpuPower);
+            Two(Lang.T("CPU load and temperature"), _live.CpuTemp, _live.CpuLoad);
+            Two(Lang.T("GPU load and temperature"), _live.GpuTemp, _live.GpuLoad);
+            One(Lang.T("Download speed"), _live.NetSensors[0]);
+            One(Lang.T("Upload speed"), _live.NetSensors[1]);
+            One(Lang.T("Download and upload"), _live.NetSensors[2]);
+            return picks;
+        }
+    }
 
     public bool HasQuickPicks => QuickPicks.Count > 0;
 
@@ -265,7 +327,16 @@ public sealed partial class TaskbarViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void AddQuick(TaskbarQuickPick pick) => Add(pick.Sensor);
+    private void AddQuick(TaskbarQuickPick pick)
+    {
+        // A pair goes in one after the other, the temperature first: in two rows they share a box.
+        _settings.Update(s =>
+        {
+            if (!s.TraySensors.Contains(pick.Sensor.Id)) s.TraySensors.Add(pick.Sensor.Id);
+            if (pick.Second is { } second && !s.TraySensors.Contains(second.Id)) s.TraySensors.Add(second.Id);
+        });
+        LoadSensors();
+    }
 
     // ── Adding a reading: the search box by the Readings title, its list floating under it ──
 
@@ -319,23 +390,33 @@ public sealed partial class TaskbarViewModel : ObservableObject
         if (Sensors.Any(r => r.Id == sensor.Id)) return;
         _settings.Update(s =>
         {
-            if (!s.TraySensors.Contains(sensor.Id)) s.TraySensors.Add(sensor.Id);
+            if (s.TraySensors.Contains(sensor.Id)) return;
+            // A new reading takes the style of the last one in the list (the readings next to it look alike).
+            if (s.TraySensors.Count > 0 && s.TrayStyles.GetValueOrDefault(s.TraySensors[^1], s.TrayStyle) is var last && last != s.TrayStyle)
+                s.TrayStyles[sensor.Id] = last;
+            s.TraySensors.Add(sensor.Id);
         });
         LoadSensors();
     }
 
     // ── How they show ──
 
-    /// <summary>A strip in the taskbar, an icon each, or an icon per part (see <see cref="TrayStyle"/>).</summary>
-    public TrayStyle Style
+    /// <summary>The style every reading without one of its own has (see <see cref="TrayStyle"/>).</summary>
+    public TrayStyle Style => _settings.Current.TrayStyle;
+
+    /// <summary>Whether every reading shows in <paramref name="style"/> (a card is ticked then; with mixed styles none is).</summary>
+    private bool AllIn(TrayStyle style) => Sensors.Count == 0 ? Style == style : Sensors.All(r => r.Style == style);
+
+    /// <summary>Every reading in one style: each one's own style goes.</summary>
+    private void SetAll(TrayStyle style)
     {
-        get => _settings.Current.TrayStyle;
-        set
+        _settings.Update(s =>
         {
-            if (value == Style) return;
-            _settings.Update(s => s.TrayStyle = value);
-            OnStyleChanged();
-        }
+            s.TrayStyle = style;
+            s.TrayStyles.Clear();
+        });
+        LoadSensors();
+        OnStyleChanged();
     }
 
     /// <summary>Where the readings sit, in any style: next to the clock, or at the taskbar's left end (see <see cref="TraySide"/>).</summary>
@@ -425,6 +506,19 @@ public sealed partial class TaskbarViewModel : ObservableObject
         }
     }
 
+    /// <summary>"Bytes" or "Bits": speeds as "12 MB/s" or as internet plans say them, "99 Mbps".</summary>
+    public string SpeedsText
+    {
+        get => _settings.Current.TraySpeedBits ? "Bits" : "Bytes";
+        set
+        {
+            bool bits = value == "Bits";
+            if (bits == _settings.Current.TraySpeedBits) return;
+            _settings.Update(s => s.TraySpeedBits = bits);
+            OnStyleChanged();
+        }
+    }
+
     private void SetAlone(TaskbarSensorRow row, bool alone)
     {
         if (_settings.Current.TrayAlone.Contains(row.Id) == alone) return; // already saved (or read from settings)
@@ -434,6 +528,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
             if (alone) s.TrayAlone.Add(row.Id);
         });
         RefreshBoxes();
+        Redraw();
     }
 
     private void SetLook(TaskbarSensorRow row, TrayLook look)
@@ -444,8 +539,53 @@ public sealed partial class TaskbarViewModel : ObservableObject
             s.TrayLooks.Remove(row.Id);
             if (look != TrayLook.Number) s.TrayLooks[row.Id] = look;
         });
-        OnPropertyChanged(nameof(PreviewStrip));
+        Redraw();
     }
+
+    private void SetStyleOf(TaskbarSensorRow row, TrayStyle style)
+    {
+        _settings.Update(s =>
+        {
+            s.TrayStyles.Remove(row.Id);
+            if (style != s.TrayStyle) s.TrayStyles[row.Id] = style;
+        });
+        row.Style = style;
+        RefreshBoxes();
+        OnStyleChanged();
+    }
+
+    private void SetSizeOf(TaskbarSensorRow row, TraySize size)
+    {
+        _settings.Update(s =>
+        {
+            s.TraySizes.Remove(row.Id);
+            if (size != TraySize.Auto) s.TraySizes[row.Id] = size;
+        });
+        row.Size = size;
+        Redraw();
+    }
+
+    private void SetLookFrom(TaskbarSensorRow row, string? from)
+    {
+        _settings.Update(s =>
+        {
+            s.TrayLookFrom.Remove(row.Id);
+            if (from is not null && from != row.Id) s.TrayLookFrom[row.Id] = from;
+        });
+        row.LookFrom = from;
+        Redraw();
+    }
+
+    /// <summary>The readings a reading's look can be drawn from: its part's loads, temperatures, power and clocks (its own left out).</summary>
+    private IReadOnlyList<SensorItem> LookFromCandidates(TaskbarSensorRow row)
+    {
+        if (row.Sensor is null || TrayParts.IsNet(row.Id)) return [];
+        return [.. _live.PickableSensors.Where(s => s.Id != row.Id && TrayParts.GroupOf(TrayParts.PartOf(s.HardwareType), s.Id) == row.Group
+                && s.Kind is SensorKind.Load or SensorKind.Temperature or SensorKind.Power or SensorKind.Clock && !TrayParts.IsCoreLoad(s.Kind, s.Name))
+            .OrderBy(s => Sensors.Any(r => r.Id == s.Id) ? 0 : 1).ThenBy(s => s.Kind).Take(8)];
+    }
+
+    private SensorItem? SensorById(string id) => AllSensors.FirstOrDefault(s => s.Id == id);
 
     private void OnStyleChanged()
     {
@@ -455,24 +595,16 @@ public sealed partial class TaskbarViewModel : ObservableObject
         OnPropertyChanged(nameof(OnLeft));
         OnPropertyChanged(nameof(PreviewOnLeft));
         OnPropertyChanged(nameof(SideNote));
-        foreach (var row in Sensors)
-        {
-            row.InStrip = ShowStrip;
-            row.InBoxes = ShowBoxes;
-        }
         OnPropertyChanged(nameof(InStrip));
         OnPropertyChanged(nameof(TwoRows));
         OnPropertyChanged(nameof(Separate));
         OnPropertyChanged(nameof(Grouped));
-        OnPropertyChanged(nameof(ShowStrip));
-        OnPropertyChanged(nameof(ShowBoxes));
-        OnPropertyChanged(nameof(ShowList));
-        OnPropertyChanged(nameof(ShowIcons));
         OnPropertyChanged(nameof(ShowWidth));
+        OnPropertyChanged(nameof(ShowNames));
+        OnPropertyChanged(nameof(ShowSpeeds));
         OnPropertyChanged(nameof(NamesText));
+        OnPropertyChanged(nameof(SpeedsText));
         RefreshBoxes();
-        OnPropertyChanged(nameof(BoxSpace));
-        OnPropertyChanged(nameof(PreviewIcons));
         OnPropertyChanged(nameof(StripNote));
         OnPropertyChanged(nameof(Colors));
         OnPropertyChanged(nameof(Gray));
@@ -481,8 +613,8 @@ public sealed partial class TaskbarViewModel : ObservableObject
         OnPropertyChanged(nameof(Background));
         OnPropertyChanged(nameof(WidthMode));
         OnPropertyChanged(nameof(WidthText));
-        OnPropertyChanged(nameof(PreviewStrip));
         OnPropertyChanged(nameof(WaitingText));
+        Redraw();
     }
 
     /// <summary>The parts' colours, or grayscale (the taskbar's text colour and grey).</summary>
@@ -501,25 +633,23 @@ public sealed partial class TaskbarViewModel : ObservableObject
         }
     }
 
-    // The four ways, for the style cards (radio buttons).
-    public bool InStrip { get => Style == TrayStyle.Strip; set { if (value) Style = TrayStyle.Strip; } }
-    public bool TwoRows { get => Style == TrayStyle.TwoRows; set { if (value) Style = TrayStyle.TwoRows; } }
-    public bool Separate { get => Style == TrayStyle.Icons; set { if (value) Style = TrayStyle.Icons; } }
-    public bool Grouped { get => Style == TrayStyle.Grouped; set { if (value) Style = TrayStyle.Grouped; } }
+    // The four styles' cards: "Set all to" (ticked while every reading has that style; with mixed styles none is).
+    public bool InStrip { get => AllIn(TrayStyle.Strip); set { if (value) SetAll(TrayStyle.Strip); } }
+    public bool TwoRows { get => AllIn(TrayStyle.TwoRows); set { if (value) SetAll(TrayStyle.TwoRows); } }
+    public bool Separate { get => AllIn(TrayStyle.Icons); set { if (value) SetAll(TrayStyle.Icons); } }
+    public bool Grouped { get => AllIn(TrayStyle.Grouped); set { if (value) SetAll(TrayStyle.Grouped); } }
 
     /// <summary>RigSight draws the readings in Windows 11's taskbar; on Windows 10 they show as its own tray icons.</summary>
     public static bool StripSupported => Environment.OSVersion.Version.Build >= 22000;
 
-    /// <summary>Whether the preview shows the strip, or the boxes of two rows (else the icons, as they'll be).</summary>
-    public bool ShowStrip => InStrip && StripSupported;
-    public bool ShowBoxes => TwoRows && StripSupported;
-    public bool ShowIcons => !ShowStrip && !ShowBoxes;
-
-    /// <summary>The Readings list as it is, or (two rows) under the boxes they make.</summary>
-    public bool ShowList => !ShowBoxes;
-
     /// <summary>The width switch: only the strip has graphs to make roomier or narrower.</summary>
-    public bool ShowWidth => ShowStrip;
+    public bool ShowWidth => Sensors.Any(r => r.Style == TrayStyle.Strip) && StripSupported;
+
+    /// <summary>Two rows' names switch: with a reading in two rows.</summary>
+    public bool ShowNames => Sensors.Any(r => r.Style == TrayStyle.TwoRows) && StripSupported;
+
+    /// <summary>The speeds' unit switch: with a speed in the taskbar.</summary>
+    public bool ShowSpeeds => Sensors.Any(r => r.Sensor?.Kind == SensorKind.Throughput);
 
     /// <summary>The place switch: RigSight draws every style in Windows 11's taskbar, at either end.</summary>
     public bool ShowPlace => StripSupported;
@@ -529,8 +659,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
 
     /// <summary>Under the styles, when the strip or two rows were picked on Windows 10.</summary>
     public string StripNote => StripSupported ? ""
-        : InStrip ? Lang.T("The strip needs Windows 11, so here the readings show as an icon each.")
-        : TwoRows ? Lang.T("Two rows need Windows 11, so here the readings show as an icon each.")
+        : Sensors.Any(r => r.Style is TrayStyle.Strip or TrayStyle.TwoRows) ? Lang.T("The strip and two rows need Windows 11, so here the readings show as an icon each.")
         : "";
 
     /// <summary>
@@ -551,84 +680,155 @@ public sealed partial class TaskbarViewModel : ObservableObject
         }
     }
 
-    /// <summary>The parts on the strip, as the agent lays them out (all of a part's readings, the temperature first).</summary>
-    public IReadOnlyList<TaskbarStripPart> PreviewStrip
+    // ── The preview: the agent's own drawing, at the taskbar's real height ──
+
+    /// <summary>The taskbar's readings as the taskbar will draw them (pixel for pixel at its scale).</summary>
+    [ObservableProperty]
+    private BitmapSource? _previewImage;
+
+    /// <summary>The preview's taskbar height in the page's units (48 on Windows' usual taskbar, 32 with its smaller buttons).</summary>
+    [ObservableProperty]
+    private double _barHeight = 48;
+
+    /// <summary>Under the preview: the taskbar's height, when it's short (so each reading is on one line), as measured.</summary>
+    [ObservableProperty]
+    private string _barNote = "";
+
+    /// <summary>The taskbar as last measured: height and width in pixels, and its scale.</summary>
+    private (int Height, int Width, float Scale) _bar = (48, 1920, 1);
+
+    /// <summary>
+    /// Draws the preview again, and each reading's picture: the readings as now (their newest values, their graphs' last
+    /// minutes), at the taskbar's real height and scale. The page calls this every second while it shows.
+    /// </summary>
+    public void Redraw()
     {
-        get
+        try
         {
-            var found = Sensors.Where(r => r.Found).ToList();
-            var parts = TrayParts.Group(found, r => (TrayParts.GroupOf(r.Part, r.Id), r.Sensor!.Kind), int.MaxValue);
-            var names = TrayParts.Names([.. parts.Select(p => p[0].Part)]);
-            bool textTop = found.Any(r => r.ShownLook is not (TrayLook.Number or TrayLook.Ring));
-            var (_, inner, gap) = new StripSpacing(Tiles, WidthMode).Value;
-            return [.. parts.Select((rows, i) =>
+            _bar = TaskbarBar.Now();
+            var (height, width, scale) = _bar;
+            BarHeight = height / scale;
+            BarNote = height / scale < WidgetRendererTwoLineHeight
+                ? Lang.T($"Your taskbar is {Math.Round(height / scale)} px tall (Windows' smaller taskbar buttons), so each reading is on one line, as here.")
+                : "";
+            long now = Environment.TickCount64;
+            var readings = Sensors.Select(Reading).ToList();
+            var options = Options();
+            _preview.Remember(readings, now);
+            float graphWide = WidgetRenderer.StripGraphWidthFor(width, scale, WidthMode);
+            if (readings.Count == 0) PreviewImage = null;
+            else
             {
-                var labels = TrayParts.StripLabels([.. rows.Select(r => r.Short)], names[i]);
-                return new TaskbarStripPart([.. rows.Select((r, j) => new TaskbarStripReading(r, labels[j], j == 0, NameBrush(r, TaskbarLight, Gray), r.ShownLook,
-                    Tiles ? TileBrush(r, TaskbarLight, Gray, icon: false) : null, textTop, WidthMode, TaskbarLight,
-                    j == rows.Count - 1 ? (i == parts.Count - 1 ? 0 : gap) : inner))],
-                    string.Join('\n', rows.Select(r => r.Name).Prepend(rows[0].Hardware)));
-            })];
+                var layout = _preview.Build(readings, options, graphWide, 0, height, scale, now);
+                using var bmp = layout.Render(out _, out _);
+                PreviewImage = TaskbarBar.ToImage(bmp, scale);
+            }
+            // Each reading's picture on its button, as it shows; the pictures' composer keeps every reading's minutes.
+            _pictures.Remember([.. readings.Select(r => r with { Style = TrayStyle.Strip })], now);
+            foreach (var row in Sensors) row.Picture = PictureOf(row, row.Look, row.Style);
+            UpdateSizes();
+        }
+        catch (Exception ex) { Log.Write("taskbar", $"The preview couldn't be drawn: {ex.Message}"); }
+    }
+
+    /// <summary>Below this height (at 100%) the strip goes to one line (as the agent's StripTwoLineHeight).</summary>
+    private const double WidgetRendererTwoLineHeight = 36;
+
+    /// <summary>A look's picture for a reading, as the taskbar will draw it at its height, in <paramref name="style"/>.</summary>
+    private BitmapSource? PictureOf(TaskbarSensorRow row, TrayLook look, TrayStyle style)
+    {
+        if (row.Sensor is null) return null;
+        var (height, width, scale) = _bar;
+        var reading = Reading(row) with { Look = look, Style = style, Alone = true };
+        var layout = _pictures.Build([reading], Options(), WidgetRenderer.StripGraphWidthFor(width, scale, WidthMode), 0,
+            TrayParts.SizeHeight(row.Size, height, scale), scale, Environment.TickCount64);
+        using var bmp = layout.Render(out _, out _);
+        return TaskbarBar.ToImage(bmp, scale);
+    }
+
+    private StripComposer.Options Options() => new(TaskbarLight, Gray, Tiles, WidthMode, _settings.Current.TrayLetterNames, _settings.Current.TraySpeedBits);
+
+    /// <summary>
+    /// A row as the agent reads it (AgentContext.TrayReadingsFor): its value now, its own style and size, the reading its
+    /// look is drawn from, both speeds' upload, a CPU's cores.
+    /// </summary>
+    private TrayReading Reading(TaskbarSensorRow row)
+    {
+        var settings = _settings.Current;
+        if (row.Sensor is not { } s)
+            return new TrayReading(row.Id, row.Name, SensorKind.Factor, null, TrayPart.Other, "", Alone: row.Alone, Style: row.Style, Size: row.Size);
+        var from = row.LookFrom is { } f ? SensorById(f) : null;
+        float[]? cores = null;
+        if (row.Look == TrayLook.Cores && from is null && TrayParts.IsCpuTotal(s.Kind, row.Part, s.Name))
+        {
+            var list = _live.AllSensors.Where(c => c.HardwareName == s.HardwareName && TrayParts.IsCoreLoad(c.Kind, c.Name)).ToList();
+            if (list.Count > 0) cores = [.. list.Select(c => c.Value is double v ? (float)Math.Clamp(v / 100, 0, 1) : 0f)];
+        }
+        return new TrayReading(row.Id, row.Name, s.Kind, s.Value, row.Part, row.Hardware, row.Short, row.NumberColor, row.NameColor, row.Look, row.TileColor,
+            row.OwnShort, row.Alone, row.Style, row.Size, from?.Id, from?.Kind, from?.Value,
+            Second: row.Id == TrayParts.NetBoth ? _live.NetSensors[1].Value : null, Cores: cores);
+    }
+
+    /// <summary>Which sizes fit the taskbar now, why the others don't, and which readings show smaller for now.</summary>
+    private void UpdateSizes()
+    {
+        var (height, _, scale) = _bar;
+        bool Fits(TraySize size) => TrayParts.SizeNeeds(size) * scale <= height + 0.5;
+        var off = new[] { TraySize.Small, TraySize.Medium, TraySize.Large }.Where(z => !Fits(z)).ToList();
+        int px = (int)Math.Round(height / scale);
+        string note = off.Count == 0 ? ""
+            : off.Count == 1
+                ? Lang.T($"Your taskbar is {px} px tall, so {TrayParts.SizeName(off[0])} is off: it needs {TrayParts.SizeNeeds(off[0])} px. To use it, set Show smaller taskbar buttons to Never.")
+                : Lang.T($"Your taskbar is {px} px tall, so {string.Join(" and ", off.Select(TrayParts.SizeName))} are off: they need {TrayParts.SizeNeeds(off[^1])} px. To use them, set Show smaller taskbar buttons to Never.");
+        foreach (var row in Sensors)
+        {
+            row.CanSmall = Fits(TraySize.Small);
+            row.CanMedium = Fits(TraySize.Medium);
+            row.CanLarge = Fits(TraySize.Large);
+            row.SizeNote = note;
+            row.SizeNow = row.Size != TraySize.Auto && !Fits(row.Size) ? Lang.T("Shown smaller for now: the taskbar is too short for this size") : "";
         }
     }
 
-    /// <summary>
-    /// Two rows' boxes as the agent makes them (TaskbarStrip): the list's readings two to a box in its order, one "on its
-    /// own" alone; each word as drawn (a part's name numbered when it comes twice), the tile the first one picked in the
-    /// box, else the top's.
-    /// </summary>
+    [RelayCommand]
+    private void OpenTaskbarSettings() => TaskbarBar.OpenSettings();
+
+    /// <summary>Two rows' boxes as the agent makes them: each run of readings in two rows, two to a box in the list's order, one "on its own" alone.</summary>
     public IReadOnlyList<TaskbarBox> Boxes => _boxes;
     private List<TaskbarBox> _boxes = [];
 
-    /// <summary>Makes the boxes again when the pairs changed; else gives the ones there their words and tiles as now.</summary>
+    /// <summary>Makes the boxes again, and gives each reading in two rows its box's title ("Box 2 · on its own").</summary>
     private void RefreshBoxes()
     {
-        var rows = Sensors.ToList();
-        var made = TrayParts.Boxes(rows, r => r.Alone);
-        bool same = made.Count == _boxes.Count && made.Zip(_boxes).All(p => p.First.SequenceEqual(p.Second.Rows));
-        if (!same) _boxes = [.. made.Select((box, i) => new TaskbarBox(i + 1, box))];
-        var groups = rows.Select(r => r.Group).Distinct().ToList();
-        var partNames = TrayParts.Names([.. groups.Select(g => rows.First(r => r.Group == g).Part)]);
-        var nameOf = groups.Select((g, i) => (g, partNames[i])).ToDictionary(x => x.g, x => x.Item2);
-        bool letters = _settings.Current.TrayLetterNames;
-        foreach (var box in _boxes)
+        var boxes = new List<TaskbarBox>();
+        var run = new List<TaskbarSensorRow>();
+        void Flush()
         {
-            var (first, n) = (box.Rows[0], box.Number);
-            box.Lines = [.. box.Rows.Select((r, j) => new TaskbarBoxLine(r, !r.Found ? "" : TrayParts.BoxLabel(nameOf[r.Group], r.Group, r.Sensor!.Kind, r.Short,
-                r.OwnShort, j == 0 ? null : first.Group, letters), NameBrush(r, TaskbarLight, Gray)))];
-            box.Tile = Tiles ? TileBrush(box.Rows.FirstOrDefault(r => r.TileColor is not null) ?? first, TaskbarLight, Gray, icon: false) : null;
-            box.Title = box.Rows.Count > 1 ? Lang.T($"Box {n}") : first.Alone ? Lang.T($"Box {n} · on its own") : Lang.T($"Box {n} · one reading");
+            foreach (var box in TrayParts.Boxes(run, r => r.Alone || r.Id == TrayParts.NetBoth)) boxes.Add(new TaskbarBox(boxes.Count + 1, box));
+            run.Clear();
         }
-        if (!same) OnPropertyChanged(nameof(Boxes));
-    }
-
-    /// <summary>The room after each box in the preview, as the agent leaves it (closer on tiles).</summary>
-    public System.Windows.Thickness BoxSpace => new(0, 0, Tiles ? 4 : 12, 0);
-
-    /// <summary>The strip's spacing (as the agent's StripLook): inside a tile, between readings of a part, between parts.</summary>
-    private readonly record struct StripSpacing(bool Tiles, TrayWidth Width)
-    {
-        public (double Pad, double Inner, double Gap) Value => Tiles
-            ? Width switch { TrayWidth.Compact => (3, 2, 6), TrayWidth.Roomy => (6, 4, 10), _ => (5, 3, 8) }
-            : Width == TrayWidth.Compact ? (0, 5, 12) : (0, 7, 16);
-    }
-
-    /// <summary>
-    /// The icons as the taskbar will show them, grouped as the agent groups them (readings not found left out); the
-    /// part's name under the first icon of each part only.
-    /// </summary>
-    public IReadOnlyList<TaskbarPreviewIcon> PreviewIcons
-    {
-        get
+        TaskbarSensorRow? before = null;
+        foreach (var row in Sensors)
         {
-            var found = Sensors.Where(r => r.Found).ToList();
-            var icons = Style == TrayStyle.Grouped
-                ? TrayParts.Group(found, r => (TrayParts.GroupOf(r.Part, r.Id), r.Sensor!.Kind))
-                : [.. found.Select(r => new List<TaskbarSensorRow> { r })];
-            return [.. icons.Select((rows, i) => new TaskbarPreviewIcon(rows, Tiles ? TileBrush(rows[0], TaskbarLight, Gray, icon: true) : null,
-                rows[0].PartLabel, i == 0 || icons[i - 1][0].Part != rows[0].Part))];
+            if (row.Style == TrayStyle.TwoRows && (before is null || before.Style == TrayStyle.TwoRows && before.Size == row.Size)) run.Add(row);
+            else
+            {
+                Flush();
+                if (row.Style == TrayStyle.TwoRows) run.Add(row);
+            }
+            before = row;
         }
+        Flush();
+        _boxes = boxes;
+        foreach (var row in Sensors) row.BoxTitle = "";
+        foreach (var box in boxes)
+            foreach (var row in box.Rows)
+                row.BoxTitle = box.Rows.Count > 1 ? Lang.T($"Box {box.Number}") : row.Alone ? Lang.T($"Box {box.Number} · on its own") : Lang.T($"Box {box.Number} · one reading");
+        OnPropertyChanged(nameof(Boxes));
     }
+
+    /// <summary>Windows 11's taskbar, light and dark (as the page's preview draws it).</summary>
+    private static readonly Brush LightBar = Frozen(new SolidColorBrush(Color.FromRgb(0xEE, 0xEE, 0xEE))), DarkBar = Frozen(new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x1C)));
 
     private static readonly Dictionary<(TrayPart, bool), Brush> Marks = [];
 
@@ -646,18 +846,6 @@ public sealed partial class TaskbarViewModel : ObservableObject
     /// <summary>A reading's name colour (its graph and icon tile too): the one picked, made readable on this taskbar, else its part's.</summary>
     public static Brush NameBrush(TaskbarSensorRow row, bool light, bool gray) =>
         !gray && TrayColors.Parse(row.NameColor) is { } c ? Solid(TrayColors.ForTaskbar(c, light)) : MarkBrush(row.Part, light, gray);
-
-    /// <summary>
-    /// A reading's tile, as the agent draws it (TrayReading.TileOn): the colour picked, soft; else, on an icon, its name's
-    /// colour, fainter; else the strip's faint neutral tile. Grayscale: grey, whatever was picked.
-    /// </summary>
-    public static Brush TileBrush(TaskbarSensorRow row, bool light, bool gray, bool icon)
-    {
-        Color Faded(Color c, int alpha) => Color.FromArgb((byte)alpha, c.R, c.G, c.B);
-        if (!gray && TrayColors.Parse(row.TileColor) is { } t) return Frozen(new SolidColorBrush(Faded(Color.FromRgb(t.R, t.G, t.B), TrayColors.TileAlpha(true, light))));
-        if (icon && NameBrush(row, light, gray) is SolidColorBrush name) return Frozen(new SolidColorBrush(Faded(name.Color, TrayColors.TileAlpha(false, light))));
-        return Frozen(new SolidColorBrush(Faded(light ? System.Windows.Media.Colors.Black : System.Windows.Media.Colors.White, TrayColors.NeutralTileAlpha(light))));
-    }
 
     private static readonly Brush HeatDot = Frozen(new LinearGradientBrush(
         [new GradientStop(Color.FromRgb(0x38, 0xBD, 0xF8), 0), new GradientStop(Color.FromRgb(0x38, 0xBD, 0xF8), 0.33),
@@ -718,15 +906,20 @@ public sealed partial class TaskbarViewModel : ObservableObject
             if (number is null && name is null && tile is null) s.TrayColors.Remove(row.Id);
             else s.TrayColors[row.Id] = new TrayColor { Number = number, Name = name, Tile = tile };
         });
-        OnPropertyChanged(nameof(PreviewStrip));
-        OnPropertyChanged(nameof(PreviewIcons));
         RefreshBoxes();
+        Redraw();
     }
 
     [RelayCommand]
     private void RemoveSensor(TaskbarSensorRow row)
     {
-        _settings.Update(s => s.TraySensors.Remove(row.Id));
+        _settings.Update(s =>
+        {
+            s.TraySensors.Remove(row.Id);
+            s.TrayStyles.Remove(row.Id);
+            s.TraySizes.Remove(row.Id);
+            s.TrayLookFrom.Remove(row.Id);
+        });
         LoadSensors();
     }
 
@@ -754,6 +947,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
         var wanted = _settings.Current.TraySensors;
         var byId = new Dictionary<string, SensorItem>();
         foreach (var item in _live.AllSensors) byId.TryAdd(item.Id, item);
+        foreach (var item in _live.NetSensors) byId.TryAdd(item.Id, item);
         bool same = wanted.Count == Sensors.Count && wanted.SequenceEqual(Sensors.Select(r => r.Id))
                     && Sensors.All(r => r.Sensor is { } s ? byId.GetValueOrDefault(r.Id) == s : !byId.ContainsKey(r.Id));
         if (!same)
@@ -768,15 +962,23 @@ public sealed partial class TaskbarViewModel : ObservableObject
         var settings = _settings.Current;
         foreach (var row in Sensors)
         {
+            row.LookPictureOf ??= LookPicture;
+            row.BarBrush = TaskbarLight ? LightBar : DarkBar;
+            row.LookFromSensor ??= SensorById;
+            row.LookFromCandidates ??= LookFromCandidates;
+            row.AlonePicked ??= SetAlone;
+            row.LookPicked ??= SetLook;
+            row.StylePicked ??= SetStyleOf;
+            row.SizePicked ??= SetSizeOf;
+            row.LookFromPicked ??= SetLookFrom;
             row.Look = settings.TrayLooks.GetValueOrDefault(row.Id);
+            row.Style = settings.TrayStyles.GetValueOrDefault(row.Id, settings.TrayStyle);
+            row.Size = settings.TraySizes.GetValueOrDefault(row.Id);
+            row.LookFrom = settings.TrayLookFrom.GetValueOrDefault(row.Id);
             row.NumberColor = TrayColors.NumberOf(settings, row.Id);
             row.NameColor = TrayColors.NameOf(settings, row.Id);
             row.TileColor = TrayColors.TileOf(settings, row.Id);
-            row.InStrip = ShowStrip;
-            row.InBoxes = ShowBoxes;
-            row.AlonePicked ??= SetAlone;
             row.Alone = settings.TrayAlone.Contains(row.Id);
-            row.LookPicked ??= SetLook;
         }
         OnPropertyChanged(nameof(HasSensors));
         OnPropertyChanged(nameof(CountText));
@@ -785,10 +987,20 @@ public sealed partial class TaskbarViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowCommon));
         OnPropertyChanged(nameof(AddList));
         OnPropertyChanged(nameof(AddListEmpty));
-        OnPropertyChanged(nameof(PreviewIcons));
-        OnPropertyChanged(nameof(PreviewStrip));
+        OnPropertyChanged(nameof(InStrip));
+        OnPropertyChanged(nameof(TwoRows));
+        OnPropertyChanged(nameof(Separate));
+        OnPropertyChanged(nameof(Grouped));
+        OnPropertyChanged(nameof(ShowWidth));
+        OnPropertyChanged(nameof(ShowNames));
+        OnPropertyChanged(nameof(ShowSpeeds));
+        OnPropertyChanged(nameof(StripNote));
         RefreshBoxes();
         OnPropertyChanged(nameof(WaitingText));
         OnPropertyChanged(nameof(AllSensors));
+        Redraw();
     }
+
+    /// <summary>A look's picture for its picker (strip looks drawn on the strip, icon looks on an icon).</summary>
+    internal BitmapSource? LookPicture(TaskbarSensorRow row, TrayLook look) => PictureOf(row, look, row.Style == TrayStyle.TwoRows ? TrayStyle.Strip : row.Style);
 }

@@ -127,6 +127,25 @@ public static class Units
         };
     }
 
+    /// <summary>
+    /// A speed as the taskbar shows it, its unit stepping up by itself: "850 KB/s", "12 MB/s", "1.2 GB/s" (as Windows counts
+    /// them, 1 MB = 1,024 KB), or in bits as internet plans say them (<paramref name="bits"/>): "850 Kbps", "99 Mbps".
+    /// Under 10 with one decimal ("4.5 MB/s"), so the room for it stays about the same.
+    /// </summary>
+    public static string StripSpeed(double? bytesPerSec, bool bits)
+    {
+        if (bytesPerSec is not double v || !double.IsFinite(v)) return "–";
+        v = Math.Max(0, v);
+        string Num(double x) => (x < 10 ? x.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+            : Math.Round(x).ToString("0", System.Globalization.CultureInfo.InvariantCulture));
+        if (bits)
+        {
+            double b = v * 8;
+            return b >= 1e9 ? Num(b / 1e9) + " Gbps" : b >= 1e6 ? Num(b / 1e6) + " Mbps" : Num(b / 1e3) + " Kbps";
+        }
+        return v >= 1L << 30 ? Num(v / (1L << 30)) + " GB/s" : v >= 1L << 20 ? Num(v / (1L << 20)) + " MB/s" : Num(v / 1024) + " KB/s";
+    }
+
     public static string TypeLabel(SensorKind kind) => kind switch
     {
         SensorKind.Temperature => Lang.T("TEMP"),

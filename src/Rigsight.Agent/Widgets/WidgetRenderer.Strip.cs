@@ -5,7 +5,12 @@ using System.Drawing.Text;
 using Rigsight.Core;
 using Rigsight.Core.Settings;
 
+#if RIGSIGHT_APP
+// Linked into the app for the Taskbar page's preview, in a namespace of its own there (the tests see both assemblies).
+namespace Rigsight.TaskbarDrawing;
+#else
 namespace Rigsight.Agent.Widgets;
+#endif
 
 /// <summary>
 /// One reading on the taskbar strip, as drawn: "56°" in its colour, the word under it ("VRAM"), and the widest text its
@@ -13,8 +18,11 @@ namespace Rigsight.Agent.Widgets;
 /// <see cref="TrayLook"/>) with what it needs: a graph of its last minutes, or how full it is (0 to 1); its tile's colour
 /// (null: no tile). <see cref="More"/>: the "+N" place for readings waiting for room.
 /// </summary>
+/// <remarks>Since 1.3: <see cref="Second"/>, the upload speed beside a download (Down and up), with its graph
+/// (<see cref="Graph2"/>, the mirrored graph's lower half); <see cref="Cores"/>, each core's load 0 to 1 (Each core).</remarks>
 internal readonly record struct StripValue(string Text, Color Color, string Label = "", string Reserve = "", StripGraph? Graph = null, Color? LabelColor = null,
-    TrayLook Look = TrayLook.Number, float Fill = 0, Color? Tile = null, bool More = false);
+    TrayLook Look = TrayLook.Number, float Fill = 0, Color? Tile = null, bool More = false, string Second = "", string SecondReserve = "",
+    StripGraph? Graph2 = null, float[]? Cores = null);
 
 /// <summary>
 /// A reading's graph of the last minutes, filled in behind its number and word (as taskbar-monitor draws them): its points, each across (time, 0 = the
@@ -41,6 +49,9 @@ internal readonly record struct StripLook(bool Tiles, TrayWidth Width, bool Ligh
     public (float Pad, float Inner, float Gap) Spacing => Tiles
         ? Width switch { TrayWidth.Compact => (3, 2, 6), TrayWidth.Roomy => (6, 4, 10), _ => (5, 3, 8) }
         : Width == TrayWidth.Compact ? (0, 5, 12) : (0, 7, 16);
+
+    /// <summary>Windows 11's taskbar behind the strip (see <see cref="TrayColors.Bar"/>): what a word's halo is drawn in.</summary>
+    public Color Bar => TrayColors.Bar(Light) is var (r, g, b) ? Color.FromArgb(r, g, b) : Color.Black;
 }
 
 /// <summary>The taskbar strip (see TaskbarStrip): readings drawn like the taskbar's clock, on nothing or on tiles.</summary>
@@ -97,7 +108,17 @@ internal static partial class WidgetRenderer
     private static TrayLook LookOf(StripValue v) => v.Look == TrayLook.Number && v.Graph is not null ? TrayLook.Area : v.Look;
 
     /// <summary>A reading draws something under its number besides its word (a graph, a level, blocks): the text then sits at the top.</summary>
-    private static bool DrawsUnder(StripValue v) => !v.More && LookOf(v) is not (TrayLook.Number or TrayLook.Ring);
+    private static bool DrawsUnder(StripValue v) => !v.More && LookOf(v) is not (TrayLook.Number or TrayLook.Ring or TrayLook.Half or TrayLook.Pie
+        or TrayLook.Cores or TrayLook.Big or TrayLook.Spark or TrayLook.DownUp);
+
+    /// <summary>
+    /// A reading's look is drawn behind its text (a graph, a level, the mirrored graph): its words and number get a halo
+    /// in the bar's colour, so they read at full contrast over any part of it (a word on its own graph line was 1:1).
+    /// </summary>
+    private static bool DrawsBehind(StripValue v) => !v.More && LookOf(v) is TrayLook.Area or TrayLook.Line or TrayLook.Bars or TrayLook.Level or TrayLook.Mirror;
+
+    /// <summary>The most cores Each core draws (more would be too narrow to tell apart).</summary>
+    private const int MaxCores = 16;
 
     /// <summary>
     /// The strip at <paramref name="height"/> pixels (the taskbar's) and <paramref name="scale"/> (its DPI / 96): each
@@ -143,7 +164,7 @@ internal static partial class WidgetRenderer
         private readonly StripLook _look;
         private readonly bool _twoLines;
         private readonly FontFamily _valueFamily = new("Segoe UI Semibold"), _nameFamily = new("Segoe UI");
-        private readonly Font _valueFont, _nameFont;
+        private readonly Font _valueFont, _nameFont, _bigFont;
         private readonly StringFormat _format = StringFormat.GenericTypographic;
         private readonly Bitmap _measuring = new(1, 1);
         private readonly Graphics _mg;
@@ -161,6 +182,8 @@ internal static partial class WidgetRenderer
             _look = look;
             _valueFont = new Font(_valueFamily, 12f * scale, FontStyle.Regular, GraphicsUnit.Pixel);
             _nameFont = new Font(_nameFamily, 9.5f * scale, FontStyle.Bold, GraphicsUnit.Pixel);
+            // Big number: a third bigger on a usual taskbar; on a short one as big as still leaves room above and below.
+            _bigFont = new Font(_valueFamily, Math.Min(16f * scale, Math.Max(12f * scale, (height - 10 * scale) * 0.75f)), FontStyle.Regular, GraphicsUnit.Pixel);
             _mg = Graphics.FromImage(_measuring);
             _twoLines = height >= StripTwoLineHeight * scale;
             var (tilePad, inner, gap) = look.Spacing;
@@ -210,14 +233,30 @@ internal static partial class WidgetRenderer
         {
             float slot = Math.Max(TextWidth(v.Text, _valueFont), TextWidth(v.Reserve, _valueFont));
             if (v.More) return slot;
-            float content = (v.Label.Length > 0 ? TextWidth(v.Label, _nameFont) + OneLineGap * _scale : 0) + slot;
+            float gap = OneLineGap * _scale;
+            float content = (v.Label.Length > 0 ? TextWidth(v.Label, _nameFont) + gap : 0) + slot;
             return LookOf(v) switch
             {
-                TrayLook.Ring => RingSize + OneLineGap * _scale + content,
-                TrayLook.Area or TrayLook.Line or TrayLook.Bars => Math.Max(_graphWidth, content),
+                TrayLook.Ring or TrayLook.Half or TrayLook.Pie => RingSize + gap + content,
+                TrayLook.Cores => CoresWidth(v) + gap + content,
+                TrayLook.Big => Math.Max(TextWidth(v.Text, _bigFont), TextWidth(v.Reserve, _bigFont)),
+                TrayLook.Spark => content + gap + SparkWidth,
+                // "↓ 12 MB/s  ↑ 0.3 MB/s": each arrow in the word's colour, then its speed.
+                TrayLook.DownUp => 2 * (ArrowWidth + 2 * _scale) + slot + gap + Math.Max(TextWidth(v.Second, _valueFont), TextWidth(v.SecondReserve, _valueFont)),
+                TrayLook.Area or TrayLook.Line or TrayLook.Bars or TrayLook.Mirror => Math.Max(_graphWidth, content),
                 _ => content,
             };
         }
+
+        /// <summary>Each core's thin bar and the gaps between them.</summary>
+        private float CoresWidth(StripValue v)
+        {
+            int n = Math.Clamp(v.Cores?.Length ?? 8, 1, MaxCores);
+            return n * 3 * _scale + (n - 1) * 1.5f * _scale;
+        }
+
+        /// <summary>A graph beside the number (Number and spark).</summary>
+        private float SparkWidth => 26 * _scale;
 
         private float TextWidth(string text, Font font) => text.Length == 0 ? 0 : _mg.MeasureString(text, font, PointF.Empty, _format).Width;
 
@@ -231,10 +270,62 @@ internal static partial class WidgetRenderer
                 _ when v.More => text,
                 TrayLook.Number => text,
                 // Beside the number on one line too, sized to the shorter bar (see RingSize).
-                TrayLook.Ring => RingSize + 6 * _scale + words,
+                TrayLook.Ring or TrayLook.Half or TrayLook.Pie => RingSize + 6 * _scale + words,
+                TrayLook.Cores => CoresWidth(v) + 6 * _scale + words,
                 TrayLook.Blocks => Math.Max(_graphWidth > 0 ? Math.Max(_graphWidth, 46 * _scale) : 0, text),
+                TrayLook.Big => Math.Max(TextWidth(v.Text, _bigFont), TextWidth(v.Reserve, _bigFont)),
+                TrayLook.Spark => words + 5 * _scale + SparkWidth,
+                // Two speeds stacked, each after its arrow; the place kept as wide as the widest either has been.
+                TrayLook.DownUp => ArrowWidth + 4 * _scale + Math.Max(text,
+                    Math.Max(TextWidth(v.Second, _valueFont), TextWidth(v.SecondReserve, _valueFont))),
+                TrayLook.Mirror => Math.Max(Math.Max(_graphWidth, 46 * _scale), words),
                 _ => Math.Max(_graphWidth, text),
             };
+        }
+
+        /// <summary>
+        /// A word or number at (<paramref name="x"/>, <paramref name="y"/>), as DrawString with the typographic format
+        /// places it; with <paramref name="halo"/> an outline in <paramref name="haloColor"/> under the letters first (the
+        /// bar's or tile's colour), so they read over a graph as they do over the bar.
+        /// </summary>
+        private void Text(Graphics g, string text, Font font, Color color, float x, float y, bool halo, Color haloColor)
+        {
+            if (text.Length == 0) return;
+            if (!halo)
+            {
+                using var brush = new SolidBrush(color);
+                g.DrawString(text, font, brush, x, y, _format);
+                return;
+            }
+            using var path = new GraphicsPath();
+            path.AddString(text, font.FontFamily, (int)font.Style, font.Size, new PointF(x, y), _format);
+            using (var pen = new Pen(haloColor, 3 * _scale) { LineJoin = LineJoin.Round }) g.DrawPath(pen, path);
+            using (var fill = new SolidBrush(color)) g.FillPath(fill, path);
+        }
+
+        /// <summary>The room an arrow takes before a speed (Down and up), and the gap after it.</summary>
+        private float ArrowWidth => 7 * _scale;
+
+        /// <summary>
+        /// A solid arrow, down (download) or up (upload), on a speed's digits (<paramref name="baseline"/>): a drawn
+        /// triangle, since the font's arrows are a hairline at taskbar size.
+        /// </summary>
+        private void DrawArrow(Graphics g, float x, float baseline, bool down, Color color)
+        {
+            float digits = DigitHeight(_valueFont), w = 6 * _scale, h = Math.Min(digits, 6 * _scale);
+            float middle = baseline - digits / 2, top = middle - h / 2, bottom = middle + h / 2;
+            PointF[] points = down ? [new(x, top), new(x + w, top), new(x + w / 2, bottom)] : [new(x, bottom), new(x + w, bottom), new(x + w / 2, top)];
+            using var brush = new SolidBrush(color);
+            g.FillPolygon(brush, points);
+        }
+
+        /// <summary>The halo's colour on a reading: the bar's, with its tile laid over it when it has one.</summary>
+        private Color HaloOn(StripValue v)
+        {
+            var bar = _look.Bar;
+            if (!_look.Tiles || v.Tile is not { } t) return bar;
+            float a = t.A / 255f;
+            return Color.FromArgb((int)(t.R * a + bar.R * (1 - a)), (int)(t.G * a + bar.G * (1 - a)), (int)(t.B * a + bar.B * (1 - a)));
         }
 
         private float RingSize => Math.Min(StripRing * _scale, _height - 14 * _scale);
@@ -279,13 +370,36 @@ internal static partial class WidgetRenderer
                     }
                     if (_look.Tiles) g.SetClip(tile);
                     if (!value.More) DrawLook(g, value, left, right, column, tileX, tileW, tileTop + tileHeight, valueTop + valueHeight, nameTop + nameHeight, ink);
-                    using (var brush = new SolidBrush(value.Color))
-                        g.DrawString(value.Text, _valueFont, brush, right - TextWidth(value.Text, _valueFont), valueTop, _format);
-                    if (value.Label.Length > 0)
+                    var look = value.More ? TrayLook.Number : LookOf(value);
+                    bool halo = DrawsBehind(value);
+                    var haloColor = HaloOn(value);
+                    var word = value.LabelColor ?? cell.NameColor;
+                    float middle = tileTop + tileHeight / 2;
+                    if (look == TrayLook.Big)
                     {
+                        // The number alone, bigger, in the middle of the bar.
+                        float big = DigitHeight(_bigFont);
+                        Text(g, value.Text, _bigFont, value.Color, right - TextWidth(value.Text, _bigFont), middle + big / 2 - Ascent(_bigFont), false, haloColor);
+                    }
+                    else if (look == TrayLook.DownUp)
+                    {
+                        // Download over upload, each after its arrow in the word's colour, the pair in the middle of the bar.
+                        float digits = DigitHeight(_valueFont), between = 6 * _scale;
+                        float first = middle - (2 * digits + between) / 2 + digits, second = first + digits + between;
+                        DrawArrow(g, left, first, down: true, word);
+                        DrawArrow(g, left, second, down: false, word);
+                        Text(g, value.Text, _valueFont, value.Color, right - TextWidth(value.Text, _valueFont), first - Ascent(_valueFont), false, haloColor);
+                        Text(g, value.Second, _valueFont, value.Color, right - TextWidth(value.Second, _valueFont), second - Ascent(_valueFont), false, haloColor);
+                    }
+                    else
+                    {
+                        // The number and its word right-aligned (left of the spark, for Number and spark), like the clock.
+                        float textRight = look == TrayLook.Spark ? right - SparkWidth - 5 * _scale : right;
+                        float top = valueTop;
+                        Text(g, value.Text, _valueFont, value.Color, textRight - TextWidth(value.Text, _valueFont), top, halo, haloColor);
                         // Each word in its own reading's colour (its part's unless one was picked).
-                        using var labelBrush = new SolidBrush(value.LabelColor ?? cell.NameColor);
-                        g.DrawString(value.Label, _nameFont, labelBrush, right - TextWidth(value.Label, _nameFont), nameTop, _format);
+                        if (value.Label.Length > 0)
+                            Text(g, value.Label, _nameFont, word, textRight - TextWidth(value.Label, _nameFont), top + valueHeight, halo, haloColor);
                     }
                     g.Restore(state);
                     vx += tileW + _inner;
@@ -303,7 +417,8 @@ internal static partial class WidgetRenderer
         private void DrawOneLine(Graphics g)
         {
             float tileTop = _look.Tiles ? 4 * _scale : 0, tileHeight = _height - 2 * tileTop, middle = tileTop + tileHeight / 2;
-            float digits = DigitHeight(_valueFont), gap = OneLineGap * _scale, blockGap = 3 * _scale, blockHeight = 3 * _scale;
+            // Blocks 6 px tall under the line (issue #6: at 3 px they read as a dotted line, much smaller than the page showed).
+            float digits = DigitHeight(_valueFont), gap = OneLineGap * _scale, blockGap = 2 * _scale, blockHeight = Math.Min(6 * _scale, Math.Max(3 * _scale, tileHeight - digits - 2 * _scale - 6 * _scale));
             var ink = _look.Light ? Color.Black : Color.White;
             float x = _pad;
             for (int k = 0; k < _cells.Count; k++)
@@ -325,23 +440,52 @@ internal static partial class WidgetRenderer
                     if (_look.Tiles) g.SetClip(tile);
                     var look = value.More ? TrayLook.Number : LookOf(value);
                     var color = value.Graph?.Color ?? value.LabelColor ?? cell.NameColor;
+                    var word = value.LabelColor ?? cell.NameColor;
+                    bool halo = DrawsBehind(value);
+                    var haloColor = HaloOn(value);
                     // The digits' middle on the tile's (their own height, not the font's line), or the line and its blocks as one.
                     float baseline = look == TrayLook.Blocks ? middle - (digits + blockGap + blockHeight) / 2 + digits : middle + digits / 2;
-                    if (look is TrayLook.Level or TrayLook.Area or TrayLook.Line or TrayLook.Bars)
+                    if (look is TrayLook.Level or TrayLook.Area or TrayLook.Line or TrayLook.Bars or TrayLook.Mirror)
                         DrawLook(g, value, left, right, column, tileX, tileW, tileTop + tileHeight, baseline, baseline, ink);
                     float textLeft = left;
-                    if (look == TrayLook.Ring)
+                    if (look is TrayLook.Ring or TrayLook.Half or TrayLook.Pie)
                     {
-                        DrawRing(g, new PointF(left + RingSize / 2, middle), RingSize, value.Fill, color, ink);
+                        DrawFillUp(g, look, new PointF(left + RingSize / 2, middle), RingSize, value.Fill, color, ink);
                         textLeft += RingSize + gap;
                     }
-                    if (!value.More && value.Label.Length > 0)
+                    else if (look == TrayLook.Cores)
                     {
-                        using var labelBrush = new SolidBrush(value.LabelColor ?? cell.NameColor);
-                        g.DrawString(value.Label, _nameFont, labelBrush, textLeft, baseline - Ascent(_nameFont), _format);
+                        float h = Math.Min(16 * _scale, tileHeight - 6 * _scale);
+                        DrawCores(g, value, new RectangleF(left, middle - h / 2, CoresWidth(value), h), color, ink);
+                        textLeft += CoresWidth(value) + gap;
                     }
-                    using (var brush = new SolidBrush(value.Color))
-                        g.DrawString(value.Text, _valueFont, brush, right - TextWidth(value.Text, _valueFont), baseline - Ascent(_valueFont), _format);
+                    if (look == TrayLook.Big)
+                    {
+                        float big = DigitHeight(_bigFont);
+                        Text(g, value.Text, _bigFont, value.Color, right - TextWidth(value.Text, _bigFont), middle + big / 2 - Ascent(_bigFont), false, haloColor);
+                    }
+                    else if (look == TrayLook.DownUp)
+                    {
+                        // "↓ 12 MB/s  ↑ 0.3 MB/s" on one baseline.
+                        float arrow = ArrowWidth + 2 * _scale;
+                        float firstRight = left + arrow + Math.Max(TextWidth(value.Text, _valueFont), TextWidth(value.Reserve, _valueFont));
+                        DrawArrow(g, left, baseline, down: true, word);
+                        Text(g, value.Text, _valueFont, value.Color, firstRight - TextWidth(value.Text, _valueFont), baseline - Ascent(_valueFont), false, haloColor);
+                        DrawArrow(g, firstRight + gap, baseline, down: false, word);
+                        Text(g, value.Second, _valueFont, value.Color, right - TextWidth(value.Second, _valueFont), baseline - Ascent(_valueFont), false, haloColor);
+                    }
+                    else
+                    {
+                        float textRight = look == TrayLook.Spark ? right - SparkWidth - gap : right;
+                        if (!value.More && value.Label.Length > 0)
+                            Text(g, value.Label, _nameFont, word, textLeft, baseline - Ascent(_nameFont), halo, haloColor);
+                        Text(g, value.Text, _valueFont, value.Color, textRight - TextWidth(value.Text, _valueFont), baseline - Ascent(_valueFont), halo, haloColor);
+                        if (look == TrayLook.Spark && value.Graph is { } spark)
+                        {
+                            float h = Math.Min(14 * _scale, tileHeight - 6 * _scale);
+                            DrawGraph(g, spark.Points, color, new RectangleF(right - SparkWidth, middle - h / 2, SparkWidth, h), _scale, fill: false, baseLine: true);
+                        }
+                    }
                     if (look == TrayLook.Blocks)
                         DrawBlocks(g, new RectangleF(textLeft, baseline + blockGap, right - textLeft, blockHeight), value.Fill, color, ink);
                     g.Restore(state);
@@ -421,14 +565,91 @@ internal static partial class WidgetRenderer
                     DrawBlocks(g, new RectangleF(left, y, column, Math.Max(3 * _scale, bottom - 3 * _scale - y)), v.Fill, color, ink);
                     break;
                 }
-                case TrayLook.Ring:
-                    DrawRing(g, new PointF(left + RingSize / 2, _height / 2f), RingSize, v.Fill, color, ink);
+                case TrayLook.Ring or TrayLook.Half or TrayLook.Pie:
+                    DrawFillUp(g, look, new PointF(left + RingSize / 2, _height / 2f), RingSize, v.Fill, color, ink);
                     break;
+                case TrayLook.Cores:
+                {
+                    float h = Math.Min(26 * _scale, _height - 14 * _scale);
+                    DrawCores(g, v, new RectangleF(left, _height / 2f - h / 2, CoresWidth(v), h), color, ink);
+                    break;
+                }
+                case TrayLook.Spark when v.Graph is { } spark:
+                {
+                    float h = Math.Min(20 * _scale, _height - 16 * _scale);
+                    DrawGraph(g, spark.Points, color, new RectangleF(right - SparkWidth, _height / 2f - h / 2, SparkWidth, h), _scale, fill: false, baseLine: true);
+                    break;
+                }
+                case TrayLook.Mirror:
+                {
+                    // Download above the middle, upload under it, mirrored, each on its own scale (two lines: under the number).
+                    float mtop = _twoLines ? numberBottom - 2 * _scale : 3 * _scale, mid = (mtop + bottom) / 2;
+                    var upper = new RectangleF(box.Left, mtop, box.Width, mid - mtop);
+                    if (v.Graph is { } down) DrawGraph(g, down.Points, color, upper, _scale, fill: true, baseLine: false);
+                    if (v.Graph2 is { } up)
+                    {
+                        var state = g.Save();
+                        // Drawn upside down under the middle line.
+                        g.TranslateTransform(0, 2 * mid);
+                        g.ScaleTransform(1, -1);
+                        DrawGraph(g, up.Points, Color.FromArgb(200, color), upper, _scale, fill: true, baseLine: false);
+                        g.Restore(state);
+                    }
+                    using (var line = new Pen(Color.FromArgb(70, color), Math.Max(1, _scale))) g.DrawLine(line, box.Left, mid, box.Right, mid);
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// A fill-up look round <paramref name="middle"/>, <paramref name="d"/> across, filled to <paramref name="fill"/>: a ring
+        /// from the top; a half ring (a gauge) from the left round to the right; a pie from the top.
+        /// </summary>
+        private void DrawFillUp(Graphics g, TrayLook look, PointF middle, float d, float fill, Color color, Color ink)
+        {
+            if (look == TrayLook.Ring) { DrawRing(g, middle, d, fill, color, ink); return; }
+            if (look == TrayLook.Pie)
+            {
+                float pr = d / 2 - _scale;
+                var pie = new RectangleF(middle.X - pr, middle.Y - pr, 2 * pr, 2 * pr);
+                using (var track = new SolidBrush(Color.FromArgb(36, ink))) g.FillEllipse(track, pie);
+                if (fill > 0.005f)
+                {
+                    using var slice = new SolidBrush(color);
+                    if (fill >= 0.995f) g.FillEllipse(slice, pie);
+                    else g.FillPie(slice, pie.X, pie.Y, pie.Width, pie.Height, -90, 360 * fill);
+                }
+                return;
+            }
+            // Half ring: the upper half, its middle a little under the reading's, so the arch sits in the middle of the bar.
+            float stroke = Math.Max(2.5f * _scale, d * 3.5f / StripRing), r = d / 2 - stroke / 2;
+            var arch = new RectangleF(middle.X - r, middle.Y - r + d / 4, 2 * r, 2 * r);
+            using (var track = new Pen(Color.FromArgb(36, ink), stroke) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(track, arch, 180, 180);
+            if (fill > 0.005f)
+            {
+                using var arc = new Pen(color, stroke) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+                g.DrawArc(arc, arch, 180, 180 * fill);
+            }
+        }
+
+        /// <summary>Each core's load as a thin bar across <paramref name="box"/>, filled from the bottom (the busiest stand out).</summary>
+        private void DrawCores(Graphics g, StripValue v, RectangleF box, Color color, Color ink)
+        {
+            var cores = v.Cores is { Length: > 0 } c ? c.Take(MaxCores).ToArray() : [v.Fill];
+            float w = 3 * _scale, gap = 1.5f * _scale;
+            using var on = new SolidBrush(color);
+            using var off = new SolidBrush(Color.FromArgb(36, ink));
+            for (int i = 0; i < cores.Length; i++)
+            {
+                float x = box.Left + i * (w + gap), h = Math.Max(_scale, Math.Clamp(cores[i], 0, 1) * box.Height);
+                g.FillRectangle(off, x, box.Top, w, box.Height);
+                g.FillRectangle(on, x, box.Bottom - h, w, h);
             }
         }
 
         public void Dispose()
         {
+            _bigFont.Dispose();
             _valueFont.Dispose();
             _nameFont.Dispose();
             _valueFamily.Dispose();
@@ -636,7 +857,7 @@ internal static partial class WidgetRenderer
     /// the notification area would show it (<see cref="RenderTrayIcon"/>, <paramref name="iconSize"/> pixels), side by
     /// side <paramref name="slot"/> apart, in the middle of the bar's height. Each icon's right edge comes back (for tooltips).
     /// </summary>
-    public static Bitmap RenderIconRow(IReadOnlyList<(IReadOnlyList<(string Text, Color Color)> Lines, Color? Tile)> icons, int height, int iconSize, int slot, out float[] edges)
+    public static Bitmap RenderIconRow(IReadOnlyList<(IReadOnlyList<(string Text, Color Color)> Lines, Color? Tile, IconLook? Look)> icons, int height, int iconSize, int slot, out float[] edges)
     {
         int width = Math.Max(1, icons.Count * slot);
         var bmp = new Bitmap(width, Math.Max(1, height), PixelFormat.Format32bppPArgb);
@@ -645,7 +866,7 @@ internal static partial class WidgetRenderer
         edges = new float[icons.Count];
         for (int i = 0; i < icons.Count; i++)
         {
-            using var icon = RenderTrayIcon(icons[i].Lines, iconSize, tile: icons[i].Tile);
+            using var icon = RenderTrayIcon(icons[i].Lines, iconSize, tile: icons[i].Tile, look: icons[i].Look);
             g.DrawImage(icon, i * slot + (slot - iconSize) / 2, (height - iconSize) / 2, iconSize, iconSize);
             edges[i] = (i + 1) * slot;
         }

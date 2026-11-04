@@ -75,9 +75,84 @@ public static class TrayParts
     public static bool HasTop(SensorKind kind) =>
         kind is SensorKind.Load or SensorKind.Level or SensorKind.Control or SensorKind.Humidity or SensorKind.Temperature;
 
-    /// <summary>The look a reading draws with: the one picked, a filled graph in place of a fill-up look it can't have.</summary>
-    public static TrayLook LookFor(SensorKind kind, TrayLook picked) =>
-        picked is TrayLook.Level or TrayLook.Blocks or TrayLook.Ring && !HasTop(kind) ? TrayLook.Area : picked;
+    /// <summary>
+    /// The look a reading draws with: the one picked; a filled graph in place of a fill-up look it can't have; Down and up
+    /// and the mirrored graph only for the reading that has both speeds (<see cref="NetBoth"/>), the others' number or graph.
+    /// </summary>
+    public static TrayLook LookFor(SensorKind kind, TrayLook picked, bool bothSpeeds = false) => picked switch
+    {
+        TrayLook.Level or TrayLook.Blocks or TrayLook.Ring or TrayLook.Half or TrayLook.Pie or TrayLook.Cores when !HasTop(kind) => TrayLook.Area,
+        TrayLook.DownUp when !bothSpeeds => TrayLook.Number,
+        TrayLook.Mirror when !bothSpeeds => TrayLook.Area,
+        _ => picked,
+    };
+
+    // ── The network's speeds, as readings of RigSight's own (its count for the whole PC, as on the Network page) ──
+
+    /// <summary>The whole PC's download speed, as the Network page counts it (a VPN once).</summary>
+    public const string NetDown = "rigsight/network/down";
+
+    /// <summary>The whole PC's upload speed.</summary>
+    public const string NetUp = "rigsight/network/up";
+
+    /// <summary>Both speeds as one reading: download as its number, upload with it (Down and up, the mirrored graph).</summary>
+    public const string NetBoth = "rigsight/network/both";
+
+    /// <summary>Whether <paramref name="id"/> is one of the network's speeds (not a sensor of the hardware library).</summary>
+    public static bool IsNet(string id) => id is NetDown or NetUp or NetBoth;
+
+    /// <summary>The names the speeds go by, in English (shown through <see cref="SensorWords"/>).</summary>
+    public static string NetName(string id) => id switch { NetUp => "Upload Speed", NetBoth => "Download and Upload", _ => "Download Speed" };
+
+    /// <summary>What the speeds are of: the whole PC.</summary>
+    public const string NetHardware = "This PC";
+
+    // ── Sizes ──
+
+    /// <summary>
+    /// How tall a reading is drawn, in pixels, on a taskbar <paramref name="barHeight"/> pixels tall at <paramref name="scale"/>:
+    /// Auto the whole height; Small 30, Medium 40, Large 48 (at 100%), never taller than the taskbar.
+    /// </summary>
+    public static int SizeHeight(TraySize size, int barHeight, float scale)
+    {
+        int wanted = size switch { TraySize.Small => 30, TraySize.Medium => 40, TraySize.Large => 48, _ => 0 };
+        return wanted == 0 ? barHeight : Math.Min(barHeight, (int)Math.Round(wanted * scale));
+    }
+
+    /// <summary>The taskbar height (at 100%) a size needs to show as it is: Small 30, Medium 40, Large 48; Auto any.</summary>
+    public static int SizeNeeds(TraySize size) => size switch { TraySize.Small => 30, TraySize.Medium => 40, TraySize.Large => 48, _ => 0 };
+
+    public static string SizeName(TraySize size) => size switch
+    {
+        TraySize.Small => Lang.T("Small"),
+        TraySize.Medium => Lang.T("Medium"),
+        TraySize.Large => Lang.T("Large"),
+        _ => Lang.T("Auto"),
+    };
+
+    /// <summary>A style's name, as the Taskbar page's cards and the strip's menu say it.</summary>
+    public static string StyleName(TrayStyle style) => style switch
+    {
+        TrayStyle.TwoRows => Lang.T("Two rows"),
+        TrayStyle.Icons => Lang.T("An icon each"),
+        TrayStyle.Grouped => Lang.T("An icon per part"),
+        _ => Lang.T("In the taskbar"),
+    };
+
+    /// <summary>
+    /// The colour a part's words are written in (its name, "Load", "Down"): its own colour on a dark taskbar; on a light
+    /// one a shade deeper of the same hue, so every word reads at 4.5:1 or more against the bar (its graph keeps the
+    /// brighter <see cref="Color"/>, which a line needs only 3:1 for). Measured on Windows' light taskbar (238).
+    /// </summary>
+    public static (byte R, byte G, byte B) WordColor(TrayPart part, bool light) => !light ? Color(part, false) : part switch
+    {
+        TrayPart.Cpu => ((byte)38, (byte)95, (byte)233),
+        TrayPart.Gpu => ((byte)6, (byte)115, (byte)141),
+        TrayPart.Ram => ((byte)124, (byte)73, (byte)227),
+        TrayPart.Drive => ((byte)201, (byte)34, (byte)108),
+        TrayPart.Network => ((byte)2, (byte)112, (byte)169),
+        _ => ((byte)106, (byte)106, (byte)106),
+    };
 
     /// <summary>
     /// The boxes of two rows (<see cref="TrayStyle.TwoRows"/>), as the person pairs them: in the list's order, each box
@@ -126,12 +201,53 @@ public static class TrayParts
         TrayLook.Level => Lang.T("Level"),
         TrayLook.Blocks => Lang.T("Blocks"),
         TrayLook.Ring => Lang.T("Ring"),
+        TrayLook.Half => Lang.T("Half ring"),
+        TrayLook.Pie => Lang.T("Pie"),
+        TrayLook.Cores => Lang.T("Each core"),
+        TrayLook.Big => Lang.T("Big number"),
+        TrayLook.Spark => Lang.T("Number and spark"),
+        TrayLook.DownUp => Lang.T("Down and up"),
+        TrayLook.Mirror => Lang.T("Mirrored graph"),
         _ => Lang.T("Number only"),
     };
 
-    /// <summary>The looks a reading can have: all of them with a top, else the number and the graphs.</summary>
-    public static IReadOnlyList<TrayLook> LooksFor(SensorKind kind) =>
-        HasTop(kind) ? Enum.GetValues<TrayLook>() : [TrayLook.Number, TrayLook.Area, TrayLook.Line, TrayLook.Bars];
+    /// <summary>
+    /// The looks a reading can have on the strip: with a top, every fill-up look too (Each core for a CPU's total load,
+    /// which has cores); without one, the number and the graphs; both speeds also Down and up and the mirrored graph.
+    /// <paramref name="drawsFrom"/> is the kind its look is drawn from (another reading's, when it has one).
+    /// </summary>
+    public static IReadOnlyList<TrayLook> LooksFor(SensorKind kind, bool cpuTotal = false, bool bothSpeeds = false, SensorKind? drawsFrom = null)
+    {
+        var looks = new List<TrayLook> { TrayLook.Number, TrayLook.Big, TrayLook.Area, TrayLook.Line, TrayLook.Bars, TrayLook.Spark };
+        if (HasTop(drawsFrom ?? kind)) looks.AddRange([TrayLook.Level, TrayLook.Blocks, TrayLook.Ring, TrayLook.Half, TrayLook.Pie]);
+        if (cpuTotal && drawsFrom is null) looks.Add(TrayLook.Cores);
+        if (bothSpeeds) looks.AddRange([TrayLook.DownUp, TrayLook.Mirror]);
+        return looks;
+    }
+
+    /// <summary>The looks an icon can have: its number alone, the icon filling up (Level), or a ring round its edge.</summary>
+    public static IReadOnlyList<TrayLook> IconLooksFor(SensorKind kind, SensorKind? drawsFrom = null) =>
+        HasTop(drawsFrom ?? kind) ? [TrayLook.Number, TrayLook.Level, TrayLook.Ring] : [TrayLook.Number];
+
+    /// <summary>A look on an icon, as the icon draws it: Level and Ring as they are, anything else the number alone.</summary>
+    public static TrayLook IconLook(SensorKind kind, TrayLook picked) =>
+        picked is TrayLook.Level or TrayLook.Ring && HasTop(kind) ? picked : TrayLook.Number;
+
+    /// <summary>An icon look's name on the Taskbar page: Plain, Fill, Ring.</summary>
+    public static string IconLookName(TrayLook look) => look switch
+    {
+        TrayLook.Level => Lang.T("Fill"),
+        TrayLook.Ring => Lang.T("Ring"),
+        _ => Lang.T("Plain"),
+    };
+
+    /// <summary>A CPU load sensor's name for the whole CPU ("CPU Total"): its cores have loads of their own (Each core).</summary>
+    public static bool IsCpuTotal(SensorKind kind, TrayPart part, string sensorName) =>
+        kind == SensorKind.Load && part == TrayPart.Cpu && sensorName.Contains("Total", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A CPU core's own load ("CPU Core #3"; not a thread's, "CPU Core #3 Thread #1"), for Each core.</summary>
+    public static bool IsCoreLoad(SensorKind kind, string sensorName) =>
+        kind == SensorKind.Load && System.Text.RegularExpressions.Regex.IsMatch(sensorName, @"^(CPU |P-|E-)?Core #\d+$");
 
     /// <summary>How full a reading is, 0 to 1, for the fill-up looks (a temperature out of 100°, in Celsius).</summary>
     public static float Fill(double? value) => value is double v && double.IsFinite(v) ? (float)Math.Clamp(v / 100, 0, 1) : 0;

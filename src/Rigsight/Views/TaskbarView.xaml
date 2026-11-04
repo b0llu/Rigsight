@@ -3,15 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              xmlns:conv="clr-namespace:Rigsight.Converters"
-             xmlns:svc="clr-namespace:Rigsight.Services"
-             xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+             xmlns:svc="clr-namespace:Rigsight.Services">
     <UserControl.Resources>
         <!-- Windows 11's taskbar, dark or light as the user has it, for the preview. -->
         <SolidColorBrush x:Key="BarDark" Color="#1C1C1C" />
         <SolidColorBrush x:Key="BarLight" Color="#EEEEEE" />
-        <conv:TrayFillConverter x:Key="TrayFill" />
-        <!-- The look pictures are drawn on a dark taskbar: their numbers as there. -->
-        <sys:Boolean x:Key="No">False</sys:Boolean>
 
         <!-- The kind of reading, as on All sensors: sensors of one chip often share a name ("GPU Core"). -->
         <DataTemplate x:Key="KindBadge">
@@ -100,6 +96,15 @@
             </Setter>
         </Style>
 
+        <!-- A segment that can't be picked now (a size the taskbar is too short for): still there, muted. -->
+        <Style x:Key="SizeSegment" TargetType="RadioButton" BasedOn="{StaticResource Segment}">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.4" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- Text on the preview's taskbar: white on dark, black on light. -->
         <Style x:Key="BarText" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#E6FFFFFF" />
@@ -121,41 +126,8 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
-        <!-- A box of two rows, as the agent draws it (at the real size): each reading's word on the left in its colour, its
-             number on the right, on the box's tile; a box's one reading on the top line, as there. -->
-        <DataTemplate x:Key="BoxPicture">
-            <Border CornerRadius="4" Background="{Binding Tile}" Padding="5,0" Height="40" ToolTip="{Binding Tooltip}">
-                <ItemsControl ItemsSource="{Binding Lines}" Focusable="False" VerticalAlignment="Top" Margin="0,5,0,0">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <DockPanel Height="15">
-                                <TextBlock DockPanel.Dock="Left" Text="{Binding Label}" Foreground="{Binding LabelBrush}" FontSize="9.5" FontWeight="Bold"
-                                           VerticalAlignment="Bottom" Margin="0,0,5,1" />
-                                <TextBlock FontFamily="Segoe UI Semibold" FontSize="11.5" TextAlignment="Right" VerticalAlignment="Bottom" MinWidth="24">
-                                    <TextBlock.Text>
-                                        <MultiBinding Converter="{StaticResource TrayText}" ConverterParameter="strip">
-                                            <Binding Path="Row.Sensor.Kind" />
-                                            <Binding Path="Row.Sensor.Value" />
-                                        </MultiBinding>
-                                    </TextBlock.Text>
-                                    <TextBlock.Foreground>
-                                        <MultiBinding Converter="{StaticResource TrayBrush}">
-                                            <Binding Path="Row.Sensor.Kind" />
-                                            <Binding Path="Row.Sensor.Value" />
-                                            <Binding Path="DataContext.TaskbarLight" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                            <Binding Path="DataContext.Gray" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                            <Binding Path="Row.NumberColor" />
-                                        </MultiBinding>
-                                    </TextBlock.Foreground>
-                                </TextBlock>
-                            </DockPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Border>
-        </DataTemplate>
 
-        <!-- A reading in the list (in a box's, in two rows): what it is, its live value, its colours and look, its order. -->
+        <!-- A reading in the list: what it is, its live value, its colours, how it shows, its order. -->
         <DataTemplate x:Key="ReadingRow">
             <Border Background="{DynamicResource Surface2Brush}" CornerRadius="9" Padding="12,9" Margin="0,0,0,6">
                 <DockPanel>
@@ -177,34 +149,17 @@
                     <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'On its own'}" FontSize="12.5" Margin="18,0,4,0"
                               VerticalAlignment="Center" IsChecked="{Binding Alone}" AutomationProperties.Name="{Binding AloneName}"
                               Visibility="{Binding InBoxes, Converter={StaticResource Vis}}" />
-                    <!-- On the strip: its look (a picture of it and its name), the picker floating under it -->
+                    <!-- How it shows: its picture as the taskbar draws it, and its style, look and size in words; the picker floating under it -->
                     <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Background="{DynamicResource SurfaceBrush}" Padding="5,4,10,4" Margin="16,0,0,0"
-                            VerticalAlignment="Center" Click="Look_Click" MinWidth="140" AutomationProperties.Name="{Binding LookButtonName}"
-                            Visibility="{Binding ShowLookButton, Converter={StaticResource Vis}}">
+                            VerticalAlignment="Center" Click="Look_Click" MinWidth="170" AutomationProperties.Name="{Binding LookButtonName}"
+                            Visibility="{Binding Found, Converter={StaticResource Vis}}">
                         <StackPanel Orientation="Horizontal">
-                            <Border Width="46" Height="28" CornerRadius="5" Background="{StaticResource BarDark}" Margin="0,0,9,0" ClipToBounds="True">
-                                <Viewbox Stretch="Uniform" Margin="2">
-                                    <ctl:TaskbarReadingView Look="{Binding ShownLook}" Label="{Binding Short}" NameBrush="{Binding Mark}" Tile="{Binding StripTile}"
-                                                            TextTop="{Binding TextTop}" Fill="{Binding Sensor.Value, Converter={StaticResource TrayFill}}">
-                                        <ctl:TaskbarReadingView.Text>
-                                            <MultiBinding Converter="{StaticResource TrayText}" ConverterParameter="strip">
-                                                <Binding Path="Sensor.Kind" />
-                                                <Binding Path="Sensor.Value" />
-                                            </MultiBinding>
-                                        </ctl:TaskbarReadingView.Text>
-                                        <ctl:TaskbarReadingView.NumberBrush>
-                                            <MultiBinding Converter="{StaticResource TrayBrush}">
-                                                <Binding Path="Sensor.Kind" />
-                                                <Binding Path="Sensor.Value" />
-                                                <Binding Source="{StaticResource No}" />
-                                                <Binding Path="DataContext.Gray" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                                <Binding Path="NumberColor" />
-                                            </MultiBinding>
-                                        </ctl:TaskbarReadingView.NumberBrush>
-                                    </ctl:TaskbarReadingView>
+                            <Border Width="64" Height="32" CornerRadius="5" Background="{Binding BarBrush}" Margin="0,0,9,0" ClipToBounds="True">
+                                <Viewbox Stretch="Uniform" StretchDirection="DownOnly" Margin="2">
+                                    <Image Source="{Binding Picture}" Stretch="None" SnapsToDevicePixels="True" />
                                 </Viewbox>
                             </Border>
-                            <TextBlock Text="{Binding LookName}" FontSize="12.5" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ShowsAsText}" FontSize="12.5" VerticalAlignment="Center" MaxWidth="190" TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="9" Margin="8,1,0,0" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -239,25 +194,13 @@
                                       Visibility="{Binding DataContext.Found, RelativeSource={RelativeSource AncestorType=DockPanel}, Converter={StaticResource Vis}}" />
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding Hardware}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding HardwareLine}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding SizeNow}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"
+                                   Visibility="{Binding SizeNow, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </DockPanel>
             </Border>
         </DataTemplate>
-
-        <!-- The preview's readings: at the clock's end, or the left end when they go there. -->
-        <Style x:Key="PreviewReadings" TargetType="ItemsControl">
-            <Setter Property="DockPanel.Dock" Value="Right" />
-            <Setter Property="Margin" Value="0,0,10,0" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Focusable" Value="False" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding PreviewOnLeft}" Value="True">
-                    <Setter Property="DockPanel.Dock" Value="Left" />
-                    <Setter Property="Margin" Value="-12,0,0,0" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
     </UserControl.Resources>
 
     <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -273,11 +216,11 @@
             <TextBlock Text="{ctl:T 'Readings next to the clock, always in view. In color, each part has its own, and any reading can have its own colors too.'}"
                        Style="{StaticResource Muted}" Margin="0,4,0,20" TextWrapping="Wrap" />
 
-            <!-- Preview: the corner of the taskbar, as it will look -->
+            <!-- Preview: the corner of the taskbar, as the taskbar will draw it (the agent's own drawing, at its real height) -->
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0">
                 <StackPanel>
-                    <!-- Rounded as the card is inside its line (16 less 1), at the bottom too unless the note sits under it -->
-                    <Border Height="76" Padding="22,0" ClipToBounds="True">
+                    <!-- Rounded as the card is inside its line (16 less 1), at the bottom too unless a note sits under it -->
+                    <Border Padding="22,14" ClipToBounds="True">
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="Background" Value="{StaticResource BarDark}" />
@@ -292,7 +235,7 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <DockPanel>
+                        <DockPanel Height="{Binding BarHeight}">
                             <!-- The clock and the usual system icons -->
                             <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Margin="18,0,0,0">
                                 <TextBlock Text="12:30" Style="{StaticResource BarText}" FontSize="13" HorizontalAlignment="Right" />
@@ -305,126 +248,22 @@
                             <!-- Windows' arrow for its hidden icons, next to Wi-Fi; RigSight's readings sit left of it -->
                             <TextBlock DockPanel.Dock="Right" Text="&#xE70E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
                                        Style="{StaticResource BarText}" VerticalAlignment="Center" Margin="0,0,0,0" Opacity="0.8" />
-                            <!-- The strip: each reading as the agent draws it (at the real size), on its tile, next to the clock or at the left end -->
-                            <ItemsControl ItemsSource="{Binding PreviewStrip}" Style="{StaticResource PreviewReadings}"
-                                          Visibility="{Binding ShowStrip, Converter={StaticResource Vis}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <ItemsControl ItemsSource="{Binding Readings}" Focusable="False" ToolTip="{Binding Tooltip}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <StackPanel Orientation="Horizontal" />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <ctl:TaskbarReadingView Look="{Binding Look}" Label="{Binding Label}" NameBrush="{Binding LabelBrush}" Tile="{Binding Tile}"
-                                                                            TextTop="{Binding TextTop}" WidthMode="{Binding WidthMode}" Light="{Binding Light}"
-                                                                            Fill="{Binding Row.Sensor.Value, Converter={StaticResource TrayFill}}" Margin="{Binding Space}">
-                                                        <ctl:TaskbarReadingView.Text>
-                                                            <MultiBinding Converter="{StaticResource TrayText}" ConverterParameter="strip">
-                                                                <Binding Path="Row.Sensor.Kind" />
-                                                                <Binding Path="Row.Sensor.Value" />
-                                                            </MultiBinding>
-                                                        </ctl:TaskbarReadingView.Text>
-                                                        <ctl:TaskbarReadingView.NumberBrush>
-                                                            <MultiBinding Converter="{StaticResource TrayBrush}">
-                                                                <Binding Path="Row.Sensor.Kind" />
-                                                                <Binding Path="Row.Sensor.Value" />
-                                                                <Binding Path="DataContext.TaskbarLight" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                                                <Binding Path="DataContext.Gray" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                                                <Binding Path="Row.NumberColor" />
-                                                            </MultiBinding>
-                                                        </ctl:TaskbarReadingView.NumberBrush>
-                                                    </ctl:TaskbarReadingView>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <!-- Two rows: the boxes, as the agent draws them -->
-                            <ItemsControl ItemsSource="{Binding Boxes}" Style="{StaticResource PreviewReadings}"
-                                          Visibility="{Binding ShowBoxes, Converter={StaticResource Vis}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource BoxPicture}"
-                                                          Margin="{Binding DataContext.BoxSpace, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <!-- The icons, as the agent draws them (at the real size, TrayParts.IconSize and IconGap), on their tiles; each part named once under its icons -->
-                            <ItemsControl ItemsSource="{Binding PreviewIcons}" Style="{StaticResource PreviewReadings}"
-                                          Visibility="{Binding ShowIcons, Converter={StaticResource Vis}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Margin="3,0,3,0" ToolTip="{Binding Tooltip}" Width="24">
-                                            <ctl:TaskbarIconView Width="24" Height="24" Tile="{Binding Tile}">
-                                                <ctl:TaskbarIconView.Text1>
-                                                    <MultiBinding Converter="{StaticResource TrayText}">
-                                                        <Binding Path="First.Sensor.Kind" />
-                                                        <Binding Path="First.Sensor.Value" />
-                                                    </MultiBinding>
-                                                </ctl:TaskbarIconView.Text1>
-                                                <ctl:TaskbarIconView.Brush1>
-                                                    <MultiBinding Converter="{StaticResource TrayBrush}">
-                                                        <Binding Path="First.Sensor.Kind" />
-                                                        <Binding Path="First.Sensor.Value" />
-                                                        <Binding Path="DataContext.TaskbarLight" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                                        <Binding Path="DataContext.Gray" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                                        <Binding Path="First.NumberColor" />
-                                                    </MultiBinding>
-                                                </ctl:TaskbarIconView.Brush1>
-                                                <!-- A second number only on an icon per part that has one -->
-                                                <ctl:TaskbarIconView.Style>
-                                                    <Style TargetType="ctl:TaskbarIconView">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding HasSecond}" Value="True">
-                                                                <Setter Property="Text2">
-                                                                    <Setter.Value>
-                                                                        <MultiBinding Converter="{StaticResource TrayText}">
-                                                                            <Binding Path="Second.Sensor.Kind" />
-                                                                            <Binding Path="Second.Sensor.Value" />
-                                                                        </MultiBinding>
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                                <Setter Property="Brush2">
-                                                                    <Setter.Value>
-                                                                        <MultiBinding Converter="{StaticResource TrayBrush}">
-                                                                            <Binding Path="Second.Sensor.Kind" />
-                                                                            <Binding Path="Second.Sensor.Value" />
-                                                                            <Binding Path="DataContext.TaskbarLight" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                                                            <Binding Path="DataContext.Gray" RelativeSource="{RelativeSource AncestorType=UserControl}" />
-                                                                            <Binding Path="Second.NumberColor" />
-                                                                        </MultiBinding>
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </ctl:TaskbarIconView.Style>
-                                            </ctl:TaskbarIconView>
-                                            <TextBlock Text="{Binding Label}" Style="{StaticResource BarText}" FontSize="9.5" HorizontalAlignment="Left" Opacity="0.6" Margin="0,3,-40,0"
-                                                       Visibility="{Binding ShowLabel, Converter={StaticResource Vis}}" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <!-- The readings, drawn as the taskbar draws them, pixel for pixel: next to the clock or at the left end -->
+                            <Image Source="{Binding PreviewImage}" Stretch="None" SnapsToDevicePixels="True" VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="NearestNeighbor" AutomationProperties.Name="{ctl:T 'The taskbar readings, as they will show'}">
+                                <Image.Style>
+                                    <Style TargetType="Image">
+                                        <Setter Property="DockPanel.Dock" Value="Right" />
+                                        <Setter Property="Margin" Value="0,0,10,0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding PreviewOnLeft}" Value="True">
+                                                <Setter Property="DockPanel.Dock" Value="Left" />
+                                                <Setter Property="Margin" Value="-12,0,0,0" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Image.Style>
+                            </Image>
                             <!-- The middle of the taskbar, hinted: apps pinned there -->
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Border Style="{StaticResource BarApp}" />
@@ -442,25 +281,33 @@
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
+            <!-- A short taskbar (Windows' smaller buttons): the readings are on one line, as the preview shows -->
+            <TextBlock Text="{Binding BarNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
+                       Visibility="{Binding BarNote, Converter={StaticResource Vis}}" />
 
-            <!-- How: a strip, an icon each, an icon per part, or two rows -->
-            <TextBlock Text="{ctl:T 'STYLE'}" Style="{StaticResource Caption}" Margin="4,26,0,10" />
+            <!-- Every reading in one style: a strip, an icon each, an icon per part, or two rows (each reading can have its own too) -->
+            <TextBlock Text="{ctl:T 'SET ALL TO'}" Style="{StaticResource Caption}" Margin="4,26,0,10" />
             <UniformGrid Columns="4" Margin="-6,0">
                 <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding InStrip}" Margin="6,0" AutomationProperties.Name="In the taskbar">
                     <StackPanel>
-                        <Border CornerRadius="7" Background="{StaticResource BarDark}" Padding="6,0" HorizontalAlignment="Left" Margin="0,0,0,12" Height="36" ClipToBounds="True">
+                        <Border CornerRadius="7" Background="{StaticResource BarDark}" Padding="8,6" HorizontalAlignment="Left" Margin="0,0,0,12" Height="36">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <StackPanel.LayoutTransform>
-                                    <ScaleTransform ScaleX="0.72" ScaleY="0.72" />
-                                </StackPanel.LayoutTransform>
-                                <ctl:TaskbarReadingView Text="62°" Label="CPU" NumberBrush="#34D399" NameBrush="#5B8CFF" Tile="#14FFFFFF" TextTop="True" Margin="0,0,3,0" />
-                                <ctl:TaskbarReadingView Text="35%" Label="{ctl:T 'Load'}" NumberBrush="White" NameBrush="#5B8CFF" Tile="#14FFFFFF" Look="Area" TextTop="True" Fill="0.35" Margin="0,0,8,0" />
-                                <ctl:TaskbarReadingView Text="71°" Label="GPU" NumberBrush="#FBBF24" NameBrush="#22D3EE" Tile="#14FFFFFF" TextTop="True" Margin="0,0,3,0" />
-                                <ctl:TaskbarReadingView Text="98%" Label="{ctl:T 'Load'}" NumberBrush="White" NameBrush="#22D3EE" Tile="#14FFFFFF" Look="Bars" TextTop="True" Fill="0.98" />
+                                <StackPanel Margin="0,0,8,0">
+                                    <TextBlock Text="62°" Foreground="#34D399" FontFamily="Segoe UI Semibold" FontSize="11" HorizontalAlignment="Right" />
+                                    <TextBlock Text="CPU" Foreground="#5B8CFF" FontSize="8.5" FontWeight="Bold" HorizontalAlignment="Right" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,8,0">
+                                    <TextBlock Text="35%" Foreground="White" FontFamily="Segoe UI Semibold" FontSize="11" HorizontalAlignment="Right" />
+                                    <TextBlock Text="{ctl:T 'Load'}" Foreground="#5B8CFF" FontSize="8.5" FontWeight="Bold" HorizontalAlignment="Right" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="71°" Foreground="#FBBF24" FontFamily="Segoe UI Semibold" FontSize="11" HorizontalAlignment="Right" />
+                                    <TextBlock Text="GPU" Foreground="#22D3EE" FontSize="8.5" FontWeight="Bold" HorizontalAlignment="Right" />
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                         <TextBlock Text="{ctl:T 'In the taskbar'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                        <TextBlock Text="{ctl:T 'Each reading over a short name, like the clock, with a graph if you like.'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        <TextBlock Text="{ctl:T 'Each reading over a short name, like the clock, with a look of its own.'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
                     </StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Separate}" Margin="6,0" AutomationProperties.Name="An icon each">
@@ -537,7 +384,7 @@
             <TextBlock Text="{Binding StripNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
                        Visibility="{Binding StripNote, Converter={StaticResource Vis}}" />
 
-            <!-- Colours, which end of the taskbar, tiles, and for the strip how roomy: side by side -->
+            <!-- Colours, which end of the taskbar, tiles, for the strip how roomy, two rows' names, speeds' unit: side by side -->
             <WrapPanel Margin="0,26,0,0">
                 <!-- The parts' colours, or grayscale -->
                 <StackPanel Margin="0,0,40,0">
@@ -576,7 +423,7 @@
                     </Border>
                 </StackPanel>
                 <!-- How much room the strip takes -->
-                <StackPanel Visibility="{Binding ShowWidth, Converter={StaticResource Vis}}">
+                <StackPanel Margin="0,0,40,0" Visibility="{Binding ShowWidth, Converter={StaticResource Vis}}">
                     <TextBlock Text="{ctl:T 'WIDTH'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
                     <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
                         <StackPanel Orientation="Horizontal">
@@ -590,7 +437,7 @@
                     </Border>
                 </StackPanel>
                 <!-- Two rows' names: in full, or one letter -->
-                <StackPanel Visibility="{Binding ShowBoxes, Converter={StaticResource Vis}}">
+                <StackPanel Margin="0,0,40,0" Visibility="{Binding ShowNames, Converter={StaticResource Vis}}">
                     <TextBlock Text="{ctl:T 'NAMES'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
                     <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
                         <StackPanel Orientation="Horizontal">
@@ -598,6 +445,18 @@
                                          IsChecked="{Binding NamesText, Converter={StaticResource Equals}, ConverterParameter=Full}" />
                             <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'One letter'}" GroupName="traynames"
                                          IsChecked="{Binding NamesText, Converter={StaticResource Equals}, ConverterParameter=Letter}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                <!-- Speeds in bytes or in bits, as internet plans say them -->
+                <StackPanel Visibility="{Binding ShowSpeeds, Converter={StaticResource Vis}}">
+                    <TextBlock Text="{ctl:T 'SPEEDS IN'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
+                    <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource Segment}" Content="MB/s" GroupName="trayspeeds"
+                                         IsChecked="{Binding SpeedsText, Converter={StaticResource Equals}, ConverterParameter=Bytes}" />
+                            <RadioButton Style="{StaticResource Segment}" Content="Mbps" GroupName="trayspeeds"
+                                         IsChecked="{Binding SpeedsText, Converter={StaticResource Equals}, ConverterParameter=Bits}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -709,91 +568,109 @@
                         <TextBlock Text="{ctl:T 'Add a reading with the search box above.'}" Style="{StaticResource Muted}" FontSize="12.5" HorizontalAlignment="Center" />
                     </StackPanel>
 
-                    <ItemsControl ItemsSource="{Binding Sensors}" Focusable="False" ItemTemplate="{StaticResource ReadingRow}"
-                                  Visibility="{Binding ShowList, Converter={StaticResource Vis}}" />
-                    <!-- Two rows: the readings under the boxes they make, in the taskbar's order, each box with a picture of it -->
-                    <ItemsControl ItemsSource="{Binding Boxes}" Focusable="False" Visibility="{Binding ShowBoxes, Converter={StaticResource Vis}}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="12" Padding="8,8,8,2" Margin="0,0,0,10">
-                                    <StackPanel>
-                                        <DockPanel Margin="4,0,4,8">
-                                            <Border DockPanel.Dock="Right" CornerRadius="6" Padding="4,0">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="{StaticResource BarDark}" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding DataContext.TaskbarLight, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                                <Setter Property="Background" Value="{StaticResource BarLight}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource BoxPicture}" />
-                                            </Border>
-                                            <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                                        </DockPanel>
-                                        <ItemsControl ItemsSource="{Binding Rows}" Focusable="False" ItemTemplate="{StaticResource ReadingRow}" />
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <ItemsControl ItemsSource="{Binding Sensors}" Focusable="False" ItemTemplate="{StaticResource ReadingRow}" />
                 </StackPanel>
             </ctl:SmoothBorder>
 
-            <!-- A reading's look, floating next to its Look button: a picture of each it can have (takes no room on the page) -->
-            <!-- Its reading is given as it opens (none before: the page's own would be looked in for a Name and Looks) -->
+            <!-- How a reading shows, floating next to its button: its style, its size, its look (a picture of each, as the
+                 taskbar will draw it) and the reading its look comes from. Takes no room on the page. Its reading is given as
+                 it opens (none before: the page's own would be looked in for a Name and Looks). -->
             <Popup x:Name="LookPop" Placement="Bottom" VerticalOffset="6" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" DataContext="{x:Null}">
                 <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                                  CornerRadius="12" Padding="12" Margin="0,0,8,8" Width="404">
+                                  CornerRadius="12" Padding="14,12" Margin="0,0,8,8" Width="470">
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                     </Border.Effect>
                     <StackPanel>
-                        <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="2,0,0,10" TextTrimming="CharacterEllipsis">
-                            <Run Text="{ctl:T 'Look on the taskbar for'}" />
+                        <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="2,0,0,12" TextTrimming="CharacterEllipsis">
+                            <Run Text="{ctl:T 'How it shows on the taskbar:'}" />
                             <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                         </TextBlock>
-                        <ItemsControl ItemsSource="{Binding Looks}" Focusable="False">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <UniformGrid Columns="4" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Style="{StaticResource ListChoice}" Padding="4,6,4,7" Margin="0,0,6,6" Click="LookChoice_Click" Tag="{Binding Tag}"
-                                            Command="{Binding Row.PickLookCommand}" CommandParameter="{Binding Look}" AutomationProperties.Name="{Binding Name}">
-                                        <StackPanel>
-                                            <Border Width="84" Height="46" CornerRadius="7" Background="{StaticResource BarDark}" ClipToBounds="True">
-                                                <Viewbox Stretch="Uniform" Margin="4,2" StretchDirection="DownOnly">
-                                                    <ctl:TaskbarReadingView Look="{Binding Look}" Label="{Binding Row.Short}" NameBrush="{Binding Row.Mark}" Tile="{Binding Tile}"
-                                                                            TextTop="{Binding TextTop}" Fill="{Binding Row.Sensor.Value, Converter={StaticResource TrayFill}}">
-                                                        <ctl:TaskbarReadingView.Text>
-                                                            <MultiBinding Converter="{StaticResource TrayText}" ConverterParameter="strip">
-                                                                <Binding Path="Row.Sensor.Kind" />
-                                                                <Binding Path="Row.Sensor.Value" />
-                                                            </MultiBinding>
-                                                        </ctl:TaskbarReadingView.Text>
-                                                        <ctl:TaskbarReadingView.NumberBrush>
-                                                            <MultiBinding Converter="{StaticResource TrayBrush}">
-                                                                <Binding Path="Row.Sensor.Kind" />
-                                                                <Binding Path="Row.Sensor.Value" />
-                                                                <Binding Source="{StaticResource No}" />
-                                                                <Binding Source="{StaticResource No}" />
-                                                                <Binding Path="Row.NumberColor" />
-                                                            </MultiBinding>
-                                                        </ctl:TaskbarReadingView.NumberBrush>
-                                                    </ctl:TaskbarReadingView>
-                                                </Viewbox>
-                                            </Border>
-                                            <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
-                                        </StackPanel>
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+
+                        <TextBlock Text="{ctl:T 'STYLE'}" Style="{StaticResource Caption}" Margin="2,0,0,8" />
+                        <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'In the taskbar'}" GroupName="rowstyle"
+                                             IsChecked="{Binding StyleText, Converter={StaticResource Equals}, ConverterParameter=Strip}" />
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Two rows'}" GroupName="rowstyle"
+                                             IsChecked="{Binding StyleText, Converter={StaticResource Equals}, ConverterParameter=TwoRows}" />
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'An icon each'}" GroupName="rowstyle"
+                                             IsChecked="{Binding StyleText, Converter={StaticResource Equals}, ConverterParameter=Icons}" />
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'An icon per part'}" GroupName="rowstyle"
+                                             IsChecked="{Binding StyleText, Converter={StaticResource Equals}, ConverterParameter=Grouped}" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="{ctl:T 'SIZE'}" Style="{StaticResource Caption}" Margin="2,16,0,8" />
+                        <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Auto'}" GroupName="rowsize"
+                                             IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Auto}" />
+                                <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Small'}" GroupName="rowsize" IsEnabled="{Binding CanSmall}"
+                                             IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Small}" />
+                                <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Medium'}" GroupName="rowsize" IsEnabled="{Binding CanMedium}"
+                                             IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Medium}" />
+                                <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Large'}" GroupName="rowsize" IsEnabled="{Binding CanLarge}"
+                                             IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Large}" />
+                            </StackPanel>
+                        </Border>
+                        <!-- A size the taskbar is too short for: why, and where Windows changes it -->
+                        <Border Background="{DynamicResource Surface2Brush}" CornerRadius="9" Padding="12,9" Margin="0,10,0,0"
+                                Visibility="{Binding SizeNote, Converter={StaticResource Vis}}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Background="{DynamicResource SurfaceBrush}" Padding="10,5" Margin="12,0,0,0"
+                                        VerticalAlignment="Center" Content="{ctl:T 'Open taskbar settings'}" Click="OpenTaskbarSettings_Click"
+                                        AutomationProperties.Name="{ctl:T 'Open taskbar settings'}" />
+                                <TextBlock Text="{Binding SizeNote}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
+
+                        <StackPanel Visibility="{Binding HasLooks, Converter={StaticResource Vis}}">
+                            <TextBlock Text="{ctl:T 'LOOK'}" Style="{StaticResource Caption}" Margin="2,16,0,8" />
+                            <ItemsControl ItemsSource="{Binding Looks}" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="4" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource ListChoice}" Padding="4,6,4,7" Margin="0,0,6,6" Click="LookChoice_Click" Tag="{Binding Tag}"
+                                                Command="{Binding Row.PickLookCommand}" CommandParameter="{Binding Look}" AutomationProperties.Name="{Binding Name}">
+                                            <StackPanel>
+                                                <Border Width="96" Height="52" CornerRadius="7" Background="{Binding Row.BarBrush}" ClipToBounds="True">
+                                                    <Viewbox Stretch="Uniform" Margin="4,2" StretchDirection="DownOnly">
+                                                        <Image Source="{Binding Picture}" Stretch="None" SnapsToDevicePixels="True" />
+                                                    </Viewbox>
+                                                </Border>
+                                                <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Together: the look drawn from another reading of its part, the number its own -->
+                        <StackPanel Visibility="{Binding ShowLookFrom, Converter={StaticResource Vis}}">
+                            <TextBlock Text="{ctl:T 'DRAW THE LOOK FROM'}" Style="{StaticResource Caption}" Margin="2,10,0,8" />
+                            <ItemsControl ItemsSource="{Binding LookFromChoices}" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource ListChoice}" Padding="10,5" Margin="0,0,6,6" Tag="{Binding Tag}" Background="{DynamicResource Surface2Brush}"
+                                                Command="{Binding Row.PickLookFromCommand}" CommandParameter="{Binding Id}" AutomationProperties.Name="{Binding Name}">
+                                            <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" />
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </StackPanel>
                 </ctl:SmoothBorder>
             </Popup>

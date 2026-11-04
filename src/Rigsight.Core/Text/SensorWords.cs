@@ -154,6 +154,9 @@ public static partial class SensorWords
         "Data Downloaded" => Lang.C("sensor", "Data Downloaded"),
         "Upload Speed" => Lang.C("sensor", "Upload Speed"),
         "Download Speed" => Lang.C("sensor", "Download Speed"),
+        // RigSight's own network readings (the taskbar's speeds) and what they're of
+        "Download and Upload" => Lang.C("sensor", "Download and Upload"),
+        "This PC" => Lang.C("sensor", "This PC"),
         "Network Utilization" => Lang.C("sensor", "Network Utilization"),
         _ => null,
     };

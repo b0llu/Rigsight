@@ -23,13 +23,16 @@ namespace Rigsight.Agent.Ui;
 /// right-click removes a part's readings, picks a reading's look, moves the readings to the other end, switches the
 /// style, or opens the Taskbar page; hovering names the hardware and each reading. When it can't be placed (Windows 10,
 /// whose taskbar lays out its buttons itself, or no taskbar) <see cref="Update"/> says so and the readings show as
-/// Windows' own tray icons. UI thread only.
+/// Windows' own tray icons. UI thread only. Since 1.3 each reading shows in its own style and size (see
+/// <see cref="StripComposer"/>, which lays them out the same way for the Taskbar page's preview); right-click also shows
+/// the reading under the pointer in another style, or every reading in one.
 /// </summary>
 internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> remove, Action<TrayStyle> setStyle, Action openPage,
-    Action<TraySide> setSide, Action<string, TrayLook> setLook, Action<IReadOnlyList<string>, Rectangle, float> openCard, Func<bool> cardShowing) : IDisposable
+    Action<TraySide> setSide, Action<string, TrayLook> setLook, Action<IReadOnlyList<string>, Rectangle, float> openCard, Func<bool> cardShowing,
+    Action<IReadOnlyList<string>, TrayStyle> setStyleOf) : IDisposable
 {
-    /// <summary>Each reading's right edge within its part, as the strip was last drawn (null for the other styles): a click opens the one under it.</summary>
-    private float[][]? _valueEdges;
+    /// <summary>Each reading's right edge within its part, as last drawn (null for a cell not on the strip): a click opens the one under it.</summary>
+    private float[]?[] _valueEdges = [];
 
     /// <summary>Windows 11 (build 22000) and later: the taskbar's buttons leave room beside the tray.</summary>
     public static bool Supported => Environment.OSVersion.Version.Build >= 22000;
@@ -40,6 +43,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     private Rectangle _placed;
     private Size _size; // the strip as last drawn
     private List<List<TrayReading>> _cells = [];
+    private List<TrayStyle> _cellStyles = [];
     private float[] _edges = [];
     private TipWindow? _tip;
     private readonly System.Windows.Forms.Timer _tipDelay = new() { Interval = 400 };
@@ -59,12 +63,15 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     private bool _wired;
 
     private TraySide _side;
+    /// <summary>The style every reading without one of its own has (what "Show all as" leaves ticked).</summary>
     private TrayStyle _style;
-    private bool _letters;
-    private HashSet<string> _graphIds = [];
+    private string _graphsNote = "";
     private TaskbarButtons? _buttons;
     private SynchronizationContext? _ui;
     private IntPtr _taskList;
+
+    /// <summary>Lays the readings out and keeps their graphs and widest shapes (shared with the Taskbar page's preview).</summary>
+    private readonly StripComposer _composer = new();
 
     /// <summary>The readings waiting for room in "+N" (none when all fit), and the index of "+N" among <see cref="_cells"/> (-1: none).</summary>
     private List<TrayReading> _waiting = [];
@@ -76,33 +83,26 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     /// <summary>Why the readings aren't on the left as asked ("" when they are, or weren't asked): logged when it changes.</summary>
     private string? _sideNote;
 
-    /// <summary>Each graph's readings with their times (ms), the last <see cref="TrayParts.GraphSeconds"/> kept.</summary>
-    private readonly Dictionary<string, Queue<(long At, float Value)>> _graphs = [];
-
-    /// <summary>Each reading's widest shape so far ("88°", "888 W"): the place kept for it (see <see cref="Shape"/>).</summary>
-    private readonly Dictionary<string, string> _widest = [];
-
     /// <summary>The readings waiting for room in "+N" right now (by sensor id; none when all fit), for the Taskbar page.</summary>
     public IReadOnlyList<string> Waiting => [.. _waiting.Select(r => r.Id)];
 
     /// <summary>
-    /// Shows <paramref name="readings"/> in the taskbar as <paramref name="style"/>, in grayscale when <paramref name="gray"/>,
-    /// on tiles when <paramref name="tiles"/>, the strip as roomy as <paramref name="width"/>, two rows' names as one letter
-    /// when <paramref name="letters"/>; false when it can't (nothing is shown then).
+    /// Shows <paramref name="readings"/> in the taskbar, each in its own style and size (<paramref name="style"/>: the one
+    /// every reading without its own has), in grayscale when <paramref name="gray"/>, on tiles when <paramref name="tiles"/>,
+    /// the strip as roomy as <paramref name="width"/>, two rows' names as one letter when <paramref name="letters"/>, speeds
+    /// in bits when <paramref name="speedBits"/>; false when it can't (nothing is shown then).
     /// </summary>
     public bool Update(IReadOnlyList<TrayReading> readings, bool gray = false, TraySide side = TraySide.Right, TrayStyle style = TrayStyle.Strip,
-        bool tiles = true, TrayWidth width = TrayWidth.Standard, bool letters = false)
+        bool tiles = true, TrayWidth width = TrayWidth.Standard, bool letters = false, bool speedBits = false)
     {
         _side = side;
         _style = style;
-        _letters = letters;
-        // Only the strip draws graphs (the icons show numbers alone); every look but the number keeps the last minutes
-        // (the fill-up looks only need the reading now, but switching one to a graph then has its minutes already).
-        HashSet<string> graphIds = style == TrayStyle.Strip ? [.. readings.Where(r => r.StripLook != TrayLook.Number).Select(r => r.Id)] : [];
-        if (!graphIds.SetEquals(_graphIds))
-            Log.Write("taskbar", $"Graphs on the strip: {graphIds.Count} ({string.Join(", ", graphIds)}), of {readings.Count} readings ({string.Join(", ", readings.Select(r => r.Id))})");
-        _graphIds = graphIds;
-        Remember(readings);
+        long now = Environment.TickCount64;
+        _composer.Remember(readings, now);
+        string graphsNote = string.Join(", ", _composer.Graphs.Order(StringComparer.Ordinal));
+        if (graphsNote != _graphsNote)
+            Log.Write("taskbar", $"Graphs kept for the strip: {_composer.Graphs.Count} ({graphsNote}), of {readings.Count} readings ({string.Join(", ", readings.Select(r => $"{r.Id}={r.Style}/{r.Size}"))})");
+        _graphsNote = graphsNote;
         if (readings.Count == 0 || !Supported) { Hide(); return false; }
         if (!_wired)
         {
@@ -140,27 +140,30 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             float scale = GetDpiForWindow(taskbar) / 96f;
             if (scale <= 0) scale = 1;
             _scale = scale;
-            var look = new StripLook(tiles, width, light);
+            var options = new StripComposer.Options(light, gray, tiles, width, letters, speedBits);
             int barWidth = bar.R - bar.L;
             float graphWide = WidgetRenderer.StripGraphWidthFor(barWidth, scale, width);
             var places = _buttons.Latest;
 
             // Left, as it is, when it fits before Start; else by the clock, fitted to the room the apps leave there.
             int gap = (int)Math.Round(6 * scale);
-            int full = Build(readings, light, gray, graphWide, look, 0).Width(barHeight, scale);
+            int full = _composer.Build(readings, options, graphWide, 0, barHeight, scale, now).Width;
             bool onLeft = side == TraySide.Left && places is not null && LeftRoom(bar, places, gap) is { } left && left.From + full <= left.Until;
             int room = onLeft || places is not { AppsRight: > 0 } ? int.MaxValue : notify.L - gap - (places.AppsRight + gap * 2);
-            var (fitWide, wait) = Fit(readings, light, gray, barHeight, scale, graphWide, look, room);
-            var drawing = Build(readings, light, gray, fitWide, look, wait);
+            var (fitWide, wait) = _composer.Fit(readings, options, graphWide, barHeight, scale, room, now);
+            var layout = _composer.Build(readings, options, fitWide, wait, barHeight, scale, now);
+            _cells = layout.Cells;
+            _cellStyles = layout.CellStyles;
+            _waiting = layout.Waiting;
+            _moreCell = layout.MoreCell;
             NoteFit(full, room, graphWide, fitWide, wait, readings);
             // Drawn again only when something shown changed; placed again whenever the tray moved.
             // A graph moves with every reading, so a strip with one is drawn each time.
-            string key = $"{style}|{barHeight}|{barWidth}|{scale}|{light}|{gray}|{tiles}|{width}|{letters}|{fitWide}|{wait}|" + drawing.Key;
+            string key = $"{barHeight}|{barWidth}|{scale}|{light}|{gray}|{tiles}|{width}|{letters}|{speedBits}|{fitWide}|{wait}|" + layout.Key;
             Size size = _size;
             if (key != _drawn)
             {
-                _valueEdges = null; // the strip's drawing sets them
-                using var bmp = drawing.Render(barHeight, scale, out _edges);
+                using var bmp = layout.Render(out _edges, out _valueEdges);
                 _size = size = bmp.Size;
                 Place(bar, notify, size, scale);
                 Push(_window.Handle, bmp);
@@ -177,147 +180,14 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         }
     }
 
-    /// <summary>
-    /// What will be drawn: the cells (parts on the strip, icons otherwise, "+N" last when readings wait), what tells a
-    /// change, how wide it is and how to draw it, at a height and scale.
-    /// </summary>
-    private sealed record Drawing(string Key, Func<int, float, int> Width, Func<int, float, (Bitmap Bitmap, float[] Edges)> Draw)
-    {
-        public Bitmap Render(int height, float scale, out float[] edges)
-        {
-            var (bmp, e) = Draw(height, scale);
-            edges = e;
-            return bmp;
-        }
-    }
+    /// <summary>An icon's size on a taskbar this tall (see <see cref="StripComposer.IconSize"/>).</summary>
+    internal static int IconSize(int height, float scale) => StripComposer.IconSize(height, scale);
 
-    /// <summary>
-    /// Lays the readings out as the style draws them, the last <paramref name="wait"/> of them (in the order they are
-    /// shown) left for "+N"; sets <see cref="_cells"/>, <see cref="_waiting"/> and <see cref="_moreCell"/>.
-    /// </summary>
-    private Drawing Build(IReadOnlyList<TrayReading> readings, bool light, bool gray, float graphWide, StripLook look, int wait)
-    {
-        var groups = _style switch
-        {
-            TrayStyle.Strip => TrayParts.Group(readings, r => (r.Group, r.Kind), int.MaxValue),
-            TrayStyle.TwoRows => TrayParts.Boxes(readings, r => r.Alone),
-            _ => TrayReadings.Icons(readings, _style == TrayStyle.Grouped),
-        };
-        // The order they're shown in, so the last ones are the ones to wait.
-        var shown = groups.SelectMany(g => g).ToList();
-        _waiting = wait > 0 ? shown.Skip(Math.Max(0, shown.Count - wait)).ToList() : [];
-        var waiting = _waiting.Select(r => r.Id).ToHashSet();
-        _cells = [.. groups.Select(g => g.Where(r => !waiting.Contains(r.Id)).ToList()).Where(g => g.Count > 0)];
-        _moreCell = _waiting.Count > 0 ? _cells.Count : -1;
-        if (_moreCell >= 0) _cells.Add(_waiting);
-        var cells = _cells;
-        int moreCell = _moreCell, waitCount = _waiting.Count;
-        var ink = light ? Color.Black : Color.White;
-        var neutral = Color.FromArgb(TrayColors.NeutralTileAlpha(light), ink);
+    /// <summary>The room each icon takes (see <see cref="StripComposer.IconSlot"/>).</summary>
+    internal static int IconSlot(int height, float scale) => StripComposer.IconSlot(height, scale);
 
-        if (_style == TrayStyle.Strip)
-        {
-            var names = TrayParts.Names([.. cells.Take(moreCell < 0 ? cells.Count : moreCell).Select(c => c[0].Part)]);
-            var strip = cells.Select((c, i) =>
-            {
-                if (i == moreCell)
-                    return new StripCell("", ink, [new StripValue($"+{waitCount}", ink, Lang.T("more"), "+88", LabelColor: Color.FromArgb(160, ink),
-                        Tile: look.Tiles ? neutral : null, More: true)]);
-                var labels = TrayParts.StripLabels([.. c.Select(r => r.Short)], names[i]);
-                return new StripCell(names[i], c[0].NameOn(light, gray), [.. c.Select((r, j) => Value(r, light, gray, labels[j], look.Tiles))]);
-            }).ToList();
-            string key = string.Join('|', strip.Select(c => c.Name + ":" + string.Join(',', c.Values.Select(v => v.Text + v.Label + v.Color.ToArgb() + "/" + v.LabelColor?.ToArgb()
-                + v.Look + v.Fill.ToString("0.###") + v.Tile?.ToArgb() + (v.Graph is { } graph ? string.Join(';', graph.Points.Select(pt => $"{pt.X:0.###},{pt.Y:0.###}")) : "")))));
-            return new Drawing(key, (height, scale) => WidgetRenderer.MeasureStrip(strip, height, scale, graphWide, look),
-                (height, scale) =>
-                {
-                    var bmp = WidgetRenderer.RenderStrip(strip, height, scale, out var edges, out var valueEdges, graphWide, look);
-                    _valueEdges = valueEdges;
-                    return (bmp, edges);
-                });
-        }
-
-        if (_style == TrayStyle.TwoRows)
-        {
-            var columns = TwoRowColumns(cells, moreCell, waitCount, readings, light, gray, look.Tiles);
-            string key = string.Join('|', columns.Select(c => c.Tile?.ToArgb() + ":" + string.Join(',', c.Lines.Select(l => $"{l.Label}{l.LabelColor.ToArgb()}{l.Text}{l.Color.ToArgb()}{l.Reserve}"))));
-            return new Drawing(key, (height, scale) => WidgetRenderer.MeasureTwoRows(columns, height, scale, look),
-                (height, scale) => (WidgetRenderer.RenderTwoRows(columns, height, scale, out var edges, look), edges));
-        }
-
-        // Icons, as the notification area would draw them, side by side about as far apart as Windows' own.
-        var icons = cells.Select((c, i) => i == moreCell
-            ? ((IReadOnlyList<(string Text, Color Color)>)[($"+{waitCount}", ink)], look.Tiles ? neutral : (Color?)null)
-            : ((IReadOnlyList<(string Text, Color Color)>)TrayReadings.Lines(c, light, gray), TrayReadings.Tile(c, light, gray, look.Tiles))).ToList();
-        string iconKey = string.Join('|', icons.Select(ic => string.Join(',', ic.Item1.Select(l => l.Text + l.Color.ToArgb())) + "/" + ic.Item2?.ToArgb()));
-        return new Drawing(iconKey, (height, scale) => IconSlot(height, scale) * icons.Count, (height, scale) =>
-        {
-            int size = IconSize(height, scale), slot = IconSlot(height, scale);
-            return (WidgetRenderer.RenderIconRow(icons, height, size, slot, out var edges), edges);
-        });
-    }
-
-    /// <summary>
-    /// Two rows' boxes as drawn: each reading's word (see <see cref="TrayParts.BoxLabel"/>; a part's name numbered when it
-    /// comes twice, "GPU 2") in its name's colour and its number in its own, on the box's tile (the first one picked in
-    /// it, else the top's); "+N" last, over "more".
-    /// </summary>
-    private List<TwoRowColumn> TwoRowColumns(List<List<TrayReading>> cells, int moreCell, int waitCount, IReadOnlyList<TrayReading> readings,
-        bool light, bool gray, bool tiles)
-    {
-        var groups = readings.Select(r => r.Group).Distinct().ToList();
-        var partNames = TrayParts.Names([.. groups.Select(g => readings.First(r => r.Group == g).Part)]);
-        var nameOf = groups.Select((g, i) => (g, partNames[i])).ToDictionary(x => x.g, x => x.Item2);
-        var ink = light ? Color.Black : Color.White;
-        return [.. cells.Select((box, i) =>
-        {
-            if (i == moreCell)
-                return new TwoRowColumn([new TwoRowLine("", ink, $"+{waitCount}", ink, "+88"), new TwoRowLine(Lang.T("more"), Color.FromArgb(160, ink), "", ink)],
-                    tiles ? Color.FromArgb(TrayColors.NeutralTileAlpha(light), ink) : null);
-            var lines = box.Select((r, j) =>
-            {
-                string text = Units.StripText(r.Kind, r.Value), shape = Shape(text);
-                if (!_widest.TryGetValue(r.Id, out var widest) || shape.Length > widest.Length) _widest[r.Id] = widest = shape;
-                string label = r.Hardware.Length == 0 ? "" // not found yet: the hover names it
-                    : TrayParts.BoxLabel(nameOf[r.Group], r.Group, r.Kind, r.Short, r.OwnShort, j == 0 ? null : box[0].Group, _letters);
-                return new TwoRowLine(label, r.NameOn(light, gray), text, r.NumberOn(light, gray), widest);
-            }).ToList();
-            return new TwoRowColumn(lines, tiles ? box.FirstOrDefault(r => r.TileColor is not null, box[0]).TileOn(light, gray, icon: false) : null);
-        })];
-    }
-
-    /// <summary>
-    /// An icon's size (see <see cref="TrayParts.IconSize"/>: 24 at 100%, 36 at 150%), kept clear of a short taskbar's top
-    /// and bottom.
-    /// </summary>
-    internal static int IconSize(int height, float scale) =>
-        Math.Max(1, Math.Min((int)Math.Round(TrayParts.IconSize * scale), height - (int)Math.Round(12 * scale)));
-
-    /// <summary>The room each icon takes: itself and the gap to the next.</summary>
-    internal static int IconSlot(int height, float scale) => IconSize(height, scale) + (int)Math.Round(TrayParts.IconGap * scale);
-
-    /// <summary>
-    /// The readings fitted to <paramref name="room"/> pixels: the strip's graphs narrower first, as wide as still fits down
-    /// to their words' width, then the fewest last readings waiting in "+N" (at least "+N" itself shows). Each found by
-    /// halving, a handful of measurements, not one a pixel: this runs with every reading.
-    /// </summary>
-    private (float GraphWide, int Wait) Fit(IReadOnlyList<TrayReading> readings, bool light, bool gray, int height, float scale, float graphWide, StripLook look, int room)
-    {
-        if (room == int.MaxValue) return (graphWide, 0);
-        int Width(float wide, int wait) => Build(readings, light, gray, wide, look, wait).Width(height, scale);
-        float graph = graphWide;
-        if (_style == TrayStyle.Strip && graph > 0 && Width(graph, 0) > room)
-        {
-            float lo = 0, hi = graph;
-            if (Width(0, 0) > room) hi = 0;
-            else while (hi - lo > 1) { float mid = (lo + hi) / 2; if (Width(mid, 0) <= room) lo = mid; else hi = mid; }
-            graph = hi == 0 ? 0 : MathF.Floor(lo);
-        }
-        if (Width(graph, 0) <= room) return (graph, 0);
-        int fewest = 1, most = readings.Count;
-        while (fewest < most) { int mid = (fewest + most) / 2; if (Width(graph, mid) <= room) most = mid; else fewest = mid + 1; }
-        return (graph, fewest);
-    }
+    /// <summary>The room a reading needs, whatever its digits (see <see cref="StripComposer.Shape"/>).</summary>
+    internal static string Shape(string text) => StripComposer.Shape(text);
 
     /// <summary>Logs what the room by the clock made of the readings, when that changes (the room, what fitted, who waits).</summary>
     private void NoteFit(int full, int room, float graphWide, float fitWide, int wait, IReadOnlyList<TrayReading> readings)
@@ -327,58 +197,8 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
               + (wait > 0 ? $" ({string.Join(", ", _waiting.Select(r => r.Id))})" : "")
             : "";
         if (note == _fitNote) return;
-        Log.Write("taskbar", note.Length > 0 ? $"Not every reading fits as it is: {note}" : $"Every reading fits as it is ({readings.Count}, {_style})");
+        Log.Write("taskbar", note.Length > 0 ? $"Not every reading fits as it is: {note}" : $"Every reading fits as it is ({readings.Count}, {string.Join(", ", readings.Select(r => r.Style).Distinct())})");
         _fitNote = note;
-    }
-
-    private StripValue Value(TrayReading r, bool light, bool gray, string label, bool tiles)
-    {
-        string text = Units.StripText(r.Kind, r.Value);
-        string shape = Shape(text);
-        if (!_widest.TryGetValue(r.Id, out var widest) || shape.Length > widest.Length) _widest[r.Id] = widest = shape;
-        // A graph behind the number in its name's colour (its part's, or the one picked; grayscale: the taskbar's text colour).
-        var name = r.NameOn(light, gray);
-        StripGraph? graph = _graphIds.Contains(r.Id)
-            ? new StripGraph(GraphPoints(r), gray ? WidgetRenderer.TrayColor(SensorKind.Load, 0, light, gray: true) : name)
-            : null;
-        return new StripValue(text, r.NumberOn(light, gray), label, widest, graph, name, r.StripLook, TrayParts.Fill(r.Value),
-            tiles ? r.TileOn(light, gray, icon: false) : null);
-    }
-
-    /// <summary>Keeps each graph's reading (and forgets the readings no longer drawn as graphs).</summary>
-    private void Remember(IReadOnlyList<TrayReading> readings)
-    {
-        long now = Environment.TickCount64;
-        foreach (var gone in _graphs.Keys.Where(id => !_graphIds.Contains(id) || readings.All(r => r.Id != id)).ToList()) _graphs.Remove(gone);
-        foreach (var r in readings)
-        {
-            if (!_graphIds.Contains(r.Id)) continue;
-            if (!_graphs.TryGetValue(r.Id, out var points)) _graphs[r.Id] = points = new();
-            points.Enqueue((now, r.Value is double v && double.IsFinite(v) ? (float)v : float.NaN));
-            while (points.Count > 0 && now - points.Peek().At > TrayParts.GraphSeconds * 1000L) points.Dequeue();
-        }
-    }
-
-    /// <summary>A graph's points, across its two minutes (now at the right) and up its range (see <see cref="TrayParts.GraphRange"/>).</summary>
-    private List<PointF> GraphPoints(TrayReading r)
-    {
-        if (!_graphs.TryGetValue(r.Id, out var points) || points.Count == 0) return [];
-        long now = Environment.TickCount64, window = TrayParts.GraphSeconds * 1000L;
-        var (lo, hi) = TrayParts.GraphRange(r.Kind, [.. points.Select(p => p.Value)]);
-        return [.. points.Select(p => new PointF(1 - (now - p.At) / (float)window,
-            float.IsFinite(p.Value) && hi > lo ? (float)((p.Value - lo) / (hi - lo)) : float.NaN))];
-    }
-
-    /// <summary>
-    /// The room a reading needs, whatever its digits: each one an 8, the widest ("56°" → "88°", "4.5 GHz" → "8.8 GHz"),
-    /// and a whole number at least two ("9%" → "88%"), so the everyday change from one digit to two moves nothing.
-    /// </summary>
-    internal static string Shape(string text)
-    {
-        var shape = new string([.. text.Select(ch => char.IsDigit(ch) ? '8' : ch)]);
-        int digits = shape.TakeWhile(ch => ch == '8').Count();
-        bool whole = digits == shape.Length || shape[digits] != '.'; // "4.5 GHz" is as wide as it gets
-        return digits == 1 && whole ? "8" + shape : shape;
     }
 
     /// <summary>Asks Windows to say when the taskbar's windows move (on this thread, from its message loop).</summary>
@@ -490,6 +310,9 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
 
     private List<TrayReading>? CellAt(int x) => CellIndexAt(x) is >= 0 and var i ? _cells[i] : null;
 
+    /// <summary>The style the cell at <paramref name="index"/> is drawn in.</summary>
+    private TrayStyle StyleAt(int index) => index >= 0 && index < _cellStyles.Count ? _cellStyles[index] : _style;
+
     private void OnMouse(MouseEventArgs e)
     {
         if (_window is null) return;
@@ -506,9 +329,8 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
                 var clicked = _cells[index];
                 IReadOnlyList<TrayReading> targets = clicked;
                 float from = index == 0 ? 0 : _edges[index - 1], to = _edges[index];
-                if (_style == TrayStyle.Strip && _valueEdges is { } valueEdges && index < valueEdges.Length)
+                if (StyleAt(index) == TrayStyle.Strip && index < _valueEdges.Length && _valueEdges[index] is { } edges)
                 {
-                    var edges = valueEdges[index];
                     int i = Array.FindIndex(edges, edge => e.X < edge);
                     if (i < 0) i = edges.Length - 1;
                     if (i >= 0 && i < clicked.Count)
@@ -524,41 +346,60 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         }
         if (e.Button != MouseButtons.Right) return;
         var cell = more ? null : CellAt(e.X);
+        var cellStyle = StyleAt(index);
         var menu = DarkMenuRenderer.Create();
         // A box of two rows can hold two parts' readings: each removed on its own.
-        IEnumerable<IReadOnlyList<TrayReading>> removals = cell is null ? [] : _style == TrayStyle.TwoRows ? cell.Select(r => (IReadOnlyList<TrayReading>)[r]) : [cell];
+        IEnumerable<IReadOnlyList<TrayReading>> removals = cell is null ? [] : cellStyle == TrayStyle.TwoRows ? cell.Select(r => (IReadOnlyList<TrayReading>)[r]) : [cell];
         foreach (var gone in removals)
         {
             var removeItem = new ToolStripMenuItem(TrayReadings.RemoveText(gone));
             removeItem.Click += (_, _) => remove([.. gone.Select(r => r.Id)]);
             menu.Items.Add(removeItem);
         }
-        // On the strip, each reading's look, the one it has ticked.
-        if (cell is not null && _style == TrayStyle.Strip)
-            foreach (var r in cell)
+        // Each reading's look, the one it has ticked: on the strip all of them, on an icon its own (number, fill, ring).
+        if (cell is not null && cellStyle is TrayStyle.Strip or TrayStyle.Icons or TrayStyle.Grouped)
+            foreach (var r in cellStyle == TrayStyle.Strip ? cell : cell.Take(1))
             {
                 string name = r.Name.Length is > 0 and <= 40 ? r.Name : TrayParts.Label(r.Part);
                 var item = new ToolStripMenuItem(Lang.T($"Look of {name}"));
-                foreach (var look in TrayParts.LooksFor(r.Kind))
+                bool strip = cellStyle == TrayStyle.Strip;
+                var looks = strip
+                    ? TrayParts.LooksFor(r.Kind, TrayParts.IsCpuTotal(r.Kind, r.Part, r.Name) || r.Cores is { Length: > 0 }, r.BothSpeeds, r.LookId is null ? null : r.LookSourceKind)
+                    : TrayParts.IconLooksFor(r.Kind, r.LookId is null ? null : r.LookSourceKind);
+                foreach (var look in looks)
                 {
-                    var choice = new ToolStripMenuItem(TrayParts.LookName(look)) { Checked = r.StripLook == look };
+                    var choice = new ToolStripMenuItem(strip ? TrayParts.LookName(look) : TrayParts.IconLookName(look)) { Checked = (strip ? r.StripLook : r.IconLook) == look };
                     choice.Click += (_, _) => setLook(r.Id, look);
                     item.DropDownItems.Add(choice);
                 }
                 menu.Items.Add(item);
             }
+        // The readings under the pointer in another style.
+        if (cell is not null)
+        {
+            var showThis = new ToolStripMenuItem(cell.Count > 1 ? Lang.T("Show these as") : Lang.T("Show this as"));
+            foreach (var style in new[] { TrayStyle.Strip, TrayStyle.TwoRows, TrayStyle.Icons, TrayStyle.Grouped })
+            {
+                var choice = new ToolStripMenuItem(TrayParts.StyleName(style)) { Checked = style == cellStyle };
+                choice.Click += (_, _) => setStyleOf([.. cell.Select(r => r.Id)], style);
+                showThis.DropDownItems.Add(choice);
+            }
+            menu.Items.Add(showThis);
+        }
         if (menu.Items.Count > 0) menu.Items.Add(new ToolStripSeparator());
         var sideItem = new ToolStripMenuItem(_side == TraySide.Left ? Lang.T("Move next to the clock") : Lang.T("Move to the left side"));
         sideItem.Click += (_, _) => setSide(_side == TraySide.Left ? TraySide.Right : TraySide.Left);
         menu.Items.Add(sideItem);
-        foreach (var (style, words) in new[] { (TrayStyle.Strip, Lang.T("Show as a strip")), (TrayStyle.TwoRows, Lang.T("Show in two rows")),
-                     (TrayStyle.Icons, Lang.T("Show an icon each")), (TrayStyle.Grouped, Lang.T("Show an icon per part")) })
+        // Every reading in one style (each one's own style goes).
+        var showAll = new ToolStripMenuItem(Lang.T("Show all as"));
+        bool mixed = _cellStyles.Distinct().Count() > 1;
+        foreach (var style in new[] { TrayStyle.Strip, TrayStyle.TwoRows, TrayStyle.Icons, TrayStyle.Grouped })
         {
-            if (style == _style) continue;
-            var item = new ToolStripMenuItem(words);
-            item.Click += (_, _) => setStyle(style);
-            menu.Items.Add(item);
+            var choice = new ToolStripMenuItem(TrayParts.StyleName(style)) { Checked = !mixed && style == _style };
+            choice.Click += (_, _) => setStyle(style);
+            showAll.DropDownItems.Add(choice);
         }
+        menu.Items.Add(showAll);
         var page = new ToolStripMenuItem(Lang.T("Taskbar settings…"));
         page.Click += (_, _) => openPage();
         menu.Items.AddRange([new ToolStripSeparator(), page]);

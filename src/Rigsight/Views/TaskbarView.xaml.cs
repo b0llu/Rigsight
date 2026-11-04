@@ -17,13 +17,20 @@ public partial class TaskbarView : UserControl
             if (_picking is { } row && DataContext is TaskbarViewModel vm) vm.SetColors(row, number, name, tile);
         };
         ColorPick.CustomMade += (kind, hex) => (DataContext as TaskbarViewModel)?.AddCustomColor(kind, hex);
-        Loaded += (_, _) => WatchWindow(true);
-        Unloaded += (_, _) => { CloseAddList(); WatchWindow(false); };
+        // The preview is the taskbar's own drawing: drawn again each second while the page shows (its numbers, its graphs).
+        _redraw.Tick += (_, _) => (DataContext as TaskbarViewModel)?.Redraw();
+        Loaded += (_, _) => { WatchWindow(true); (DataContext as TaskbarViewModel)?.Redraw(); _redraw.Start(); };
+        Unloaded += (_, _) => { CloseAddList(); WatchWindow(false); _redraw.Stop(); };
         // The page scrolling away from the box (the list stays where it opened): closed. The list's own scrolling isn't the page's.
         PageScroll.ScrollChanged += (_, e) => { if (e.OriginalSource == PageScroll && e.VerticalChange != 0) CloseAddList(); };
     }
 
     private Window? _window;
+
+    private readonly System.Windows.Threading.DispatcherTimer _redraw = new() { Interval = TimeSpan.FromSeconds(1) };
+
+    /// <summary>A size the taskbar is too short for: Windows' taskbar settings, where "Show smaller taskbar buttons" is.</summary>
+    private void OpenTaskbarSettings_Click(object sender, RoutedEventArgs e) => Rigsight.Services.TaskbarBar.OpenSettings();
 
     /// <summary>The window's clicks, another window coming to the front, and moves close the "Add a reading" list, as the title bar's ask drop's.</summary>
     private void WatchWindow(bool on)

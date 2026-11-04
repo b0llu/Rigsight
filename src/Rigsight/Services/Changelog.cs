@@ -187,6 +187,17 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        // The taskbar release (issue #6); version settled at release (the Network rebuild waits on its own branch, network-1.3).
+        V("1.3.0", 11, 4,
+            added: [Lang.T("Your download and upload speed can go in the taskbar, each on its own or both in one place."),
+                Lang.T("Each taskbar reading can have its own style and size, so the strip, two rows and icons can sit side by side."),
+                Lang.T("Taskbar readings have seven new looks: a half ring, a pie, each core, a big number, a number with a small graph, down and up, and a mirrored graph."),
+                Lang.T("Icons in the taskbar can fill up or ring round as their reading rises."),
+                Lang.T("A reading's look can come from another reading, so CPU temperature can show as the number with CPU load as its ring."),
+                Lang.T("CPU or GPU load and temperature go in the taskbar together with one click from the common readings.")],
+            better: [Lang.T("Words and numbers over a taskbar graph have an outline in the taskbar's colour, and a light taskbar gets deeper colours, so they stay easy to read."),
+                Lang.T("The Taskbar page shows your readings exactly as your taskbar draws them, at its real height.")],
+            fixedBugs: [Lang.T("On a taskbar with Windows' smaller buttons, Blocks are bigger and the Taskbar page no longer shows them larger than they are.")]),
         V("1.2.1", 11, 4,
             added: [Lang.T("Click a reading in the taskbar to see its last ten minutes, its part's other readings and the apps using it most."),
                 Lang.T("In Two rows or An icon per part, a click shows both readings of the box side by side.")],

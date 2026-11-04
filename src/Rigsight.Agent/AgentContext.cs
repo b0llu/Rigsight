@@ -204,11 +204,20 @@ internal sealed class AgentContext : ApplicationContext
         _card = new ReadingCard(page => OpenApp(page));
         _taskbarStrip = new TaskbarStrip(open: () => OpenApp(null),
             remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
-            setStyle: style => MutateSettings(s => s.TrayStyle = style),
+            // Every reading in one style: each one's own style goes.
+            setStyle: style => MutateSettings(s => { s.TrayStyle = style; s.TrayStyles.Clear(); }),
             openPage: () => OpenApp("taskbar"),
             setSide: side => MutateSettings(s => s.TraySide = side),
             setLook: (id, look) => MutateSettings(s => { s.TrayLooks.Remove(id); if (look != TrayLook.Number) s.TrayLooks[id] = look; }),
-            openCard: OpenCard, cardShowing: () => _card.Key is not null);
+            openCard: OpenCard, cardShowing: () => _card.Key is not null,
+            setStyleOf: (ids, style) => MutateSettings(s =>
+            {
+                foreach (var id in ids)
+                {
+                    s.TrayStyles.Remove(id);
+                    if (style != s.TrayStyle) s.TrayStyles[id] = style;
+                }
+            }));
         _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
@@ -459,7 +468,8 @@ internal sealed class AgentContext : ApplicationContext
                     t0 = Stopwatch.GetTimestamp();
                     // Sensors on the overlay stay live in games (the app is usually closed then).
                     // And those in the taskbar, which are always on show.
-                    _sensors.Watch([.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. WidgetSensorIds(_settings)]);
+                    _sensors.Watch([.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. _settings.TrayLookFrom.Values,
+                        .. WidgetSensorIds(_settings)]);
                     CheckDisplayDriver();
                     _sensors.Update(everything: live, now);
                     if (_sensorHealth.Check(_sensors.Unwell, now))
@@ -1192,7 +1202,11 @@ internal sealed class AgentContext : ApplicationContext
         return [.. list];
     }
 
-    /// <summary>The taskbar's sensors (sampler thread): the name given on All sensors, else the sensor's own.</summary>
+    /// <summary>
+    /// The taskbar's sensors (sampler thread): the name given on All sensors, else the sensor's own; each one's own style
+    /// and size (else the taskbar's style, fitted to it); the reading its look is drawn from (Together) with its value; a
+    /// CPU's cores for Each core. The network's speeds are RigSight's own count for the whole PC, as on the Network page.
+    /// </summary>
     private List<TrayReading> TrayReadingsFor(RigsightSettings settings)
     {
         var list = new List<TrayReading>(settings.TraySensors.Count);
@@ -1200,14 +1214,58 @@ internal sealed class AgentContext : ApplicationContext
         foreach (var id in settings.TraySensors)
         {
             string? own = settings.SensorLabels.GetValueOrDefault(id);
-            list.Add(_sensors.ReadSensor(id) is { } r
-                ? new TrayReading(id, own ?? SensorWords.Show(r.Name), r.Kind, r.Value, TrayParts.PartOf(r.HardwareType), r.HardwareName,
-                    TrayParts.ShortLabel(r.Kind, r.Name, TrayParts.PartOf(r.HardwareType), own),
-                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), settings.TrayLooks.GetValueOrDefault(id), TrayColors.TileOf(settings, id),
-                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id))
-                : new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, "", Alone: alone.Contains(id)));
+            var style = settings.TrayStyles.GetValueOrDefault(id, settings.TrayStyle);
+            var size = settings.TraySizes.GetValueOrDefault(id);
+            var look = settings.TrayLooks.GetValueOrDefault(id);
+            TrayReading reading;
+            if (TrayParts.IsNet(id))
+            {
+                var net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : null;
+                double? down = net is null || net.Stalled ? null : net.Down, up = net is null || net.Stalled ? null : net.Up;
+                string name = own ?? SensorWords.Show(TrayParts.NetName(id));
+                reading = new TrayReading(id, name, SensorKind.Throughput, id == TrayParts.NetUp ? up : down, TrayPart.Network, SensorWords.Show(TrayParts.NetHardware),
+                    own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel } o ? o : id == TrayParts.NetUp ? Lang.T("Up") : Lang.T("Down"),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size,
+                    Second: id == TrayParts.NetBoth ? up : null);
+            }
+            else if (_sensors.ReadSensor(id) is { } r)
+            {
+                var part = TrayParts.PartOf(r.HardwareType);
+                // Together: the look drawn from another reading (its kind and value), the number this one's.
+                string? from = settings.TrayLookFrom.GetValueOrDefault(id);
+                var source = from is null ? null : _sensors.ReadSensor(from);
+                float[]? cores = look == TrayLook.Cores && source is null && TrayParts.IsCpuTotal(r.Kind, part, r.Name) ? CoresOf(id) : null;
+                reading = new TrayReading(id, own ?? SensorWords.Show(r.Name), r.Kind, r.Value, part, r.HardwareName,
+                    TrayParts.ShortLabel(r.Kind, r.Name, part, own),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size,
+                    LookId: source is null ? null : from, LookKind: source?.Kind, LookValue: source?.Value, Cores: cores);
+            }
+            else reading = new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, "",
+                Alone: alone.Contains(id), Style: style, Size: size);
+            list.Add(reading);
         }
         return list;
+    }
+
+    /// <summary>Each CPU's cores' load sensors (by its total's id), found once per list of sensors.</summary>
+    private (List<HardwareMeta> Schema, Dictionary<string, string[]> Map) _cores = ([], []);
+
+    /// <summary>A CPU's cores' loads now, 0 to 1, in their order (null: none listed), for Each core.</summary>
+    private float[]? CoresOf(string totalId)
+    {
+        var schema = _sensors.Schema;
+        if (!ReferenceEquals(schema, _cores.Schema)) _cores = (schema, []);
+        if (!_cores.Map.TryGetValue(totalId, out var ids))
+        {
+            var hardware = schema.FirstOrDefault(h => h.Sensors.Any(s => s.Id == totalId));
+            ids = hardware is null ? [] : [.. hardware.Sensors.Where(s => TrayParts.IsCoreLoad(s.Kind, s.Name)).Select(s => s.Id)];
+            _cores.Map[totalId] = ids;
+            Log.Write("taskbar", $"Cores for {totalId}: {ids.Length} ({string.Join(", ", hardware?.Sensors.Where(s => TrayParts.IsCoreLoad(s.Kind, s.Name)).Select(s => s.Name) ?? [])})");
+        }
+        if (ids.Length == 0) return null;
+        return [.. ids.Select(c => _sensors.ReadSensor(c)?.Value is double v ? (float)Math.Clamp(v / 100, 0, 1) : 0f)];
     }
 
     private void PublishToUi(KeyValues k, bool fullscreen, string? alert)
@@ -1263,7 +1321,7 @@ internal sealed class AgentContext : ApplicationContext
             _tray.Update(tip, health);
             // In the taskbar, drawn by RigSight in any style, where it can be (Windows 11); else as Windows' own tray icons.
             bool inStrip = _taskbarStrip.Update(trayReadings, settings.TrayGrayscale, settings.TraySide, settings.TrayStyle, settings.TrayTiles, settings.TrayWidth,
-                settings.TrayLetterNames);
+                settings.TrayLetterNames, settings.TraySpeedBits);
             _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped, settings.TrayGrayscale, settings.TrayTiles);
             _trayWaiting = _taskbarStrip.Waiting;
             if (cardKey is not null && cardSections is { Count: > 0 }) _card.Renew(cardKey, cardSections);
@@ -2205,6 +2263,13 @@ internal sealed class AgentContext : ApplicationContext
     private static string TrayLooksText(RigsightSettings s) =>
         string.Join("; ", s.TrayLooks.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"));
 
+    /// <summary>Each reading's own style, size and look source, and the speeds' unit, in one line, to compare and to log.</summary>
+    private static string TrayOwnText(RigsightSettings s) =>
+        "styles " + string.Join("; ", s.TrayStyles.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        + " | sizes " + string.Join("; ", s.TraySizes.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        + " | looks from " + string.Join("; ", s.TrayLookFrom.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        + (s.TraySpeedBits ? " | speeds in bits" : " | speeds in bytes");
+
     private static void LogSettingsChanges(RigsightSettings before, RigsightSettings after, string from)
     {
         void Note(string what, int a, int b) { if (a != b) Log.Write("settings", $"{what}: {a} -> {b} (from the {from})"); }
@@ -2212,6 +2277,7 @@ internal sealed class AgentContext : ApplicationContext
         if (before.TrayStyle != after.TrayStyle) Log.Write("settings", $"taskbar style: {before.TrayStyle} -> {after.TrayStyle} (from the {from})");
         if (before.TraySide != after.TraySide) Log.Write("settings", $"taskbar side: {before.TraySide} -> {after.TraySide} (from the {from})");
         if (TrayLooksText(before) != TrayLooksText(after)) Log.Write("settings", $"taskbar looks: {TrayLooksText(before)} -> {TrayLooksText(after)} (from the {from})");
+        if (TrayOwnText(before) != TrayOwnText(after)) Log.Write("settings", $"taskbar readings' own: {TrayOwnText(before)} -> {TrayOwnText(after)} (from the {from})");
         if (before.TrayTiles != after.TrayTiles) Log.Write("settings", $"taskbar tiles: {before.TrayTiles} -> {after.TrayTiles} (from the {from})");
         if (before.TrayWidth != after.TrayWidth) Log.Write("settings", $"taskbar width: {before.TrayWidth} -> {after.TrayWidth} (from the {from})");
         if (before.TrayLetterNames != after.TrayLetterNames) Log.Write("settings", $"taskbar names as one letter: {before.TrayLetterNames} -> {after.TrayLetterNames} (from the {from})");
@@ -2245,7 +2311,8 @@ internal sealed class AgentContext : ApplicationContext
                           || updated.TraySide != current.TraySide || TrayLooksText(updated) != TrayLooksText(current)
                           || updated.TrayTiles != current.TrayTiles || updated.TrayWidth != current.TrayWidth
                           || updated.TrayLetterNames != current.TrayLetterNames || !updated.TrayAlone.SequenceEqual(current.TrayAlone)
-                          || !updated.TraySensors.SequenceEqual(current.TraySensors) || TrayColorsText(updated) != TrayColorsText(current);
+                          || !updated.TraySensors.SequenceEqual(current.TraySensors) || TrayColorsText(updated) != TrayColorsText(current)
+                          || TrayOwnText(updated) != TrayOwnText(current);
             LogSettingsChanges(current, updated, replaceWith is null ? "agent" : "app");
             _settings = updated;
             SettingsStore.Save(updated);
