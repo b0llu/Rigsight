@@ -320,7 +320,9 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     private static extern int WNetGetConnection(string localName, System.Text.StringBuilder remoteName, ref int length);
 
     /// <summary>What goes in "Space you could free" (tests swap it: the real one walks the user's own folders).</summary>
-    internal Func<List<CleanupItem>> FindCleanup { get; set; } = FindCleanupItems;
+    internal Func<List<CleanupItem>> FindCleanup { get; set; } = KeptFind;
+
+    private static readonly Func<List<CleanupItem>> KeptFind = () => FindCleanupItems(fresh: false);
 
     /// <summary>How long after the page opens the cleanup list starts being worked out: the page is drawn first.</summary>
     internal TimeSpan CleanupDelay { get; set; } = TimeSpan.FromMilliseconds(600);
@@ -329,17 +331,19 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     /// Adding up the folders (some hold hundreds of thousands of files) is never in the page's way: it starts a moment
     /// after the page is up, on a thread of its own below normal priority, and the list shows its loader until then.
     /// </summary>
-    private async Task LoadCleanupAsync()
+    /// <param name="fresh">Add the folders up again even when a recent count is kept (the page's Refresh button).</param>
+    private async Task LoadCleanupAsync(bool fresh = false)
     {
         CleanupLoading = true;
         try
         {
             if (CleanupDelay > TimeSpan.Zero) await Task.Delay(CleanupDelay);
+            var find = fresh && FindCleanup == KeptFind ? () => FindCleanupItems(fresh: true) : FindCleanup;
             var items = await Task.Factory.StartNew(() =>
             {
                 var thread = Thread.CurrentThread;
                 thread.Priority = ThreadPriority.BelowNormal;
-                return FindCleanup();
+                return find();
             }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             Cleanup.Clear();
             foreach (var i in items) Cleanup.Add(i);
@@ -359,18 +363,22 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     }
 
     /// <summary>The page's "Space you could free" list, read again (for the AI's look at a scanned drive).</summary>
-    public static List<CleanupItem> CleanupItems() => FindCleanupItems();
+    public static List<CleanupItem> CleanupItems() => FindCleanupItems(fresh: false);
 
-    private static List<CleanupItem> FindCleanupItems()
+    /// <param name="fresh">Every folder added up again, not taken from the count kept (see <see cref="CleanupSizes"/>).</param>
+    private static List<CleanupItem> FindCleanupItems(bool fresh)
     {
         var list = new List<CleanupItem>();
+        var kept = fresh ? null : CleanupSizes.Load(DateTime.Now);
+        var counted = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
         string downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
 
         void Add(string title, string description, string path, Func<DiskEntry, bool>? filter = null)
         {
-            long size = StorageScanner.FolderSize(path, filter);
+            long size = kept is not null && kept.TryGetValue(path, out var known) ? known : StorageScanner.FolderSize(path, filter);
+            counted[path] = size;
             if (size >= 50L << 20) list.Add(new CleanupItem(title, description, size, path, false));
         }
 
@@ -385,6 +393,8 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         Add(Lang.T("Crash dumps"), Lang.T("Memory dumps from crashed apps."), Path.Combine(local, "CrashDumps"));
         Add(Lang.T("Previous Windows installation"), Lang.T("Left after a Windows upgrade. Remove it with Disk Cleanup."), Path.Combine(Path.GetPathRoot(windows)!, "Windows.old"));
 
+        // Counted now, kept for the next first visit (the Recycle Bin is asked each time: Windows knows it at once).
+        if (kept is null) CleanupSizes.Save(counted, DateTime.Now);
         var (binSize, binItems) = StorageScanner.RecycleBin();
         if (binSize > 0)
             list.Add(new CleanupItem(Lang.T("Recycle Bin"), binItems == 1 ? Lang.T("1 deleted item.") : Lang.T($"{binItems:N0} deleted items."), binSize, null, true));
@@ -662,6 +672,8 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         }
         if (!item.IsRecycleBin)
         {
+            // Opened to be cleaned by hand: its kept size would be out of date, so the next visit counts it again.
+            if (item.Path is { } opened) CleanupSizes.Forget(opened);
             Reveal(item.Path);
             return;
         }
@@ -705,7 +717,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     private async Task RefreshAll()
     {
         var again = Result is { } r && !IsScanning ? (Root: r.Root.Path, Folder: Current?.Path) : default;
-        await Task.WhenAll(LoadVolumesAsync(), LoadCleanupAsync());
+        await Task.WhenAll(LoadVolumesAsync(), LoadCleanupAsync(fresh: true));
         if (again.Root is null) return;
         _refreshing = true;
         try { await Scan(again.Root); }
@@ -722,5 +734,67 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
             if (!child.IsBucket && path.StartsWith(child.Path, StringComparison.OrdinalIgnoreCase) && Find(child, path) is { } found)
                 return found;
         return null;
+    }
+}
+
+/// <summary>
+/// "Space you could free"'s folder sizes, kept between starts for <see cref="KeepFor"/>: adding up a %TEMP% of 22,000
+/// folders took 2.2 s of a core on every first visit of Storage (2026-11-05), and opening each folder is what costs,
+/// not how it's read (opening by the parent's handle was no faster). The page's Refresh counts them again.
+/// </summary>
+internal static class CleanupSizes
+{
+    public static readonly TimeSpan KeepFor = TimeSpan.FromHours(1);
+    internal static string File => Path.Combine(RigsightPaths.DataDir, "cleanup-sizes.json");
+
+    private sealed record Kept(long At, Dictionary<string, long> Sizes);
+
+    /// <summary>The sizes kept, when counted within <see cref="KeepFor"/> of <paramref name="now"/>; null otherwise.</summary>
+    public static Dictionary<string, long>? Load(DateTime now)
+    {
+        try
+        {
+            if (!System.IO.File.Exists(File)) return null;
+            var kept = System.Text.Json.JsonSerializer.Deserialize<Kept>(System.IO.File.ReadAllText(File));
+            if (kept?.Sizes is null) return null;
+            var at = TimeUtil.FromUnix(kept.At);
+            if (at > now || now - at > KeepFor) return null;
+            return new Dictionary<string, long>(kept.Sizes, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            Log.Write("storage", $"The kept folder sizes couldn't be read ({ex.GetType().Name}): counting them again");
+            return null;
+        }
+    }
+
+    /// <summary>Drops one folder's kept size (it was opened to be cleaned), keeping the others and when they were counted.</summary>
+    public static void Forget(string path)
+    {
+        try
+        {
+            if (!System.IO.File.Exists(File)) return;
+            var kept = System.Text.Json.JsonSerializer.Deserialize<Kept>(System.IO.File.ReadAllText(File));
+            if (kept?.Sizes is null) return;
+            var sizes = new Dictionary<string, long>(kept.Sizes, StringComparer.OrdinalIgnoreCase);
+            if (!sizes.Remove(path)) return;
+            System.IO.File.WriteAllText(File, System.Text.Json.JsonSerializer.Serialize(kept with { Sizes = sizes }));
+        }
+        catch (Exception ex)
+        {
+            Log.Write("storage", $"A kept folder size couldn't be dropped ({ex.GetType().Name}): it shows until the next count");
+        }
+    }
+
+    public static void Save(Dictionary<string, long> sizes, DateTime now)
+    {
+        try
+        {
+            System.IO.File.WriteAllText(File, System.Text.Json.JsonSerializer.Serialize(new Kept(TimeUtil.ToUnix(now), sizes)));
+        }
+        catch (Exception ex)
+        {
+            Log.Write("storage", $"The folder sizes couldn't be kept ({ex.GetType().Name}): the next first visit counts them again");
+        }
     }
 }

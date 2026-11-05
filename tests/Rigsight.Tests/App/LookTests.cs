@@ -378,6 +378,42 @@ public sealed class LookTests
         return window;
     }
 
+    /// <summary>
+    /// A tab is built the first time it's opened, not with the page: all nine built at once took 0.5-0.8 s on each
+    /// first visit of Settings (2026-11-05). Once built it stays, and the AI tab's key boxes are found in it then.
+    /// </summary>
+    [Fact]
+    public void A_settings_tab_is_built_when_first_opened_and_kept()
+    {
+        var settings = Kit.OfflineSettings();
+        Ui.Run(() =>
+        {
+            var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings));
+            var window = Host(new Views.SettingsView { DataContext = vm });
+            try
+            {
+                bool Built(string text) => Visuals.Descendants<TextBlock>(window).Any(t => t.Text == text);
+                Assert.Equal("general", vm.Tab);
+                Assert.True(Built("Temperature unit"));
+                Assert.False(Built("Keep history for"));
+                Assert.Empty(Visuals.Descendants<PasswordBox>(window));
+
+                vm.Tab = "history";
+                Ui.Pump(80);
+                Assert.True(Built("Keep history for"));
+                vm.Tab = "ai";
+                Ui.Pump(80);
+                Assert.NotEmpty(Visuals.Descendants<PasswordBox>(window));
+                vm.Tab = "general";
+                Ui.Pump(80);
+                // Kept, hidden: switching back doesn't build it again.
+                Assert.True(Built("Keep history for"));
+                Assert.NotEmpty(Visuals.Descendants<PasswordBox>(window));
+            }
+            finally { window.Close(); }
+        });
+    }
+
     [Fact]
     public void The_settings_page_has_eight_tabs_and_each_shows_only_its_own_settings()
     {

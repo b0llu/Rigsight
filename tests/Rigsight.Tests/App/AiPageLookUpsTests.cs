@@ -184,7 +184,10 @@ public sealed class AiPageLookUpsTests(PageHistory history) : IClassFixture<Page
         string said = Run(Tools(TwoDashboards), "get_dashboard");
         Assert.Contains("Gaming: GPU temperature, GPU power, Crashes, Internet today", said);
         Assert.Contains("Empty one: no tiles", said);
-        Assert.Equal("The person hasn't made any dashboards.", Run(Tools(), "get_dashboard"));
+        // None made: said, and every tile a dashboard can have follows, so the AI can suggest some (2026-11-05).
+        string none = Run(Tools(), "get_dashboard");
+        Assert.StartsWith("The person hasn't made any dashboards.", none);
+        Assert.Contains("Tiles a dashboard can have", none);
     }
 
     [Fact]

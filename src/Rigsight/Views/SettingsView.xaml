@@ -358,7 +358,8 @@
             </Border>
 
             <!-- General -->
-            <StackPanel Visibility="{Binding IsGeneral, Converter={StaticResource Vis}}">
+            <ctl:LazyTab Shown="{Binding IsGeneral}"><ctl:LazyTab.Body><DataTemplate>
+            <StackPanel>
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <!-- Language: English is built in; another language is downloaded when picked (its size shows until
@@ -512,9 +513,11 @@
                 </StackPanel>
             </ctl:SmoothBorder>
             </StackPanel>
+            </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
             <!-- Appearance -->
-            <StackPanel Visibility="{Binding IsAppearance, Converter={StaticResource Vis}}">
+            <ctl:LazyTab Shown="{Binding IsAppearance}"><ctl:LazyTab.Body><DataTemplate>
+            <StackPanel>
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <!-- The themes as small pictures of the window in each: its background, text, a card and its accent. -->
@@ -599,9 +602,11 @@
                 </StackPanel>
             </ctl:SmoothBorder>
             </StackPanel>
+            </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
             <!-- Tracking -->
-            <StackPanel Visibility="{Binding IsTracking, Converter={StaticResource Vis}}">
+            <ctl:LazyTab Shown="{Binding IsTracking}"><ctl:LazyTab.Body><DataTemplate>
+            <StackPanel>
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -662,9 +667,11 @@
                 </StackPanel>
             </ctl:SmoothBorder>
             </StackPanel>
+            </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
             <!-- Sensors: outlined, with a dot by its title, while something here needs a look; Settings opens with it centred. -->
-            <StackPanel ctl:Attention.Section="sensors" Visibility="{Binding IsSensors, Converter={StaticResource Vis}}">
+            <ctl:LazyTab Shown="{Binding IsSensors}"><ctl:LazyTab.Body><DataTemplate>
+            <StackPanel ctl:Attention.Section="sensors">
             <ctl:SmoothBorder Padding="20,8">
                 <ctl:SmoothBorder.Style>
                     <Style TargetType="Border" BasedOn="{StaticResource Card}">
@@ -749,9 +756,11 @@
                 </StackPanel>
             </ctl:SmoothBorder>
             </StackPanel>
+            </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
             <!-- Privacy -->
-            <StackPanel Visibility="{Binding IsTracking, Converter={StaticResource Vis}}">
+            <ctl:LazyTab Shown="{Binding IsTracking}"><ctl:LazyTab.Body><DataTemplate>
+            <StackPanel>
             <TextBlock Text="{ctl:T 'Privacy'}" Style="{StaticResource SubHead}" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,14">
                 <StackPanel>
@@ -784,9 +793,11 @@
                 </StackPanel>
             </ctl:SmoothBorder>
             </StackPanel>
+            </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
             <!-- Notifications -->
-            <StackPanel Visibility="{Binding IsNotifications, Converter={StaticResource Vis}}">
+            <ctl:LazyTab Shown="{Binding IsNotifications}"><ctl:LazyTab.Body><DataTemplate>
+            <StackPanel>
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DailyRecap}" Margin="0,10">
@@ -896,10 +907,12 @@
                 </StackPanel>
             </ctl:SmoothBorder>
             </StackPanel>
+            </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
             <!-- AI: how the helper answers, each way's own settings, what it may send, and its button. Laid out as drawn in
                  the approved mock-up (2026-10-20). -->
-            <StackPanel Visibility="{Binding DataContext.IsAi, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Vis}}" DataContext="{Binding Ai}">
+            <ctl:LazyTab Shown="{Binding IsAi}"><ctl:LazyTab.Body><DataTemplate>
+            <StackPanel DataContext="{Binding Ai}">
                 <!-- The first visit: what the helper sends, as a warning to read, put away with its close button. -->
                 <ctl:SmoothBorder CornerRadius="12" Padding="16,14,44,14" Margin="0,0,0,14" Background="{DynamicResource WarmSoftBrush}"
                                   BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1" AutomationProperties.Name="What the AI helper sends"
@@ -2083,9 +2096,11 @@
                     </StackPanel>
                 </ctl:SmoothBorder>
             </StackPanel>
+            </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
             <!-- History -->
-            <StackPanel Visibility="{Binding IsHistory, Converter={StaticResource Vis}}">
+            <ctl:LazyTab Shown="{Binding IsHistory}"><ctl:LazyTab.Body><DataTemplate>
+            <StackPanel>
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -2175,6 +2190,7 @@
                 </StackPanel>
             </ctl:SmoothBorder>
             </StackPanel>
+            </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
             <!-- Admin rights: only on a standard account. What can't be read there, and what each page shows instead. -->
             <StackPanel Visibility="{Binding IsAdminRights, Converter={StaticResource Vis}}">
@@ -2270,7 +2286,8 @@
 
             <!-- Rewind: the rewinds made (fixed height, scrolling inside), what is made, what goes in, how one is announced,
                  and what is never shown. Compact: tiles side by side, not a tall row for each switch. -->
-            <StackPanel Visibility="{Binding IsRewind, Converter={StaticResource Vis}}">
+            <ctl:LazyTab Shown="{Binding IsRewind}"><ctl:LazyTab.Body><DataTemplate>
+            <StackPanel>
             <StackPanel DataContext="{Binding Rewind}">
             <TextBlock Text="{ctl:T 'Your rewinds'}" Style="{StaticResource SubHead}" Margin="2,0,0,10" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Height="250">
@@ -2516,9 +2533,11 @@
             </ctl:SmoothBorder>
             </StackPanel>
             </StackPanel>
+            </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
             <!-- Updates -->
-            <StackPanel Visibility="{Binding IsAbout, Converter={StaticResource Vis}}">
+            <ctl:LazyTab Shown="{Binding IsAbout}"><ctl:LazyTab.Body><DataTemplate>
+            <StackPanel>
             <TextBlock Text="{ctl:T 'Updates'}" Style="{StaticResource SubHead}" Margin="2,0,0,10" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
@@ -2683,6 +2702,7 @@
                 </StackPanel>
             </ctl:SmoothBorder>
             </StackPanel>
+            </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
         </StackPanel>
         </Grid>
         </Grid>

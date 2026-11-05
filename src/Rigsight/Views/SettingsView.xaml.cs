@@ -346,7 +346,7 @@ public partial class SettingsView : UserControl
         // A click inside an open list (a popup, its own window) reaches here too: it is a pick, so the list stays open
         // until the pick closes it (closing it on the press lost every pick).
         if (clicked is Visual inside && PresentationSource.FromVisual(inside) is { } source && source != PresentationSource.FromVisual(this)) return;
-        if (vm.Rewind is { IsPicking: true } rewind && !On(LeaveSearchBox)) rewind.IsPicking = false;
+        if (vm.Rewind is { IsPicking: true } rewind && !(Named("LeaveSearchBox") is { } box && On(box))) rewind.IsPicking = false;
     }
 
     /// <summary>Settings → Rewind's "Never show": the list opens as the click on the search box lets go, or as it gets the keyboard.</summary>
@@ -374,14 +374,35 @@ public partial class SettingsView : UserControl
     /// <summary>Show turned off again: the dots get what was typed in the shown box meanwhile.</summary>
     private void PasteShown_Changed(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
-        if (sender is System.Windows.Controls.TextBox t && PasteBox.Password != t.Text) PasteBox.Password = t.Text;
+        if (sender is System.Windows.Controls.TextBox t && Named("PasteBox") is PasswordBox paste && paste.Password != t.Text) paste.Password = t.Text;
     }
 
     /// <summary>A key saved or the box cancelled: both password boxes empty, as the view model's own text is.</summary>
-    private void OnPasteCleared() { PasteBox.Password = ""; ServerKeyBox.Password = ""; }
+    private void OnPasteCleared()
+    {
+        if (Named("PasteBox") is PasswordBox paste) paste.Password = "";
+        if (Named("ServerKeyBox") is PasswordBox server) server.Password = "";
+    }
 
     /// <summary>A key just added: the Model card scrolled into view once the page has laid out the new rows.</summary>
-    private void OnModelCardWanted() => Dispatcher.BeginInvoke(() => ModelCard.BringIntoView(), System.Windows.Threading.DispatcherPriority.Loaded);
+    private void OnModelCardWanted() => Dispatcher.BeginInvoke(() => Named("ModelCard")?.BringIntoView(), System.Windows.Threading.DispatcherPriority.Loaded);
+
+    /// <summary>
+    /// A named box on a tab. Each tab is built the first time it shows (the page's LazyTab), so its boxes are looked up
+    /// in it, not kept as fields: null while that tab hasn't been opened yet.
+    /// </summary>
+    private FrameworkElement? Named(string name) => Find(Scroller, name);
+
+    private static FrameworkElement? Find(DependencyObject from, string name)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(from); i++)
+        {
+            var child = VisualTreeHelper.GetChild(from, i);
+            if (child is FrameworkElement { Name: var n } found && n == name) return found;
+            if (Find(child, name) is { } deeper) return deeper;
+        }
+        return null;
+    }
 
     private void LeaveSearch_Key(object sender, System.Windows.Input.KeyEventArgs e)
     {
