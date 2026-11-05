@@ -345,7 +345,7 @@ public static class InsightEngine
                     ReportRange.Day => Lang.T($"A quiet day with only {used} of use, so there's not much to point out."),
                     ReportRange.Week => Lang.T($"Only {used} of use in these 7 days, so there's not much to point out."),
                     ReportRange.Year => Lang.T($"Only {used} of use in these 12 months, so there's not much to point out."),
-                    ReportRange.All or ReportRange.Custom => Lang.T($"A quiet stretch with only {used} of use, so there's not much to point out."),
+                    ReportRange.Custom => Lang.T($"A quiet stretch with only {used} of use, so there's not much to point out."),
                     _ => Lang.T($"Only {used} of use in these 30 days, so there's not much to point out."),
                 };
             list.Add(new Insight(IconInfo, text, InsightTone.Neutral, "early", 60) { Short = text.TrimEnd('.') });

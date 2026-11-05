@@ -60,11 +60,12 @@ public sealed class AiPromptShapeTests
     }
 
     /// <summary>RIGSIGHT_PROMPT_DUMP=folder writes each prompt there to read whole.</summary>
-    [Fact]
+    public static bool Dumping => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RIGSIGHT_PROMPT_DUMP"));
+
+    [Fact(Skip = "Needs RIGSIGHT_PROMPT_DUMP", SkipUnless = nameof(Dumping))]
     public void Prompts_can_be_written_out_to_read()
     {
-        string? dir = Environment.GetEnvironmentVariable("RIGSIGHT_PROMPT_DUMP");
-        if (string.IsNullOrEmpty(dir)) return;
+        string dir = Environment.GetEnvironmentVariable("RIGSIGHT_PROMPT_DUMP")!;
         Directory.CreateDirectory(dir);
         File.WriteAllText(Path.Combine(dir, "own-key.txt"), AiPrompt.OwnKey(Now));
         File.WriteAllText(Path.Combine(dir, "ollama.txt"), AiPrompt.Ollama(true, Now));

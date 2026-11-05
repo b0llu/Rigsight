@@ -268,8 +268,6 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
     {
         var (from, to) = period;
         var culture = System.Globalization.CultureInfo.CurrentCulture;
-        // All time: everything there is, whenever it starts.
-        if (from.Year <= 2000) return firstDay is { } since ? Lang.T($"Everything since {since:d MMM yyyy}") : Lang.T("Everything recorded");
         if (from.TimeOfDay != TimeSpan.Zero || to.TimeOfDay != TimeSpan.Zero)
         {
             if (to < now.AddMinutes(-1)) return Report.CustomTitle(from, to);
@@ -441,7 +439,7 @@ public sealed partial class PageExportViewModel(ReportService reports, SettingsM
                 await File.WriteAllTextAsync(Path.Combine(folder, ReadableExport.SnapshotFile), ExportViewModel.SnapshotOf(live), new UTF8Encoding(true));
             if (on.Any(i => i.Kind == PageItemKind.Report))
                 await ExportViewModel.WriteReportAsync(reports, from, to, Path.Combine(folder, asText ? ReadableExport.ReportTextFile : ReadableExport.ReportFile), asText,
-                    choice?.Unit is { } unit and not (ReportRange.All or ReportRange.Custom) ? (unit, choice.Anchor) : null);
+                    choice?.Unit is { } unit and not ReportRange.Custom ? (unit, choice.Anchor) : null);
             string? failed = await reports.QueryAsync((db, s) =>
             {
                 try

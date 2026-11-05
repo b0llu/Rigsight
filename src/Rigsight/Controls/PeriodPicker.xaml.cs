@@ -8,7 +8,7 @@ using Rigsight.Core.Reports;
 namespace Rigsight.Controls;
 
 /// <summary>
-/// The period a page looks at: a day, the last 7 or 30 days, the last 12 months, all time, or a custom range (from a
+/// The period a page looks at: a day, the last 7 or 30 days, the last 12 months, or a custom range (from a
 /// date and hour to another). The arrows step to the period before or after, as long (a custom range by its own
 /// length), and the label opens the matching picker (a calendar for a day, or for the last day of the 7 or 30, a year
 /// list, the range editor). See <see cref="ReportBuilder.Bounds"/> for why they're the time just gone.
@@ -45,7 +45,7 @@ public partial class PeriodPicker : UserControl
     /// </summary>
     public static DateTime AfterMidnight(ReportRange unit, DateTime anchor, DateTime was, DateTime today)
     {
-        if (unit is ReportRange.All or ReportRange.Custom) return anchor;
+        if (unit == ReportRange.Custom) return anchor;
         var (from, to) = ReportBuilder.Bounds(unit, anchor);
         return from <= was && was < to ? today : anchor;
     }
@@ -150,18 +150,17 @@ public partial class PeriodPicker : UserControl
         unit == ReportRange.Custom ? (customTo > customFrom ? Report.CustomTitle(customFrom, customTo) : Lang.T("Custom")) : Text(unit, anchor);
 
     /// <summary>The dates a period covers; for a custom range (its dates already on the picker) how long it is.</summary>
-    public static string Span(ReportRange unit, DateTime anchor, DateTime? firstDay, DateTime customFrom, DateTime customTo) =>
-        unit == ReportRange.Custom ? (customTo > customFrom ? Duration(customTo - customFrom) : "") : Span(unit, anchor, firstDay);
+    public static string Span(ReportRange unit, DateTime anchor, DateTime customFrom, DateTime customTo) =>
+        unit == ReportRange.Custom ? (customTo > customFrom ? Duration(customTo - customFrom) : "") : Span(unit, anchor);
 
     /// <summary>
     /// The period as it reads after a statement ("No crashes …", "Nothing recorded …"): by its own name where it has
     /// one ("today", "yesterday", "in the last 7 days"), else by its dates ("on Fri, 9 Oct", "in the 7 days to 29 Oct",
-    /// "in 2025"); "on record" for all time. Never "on this day" or "in this period" for a period the app can name. A
+    /// "in 2025"). Never "on this day" or "in this period" for a period the app can name. A
     /// custom range, which has no name, is "in this time". A week, month or year reads as everywhere else (<see cref="PeriodWords.Said"/>).
     /// </summary>
     public static string Words(ReportRange unit, DateTime anchor)
     {
-        if (unit == ReportRange.All) return Lang.T("on record");
         if (unit == ReportRange.Custom) return Lang.T("in this time");
         var (from, _) = ReportBuilder.Bounds(unit, anchor);
         if (unit != ReportRange.Day) return PeriodWords.Said(unit, from);
@@ -169,10 +168,9 @@ public partial class PeriodPicker : UserControl
         return from == today ? Lang.T("today") : from == today.AddDays(-1) ? Lang.T("yesterday") : Lang.T($"on {Text(unit, anchor)}");
     }
 
-    /// <summary>The period in words: "Today", "Yesterday", "Last 7 days", "23–29 Oct", "Dec 2024 – Nov 2025", "2025", "All time".</summary>
+    /// <summary>The period in words: "Today", "Yesterday", "Last 7 days", "23–29 Oct", "Dec 2024 – Nov 2025", "2025".</summary>
     public static string Text(ReportRange unit, DateTime anchor)
     {
-        if (unit == ReportRange.All) return Lang.T("All time");
         var (from, _) = ReportBuilder.Bounds(unit, anchor);
         if (unit != ReportRange.Day) return PeriodWords.Label(unit, from, DateTime.Today);
         var today = DateTime.Today;
@@ -181,15 +179,13 @@ public partial class PeriodPicker : UserControl
     }
 
     /// <summary>The dates a period covers, for a subtitle: "1 Jan – 31 Dec 2025"; a period in progress ends today.</summary>
-    public static string Span(ReportRange unit, DateTime anchor, DateTime? firstDay = null)
+    public static string Span(ReportRange unit, DateTime anchor)
     {
         var today = DateTime.Today;
         var (from, to) = ReportBuilder.Bounds(unit, anchor);
-        if (unit == ReportRange.All) from = firstDay ?? today;
         if (unit == ReportRange.Day) return from.ToString("dddd, d MMMM yyyy");
         var last = to.AddDays(-1) > today ? today : to.AddDays(-1);
-        string text = from.Year == last.Year ? $"{from:d MMM} – {last:d MMM yyyy}" : $"{from:d MMM yyyy} – {last:d MMM yyyy}";
-        return unit == ReportRange.All && firstDay is not null ? $"{text} ({Duration(TimeSpan.FromDays((int)(today - from).TotalDays + 1))})" : text;
+        return from.Year == last.Year ? $"{from:d MMM} – {last:d MMM yyyy}" : $"{from:d MMM yyyy} – {last:d MMM yyyy}";
     }
 
     /// <summary>A length of time in words: "17 hours", "3 days and 4 hours".</summary>
@@ -216,7 +212,6 @@ public partial class PeriodPicker : UserControl
             foreach (RadioButton button in UnitButtons.Children)
                 button.IsChecked = (string)button.Tag == Unit.ToString();
 
-            Pager.Visibility = Unit == ReportRange.All ? Visibility.Collapsed : Visibility.Visible;
             if (Unit == ReportRange.Custom)
             {
                 Pager.Label = CustomTo > CustomFrom ? Core.Reports.Report.CustomTitle(CustomFrom, CustomTo) : Lang.T("Pick a range");
@@ -248,10 +243,8 @@ public partial class PeriodPicker : UserControl
         if (unit == Unit) return;
         if (unit == ReportRange.Custom)
         {
-            // Starts as the period that was shown (all time: since the first day), then the editor opens to change it.
-            var (from, to) = Unit == ReportRange.All
-                ? (MinDate ?? DateTime.Today, DateTime.Today.AddDays(1))
-                : ReportBuilder.Bounds(Unit, Anchor);
+            // Starts as the period that was shown, then the editor opens to change it.
+            var (from, to) = ReportBuilder.Bounds(Unit, Anchor);
             if (to > ReportBuilder.HourEnd(DateTime.Now)) to = ReportBuilder.HourEnd(DateTime.Now);
             SetCurrentValue(CustomFromProperty, from);
             SetCurrentValue(CustomToProperty, to);

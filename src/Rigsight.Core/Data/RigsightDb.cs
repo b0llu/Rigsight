@@ -147,7 +147,7 @@ public sealed partial class RigsightDb : IDisposable
         Exec("CREATE INDEX IF NOT EXISTS ix_crashes_ts ON crashes(ts)");
         Exec("CREATE INDEX IF NOT EXISTS ix_sessions_app ON sessions(app_id, start)");
 
-        // Per-app totals per month, kept in step with app_hour, so long ranges ("All time") add up a few rows per
+        // Per-app totals per month, kept in step with app_hour, so long ranges (a year or more) add up a few rows per
         // app instead of every hour. Filled from app_hour the first time (databases from before 0.4.13).
         bool newRollup = !HasTable("app_month");
         Exec($"CREATE TABLE IF NOT EXISTS app_month(month INTEGER NOT NULL, app_id INTEGER NOT NULL, {HourColumnsDdl}, PRIMARY KEY(month, app_id))");
@@ -1357,7 +1357,7 @@ public sealed partial class RigsightDb : IDisposable
     /// </summary>
     /// <param name="forFindings">Also what a finding is worked out from (the load, power and memory of the minutes
     /// before, when the PC was last in use and when it came back). A report's list of a year's crashes shows none of
-    /// that and reads them without: seven more lookups per crash tripled the time an all-time report took.</param>
+    /// that and reads them without: seven more lookups per crash tripled the time a long report took.</param>
     public Dictionary<long, CrashContext> GetCrashContext(long from, long to, bool forFindings = true)
     {
         // The session may have ended up to 10 minutes before the crash, so it can start that much before the longest-session bound.

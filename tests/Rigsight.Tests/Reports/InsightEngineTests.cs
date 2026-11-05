@@ -30,7 +30,6 @@ public sealed class InsightEngineTests : IDisposable
     private static Report Past(ReportRange range = ReportRange.Day, double active = 3 * 3600, double on = 4 * 3600)
     {
         var (from, to) = ReportBuilder.Bounds(range, Wed);
-        if (range == ReportRange.All) to = Wed.AddDays(1);
         return new Report { Range = range, From = from, To = to, HasData = true, ActiveSec = active, OnSec = on };
     }
 
@@ -76,7 +75,7 @@ public sealed class InsightEngineTests : IDisposable
     [InlineData(ReportRange.Week, "Only 10m of use in these 7 days, so there's not much to point out.")]
     [InlineData(ReportRange.Month, "Only 10m of use in these 30 days, so there's not much to point out.")]
     [InlineData(ReportRange.Year, "Only 10m of use in these 12 months, so there's not much to point out.")]
-    [InlineData(ReportRange.All, "A quiet stretch with only 10m of use, so there's not much to point out.")]
+    [InlineData(ReportRange.Custom, "A quiet stretch with only 10m of use, so there's not much to point out.")]
     public void A_period_with_little_use_is_called_quiet_and_nothing_else_is_said(ReportRange range, string text)
     {
         var r = Past(range, active: 600, on: 900);

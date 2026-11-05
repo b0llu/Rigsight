@@ -100,7 +100,6 @@ public sealed class ShellTests : IClassFixture<AppHost>
     [InlineData(ReportRange.Month, 0, true)]
     [InlineData(ReportRange.Year, 0, true)]
     [InlineData(ReportRange.Month, -40, false)]
-    [InlineData(ReportRange.All, 0, false)]
     [InlineData(ReportRange.Custom, 0, false)]
     public void Only_a_period_that_held_the_day_that_ended_follows_into_the_new_one(ReportRange unit, int anchorOffset, bool follows)
     {

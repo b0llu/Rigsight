@@ -683,12 +683,12 @@ public sealed class HistoryPageTests
     private static void Loaded(AppsViewModel vm, Func<bool> done) => Assert.True(Ui.WaitFor(done, 15_000), "the apps didn't load");
 
     /// <summary>
-    /// The whole history, loaded: every known app is in it. (This week can be only a few hours on a Monday morning,
-    /// without the app a test needs; and "… in total" alone doesn't tell the week's list from the whole history's.)
+    /// The whole history, loaded: the last 12 months hold all of the made-up history, so every known app is in it.
+    /// (The last 7 days can miss the app a test needs.)
     /// </summary>
-    private static void AllTime(AppsViewModel vm)
+    private static void WholeHistory(AppsViewModel vm)
     {
-        Ui.Run(() => vm.Unit = ReportRange.All);
+        Ui.Run(() => vm.Unit = ReportRange.Year);
         Loaded(vm, () => KnownExes.Take(7).All(exe => vm.Apps.Any(a => a.Stat.Exe == exe)));
     }
 
@@ -710,7 +710,7 @@ public sealed class HistoryPageTests
     public void Apps_filter_by_category_with_a_choice_for_each_one_listed()
     {
         var (vm, settings) = Apps();
-        AllTime(vm);
+        WholeHistory(vm);
         Ui.Run(() =>
         {
             AppCategory Of(AppStat a) => settings.Current.AppCategories.GetValueOrDefault(a.Exe, a.Category);
@@ -829,7 +829,7 @@ public sealed class HistoryPageTests
     public void Apps_search_matches_name_or_exe()
     {
         var (vm, _) = Apps();
-        AllTime(vm);
+        WholeHistory(vm);
         Ui.Run(() =>
         {
             vm.Search = "CHROME";
@@ -970,23 +970,10 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void Apps_all_time_counts_from_the_first_day()
-    {
-        var (vm, _) = Apps();
-        Ui.Run(() => vm.Unit = ReportRange.All);
-        Loaded(vm, () => vm.Summary.EndsWith(" in total"));
-        Ui.Run(() =>
-        {
-            Assert.EndsWith(" days)", vm.RangeNote);
-            Assert.True(vm.IncludesToday);
-        });
-    }
-
-    [Fact]
     public void Renaming_categorizing_and_excluding_the_selected_app_go_to_settings()
     {
         var (vm, settings) = Apps();
-        AllTime(vm);
+        WholeHistory(vm);
         Ui.Run(() =>
         {
             vm.SelectExe("chrome.exe");
@@ -1065,14 +1052,14 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void Every_known_app_is_in_all_time()
+    public void Every_known_app_is_in_the_last_12_months()
     {
         var (vm, _) = Apps();
-        AllTime(vm);
+        WholeHistory(vm);
         Ui.Run(() => vm.Sort = "Memory");
         Ui.Run(() =>
         {
-            Assert.EndsWith(" in total", vm.Summary);
+            Assert.EndsWith(" in the last 12 months", vm.Summary);
             var exes = vm.Apps.Select(a => a.Stat.Exe).ToHashSet();
             foreach (var exe in KnownExes.Take(7)) Assert.Contains(exe, exes);
         });

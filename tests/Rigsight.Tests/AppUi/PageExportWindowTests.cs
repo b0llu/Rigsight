@@ -142,8 +142,7 @@ public sealed class PageExportWindowTests(AppHost host) : IClassFixture<AppHost>
             var (listed, from, to) = Ui.Run(() =>
             {
                 var vm = host.Shell.Crashes;
-                var bounds = vm.Unit == Rigsight.Core.Reports.ReportRange.All ? (new DateTime(2000, 1, 1), DateTime.Today.AddDays(1))
-                    : Controls.PeriodPicker.Bounds(vm.Unit, vm.Anchor, vm.CustomFrom, vm.CustomTo);
+                var bounds = Controls.PeriodPicker.Bounds(vm.Unit, vm.Anchor, vm.CustomFrom, vm.CustomTo);
                 return (vm.Crashes.Select(r => r.Event.Id).ToHashSet(), bounds.Item1, bounds.Item2);
             });
             var ids = Ui.Run(() => CrashesViewModel.ShownIdsAsync(host.Shell.Reports, host.Shell.Settings.Current, from, to, filter == "All" ? "All" : filter, [], host.Shell.Crashes.Grouped, false));

@@ -14,8 +14,13 @@ namespace Rigsight.Tests.AppUi;
 /// this test PC (free or complete). Pictures go to screens\live-*.png, and what each answer had to live.log.
 /// </summary>
 [Collection("UI")]
-public sealed class AskLiveTests(AppHost host) : IClassFixture<AppHost>
+public sealed class AskLiveTests : IDisposable
 {
+    // The window is opened only when the test really runs: a class fixture would open it for a skipped test too.
+    private AppHost? _host;
+    private AppHost host => _host ??= new AppHost();
+    public void Dispose() => _host?.Dispose();
+
     private static readonly string? RelayUrl = Environment.GetEnvironmentVariable("RIGSIGHT_LIVE_RELAY");
     private static readonly string Plan = Environment.GetEnvironmentVariable("RIGSIGHT_LIVE_PLAN") ?? "free";
     private static readonly string Shots = Path.Combine(TestEnvironment.DataDir, "screens");
@@ -75,10 +80,12 @@ public sealed class AskLiveTests(AppHost host) : IClassFixture<AppHost>
         Note("    " + a.Raw.Replace("\n", "\n    "));
     }
 
-    [Fact]
+    /// <summary>Runs only with a local relay (never the live one): skipped, not passed, in every other run.</summary>
+    public static bool LocalRelay => RelayUrl is { } url && !url.Contains("rigsight.app");
+
+    [Fact(Skip = "Needs RIGSIGHT_LIVE_RELAY naming a local relay", SkipUnless = nameof(LocalRelay))]
     public void The_new_buttons_with_a_real_relay_and_model()
     {
-        if (RelayUrl is null || RelayUrl.Contains("rigsight.app")) return;
         Environment.SetEnvironmentVariable("RIGSIGHT_RELAY_URL", RelayUrl);
         var ask = host.Shell.Ask;
         Note($"--- {DateTime.Now:HH:mm} plan {Plan}, device {Relay.DeviceId}");

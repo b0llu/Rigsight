@@ -1267,7 +1267,6 @@ public sealed class ControlTests
     [InlineData(ReportRange.Week, 0, "Last 7 days")]
     [InlineData(ReportRange.Month, 0, "Last 30 days")]
     [InlineData(ReportRange.Year, 0, "Last 12 months")]
-    [InlineData(ReportRange.All, -500, "All time")]
     public void Periods_in_words(ReportRange unit, int daysAgo, string text) =>
         Assert.Equal(text, PeriodPicker.Text(unit, DateTime.Today.AddDays(daysAgo)));
 
@@ -1297,10 +1296,6 @@ public sealed class ControlTests
         Assert.Equal("6 Nov – 5 Dec 2024", PeriodPicker.Span(ReportRange.Month, new DateTime(2024, 12, 5)));
         Assert.Equal("26 Dec 2020 – 1 Jan 2021", PeriodPicker.Span(ReportRange.Week, new DateTime(2021, 1, 1)));
         Assert.EndsWith(" – " + today.ToString("d MMM yyyy"), PeriodPicker.Span(ReportRange.Month, today)); // in progress: up to today
-        var all = PeriodPicker.Span(ReportRange.All, today, today.AddDays(-9));
-        Assert.StartsWith(today.AddDays(-9).ToString("d MMM"), all);
-        Assert.EndsWith(" (10 days)", all);
-        Assert.Equal($"{today:d MMM} – {today:d MMM yyyy}", PeriodPicker.Span(ReportRange.All, today)); // nothing recorded yet
     }
 
     private static PeriodPicker Picker(ReportRange unit, DateTime anchor, DateTime? min = null)
@@ -1416,8 +1411,8 @@ public sealed class ControlTests
         var (from, to) = (new DateTime(2020, 3, 4, 8, 0, 0), new DateTime(2020, 3, 5, 1, 0, 0));
         Assert.Equal((from, to), PeriodPicker.Bounds(ReportRange.Custom, DateTime.Today, from, to));
         Assert.Equal("Wed 4 Mar 2020, 8 AM – Thu 5 Mar 2020, 1 AM", PeriodPicker.Text(ReportRange.Custom, DateTime.Today, from, to));
-        Assert.Equal("17 hours", PeriodPicker.Span(ReportRange.Custom, DateTime.Today, null, from, to)); // the dates are on the picker
-        Assert.Equal("", PeriodPicker.Span(ReportRange.Custom, DateTime.Today, null, default, default));
+        Assert.Equal("17 hours", PeriodPicker.Span(ReportRange.Custom, DateTime.Today, from, to)); // the dates are on the picker
+        Assert.Equal("", PeriodPicker.Span(ReportRange.Custom, DateTime.Today, default, default));
         // Not picked yet: the day around the anchor, and "Custom".
         Assert.Equal(ReportBuilder.Bounds(ReportRange.Custom, from), PeriodPicker.Bounds(ReportRange.Custom, from, default, default));
         Assert.Equal("Custom", PeriodPicker.Text(ReportRange.Custom, from, default, default));

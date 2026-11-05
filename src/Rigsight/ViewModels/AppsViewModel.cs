@@ -70,8 +70,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     [NotifyPropertyChangedFor(nameof(RangeNote), nameof(IncludesToday))]
     private DateTime _anchor = DateTime.Today;
 
+    /// <summary>The first day with history: the picker steps no further back.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeNote))]
     private DateTime? _firstDay;
 
     /// <summary>A custom range's start and end (whole hours), when <see cref="Unit"/> is Custom.</summary>
@@ -90,8 +90,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     /// <summary>The period shown includes today, so it can still change.</summary>
     public bool IncludesToday => Period.To > DateTime.Today;
 
-    /// <summary>Which dates the list covers ("All time" from when tracking started).</summary>
-    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, FirstDay, CustomFrom, CustomTo);
+    /// <summary>Which dates the list covers ("23 Oct – 29 Oct 2026"; for a custom range, how long it is).</summary>
+    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, CustomFrom, CustomTo);
     [ObservableProperty] private string _sort = "Active";
     [ObservableProperty] private string _search = "";
     [ObservableProperty] private double _maxValue = 1;
@@ -153,7 +153,6 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
             string category = Converters.CategoryLabelConverter.Label(SelectedCategory);
             string time = Core.Units.Duration(Selected.ActiveSec);
             // Told apart by the period, not its words (they're in the person's language).
-            if (Unit == ReportRange.All) return Lang.T($"{category} · {time} in total");
             if (Unit == ReportRange.Custom)
             {
                 string range = Controls.PeriodPicker.Text(Unit, Anchor, CustomFrom, CustomTo);
@@ -190,7 +189,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         {
             string period = Controls.PeriodPicker.Words(Unit, Anchor);
             // A period that's over gets no "yet" or "come back": nothing more will be added to it.
-            bool over = Unit is not (ReportRange.All or ReportRange.Custom) && ReportBuilder.Bounds(Unit, Anchor).To <= DateTime.Now;
+            bool over = Unit != ReportRange.Custom && ReportBuilder.Bounds(Unit, Anchor).To <= DateTime.Now;
             return over ? Lang.T($"No apps used {period}.") : Lang.T($"No apps used {period} yet. Use your PC for a bit and come back.");
         }
     }
@@ -272,7 +271,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     }
     partial void OnAnchorChanged(DateTime value)
     {
-        if (Unit is not (ReportRange.All or ReportRange.Custom)) _ = LoadAsync();
+        if (Unit != ReportRange.Custom) _ = LoadAsync();
     }
 
     /// <summary>Midnight passed with the window open (see <see cref="Controls.PeriodPicker.AfterMidnight"/>).</summary>
@@ -283,7 +282,6 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         OnPropertyChanged(nameof(RangeNote));
         OnPropertyChanged(nameof(IncludesToday));
         OnPropertyChanged(nameof(Summary));
-        if (Unit == ReportRange.All) _ = LoadAsync(); // all time runs up to today
     }
 
     partial void OnCustomFromChanged(DateTime value) => CustomChanged();
@@ -314,7 +312,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
 
     private async Task LoadChartAsync(AppStat app)
     {
-        var chart = await reports.AppChartAsync(app.Id, SelectedCategory, Unit, _from, _to, FirstDay);
+        var chart = await reports.AppChartAsync(app.Id, SelectedCategory, Unit, _from, _to);
         if (Selected == app) SelectedChart = chart;
     }
 

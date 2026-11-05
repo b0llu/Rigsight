@@ -53,7 +53,6 @@ public sealed record VolumeRow(string Root, string Label, long Total, long Free,
     public long Used => Total - Free;
     public double UsedPercent => Total > 0 ? 100.0 * Used / Total : 0;
     public string Title => string.IsNullOrWhiteSpace(Label) ? Lang.T($"Local disk ({Root.TrimEnd('\\')})") : $"{Label} ({Root.TrimEnd('\\')})";
-    public string UsageText => Lang.T($"{Units.Bytes(Used)} used of {Units.Bytes(Total)}");
     public string FreeText => Lang.T($"{Units.Bytes(Free)} free");
     /// <summary>What its scan button is called for a screen reader: each drive's button says the same words.</summary>
     public string ScanName => Lang.T($"See what's inside {Root.TrimEnd('\\')}");

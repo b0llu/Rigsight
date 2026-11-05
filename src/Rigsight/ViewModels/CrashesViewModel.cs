@@ -98,7 +98,6 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
 
     /// <summary>First day with anything recorded (tracking, or crashes Windows logged before Rigsight was installed).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeNote))]
     private DateTime? _since;
 
     /// <summary>A custom range's start and end (whole hours), when <see cref="Unit"/> is Custom.</summary>
@@ -135,7 +134,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     public bool IncludesToday => Bounds.To > DateTime.Today;
     public bool ShowTimeline => !IsDay;
 
-    /// <summary>The period shown, as it reads after "No problems": "today", "this month", "on Fri, 9 Oct", "on record" (see <see cref="PeriodPicker.Words"/>).</summary>
+    /// <summary>The period shown, as it reads after "No problems": "today", "this month", "on Fri, 9 Oct" (see <see cref="PeriodPicker.Words"/>).</summary>
     private string When => PeriodPicker.Words(Unit, Anchor);
 
     /// <summary>List every crash newest first (default), or group repeats of the same crash into one row.</summary>
@@ -151,7 +150,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
     partial void OnAnchorChanged(DateTime value)
     {
         _limit = PageSize;
-        if (Unit is not (Core.Reports.ReportRange.All or Core.Reports.ReportRange.Custom)) _ = LoadAsync();
+        if (Unit != Core.Reports.ReportRange.Custom) _ = LoadAsync();
     }
 
     /// <summary>Midnight passed with the window open (see <see cref="PeriodPicker.AfterMidnight"/>).</summary>
@@ -197,14 +196,11 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         Unit = Core.Reports.ReportRange.Custom;
     }
 
-    /// <summary>Which dates are covered. Windows' crash log is read back 90 days when Rigsight is installed,
-    /// so "All time" can reach further back than the rest of the app's history.</summary>
-    public string RangeNote => PeriodPicker.Span(Unit, Anchor, Since, CustomFrom, CustomTo);
+    /// <summary>Which dates are covered.</summary>
+    public string RangeNote => PeriodPicker.Span(Unit, Anchor, CustomFrom, CustomTo);
 
-    /// <summary>The period's start and end; all time runs from the first recorded problem.</summary>
-    private (DateTime From, DateTime To) Bounds => Unit == Core.Reports.ReportRange.All
-        ? (Since ?? DateTime.Today, DateTime.Today.AddDays(1))
-        : PeriodPicker.Bounds(Unit, Anchor, CustomFrom, CustomTo);
+    /// <summary>The period's start and end.</summary>
+    private (DateTime From, DateTime To) Bounds => PeriodPicker.Bounds(Unit, Anchor, CustomFrom, CustomTo);
 
     private DateTime From => Bounds.From;
 
@@ -592,15 +588,14 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         }
         ReadingRecords = false;
         var since = await reports.FirstCrashDayAsync();
-        var all = Unit == Core.Reports.ReportRange.All;
-        var (from, to) = all ? (DateTime.Today.AddYears(-20), DateTime.Today.AddDays(1)) : Bounds;
+        var (from, to) = Bounds;
         if (to > DateTime.Now) to = DateTime.Now.AddMinutes(1);
         var rows = await reports.CrashesAsync(from, to, includeMuted: true) ?? [];
         // The same crashes saying the same: nothing to rebuild. (One whose finding changed, as Windows wrote more about it, is a change.)
         if (onlyIfChanged && rows.Select(r => (r.Event.Id, r.Finding?.Chip, r.Finding?.Line)).SequenceEqual(_all.Select(r => (r.Event.Id, r.Finding?.Chip, r.Finding?.Line)))) return;
         // Drivers and updates from a week before the oldest problem, to explain what came after.
         var changesFrom = (rows.Count > 0 ? rows.Min(c => c.Time) : from).Date.AddDays(-7);
-        if (!all && changesFrom > from.AddDays(-7)) changesFrom = from.AddDays(-7);
+        if (changesFrom > from.AddDays(-7)) changesFrom = from.AddDays(-7);
         var changes = await ReportService.ChangesAsync(changesFrom, to);
         if (id != _loadId) return;
 

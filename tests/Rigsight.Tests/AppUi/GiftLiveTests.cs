@@ -18,8 +18,13 @@ namespace Rigsight.Tests.AppUi;
 /// local relay started with ADMIN_DEV=1. Pictures go to screens\gift-*.png, what happened to gift.log.
 /// </summary>
 [Collection("UI")]
-public sealed class GiftLiveTests(AppHost host) : IClassFixture<AppHost>
+public sealed class GiftLiveTests : IDisposable
 {
+    // The window is opened only when the test really runs: a class fixture would open it for a skipped test too.
+    private AppHost? _host;
+    private AppHost host => _host ??= new AppHost();
+    public void Dispose() => _host?.Dispose();
+
     private static readonly string? RelayUrl = Environment.GetEnvironmentVariable("RIGSIGHT_LIVE_RELAY");
     private static readonly string Shots = Path.Combine(TestEnvironment.DataDir, "screens");
     private void Note(string line) { Directory.CreateDirectory(Shots); File.AppendAllText(Path.Combine(Shots, "gift.log"), line + Environment.NewLine); }
@@ -76,10 +81,12 @@ public sealed class GiftLiveTests(AppHost host) : IClassFixture<AppHost>
         Note($"asked \"{question}\": {(answer is null ? "NO ANSWER" : answer.Raw.Length > 0 ? "answered" : "empty")}; questions left {Ui.Run(() => ask.QuestionsLeft)}, plan left {Ui.Run(() => ask.Standing?.Plan?.Left)}, given {Ui.Run(() => ask.Standing?.Plan?.Given)}");
     }
 
-    [Fact]
+    /// <summary>Runs only with a local relay (never the live one): skipped, not passed, in every other run.</summary>
+    public static bool LocalRelay => RelayUrl is { } url && !url.Contains("rigsight.app");
+
+    [Fact(Skip = "Needs RIGSIGHT_LIVE_RELAY naming a local relay", SkipUnless = nameof(LocalRelay))]
     public async Task Questions_given_are_told_once_then_used_after_the_week_s_own()
     {
-        if (RelayUrl is null || RelayUrl.Contains("rigsight.app")) return;
         Environment.SetEnvironmentVariable("RIGSIGHT_RELAY_URL", RelayUrl);
         try
         {

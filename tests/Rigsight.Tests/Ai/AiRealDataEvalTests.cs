@@ -37,12 +37,19 @@ public sealed class AiRealDataEvalTests
 
     private static string Folder => Path.GetDirectoryName(Path.GetFullPath(Questions!))!;
 
-    [Fact]
+    private static bool Dump => Environment.GetEnvironmentVariable("EVAL_DUMP") == "1";
+
+    /// <summary>EVAL_DUMP=1 with a real history and questions: skipped, not passed, otherwise.</summary>
+    public static bool DumpWanted => Dump && Db is not null && Questions is not null;
+
+    /// <summary>A local relay (never the live one), a real history and questions, and no EVAL_DUMP: skipped, not passed, otherwise.</summary>
+    public static bool AskWanted => !Dump && RelayUrl is { } url && !url.Contains("rigsight.app") && Db is not null && Questions is not null;
+
+    [Fact(Skip = "Needs EVAL_DUMP=1, RIGSIGHT_REAL_DB and EVAL_QUESTIONS", SkipUnless = nameof(DumpWanted))]
     public void What_the_look_ups_show_for_the_real_history()
     {
-        if (Environment.GetEnvironmentVariable("EVAL_DUMP") != "1" || Db is null || Questions is null) return;
         Assert.DoesNotContain(@"\Rigsight\rigsight.db", Db, StringComparison.OrdinalIgnoreCase);
-        var tools = Tools(Db);
+        var tools = Tools(Db!);
         var sb = new StringBuilder();
         void Show(string tool, JsonObject args)
         {
@@ -66,17 +73,16 @@ public sealed class AiRealDataEvalTests
         Assert.True(res.IsSuccessStatusCode, $"admin {path}: {(int)res.StatusCode} {await res.Content.ReadAsStringAsync()}");
     }
 
-    [Fact]
+    [Fact(Skip = "Needs RIGSIGHT_LIVE_RELAY naming a local relay, RIGSIGHT_REAL_DB and EVAL_QUESTIONS", SkipUnless = nameof(AskWanted))]
     public async Task Questions_about_the_real_PC_are_answered_from_its_records()
     {
-        if (RelayUrl is null || RelayUrl.Contains("rigsight.app") || Db is null || Questions is null || Environment.GetEnvironmentVariable("EVAL_DUMP") == "1") return;
         Assert.DoesNotContain(@"\Rigsight\rigsight.db", Db, StringComparison.OrdinalIgnoreCase);
         Environment.SetEnvironmentVariable("RIGSIGHT_RELAY_URL", RelayUrl);
         var useActions2 = Relay.Features.UseActions2;
         Relay.Features.UseActions2 = true;
         try
         {
-            var questions = JsonSerializer.Deserialize<Question[]>(File.ReadAllText(Questions), Json)!;
+            var questions = JsonSerializer.Deserialize<Question[]>(File.ReadAllText(Questions!), Json)!;
             int repeat = int.TryParse(Environment.GetEnvironmentVariable("EVAL_REPEAT"), out int r) && r > 1 ? r : 1;
             var only = Environment.GetEnvironmentVariable("EVAL_ONLY")?.Split(',').ToHashSet();
             var (status, problem) = await Relay.StatusAsync();
@@ -94,7 +100,7 @@ public sealed class AiRealDataEvalTests
                 for (int i = 1; i <= repeat; i++)
                 {
                     if (asked++ > 0) await Task.Delay(TimeSpan.FromSeconds(8));
-                    var tools = Tools(Db);
+                    var tools = Tools(Db!);
                     var started = DateTime.Now;
                     AiReply reply;
                     for (int attempt = 0; ; attempt++)
@@ -106,7 +112,7 @@ public sealed class AiRealDataEvalTests
                     }
                     string answer = reply.Text ?? "";
                     // What it was shown, again: the same look-ups give the same text (the copy doesn't change).
-                    string shown = string.Join("\n", reply.LookUps.Where(l => l.Tool != "search_web").Select(l => Tools(Db).Run(l.Tool, l.Args.ToJsonString()))) + "\n" + q.Q;
+                    string shown = string.Join("\n", reply.LookUps.Where(l => l.Tool != "search_web").Select(l => Tools(Db!).Run(l.Tool, l.Args.ToJsonString()))) + "\n" + q.Q;
                     var fails = new List<string>();
                     if (reply.Problem is { } p) fails.Add("problem: " + p);
                     foreach (var tool in q.LookUps ?? []) if (!reply.LookUps.Any(l => l.Tool == tool)) fails.Add("no " + tool);

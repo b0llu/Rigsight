@@ -362,7 +362,8 @@ public sealed class CrashesPageTests
         return (vm, settings);
     }
 
-    private static CrashesViewModel Loaded(ReportRange unit = ReportRange.All)
+    /// <summary>The page loaded for a period; the last 12 months hold all of the made-up history.</summary>
+    private static CrashesViewModel Loaded(ReportRange unit = ReportRange.Year)
     {
         var (vm, _) = Page();
         Ui.Run(() => vm.Unit = unit);
@@ -408,7 +409,7 @@ public sealed class CrashesPageTests
             Assert.NotEmpty(vm.Days);
             Assert.Equal(DateTime.Today, vm.Days[^1].Day);
             Assert.Equal(vm.Crashes.Count, vm.Days.Sum(d => d.Total));
-            Assert.EndsWith(" days)", vm.RangeNote);
+            Assert.Equal(Controls.PeriodPicker.Span(ReportRange.Year, DateTime.Today), vm.RangeNote);
             Assert.NotEmpty(vm.StatusTitle);
             Assert.EndsWith(".", vm.StatusDetail);
         });
@@ -438,17 +439,17 @@ public sealed class CrashesPageTests
             vm.Filter = "Apps";
             Assert.All(vm.GroupsShown, g => Assert.True(!g.IsIncident && !g.Latest.IsSystem));
             Assert.All(vm.Crashes, c => Assert.False(c.IsSystem));
-            Assert.Equal("No app or game crashes on record", vm.EmptyText);
+            Assert.Equal("No app or game crashes in the last 12 months", vm.EmptyText);
             int apps = vm.GroupsShown.Count, appCrashes = vm.Crashes.Count;
             vm.Filter = "Pc";
             Assert.All(vm.GroupsShown, g => Assert.True(g.IsIncident || g.Latest.IsSystem));
-            Assert.Equal("No blue screens, sudden shut-offs or graphics driver resets on record", vm.EmptyText);
+            Assert.Equal("No blue screens, sudden shut-offs or graphics driver resets in the last 12 months", vm.EmptyText);
             Assert.Equal(all, apps + vm.GroupsShown.Count);
             Assert.Equal(crashes, appCrashes + vm.Crashes.Count);
             // Counts are of the whole period, whatever the filter.
             Assert.Equal(crashes, Counted(vm));
             vm.Filter = "All";
-            Assert.Equal(vm.Unit == ReportRange.Custom ? "No crashes in this time" : "No crashes on record", vm.EmptyText);
+            Assert.Equal("No crashes in the last 12 months", vm.EmptyText);
             Assert.Equal(all, vm.GroupsShown.Count);
         });
     }
@@ -666,7 +667,7 @@ public sealed class CrashesPageTests
             Assert.Contains(vm.Crashes, c => c.Time == crash.Time);
             Assert.Equal(inRange, vm.Crashes.Count);
             Assert.Equal(Controls.PeriodPicker.Duration(to - from), vm.RangeNote);
-            Assert.Equal(vm.Unit == ReportRange.Custom ? "No crashes in this time" : "No crashes on record", vm.EmptyText);
+            Assert.Equal("No crashes in this time", vm.EmptyText);
             Assert.False(vm.IncludesToday);
             if (!listed) Assert.Equal((to.AddTicks(-1).Date - from.Date).Days + 1, vm.Days.Count); // the part-days at both ends too
         });

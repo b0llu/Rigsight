@@ -343,7 +343,8 @@ public static class NetReportBuilder
         }
         // Only a period recorded from its start: the one network recording began in holds part of what was used, and
         // "less than last month" against it would be false.
-        if (ReportBuilder.PreviousPeriod(range, anchor, now) is { } p && db.FirstNetDay() is long firstDay && p.From > TimeUtil.FromUnix(firstDay))
+        var p = ReportBuilder.PreviousPeriod(range, anchor, now);
+        if (db.FirstNetDay() is long firstDay && p.From > TimeUtil.FromUnix(firstDay))
         {
             // Whole days from their totals, and the part of a day a period in progress ends in from its minutes (the
             // day's total would set this week's Monday morning against the whole of last Monday).

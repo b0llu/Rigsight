@@ -115,7 +115,8 @@ static Decision Decide(string root, IReadOnlyCollection<string> changed)
         classes.Add("Rigsight.Tests.AppUi.AppWindowTests");
         reasons.Add("something on screen changed: every page is rendered in both themes");
     }
-    classes.Add("Rigsight.Tests.SmokeTests");
+    // Every run proves it writes to the test folder and never the real one (the old SmokeTests did only this).
+    classes.Add("Rigsight.Tests.Core.RigsightPathsTests");
 
     if (ignored.Count > 0) reasons.Add($"not used by the programs: {string.Join(", ", ignored.Take(8))}{(ignored.Count > 8 ? ", …" : "")}");
     if (installer) reasons.Add("the installer script changed: it's compiled to check it");

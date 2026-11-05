@@ -263,12 +263,16 @@ public sealed class AiGameEvalTests
         return JsonNode.Parse(text);
     }
 
-    [Fact]
+    /// <summary>EVAL_DRY=1: only build the PCs and write what get_game shows (no relay, no questions).</summary>
+    private static bool Dry => Environment.GetEnvironmentVariable("EVAL_DRY") == "1";
+
+    /// <summary>Runs only with a local relay (never the live one) or EVAL_DRY=1: skipped, not passed, in every other run.</summary>
+    public static bool Wanted => Dry || RelayUrl is { } url && !url.Contains("rigsight.app");
+
+    [Fact(Skip = "Needs RIGSIGHT_LIVE_RELAY naming a local relay, or EVAL_DRY=1", SkipUnless = nameof(Wanted))]
     public async Task Game_questions_on_made_up_PCs_are_answered_from_their_records()
     {
-        // EVAL_DRY=1: only build the PCs and write what get_game shows (no relay, no questions).
-        bool dry = Environment.GetEnvironmentVariable("EVAL_DRY") == "1";
-        if (!dry && (RelayUrl is null || RelayUrl.Contains("rigsight.app"))) return;
+        bool dry = Dry;
         if (!dry) Environment.SetEnvironmentVariable("RIGSIGHT_RELAY_URL", RelayUrl);
         var useActions2 = Relay.Features.UseActions2;
         Relay.Features.UseActions2 = true;

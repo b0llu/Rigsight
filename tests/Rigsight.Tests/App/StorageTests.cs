@@ -374,7 +374,6 @@ public sealed class StorageTests
                 Assert.InRange(v.UsedPercent, 0, 100);
                 Assert.Equal(v.Total - v.Free, v.Used);
                 Assert.EndsWith(" free", v.FreeText);
-                Assert.Contains(" used of ", v.UsageText);
                 Assert.EndsWith($"({v.Root.TrimEnd('\\')})", v.Title);
                 // The generated history covers C: and D: (other drives have none).
                 if (SeedData.Drives.Contains(v.Root))
@@ -393,7 +392,6 @@ public sealed class StorageTests
         var v = new VolumeRow(@"E:\", "", 1L << 40, 1L << 39, "", false);
         Assert.Equal(@"Local disk (E:)", v.Title);
         Assert.Equal(50, v.UsedPercent);
-        Assert.Equal("512.0 GB used of 1.00 TB", v.UsageText);
         Assert.Equal("512.0 GB free", v.FreeText);
         Assert.Equal("Games (F:)", (v with { Root = @"F:\", Label = "Games" }).Title);
         Assert.Equal(0, new VolumeRow(@"G:\", "", 0, 0, "", false).UsedPercent);

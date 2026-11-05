@@ -312,19 +312,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// The card Settings scrolls to when it opens, while it needs attention (null: stay at the top). Other cards can join
     /// by naming themselves here and in the view (Attention.Section).
     /// </summary>
-    public string? AttentionSection => _goTo ?? (SensorsNeedAttention ? "sensors" : null);
-
-    private string? _goTo;
-
-    /// <summary>Asks for Settings to be shown at one part of it, this once.</summary>
-    public void GoTo(string section)
-    {
-        _goTo = section;
-        OnPropertyChanged(nameof(AttentionSection));
-    }
-
-    /// <summary>The view has scrolled to where it was asked to: the next visit opens as usual.</summary>
-    public void Arrived() => _goTo = null;
+    public string? AttentionSection => SensorsNeedAttention ? "sensors" : null;
 
     /// <summary>
     /// What's left out and why, one part per program's hardware ("Fan hubs:iCUE") plus "safe" or "memory" for a problem.

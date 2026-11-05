@@ -93,24 +93,22 @@ public sealed class ReportServiceTests
         Assert.True(crashDay <= first);
     }
 
-    public static TheoryData<ReportRange> ChartUnits => [ReportRange.Day, ReportRange.Week, ReportRange.Month, ReportRange.Year, ReportRange.All];
+    public static TheoryData<ReportRange> ChartUnits => [ReportRange.Day, ReportRange.Week, ReportRange.Month, ReportRange.Year];
 
     [Theory]
     [MemberData(nameof(ChartUnits))]
     public void An_apps_chart_has_a_bar_per_slot_adding_up_to_its_time(ReportRange unit)
     {
-        var first = Wait(_service.FirstDayAsync());
         var (from, to) = ReportBuilder.Bounds(unit, DateTime.Now);
-        var totals = Wait(_service.BuildRangeAsync(unit == ReportRange.All ? new DateTime(first!.Value.Year, first.Value.Month, 1) : from, to))!;
+        var totals = Wait(_service.BuildRangeAsync(from, to))!;
         var app = totals.Apps[0];
-        var bars = Wait(_service.AppChartAsync(app.Id, app.Category, unit, from, to, first))!;
+        var bars = Wait(_service.AppChartAsync(app.Id, app.Category, unit, from, to))!;
         int expected = unit switch
         {
             ReportRange.Day => 24,
             ReportRange.Week => 7,
             ReportRange.Month => 30,
-            ReportRange.Year => 12,
-            _ => (to.Year - first!.Value.Year) * 12 + to.Month - first.Value.Month + (to.Day > 1 ? 1 : 0),
+            _ => 12,
         };
         Assert.Equal(expected, bars.Count);
         Assert.Equal(app.ActiveSec, bars.Sum(b => b.ActiveSec), 3);

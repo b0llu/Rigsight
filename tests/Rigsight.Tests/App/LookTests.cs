@@ -450,13 +450,6 @@ public sealed class LookTests
                 // The old capital-letter section titles are gone: the tab says where you are.
                 Assert.DoesNotContain(Visuals.Descendants<TextBlock>(window), t => t.Text is "GENERAL" or "APPEARANCE" or "TRACKING" or "NOTIFICATIONS" or "HISTORY");
 
-                // Asked to show one part of it (the sensors notice): its tab is opened.
-                vm.Tab = "general";
-                vm.GoTo("sensors");
-                Ui.Pump(300);
-                Assert.Equal("sensors", vm.Tab);
-                Assert.True(Shown("Read sensors every"));
-
                 // On a standard account the ninth tab shows, with what is off there.
                 vm.StandardAccount = true;
                 Ui.Pump(120);

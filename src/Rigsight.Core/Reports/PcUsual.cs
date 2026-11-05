@@ -407,7 +407,7 @@ public sealed class PcUsual
 
     /// <summary>
     /// The "Against your usual" rows of a report, as Reports and the export show them: a week, a month, or a custom range
-    /// of a week or more (a day is Home's PC health to say); none for a year or all time.
+    /// of a week or more (a day is Home's PC health to say); none for a year.
     /// </summary>
     public static List<UsualRow> CardRows(Report? r)
     {

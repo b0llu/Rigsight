@@ -35,7 +35,6 @@ public sealed class AppInternetTests : IDisposable
     [InlineData(ReportRange.Week)]
     [InlineData(ReportRange.Month)]
     [InlineData(ReportRange.Year)]
-    [InlineData(ReportRange.All)]
     public void Every_app_has_what_the_Network_page_lists_for_the_same_period(ReportRange range)
     {
         long steam = App("steam.exe", "Steam"), chrome = App("chrome.exe", "Google Chrome"), warp = App("warp-svc.exe", "Cloudflare WARP");

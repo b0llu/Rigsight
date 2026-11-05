@@ -3,7 +3,7 @@ using Rigsight.Core.Data;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 
-// Every insight a database gives: each day, week and month it has (and the year), built exactly as the app builds
+// Every insight a database gives: each day it has, each 7 and 30 days back from its newest day (and the 12 months), built exactly as the app builds
 // them, one line each with its key, rank, tone and the detail shown on hover. For reading them all at once after a
 // change to the insights: on a copy of real history they show what users would see; on a test copy, what a year of
 // generated history makes of them. Reads the database read-only (safe while Rigsight is running).
@@ -145,9 +145,17 @@ void Run(ReportRange range, DateTime anchor, string label)
             output.Add($"    usual: {row.Label} [{row.Detail}] now {row.Now} · usual {row.Usual} ({row.UsualDetail}) = {row.Tone} {row.Means}{(row.MeansDetail is { } md ? $" / {md}" : "")}");
 }
 for (var day = first.Date; day <= last.Date; day = day.AddDays(1)) Run(ReportRange.Day, day.AddHours(12), $"DAY {day:ddd yyyy-MM-dd}");
-for (var week = first.Date.AddDays(-(((int)first.DayOfWeek + 6) % 7)); week <= last.Date; week = week.AddDays(7)) Run(ReportRange.Week, week.AddHours(12), $"WEEK {week:yyyy-MM-dd}");
-for (var month = new DateTime(first.Year, first.Month, 1); month <= last.Date; month = month.AddMonths(1)) Run(ReportRange.Month, month.AddDays(14), $"MONTH {month:yyyy-MM}");
-Run(ReportRange.Year, last, $"YEAR {last:yyyy}");
+// Weeks, months and the year as the app has them since 1.4.0: the last 7 or 30 days and the 12 months ending on the
+// newest day, then each one before, as the page's back arrow steps (ReportBuilder.Bounds / Previous).
+void Back(ReportRange range, string name, string format)
+{
+    var anchors = new List<DateTime>();
+    for (var anchor = last.Date; ReportBuilder.Bounds(range, anchor).To > first.Date; anchor = ReportBuilder.Previous(range, anchor)) anchors.Add(anchor);
+    foreach (var anchor in Enumerable.Reverse(anchors)) Run(range, anchor.AddHours(12), $"{name} TO {anchor.ToString(format)}");
+}
+Back(ReportRange.Week, "7 DAYS", "yyyy-MM-dd");
+Back(ReportRange.Month, "30 DAYS", "yyyy-MM-dd");
+Run(ReportRange.Year, last, $"12 MONTHS TO {last:yyyy-MM}");
 
 // Then how often each kind of line came up: a line said on most days is a line nobody reads.
 output.Add("# Lines by kind");

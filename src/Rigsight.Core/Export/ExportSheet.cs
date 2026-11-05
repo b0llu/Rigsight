@@ -42,7 +42,7 @@ public static class ExportSheets
     {
         bool days = from.TimeOfDay == TimeSpan.Zero && to.TimeOfDay == TimeSpan.Zero;
         string first = days ? from.ToString("yyyy-MM-dd", Inv) : Time(from), last = days ? to.AddDays(-1).ToString("yyyy-MM-dd", Inv) : Time(to);
-        // All time: from whenever the history starts.
+        // From the year 2000 (everything): from whenever the history starts.
         return from.Year <= 2000 ? Lang.T($"Everything up to {last}") : Lang.T($"{first} to {last}");
     }
 

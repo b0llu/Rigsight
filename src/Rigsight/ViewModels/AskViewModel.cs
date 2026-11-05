@@ -113,7 +113,6 @@ public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, stri
     public IReadOnlyList<string> Suggestions { get; init; } = [];
     /// <summary>A page the person's plan doesn't open that would have helped (the model's "[locked: games]" line), or null.</summary>
     public AiPage? Locked { get; init; }
-    public bool HasLocked => Locked is not null;
     /// <summary>What this question would get with the page ("See what fills the E drive"), from the model's line; null from older answers.</summary>
     public string? LockedGain { get; init; }
     /// <summary>The plan card's payment, while it's under way.</summary>

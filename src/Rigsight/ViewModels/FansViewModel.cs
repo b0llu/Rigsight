@@ -233,7 +233,6 @@ public sealed partial class FansViewModel : ObservableObject
 
     /// <summary>The first day with fan speeds recorded (the picker goes no further back).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeNote))]
     private DateTime? _firstDay;
 
     /// <summary>The picker's custom range (not offered here; bound so the picker has somewhere to put it).</summary>
@@ -249,7 +248,7 @@ public sealed partial class FansViewModel : ObservableObject
 
     /// <summary>The speed-at-each-temperature chart with no minutes: still filling in today, or not recorded for a period that's over.</summary>
     public string CurveEmptyText => !IncludesToday ? Wording.NotRecorded : IsDay ? Lang.T("Nothing measured yet today") : Lang.T("Nothing measured yet");
-    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, FirstDay);
+    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor);
 
     /// <summary>The period as a caption ("TODAY", "THIS WEEK", "MON, 29 SEP").</summary>
     public string PeriodCaption => Controls.PeriodPicker.Text(Unit, Anchor).ToUpperInvariant();

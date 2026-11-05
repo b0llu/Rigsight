@@ -81,11 +81,10 @@ public sealed class ReportEdgeCaseTests
         Assert.True(r.HasData);
         Assert.Equal(minutes * 60, r.OnSec);
         Assert.Equal(minutes * 60, r.ActiveSec);
-        if (range == ReportRange.All) Assert.Equal(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), Assert.Single(r.Days).Day);
     }
 
     [Fact]
-    public void History_only_from_years_ago_is_in_all_time_but_not_in_recent_periods()
+    public void History_only_from_years_ago_is_in_a_long_custom_range_but_not_in_recent_periods()
     {
         using var t = new TestDb();
         var old = DateTime.Today.AddYears(-3);
@@ -94,7 +93,9 @@ public sealed class ReportEdgeCaseTests
         t.Db.AddAppHour(Hour(U(old.AddHours(11)), 1, fg: 1800));
         foreach (var range in new[] { ReportRange.Day, ReportRange.Week, ReportRange.Month, ReportRange.Year })
             Assert.False(Build(t, range, DateTime.Now).HasData, $"{range}");
-        var all = Build(t, ReportRange.All, DateTime.Now);
+        // A custom range from that month to today (read from the monthly totals, as a year is).
+        var all = ReportBuilder.BuildCustom(t.Db, new DateTime(old.Year, old.Month, 1), DateTime.Today.AddDays(1), Settings());
+        ReportCheck.NoBadNumbers(all);
         Assert.True(all.HasData);
         Assert.Equal(90 * 60, all.OnSec);
         Assert.Equal(new DateTime(old.Year, old.Month, 1), all.Days[0].Day);
@@ -113,7 +114,7 @@ public sealed class ReportEdgeCaseTests
         t.Db.AddAppHour(Hour(U(day.AddHours(9)), 1, fg: 3000, idle: 300, cpuTemp: 60));
         t.Db.AddAppHour(Hour(U(day.AddHours(9)), 2, fg: 900, idle: 0, cpuTemp: 40)); // two apps in one hour: on is capped at the hour
         t.Db.AddAppHour(Hour(U(day.AddHours(10)), 1, fg: 600, idle: 0, cpuTemp: 50));
-        foreach (var range in new[] { ReportRange.Day, ReportRange.Week, ReportRange.Month, ReportRange.Year, ReportRange.All })
+        foreach (var range in new[] { ReportRange.Day, ReportRange.Week, ReportRange.Month, ReportRange.Year })
         {
             var r = Build(t, range, day);
             Assert.True(r.HasData, $"{range}");

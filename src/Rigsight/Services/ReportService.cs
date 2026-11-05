@@ -108,13 +108,12 @@ public sealed class ReportService(SettingsModel settings)
 
     /// <summary>
     /// One app's active time across a period, in bars that suit it: per hour for a day, per day for a week or month,
-    /// per month for a year or all time (from the monthly totals, so a long period stays cheap).
+    /// per month for a year or a long custom range (from the monthly totals, so a long period stays cheap).
     /// </summary>
-    public Task<List<DayBucket>?> AppChartAsync(long appId, AppCategory category, ReportRange unit, DateTime from, DateTime to, DateTime? firstDay) => Run(db =>
+    public Task<List<DayBucket>?> AppChartAsync(long appId, AppCategory category, ReportRange unit, DateTime from, DateTime to) => Run(db =>
     {
         bool monthly = ReportBuilder.IsLong(unit, from, to);
         bool hourly = ReportBuilder.IsDayLike(unit, from, to);
-        if (unit == ReportRange.All) from = firstDay is { } f ? new DateTime(f.Year, f.Month, 1) : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         var time = db.GetAppTime(appId, TimeUtil.ToUnix(from), TimeUtil.ToUnix(to), monthly);
 
         DateTime Slot(long ts)

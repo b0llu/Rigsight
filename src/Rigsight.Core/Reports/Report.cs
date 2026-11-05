@@ -4,9 +4,8 @@ using Rigsight.Core.Stability;
 
 namespace Rigsight.Core.Reports;
 
-/// <summary>A calendar period: one day, a Monday-to-Sunday week, a month, a year, or everything recorded.</summary>
 /// <summary>The kinds of period a report covers. Custom: any whole hours, from one date and time to another.</summary>
-public enum ReportRange { Day, Week, Month, Year, All, Custom }
+public enum ReportRange { Day, Week, Month, Year, Custom }
 
 public sealed record Peak(double Value, DateTime Time, string? App);
 
@@ -351,7 +350,7 @@ public sealed class Report
 
     /// <summary>
     /// The period against what is normal for this PC (see <see cref="PcUsual"/>): for a day, the 7 days to its end;
-    /// null for a year or all time.
+    /// null for a year.
     /// </summary>
     public PcUsual? Usual { get; set; }
 
@@ -407,7 +406,6 @@ public sealed class Report
                 ReportRange.Day when From.Date == today.AddDays(-1) => Lang.T("What stood out yesterday?"),
                 ReportRange.Day => Lang.T($"What stood out on {From.ToString(TimeText.Fit("ddd d MMM"))}?"),
                 ReportRange.Week or ReportRange.Month or ReportRange.Year when PeriodWords.Said(Range, From, today) is var when => Lang.T($"What stood out {when}?"),
-                ReportRange.All when Days.Count > 0 => Lang.T($"What stood out since {Days[0].Day.ToString("MMMM yyyy")}?"),
                 ReportRange.Custom => CustomStoodOut(From, To),
                 _ => Lang.T("What stood out?"),
             };
@@ -431,7 +429,6 @@ public sealed class Report
         ReportRange.Day when From.Date == DateTime.Today.AddDays(-1) => Lang.T("Yesterday"),
         ReportRange.Day => From.ToString("dddd, d MMMM"),
         ReportRange.Week or ReportRange.Month or ReportRange.Year => PeriodWords.Label(Range, From, DateTime.Today),
-        ReportRange.All => Lang.T("All time"),
         _ => From.ToString("MMMM yyyy"),
     };
 }

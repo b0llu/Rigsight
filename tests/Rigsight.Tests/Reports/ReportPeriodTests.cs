@@ -29,20 +29,12 @@ public sealed class ReportPeriodTests
         Assert.Equal((D(from), D(to)), ReportBuilder.Bounds(Enum.Parse<ReportRange>(range), D(anchor)));
     }
 
-    [Fact]
-    public void All_time_runs_from_2000_to_the_end_of_today_whatever_the_anchor()
-    {
-        foreach (var anchor in new[] { D("2020-05-05"), DateTime.Now, D("2030-01-01") })
-            Assert.Equal((new DateTime(2000, 1, 1), DateTime.Today.AddDays(1)), ReportBuilder.Bounds(ReportRange.All, anchor));
-    }
-
     [Theory]
     [InlineData("Day", "2025-03-01", "2025-02-28", "2025-03-02")]
     [InlineData("Week", "2025-03-12", "2025-03-05", "2025-03-19")]
     [InlineData("Month", "2025-03-31", "2025-03-01", "2025-04-30")] // 30 days, whatever the months' lengths
     [InlineData("Month", "2025-01-15", "2024-12-16", "2025-02-14")]
     [InlineData("Year", "2024-02-29", "2023-02-28", "2025-02-28")]
-    [InlineData("All", "2025-03-12", "2025-03-12", "2025-03-12")]
     public void Stepping_back_and_forward_moves_by_one_period(string range, string anchor, string previous, string next)
     {
         var r = Enum.Parse<ReportRange>(range);
@@ -74,8 +66,7 @@ public sealed class ReportPeriodTests
     [InlineData(ReportRange.Week, false)]
     [InlineData(ReportRange.Month, false)]
     [InlineData(ReportRange.Year, true)]
-    [InlineData(ReportRange.All, true)]
-    public void Years_and_all_time_are_built_from_the_totals(ReportRange range, bool isLong)
+    public void Years_are_built_from_the_totals(ReportRange range, bool isLong)
     {
         Assert.Equal(isLong, ReportBuilder.IsLong(range));
     }
@@ -99,6 +90,5 @@ public sealed class ReportPeriodTests
         Assert.Equal("Last 12 months", Title(ReportRange.Year, DateTime.Now));
         Assert.Equal("Jul 2023 – Jun 2024", Title(ReportRange.Year, D("2024-06-01")));
         Assert.Equal("2024", Title(ReportRange.Year, D("2024-12-31")));
-        Assert.Equal("All time", Title(ReportRange.All, DateTime.Now));
     }
 }

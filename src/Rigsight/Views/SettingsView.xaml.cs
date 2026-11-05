@@ -108,11 +108,7 @@ public partial class SettingsView : UserControl
         // The section is a tab of its own, or sits on one: show that tab first.
         vm.Tab = section;
         // After layout, so the section's position is known.
-        Dispatcher.BeginInvoke(() =>
-        {
-            Attention.ScrollTo(Scroller, section);
-            vm.Arrived();
-        }, DispatcherPriority.Loaded);
+        Dispatcher.BeginInvoke(() => Attention.ScrollTo(Scroller, section), DispatcherPriority.Loaded);
     }
 
     // ── The sidebar editor ──

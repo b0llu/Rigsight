@@ -181,7 +181,6 @@ public sealed partial class NetworkViewModel : ObservableObject
     private DateTime _anchor = DateTime.Today;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeNote))]
     private DateTime? _firstDay;
 
     [ObservableProperty] private DateTime _customFrom;
@@ -190,7 +189,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     private (DateTime From, DateTime To) Period => ReportBuilder.Bounds(Unit, Anchor);
     public bool IsDay => Unit == ReportRange.Day;
     public bool IncludesToday => Period.To > DateTime.Today && Period.From <= DateTime.Today;
-    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, FirstDay);
+    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor);
 
     /// <summary>"today", "this week", "in September 2026"… for the labels that follow the period (see <see cref="Controls.PeriodPicker.Words"/>).</summary>
     public string PeriodWord => Controls.PeriodPicker.Words(Unit, Anchor);

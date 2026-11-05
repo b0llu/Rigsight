@@ -472,7 +472,6 @@ public sealed class PlansTests
     public void An_answer_that_needed_a_locked_page_says_which_once_and_hides_the_line()
     {
         var answer = AskViewModel.ToAnswer("Your GPU stayed cool.\nThe frame rates are on a page your plan doesn't open.\n[locked: games]\n[locked: network]", []);
-        Assert.True(answer.HasLocked);
         Assert.Equal("games", answer.Locked!.Id);
         // The card (2026-10-24) in place of the old footer: from an older answer, a plain title; the plan's line once known.
         Assert.Equal("Get answers from Games", answer.LockedTitle);
@@ -495,6 +494,6 @@ public sealed class PlansTests
     [Fact]
     public void A_locked_line_for_a_page_that_doesnt_exist_shows_nothing()
     {
-        Assert.False(AskViewModel.ToAnswer("Fine.\n[locked: passwords]", []).HasLocked);
+        Assert.Null(AskViewModel.ToAnswer("Fine.\n[locked: passwords]", []).Locked);
     }
 }

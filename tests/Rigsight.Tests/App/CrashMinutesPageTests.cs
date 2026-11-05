@@ -22,7 +22,7 @@ public sealed class CrashMinutesPageTests
         SharedData.EnsureSeeded();
         var settings = Kit.OfflineSettings();
         var vm = Ui.Run(() => new CrashesViewModel(new ReportService(settings), settings));
-        Ui.Run(() => vm.Unit = Rigsight.Core.Reports.ReportRange.All);
+        Ui.Run(() => vm.Unit = Rigsight.Core.Reports.ReportRange.Year); // the last 12 months hold all of the made-up history
         Kit.Wait(() => vm.LoadAsync());
         return vm;
     }

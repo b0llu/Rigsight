@@ -24,12 +24,10 @@ public sealed class ReportInvariantTests
                 foreach (var back in new[] { 0, 1, 40, 200 }) data.Add($"typical/{r}/{back}");
             }
             data.Add("small/Year/0");
-            data.Add("small/All/0");
             data.Add("typical/Year/0");
             // An earlier 12 months that the seed's year of history fills (370 days back, before 1.4.0's rolling year, was
             // a calendar year reaching forward into the history; now it would end before it).
             data.Add("typical/Year/35");
-            data.Add("typical/All/0");
             return data;
         }
     }
@@ -317,9 +315,9 @@ public sealed class ReportInvariantTests
         Assert.Equal(r.Insights.Count, r.Insights.Select(i => i.Text).Distinct().Count());
     }
 
-    // ── Year and all-time come from the daily and monthly totals, but must say what adding up every minute says ──
+    // ── A year comes from the daily and monthly totals, but must say what adding up every minute says ──
 
-    public static TheoryData<string, string> LongCases => new() { { "typical", "Year/0" }, { "typical", "Year/35" }, { "typical", "All/0" }, { "small", "All/0" }, { "small", "Year/0" } };
+    public static TheoryData<string, string> LongCases => new() { { "typical", "Year/0" }, { "typical", "Year/35" }, { "small", "Year/0" } };
 
     [Theory]
     [MemberData(nameof(LongCases))]
@@ -428,11 +426,5 @@ public sealed class ReportInvariantTests
         static DateTime D(string s) => DateTime.ParseExact(s, "yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
         var p = ReportBuilder.PreviousPeriod(Enum.Parse<ReportRange>(range), D(anchor), D(now));
         Assert.Equal((D(from), D(to)), p);
-    }
-
-    [Fact]
-    public void All_time_has_nothing_to_compare_with()
-    {
-        Assert.Null(ReportBuilder.PreviousPeriod(ReportRange.All, DateTime.Now, DateTime.Now));
     }
 }

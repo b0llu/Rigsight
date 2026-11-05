@@ -50,10 +50,12 @@ public sealed class AiLockedPageEvalTests
         Assert.True(res.IsSuccessStatusCode || path.Contains("devices") && text.Contains("plan"), $"admin {path}: {(int)res.StatusCode} {text}");
     }
 
-    [Fact]
+    /// <summary>Runs only with a local relay (never the live one) and a copy of a real history: skipped, not passed, otherwise.</summary>
+    public static bool Wanted => RelayUrl is { } url && !url.Contains("rigsight.app") && Db is not null;
+
+    [Fact(Skip = "Needs RIGSIGHT_LIVE_RELAY naming a local relay and RIGSIGHT_REAL_DB", SkipUnless = nameof(Wanted))]
     public async Task On_Free_every_AI_buttons_question_from_a_paid_page_is_answered_and_names_the_page_once()
     {
-        if (RelayUrl is null || RelayUrl.Contains("rigsight.app") || Db is null) return;
         Assert.DoesNotContain(@"\Rigsight\rigsight.db", Db, StringComparison.OrdinalIgnoreCase);
         Environment.SetEnvironmentVariable("RIGSIGHT_RELAY_URL", RelayUrl);
         var useActions2 = Relay.Features.UseActions2;
@@ -72,7 +74,7 @@ public sealed class AiLockedPageEvalTests
             foreach (var (button, q, locked) in Questions)
             {
                 if (score.Count > 0) await Task.Delay(TimeSpan.FromSeconds(8));
-                var tools = new AiTools(new RigsightSettings(), Db) { SettingsPlaces = GameSettings.Places.ThisPc(), RivaTuner = () => "running", PlanPages = free };
+                var tools = new AiTools(new RigsightSettings(), Db!) { SettingsPlaces = GameSettings.Places.ThisPc(), RivaTuner = () => "running", PlanPages = free };
                 AiReply reply;
                 // As the app sends a button's question from a page the plan doesn't include (AskViewModel.LockedAside).
                 string sent = locked is null ? q : q + $"\n\n(Asked from RigSight's {AiPages.Get(locked)!.Label} page, which my plan doesn't include.)";

@@ -231,8 +231,6 @@ public sealed class PageExportTests
         Assert.Equal("1 Oct to 23 Oct · 23 days", PageExportViewModel.TextOf((new DateTime(2026, 10, 1), new DateTime(2026, 11, 1)), now, first));
         Assert.Equal("23 Sep to 23 Oct · 31 days", PageExportViewModel.TextOf((new DateTime(2026, 9, 1), new DateTime(2026, 11, 1)), now, first));
         Assert.Equal("1 Sep to 23 Oct · 53 days", PageExportViewModel.TextOf((new DateTime(2026, 9, 1), new DateTime(2026, 11, 1)), now, null));
-        Assert.Equal("Everything since 23 Sep 2026", PageExportViewModel.TextOf((new DateTime(2000, 1, 1), now.Date.AddDays(1)), now, first));
-        Assert.Equal("Everything recorded", PageExportViewModel.TextOf((new DateTime(2000, 1, 1), now.Date.AddDays(1)), now, null));
         // The last 24 hours: to the minute, up to now.
         Assert.StartsWith("Thu 22 Oct, 12:03", PageExportViewModel.TextOf((new DateTime(2026, 10, 22, 12, 3, 0), now), now, first));
         Assert.EndsWith(" to now", PageExportViewModel.TextOf((new DateTime(2026, 10, 22, 12, 3, 0), now), now, first));

@@ -22,8 +22,6 @@ public static class ReportBuilder
             ReportRange.Day => (day, day.AddDays(1)),
             ReportRange.Week => (day.AddDays(1 - WeekDays), day.AddDays(1)),
             ReportRange.Year => (month.AddMonths(-11), month.AddMonths(1)),
-            // Everything: callers show it from the first recorded day.
-            ReportRange.All => (new DateTime(2000, 1, 1), DateTime.Today.AddDays(1)),
             // A custom range has its own start and end (see BuildCustom); on its own, its first day.
             ReportRange.Custom => (day, day.AddDays(1)),
             _ => (day.AddDays(1 - MonthDays), day.AddDays(1)),
@@ -39,7 +37,6 @@ public static class ReportBuilder
         ReportRange.Day => anchor.AddDays(-1),
         ReportRange.Week => anchor.AddDays(-WeekDays),
         ReportRange.Year => anchor.AddYears(-1),
-        ReportRange.All => anchor,
         _ => anchor.AddDays(-MonthDays),
     };
 
@@ -48,18 +45,16 @@ public static class ReportBuilder
         ReportRange.Day => anchor.AddDays(1),
         ReportRange.Week => anchor.AddDays(WeekDays),
         ReportRange.Year => anchor.AddYears(1),
-        ReportRange.All => anchor,
         _ => anchor.AddDays(MonthDays),
     };
 
     /// <summary>
-    /// The period a report is compared with (none for all time). While the period is in progress, only the same
+    /// The period a report is compared with. While the period is in progress, only the same
     /// elapsed portion of the previous one, so "today so far" is fair; long periods compare whole days (their totals
     /// are per day). The portion never runs past the previous period's end (31 March against February).
     /// </summary>
-    internal static (DateTime From, DateTime To)? PreviousPeriod(ReportRange range, DateTime anchor, DateTime now)
+    internal static (DateTime From, DateTime To) PreviousPeriod(ReportRange range, DateTime anchor, DateTime now)
     {
-        if (range == ReportRange.All) return null;
         var (from, to) = Bounds(range, anchor);
         var (pFrom, pTo) = Bounds(range, Previous(range, anchor));
         if (to > now && from <= now)
@@ -78,8 +73,8 @@ public static class ReportBuilder
     internal static bool RecordedFrom(RigsightDb db, DateTime start) =>
         db.FirstMinuteTime() is long first && TimeUtil.FromUnix(first).Date <= start.Date;
 
-    /// <summary>A year or all time: built from the daily and monthly totals (see <see cref="BuildLong"/>).</summary>
-    public static bool IsLong(ReportRange range) => range is ReportRange.Year or ReportRange.All;
+    /// <summary>A year: built from the daily and monthly totals (see <see cref="BuildLong"/>).</summary>
+    public static bool IsLong(ReportRange range) => range == ReportRange.Year;
 
     /// <summary>Sessions shorter than this (a screenshot, a quick alt-tab) still count as usage but aren't listed as sessions.</summary>
     public const double MinSessionSec = 60;
@@ -100,7 +95,7 @@ public static class ReportBuilder
     public static bool IsDayLike(ReportRange range, DateTime from, DateTime to) =>
         range == ReportRange.Day || (range == ReportRange.Custom && to - from <= DayLikeLimit);
 
-    /// <summary>A year, all time, or a custom range of more than three months: bars per month.</summary>
+    /// <summary>A year, or a custom range of more than three months: bars per month.</summary>
     public static bool IsLong(ReportRange range, DateTime from, DateTime to) =>
         IsLong(range) || (range == ReportRange.Custom && to - from > LongLimit);
 
@@ -159,7 +154,8 @@ public static class ReportBuilder
         Report Period(DateTime f, DateTime t) => IsLong(range) ? BuildLong(db, range, f, t, apps, settings) : BuildRaw(db, range, f, t, apps, settings);
         var report = Period(from, to);
 
-        Report? previous = PreviousPeriod(range, anchor, DateTime.Now) is { } p && RecordedFrom(db, p.From) ? Period(p.From, p.To) : null;
+        var p = PreviousPeriod(range, anchor, DateTime.Now);
+        Report? previous = RecordedFrom(db, p.From) ? Period(p.From, p.To) : null;
 
         // The 7 days before this period: what "usual" means (daily averages, temperatures at the same load).
         var usual = BuildRaw(db, ReportRange.Week, from.AddDays(-7), from, apps, settings);
@@ -563,7 +559,7 @@ public static class ReportBuilder
     }
 
     /// <summary>
-    /// A year (or all time) from the daily totals (system_day), the monthly per-app totals (app_month) and the
+    /// A year (or a long custom range) from the daily totals (system_day), the monthly per-app totals (app_month) and the
     /// longest sessions: a few hundred rows instead of every minute, hour and session. The totals, averages and
     /// highs are the same as <see cref="BuildRaw"/> would give (they add up the same minutes); what needs every
     /// minute (the day's shape, longest stretch, temperatures at like-for-like load) is left out, and the bars are
@@ -650,12 +646,6 @@ public static class ReportBuilder
 
         // One bar per month.
         var firstMonth = new DateTime(from.Year, from.Month, 1);
-        if (range == ReportRange.All)
-        {
-            var first = days.Count > 0 ? TimeUtil.FromUnix(days[0].Day) : to;
-            if (older.Count > 0) first = TimeUtil.FromUnix(older.Min(h => h.Ts));
-            if (first < to) firstMonth = new DateTime(first.Year, first.Month, 1);
-        }
         var buckets = new Dictionary<DateTime, DayBucket>();
         for (var m = firstMonth; m < to; m = m.AddMonths(1))
             report.Days.Add(buckets[m] = new DayBucket { Day = m });
@@ -774,7 +764,7 @@ public static class ReportBuilder
 
     /// <summary>
     /// What the Apps page needs for a range: per-app totals and session counts, summed by the database. Much
-    /// cheaper than <see cref="BuildRaw"/> over long ranges ("All time"), which reads every hourly row and session.
+    /// cheaper than <see cref="BuildRaw"/> over long ranges (a year or more), which reads every hourly row and session.
     /// </summary>
     public static Report BuildAppTotals(RigsightDb db, DateTime from, DateTime to, IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings)
     {
