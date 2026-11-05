@@ -13,13 +13,13 @@ public sealed class NoticeWordsTests
     public void A_hot_part_is_named_in_the_title_with_its_reading_and_limit_under_it()
     {
         Units.Fahrenheit = false;
-        Assert.Equal(("Your GPU is running hot", "It has been at 86°C for over 10 seconds, above your 83°C limit, while Cyberpunk 2077 was running."),
+        Assert.Equal(("Your GPU is running hot", "It has been at 86°C for more than 10 seconds, above your 83°C limit, with Cyberpunk 2077 running."),
             NoticeWords.Running([new("GPU", 86, 83)], 10, "Cyberpunk 2077"));
-        Assert.Equal(("Your GPU is running hot", "Its hot spot has been at 104°C for over 10 seconds, above your 100°C limit."),
+        Assert.Equal(("Your GPU is running hot", "Its hot spot has been at 104°C for more than 10 seconds, above your 100°C limit."),
             NoticeWords.Running([new("GPU hot spot", 104, 100)], 10, null));
-        Assert.Equal(("Your GPU is running hot", "GPU 86°C and GPU hot spot 104°C, above your limits for over 10 seconds."),
+        Assert.Equal(("Your GPU is running hot", "GPU 86°C and GPU hot spot 104°C, above your limits for more than 10 seconds."),
             NoticeWords.Running([new("GPU", 86, 83), new("GPU hot spot", 104, 100)], 10, null)); // the hot spot is the GPU's
-        Assert.Equal(("Your CPU and GPU are running hot", "CPU 91°C and GPU 86°C, above your limits for over 10 seconds while Cyberpunk 2077 was running."),
+        Assert.Equal(("Your CPU and GPU are running hot", "CPU 91°C and GPU 86°C, above your limits for more than 10 seconds, with Cyberpunk 2077 running."),
             NoticeWords.Running([new("CPU", 91, 85), new("GPU", 86, 83)], 10, "Cyberpunk 2077"));
     }
 
@@ -27,10 +27,10 @@ public sealed class NoticeWordsTests
     public void A_session_and_a_day_say_what_happened_first()
     {
         Units.Fahrenheit = false;
-        Assert.Equal(("You played Dota 2 for 2h 14m", "The CPU peaked at 71°C and the GPU at 68°C."), NoticeWords.Session("Dota 2", 8040, 71, 68));
+        Assert.Equal(("You played Dota 2 for 2 hours and 14 minutes", "The CPU peaked at 71°C and the GPU at 68°C."), NoticeWords.Session("Dota 2", 8040, 71, 68));
         Assert.Equal("The GPU peaked at 68°C.", NoticeWords.Session("Dota 2", 8040, null, 68).Body);
         var today = new DateTime(2026, 11, 5);
-        Assert.Equal(("Yesterday: 6h 12m active", "Mostly Dota 2, for 3h 05m. The CPU peaked at 78°C and the GPU at 72°C."),
+        Assert.Equal(("Yesterday: 6h 12m active", "Mostly Dota 2, for 3 hours and 5 minutes. The CPU peaked at 78°C and the GPU at 72°C."),
             NoticeWords.Recap(today.AddDays(-1), today, 22320, "Dota 2", 11100, 78, 72));
         Assert.Equal("Monday: 2h 00m active", NoticeWords.Recap(today.AddDays(-3), today, 7200, null, 0, null, null).Title);
         Assert.Equal("", NoticeWords.Recap(today.AddDays(-3), today, 7200, null, 0, null, null).Body);

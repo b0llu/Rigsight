@@ -46,7 +46,7 @@ public sealed class WhyEmptyTests : IDisposable
         Assert.Equal("Your PC was on yesterday, but RigSight wasn't running.", WhyEmpty.Sentence(WhyEmpty.Kind.NotRunning, null, "yesterday"));
         // A log that doesn't reach back: either could be true, and it says so.
         Assert.Equal(WhyEmpty.Kind.Unknown, Of(Sun, Sun.AddDays(1)).Item1);
-        Assert.Equal("Nothing was recorded last week: your PC was off, or RigSight wasn't running.", WhyEmpty.Sentence(WhyEmpty.Kind.Unknown, null, "last week"));
+        Assert.Equal("Nothing was recorded last week. Your PC was off, or RigSight wasn't running.", WhyEmpty.Sentence(WhyEmpty.Kind.Unknown, null, "last week"));
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class WhyEmptyTests : IDisposable
         Minute(new DateTime(2026, 11, 3, 9, 0, 0));
         var (kind, began) = Of(Sun, Sun.AddDays(1));
         Assert.Equal(WhyEmpty.Kind.BeforeHistory, kind);
-        Assert.Equal("Nothing was recorded on Sun 1 Nov: this PC's history starts on 3 Nov 2026.", WhyEmpty.Sentence(kind, began, "on Sun 1 Nov"));
+        Assert.Equal("Nothing was recorded on Sun 1 Nov. This PC's history starts on 3 Nov 2026.", WhyEmpty.Sentence(kind, began, "on Sun 1 Nov"));
         // The PC was on and recording: what the page lacks is its own to say.
         Assert.Equal(WhyEmpty.Kind.PcWasOn, Of(new DateTime(2026, 11, 3), new DateTime(2026, 11, 4)).Item1);
         Assert.Null(WhyEmpty.Sentence(WhyEmpty.Kind.PcWasOn, began, "yesterday"));

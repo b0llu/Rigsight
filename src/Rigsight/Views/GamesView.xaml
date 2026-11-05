@@ -200,7 +200,7 @@
                                         <StackPanel Orientation="Horizontal">
                                             <RadioButton Style="{StaticResource Segment}" GroupName="GameSort" Content="{ctl:T 'Recently played'}" IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=recent}" />
                                             <RadioButton Style="{StaticResource Segment}" GroupName="GameSort" Content="{ctl:T 'Most played'}" IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=most}" />
-                                            <RadioButton Style="{StaticResource Segment}" GroupName="GameSort" Content="{ctl:T 'Hardest on your PC'}" ToolTip="{ctl:T 'How busy each game keeps the graphics card'}"
+                                            <RadioButton Style="{StaticResource Segment}" GroupName="GameSort" Content="{ctl:T 'Hardest on your PC'}" ToolTip="{ctl:T 'How busy each game keeps the GPU'}"
                                                          IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=hard}" />
                                             <RadioButton Style="{StaticResource Segment}" GroupName="GameSort" Content="{ctl:T 'Size on disk'}" IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=size}" />
                                         </StackPanel>

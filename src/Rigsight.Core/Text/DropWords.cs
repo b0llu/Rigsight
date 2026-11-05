@@ -44,7 +44,10 @@ public static class DropWords
         : router == true ? Lang.T("Your router was reachable, but there was no internet connection.")
             : Lang.T("Your PC was connected to the network, but there was no internet connection.");
 
-    /// <summary>A length in whole words: "50 seconds", "1 minute", "2 minutes 10 seconds", "1 hour 5 minutes".</summary>
+    /// <summary>
+    /// A length in whole words, joined like every notification's ("2 hours and 14 minutes"): "50 seconds", "1 minute",
+    /// "2 minutes and 10 seconds", "1 hour and 5 minutes". Seconds stay past a minute: a drop's length is told exactly.
+    /// </summary>
     public static string Long(long seconds)
     {
         seconds = Math.Max(1, seconds);
@@ -52,8 +55,9 @@ public static class DropWords
         string Hours(long n) => n == 1 ? Lang.T("1 hour") : Lang.T($"{n} hours");
         string Minutes(long n) => n == 1 ? Lang.T("1 minute") : Lang.T($"{n} minutes");
         string Seconds(long n) => n == 1 ? Lang.T("1 second") : Lang.T($"{n} seconds");
-        if (h > 0) return m > 0 ? $"{Hours(h)} {Minutes(m)}" : Hours(h);
-        if (m > 0) return s > 0 ? $"{Minutes(m)} {Seconds(s)}" : Minutes(m);
+        string Both(string a, string b) => Lang.T($"{a} and {b}");
+        if (h > 0) return m > 0 ? Both(Hours(h), Minutes(m)) : Hours(h);
+        if (m > 0) return s > 0 ? Both(Minutes(m), Seconds(s)) : Minutes(m);
         return Seconds(s);
     }
 }

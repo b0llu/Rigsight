@@ -649,7 +649,7 @@ internal sealed class AgentContext : ApplicationContext
         if (!_gpusPaused)
         {
             _gpusPaused = true;
-            Log.Write("sensors", "A graphics card's driver is changing: leaving the graphics cards alone, and starting again once it has settled");
+            Log.Write("sensors", "A GPU's driver is changing: leaving the GPUs alone, and starting again once it has settled");
         }
         if (_restarting || !_displayWatch.Settled(Environment.TickCount64)) return;
         _restarting = true;
@@ -676,7 +676,7 @@ internal sealed class AgentContext : ApplicationContext
         using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
         {
             guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification(Lang.T("RigSight stopped reading some sensors"),
-                Lang.T("Windows' memory kept growing while it read the motherboard and fan hubs. Restart your PC if it stays slow."), warning: true), null);
+                Lang.T("Windows' memory kept growing while it read the motherboard, fan hubs and power supply. After a restart, press Try again in Settings, Sensors."), warning: true), null);
             try
             {
                 host.Open();
@@ -722,7 +722,7 @@ internal sealed class AgentContext : ApplicationContext
             using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
             {
                 guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification(Lang.T("RigSight stopped reading some sensors"),
-                    Lang.T("Windows' memory kept growing while it read the RAM sticks. Restart your PC if it stays slow."), warning: true), null);
+                    Lang.T("Windows' memory kept growing while it read the RAM sticks. After a restart, press Try again in Settings, Sensors."), warning: true), null);
                 host.OpenMemory();
                 if (guard.Tripped) _stoppedForMemory = true;
             }
@@ -2327,7 +2327,7 @@ internal sealed class AgentContext : ApplicationContext
         if (before.TrayLetterNames != after.TrayLetterNames) Log.Write("settings", $"taskbar names as one letter: {before.TrayLetterNames} -> {after.TrayLetterNames} (from the {from})");
         if (!before.TrayAlone.SequenceEqual(after.TrayAlone))
             Log.Write("settings", $"taskbar readings on their own: {string.Join(", ", before.TrayAlone)} -> {string.Join(", ", after.TrayAlone)} (from the {from})");
-        if (TrayColorsText(before) != TrayColorsText(after)) Log.Write("settings", $"taskbar colours: {TrayColorsText(before)} -> {TrayColorsText(after)} (from the {from})");
+        if (TrayColorsText(before) != TrayColorsText(after)) Log.Write("settings", $"taskbar colors: {TrayColorsText(before)} -> {TrayColorsText(after)} (from the {from})");
         Note("overlay sensors", before.Overlay.Sensors.Count, after.Overlay.Sensors.Count);
         // A user's overlay background kept coming back after he had set it to none (Oct 2026), with nothing to say what moved it.
         Note("overlay background (%)", (int)Math.Round(before.Overlay.BackgroundOpacity * 100), (int)Math.Round(after.Overlay.BackgroundOpacity * 100));
@@ -2444,7 +2444,7 @@ internal sealed class AgentContext : ApplicationContext
         var (title, body) = _overlay.RtssState switch
         {
             "running" => (Lang.T($"Restart {app} to see the overlay"),
-                Lang.T("It was already open when RivaTuner started. Restart the game and the overlay will show.")),
+                Lang.T("It was already open when RivaTuner started, so RivaTuner isn't drawing in it yet.")),
             "stopped" => (Lang.T("The overlay can't show in this game"),
                 Lang.T("Fullscreen games need RivaTuner, and it isn't running. Start it from the Overlay page, then restart the game.")),
             _ => (Lang.T("The overlay can't show in this game"),

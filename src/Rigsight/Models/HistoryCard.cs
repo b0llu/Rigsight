@@ -27,7 +27,7 @@ public sealed record HistoryCard(string Kind, string Title, string Text)
         return h.Outcome switch
         {
             "repaired" => new("repaired", Lang.T("History repaired"), h.Summary is { } kept ? SavedText.Show(kept) : Lang.T("The damaged file is kept.")),
-            "nothing" => new("nothing", Lang.T("Your history couldn't be saved"), h.Summary is { } lost ? SavedText.Show(lost) : Lang.T("RigSight started a new history today. The old file is kept.")),
+            "nothing" => new("nothing", Lang.T("Your old history couldn't be recovered"), h.Summary is { } lost ? SavedText.Show(lost) : Lang.T("RigSight started a new history today. The old file is kept.")),
             _ => null,
         };
     }

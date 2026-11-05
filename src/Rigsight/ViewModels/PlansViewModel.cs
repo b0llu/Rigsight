@@ -92,7 +92,7 @@ public sealed class PlanColumn(RelayPlanOffer offer, PlansViewModel owner, int r
     /// <summary>At the foot of the page by page list, under the plan's name: "Switch to Essentials" didn't fit its 130 px (2026-10-27).</summary>
     public string BuyShort => Lang.T("Get");
     public string SwitchShort => Lang.T("Switch");
-    public string MineText => (Offer.IsFree ? owner.FreeLine : Lang.T("Your plan")) + (owner.HasGiven ? " · " + Lang.T($"{owner.Plan!.Given} given") : "");
+    public string MineText => (Offer.IsFree ? owner.FreeLine : Lang.T("Your plan")) + (owner.HasGiven ? " · " + Lang.T($"{owner.Plan!.Given} extra") : "");
     public bool ShowMine => IsMine;
     public bool ShowNothing => !IsMine && !CanBuy && !CanSwitch;
     /// <summary>Free's column while on a plan: what RigSight goes back to, so its button's place isn't left empty.</summary>
@@ -242,7 +242,12 @@ public sealed partial class PlansViewModel : ObservableObject
     public bool StateIsWarning => IsEnding || IsPastDue;
 
     /// <summary>"7 of 10 left this week" on Free; the free column's own line on the Plans screen.</summary>
-    public string FreeLine => Plan is { IsFree: true } p ? (FreePaused ? StateText : p.Left == 0 ? Lang.T("All 10 used this week") : StateText) : Lang.T("10 questions a week");
+    public string FreeLine => Plan is { IsFree: true } p ? (FreePaused ? StateText : p.Left == 0 ? Lang.T($"All {p.Cap} used this week") : StateText)
+        : FreeOffer is { } f ? f.Cap == 0 ? Lang.T("Free questions are paused for now") : f.Weekly ? Lang.T($"{f.Cap} questions a week") : Lang.T($"Up to {f.Cap} questions a day")
+        : Lang.T("Free questions every week");
+
+    /// <summary>Free as the relay offers it: its count can change from the admin page, so it's never typed (none before the relay has said).</summary>
+    private RelayPlanOffer? FreeOffer => _ask.Standing?.Plans.FirstOrDefault(o => o.IsFree);
 
     /// <summary>
     /// The free trial on offer, on Free's box in Settings (the owner's word, 2026-10-28: Free said only "10 of 10 left
@@ -267,7 +272,7 @@ public sealed partial class PlansViewModel : ObservableObject
         : (p.Gift || p.IsTrial ? Lang.T($"Reads {PagesText(p.Pages.Count)}")
            : p.Yearly ? Lang.T($"{p.Price} a year · reads {PagesText(p.Pages.Count)}")
            : MonthlyNext && MineColumn?.Offer.Yearly is { } paid && p.RenewsAt is { } yearEnd
-             ? Lang.T($"{paid.Price} paid to {TimeText.At(yearEnd, "d MMMM yyyy")} · then {p.Price} a month")
+             ? Lang.T($"{paid.Price} paid until {TimeText.At(yearEnd, "d MMMM yyyy")} · then {p.Price} a month")
            : Lang.T($"{p.Price} a month · reads {PagesText(p.Pages.Count)}"))
           + (PlanSearches ? " · " + Lang.T("searches the web") : "");
 
@@ -303,8 +308,8 @@ public sealed partial class PlansViewModel : ObservableObject
     // line of their own under the day's or week's bar, saying who gave them, for as long as any are left.
     public bool HasGiven => Plan is { Given: > 0 };
     public string GivenText => Plan is not { Given: > 0 } p ? ""
-        : p.IsFree ? Lang.T($"{p.Given} given by RigSight · used after this week's {p.Cap}, they don't run out")
-        : Lang.T($"{p.Given} given by RigSight · used after {p.Name}'s {p.Cap} a day, they don't run out");
+        : p.IsFree ? Lang.T($"{p.Given} extra from RigSight · used after this week's {p.Cap}, they don't run out")
+        : Lang.T($"{p.Given} extra from RigSight · used after {p.Name}'s {p.Cap} a day, they don't run out");
     public string UsedText => Plan is not { } p ? ""
         : p.Weekly ? Lang.T($"{p.Used} of {p.Cap} free questions used this week")
         : Lang.T($"{p.Used} of {p.Cap} questions used today · starts again at midnight");
@@ -343,7 +348,7 @@ public sealed partial class PlansViewModel : ObservableObject
         ? p.EndsAt is { } end ? Lang.T($"RigSight gave this PC {p.Name} until {TimeText.At(end, "d MMMM yyyy")}. Nothing to pay.") : Lang.T($"RigSight gave this PC {p.Name}. Nothing to pay.")
         : "";
     public string CardText => Plan?.Card?.Text ?? Lang.T("Your card");
-    public string PastDueText => Lang.T($"Your last {PlanName} payment didn't go through. Lemon Squeezy tries again over the next days, and {PlanName} keeps working meanwhile. Change the card to sort it now.");
+    public string PastDueText => Lang.T($"Your last {PlanName} payment didn't go through. Lemon Squeezy tries again over the next few days, and {PlanName} keeps working meanwhile. Change the card to sort it now.");
 
     /// <summary>The other paid plan, for "Switch to …" (going up from the cheaper one, down from the dearer).</summary>
     public PlanColumn? Other => Columns.Where(c => !c.Offer.IsFree && Plan is { } p && c.Offer.Id != p.Id).LastOrDefault();
@@ -364,7 +369,7 @@ public sealed partial class PlansViewModel : ObservableObject
 
     public string Heading => IsFree ? Lang.T("Ask RigSight about anything on your PC") : Lang.T("Your RigSight AI plan");
     public string Subheading => IsFree ? Lang.T("Answers come from what RigSight recorded on this PC.")
-        : Lang.T("Switch, cancel or change your card here. Changes take effect straight away.");
+        : Lang.T("Switch plans, cancel or change your card here.");
 
     public IReadOnlyList<PlanCompareRow> CompareRows => Columns.Count < 3 ? []
         : [.. AiPages.All.Select(p =>
@@ -484,9 +489,14 @@ public sealed partial class PlansViewModel : ObservableObject
     public IReadOnlyList<CancelReason> Reasons { get; }
     [ObservableProperty] private bool _cancelOpen;
     public string CancelTitle => Lang.T($"Cancel {PlanName}?");
-    public string CancelText => Plan is { RenewsAt: { } on } ? Lang.T($"You won't be charged again. {PlanName} keeps working until {TimeText.At(on, "d MMMM")}, then you're back on 10 free questions a week.")
-        : Plan is { Yearly: true } ? Lang.T($"You won't be charged again. {PlanName} keeps working until the year you paid for ends, then you're back on 10 free questions a week.")
-        : Lang.T($"You won't be charged again. {PlanName} keeps working until the month you paid for ends, then you're back on 10 free questions a week.");
+    // The free count is the relay's (FreeOffer), never a typed 10; before it has said, Free is named without a number.
+    public string CancelText => FreeOffer is { Cap: > 0, Weekly: true } f
+        ? Plan is { RenewsAt: { } on } ? Lang.T($"You won't be charged again. {PlanName} keeps working until {TimeText.At(on, "d MMMM")}, then you're back on {f.Cap} free questions a week.")
+            : Plan is { Yearly: true } ? Lang.T($"You won't be charged again. {PlanName} keeps working until the year you paid for ends, then you're back on {f.Cap} free questions a week.")
+            : Lang.T($"You won't be charged again. {PlanName} keeps working until the month you paid for ends, then you're back on {f.Cap} free questions a week.")
+        : Plan is { RenewsAt: { } on2 } ? Lang.T($"You won't be charged again. {PlanName} keeps working until {TimeText.At(on2, "d MMMM")}, then you're back on Free.")
+        : Plan is { Yearly: true } ? Lang.T($"You won't be charged again. {PlanName} keeps working until the year you paid for ends, then you're back on Free.")
+        : Lang.T($"You won't be charged again. {PlanName} keeps working until the month you paid for ends, then you're back on Free.");
 
     [RelayCommand] private void AskCancel() { Problem = null; foreach (var r in Reasons) r.Picked = false; CancelOpen = true; }
     [RelayCommand] private void Pick(CancelReason? reason) { foreach (var r in Reasons) r.Picked = r == reason && !r.Picked; }

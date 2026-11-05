@@ -338,15 +338,7 @@ public class TrayReadingsTests
             for (int y = 0; y < bmp.Height / 2; y++)
                 if (bmp.GetPixel(x, y).A > 128) return x;
         return -1;
-    }
-
-    private static int RightmostInk(Bitmap bmp)
-    {
-        for (int x = bmp.Width - 1; x >= 0; x--)
-            for (int y = 0; y < bmp.Height / 2; y++)
-                if (bmp.GetPixel(x, y).A > 128) return x;
-        return -1;
-    }
+    }
 
     [Theory]
     [InlineData(SensorKind.Load, "CPU Total", TrayPart.Cpu, "Load")]

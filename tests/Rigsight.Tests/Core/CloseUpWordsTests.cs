@@ -44,7 +44,7 @@ public sealed class CloseUpWordsTests
         var said = CloseUpWords.Find(Seconds(Game), CrashTs, _ => "Apex Legends");
         Assert.Contains(said, s => s.Warn && s.Text.StartsWith("GPU hot spot rose from 85") && s.Text.Contains("in the last ") && s.Text.Contains("The minute's average showed only"));
         Assert.Contains(said, s => s.Warn && s.Text.StartsWith("GPU power jumped to about 280 W for the last"));
-        Assert.Contains(said, s => s.Text.StartsWith("Graphics memory climbed from 10.1 GB to 11.9 GB of 12 GB in the last "));
+        Assert.Contains(said, s => s.Text.StartsWith("Video memory climbed from 10.1 GB to 11.9 GB of 12 GB in the last "));
         Assert.DoesNotContain(said, s => s.IsCalm);
     }
 
@@ -98,8 +98,8 @@ public sealed class CloseUpWordsTests
         Assert.Equal(said, point is not null);
         if (point is not null)
         {
-            Assert.Equal(("warn", "GPU memory was possibly running out, with 11.6 of 12 GB used"), (point.Kind, point.Title));
-            Assert.StartsWith("In the last 30 seconds. Apex Legends usually uses about 9.8 GB on this PC.", point.Detail);
+            Assert.Equal(("warn", "GPU memory was nearly full, at 11.6 of 12 GB"), (point.Kind, point.Title));
+            Assert.StartsWith("That was in the last 30 seconds, against the 9.8 GB Apex Legends usually uses on this PC.", point.Detail);
         }
     }
 
@@ -125,8 +125,8 @@ public sealed class CloseUpWordsTests
 
         var listed = CrashCases.Of(db, [crash], new RigsightSettings())[crash.Id];
         var opened = CrashCases.Of(db, [crash], new RigsightSettings(), upClose: true)[crash.Id];
-        Assert.DoesNotContain(listed.Points, p => p.Title.StartsWith("GPU memory was possibly"));
-        Assert.Contains(opened.Points, p => p.Title == "GPU memory was possibly running out, with 11.6 of 12 GB used" && p.Detail.Contains("In its last minute"));
+        Assert.DoesNotContain(listed.Points, p => p.Title.StartsWith("GPU memory was nearly full"));
+        Assert.Contains(opened.Points, p => p.Title == "GPU memory was nearly full, at 11.6 of 12 GB" && p.Detail.Contains("in its last minute"));
         // The same answer either way: only what it rests on grows.
         Assert.Equal((listed.Head, listed.Confidence, listed.Advice), (opened.Head, opened.Confidence, opened.Advice));
     }

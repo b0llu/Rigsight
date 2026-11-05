@@ -88,7 +88,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public string NeverSent => NeverSentFor(Ai.Mode);
     public string OnlyWhenNeeded => OnlyWhenNeededText;
     internal static string NeverSentFor(AiMode mode) => mode == AiMode.RigSight
-        ? Lang.T("your Windows user name, your licence key, and your own files, their names or what's in them.")
+        ? Lang.T("your Windows user name, your license key, and your own files, their names or what's in them.")
         : Lang.T("your Windows user name, and your own files, their names or what's in them.");
     internal static string OnlyWhenNeededText =>
         Lang.T("app and game names, with their program files' names in a crash record; folder names and sizes for a drive you press Scan for.");
@@ -138,7 +138,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         string? was = LicenceStopped;
         LicenceStopped = s?.HasLicence == true ? s.LicenceStatus switch
         {
-            "disabled" => Lang.T("Your licence is turned off, so this PC can't ask questions. Contact support with your key."),
+            "disabled" => Lang.T("Your license is turned off, so this PC can't ask questions. Contact support with your key."),
             "refunded" => Lang.T("Your plan was refunded, so it has ended. See plans to start a new one."),
             _ => null,
         } : null;
@@ -184,7 +184,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     {
         LicenceProblem = null;
         LicenceProblemNeedsSupport = false;
-        if (LicenceKey.Trim().Length == 0) { LicenceProblem = Lang.T("Type or paste your licence key first."); return; }
+        if (LicenceKey.Trim().Length == 0) { LicenceProblem = Lang.T("Type or paste your license key first."); return; }
         var (status, problem, reason) = await Relay.ActivateAsync(LicenceKey);
         if (status is not null)
         {
@@ -244,7 +244,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         var cts = _purchaseWait = new CancellationTokenSource(PurchaseWait);
         var before = _ask.Standing?.LicenceQuestions ?? 0;
         WaitingForPurchase = true;
-        Log.Write("ai-settings", $"Waiting for the {questions}-question purchase: the licence holds {before} now");
+        Log.Write("ai-settings", $"Waiting for the {questions}-question purchase: the license holds {before} now");
         try
         {
             while (true)
@@ -253,7 +253,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
                 var (status, problem) = await Relay.StatusAsync(cts.Token);
                 if (status is null) { Log.Write("ai-settings", $"Purchase check: {problem}"); continue; }
                 if (status.LicenceQuestions <= before) continue;
-                Log.Write("ai-settings", $"Purchase landed: the licence went from {before} to {status.LicenceQuestions} questions");
+                Log.Write("ai-settings", $"Purchase landed: the license went from {before} to {status.LicenceQuestions} questions");
                 _ask.Show(status);
                 break;
             }
@@ -291,13 +291,13 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         // What it's about: a key in use elsewhere, a licence turned off or refunded, a key that wasn't found.
         var subject = Uri.EscapeDataString(_ask.Standing?.LicenceStatus switch
         {
-            "disabled" => Lang.T("My RigSight AI licence is turned off"),
-            _ when LicenceElsewhere || LicenceActive => Lang.T("Move my RigSight AI licence to this PC"),
-            _ => Lang.T("My RigSight AI licence key isn't working"),
+            "disabled" => Lang.T("My RigSight AI license is turned off"),
+            _ when LicenceElsewhere || LicenceActive => Lang.T("Move my RigSight AI license to this PC"),
+            _ => Lang.T("My RigSight AI license key isn't working"),
         });
         // The key typed in (one locked to another PC, or not found) or the PC's own, whole: support looks it up.
         var key = LicenceKey.Trim().Length > 0 ? LicenceKey.Trim() : _ask.Standing?.Key ?? LicenceShown;
-        var body = Uri.EscapeDataString(Lang.T($"My licence key is {key}"));
+        var body = Uri.EscapeDataString(Lang.T($"My license key is {key}"));
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo($"https://mail.google.com/mail/?view=cm&fs=1&to={Uri.EscapeDataString(SupportEmail)}&su={subject}&body={body}") { UseShellExecute = true })?.Dispose(); }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Log.Error("ai-settings", ex); }
     }
@@ -462,7 +462,7 @@ public static class Parts
 
     private static (string, string) Read()
     {
-        string cpu = Lang.T("CPU"), gpu = Lang.T("graphics card");
+        string cpu = Lang.T("CPU"), gpu = Lang.T("GPU");
         try
         {
             using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\CentralProcessor\0");

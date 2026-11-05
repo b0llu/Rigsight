@@ -158,18 +158,18 @@ public sealed class SensorModelTests
         new(new SensorMeta { Id = "/x/" + kind, Name = name, Kind = kind }, "Some hardware", hardwareType);
 
     [Theory]
-    [InlineData(SensorKind.Temperature, 45.26, "45.3 °C", "45°", "TEMP")]
+    [InlineData(SensorKind.Temperature, 45.26, "45.3 °C", "45°", "TEMPERATURE")]
     [InlineData(SensorKind.Load, 37.04, "37.0 %", "37%", "LOAD")]
     [InlineData(SensorKind.Clock, 4450, "4.45 GHz", "4.45 GHz", "CLOCK")]
     [InlineData(SensorKind.Clock, 800, "800 MHz", "800 MHz", "CLOCK")]
     [InlineData(SensorKind.Power, 65.5, "65.5 W", "66 W", "POWER")]
-    [InlineData(SensorKind.Voltage, 1.1234, "1.123 V", "1.123 V", "VOLT")]
+    [InlineData(SensorKind.Voltage, 1.1234, "1.123 V", "1.123 V", "VOLTAGE")]
     [InlineData(SensorKind.Fan, 1200.4, "1200 RPM", "1200 RPM", "FAN")]
     [InlineData(SensorKind.Data, 12.34, "12.3 GB", "12.3 GB", "DATA")]
     [InlineData(SensorKind.SmallData, 512, "512 MB", "512 MB", "DATA")]
-    [InlineData(SensorKind.Throughput, 2048, "2 KB/s", "2 KB/s", "RATE")]
-    [InlineData(SensorKind.Control, 40, "40.0 %", "40%", "CTRL")]
-    [InlineData(SensorKind.Factor, 12345, "12345", "12345", "INFO")]
+    [InlineData(SensorKind.Throughput, 2048, "2 KB/s", "2 KB/s", "THROUGHPUT")]
+    [InlineData(SensorKind.Control, 40, "40.0 %", "40%", "FAN CONTROL")]
+    [InlineData(SensorKind.Factor, 12345, "12345", "12345", "OTHER")]
     public void Readings_are_formatted_by_kind(SensorKind kind, double value, string formatted, string shortText, string type)
     {
         Ui.Run(() =>
@@ -376,10 +376,10 @@ public sealed class SensorModelTests
             var changed = Kit.Changes(drive, () => life.Push(1000, 97));
             Assert.Contains(nameof(DriveSummary.HealthText), changed);
             Assert.Equal("97%", drive.HealthText);
-            Assert.Equal("How much of its rated wear the SSD has left.", drive.HealthToolTip);
+            Assert.Equal("How much of its rated life the SSD has left.", drive.HealthToolTip);
             drive.Health = new DriveHealthInfo { Name = "SSD", Status = "Good" };
             Assert.Equal("97%", drive.HealthText);
-            Assert.EndsWith("The percentage is how much of its rated wear the SSD has left.", drive.HealthToolTip);
+            Assert.EndsWith("The percentage is how much of its rated life the SSD has left.", drive.HealthToolTip);
             Assert.Null(drive.SectorsText);
         });
     }

@@ -70,12 +70,20 @@ public sealed class RigsightSettings
     public List<string> HardwareOrder { get; set; } = [];
 
     /// <summary>
-    /// The apps (exe) that have a colour of their own on the Network page's chart, in the order of the colours, so an app
-    /// overtaking another never makes the two trade colours. Remembered once there is a week of history; an app that
-    /// hasn't used the internet for a month gives its place to the biggest user that has none.
+    /// Which colour each app had on the Network page's chart, newest first, as "slot:exe" ("2:obs64.exe"), so an app
+    /// keeps its colour from one period to the next. Remembered once there is a week of history. Lists from before
+    /// 1.5.0 held just the exes, one per colour in order; they're read as that slot.
     /// </summary>
     public List<string> NetColorApps { get; set; } = [];
-    public const int MaxNetColorApps = 4;
+    public const int MaxNetColorApps = 24;
+
+    /// <summary>One remembered colour: its slot and the app's exe (null: not one).</summary>
+    public static (int Slot, string Exe)? ParseNetColor(string entry)
+    {
+        int colon = entry.IndexOf(':');
+        return colon > 0 && int.TryParse(entry.AsSpan(0, colon), out int slot) && slot >= 0 && colon < entry.Length - 1
+            ? (slot, entry[(colon + 1)..]) : null;
+    }
 
     /// <summary>Sensors shown as numbers in the taskbar's notification area, in this order (by sensor id).</summary>
     public List<string> TraySensors { get; set; } = [];

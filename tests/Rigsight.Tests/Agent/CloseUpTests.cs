@@ -98,13 +98,7 @@ public sealed class CloseUpTests
                 Ring.Add(Point(Now));
                 Keeper.Tick();
             }
-        }
-
-        public CrashEvent Store(CrashEvent e)
-        {
-            e = Db.Db.InsertCrashes([e]).Single();
-            return Db.Db.GetCrashes(e.Ts - 1, e.Ts + 1).Single(c => c.Kind == e.Kind);
-        }
+        }
 
         public void Dispose() => Db.Dispose();
     }

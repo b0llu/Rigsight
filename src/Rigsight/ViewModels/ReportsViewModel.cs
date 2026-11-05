@@ -89,14 +89,18 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
                 return Lang.T($"{up} uploaded");
             }
             double change = (net.Down - net.PreviousDown.Value) / (double)net.PreviousDown.Value * 100;
-            return AgainstBefore(Range, change);
+            return AgainstBefore(Range, change, Report!.To - Report.From);
         }
     }
 
-    /// <summary>The period's download against the one before it, each sentence whole: "12% more than the 7 days before".</summary>
-    private static string AgainstBefore(ReportRange range, double change)
+    /// <summary>
+    /// The period's download against the one before it, each sentence whole: "12% more than the 7 days before". A custom
+    /// range names the one before by its length ("the 14 days before"), as long as its own <paramref name="span"/>.
+    /// </summary>
+    private static string AgainstBefore(ReportRange range, double change, TimeSpan span)
     {
         double by = Math.Abs(change);
+        int days = span.TotalHours >= 24 ? (int)Math.Round(span.TotalDays) : 0, hours = Math.Max(1, (int)Math.Round(span.TotalHours));
         if (by < 3)
             return range switch
             {
@@ -104,7 +108,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
                 ReportRange.Week => Lang.T("About the same as the 7 days before"),
                 ReportRange.Month => Lang.T("About the same as the 30 days before"),
                 ReportRange.Year => Lang.T("About the same as the 12 months before"),
-                _ => Lang.T("About the same as the period before"),
+                _ => days >= 2 ? Lang.T($"About the same as the {days} days before")
+                    : days == 1 ? Lang.T("About the same as the day before")
+                    : hours == 1 ? Lang.T("About the same as the hour before") : Lang.T($"About the same as the {hours} hours before"),
             };
         if (change > 0)
             return range switch
@@ -113,7 +119,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
                 ReportRange.Week => Lang.T($"{by:0}% more than the 7 days before"),
                 ReportRange.Month => Lang.T($"{by:0}% more than the 30 days before"),
                 ReportRange.Year => Lang.T($"{by:0}% more than the 12 months before"),
-                _ => Lang.T($"{by:0}% more than the period before"),
+                _ => days >= 2 ? Lang.T($"{by:0}% more than the {days} days before")
+                    : days == 1 ? Lang.T($"{by:0}% more than the day before")
+                    : hours == 1 ? Lang.T($"{by:0}% more than the hour before") : Lang.T($"{by:0}% more than the {hours} hours before"),
             };
         return range switch
         {
@@ -121,7 +129,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
             ReportRange.Week => Lang.T($"{by:0}% less than the 7 days before"),
             ReportRange.Month => Lang.T($"{by:0}% less than the 30 days before"),
             ReportRange.Year => Lang.T($"{by:0}% less than the 12 months before"),
-            _ => Lang.T($"{by:0}% less than the period before"),
+            _ => days >= 2 ? Lang.T($"{by:0}% less than the {days} days before")
+                : days == 1 ? Lang.T($"{by:0}% less than the day before")
+                : hours == 1 ? Lang.T($"{by:0}% less than the hour before") : Lang.T($"{by:0}% less than the {hours} hours before"),
         };
     }
 

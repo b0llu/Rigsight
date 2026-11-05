@@ -41,7 +41,7 @@ public static class CloseUpWords
 
         var lastMinute = Window(before, last - LastSec * 1000L, last);
         if (lastMinute.Max(p => p.Commit) is double commit && commit >= 95)
-            said.Add(new StoodOut(Lang.T($"Windows was nearly out of memory in the last minute, with {commit:0}% of what it can promise promised to apps."), true));
+            said.Add(new StoodOut(Lang.T($"Windows was nearly out of memory in the last minute, with {commit:0}% of its memory and page file already promised to apps."), true));
 
         if (said.Count == 0)
             said.Add(new StoodOut(Lang.T("No jump in temperature, power or memory in the seconds before."), false, IsCalm: true));
@@ -121,8 +121,8 @@ public static class CloseUpWords
         string since = Since(start.T, last);
         double fromGb = from / 1024, toGb = peak.Vram.Value / 1024;
         said.Add(new StoodOut(peak.VramTotal is double all && all > 0
-            ? Lang.T($"Graphics memory climbed from {fromGb:0.0} GB to {toGb:0.0} GB of {all / 1024:0} GB {since}.")
-            : Lang.T($"Graphics memory climbed from {fromGb:0.0} GB to {toGb:0.0} GB {since}."), full));
+            ? Lang.T($"Video memory climbed from {fromGb:0.0} GB to {toGb:0.0} GB of {all / 1024:0} GB {since}.")
+            : Lang.T($"Video memory climbed from {fromGb:0.0} GB to {toGb:0.0} GB {since}."), full));
     }
 
     /// <summary>What came after an app's crash, in its seconds: the graphics card going quiet, the app back in front.</summary>

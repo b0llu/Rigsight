@@ -121,7 +121,11 @@ public static class SettingsStore
         s.HiddenSensors ??= [];
         s.CollapsedHardware ??= [];
         s.HardwareOrder ??= [];
-        s.NetColorApps = [.. (s.NetColorApps ?? []).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).Take(RigsightSettings.MaxNetColorApps)];
+        // A list from before 1.5.0 is just exes, one per colour in order: each becomes "slot:exe".
+        var netColors = (s.NetColorApps ?? []).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+        if (netColors.Count > 0 && netColors.All(x => RigsightSettings.ParseNetColor(x) is null)) netColors = [.. netColors.Take(4).Select((exe, i) => $"{i}:{exe}")];
+        s.NetColorApps = [.. netColors.Where(x => RigsightSettings.ParseNetColor(x) is not null)
+            .DistinctBy(x => RigsightSettings.ParseNetColor(x)!.Value.Exe, StringComparer.OrdinalIgnoreCase).Take(RigsightSettings.MaxNetColorApps)];
         s.StartPage ??= "home";
 
         if (s.SettingsVersion < 2)

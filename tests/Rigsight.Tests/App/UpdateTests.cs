@@ -187,12 +187,12 @@ public sealed class UpdateTests : IDisposable
         {
             Assert.Equal(UpdateState.Available, vm.State);
             Assert.Equal("99.0.0", vm.Version);
-            Assert.Equal("Version 99.0.0 is available.", vm.StatusText);
+            Assert.Equal("Version 99.0.0 is out.", vm.StatusText);
             Assert.Equal("Download", vm.ActionText);
             Assert.True(vm.ActionIsPrimary);
             Assert.True(vm.ShowLine);
             Assert.Equal("Update available", vm.LineTitle);
-            Assert.Equal("RigSight 99.0.0 is out. Click to download it; you can keep using RigSight meanwhile.", vm.LineTip);
+            Assert.Equal("RigSight 99.0.0 is out. Click to download it. You can keep using RigSight meanwhile.", vm.LineTip);
         });
         // "Check for updates" only says what it found, even with automatic updates on.
         Assert.Equal(0, _server.SetupRequests);
@@ -225,7 +225,7 @@ public sealed class UpdateTests : IDisposable
             Assert.Equal(UpdateState.Waiting, vm.State);
             Assert.True(vm.ShowLine);
             Assert.Equal("Update ready", vm.LineTitle);
-            Assert.Equal("RigSight 99.0.0 is downloaded. Click to install it, and RigSight closes and opens again by itself.", vm.LineTip);
+            Assert.Equal("RigSight 99.0.0 is downloaded. Click to install it, and RigSight closes and opens again by itself in about 15 seconds.", vm.LineTip);
             Assert.Equal("Update now", vm.ActionText);
         });
     }
@@ -587,7 +587,7 @@ public sealed class UpdateTests : IDisposable
             Assert.Equal("Updating to 99.0.0…", vm.ProgressTitle);
             Assert.Equal("Installing the update…", vm.StatusText);
             Assert.Equal("Installing…", vm.ActionText);
-            Assert.Equal("RigSight closes and reopens by itself in a few seconds.", vm.ProgressText);
+            Assert.Equal("RigSight closes and opens again by itself in about 15 seconds.", vm.ProgressText);
             Assert.False(vm.ActionCommand.CanExecute(null));
             // The agent started the installer: now we just wait for it to close the app.
             vm.OnAgentMessage(new AgentMessage { T = "update", UpdateStatus = "started" });

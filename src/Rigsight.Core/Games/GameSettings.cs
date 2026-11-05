@@ -432,7 +432,7 @@ public static class GameSettings
     // ── In plain words ──────────────────────────────────────────────────
 
     // English, translated where shown (the language tool lists them from here).
-    public static readonly string Resolution = Lang.Key("Resolution"), DisplayMode = Lang.Key("Display mode"), VSync = Lang.Key("VSync"),
+    public static readonly string Resolution = Lang.Key("Resolution"), DisplayMode = Lang.Key("Display mode"), VSync = Lang.Key("V-Sync"),
         FrameLimit = Lang.Key("Frame limit"), Quality = Lang.Key("Quality"), Upscaling = Lang.Key("Upscaling"), FrameGeneration = Lang.Key("Frame generation"),
         RayTracing = Lang.Key("Ray tracing");
     public static readonly string Fullscreen = Lang.Key("Fullscreen"), Borderless = Lang.Key("Borderless window"), Windowed = Lang.Key("Windowed"),

@@ -848,7 +848,7 @@ public sealed class CrashesPageTests
             Assert.Equal("No serious problems", vm.StatusTitle);
             Assert.Contains("2 shutdowns that didn't finish (usually harmless)", vm.StatusDetail);
             Assert.Contains("1 sudden shut-off while asleep (not a fault)", vm.StatusDetail);
-            Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 more shutdowns didn't finish while Windows was shutting down"));
+            Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 shutdowns didn't finish."));
             Assert.DoesNotContain(vm.Patterns, p => p.Text.Contains("while the PC was asleep"));
         });
     }
@@ -903,7 +903,7 @@ public sealed class CrashesPageTests
         {
             Assert.Contains(vm.Patterns, p => p.Text.StartsWith("2 problems involved the graphics driver"));
             // 90° is over the alert limit (83°): heat is counted by the user's own limits, as each case judges it.
-            Assert.Contains(vm.Patterns, p => p.Text == "1 crash happened while your hardware was over your alert limits. Check airflow and fan curves.");
+            Assert.Contains(vm.Patterns, p => p.Text == "1 problem happened while the CPU or GPU was over your alert limit. If it happens again, check airflow and fan curves.");
         });
         Show(vm, [Crashes.App(now.AddHours(-1))]);
         Ui.Run(() => Assert.Empty(vm.Patterns));

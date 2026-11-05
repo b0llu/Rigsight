@@ -320,7 +320,7 @@ public sealed class FansPageTests
 
             var board = vm.Fans.Single(f => f.Sensor.Id == BoardFan1).Detail!;
             Assert.Equal("SPEED AT EACH CPU TEMPERATURE", board.CurveTitle);
-            Assert.Contains(board.FollowsValue, new[] { "A set speed", "Learning" });
+            Assert.Contains(board.FollowsValue, new[] { "A set speed", "Not known yet" });
         });
     }
 

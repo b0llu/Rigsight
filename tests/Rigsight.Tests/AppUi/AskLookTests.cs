@@ -611,7 +611,7 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
         Ui.Run(() => talk.Messages.Insert(6, line));
         Ui.Run(() => Visuals.Descendants<ScrollViewer>(Panel()).First(sv => sv.Name == "Chat").ScrollToEnd());
         Shot("60-summary-busy");
-        Ui.Run(() => Assert.Contains("Summarising earlier messages…", Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible).Select(t => t.Text)));
+        Ui.Run(() => Assert.Contains("Summarizing earlier messages…", Visuals.Descendants<TextBlock>(Panel()).Where(t => t.IsVisible).Select(t => t.Text)));
         // A question asked meanwhile waits for it, saying so.
         AskThinking? waiting = null;
         Ui.Run(() =>
@@ -619,7 +619,7 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
             talk.Messages.Add(new AskQuestion("and the shut-offs?"));
             waiting = new AskThinking();
             talk.Messages.Add(waiting);
-            waiting.Show("Summarising earlier messages…", "Your question goes as soon as it's done.");
+            waiting.Show("Summarizing earlier messages…", "Your question goes as soon as it's done.");
             Visuals.Descendants<ScrollViewer>(Panel()).First(sv => sv.Name == "Chat").ScrollToEnd();
         });
         Shot("61-summary-asked");
@@ -634,7 +634,7 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
             Visuals.Descendants<ScrollViewer>(Panel()).First(sv => sv.Name == "Chat").ScrollToEnd();
         });
         Shot("62-summary-done");
-        Ui.Run(() => Assert.Contains("Earlier messages summarised to keep this chat going", Visuals.Descendants<Button>(Panel()).Where(b => b.IsVisible).Select(b => AutomationProperties.GetName(b))));
+        Ui.Run(() => Assert.Contains("Earlier messages summarized to keep this conversation going", Visuals.Descendants<Button>(Panel()).Where(b => b.IsVisible).Select(b => AutomationProperties.GetName(b))));
         Ui.Run(() =>
         {
             ask.ToggleSummaryCommand.Execute(line);
@@ -801,7 +801,7 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
         Ui.Run(() =>
         {
             Assert.Equal("Ask about your PC…", ask.BarText);
-            Assert.Equal("Start a new chat…", ask.BarPlaceholder);
+            Assert.Equal("Start a new conversation…", ask.BarPlaceholder);
             Ui.SavePng((FrameworkElement)host.Window.FindName("TitleBar"), Path.Combine(Shots, "askbox-5-open.png"));
             ask.IsOpen = false;
         });

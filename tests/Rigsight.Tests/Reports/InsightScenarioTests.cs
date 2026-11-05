@@ -107,7 +107,7 @@ public sealed class InsightScenarioTests : IDisposable
         string path = Pc("gpu-fan-worn", Healthy with { Seed = 7, GameChance = 1, Game = 0, GpuFanWornFrom = End.AddDays(-1) });
         var line = Assert.Single(Build(path, ReportRange.Day, End.AddDays(-1)).Insights, i => i.Key == "fan-slower");
         Assert.Matches(@"^Your GPU fans spun (2[5-9]|3[0-5])% slower than usual at the same heat\. They turned at [\d,]+ rpm with the GPU at \d+°, against [\d,]+ rpm in the 7 days before\. "
-            + @"If you changed the fan curve in the card's software, that's why; if not, check they're clean and turning freely\.$", line.Text);
+            + @"If you changed the fan curve in the GPU's software, that's why; if not, check they're clean and turning freely\.$", line.Text);
         Assert.Contains(line.Tone, new[] { InsightTone.Warn, InsightTone.Hot });
         Assert.DoesNotContain(Build(path, ReportRange.Day, End.AddDays(-1)).Insights, i => i.Key == "fan-stopped");
         // Said once, the day it started: not again the next day (nor every day until the slower speed is "usual").
@@ -138,7 +138,7 @@ public sealed class InsightScenarioTests : IDisposable
         var older = days.SelectMany(d => d.Insights.Where(i => i.Key == "fan-older").Select(i => (R: d, I: i))).ToList();
         var said = Assert.Single(older);
         Assert.Matches(@"^Your GPU fans now spin \d+% slower at the same heat than in (January|February|March|April)( 2025)?\. They turn at [\d,]+ rpm with the GPU at \d+°, against [\d,]+ rpm then\. "
-            + @"If you changed the fan curve in the card's software, that's why; if not, check they're clean and turning freely\.$", said.I.Text);
+            + @"If you changed the fan curve in the GPU's software, that's why; if not, check they're clean and turning freely\.$", said.I.Text);
         Assert.DoesNotContain(days.SelectMany(d => d.Insights), i => i.Key == "fan-slower");
     }
 
@@ -159,7 +159,7 @@ public sealed class InsightScenarioTests : IDisposable
         var drift = Reports(path, days: 14).SelectMany(r => r.Insights.Where(i => i.Key == "drift").Select(i => (R: r, I: i))).ToList();
         Assert.NotEmpty(drift);
         Assert.All(drift, x => Assert.Matches(@"^In (Cyberpunk 2077|Dota 2|Hades), your (GPU|CPU) (runs|ran) \d+° hotter than in (January|February|March|April|May)( 2025)? at the same power, \d+° against \d+°\. "
-            + @"With nothing running it(( sits| sat) at \d+°, as it did then|'s only \d+° (warmer|cooler) than then), so dust or old thermal paste are the likely causes\.$", x.I.Text));
+            + @"With nothing running it(( sits| sat) at \d+°, as it did then|'s only \d+° (warmer|cooler) than then)\. Dust or old thermal paste can do this\.$", x.I.Text));
         Assert.All(drift, x => Assert.Equal(InsightTone.Warn, x.I.Tone));
     }
 

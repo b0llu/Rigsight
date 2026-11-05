@@ -189,7 +189,9 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         get
         {
             string period = Controls.PeriodPicker.Words(Unit, Anchor);
-            return Lang.T($"No apps used {period} yet. Use your PC for a bit and come back.");
+            // A period that's over gets no "yet" or "come back": nothing more will be added to it.
+            bool over = Unit is not (ReportRange.All or ReportRange.Custom) && ReportBuilder.Bounds(Unit, Anchor).To <= DateTime.Now;
+            return over ? Lang.T($"No apps used {period}.") : Lang.T($"No apps used {period} yet. Use your PC for a bit and come back.");
         }
     }
 

@@ -66,16 +66,16 @@ public sealed class AskActionsTests
     }
 
     [Theory]
-    [InlineData("check 10 fans", 10, CheckWhat.Fans)]
-    [InlineData("check 12 temps", 10, CheckWhat.Temps)]
-    [InlineData("check 2 gpu", 5, CheckWhat.Gpu)]
-    [InlineData("check 500 memory", 60, CheckWhat.Memory)]
-    [InlineData("check fans", 10, CheckWhat.Fans)]
-    public void Check_again_keeps_to_5_to_60_minutes_in_fives(string marker, int minutes, CheckWhat what)
+    [InlineData("check 10 fans", 10, CheckWhat.Fans, "10m")]
+    [InlineData("check 12 temps", 10, CheckWhat.Temps, "10m")]
+    [InlineData("check 2 gpu", 5, CheckWhat.Gpu, "5m")]
+    [InlineData("check 500 memory", 60, CheckWhat.Memory, "1h 00m")]
+    [InlineData("check fans", 10, CheckWhat.Fans, "10m")]
+    public void Check_again_keeps_to_5_to_60_minutes_in_fives(string marker, int minutes, CheckWhat what, string said)
     {
         var check = Assert.Single(Resolve(true, true, marker));
         Assert.Equal((AiActionKind.CheckAgain, minutes, what), (check.Kind, check.Minutes, check.What));
-        Assert.Equal($"Check again in {minutes} min", check.Label);
+        Assert.Equal($"Check again in {said}", check.Label);
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public sealed class AskActionsTests
         // In the Next step box: the step, then its buttons, the first the main one.
         var next = Assert.IsType<AskNext>(Assert.Single(answer.Parts, p => p is AskNext));
         // Close first (the card's own button), whatever order the model wrote them in.
-        Assert.Equal(["Close Python", "Check again in 10 min"], next.Actions.Select(a => a.Label));
+        Assert.Equal(["Close Python", "Check again in 10m"], next.Actions.Select(a => a.Label));
         Assert.Equal("Holds 12.9 GB with no window open", next.CardText);
         Assert.Equal([AskActionRole.Main, AskActionRole.Second], next.Actions.Select(a => a.Role));
         Assert.False(next.CanOpen);
@@ -248,7 +248,7 @@ public sealed class AskActionsTests
         Assert.True(fans.Fair);
 
         var gpu = ActionCheck.Compare(db, Pressed, 10, CheckWhat.Gpu, now: Pressed.AddHours(1))!;
-        Assert.Equal(["Graphics card busy", "GPU temperature"], gpu.Rows.Select(r => r.Label));
+        Assert.Equal(["GPU busy", "GPU temperature"], gpu.Rows.Select(r => r.Label));
         Assert.Equal(("56%", "4%"), (gpu.Rows[0].Before, gpu.Rows[0].After));
         var memory = ActionCheck.Compare(db, Pressed, 10, CheckWhat.Memory, now: Pressed.AddHours(1))!;
         Assert.Equal(("28.0 GB", "16.0 GB", "12.0 GB lower"), (memory.Rows[0].Before, memory.Rows[0].After, memory.Rows[0].Change));

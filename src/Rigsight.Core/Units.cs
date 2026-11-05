@@ -148,13 +148,13 @@ public static class Units
 
     public static string TypeLabel(SensorKind kind) => kind switch
     {
-        SensorKind.Temperature => Lang.T("TEMP"),
-        SensorKind.Voltage => Lang.T("VOLT"),
-        SensorKind.Current => Lang.T("AMPS"),
-        SensorKind.Control => Lang.T("CTRL"),
+        SensorKind.Temperature => Lang.T("TEMPERATURE"),
+        SensorKind.Voltage => Lang.T("VOLTAGE"),
+        SensorKind.Current => Lang.T("CURRENT"),
+        SensorKind.Control => Lang.T("FAN CONTROL"),
         SensorKind.Data or SensorKind.SmallData => Lang.T("DATA"),
-        SensorKind.Throughput => Lang.T("RATE"),
-        SensorKind.Factor => Lang.T("INFO"),
+        SensorKind.Throughput => Lang.T("THROUGHPUT"),
+        SensorKind.Factor => Lang.T("OTHER"),
         SensorKind.Power => Lang.T("POWER"),
         SensorKind.Clock => Lang.T("CLOCK"),
         SensorKind.Load => Lang.T("LOAD"),
@@ -170,6 +170,18 @@ public static class Units
     };
 
     /// <summary>"4h 05m", "45m", "30s".</summary>
+    /// <summary>
+    /// A length told to the second under an hour ("7m 38s", "40s"), as <see cref="Duration"/> past it ("1h 05m"): for
+    /// what's measured to the second, like how long the internet was down, where "7m" would round a real figure away.
+    /// </summary>
+    public static string DurationExact(double seconds)
+    {
+        if (!double.IsFinite(seconds) || seconds < 0) seconds = 0;
+        var t = TimeSpan.FromSeconds(Math.Round(seconds));
+        if (t.TotalHours >= 1) return Duration(seconds);
+        return t.TotalMinutes >= 1 ? Lang.T($"{t.Minutes}m {t.Seconds:00}s") : Lang.T($"{t.Seconds}s");
+    }
+
     public static string Duration(double seconds)
     {
         if (!double.IsFinite(seconds) || seconds < 0) seconds = 0;

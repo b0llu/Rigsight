@@ -137,9 +137,6 @@ public static class Wording
 
     // ── Notifications ───────────────────────────────────────────────────
 
-    /// <summary>The last words of every notification.</summary>
-    public static string FullPicture => Lang.T("Click for the full picture.");
-
     // ── Readings ────────────────────────────────────────────────────────
 
     /// <summary>Rigsight wasn't recording then (the PC was off, the agent stopped).</summary>

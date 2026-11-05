@@ -108,8 +108,8 @@ public sealed partial class UpdateViewModel : ObservableObject
     public string LineIcon => State == UpdateState.Waiting ? "" : "";
 
     public string LineTip => State == UpdateState.Waiting
-        ? Lang.T($"RigSight {Version} is downloaded. Click to install it, and RigSight closes and opens again by itself.")
-        : Lang.T($"RigSight {Version} is out. Click to download it; you can keep using RigSight meanwhile.");
+        ? Lang.T($"RigSight {Version} is downloaded. Click to install it, and RigSight closes and opens again by itself in about 15 seconds.")
+        : Lang.T($"RigSight {Version} is out. Click to download it. You can keep using RigSight meanwhile.");
 
     public string ProgressTitle => State == UpdateState.Installing ? Lang.T($"Updating to {Version}…") : Lang.T($"Downloading {Version}");
 
@@ -126,10 +126,10 @@ public sealed partial class UpdateViewModel : ObservableObject
     {
         _ when IsChecking => Lang.T("Checking for updates…"),
         UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _pcUpdates() => Lang.T($"Version {Version} is out. It installs the next time RigSight starts, or now."),
-        UpdateState.Installing when _pcUpdates() => Lang.T("Updating now. RigSight closes and reopens by itself in a minute."),
+        UpdateState.Installing when _pcUpdates() => Lang.T("Updating now. RigSight closes and opens again by itself in about 15 seconds."),
         _ when _pcUpdates() => Lang.T("This PC keeps RigSight up to date by itself."),
         UpdateState.Available or UpdateState.Ready or UpdateState.Waiting when _needsAdmin() => Lang.T($"Version {Version} is out. Installing it needs an admin's password."),
-        UpdateState.Available => Lang.T($"Version {Version} is available."),
+        UpdateState.Available => Lang.T($"Version {Version} is out."),
         UpdateState.Downloading => Lang.T($"Downloading version {Version}… {Progress:0}%"),
         UpdateState.Ready or UpdateState.Waiting => Lang.T($"Version {Version} is downloaded and ready to install."),
         UpdateState.Installing => Lang.T("Installing the update…"),
@@ -513,7 +513,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         Fill(18);
         State = UpdateState.Installing;
         Progress = 100;
-        ProgressText = Lang.T("RigSight closes and reopens by itself in a few seconds.");
+        ProgressText = Lang.T("RigSight closes and opens again by itself in about 15 seconds.");
         if (_pcUpdates())
         {
             // The PC's own updater does it: told it may close this window (and that it is to come back), then asked to run.

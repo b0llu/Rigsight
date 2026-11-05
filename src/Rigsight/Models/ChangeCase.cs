@@ -40,7 +40,7 @@ public sealed class ChangeCase(ChangeResult result, IReadOnlyList<DriverLine> dr
     public string Sure => Result.Sure.ToString();
     public string SureHint => Result.Sure == Confidence.Likely
         ? Lang.T("Like for like on both sides, with enough to go on")
-        : Lang.T("Something stands in the way of more, see How sure");
+        : Lang.T("Not enough for likely. How sure says why.");
 
     public string ToneBrush => Result.Tone == EffectTone.Worse ? "WarmBrush" : "GoodBrush";
     public string Icon => ResultIcon(Result);

@@ -366,7 +366,7 @@ public sealed class InventoryTests
     // ---- Facts: a value that changes ----
 
     [Theory]
-    [InlineData(Inventory.Cpu, "Processor", "Ryzen 7 5700X3D", "Ryzen 7 9800X3D", ChangeKind.Hardware, "Processor changed to Ryzen 7 9800X3D")]
+    [InlineData(Inventory.Cpu, "Processor", "Ryzen 7 5700X3D", "Ryzen 7 9800X3D", ChangeKind.Hardware, "CPU changed to Ryzen 7 9800X3D")]
     [InlineData(Inventory.Ram, "Memory", "16 GB", "32 GB", ChangeKind.Hardware, "Memory changed to 32 GB")]
     [InlineData(Inventory.Board, "Motherboard", "B450 AORUS PRO-CF", "B650 AORUS ELITE", ChangeKind.Hardware, "Motherboard changed to B650 AORUS ELITE")]
     [InlineData(Inventory.Bios, "BIOS", "F66d", "F67", ChangeKind.Firmware, "BIOS updated to F67")]

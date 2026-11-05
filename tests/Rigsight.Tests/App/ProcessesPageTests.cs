@@ -531,7 +531,7 @@ public sealed class ProcessesPageTests
         history.Fill(row, past, now);
         Assert.False(history.IsLoading);
         Assert.Equal(
-            ["Running since 9:10 AM", "Usual memory 520 MB", "In front today 22 min", "In the background today 5 h 40 min", "Internet today 96 MB", "Crashes (30 days) None"], history.Facts.Select(f => $"{f.Label} {f.Value}"));
+            ["Running since 9:10 AM", "Usual memory 520 MB", "In front today 22m", "In the background today 5h 40m", "Internet today 96 MB", "Crashes (30 days) None"], history.Facts.Select(f => $"{f.Label} {f.Value}"));
         Assert.DoesNotContain(history.Facts, f => f.Label.Contains("Disk")); // nothing records it
         Assert.True(history.HasChart);
         Assert.Equal(520, history.UsualMB);
@@ -562,7 +562,7 @@ public sealed class ProcessesPageTests
         Assert.False(none.IsLoading);
 
         Assert.Equal("12 Jun, 8:05 AM", ProcHistory.Since(new DateTime(2026, 6, 12, 8, 5, 0), now));
-        Assert.Equal(("None", "Under a minute", "59 min", "1 h 0 min"), (ProcHistory.Time(0), ProcHistory.Time(40), ProcHistory.Time(3599), ProcHistory.Time(3600)));
+        Assert.Equal(("None", "Under a minute", "59m", "1h 00m"), (ProcHistory.Time(0), ProcHistory.Time(40), ProcHistory.Time(3599), ProcHistory.Time(3600)));
     }
 
     private static ProcChild Child(int pid, string label, string? kind, double mb) => new(new ProcDetail { Pid = pid, Label = label, Kind = kind, MemMB = mb });

@@ -269,7 +269,7 @@ internal sealed class ReadingCard : Form
             }
             y += (GraphHeight + 6 + 22) * _s;
             var real = b.History.Select(p => p.Value).Where(float.IsFinite).ToList();
-            string[] labels = [Lang.T("Low"), Lang.T("Average"), Lang.T("High")];
+            string[] labels = [Lang.T("Lowest"), Lang.T("Average"), Lang.T("Highest")];
             string[] values = real.Count == 0 ? ["–", "–", "–"]
                 : [Units.StripText(b.Kind, real.Min()), Units.StripText(b.Kind, real.Average()), Units.StripText(b.Kind, real.Max())];
             if (draw)
@@ -419,7 +419,7 @@ internal sealed class ReadingCard : Form
             long at = first + (long)((_mouse.X - box.Left) / box.Width * (last - first));
             var near = real.MinBy(p => Math.Abs(p.Ms - at));
             long ago = (last - near.Ms) / 1000;
-            string when = ago < 1 ? Lang.T("now") : ago < 60 ? Lang.T($"{ago} s ago") : Lang.T($"{ago / 60} min {ago % 60} s ago");
+            string when = ago < 1 ? Lang.T("now") : ago < 60 ? Lang.T($"{ago}s ago") : Lang.T($"{ago / 60}m {ago % 60:00}s ago");
             string text = $"{Units.StripText(b.Kind, near.Value)} · {when}";
             using var font = F(11.5f);
             float tw = Measure(g, text, font) + 14 * _s, th = 20 * _s;

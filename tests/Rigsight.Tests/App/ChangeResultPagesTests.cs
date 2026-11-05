@@ -77,7 +77,7 @@ public sealed class ChangeResultPagesTests
         var finding = new CrashFinding(Confidence.Named, "The GPU stopped answering and Windows reset its driver.", "", "", "");
         var point = CrashesViewModel.ChangePointOf(reset, finding, results)!;
         Assert.Equal("2 days after NVIDIA graphics driver 618.10", point.Title);
-        Assert.Equal("Crimson Desert runs 10° hotter on the GPU since driver 618.10. Likely the driver. That alone doesn't prove this crash.", point.Detail);
+        Assert.Equal("Crimson Desert runs 10° hotter on the GPU since driver 618.10. Likely the driver. That alone doesn't show it caused this crash.", point.Detail);
         Assert.Equal(Day, point.Day);
 
         // Before the change, or after one that made things better, or an app crash a graphics driver can't cause: nothing.

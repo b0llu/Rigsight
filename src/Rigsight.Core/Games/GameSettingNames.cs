@@ -68,7 +68,7 @@ public static class GameSettingNames
     private static readonly Dictionary<string, string> Words = new(StringComparer.OrdinalIgnoreCase)
     {
         ["aa"] = "anti-aliasing", ["ao"] = "ambient occlusion", ["ssao"] = "SSAO", ["hbao"] = "HBAO", ["ssr"] = "screen-space reflections",
-        ["lod"] = "LOD", ["dof"] = "depth of field", ["fov"] = "field of view", ["aniso"] = "anisotropic filtering", ["vsync"] = "VSync",
+        ["lod"] = "LOD", ["dof"] = "depth of field", ["fov"] = "field of view", ["aniso"] = "anisotropic filtering", ["vsync"] = "V-Sync",
         ["fps"] = "FPS", ["hdr"] = "HDR", ["dlss"] = "DLSS", ["fsr"] = "FSR", ["xess"] = "XeSS", ["rt"] = "ray tracing", ["res"] = "resolution",
         ["tex"] = "texture", ["qual"] = "quality", ["fx"] = "effects", ["msaa"] = "MSAA", ["taa"] = "TAA", ["fxaa"] = "FXAA", ["smaa"] = "SMAA",
         ["gpu"] = "GPU", ["cpu"] = "CPU", ["vram"] = "VRAM", ["hz"] = "Hz", ["nvidia"] = "NVIDIA", ["amd"] = "AMD", ["sg"] = "", ["mip"] = "mip", ["vfx"] = "VFX",

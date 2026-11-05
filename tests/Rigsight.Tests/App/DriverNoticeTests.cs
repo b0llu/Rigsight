@@ -183,7 +183,7 @@ public class DriverNoticeTests
         desktop.RemoveAt(4);
         desktop.RemoveAt(2);
         desktop[2] = Hw("Storage", "USB Drive", SensorKind.Data);
-        Assert.Equal(["Storage USB Drive: no temperature", "no graphics card found", "no motherboard sensors (fans, voltages, board temperatures)"],
+        Assert.Equal(["Storage USB Drive: no temperature", "no GPU found", "no motherboard sensors (fans, voltages, board temperatures)"],
             Rigsight.Agent.Sensors.SensorHost.NotFound(desktop));
     }
 

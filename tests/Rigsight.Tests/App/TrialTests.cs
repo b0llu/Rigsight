@@ -126,7 +126,7 @@ public sealed class TrialTests
         Assert.NotNull(note);
         Assert.True(note!.IsTrial);
         Assert.StartsWith("Your Complete trial ends ", note.Title);
-        Assert.Equal("Then you're on Free: 10 questions a week. Your conversations stay.", note.Text);
+        Assert.Equal("Then you're back on Free, with 10 questions a week. Your conversations stay.", note.Text);
         Assert.Null(AskViewModel.TrialNoteFor(s, [note.TrialKey!]));
         // Days before the end, nothing.
         var early = Relay.ReadStatus(WithTrial(Status("complete", "trial"), $$"""{"state":"running","ends_at":"{{DateTime.UtcNow.AddDays(3):o}}","plan":"complete"}"""))!;

@@ -340,8 +340,8 @@ public sealed partial class WidgetCard : ObservableObject
         PickerEmptyText = words.Length == 0 ? (all ? Lang.T("Nothing left to add") : Lang.T($"Nothing left to add in {name}"))
             : all ? Lang.T($"Nothing matches \"{typed}\"") : Lang.T($"Nothing matches \"{typed}\" in {name}");
         CanSearchAll = PickerEmpty && elsewhere > 0;
-        // "1 matches", "2 match": the readings that match, so the verb agrees with the number.
-        PickerEmptyHint = CanSearchAll ? (elsewhere == 1 ? Lang.T("1 matches in other groups.") : Lang.T($"{elsewhere} match in other groups."))
+        // "1 reading matches", "2 readings match": the readings that match, so the verb agrees with the number.
+        PickerEmptyHint = CanSearchAll ? (elsewhere == 1 ? Lang.T("1 reading matches in other groups.") : Lang.T($"{elsewhere} readings match in other groups."))
             : words.Length > 0 ? Lang.T("Try another word, such as a part's name or \"fan\".") : "";
     }
 

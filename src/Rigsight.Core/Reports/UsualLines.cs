@@ -54,7 +54,7 @@ public static class UsualLines
             string alsoPart = also.Part, alsoDiff = also.Diff, alsoNow = Units.TempShort(also.Now), alsoSpan = PcUsual.Span(also.Low, also.High);
             text += hotter ? Lang.T($"; your {alsoPart} {alsoDiff} hotter too ({alsoNow} against {alsoSpan}).") : Lang.T($"; your {alsoPart} {alsoDiff} cooler too ({alsoNow} against {alsoSpan}).");
         }
-        if (hotter) text += " " + (rest.Length > 0 ? Lang.T($"{rest}, so dust or old thermal paste are the likely causes.") : Lang.T("Dust or old thermal paste are the likely causes."));
+        if (hotter) text += " " + (rest.Length > 0 ? Lang.T($"{rest}. Dust or old thermal paste can do this.") : Lang.T("Dust or old thermal paste can do this."));
         else if (rest.Length > 0) text += $" {rest}.";
         string cpu = part.Part == "CPU" ? Lang.T(" on the CPU") : "";
         string lastDiff = part.LastDiff;
@@ -88,10 +88,10 @@ public static class UsualLines
     /// <summary>The shut-offs that look like the power, only when they jumped far past their own usual; null otherwise.</summary>
     public static Insight? Power(UsualProblems pr, string span) => pr.PowerTone != EffectTone.Worse ? null
         : new Insight(IconWarn, Lang.T($"More sudden shut-offs than usual, with {pr.PowerNow} {span}, {pr.PowerUsualWords}. Each looked like the power going off; if the mains was steady, check the power supply."),
-            InsightTone.Warn, "usual-power", 88, Lang.T($"{pr.PowerNow} in {pr.NowHours:0} h of use; {pr.PowerUsual} in {pr.UsualHours:0} h in the weeks before"))
+            InsightTone.Warn, "usual-power", 88, Lang.T($"{pr.PowerNow} in {pr.NowHours:0}h of use; {pr.PowerUsual} in {pr.UsualHours:0}h in the weeks before"))
             { Short = Lang.T($"More sudden shut-offs than usual {span}"), Ask = Lang.T("Why does my PC keep shutting off suddenly?"), AskPage = Ai.AiPages.Crashes };
 
-    private static string Detail(UsualProblems pr) => Lang.T($"{pr.Now.Count} in {pr.NowHours:0} h of use; {pr.UsualCount} in {pr.UsualHours:0} h in the weeks before");
+    private static string Detail(UsualProblems pr) => Lang.T($"{pr.Now.Count} in {pr.NowHours:0}h of use; {pr.UsualCount} in {pr.UsualHours:0}h in the weeks before");
 
     /// <summary>
     /// Home's PC health for the PC's own parts, a statement each, against the usual of <paramref name="today"/> (the

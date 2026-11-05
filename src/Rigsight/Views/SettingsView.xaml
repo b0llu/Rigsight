@@ -497,11 +497,11 @@
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Live" Content="{ctl:T '0.5 s'}"
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Live" Content="{ctl:T '0.5s'}"
                                              IsChecked="{Binding LiveRefreshMs, Converter={StaticResource Equals}, ConverterParameter=500}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Live" Content="{ctl:T '1 s'}"
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Live" Content="{ctl:T '1s'}"
                                              IsChecked="{Binding LiveRefreshMs, Converter={StaticResource Equals}, ConverterParameter=1000}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Live" Content="{ctl:T '2 s'}"
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Live" Content="{ctl:T '2s'}"
                                              IsChecked="{Binding LiveRefreshMs, Converter={StaticResource Equals}, ConverterParameter=2000}" />
                             </StackPanel>
                         </Border>
@@ -572,8 +572,8 @@
                     </ListBox>
                     <DockPanel Style="{StaticResource Row}">
                         <ListBox DockPanel.Dock="Right" Style="{StaticResource ChipList}" ItemContainerStyle="{StaticResource Swatch}" VerticalAlignment="Center"
-                                 AutomationProperties.Name="Accent colour" ItemsSource="{Binding AccentOptions}" SelectedValuePath="Key" SelectedValue="{Binding Accent}" />
-                        <TextBlock Text="{ctl:T 'Accent colour'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                                 AutomationProperties.Name="Accent color" ItemsSource="{Binding AccentOptions}" SelectedValuePath="Key" SelectedValue="{Binding Accent}" />
+                        <TextBlock Text="{ctl:T 'Accent color'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <!-- Only once an accent is picked: from then on every part's colour is a shade of it, and this says
                          whether the colours that judge a reading follow it too. -->
@@ -586,7 +586,7 @@
                                              IsChecked="{Binding KeepStatusColors, Converter={StaticResource Equals}, ConverterParameter=False}" />
                             </StackPanel>
                         </Border>
-                        <TextBlock Text="{ctl:T 'Temperature and usage colours'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Temperature and usage colors'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <!-- The sidebar: what it shows, and Customize, which opens its pop-up over the page (below), never over the
                          sidebar, so each change shows in the sidebar at once (approved mock-up, 2026-10-25). -->
@@ -626,10 +626,10 @@
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="{ctl:T '2 min'}" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=2}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="{ctl:T '5 min'}" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="{ctl:T '10 min'}" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=10}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="{ctl:T '15 min'}" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=15}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="{ctl:T '2m'}" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=2}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="{ctl:T '5m'}" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="{ctl:T '10m'}" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Idle" Content="{ctl:T '15m'}" IsChecked="{Binding IdleMinutes, Converter={StaticResource Equals}, ConverterParameter=15}" />
                             </StackPanel>
                         </Border>
                         <TextBlock Text="{ctl:T 'Count me as away after'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
@@ -647,7 +647,7 @@
                                     <ToolTip MaxWidth="360">
                                         <StackPanel>
                                             <TextBlock Text="{ctl:T 'Ping checks'}" FontWeight="SemiBold" Margin="0,0,0,4" />
-                                            <TextBlock Text="{ctl:T 'Every 5 seconds, a ping to your router and to your internet provider\'s first router: nothing goes anywhere else. Off, the Network page keeps the ping already checked.'}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{ctl:T 'Every 5 seconds it pings your router and your internet provider\'s first router, and nothing else. When it\'s off, the Network page keeps what was already checked.'}" TextWrapping="Wrap" />
                                         </StackPanel>
                                     </ToolTip>
                                 </TextBlock.ToolTip>
@@ -657,12 +657,12 @@
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="{ctl:T '5 s'}" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="{ctl:T '10 s'}" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=10}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="{ctl:T '30 s'}" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="{ctl:T '5s'}" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="{ctl:T '10s'}" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Proc" Content="{ctl:T '30s'}" IsChecked="{Binding ProcessIntervalSeconds, Converter={StaticResource Equals}, ConverterParameter=30}" />
                             </StackPanel>
                         </Border>
-                        <TextBlock Text="{ctl:T 'Per-app CPU and memory sampling'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Check each app\'s CPU and memory every'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -686,14 +686,14 @@
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="{ctl:T '1 s'}" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=1000}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="{ctl:T '2 s'}" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=2000}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="{ctl:T '5 s'}" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=5000}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="{ctl:T '10 s'}" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=10000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="{ctl:T '1s'}" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=1000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="{ctl:T '2s'}" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=2000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="{ctl:T '5s'}" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=5000}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="Sensor" Content="{ctl:T '10s'}" IsChecked="{Binding SensorIntervalMs, Converter={StaticResource Equals}, ConverterParameter=10000}" />
                             </StackPanel>
                         </Border>
                         <StackPanel>
-                            <TextBlock Text="{ctl:T 'Background sensor sampling'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'Read sensors every'}" Style="{StaticResource Title}" />
                             <TextBlock Text="{ctl:T 'While this window is closed.'}" Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
@@ -809,9 +809,9 @@
                     <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding SessionSummaries}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '5 min'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '15 min'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=15}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '30 min'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '5m'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '15m'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=15}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '30m'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=30}" />
                                 <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '1 hour'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=60}" />
                             </StackPanel>
                         </Border>
@@ -846,10 +846,10 @@
                         <DockPanel Style="{StaticResource Row}">
                             <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                                 <StackPanel Orientation="Horizontal">
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="{ctl:T '5 s'}" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="{ctl:T '10 s'}" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=10}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="{ctl:T '30 s'}" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=30}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="{ctl:T '60 s'}" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=60}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="{ctl:T '5s'}" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="{ctl:T '10s'}" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="{ctl:T '30s'}" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Sustain" Content="{ctl:T '60s'}" IsChecked="{Binding SustainSeconds, Converter={StaticResource Equals}, ConverterParameter=60}" />
                                 </StackPanel>
                             </Border>
                             <TextBlock Text="{ctl:T 'Only alert if it lasts'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
@@ -857,9 +857,9 @@
                         <DockPanel Style="{StaticResource Row}">
                             <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                                 <StackPanel Orientation="Horizontal">
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="{ctl:T '5 min'}" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="{ctl:T '10 min'}" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=10}" />
-                                    <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="{ctl:T '30 min'}" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="{ctl:T '5m'}" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="{ctl:T '10m'}" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="{ctl:T '30m'}" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=30}" />
                                     <RadioButton Style="{StaticResource Segment}" GroupName="Cool" Content="{ctl:T '1 hour'}" IsChecked="{Binding CooldownMinutes, Converter={StaticResource Equals}, ConverterParameter=60}" />
                                 </StackPanel>
                             </Border>
@@ -882,9 +882,9 @@
                     <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding NotificationStyle, Converter={StaticResource Equals}, ConverterParameter=Card}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="{ctl:T '5 s'}" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="{ctl:T '8 s'}" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=8}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="{ctl:T '15 s'}" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=15}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="{ctl:T '5s'}" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="{ctl:T '8s'}" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=8}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="CardSec" Content="{ctl:T '15s'}" IsChecked="{Binding CardSeconds, Converter={StaticResource Equals}, ConverterParameter=15}" />
                             </StackPanel>
                         </Border>
                         <TextBlock Text="{ctl:T 'Cards stay on screen for'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
@@ -1042,12 +1042,12 @@
                         <StackPanel Visibility="{Binding LicenceActive, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                             <DockPanel Style="{StaticResource Row}">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBox Width="260" Style="{StaticResource FieldBox}" FontFamily="Consolas" Text="{Binding LicenceKey, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Licence key'}" />
+                                    <TextBox Width="260" Style="{StaticResource FieldBox}" FontFamily="Consolas" Text="{Binding LicenceKey, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'License key'}" />
                                     <ctl:Spinner Width="14" Height="14" Margin="10,0,0,0" Visibility="{Binding ActivateCommand.IsRunning, Converter={StaticResource Vis}}" />
                                     <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Activate'}" Command="{Binding ActivateCommand}" Margin="8,0,0,0" />
                                 </StackPanel>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{ctl:T 'Licence key'}" Style="{StaticResource Title}" />
+                                    <TextBlock Text="{ctl:T 'License key'}" Style="{StaticResource Title}" />
                                     <TextBlock Text="{ctl:T 'Bought on another PC or on the website? Type the key from your receipt.'}" Style="{StaticResource Hint}" />
                                 </StackPanel>
                             </DockPanel>
@@ -1070,7 +1070,7 @@
                                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Copy'}" Command="{Binding CopyLicenceCommand}" Margin="8,0,0,0" />
                             </StackPanel>
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Licence key'}" Style="{StaticResource Title}" />
+                                <TextBlock Text="{ctl:T 'License key'}" Style="{StaticResource Title}" />
                                 <TextBlock Text="{ctl:T 'Locked to this PC. Moving to a new PC? Contact support with your key.'}" Style="{StaticResource Hint}" />
                             </StackPanel>
                         </DockPanel>
@@ -1336,7 +1336,7 @@
                                         <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{ctl:T 'Switch to Ollama'}" Command="{Binding SwitchToOllamaCommand}" VerticalAlignment="Center" Margin="14,0,0,0" />
                                         <StackPanel>
                                             <TextBlock Text="{ctl:T 'That\'s Ollama on this PC'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                                            <TextBlock Text="{ctl:T 'RigSight has its own Ollama setting, with model downloads and sizes for your graphics card.'}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                            <TextBlock Text="{ctl:T 'RigSight has its own Ollama setting, with model downloads and sizes for your GPU.'}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
                                         </StackPanel>
                                     </DockPanel>
                                 </ctl:SmoothBorder>
@@ -1916,7 +1916,7 @@
                         <ctl:SmoothBorder CornerRadius="10" Padding="14,12" Margin="0,14,0,0" Background="{DynamicResource WarmSoftBrush}" BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1"
                                           Visibility="{Binding InstructionsOutdated, Converter={StaticResource Vis}}">
                             <StackPanel>
-                                <TextBlock Text="{ctl:T 'RigSight\'s instructions got better in this version'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
+                                <TextBlock Text="{ctl:T 'RigSight\'s instructions changed in this version'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
                                 <TextBlock Text="{ctl:T 'You\'re still using your own, so you don\'t get the changes. Reset to use RigSight\'s new ones, or keep yours.'}"
                                            FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
@@ -2229,7 +2229,7 @@
                         </Border>
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="{ctl:T 'Motherboard fans, voltages and temperatures'}" Style="{StaticResource Title}" />
-                            <TextBlock Text="{ctl:T 'Fans still shows the graphics card\'s fans.'}" Style="{StaticResource Hint}" />
+                            <TextBlock Text="{ctl:T 'Fans still shows the GPU\'s fans.'}" Style="{StaticResource Hint}" />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
@@ -2575,7 +2575,7 @@
                     </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AutoUpdate}" Margin="0,10"
                               Visibility="{Binding StandardAccount, Converter={StaticResource Vis}, ConverterParameter=Invert}"
-                              ToolTip="{ctl:T 'When it\'s on, RigSight looks for a new version once a day and installs it. When it\'s off, it doesn\'t contact GitHub unless you press Check for updates.'}">
+                              ToolTip="{ctl:T 'When it\'s off, RigSight doesn\'t contact GitHub unless you press Check for updates.'}">
                         <TextBlock Text="{ctl:T 'Update automatically'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
                     <!-- After an update (2026-10-27, people asked not to have What's new open up front): a button in the title bar,
@@ -2691,7 +2691,7 @@
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'Open-source notices'}" Style="{StaticResource Title}" />
                             <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
-                                       Text="{ctl:T 'Licences of everything RigSight includes.'}" />
+                                       Text="{ctl:T 'Licenses of everything RigSight includes.'}" />
                         </StackPanel>
                     </DockPanel>
                     <StackPanel Margin="0,10">

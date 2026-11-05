@@ -174,10 +174,10 @@ public static partial class Relay
             }
             if (ReadStatus(text) is not { } status)
             {
-                Log.Write("relay", $"Activating a key: expected this PC's licence, got HTTP {(int)res.StatusCode} {Short(text)}");
+                Log.Write("relay", $"Activating a key: expected this PC's license, got HTTP {(int)res.StatusCode} {Short(text)}");
                 return (null, Lang.T("RigSight AI isn't answering, so the key couldn't be checked. Try again in a minute."), null);
             }
-            Log.Write("relay", "Licence activated on this PC");
+            Log.Write("relay", "License activated on this PC");
             return (status, null, null);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or UriFormatException && !ct.IsCancellationRequested)
@@ -408,13 +408,13 @@ public static partial class Relay
             ("unavailable", "billing") => Lang.T("Your plan couldn't be changed right now. Nothing was charged. Try again in a minute."),
             ("out_of_questions", "free") => Lang.T("This PC has used its free questions. See plans for more, or use your API key or Ollama."),
             ("out_of_questions", _) => Lang.T("You're out of questions, so this one wasn't sent. See plans in Settings › Ask RigSight."),
-            ("licence", "not_found") => Lang.T("That licence key wasn't found. Check it against your receipt email."),
+            ("licence", "not_found") => Lang.T("That license key wasn't found. Check it against your receipt email."),
             ("licence", "other_pc") => activating
-                ? Lang.T("This key is in use on another PC. A licence works on one PC.")
-                : Lang.T("Your licence is now in use on another PC, so this PC can't ask with it."),
-            ("licence", "refunded") => Lang.T("This licence was refunded, so it can't ask questions any more. See plans to start a new one."),
-            ("licence", _) when inSettings => Lang.T("Your licence is turned off, so this PC can't ask questions. Contact support with your key."),
-            ("licence", _) => Lang.T("This licence is turned off. Contact support from Settings › Ask RigSight."),
+                ? Lang.T("This key is in use on another PC. A license works on one PC. To use it here, contact support with your key.")
+                : Lang.T("Your license is now in use on another PC, so this PC can't ask with it. To use it here again, contact support with your key."),
+            ("licence", "refunded") => Lang.T("Your plan was refunded, so it has ended. See plans to start a new one."),
+            ("licence", _) when inSettings => Lang.T("Your license is turned off, so this PC can't ask questions. Contact support with your key."),
+            ("licence", _) => Lang.T("This license is turned off. Contact support from Settings › Ask RigSight."),
             ("update_needed", _) => Lang.T("RigSight AI needs the latest RigSight. Update, then ask again."),
             // Past the relay's limits for one question (rounds, size): it was counted, so no "wasn't counted".
             ("unavailable", "stopped") => Lang.T("RigSight AI couldn't finish this answer. Ask again, or ask about one part of it."),

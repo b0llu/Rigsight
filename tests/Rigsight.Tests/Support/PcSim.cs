@@ -291,11 +291,7 @@ internal sealed class PcSim
         if (_o.GameTail > 0)
             t = Run(t, TimeSpan.FromMinutes(_o.GameTail), until, _ => new Load(_apps["chrome.exe"], id, CpuLoad: game.CpuLoad, CpuPower: game.CpuPower, GpuLoad: game.GpuLoad * 0.9, GpuPower: game.GpuPower * 0.9, Present: true));
         return t;
-    }
-
-    /// <summary>Heavy work on the CPU (a compile): the CPU at full tilt, the GPU resting.</summary>
-    public DateTime Compile(DateTime from, TimeSpan length, DateTime until) =>
-        Run(from, length, until, _ => new Load(_apps["code.exe"], null, 90 + _rnd.NextDouble() * 10, 110, 4, 30, true, CpuApp: _apps["code.exe"]));
+    }
 
     private readonly record struct Load(long Front, long? GpuApp, double CpuLoad, double CpuPower, double GpuLoad, double GpuPower, bool Present, long? CpuApp = null);
 

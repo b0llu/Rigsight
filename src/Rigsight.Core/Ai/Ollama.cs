@@ -262,7 +262,7 @@ public static class Ollama
                 Log.Write("ollama", $"{model} round {round}: expected an answer, got HTTP {status}: {error}");
                 return new AiReply(null, status == 404
                     ? Lang.T($"Ollama doesn't have {model} any more. Pick another model in Settings › Ask RigSight.")
-                    : Lang.T($"Ollama couldn't answer ({error})"), lookUps);
+                    : Lang.T($"Ollama couldn't answer ({error}). Ask again, or pick another model in Settings."), lookUps);
             }
             var msg = json?["message"];
             if (msg?["tool_calls"] is JsonArray { Count: > 0 } calls)
@@ -288,8 +288,8 @@ public static class Ollama
             string? note = null;
             if (await OnCardAsync(root, model, ct) is { } onCard && onCard < 0.95 && Warned.Add(model))
             {
-                Log.Write("ollama", $"{model} is {onCard:P0} on the graphics card; the rest runs on the processor");
-                note = Lang.T($"Only part of {model} fits on your graphics card, so answers take longer. A smaller model in Settings › Ask RigSight would be quicker.");
+                Log.Write("ollama", $"{model} is {onCard:P0} on the GPU; the rest runs on the CPU");
+                note = Lang.T($"Only part of {model} fits on your GPU, so answers take longer. A smaller model in Settings › Ask RigSight would be quicker.");
             }
             return new AiReply(answer, null, lookUps, model, note);
         }

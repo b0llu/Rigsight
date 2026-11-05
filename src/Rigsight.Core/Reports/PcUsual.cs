@@ -392,13 +392,13 @@ public sealed class PcUsual
         }
         if (Problems is { } pr)
         {
-            rows.Add(new("problems", Lang.T("PC problems"), Lang.T("Blue screens, driver resets, shut-offs in use (not power cuts)"), pr.Now.Count == 0 ? Lang.T("None") : pr.Now.Count.ToString(),
+            rows.Add(new("problems", Lang.T("PC problems"), Lang.T("Blue screens, graphics driver resets and sudden shut-offs while in use, not power cuts"), pr.Now.Count == 0 ? Lang.T("None") : pr.Now.Count.ToString(),
                 pr.UsualCount == 0 ? Lang.T("None") : Wording.Capital(About(pr.UsualCount, pr.UsualWeeks, pr.PeriodWeeks)), Lang.T("The weeks before, at this much use"), pr.Tone,
                 // What went up, against its own usual: "3 graphics driver resets, usually none".
                 pr.Tone switch { EffectTone.Worse => Lang.T("More than usual"), EffectTone.Better => Lang.T("Fewer than usual"), _ => Lang.T("As usual") },
                 pr.Tone == EffectTone.Worse ? $"{Wording.Capital(pr.Words)}, {pr.UsualWords}" : null));
             if (pr.PowerNow + pr.PowerUsual > 0)
-                rows.Add(new("power", Lang.T("Shut-offs that look like the power"), Lang.T("Likely or possibly a power cut, a dip, the mains or the power supply"), pr.PowerNow.ToString(),
+                rows.Add(new("power", Lang.T("Sudden shut-offs that look like the power"), Lang.T("Likely or possibly a power cut, a dip, the mains or the power supply"), pr.PowerNow.ToString(),
                     pr.PowerUsual == 0 ? Lang.T("None") : Wording.Capital(About(pr.PowerUsual, pr.UsualWeeks, pr.PeriodWeeks)), Lang.T("The weeks before"), pr.PowerTone,
                     pr.PowerTone == EffectTone.Worse ? Lang.T("More than usual") : Lang.T("Not judged"), pr.PowerTone == EffectTone.Worse ? Lang.T("If the mains was steady, check the power supply") : null));
         }

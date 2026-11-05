@@ -207,7 +207,7 @@ public partial class RewindLayer : UserControl
                 ? new LinearGradientBrush(Color.FromRgb(0x5B, 0x8C, 0xFF), Color.FromRgb(0xF4, 0x72, 0xB6), 45)
                 : new SolidColorBrush(a.OnDark);
             string key = a.Key;
-            AccentSwatches.Children.Add(Swatch(16, fill, look.Accent == key, key == Accents.Mono ? Core.Lang.T("RigSight colours") : Core.Lang.T(a.Name), () => _vm.SetAccent(key)));
+            AccentSwatches.Children.Add(Swatch(16, fill, look.Accent == key, key == Accents.Mono ? Core.Lang.T("RigSight colors") : Core.Lang.T(a.Name), () => _vm.SetAccent(key)));
         }
     }
 

@@ -89,15 +89,17 @@ public sealed class CrashStrip : FrameworkElement
             if (i == _hover)
                 dc.DrawRoundedRectangle(ChartPaint.Track, null, new Rect(cx - Math.Max(slot, 8) / 2, plot.Top - 2, Math.Max(slot, 8), plot.Height + MarkHeight + 2), 4, 4);
 
-            // Worst at the bottom, so the colour you notice first is the one that matters.
+            // Worst at the bottom, so the colour you notice first is the one that matters: one plain bar (StackedBar).
             double y = plot.Bottom;
+            var pieces = new List<(Brush, double)>();
             for (int s = Fills.Length - 1; s >= 0; s--)
             {
                 if (d.Counts[s] == 0) continue;
                 double bh = Math.Max(3, d.Counts[s] / (double)max * plot.Height);
-                dc.DrawRoundedRectangle(Fills[s], null, new Rect(cx - barW / 2, y - bh, barW, bh), Math.Min(2, barW / 2), Math.Min(2, barW / 2));
-                y -= bh + 1;
+                pieces.Add((Fills[s], bh));
+                y -= bh;
             }
+            StackedBar.Draw(dc, cx - barW / 2, barW, plot.Bottom, pieces);
 
             if (d.Changes.Count > 0)
             {

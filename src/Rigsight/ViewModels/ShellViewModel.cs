@@ -320,8 +320,8 @@ public sealed partial class ShellViewModel : ObservableObject
             return crashes switch
             {
                 0 => null,
-                1 => Lang.T("RigSight can explain the crash on this PC this month."),
-                _ => Lang.T($"RigSight can explain the {crashes} crashes on this PC this month."),
+                1 => Lang.T("Ask about the crash on this PC this month."),
+                _ => Lang.T($"Ask about the {crashes} crashes on this PC this month."),
             };
         }
         if (page != "timeline" || await Reports.TimelineAsync() is not { Changes.Count: > 0 } data) return null;

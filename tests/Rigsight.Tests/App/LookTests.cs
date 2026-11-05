@@ -436,7 +436,7 @@ public sealed class LookTests
                 // One line that belongs to each tab, in the tabs' order. Privacy sits with Tracking, Updates with About.
                 string[][] own =
                 [
-                    ["Temperature unit"], ["Accent colour"], ["Pause tracking", "Privacy", "Apps that are never recorded"], ["Background sensor sampling"],
+                    ["Temperature unit"], ["Accent color"], ["Pause tracking", "Privacy", "Apps that are never recorded"], ["Read sensors every"],
                     ["Daily recap"], ["AI helper"], ["Keep history for"], ["Rewinds to make", "What goes in"], ["Updates", "Update automatically", "Background agent", "Open-source notices"],
                 ];
                 for (int i = 0; i < tabs.Count; i++)
@@ -455,7 +455,7 @@ public sealed class LookTests
                 vm.GoTo("sensors");
                 Ui.Pump(300);
                 Assert.Equal("sensors", vm.Tab);
-                Assert.True(Shown("Background sensor sampling"));
+                Assert.True(Shown("Read sensors every"));
 
                 // On a standard account the ninth tab shows, with what is off there.
                 vm.StandardAccount = true;
@@ -465,7 +465,7 @@ public sealed class LookTests
                 Ui.Pump(120);
                 Assert.Equal("admin", vm.Tab);
                 Assert.True(Shown("This is a standard account"));
-                Assert.False(Shown("Background sensor sampling"));
+                Assert.False(Shown("Read sensors every"));
             }
             finally { window.Close(); }
         });
@@ -483,7 +483,7 @@ public sealed class LookTests
                 var window = Host(new Views.SettingsView { DataContext = vm });
                 try
                 {
-                    TextBlock Title() => Visuals.Descendants<TextBlock>(window).Single(t => t.Text == "Temperature and usage colours");
+                    TextBlock Title() => Visuals.Descendants<TextBlock>(window).Single(t => t.Text == "Temperature and usage colors");
                     Assert.False(Title().IsVisible);
                     vm.Accent = "teal";
                     vm.Refresh(); // as the shell does on every settings change

@@ -134,7 +134,7 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                 <StackPanel>
                     <TextBlock Text="{ctl:T 'What it shows'}" Style="{StaticResource H2}" />
-                    <TextBlock Text="{ctl:T 'Pick the readings you want. Fewer is easier to read at a glance. Game readings appear while a game is running; RivaTuner measures them.'}" Style="{StaticResource Muted}"
+                    <TextBlock Text="{ctl:T 'Game readings show while a game is running. RivaTuner measures them.'}" Style="{StaticResource Muted}"
                                FontSize="12.5" Margin="0,2,0,14" TextWrapping="Wrap" />
                     <ItemsControl ItemsSource="{Binding Groups}">
                         <ItemsControl.ItemTemplate>
@@ -256,13 +256,13 @@
                                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset position'}" Command="{Binding ResetPositionCommand}"
                                         Margin="12,0,0,0" VerticalAlignment="Center" ToolTip="{ctl:T 'Back to the top-left corner'}" />
                                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding SnapPosition}" VerticalAlignment="Center">
-                                    <TextBlock Text="{ctl:T 'Snap to edges and centre'}" Foreground="{DynamicResource TextBrush}" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="{ctl:T 'Snap to edges and center'}" Foreground="{DynamicResource TextBrush}" FontSize="13" VerticalAlignment="Center" />
                                 </CheckBox>
                             </DockPanel>
                             <TextBlock Text="{ctl:T 'It\'s off the screen now, so it won\'t show. Reset position brings it back.'}"
                                        FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,0,0,8"
                                        Visibility="{Binding IsOffScreen, Converter={StaticResource Vis}}" />
-                            <TextBlock Text="{ctl:T 'Drag it anywhere, even partly off the screen. It snaps to the corners, edges and centre.'}"
+                            <TextBlock Text="{ctl:T 'Drag it anywhere, even partly off the screen. It snaps to the corners, edges and center.'}"
                                        Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
                                        Visibility="{Binding SnapPosition, Converter={StaticResource Vis}}" />
                             <TextBlock Text="{ctl:T 'Drag it anywhere, off the screen too. Click it, then use the arrow keys to move it a pixel at a time, or 10 with Shift.'}"

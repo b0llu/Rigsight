@@ -139,7 +139,7 @@ public static class RewindCards
         {
             var first = f.TopApps[0];
             var rows = f.TopApps.Skip(1).Select((a, i) => new RewindRow(a.Name, Units.Duration(a.Value), 0, i + 2, a.Exe, a.Path)).ToList();
-            cards.Add(new("apps", Lang.T("Most used"), Lang.T("Your most used app"), first.Name, Lang.T($"{Units.Duration(first.Value)} in front of you."))
+            cards.Add(new("apps", Lang.T("Most used"), Lang.T("Your most used app"), first.Name, Lang.T($"{Units.Duration(first.Value)} on your screen."))
             { Wordy = true, Rows = rows, Tag = first.Path });
         }
         if (f.Time && (!games || light) && PeakHours(f.UseHours) is var (useFrom, useTo))
@@ -184,16 +184,16 @@ public static class RewindCards
             int space = data.LastIndexOf(' ');
             double top = f.TopInternet.Count > 0 ? f.TopInternet[0].Value : 0;
             var rows = f.TopInternet.Select(a => new RewindRow(a.Name, Units.Data(a.Value), top > 0 ? a.Value / top : 0, 0, a.Exe, a.Path)).ToList();
-            string sub = rows.Count > 0 ? Lang.T($"And uploaded {Units.Data(f.Up)}. Most of it came through these apps.") : Lang.T($"And uploaded {Units.Data(f.Up)}.");
+            string sub = rows.Count > 0 ? Lang.T($"And uploaded {Units.Data(f.Up)}. These apps used the most.") : Lang.T($"And uploaded {Units.Data(f.Up)}.");
             cards.Add(new("internet", Lang.T("You downloaded"), Lang.T("You downloaded"), space > 0 ? data[..space] : data, sub)
             { Unit = space > 0 ? data[(space + 1)..] : null, Rows = rows });
         }
 
         if (f.Heat && (f.HotSpot ?? f.GpuHot ?? f.CpuHot) is not null)
         {
-            var parts = new[] { (f.HotSpot, Lang.T("Your graphics card’s hot spot"), Lang.T("Graphics card hot spot"), Purple),
-                                (f.GpuHot, Lang.T("Your graphics card"), Lang.T("Graphics card"), Cyan),
-                                (f.CpuHot, Lang.T("Your processor"), Lang.T("Processor"), Blue) }
+            var parts = new[] { (f.HotSpot, Lang.T("Your GPU’s hot spot"), Lang.T("GPU hot spot"), Purple),
+                                (f.GpuHot, Lang.T("Your GPU"), Lang.T("GPU"), Cyan),
+                                (f.CpuHot, Lang.T("Your CPU"), Lang.T("CPU"), Blue) }
                 .Where(p => p.Item1 is not null).Select(p => (Heat: p.Item1!, Whole: p.Item2, Part: p.Item3, Hue: p.Item4)).ToList();
             var max = parts.MaxBy(p => p.Heat.Value);
             string When(RewindHeat h) => h.App is { } app
@@ -231,7 +231,7 @@ public static class RewindCards
         // Nothing went wrong: good news is a card too.
         if (f.Problems && f.AppCrashes + f.ShutOffs == 0 && f.DaysOn > 0)
             cards.Add(new("problems", Lang.T("What went wrong"), Lang.T("What went wrong"), Lang.T("Nothing"),
-                Lang.T("Not one app or game crashed, and your PC never shut down without warning.")) { Wordy = true });
+                Lang.T("Not one app or game crashed, and your PC never shut off suddenly.")) { Wordy = true });
         if (f.Problems && f.AppCrashes + f.ShutOffs > 0)
         {
             int worst = f.CrashesByDay.Count > 0 ? f.CrashesByDay.Max() : 0;
@@ -243,7 +243,7 @@ public static class RewindCards
                 Tiles =
                 [
                     new(f.AppCrashes == 1 ? Lang.T("time an app or game crashed") : Lang.T("times an app or game crashed"), f.AppCrashes.ToString(CultureInfo.CurrentCulture), Purple),
-                    new(f.ShutOffs == 1 ? Lang.T("time your PC shut down without warning") : Lang.T("times your PC shut down without warning"), f.ShutOffs.ToString(CultureInfo.CurrentCulture), Blue),
+                    new(f.ShutOffs == 1 ? Lang.T("sudden shut-off") : Lang.T("sudden shut-offs"), f.ShutOffs.ToString(CultureInfo.CurrentCulture), Blue),
                 ],
             });
         }
@@ -305,7 +305,7 @@ public static class RewindCards
         if (perPlay >= 5400)
             return (Lang.T("Marathon player"), Lang.T($"You played for {Units.Duration(perPlay)} at a time, on average."));
         if (f.GameCount >= 8)
-            return (Lang.T("Variety player"), Lang.T($"You tried something new all month, but {first.Name} kept pulling you back."));
+            return (Lang.T("Variety player"), Lang.T($"You tried {f.GameCount} different games, but {first.Name} kept pulling you back."));
         return (Lang.T("Steady player"), Lang.T($"About {Units.Duration(perPlay)} each time you played."));
     }
 

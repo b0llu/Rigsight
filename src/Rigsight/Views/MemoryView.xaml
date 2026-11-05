@@ -186,7 +186,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock Text="{ctl:T 'Collecting data — check back in a few minutes.'}" Style="{StaticResource Muted}"
+                    <TextBlock Text="{ctl:T 'Nothing measured yet today. The list fills in within a few minutes.'}" Style="{StaticResource Muted}"
                                Visibility="{Binding ShowCollecting, Converter={StaticResource Vis}}" />
                     <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,110,0,0"
                                  Visibility="{Binding Ready, Converter={StaticResource Vis}, ConverterParameter=Invert}" />

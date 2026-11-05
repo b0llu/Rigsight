@@ -68,7 +68,7 @@ public class CaseMinutesTests
         }).ToList();
         long opened = Crash - 6 * 60 + 20;
         var said = Find(Minutes(Climb), apps, opened: [(1, opened)], power: true);
-        Assert.Equal($"CPU went from 63° to 91° as Rocket League was starting at {TimeUtil.FromUnix(opened):h:mm tt}. That's Rocket League loading; it isn't why the PC went off.", said[0].Text);
+        Assert.Equal($"CPU went from 63° to 91° as Rocket League was starting at {TimeUtil.FromUnix(opened):h:mm tt}. That's Rocket League loading, not why the PC shut off.", said[0].Text);
         Assert.False(said[0].Warn);
         // Opened long before the climb: the climb is said as before.
         Assert.EndsWith("No one app was doing most of the work.", Find(Minutes(Climb), apps, opened: [(1, Crash - 30 * 60)], power: true)[0].Text);
@@ -102,7 +102,7 @@ public class CaseMinutesTests
         var minutes = Minutes(_ => 60, (before, m) => m.CommitPct = before < 4 ? 96 : 60);
         var apps = new List<AppMinute> { new(Crash, 3, 5, 0, 9216, 0), new(Crash, 1, 20, 70, 5800, 0) };
         var memory = Assert.Single(Find(minutes, apps), s => s.Text.StartsWith("Windows was nearly out of memory"));
-        Assert.Equal("Windows was nearly out of memory, with 96% of what it can promise promised to apps, the most to Chrome (9.0 GB).", memory.Text);
+        Assert.Equal("Windows was nearly out of memory, with 96% of its memory and page file already promised to apps, the most to Chrome (9.0 GB).", memory.Text);
         Assert.True(memory.Warn);
     }
 

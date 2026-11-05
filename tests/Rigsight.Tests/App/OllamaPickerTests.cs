@@ -68,7 +68,7 @@ public sealed class OllamaPickerTests
     {
         long gb = 1_000_000_000;
         Assert.Equal("3.1 of 8 GB", AiSettingsViewModel.DownloadText((long)(3.1 * gb), 8 * gb, 0));
-        Assert.Equal("3.1 of 8 GB · 18 MB/s · about 5 min left", AiSettingsViewModel.DownloadText((long)(3.1 * gb), 8 * gb, 18_000_000));
+        Assert.Equal("3.1 of 8 GB · 18 MB/s · about 5m left", AiSettingsViewModel.DownloadText((long)(3.1 * gb), 8 * gb, 18_000_000));
         Assert.EndsWith("less than a minute left", AiSettingsViewModel.DownloadText(8 * gb - 1_000_000, 8 * gb, 18_000_000));
     }
 

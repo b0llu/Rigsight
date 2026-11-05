@@ -154,7 +154,7 @@ public static class ReadableExport
     public static string CrashesText(IReadOnlyList<CrashStory> stories, string period, DateTime made, string version, bool tight = false)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(Lang.T("RigSight crashes"));
+        sb.AppendLine(Lang.T("Crashes on this PC"));
         sb.AppendLine(stories.Count == 0 ? Lang.T($"{period}, none recorded.") : Lang.T($"{period}, {stories.Count} recorded, latest first."));
         foreach (var s in stories.OrderByDescending(s => s.Crash.Ts))
         {
@@ -192,7 +192,7 @@ public static class ReadableExport
     public static string Snapshot(DateTime at, string version, string pc, IEnumerable<SnapshotReading> readings, IEnumerable<string> notes)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(Lang.T("RigSight PC snapshot"));
+        sb.AppendLine(Lang.T("PC snapshot"));
         sb.AppendLine($"{at.ToString(TimeText.Fit("dddd, d MMMM yyyy, h:mm tt"), CultureInfo.InvariantCulture)}  ·  RigSight {version}");
         sb.AppendLine();
         sb.AppendLine(Lang.T("THIS PC"));
@@ -208,11 +208,11 @@ public static class ReadableExport
         if (all.Count == 0)
         {
             sb.AppendLine();
-            sb.AppendLine(Lang.T("No sensor readings because the background agent wasn't running."));
+            sb.AppendLine(Lang.T("No sensor readings, because RigSight wasn't recording."));
             return sb.ToString();
         }
         sb.AppendLine();
-        sb.AppendLine(Lang.T("READINGS  (now, then the lowest and highest since RigSight started)"));
+        sb.AppendLine(Lang.T("READINGS  (now, then today's lowest and highest)"));
         int name = Math.Min(44, all.Max(r => r.Name.Length)), now = all.Max(r => r.Now.Length), low = all.Max(r => r.Lowest.Length);
         foreach (var part in all.GroupBy(r => r.Part))
         {

@@ -28,7 +28,7 @@ public sealed partial class AskViewModel
         : Lang.T("Ask about your PC…");
 
     /// <summary>The panel's own invitation: a new chat beside the one open in Ask, or the usual words.</summary>
-    public string BarPlaceholder => IsOpen ? Lang.T("Start a new chat…") : Lang.T("Ask about your PC…");
+    public string BarPlaceholder => IsOpen ? Lang.T("Start a new conversation…") : Lang.T("Ask about your PC…");
 
     /// <summary>The box's words are something typed (brighter than the invitation).</summary>
     public bool BarHasDraft => BarDraft.Length > 0 && !BarLocked;

@@ -27,8 +27,7 @@ public sealed class WordingTests
         (Cs(@"\bPOWER LOST\b"), "\"likely a power cut\" (lost power only as a cause)"),
         (Ci(@"\bGPU driver"), "\"graphics driver\""),
         (Ci("Graphics trouble"), "\"graphics driver reset\""),
-        (Ci("Click for the full breakdown"), Wording.FullPicture),
-        (Ci("Click for the full recap"), Wording.FullPicture),
+        (Ci(@"Click for the full (breakdown|recap|picture)"), "nothing: a click on a notification opens its page"),
         (Ci(@"Nothing recorded"), "\"Not recorded\", \"No reading\" or \"No …\" naming what didn't happen"),
         (Ci(@"No readings recorded"), "\"Not recorded\" or \"No reading\""),
         (Ci(@"No temperatures recorded"), "\"Not recorded\" or \"No reading\""),
@@ -40,6 +39,15 @@ public sealed class WordingTests
         (Ci("your daily average"), "\"your usual\""),
         (Ci("over the previous 7 days"), "\"the last 7 days\" or \"the 7 days before\""),
         (Ci(@"\bin the week before\b"), "\"in the 7 days before\""),
+        // Added with the copy audit (2026-11-05): forms the table already retired that came back unnoticed.
+        (Ci(@"\bgraphics cards?\b"), "\"GPU\" (\"graphics driver\" stays)"),
+        (Ci(@"\b(not|stopped) responding\b"), "\"froze\" (chip FROZE)"),
+        (Ci(@"\bPC went (off|down)\b"), "\"sudden shut-off\" or \"the PC shut off suddenly\""),
+        (Ci(@"\bshut down without warning\b"), "\"sudden shut-off\""),
+        (Cs(@"\bDriver resets?\b"), "\"Graphics driver reset\""),
+        (Ci(@"\bhit an unhandled\b"), "\"crashed with a …\""),
+        (Ci(@"\bcolours?\b"), "\"color\" (US spelling across the app)"),
+        (Ci(@"\blicence\b"), "\"license\" (US spelling across the app)"),
     ];
 
     /// <summary>
@@ -50,18 +58,36 @@ public sealed class WordingTests
     [
         @"src\Rigsight\Services\Changelog.cs", // past What's new entries are not changed
         @"src\Rigsight.Core\Stability\CrashLogReader.cs", // Windows' own event text, quoted in a crash's technical details
+        // Text only the AI model reads (its instructions and the tools' answers): never shown, and reworded only with the prompts.
+        @"src\Rigsight.Core\Ai\AiPrompt.cs",
+        @"src\Rigsight.Core\Ai\AiPrompt.OwnKey.cs",
+        @"src\Rigsight.Core\Ai\AiTools.cs",
+        @"src\Rigsight.Core\Ai\AiTools.More.cs",
+        @"src\Rigsight.Core\Ai\RunningNow.cs",
+        // Saved English forms and the patterns that read them back: old rows keep their words, SavedText shows them in today's.
+        @"src\Rigsight.Core\Text\SavedText.cs",
     ];
 
-    /// <summary>One form left in one file, with the reason beside it (none at present).</summary>
+    /// <summary>One form left in one file, with the reason beside it.</summary>
     private static readonly (string File, string Form)[] AllowedOnce =
     [
+        // The words a web search for a crash is made of: Windows' own, so they find what people write about it.
+        (@"src\Rigsight\Models\CrashGroup.cs", "stopped responding"),
+        (@"src\Rigsight\Models\CrashGroup.cs", "not responding"),
+        // A file name pattern for an app's licence file (LICENCE.txt), not a word anyone reads.
+        (@"src\Rigsight.Core\Ai\OpenableApps.cs", "licence"),
+        // A hardware change saved as it was written; SavedText shows it as "GPU … added/removed".
+        (@"src\Rigsight.Core\Stability\Inventory.cs", "Graphics card"),
+        (@"src\Rigsight.Core\Data\RigsightDb.Changes.cs", "Graphics card"),
+        // Lines only the AI reads, in the games tool's answer.
+        (@"src\Rigsight.Core\Games\GameSettings.cs", "graphics card"),
     ];
 
     /// <summary>
     /// Whole literals that are keys, not words anyone reads: the temperature graph's line setting is stored as "Avg",
     /// "High" or "Low" in settings.json, and the page shows Average, Highest and Lowest for them.
     /// </summary>
-    private static readonly string[] Keys = ["Avg"];
+    private static readonly string[] Keys = ["Avg", "licence"]; // "licence": the relay's JSON field and error name
 
     [Fact]
     public void No_retired_form_is_said_anywhere()

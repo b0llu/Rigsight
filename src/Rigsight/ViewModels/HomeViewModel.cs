@@ -213,27 +213,25 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     };
 
     // Each period's sentence whole; a day standing in for yesterday by its name.
+    // These periods are over (they end yesterday, see Bounds), so nothing says "yet": an empty one stays empty.
     public string RecapEmptyTitle => Period switch
     {
-        RecapPeriod.LastWeek => Lang.T("No history for the last 7 days yet."),
-        RecapPeriod.LastMonth => Lang.T("No history for the last 30 days yet."),
-        RecapPeriod.LastYear => Lang.T("No history for the last 12 months yet."),
-        _ when StandIn is not null => DayEmptyTitle(RecapTitle.ToLowerInvariant()),
-        _ => Lang.T("No history for yesterday yet."),
+        RecapPeriod.LastWeek => Lang.T("Not recorded in the last 7 days."),
+        RecapPeriod.LastMonth => Lang.T("Not recorded in the last 30 days."),
+        RecapPeriod.LastYear => Lang.T("Not recorded in the last 12 months."),
+        _ when StandIn is not null => DayEmptyTitle(RecapTitle),
+        _ => Lang.T("Not recorded yesterday."),
     };
 
-    private static string DayEmptyTitle(string day) => Lang.T($"No history for {day} yet.");
+    private static string DayEmptyTitle(string day) => Lang.T($"Not recorded on {day}.");
 
     public string RecapEmptyText => Period switch
     {
-        RecapPeriod.LastWeek => Lang.T("Active time, most-used apps and highlights for the last 7 days show here once there's history for them."),
-        RecapPeriod.LastMonth => Lang.T("Active time, most-used apps and highlights for the last 30 days show here once there's history for them."),
-        RecapPeriod.LastYear => Lang.T("Active time, most-used apps and highlights for the last 12 months show here once there's history for them."),
-        _ when StandIn is not null => DayEmptyText(RecapTitle),
-        _ => Lang.T("Yesterday's active time, most-used apps and highlights show here once there's a full day of history."),
+        RecapPeriod.LastWeek => Lang.T("A week's active time, most-used apps and highlights show here once a full week is on record."),
+        RecapPeriod.LastMonth => Lang.T("A month's active time, most-used apps and highlights show here once a full month is on record."),
+        RecapPeriod.LastYear => Lang.T("A year's active time, most-used apps and highlights show here once a full year is on record."),
+        _ => Lang.T("A day's active time, most-used apps and highlights show here once a full day is on record."),
     };
-
-    private static string DayEmptyText(string day) => Lang.T($"{day}'s active time, most-used apps and highlights show here once there's history for it.");
 
     // The hours just after noon and in the early evening carry their own context: a language whose day splits
     // differently (Spanish keeps "buenos días" until lunch and "buenas tardes" until about nine) says them its own way.

@@ -65,7 +65,7 @@ public class StutterCausesTests
             for (int m = 0; m < 60; m++)
                 db.WriteMinute(new SystemMinute { Ts = Start + m * 60, ActiveSec = 60, VramUsed = m is >= 30 and <= 40 ? 11900 : 8000, VramTotal = 12288 });
             string? why = StutterCauses.Explain(db, game, At(31, 32, 33, 34, 35, 36), Start, Start + 60 * 60, new RigsightSettings());
-            Assert.Contains("while the graphics card's memory was nearly full (11.6 of 12 GB)", why);
+            Assert.Contains("while the GPU's memory was nearly full (11.6 of 12 GB)", why);
         }
     }
     // "The 765 stutters were spread out, about one every 1 minutes" for a two-and-a-half-hour play (2026-10-27).

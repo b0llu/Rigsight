@@ -148,8 +148,8 @@ public sealed class NetPageReportTests : IDisposable
         Assert.Equal("OBS Studio used 7.3 GB while you played Phantom Blade Zero", played.Text);
         Assert.Equal("6 – 9 PM", played.When);
         // The ping rose meanwhile: said in plain words, with why, never as a warning.
-        Assert.Equal("Ping rose to 112 ms meanwhile", played.PingNote);
-        Assert.StartsWith("When one app fills the upload, game traffic waits behind it", played.Detail);
+        Assert.Equal("Ping rose to 112 ms at the same time", played.PingNote);
+        Assert.StartsWith("A full upload can slow game traffic", played.Detail);
         // Newest first, under the day.
         Assert.Equal([steamLine, played], lines.Where(h => h.Kind is NetHappeningKind.Steam or NetHappeningKind.Played));
         Assert.All(lines, h => Assert.Equal(Day, h.Day));
@@ -164,7 +164,7 @@ public sealed class NetPageReportTests : IDisposable
         Hour(Day.AddHours(12), (setup, 271 * MB, 0, 0), (mrt, 30 * MB, 0, 30 * MB), (cowork, 5 * MB, 0, 5 * MB), (chrome, 10 * MB, 0, 0));
         var line = Build().Happenings.Single(h => h.Kind == NetHappeningKind.New);
         Assert.Equal("Claude Setup used the internet for the first time", line.Text);
-        Assert.Equal("Also new: MRT, Cowork Svc", line.Detail);
+        Assert.Equal("MRT and Cowork Svc were new too", line.Detail);
         Assert.True(line.IsNew);
         Assert.Equal("12 PM", line.When);
         // On the first day anything was recorded, every app is "new": nothing is said.

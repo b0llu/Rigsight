@@ -44,7 +44,7 @@ public static class ActionCheck
     {
         CheckWhat.Fans => Lang.T("fan speeds"),
         CheckWhat.Temps => Lang.T("temperatures"),
-        CheckWhat.Gpu => Lang.T("the graphics card"),
+        CheckWhat.Gpu => Lang.T("the GPU"),
         CheckWhat.Cpu => Lang.T("the CPU"),
         CheckWhat.Memory => Lang.T("memory"),
         _ => Lang.T("internet use"),
@@ -60,16 +60,16 @@ public static class ActionCheck
         var after = db.GetMinutes(mid, t1);
         int need = Math.Max(2, minutes / 2);
         if (before.Count < need || after.Count < need)
-            return new CheckResult([], false, Lang.T("Not enough was recorded on both sides to compare. RigSight's agent may not have been running, or the PC slept."));
+            return new CheckResult([], false, Lang.T("Not enough was recorded before and after to compare. RigSight may not have been recording, or the PC was asleep."));
 
         var apps = db.LoadApps().ToDictionary(a => a.Id);
         bool Game(SystemMinute m) => m.FgApp is long id && apps.TryGetValue(id, out var app) && app.Category == AppCategory.Game;
         double gameBefore = before.Count(Game) / (double)before.Count, gameAfter = after.Count(Game) / (double)after.Count;
         string? note = Math.Abs(gameBefore - gameAfter) > 0.5
-            ? Lang.T("A game was in front on one side only, so this isn't a like-for-like comparison.") : null;
+            ? Lang.T("A game was in front only before or only after, so this isn't a like-for-like comparison.") : null;
 
         var rows = Rows(db, what, before, after, (f0, mid), (mid, t1), need);
-        if (rows.Count == 0) return new CheckResult([], false, Lang.T("RigSight has no readings for this on both sides to compare."));
+        if (rows.Count == 0) return new CheckResult([], false, Lang.T("RigSight has no readings for this from before and after to compare."));
         return new CheckResult(rows, note is null, note);
     }
 
@@ -106,7 +106,7 @@ public static class ActionCheck
                 Add(rows, Lang.T("GPU temperature"), before, after, m => m.GpuTemp, v => $"{v:0}°", 2);
                 break;
             case CheckWhat.Gpu:
-                Add(rows, Lang.T("Graphics card busy"), before, after, m => m.GpuLoad, v => $"{v:0}%", 5);
+                Add(rows, Lang.T("GPU busy"), before, after, m => m.GpuLoad, v => $"{v:0}%", 5);
                 Add(rows, Lang.T("GPU temperature"), before, after, m => m.GpuTemp, v => $"{v:0}°", 2);
                 break;
             case CheckWhat.Cpu:

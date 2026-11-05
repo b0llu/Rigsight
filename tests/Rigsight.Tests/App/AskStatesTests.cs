@@ -83,7 +83,7 @@ public sealed class AskStatesTests
         Assert.Equal("Free questions paused", ask.QuestionsLine);
         Assert.Equal("", ask.QuestionsNote);
         Assert.Equal("Free questions are paused right now.", ask.OutTitle);
-        Assert.Equal("They'll be back. You can still get a plan.", ask.OutText);
+        Assert.Equal("A plan keeps answering.", ask.OutText);
         foreach (var kind in new[] { "paused", "free" })
         {
             var wall = Ui.Run(() => ask.LimitWall(new AiLimit(kind, "free", null), "q"));
@@ -138,7 +138,7 @@ public sealed class AskStatesTests
         try
         {
             // The thinking line says what it waits for.
-            Assert.True(Ui.WaitFor(() => ask.Current!.Messages.OfType<AskThinking>().Any(t => t.Step == "Checking your plan…" && t.Note == "Your question goes as soon as it's known."), 5_000),
+            Assert.True(Ui.WaitFor(() => ask.Current!.Messages.OfType<AskThinking>().Any(t => t.Step == "Checking your plan…" && t.Note == "Your question goes as soon as that's done."), 5_000),
                 "the wait for the plan wasn't said");
             Ui.Run(() => ask.StopCommand.Execute(null));
             Assert.True(Ui.WaitFor(() => !ask.IsAnswering, 5_000), "Stop didn't work during the wait for the plan");

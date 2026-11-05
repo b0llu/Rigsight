@@ -22,7 +22,7 @@ public sealed class AskIdeasTests
     {
         var answer = AskViewModel.ToAnswer("Fine.", [Look("get_crashes", "2026-10-23", "2026-10-23"), Look("get_temperatures", "2026-10-16", "2026-10-23")])
             with { Took = TimeSpan.FromSeconds(16.6) };
-        Assert.Equal("Looked at Crashes and Temperatures · 17 s", answer.LookedLine);
+        Assert.Equal("Looked at Crashes and Temperatures · 17s", answer.LookedLine);
         Assert.Equal(["Crashes, 23 Oct", "Temperatures, 16 Oct – 23 Oct"], answer.Looked.Select(l => l.Text));
         // An answer opened from History has no time: the line says only what it read.
         Assert.Equal("Looked at Crashes", AskViewModel.ToAnswer("Fine.", [Look("get_crashes", "2026-10-23", "2026-10-23")]).LookedLine);

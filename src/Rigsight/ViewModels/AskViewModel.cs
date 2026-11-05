@@ -129,7 +129,7 @@ public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, stri
     /// </summary>
     public string LockedTitle => Locked is not { } p ? "" : LockedGain is { Length: > 0 } gain ? gain : Lang.T($"Get answers from {p.Label}");
     public string LockedText => Locked is not { } p ? ""
-        : LockedPlanName is { } plan ? Lang.T($"{plan} lets me read {p.Label}, which covers {Lower(Lang.T(p.Description))}.")
+        : LockedPlanName is { } plan ? Lang.T($"{plan} reads {p.Label}, which covers {Lower(Lang.T(p.Description))}.")
         : Lang.T($"Your plan doesn't include {p.Label}.");
     public string LockedButton => LockedSwitch ? Lang.T($"Switch to {LockedPlanName} and ask") : Lang.T($"Get {LockedPlanName} and ask");
     internal static string Lower(string s) => s.Length > 1 && char.IsUpper(s[0]) && !char.IsUpper(s[1]) ? char.ToLowerInvariant(s[0]) + s[1..] : s;
@@ -141,7 +141,7 @@ public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, stri
     /// <summary>Helpful or Not helpful (RigSight AI only: the relay keeps it with the question).</summary>
     public AskFeedback Feedback { get; init; } = new(null);
     /// <summary>
-    /// The one folded line above the answer ("Looked at Crashes and Temperatures · 17 s"): what was read, in page names,
+    /// The one folded line above the answer ("Looked at Crashes and Temperatures · 17s"): what was read, in page names,
     /// opened to the list of each record and its dates. Replaces the waiting words once the answer is in.
     /// </summary>
     public string LookedLine
@@ -156,7 +156,8 @@ public sealed record AskAnswer(string Verdict, IReadOnlyList<object> Parts, stri
                 2 => Lang.T($"{names[0]} and {names[1]}"),
                 _ => Lang.T($"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}"),
             };
-            string took = Took is { } t ? Lang.T($" · {Math.Max(1, (int)Math.Round(t.TotalSeconds))} s") : "";
+            int secs = Took is { } t ? Math.Max(1, (int)Math.Round(t.TotalSeconds)) : 0;
+            string took = secs == 0 ? "" : secs < 60 ? Lang.T($" · {secs}s") : Lang.T($" · {secs / 60}m {secs % 60}s");
             return Lang.T($"Looked at {what}") + took;
         }
     }
@@ -459,7 +460,7 @@ public sealed partial class AskConversation : ObservableObject
 /// </summary>
 public sealed record AskSummary : AskMessage, System.ComponentModel.INotifyPropertyChanged
 {
-    public override string ToString() => IsBusy ? Lang.T("Summarising earlier messages…") : Lang.T("Earlier messages summarised to keep this chat going"); // its name for screen readers (and UI automation)
+    public override string ToString() => IsBusy ? Lang.T("Summarizing earlier messages…") : Lang.T("Earlier messages summarized to keep this conversation going"); // its name for screen readers (and UI automation)
     private bool _busy = true;
     public bool IsBusy { get => _busy; set { _busy = value; Changed(nameof(IsBusy), nameof(IsDone)); } }
     public bool IsDone => !IsBusy;
@@ -744,22 +745,22 @@ public sealed partial class AskViewModel : ObservableObject
     /// </summary>
     public bool ShowQuestionsLine => ShowQuestionsLeft;
     public string QuestionsLine => Standing is null ? Lang.T("Checking your questions…")
-        : LicenceOff ? Lang.T("Licence turned off")
+        : LicenceOff ? Lang.T("License turned off")
         : Standing.Plan is not { } plan ? QuestionsLeftText
         : plan is { IsFree: true, Cap: 0 } ? Lang.T("Free questions paused")
-        : plan is { Left: 0, Given: > 0 } ? plan.Given == 1 ? Lang.T("1 given question left") : Lang.T($"{plan.Given} given questions left")
+        : plan is { Left: 0, Given: > 0 } ? plan.Given == 1 ? Lang.T("1 extra question left") : Lang.T($"{plan.Given} extra questions left")
         // The free trial counts days, said first; then today's questions (the approved mock-up, 2026-10-28).
         : plan is { IsTrial: true, EndsAt: { } ends } ? TrialLeft(plan.Name, ends) + " · " + Lang.T($"{plan.Left} of {plan.Cap} left today")
         : (plan.IsFree, plan.Weekly, plan.Given > 0) switch
         {
             (true, true, false) => Lang.T($"{plan.Left} of {plan.Cap} free questions left this week"),
-            (true, true, true) => Lang.T($"{plan.Left} of {plan.Cap} free questions left this week + {plan.Given} given"),
+            (true, true, true) => Lang.T($"{plan.Left} of {plan.Cap} free questions left this week + {plan.Given} extra"),
             (true, false, false) => Lang.T($"{plan.Left} of {plan.Cap} free questions left today"),
-            (true, false, true) => Lang.T($"{plan.Left} of {plan.Cap} free questions left today + {plan.Given} given"),
+            (true, false, true) => Lang.T($"{plan.Left} of {plan.Cap} free questions left today + {plan.Given} extra"),
             (false, true, false) => Lang.T($"{plan.Left} of {plan.Cap} left this week"),
-            (false, true, true) => Lang.T($"{plan.Left} of {plan.Cap} left this week + {plan.Given} given"),
+            (false, true, true) => Lang.T($"{plan.Left} of {plan.Cap} left this week + {plan.Given} extra"),
             (false, false, false) => Lang.T($"{plan.Left} of {plan.Cap} left today"),
-            (false, false, true) => Lang.T($"{plan.Left} of {plan.Cap} left today + {plan.Given} given"),
+            (false, false, true) => Lang.T($"{plan.Left} of {plan.Cap} left today + {plan.Given} extra"),
         };
     /// <summary>"Complete trial · 6 days left", "… ends today at 10:12" on its last day.</summary>
     internal static string TrialLeft(string plan, DateTime ends, DateTime? now = null)
@@ -780,19 +781,19 @@ public sealed partial class AskViewModel : ObservableObject
         && (plan.IsFree ? (Standing.Plans ?? []).Any(o => !o.IsFree) : Bigger(plan) is not null);
     /// <summary>One left: said over the box before it's used, so it isn't lost to a typo.</summary>
     public bool IsLastQuestion => ShowQuestionsLeft && Standing is not null && QuestionsLeft == 1 && !IsAnswering && !LicenceOff;
-    public string LastQuestionTitle => Standing?.Plan is { Given: > 0 } ? Lang.T("This is the last of the questions given to you.")
+    public string LastQuestionTitle => Standing?.Plan is { Given: > 0 } ? Lang.T("This is the last of your extra questions.")
         : Standing?.Plan is { Weekly: false } ? Lang.T("This is your last question today.") : Lang.T("This is your last free question this week.");
     // The last given one: the plan's own come back, never the given ones (the live gift run, 2026-10-25, said "They're back").
     public string LastQuestionText => Standing?.Plan is { Given: > 0, Weekly: true, ResetsAt: { } back } p ? Lang.T($"Your {p.Cap} free ones are back on {TimeText.At(back, "dddd")}.")
-        : Standing?.Plan is { Given: > 0, Weekly: false } ? Lang.T("Your plan's are back at midnight.")
+        : Standing?.Plan is { Given: > 0, Weekly: false } ? Lang.T("Your plan's questions are back at midnight.")
         : Standing?.Plan is { Weekly: true, ResetsAt: { } at } ? Lang.T($"They're back on {TimeText.At(at, "dddd")}.")
         : Standing?.Plan is { Weekly: false } ? Lang.T("More at midnight.") : "";
-    public string QuestionsLeftText => LicenceOff ? Lang.T("Licence turned off") : Standing?.Plan is { } plan
+    public string QuestionsLeftText => LicenceOff ? Lang.T("License turned off") : Standing?.Plan is { } plan
         ? plan is { IsFree: true, Cap: 0 } ? Lang.T("Free questions paused")
         // The plan's own used up, the given ones going (the pill shows from 3 left in all).
-        : plan is { Left: 0, Given: > 0 } ? plan.Given == 1 ? Lang.T("1 given question left") : Lang.T($"{plan.Given} given questions left")
+        : plan is { Left: 0, Given: > 0 } ? plan.Given == 1 ? Lang.T("1 extra question left") : Lang.T($"{plan.Given} extra questions left")
         // Some of the plan's own and some given: both said (it read "1 of 10 left this week" with 2 given, 2026-10-25).
-        : plan is { Given: > 0 } ? plan.Weekly ? Lang.T($"{plan.Left} of {plan.Cap} left this week + {plan.Given} given") : Lang.T($"{plan.Left} of {plan.Cap} left today + {plan.Given} given")
+        : plan is { Given: > 0 } ? plan.Weekly ? Lang.T($"{plan.Left} of {plan.Cap} left this week + {plan.Given} extra") : Lang.T($"{plan.Left} of {plan.Cap} left today + {plan.Given} extra")
         : plan.Weekly ? Lang.T($"{plan.Left} of {plan.Cap} left this week") : Lang.T($"{plan.Left} of {plan.Cap} left today")
         : (HasLicence, QuestionsLeft) switch
     {
@@ -817,8 +818,8 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>Why nothing can be asked, in the box over the question field: turned off, refunded, or all used.</summary>
     public string OutTitle => Standing?.LicenceStatus switch
     {
-        _ when LicenceOff => Lang.T("Your licence is turned off."),
-        "refunded" when Standing.HasLicence => Lang.T("Your licence was refunded."),
+        _ when LicenceOff => Lang.T("Your license is turned off."),
+        "refunded" when Standing.HasLicence => Lang.T("Your plan was refunded, so it has ended."),
         _ when FreePaused => Lang.T("Free questions are paused right now."),
         // Said as a state, not "that was your last": it also shows on opening, before anything was asked.
         _ when Standing?.Plan is { Weekly: true } => Lang.T("No free questions left this week."),
@@ -840,7 +841,7 @@ public sealed partial class AskViewModel : ObservableObject
         : Standing?.Plan is not null ? Lang.T("More at midnight.")
         : Lang.T("See plans in Settings › Ask RigSight, or switch to your API key there.");
 
-    private static string PausedText => Lang.T("They'll be back. You can still get a plan.");
+    private static string PausedText => Lang.T("A plan keeps answering.");
 
     // ── Offline (board 6, 2026-10-26) ────────────────────────────────────
     /// <summary>Windows says there's no network at all (the same check a question makes before it goes, <see cref="Internet.IsOff"/>).</summary>
@@ -964,6 +965,9 @@ public sealed partial class AskViewModel : ObservableObject
 
     /// <summary>The trial's plan while the trial is on offer: the first question starts it, so the consent shows that plan.</summary>
     private RelayPlanOffer? TrialOffer => Standing is { Trial: { Offered: true } t, Plan.IsFree: true } s ? s.Plans.FirstOrDefault(p => p.Id == t.Plan) : null;
+
+    /// <summary>The plans that search the web, by the relay's own names (a typed "Essentials and Complete" goes stale on a rename).</summary>
+    private List<string> SearchingPlans() => [.. (Standing?.Plans ?? []).Where(p => p.Search).Select(p => p.Name)];
     public string FirstMoreText => Ai.Mode switch
     {
         AiMode.OwnKey => PerQuestion?.Invoke() is { } each
@@ -972,7 +976,10 @@ public sealed partial class AskViewModel : ObservableObject
         AiMode.Ollama => Ai.OllamaModel.Length > 0
             ? Lang.T($"while Ollama loads {Ai.OllamaModel}. After that it's quicker.")
             : Lang.T("while Ollama loads the model. After that it's quicker."),
-        _ when !PlanSearches => Lang.T("Essentials and Complete also search the web for your parts, drivers and games."),
+        _ when !PlanSearches => SearchingPlans() is { Count: > 0 } names
+            ? names.Count == 1 ? Lang.T($"{names[0]} also searches the web for your parts, drivers and games.")
+                : Lang.T($"{string.Join(" " + Lang.T("and") + " ", names)} also search the web for your parts, drivers and games.")
+            : Lang.T("A plan also searches the web for your parts, drivers and games."),
         _ => Lang.T("for your parts, drivers and games. A search never includes your name or files."),
     };
 
@@ -1422,7 +1429,7 @@ public sealed partial class AskViewModel : ObservableObject
             // tries, then it says so and sends nothing.
             if (Ai.Mode == AiMode.RigSight && Standing is null)
             {
-                talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(Lang.T("Checking your plan…"), Lang.T("Your question goes as soon as it's known."));
+                talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(Lang.T("Checking your plan…"), Lang.T("Your question goes as soon as that's done."));
                 for (int attempt = 0; attempt < 2 && Standing is null; attempt++)
                 {
                     if (attempt > 0) await Task.Delay(TimeSpan.FromSeconds(1), stop.Token);
@@ -1442,7 +1449,7 @@ public sealed partial class AskViewModel : ObservableObject
             // for the plan above; Stop works meanwhile. Not done in time, it goes with the chat as it was.
             if (Ai.Mode == AiMode.RigSight && talk.Summarising is { IsCompleted: false } making)
             {
-                talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(Lang.T("Summarising earlier messages…"), Lang.T("Your question goes as soon as it's done."));
+                talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(Lang.T("Summarizing earlier messages…"), Lang.T("Your question goes as soon as it's done."));
                 await Task.WhenAny(making, Task.Delay(TimeSpan.FromSeconds(45), stop.Token));
                 stop.Token.ThrowIfCancellationRequested();
                 talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show("");
@@ -1732,7 +1739,7 @@ public sealed partial class AskViewModel : ObservableObject
         var bigger = paid.FirstOrDefault(o => o.PriceCents > mine);
         return new AskWall(Lang.T($"That's all {current?.Cap ?? 0} questions for today."),
             bigger is null ? Lang.T("More at midnight. Your question stays in the box.")
-                : Lang.T($"More at midnight. {bigger.Name} gives up to {bigger.Cap} a day and answers read more; switching sends this question straight away."),
+                : Lang.T($"More at midnight. {bigger.Name} gives up to {bigger.Cap} a day and reads more of your pages. Switching sends this question straight away."),
             bigger?.Id, bigger?.Name, question) { Switch = current is { IsFree: false, CanManage: true } };
     }
 
@@ -1935,13 +1942,14 @@ public sealed partial class AskViewModel : ObservableObject
         var at = now ?? DateTime.Now;
         if (status.Trial is not { Ends: { } ends } trial) return null;
         string name = status.Plans.FirstOrDefault(p => p.Id == trial.Plan)?.Name ?? status.Plan?.Name ?? trial.Plan;
-        int free = status.Plans.FirstOrDefault(p => p.IsFree)?.Cap ?? 10;
+        // The relay's own free count, never a typed one; without it (or with free questions paused) no number is said.
+        int free = status.Plans.FirstOrDefault(p => p.IsFree)?.Cap ?? 0;
         if (trial.Running && ends - at <= TimeSpan.FromDays(1) && !seen.Contains($"ending:{ends:o}"))
             return new AskGift([], ends.Date == at.Date ? Lang.T($"Your {name} trial ends today at {TimeText.Time(ends)}.") : Lang.T($"Your {name} trial ends tomorrow at {TimeText.Time(ends)}."),
-                Lang.T($"Then you're on Free: {free} questions a week. Your conversations stay."), null) { TrialKey = $"ending:{ends:o}" };
+                free > 0 ? Lang.T($"Then you're back on Free, with {free} questions a week. Your conversations stay.") : Lang.T("Then you're back on Free. Your conversations stay."), null) { TrialKey = $"ending:{ends:o}" };
         if (trial.Ended && at - ends <= TimeSpan.FromDays(14) && !seen.Contains($"ended:{ends:o}"))
             return new AskGift([], Lang.T($"Your {name} trial has ended"),
-                Lang.T($"You're on Free now: {free} questions a week. Everything from the trial is kept."), null) { TrialKey = $"ended:{ends:o}" };
+                free > 0 ? Lang.T($"You're on Free now, with {free} questions a week. Everything from the trial is kept.") : Lang.T("You're on Free now. Everything from the trial is kept."), null) { TrialKey = $"ended:{ends:o}" };
         return null;
     }
 

@@ -28,9 +28,10 @@ public static class CaseMinutes
     /// <param name="opened">Apps that opened in these minutes (by id, Unix seconds): a game starting warms the GPU as it loads.</param>
     /// <param name="power">The PC went off because the power did (see PcUsual.ShutOffOf): a climb as an app was starting is then
     /// said as that, not as a warning. Where the app itself may be why, the climb is the warning it was.</param>
+    /// <param name="kind">What it was, for "in the 6 minutes before the sudden shut-off": a shut-off is never said as a crash.</param>
     public static List<StoodOut> Find(IReadOnlyList<SystemMinute> minutes, IReadOnlyList<AppMinute> apps, IReadOnlyList<FanMinute> fans,
         IReadOnlyDictionary<long, string> fanNames, IReadOnlyList<NetDrop> drops, long crash, double? ramTotalGb, Func<long, string> nameOf,
-        IReadOnlyList<(long App, long Start)>? opened = null, bool power = false)
+        IReadOnlyList<(long App, long Start)>? opened = null, bool power = false, CrashKind kind = CrashKind.AppCrash)
     {
         var said = new List<StoodOut>();
         var before = minutes.Where(m => m.Ts <= crash).OrderBy(m => m.Ts).ToList();
@@ -45,7 +46,7 @@ public static class CaseMinutes
                 var starting = power ? opened?.Where(o => o.Start >= climb.Start - OpenedBeforeMinutes * 60 && o.Start <= crash).OrderBy(o => o.Start).FirstOrDefault() : null;
                 said.Add(starting is { App: var app, Start: var at } && at > 0
                     ? new StoodOut(Loading(part, climb, nameOf(app), TimeUtil.FromUnix(at)), false)
-                    : new StoodOut(ClimbText(climb, part, before, apps, crash, nameOf), true));
+                    : new StoodOut(ClimbText(climb, part, before, apps, crash, nameOf, kind), true));
             }
             else if (before.Any(m => Temp(m, part) is not null))
                 calm.Add(part == Part.Cpu ? Lang.T("CPU temperature") : Lang.T("GPU temperature"));
@@ -80,8 +81,8 @@ public static class CaseMinutes
         {
             var top = Top(apps, crash, a => a.MemMb);
             said.Add(new StoodOut(top is { } t
-                ? Lang.T($"Windows was nearly out of memory, with {commit:0}% of what it can promise promised to apps, the most to {nameOf(t.App)} ({t.MemMb / 1024:0.0} GB).")
-                : Lang.T($"Windows was nearly out of memory, with {commit:0}% of what it can promise promised to apps."), true));
+                ? Lang.T($"Windows was nearly out of memory, with {commit:0}% of its memory and page file already promised to apps, the most to {nameOf(t.App)} ({t.MemMb / 1024:0.0} GB).")
+                : Lang.T($"Windows was nearly out of memory, with {commit:0}% of its memory and page file already promised to apps."), true));
         }
         else if (ramTotalGb is > 0 && used is double u && u / ramTotalGb >= 0.92)
             said.Add(new StoodOut(Lang.T($"Memory was {100 * u / ramTotalGb:0}% full."), true));
@@ -151,9 +152,9 @@ public static class CaseMinutes
         return new Rise(from, to, start.Ts, peak.Ts);
     }
 
-    private static string ClimbText(Rise climb, Part part, List<SystemMinute> minutes, IReadOnlyList<AppMinute> apps, long crash, Func<long, string> nameOf)
+    private static string ClimbText(Rise climb, Part part, List<SystemMinute> minutes, IReadOnlyList<AppMinute> apps, long crash, Func<long, string> nameOf, CrashKind kind)
     {
-        string head = Head(climb, part, crash);
+        string head = Head(climb, part, crash, kind);
         Func<AppMinute, double> share = part == Part.Cpu ? a => a.Cpu : a => a.Gpu;
 
         // With how much, from the apps each minute kept: the one far ahead of the rest over the climb.
@@ -180,22 +181,29 @@ public static class CaseMinutes
         return $"{head}.";
     }
 
-    private static string Head(Rise climb, Part part, long crash)
+    private static string Head(Rise climb, Part part, long crash, CrashKind kind)
     {
         int span = Math.Max(1, (int)Math.Round((crash - climb.Start) / 60.0) + 1);
         string from = Units.TempShort(climb.From), to = Units.TempShort(climb.To);
-        return part == Part.Cpu
-            ? Lang.T($"CPU went from {from} to {to} in the {span} minutes before the crash")
-            : Lang.T($"GPU went from {from} to {to} in the {span} minutes before the crash");
+        string name = part == Part.Cpu ? "CPU" : "GPU";
+        // Whole for each kind: another language's article and agreement differ.
+        return kind switch
+        {
+            CrashKind.UnexpectedShutdown => Lang.T($"{name} went from {from} to {to} in the {span} minutes before the sudden shut-off"),
+            CrashKind.SystemCrash => Lang.T($"{name} went from {from} to {to} in the {span} minutes before the blue screen"),
+            CrashKind.GpuDriverReset => Lang.T($"{name} went from {from} to {to} in the {span} minutes before the graphics driver reset"),
+            CrashKind.AppHang => Lang.T($"{name} went from {from} to {to} in the {span} minutes before the freeze"),
+            _ => Lang.T($"{name} went from {from} to {to} in the {span} minutes before the crash"),
+        };
     }
 
-    /// <summary>A part that warmed as an app was opening, just before the power went: its loading, not why the PC went off.</summary>
+    /// <summary>A part that warmed as an app was opening, just before the power went: its loading, not why the PC shut off.</summary>
     private static string Loading(Part part, Rise climb, string app, DateTime at)
     {
         string from = Units.TempShort(climb.From), to = Units.TempShort(climb.To);
         return part == Part.Cpu
-            ? Lang.T($"CPU went from {from} to {to} as {app} was starting at {at:h:mm tt}. That's {app} loading; it isn't why the PC went off.")
-            : Lang.T($"GPU went from {from} to {to} as {app} was starting at {at:h:mm tt}. That's {app} loading; it isn't why the PC went off.");
+            ? Lang.T($"CPU went from {from} to {to} as {app} was starting at {at:h:mm tt}. That's {app} loading, not why the PC shut off.")
+            : Lang.T($"GPU went from {from} to {to} as {app} was starting at {at:h:mm tt}. That's {app} loading, not why the PC shut off.");
     }
 
     /// <summary>The app with the most of something in the last minute before the crash that has apps recorded.</summary>

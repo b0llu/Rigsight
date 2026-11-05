@@ -125,7 +125,7 @@ public static class AiActions
                 int minutes = parts.Length > 0 && int.TryParse(parts[0], out int m) ? m : 10;
                 minutes = Math.Clamp((int)Math.Round(minutes / 5.0) * 5, 5, 60);
                 if (ActionCheck.Parse(parts.Length > 1 ? parts[1] : "fans") is not { } what) return (null, $"nothing to check called '{(parts.Length > 1 ? parts[1] : "")}'");
-                return (new AiAction(AiActionKind.CheckAgain, Lang.T($"Check again in {minutes} min"), "", what.ToString(), Minutes: minutes, What: what), "");
+                return (new AiAction(AiActionKind.CheckAgain, Lang.T($"Check again in {Units.Duration(minutes * 60)}"), "", what.ToString(), Minutes: minutes, What: what), "");
             }
             case "open":
             {
@@ -198,7 +198,7 @@ public static class AiActions
             case "start-agent" or "agent":
                 return (null, "the agent is already running");
             case "copy-report" or "report":
-                return (new AiAction(AiActionKind.CopyReport, Lang.T("Copy problem report"), ""), "");
+                return (new AiAction(AiActionKind.CopyReport, Lang.T("Copy logs"), ""), "");
             case "widget" or "widgets" or "overlay" or "taskbar" or "tray":
             {
                 // Readings for a new widget, the overlay or the taskbar: only RigSight's own settings change, and only once
@@ -210,7 +210,7 @@ public static class AiActions
                 var (label, glyph) = kind switch
                 {
                     AiActionKind.AddOverlay => (Lang.T("Add to your game overlay"), "\uE7FC"),
-                    AiActionKind.AddTaskbar => (Lang.T("Add beside the clock"), "\uE75B"),
+                    AiActionKind.AddTaskbar => (Lang.T("Readings for your taskbar"), "\uE75B"),
                     _ => (Lang.T("A widget with these readings"), "\uF246"),
                 };
                 return (new AiAction(kind, label, glyph, string.Join(",", readings.Select(r => r.Key)), Readings: readings), "");

@@ -61,12 +61,12 @@ public static class WhyEmpty
     /// </summary>
     public static string? Sentence(Kind kind, DateTime? began, string when) => kind switch
     {
-        Kind.BeforeHistory when began is { } b => Lang.T($"Nothing was recorded {when}: this PC's history starts on {b:d MMM yyyy}."),
-        Kind.BeforeHistory => Lang.T($"Nothing was recorded {when}: this PC's history hasn't started yet."),
+        Kind.BeforeHistory when began is { } b => Lang.T($"Nothing was recorded {when}. This PC's history starts on {b:d MMM yyyy}."),
+        Kind.BeforeHistory => Lang.T($"Nothing was recorded {when}. This PC's history hasn't started yet."),
         Kind.Off => Lang.T($"Your PC was off {when}."),
         Kind.Asleep => Lang.T($"Your PC was asleep {when}."),
         Kind.NotRunning => Lang.T($"Your PC was on {when}, but RigSight wasn't running."),
-        Kind.Unknown => Lang.T($"Nothing was recorded {when}: your PC was off, or RigSight wasn't running."),
+        Kind.Unknown => Lang.T($"Nothing was recorded {when}. Your PC was off, or RigSight wasn't running."),
         _ => null,
     };
 }

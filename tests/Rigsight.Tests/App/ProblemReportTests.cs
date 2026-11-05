@@ -27,14 +27,14 @@ public class ProblemReportTests
         Assert.Contains("Samsung SSD 980 1TB", clean);
         Assert.Contains("CPU Core Max", clean);
         // Nothing to take out: the same text.
-        Assert.Equal("RigSight 0.19.0 problem report", ProblemReport.Scrub("RigSight 0.19.0 problem report"));
+        Assert.Equal("RigSight 0.19.0 logs", ProblemReport.Scrub("RigSight 0.19.0 logs"));
     }
 
     [Fact]
     public void The_report_for_this_PC_has_no_users_folder_in_it()
     {
         string report = ProblemReport.ForThisPc("0.19.0", connected: true, admin: true, [("Cpu", "Test CPU")], null);
-        Assert.StartsWith("RigSight 0.19.0 problem report", report);
+        Assert.StartsWith("RigSight 0.19.0 logs", report);
         string folder = Path.GetFileName(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
         Assert.DoesNotContain("\\Users\\" + folder, report, StringComparison.OrdinalIgnoreCase);
     }

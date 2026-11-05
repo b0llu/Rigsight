@@ -97,7 +97,7 @@ public static class NetLine
                     : Lang.T($"It went past {high} ms in {count}, {top.Count()} of them while {name} was uploading."));
             else parts.Add(Lang.T($"It went past {high} ms in {count}."));
         }
-        if (line.LostPercent >= LostWorthSaying) parts.Add(Lang.T($"Some data didn't get through: {line.LostPercent:0.#}% packet loss."));
+        if (line.LostPercent >= LostWorthSaying) parts.Add(Lang.T($"{line.LostPercent:0.#}% of the pings got no reply."));
         return string.Join(" ", parts);
     }
 }

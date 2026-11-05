@@ -419,7 +419,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         string title = days == 0 ? Lang.T($"The same day as {change}") : days == 1 ? Lang.T($"A day after {change}") : Lang.T($"{days} days after {change}");
         // As shown: the crash's own line about it holds the change as shown too (see CrashFinding, SavedText.ChangeName).
         string line = r.Said, how = r.HowSure;
-        return new(title, Lang.T($"{line}. {how}. That alone doesn't prove this crash."), r.Day) { Change = change };
+        return new(title, Lang.T($"{line}. {how}. That alone doesn't show it caused this crash."), r.Day) { Change = change };
     }
 
     /// <summary>The page an opened crash came from (Timeline, Reports, Home), to go back to; null when it was opened here.</summary>
@@ -802,7 +802,7 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
             list.Add(new("\uE946", "MutedBrush", Lang.T($"{asleep} of {shutdowns.Count} sudden shut-offs happened while the PC was asleep. If you switch off power at the wall, shut down fully first; otherwise a BIOS or chipset driver update often fixes sleep problems.")));
         int unfinished = shutdowns.Count(c => c.Event.Moment == PowerMoment.ShuttingDown);
         if (unfinished >= 2)
-            list.Add(new("\uE946", "MutedBrush", Lang.T($"{unfinished} more shutdowns didn't finish while Windows was shutting down. Turning off Fast Startup, or a BIOS or chipset driver update, usually stops them.")));
+            list.Add(new("\uE946", "MutedBrush", Lang.T($"{unfinished} shutdowns didn't finish. Turning off Fast Startup, or updating the BIOS or chipset driver, often stops this.")));
 
         // Graphics driver resets: in one app every time, or in several (the first points at that app, the second past it).
         var resets = rows.Where(c => c.Event.Kind == CrashKind.GpuDriverReset && c.Finding is not { Outside: true }).ToList();
@@ -829,8 +829,8 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         int hot = rows.Count(c => c.Finding?.Points.Any(p => p.Title == CrashFindings.HotTitle) == true);
         if (hot >= 1)
             list.Add(new("\uE945", "WarmBrush", hot == 1
-                ? Lang.T("1 crash happened while your hardware was over your alert limits. Check airflow and fan curves.")
-                : Lang.T($"{hot} crashes happened while your hardware was over your alert limits. Check airflow and fan curves.")));
+                ? Lang.T("1 problem happened while the CPU or GPU was over your alert limit. If it happens again, check airflow and fan curves.")
+                : Lang.T($"{hot} problems happened while the CPU or GPU was over your alert limit. Check airflow and fan curves.")));
         return list;
     }
 

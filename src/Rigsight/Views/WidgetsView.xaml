@@ -367,7 +367,7 @@
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Dark'}" GroupName="editor-theme"
                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Dark}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grey'}" GroupName="editor-theme"
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Gray'}" GroupName="editor-theme"
                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Grey}" />
                                 <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Light'}" GroupName="editor-theme"
                                              IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Light}" />

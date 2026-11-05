@@ -415,7 +415,6 @@
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{ctl:T 'Names'}" Style="{StaticResource SetTitle}" />
-                                    <TextBlock Text="{ctl:T 'The name beside each number, in full or as one letter.'}" Style="{StaticResource SetHint}" />
                                 </StackPanel>
                             </DockPanel>
 
@@ -434,7 +433,7 @@
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{ctl:T 'Size'}" Style="{StaticResource SetTitle}" />
-                                    <TextBlock Text="{ctl:T 'Small: one line. Medium: a shorter tile. Large: everything bigger. Auto fits your taskbar.'}" Style="{StaticResource SetHint}" />
+                                    <TextBlock Text="{ctl:T 'Small is one line, Medium is a shorter tile and Large makes everything bigger. Auto fits your taskbar.'}" Style="{StaticResource SetHint}" />
                                     <TextBlock Text="{Binding SizeNow}" Style="{StaticResource SetHint}" Foreground="{DynamicResource MutedBrush}"
                                                Visibility="{Binding SizeNow, Converter={StaticResource Vis}}" />
                                 </StackPanel>
@@ -803,7 +802,7 @@
                             </Border>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{ctl:T 'Space between'}" Style="{StaticResource SetTitle}" />
-                                <TextBlock Text="{ctl:T 'How close the readings sit to each other. A pair keeps its two together.'}" Style="{StaticResource SetHint}" />
+                                <TextBlock Text="{ctl:T 'A pair keeps its two together.'}" Style="{StaticResource SetHint}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>

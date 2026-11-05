@@ -19,18 +19,18 @@ public sealed class CrashExplainerTests
     [InlineData("atiumd64.dll", "AMD driver", "The AMD graphics driver failed while running game.")]
     [InlineData("amdxc64.dll", "AMD driver", "The AMD graphics driver failed while running game.")]
     [InlineData("igdumdim64.dll", "Intel graphics driver", "The Intel graphics driver failed while running game.")]
-    [InlineData("d3d11.dll", "DirectX", "DirectX 11 failed inside game — usually a graphics driver or game problem.")]
-    [InlineData("d3d12core.dll", "DirectX", "DirectX 12 failed inside game — usually a graphics driver or game problem.")]
+    [InlineData("d3d11.dll", "DirectX", "DirectX 11 failed inside game. This is usually down to the graphics driver or the game.")]
+    [InlineData("d3d12core.dll", "DirectX", "DirectX 12 failed inside game. This is usually down to the graphics driver or the game.")]
     [InlineData("dxgi.dll", "DirectX", "The DirectX graphics layer failed inside game.")]
     [InlineData("vulkan-1.dll", "Vulkan", "The Vulkan graphics layer failed inside game.")]
     [InlineData("gameoverlayrenderer64.dll", "Steam overlay", "The Steam overlay crashed inside game.")]
     [InlineData("DiscordHook64.dll", "Discord overlay", "The Discord overlay crashed inside game.")]
     [InlineData("RTSSHooks64.dll", "RivaTuner overlay", "The RivaTuner/MSI Afterburner overlay crashed inside game.")]
-    [InlineData("UnityPlayer.dll", "Unity engine", "The Unity game engine inside game crashed — usually a bug in the game.")]
+    [InlineData("UnityPlayer.dll", "Unity engine", "The Unity game engine inside game crashed. This is usually a bug in the game.")]
     [InlineData("GameAssembly.dll", "Game code", "game crashed in its own game code.")]
     [InlineData("UE4-Win64-Shipping.exe", "Unreal Engine", "The Unreal Engine inside game crashed.")]
-    [InlineData("coreclr.dll", ".NET runtime", "game hit an unhandled .NET error.")]
-    [InlineData("clr.dll", ".NET runtime", "game hit an unhandled .NET error.")]
+    [InlineData("coreclr.dll", ".NET runtime", "game crashed with a .NET error.")]
+    [InlineData("clr.dll", ".NET runtime", "game crashed with a .NET error.")]
     public void Known_modules_name_the_culprit(string module, string culprit, string reason)
     {
         foreach (var m in new[] { module, module.ToUpperInvariant(), module.ToLowerInvariant() })
@@ -45,18 +45,18 @@ public sealed class CrashExplainerTests
     }
 
     [Theory]
-    [InlineData("c0000005", "Access violation", "it tried to use memory it wasn't allowed to")]
-    [InlineData("c0000409", "Stack buffer overrun", "it detected corrupted memory and shut itself down")]
-    [InlineData("c0000374", "Heap corruption", "its memory got corrupted (often mods, overlays or a bug)")]
-    [InlineData("c00000fd", "Stack overflow", "it ran out of stack space (usually a bug)")]
-    [InlineData("c000001d", "Illegal instruction", "the CPU hit an invalid instruction — this can point to an unstable overclock or undervolt")]
-    [InlineData("c0000096", "Privileged instruction", "the CPU refused an instruction — possibly an unstable overclock")]
-    [InlineData("e0434352", ".NET exception", "it threw an error it didn't handle")]
-    [InlineData("80000003", "Breakpoint", "it stopped itself on an internal check")]
-    [InlineData("c0000142", "Failed to start", "it couldn't initialize (often missing files or runtimes)")]
-    public void Exception_codes_are_explained(string code, string name, string meaning)
+    [InlineData("c0000005", "access violation", "it tried to use memory it wasn't allowed to", null)]
+    [InlineData("c0000409", "stack buffer overrun", "it detected corrupted memory and shut itself down", null)]
+    [InlineData("c0000374", "heap corruption", "its memory got corrupted", "Mods, overlays or a bug in the app are the usual causes.")]
+    [InlineData("c00000fd", "stack overflow", "it ran out of stack space", "This is usually a bug in the app.")]
+    [InlineData("c000001d", "illegal instruction", "the CPU hit an invalid instruction", "An unstable overclock or undervolt can cause this.")]
+    [InlineData("c0000096", "privileged instruction", "the CPU refused an instruction", "An unstable overclock can cause this.")]
+    [InlineData("e0434352", ".NET exception", "it threw an error it didn't handle", null)]
+    [InlineData("80000003", "breakpoint", "it stopped itself on an internal check", null)]
+    [InlineData("c0000142", "failed to start", "it couldn't start up", "Missing files or runtimes are a common cause.")]
+    public void Exception_codes_are_explained(string code, string name, string meaning, string? usual)
     {
-        string says = $" Windows says {meaning} ({name}).";
+        string says = $" Windows says {meaning} ({name})." + (usual is null ? "" : $" {usual}");
         Assert.Equal("The NVIDIA graphics driver failed while running game." + says, Crash("game.exe", "nvwgf2umx.dll", code).Reason);
         Assert.Equal("game crashed in its own code." + says, Crash("game.exe", "game.exe", code).Reason);
         Assert.Equal("game hit an error it couldn't recover from." + says, Crash("game.exe", "ntdll.dll", code).Reason);
@@ -187,7 +187,7 @@ public sealed class CrashExplainerTests
     }
 
     [Theory]
-    [InlineData(false, "The PC shut off suddenly", "Power / hard freeze")]
+    [InlineData(false, "The PC shut off suddenly", "Power or freeze")]
     [InlineData(true, "The PC shut off while asleep", "Asleep")]
     public void An_unexpected_shutdown_is_explained(bool asleep, string title, string culprit)
     {
@@ -235,7 +235,7 @@ public sealed class CrashExplainerTests
             var e = CrashExplainer.Explain(new CrashEvent { Kind = CrashKind.SystemCrash, Code = code });
             Assert.Equal("Windows crashed with a blue screen", e.Title);
             Assert.Equal(name, e.Culprit);
-            Assert.EndsWith($"({name}, {code})", e.Reason);
+            Assert.Contains($"({name}, {code}).", e.Reason);
             Assert.False(string.IsNullOrWhiteSpace(e.Advice));
         }
     }

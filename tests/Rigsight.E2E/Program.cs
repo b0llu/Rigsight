@@ -1321,7 +1321,7 @@ internal sealed class AppUi(Process app)
     }
 
     /// <summary>
-    /// Home has its history: the recap card shows the period's figures. (Not its "No history for…" line: a Home that
+    /// Home has its history: the recap card shows the period's figures. (Not its "Not recorded…" line: a Home that
     /// said so before it had read anything is the very thing looked for, and the history used here always has a recap.)
     /// </summary>
     public static bool HomeFilled(IEnumerable<string> texts) => texts.Any(t => t.StartsWith(Say("active · PC on for"), StringComparison.Ordinal));
@@ -1329,9 +1329,9 @@ internal sealed class AppUi(Process app)
     /// <summary>A line a card of Home shows when it has nothing: only true once the history has been read.</summary>
     public static bool SaysNothingHere(string text) =>
         Lang.Translating
-            ? text == Say("No history for yesterday yet.") || text == Say("Nothing out of the ordinary so far.")
+            ? text == Say("Not recorded yesterday.") || text == Say("Nothing out of the ordinary so far.")
               || text == Say("Nothing has changed in the last 30 days.") || text == Say("Your most-used apps show up here after a few minutes of use.")
-            : text.StartsWith("No history for", StringComparison.Ordinal) || text.StartsWith("Nothing out of the ordinary", StringComparison.Ordinal)
+            : text.StartsWith("Not recorded", StringComparison.Ordinal) || text.StartsWith("Nothing out of the ordinary", StringComparison.Ordinal)
               || text.StartsWith("Nothing has changed", StringComparison.Ordinal) || text.StartsWith("Your most-used apps show up here", StringComparison.Ordinal);
 
     /// <summary>The sidebar's CPU/GPU readings show a degree sign once the agent sends live values.</summary>

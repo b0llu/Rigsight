@@ -216,7 +216,7 @@ public static class PageExports
                     IsNow = true, BytesPerDay = 6_000,
                     SheetAsync = async run => { var list = await PickedAsync(); return (_, _) => ExportSheets.Library(list, run.Now); },
                 },
-                new(Lang.T("Play sessions"), Lang.T("Each time you played, with how long, how it ended, fps and 1% low, graphics card heat and power."), PageItemKind.Sheet, true)
+                new(Lang.T("Play sessions"), Lang.T("Each time you played, with how long, how it ended, fps and 1% low, GPU heat and power."), PageItemKind.Sheet, true)
                 {
                     BytesPerDay = 600,
                     SheetAsync = async run => { var list = await PickedAsync(); return (db, s) => ExportSheets.Plays(db, list, s, run.From, run.To, run.Now); },
@@ -243,7 +243,7 @@ public static class PageExports
         bool grouped = vm.Grouped, showMuted = vm.ShowMuted;
         return new(Lang.T("Export crashes"), From(Lang.T("Crashes")),
             [
-                Table(ExportTable.Crashes, Lang.T("Crash list"), Lang.T("Each crash, freeze, blue screen, shut-off and driver reset, one per line.")),
+                Table(ExportTable.Crashes, Lang.T("Crash list"), Lang.T("Each crash, freeze, blue screen, sudden shut-off and graphics driver reset, one per line.")),
                 new(Lang.T("Crashes with their context"), Lang.T("Each one with what was running, the readings before it and what changed that week."), PageItemKind.Stories, true),
             ],
             periods, IndexOf(periods, vm.Unit), CustomOf(vm.Unit, vm.CustomFrom, vm.CustomTo), scopes,

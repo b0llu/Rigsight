@@ -132,7 +132,7 @@
                                 </StackPanel>
                             </StackPanel>
                             <ctl:NetLiveChart Height="120" Margin="0,10,0,0" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
-                            <TextBlock Text="{ctl:T 'Each app\'s internet use is read while the agent runs as admin.'}" Style="{StaticResource Note}" Margin="0,8,0,0"
+                            <TextBlock Text="{ctl:T 'Each app\'s internet use is read while RigSight runs with admin rights.'}" Style="{StaticResource Note}" Margin="0,8,0,0"
                                        Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <!-- Windows stopped delivering network events and the agent couldn't get them back. -->
                             <TextBlock Text="{ctl:T 'Internet use isn\'t being recorded right now. Restarting your PC should bring it back.'}"
@@ -175,11 +175,11 @@
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,12,6">
                             <TextBlock DockPanel.Dock="Right" Text="↑" Style="{StaticResource Caption}" Width="60" TextAlignment="Right" />
                             <TextBlock DockPanel.Dock="Right" Text="↓" Style="{StaticResource Caption}" Width="80" TextAlignment="Right" />
-                            <TextBlock Text="{ctl:T 'USING IT NOW'}" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{Binding UsingNowTitle}" Style="{StaticResource Caption}" />
                         </DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'No app is using the internet right now.'}" Style="{StaticResource Note}"
                                    Visibility="{Binding NobodyNow, Converter={StaticResource Vis}}" />
-                        <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Each app\'s speed shows here while the agent runs as admin.'}" Style="{StaticResource Note}"
+                        <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Each app\'s speed shows here while RigSight runs with admin rights.'}" Style="{StaticResource Note}"
                                    Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <!-- As tall as the card's other columns: more apps than fit scroll inside it. -->
                         <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" MaxHeight="190">
@@ -219,33 +219,87 @@
                          Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
 
             <StackPanel Visibility="{Binding HasData, Converter={StaticResource Vis}}">
-                <!-- ── The period in one line of figures ── -->
-                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,12" Margin="0,0,0,18" AutomationProperties.Name="The period">
-                    <DockPanel>
-                        <!-- Drops worth a look: why, asked of the AI (hidden while it's off). -->
-                        <Border DockPanel.Dock="Right" VerticalAlignment="Center" Visibility="{Binding DropsWarn, Converter={StaticResource Vis}}">
-                            <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Why does it drop?'}" CommandParameter="{Binding DropsAsk}" AutomationProperties.Name="{ctl:T 'Why does it drop?'}" />
-                        </Border>
-                        <WrapPanel VerticalAlignment="Center">
-                            <TextBlock Style="{StaticResource Figure}"><Run Text="{Binding TotalText, Mode=OneWay}" Style="{StaticResource FigureBig}" /> <Run Text="{ctl:T 'used'}" /></TextBlock>
-                            <TextBlock Style="{StaticResource Figure}"><Run Text="{Binding DownText, Mode=OneWay}" Style="{StaticResource FigureBig}" /> <Run Text="{ctl:T 'downloaded'}" /></TextBlock>
-                            <TextBlock Style="{StaticResource Figure}"><Run Text="{Binding UpText, Mode=OneWay}" Style="{StaticResource FigureBig}" /> <Run Text="{ctl:T 'uploaded'}" /></TextBlock>
-                            <TextBlock Style="{StaticResource Figure}" ToolTip="{Binding BackgroundTip}"><Run Text="{Binding BackgroundText, Mode=OneWay}" Style="{StaticResource FigureBig}" /> <Run Text="{ctl:T 'in the background'}" /></TextBlock>
-                            <TextBlock Style="{StaticResource Figure}" Visibility="{Binding HasPing, Converter={StaticResource Vis}}" ToolTip="{Binding UsualPingTip}"><Run Text="{Binding UsualPingText, Mode=OneWay}" Style="{StaticResource FigureBig}" /> <Run Text="{Binding UsualPingWord, Mode=OneWay}" /></TextBlock>
-                            <TextBlock ToolTip="{Binding DropsTip}">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Figure}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DropsWarn}" Value="True">
-                                                <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                                <Run Text="{Binding DropsCount, Mode=OneWay}" Style="{StaticResource FigureBig}" /> <Run Text="{Binding DropsWord, Mode=OneWay}" />
+                <!-- ── The period in four figures, each with what it means (the user, 2026-11-05: option A): used with its
+                     download and upload split, downloaded against before, the background's share, and the connection. ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Margin="0,0,0,18" AutomationProperties.Name="The period">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.2*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="1.2*" />
+                        </Grid.ColumnDefinitions>
+                        <!-- Used: the total, the download and upload bar, the two amounts in their colours. -->
+                        <StackPanel Margin="20,14,20,15" AutomationProperties.Name="Used">
+                            <TextBlock Text="{ctl:T 'USED'}" Style="{StaticResource Caption}" />
+                            <TextBlock Text="{Binding TotalText}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
+                            <Grid Height="6" Margin="0,9,0,0">
+                                <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
+                                <ctl:BarPair DownShare="{Binding DownShare}" UpShare="{Binding UpShare}" />
+                            </Grid>
+                            <TextBlock FontSize="12.5" Margin="0,7,0,0" TextTrimming="CharacterEllipsis">
+                                <Run Text="↓" Foreground="{DynamicResource SkyBrush}" /> <Run Text="{Binding DownText, Mode=OneWay}" Foreground="{DynamicResource SkyBrush}" /><Run Text="    " /><Run Text="↑" Foreground="{DynamicResource PurpleBrush}" /> <Run Text="{Binding UpText, Mode=OneWay}" Foreground="{DynamicResource PurpleBrush}" />
                             </TextBlock>
-                        </WrapPanel>
-                    </DockPanel>
+                        </StackPanel>
+                        <!-- Downloaded, against the period before (a chip only when it's clearly more or less). -->
+                        <Border Grid.Column="1" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0">
+                            <StackPanel Margin="20,14,20,15" AutomationProperties.Name="Downloaded">
+                                <TextBlock Text="{ctl:T 'DOWNLOADED'}" Style="{StaticResource Caption}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="{Binding DownText}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                    <Border CornerRadius="6" Background="{DynamicResource Surface2Brush}" Padding="7,1" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            Visibility="{Binding HasCompareChip, Converter={StaticResource Vis}}">
+                                        <TextBlock Text="{Binding CompareChip}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                    </Border>
+                                </StackPanel>
+                                <!-- Wraps rather than cut: "About the same as the day before (11 GB)" is the whole point of the figure. -->
+                                <TextBlock Text="{Binding CompareText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                        <!-- In the background: its share as a bar, and what moved with nobody there. -->
+                        <Border Grid.Column="2" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0">
+                            <StackPanel Margin="20,14,20,15" AutomationProperties.Name="In the background" ToolTip="{Binding BackgroundTip}">
+                                <TextBlock Text="{ctl:T 'IN THE BACKGROUND'}" Style="{StaticResource Caption}" />
+                                <TextBlock Text="{Binding BackgroundText}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
+                                <Grid Height="6" Margin="0,9,0,0">
+                                    <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
+                                    <ctl:BarPair DownShare="{Binding BackgroundShare}" Opacity="0.55" />
+                                </Grid>
+                                <TextBlock Text="{Binding AwayText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,0"
+                                           TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                            </StackPanel>
+                        </Border>
+                        <!-- The connection: drops (the warning colour only when worth a look), how long it was down, the usual ping. -->
+                        <Border Grid.Column="3" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0">
+                            <DockPanel Margin="20,14,16,15" AutomationProperties.Name="Connection">
+                                <!-- Drops worth a look: why, asked of the AI (hidden while it's off). -->
+                                <Border DockPanel.Dock="Right" VerticalAlignment="Top" Visibility="{Binding DropsWarn, Converter={StaticResource Vis}}">
+                                    <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Why does it drop?'}" CommandParameter="{Binding DropsAsk}" AutomationProperties.Name="{ctl:T 'Why does it drop?'}" />
+                                </Border>
+                                <StackPanel ToolTip="{Binding DropsTip}">
+                                    <TextBlock Text="{ctl:T 'CONNECTION'}" Style="{StaticResource Caption}" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <Ellipse Width="8" Height="8" Fill="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,2,8,0"
+                                                 Visibility="{Binding NoDrops, Converter={StaticResource Vis}}" />
+                                        <TextBlock FontSize="24" FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DropsWarn}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                            <Run Text="{Binding DropsCount, Mode=OneWay}" /> <Run Text="{Binding DropsWord, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ConnectionText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
                 </ctl:SmoothBorder>
 
                 <!-- ── Each hour (day, month): its usage or its ping, one graph on one time line; drag across to zoom in. ── -->
@@ -304,7 +358,7 @@
                         <Grid>
                             <ctl:NetBarsChart x:Name="Chart" ctl:Roomy.Height="{x:Static views:NetworkView.ChartHeight}" CanZoom="True"
                                               Bins="{Binding Bins}" Unit="{Binding Unit}" Mode="{Binding ChartMode}" View="{Binding ChartView}"
-                                              ColorApps="{Binding ColorApps}" AppNames="{Binding AppNames}" Selected="{Binding SelectedBin}"
+                                              ColorApps="{Binding ColorApps}" AppNames="{Binding AppNames}" Selected="{Binding SelectedBin}" SelectedLast="{Binding SelectedBinLast}"
                                               Drops="{Binding Drops}" HighPing="{Binding HighPing}" Zoomed="{Binding Zoomed}"
                                               HoverIndex="{Binding HoverIndex}" HoverPoint="{Binding HoverPoint}" PingMarks="{Binding PingMarks}" Link="{Binding Link}"
                                               AutomationProperties.Name="Usage chart">
@@ -453,6 +507,9 @@
                                                                 </Grid.ColumnDefinitions>
                                                                 <Rectangle Style="{StaticResource Swatch}" Fill="{Binding BrushKey, Converter={StaticResource ResourceBrush}}" />
                                                                 <Image Grid.Column="1" Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="16" Height="16" Margin="8,0,0,0" />
+                                                                <!-- Every other app together: a grid in the icon's place, so its name lines up with the others. -->
+                                                                <TextBlock Grid.Column="1" Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="12" Margin="10,0,0,0" HorizontalAlignment="Left"
+                                                                           Foreground="{DynamicResource MutedBrush}" Visibility="{Binding IsOthers, Converter={StaticResource Vis}}" />
                                                                 <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="12.5" Margin="8,0,8,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
                                                                     <TextBlock.Style>
                                                                         <Style TargetType="TextBlock">
@@ -532,8 +589,20 @@
                     <ctl:SmoothBorder Style="{StaticResource RowCard}" Height="{x:Static views:NetworkView.ListHeight}">
                         <DockPanel>
                             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Whole period'}" Command="{Binding ClearSelectionCommand}"
-                                        ToolTip="{ctl:T 'Back to every app of the period'}" Visibility="{Binding HasSelection, Converter={StaticResource Vis}}" />
+                                <!-- Hidden, not gone, while nothing is picked: the title row keeps the button's height, so nothing
+                                     under it moves when it appears (the user, 2026-11-05). -->
+                                <Button DockPanel.Dock="Right" Content="{ctl:T 'Whole period'}" Command="{Binding ClearSelectionCommand}"
+                                        ToolTip="{ctl:T 'Back to every app of the period'}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasSelection}" Value="False">
+                                                    <Setter Property="Visibility" Value="Hidden" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                                 <TextBlock Text="{Binding AppsTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             </DockPanel>
                             <Border DockPanel.Dock="Top" Style="{StaticResource SegmentHost}" HorizontalAlignment="Left" Margin="0,0,0,8"
@@ -553,6 +622,7 @@
                             <TextBlock DockPanel.Dock="Top" Text="{Binding NoAppsText}" Style="{StaticResource Note}"
                                        Visibility="{Binding HasApps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
                                 <ItemsControl ItemsSource="{Binding Apps}" Focusable="False" AutomationProperties.Name="Apps">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:NetAppRow}">
@@ -595,6 +665,52 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                <!-- The apps under 1 MB each, together: the row opens to list them (the user, 2026-11-05). -->
+                                <Button Style="{StaticResource RowButton}" Padding="0,8" Margin="0,0,16,0" Command="{Binding ToggleSmallAppsCommand}"
+                                        AutomationProperties.Name="{Binding SmallAppsText}" Visibility="{Binding HasSmallApps, Converter={StaticResource Vis}}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="30" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Left" Margin="3,0,0,0" />
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <TextBlock Text="{Binding SmallAppsText}" Style="{StaticResource Body}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="8,2,0,0" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+                                                        <Setter Property="Text" Value="&#xE70D;" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding SmallAppsOpen}" Value="True">
+                                                                <Setter Property="Text" Value="&#xE70E;" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Text="{Binding SmallAppsAmount}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                    </Grid>
+                                </Button>
+                                <ItemsControl ItemsSource="{Binding SmallApps}" Focusable="False" Margin="0,0,16,6" AutomationProperties.Name="Apps under 1 MB"
+                                              Visibility="{Binding SmallAppsOpen, Converter={StaticResource Vis}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:NetSmallRow}">
+                                            <Grid Margin="0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="30" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="16" Height="16" HorizontalAlignment="Left" Margin="2,0,0,0" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Amount}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                </StackPanel>
                             </ScrollViewer>
                         </DockPanel>
                     </ctl:SmoothBorder>
@@ -627,8 +743,8 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </Border>
-                            <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding Happenings}" Focusable="False" Margin="0,0,10,0" AutomationProperties.Name="What happened">
+                            <ScrollViewer x:Name="HappeningsScroll" Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="HappeningsList" ItemsSource="{Binding Happenings}" Focusable="False" Margin="0,0,10,0" AutomationProperties.Name="What happened">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:NetHappeningRow}">
                                             <Grid>

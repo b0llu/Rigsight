@@ -32,7 +32,7 @@ public sealed class GameVramTests
         var stats = t.Db.GetPlayStats(game, TimeUtil.ToUnix(Start), TimeUtil.ToUnix(Start.AddHours(1)));
         Assert.Null(stats.VramOwnMax);
         Assert.Equal(11_509, stats.VramMax);
-        Assert.Equal("up to 11.2 of 12 GB · whole card, all apps", GamesViewModel.GraphicsMemory(stats));
+        Assert.Equal("up to 11.2 of 12 GB · whole GPU, all apps", GamesViewModel.GraphicsMemory(stats));
     }
 
     [Fact]

@@ -168,7 +168,7 @@
                                 <TextBlock Text="{Binding ShapeSize}" Width="96" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,0" />
                                 <Border Width="1" Height="22" Background="{DynamicResource StrokeBrush}" Margin="4,0,10,0" />
                                 <StackPanel x:Name="AccentSwatches" Orientation="Horizontal" VerticalAlignment="Center" />
-                                <Button Style="{StaticResource ActionButton}" Command="{Binding SameAsAppCommand}" Content="{ctl:T 'RigSight colours'}" Margin="10,0,0,0" VerticalAlignment="Center"
+                                <Button Style="{StaticResource ActionButton}" Command="{Binding SameAsAppCommand}" Content="{ctl:T 'RigSight colors'}" Margin="10,0,0,0" VerticalAlignment="Center"
                                         Visibility="{Binding LookIsApps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             </StackPanel>
                             <Grid x:Name="PreviewBox" Margin="18" ClipToBounds="False">

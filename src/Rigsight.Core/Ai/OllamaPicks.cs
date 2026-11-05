@@ -21,7 +21,7 @@ public static class OllamaPicks
     /// <summary>Smallest first; <see cref="BestFor"/> walks them by the card's memory.</summary>
     public static readonly IReadOnlyList<OllamaPick> All =
     [
-        new("qwen3.5:4b", "Qwen 3.5, 4B", 3.5, Lang.Key("Small enough for a PC without a strong graphics card. Answers come slower.")),
+        new("qwen3.5:4b", "Qwen 3.5, 4B", 3.5, Lang.Key("Small enough for a PC without a strong GPU. Answers come slower.")),
         new("qwen3.5:9b", "Qwen 3.5, 9B", 6.6, Lang.Key("Quick, and still good at looking things up.")),
         new("gemma4:12b", "Gemma 4, 12B", 8, Lang.Key("Good answers, and leaves room on your card for a game.")),
         new("gpt-oss:20b", "gpt-oss, 20B", 14, Lang.Key("Better answers, for a card with lots of memory.")),
@@ -79,8 +79,8 @@ public static class OllamaPicks
     /// <summary>The hover on "May be slow" and "Too big": what happens when it doesn't fit.</summary>
     public static string FitWhy(OllamaFit fit) => fit switch
     {
-        OllamaFit.PartFits => Lang.T("Only part of it fits on your graphics card, so answers take longer."),
-        OllamaFit.TooBig => Lang.T("Most of it won't fit on your graphics card, so answers would take minutes."),
+        OllamaFit.PartFits => Lang.T("Only part of it fits on your GPU, so answers take longer."),
+        OllamaFit.TooBig => Lang.T("Most of it won't fit on your GPU, so answers would take minutes."),
         _ => "",
     };
 

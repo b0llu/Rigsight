@@ -111,22 +111,26 @@ public sealed class DailyBars : FrameworkElement
             if (i == _hover)
                 dc.DrawRoundedRectangle(ChartPaint.Track, null, new Rect(cx - slot / 2 + 2, plot.Top, Math.Max(0, slot - 4), plot.Height), 6, 6);
 
-            // Each kind a rounded piece, a hairline of the card between them (as the Network page's bars and the mock-up).
-            double y = plot.Bottom, radius = barW > 6 ? 2.5 : 1;
+            // One plain bar, each kind's piece joined square to the next and only the top rounded (StackedBar).
+            double y = plot.Bottom;
             var only = Only;
+            var pieces = new List<(Brush, double)>();
             // A kind picked: its pieces first (at the bottom, where they compare day to day), the rest faded over them.
             foreach (var (cat, sec) in d.ActiveByCategory.OrderBy(kv => only is null || only.Contains(kv.Key) ? 0 : 1).ThenByDescending(kv => kv.Value))
             {
                 double bh = sec / 3600 / maxHours * plot.Height;
                 if (bh < 0.5) continue;
-                double gap = y < plot.Bottom && bh > 4 ? 1.5 : 0;
-                double r = Math.Min(radius, (bh - gap) / 2);
-                bool back = only is not null && !only.Contains(cat);
-                if (back) dc.PushOpacity(0.22);
-                dc.DrawRoundedRectangle(Fill(cat), null, new Rect(cx - barW / 2, y - bh, barW, Math.Max(0.5, bh - gap)), r, r);
-                if (back) dc.Pop();
+                Brush fill = Fill(cat);
+                if (only is not null && !only.Contains(cat))
+                {
+                    fill = fill.Clone();
+                    fill.Opacity = 0.22;
+                    fill.Freeze();
+                }
+                pieces.Add((fill, bh));
                 y -= bh;
             }
+            StackedBar.Draw(dc, cx - barW / 2, barW, plot.Bottom, pieces);
             // Its total over it (the picked kind's alone, when one is).
             double shownSec = only is null ? d.ActiveSec : d.ActiveByCategory.Where(kv => only.Contains(kv.Key)).Sum(kv => kv.Value);
             if (totals && shownSec >= 60)

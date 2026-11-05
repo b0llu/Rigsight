@@ -26,6 +26,8 @@ public sealed record NetHappening(NetHappeningKind Kind, DateTime? Day, DateTime
     public InsightTone Tone { get; init; }
     /// <summary>The app is on the internet for the first time.</summary>
     public bool IsNew { get; init; }
+    /// <summary>Where a line covers several hours ("10 AM – 1 PM"), when its stretch ends: the chart picks all of them.</summary>
+    public DateTime? Until { get; init; }
 }
 
 /// <summary>
@@ -127,10 +129,10 @@ public static class NetHappenings
                 string? note = PingDuring(r, from, to);
                 bool rose = stretch.Any(b => b.Ping is { } p && r.Line is { } l && p.Highest >= NetLinePing.HighFor(l.Usual));
                 string detail = upload ? Lang.T($"↑ {Units.Data(top.Up)} of it upload") : Lang.T($"↓ {Units.Data(top.Down)} of it download");
-                if (rose && upload) detail = Lang.T("When one app fills the upload, game traffic waits behind it") + " · " + detail;
+                if (rose && upload) detail = Lang.T("A full upload can slow game traffic") + " · " + detail;
                 lines.Add(new(new NetHappening(NetHappeningKind.Played, from.Date, from, Span(from, to), Lang.T($"{Name(top.App)} used {Units.Data(used)} while you played {game}"))
                 {
-                    Detail = detail, Amount = Units.Data(used), Path = PathOf(top.App), PingNote = note,
+                    Detail = detail, Amount = Units.Data(used), Path = PathOf(top.App), PingNote = note, Until = to,
                 }, used));
             }
         }
@@ -164,7 +166,7 @@ public static class NetHappenings
             bool? router = pings.Count == 0 ? null : pings.Any(p => p.LanMs is not null);
             lines.Add(new(new NetHappening(NetHappeningKind.Drop, at.Date, at, Clock(at), DropWords.WasDown(d.Seconds))
             {
-                Detail = DropWords.WhatBroke(d.Kind, null, router), Icon = "\uE871", Tone = InsightTone.Warn,
+                Detail = DropWords.WhatBroke(d.Kind, null, router), Icon = DropIcon(d.Kind), Tone = InsightTone.Warn,
             }, long.MaxValue / 2));
         }
 
@@ -186,8 +188,10 @@ public static class NetHappenings
             if (named.Count == 0) continue;
             var lead = named[0];
             var rest = named.Skip(1).Select(x => Name(x.Id)).ToList();
-            string? also = rest.Count == 0 ? null : rest.Count <= 3 ? Lang.T($"Also new: {string.Join(", ", rest)}")
-                : Lang.T($"Also new: {string.Join(", ", rest.Take(3))} and {rest.Count - 3} more");
+            string? also = rest.Count == 0 ? null
+                : rest.Count == 1 ? Lang.T($"{rest[0]} was new too")
+                : rest.Count <= 3 ? Lang.T($"{Wording.JoinAnd(rest)} were new too")
+                : Lang.T($"{string.Join(", ", rest.Take(3))} and {rest.Count - 3} more were new too");
             // The hour it first moved anything, on an hourly chart.
             var firstHour = r.Hourly ? r.Bins.FirstOrDefault(b => b.Start.Date == day.Key && b.Apps.Any(a => a.App == lead.Id))?.Start : null;
             lines.Add(new(new NetHappening(NetHappeningKind.New, day.Key, firstHour ?? day.Key, firstHour is { } h ? Clock(h, hourOnly: true) : "",
@@ -216,8 +220,17 @@ public static class NetHappenings
         var bins = r.Bins.Where(b => b.Ping is not null && b.Start < to && b.Start.AddHours(r.Hourly ? 1 : 24) > from).Select(b => b.Ping!).ToList();
         if (bins.Count == 0) return null;
         int highest = bins.Max(p => p.Highest), usual = NetLine.Middle([.. bins.Select(p => p.Usual)]);
-        return highest >= NetLinePing.HighFor(line.Usual) ? Lang.T($"Ping rose to {highest} ms meanwhile") : Lang.T($"Ping held at {usual} ms");
+        return highest >= NetLinePing.HighFor(line.Usual) ? Lang.T($"Ping rose to {highest} ms at the same time") : Lang.T($"Ping held at {usual} ms");
     }
+
+    /// <summary>
+    /// A drop's icon, the one Windows itself shows for it (the user, 2026-11-05: the old glyph was only Windows' small
+    /// overlay badge, a lone circle): the internet gone with the PC still on its network is Windows 11's globe with a
+    /// crossed circle; the PC off its network is the Wi-Fi or Ethernet icon with a cross, by the connection it uses.
+    /// </summary>
+    internal static string DropIcon(NetDropKind kind) => kind == NetDropKind.Internet ? "\uF384"
+        : (_linkIcon ??= NetAdapters.Current()?.Kind == "Wi-Fi" ? "\uEB5E" : "\uEB55");
+    private static string? _linkIcon;
 
     private static string Clock(DateTime t, bool hourOnly = false) => TimeText.At(t, hourOnly ? "h tt" : "h:mm tt");
 

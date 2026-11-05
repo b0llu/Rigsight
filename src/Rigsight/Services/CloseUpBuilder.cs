@@ -153,7 +153,7 @@ internal static class CloseUpBuilder
             if (p.GpuPower - earlier.GpuPower is double w && w >= CloseUpWords.PowerWatts && p.GpuPower >= earlier.GpuPower * CloseUpWords.PowerTimes) flags.Add(Lang.T($"GPU power up {w:0} W in 30 s"));
         }
         if (p.Commit >= 95) flags.Add(Lang.T("Windows nearly out of memory"));
-        if (p.VramTotal is double total && total > 0 && p.Vram >= total * 0.97) flags.Add(Lang.T("Graphics memory nearly full"));
+        if (p.VramTotal is double total && total > 0 && p.Vram >= total * 0.97) flags.Add(Lang.T("Video memory nearly full"));
         return [.. flags.Take(2)];
     }
 }

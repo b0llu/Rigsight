@@ -55,7 +55,7 @@ public sealed class AskCreateActionsTests
         // The taskbar shows sensors: "CPU temperature" goes as the sensor that measures it here, named as asked.
         var taskbar = Assert.Single(Resolve("taskbar cpu temperature and GPU Hot Spot"));
         Assert.Equal(AiActionKind.AddTaskbar, taskbar.Kind);
-        Assert.Equal("Add beside the clock", taskbar.Label);
+        Assert.Equal("Readings for your taskbar", taskbar.Label);
         Assert.Equal([CpuPackage.SensorId, GpuHotSpotSensor.SensorId], taskbar.Readings!.Select(r => r.SensorId));
         Assert.Equal("CPU temperature", taskbar.Readings![0].Name);
     }

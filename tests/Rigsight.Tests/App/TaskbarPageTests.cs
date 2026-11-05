@@ -462,7 +462,7 @@ public sealed class TaskbarPageTests
             var tick = Pc.Tick(1000);
             tick.TrayWaiting = [live.GpuTemp!.Id];
             live.ApplyTick(tick);
-            Assert.Contains("1 reading doesn't fit", page.WaitingText);
+            Assert.Contains("doesn't fit in the taskbar on this screen, so it waits in the +1 tile.", page.WaitingText);
             Assert.Contains(page.Sensors[1].Name, page.WaitingText);
 
             live.ApplyTick(Pc.Tick(2000)); // all fit again

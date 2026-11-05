@@ -63,8 +63,8 @@ public sealed class GiftTests
         Assert.Equal("Thanks for reporting the fan bug.", ask.Gift.Note);
         Assert.Equal(497, ask.QuestionsLeft);
         Assert.True(plans.HasGiven);
-        Assert.Equal("20 given by RigSight · used after Complete's 500 a day, they don't run out", plans.GivenText);
-        Assert.Equal("Your plan · 20 given", plans.Columns.Single(c => c.IsMine).MineText);
+        Assert.Equal("20 extra from RigSight · used after Complete's 500 a day, they don't run out", plans.GivenText);
+        Assert.Equal("Your plan · 20 extra", plans.Columns.Single(c => c.IsMine).MineText);
     }
 
     [Fact]
@@ -92,13 +92,13 @@ public sealed class GiftTests
         Assert.False(ask.IsOutOfQuestions);
         Assert.Equal("All 10 used this week", plans.FreeLine);
         Assert.Equal("Back to 10 on Monday.", plans.FreeWhen);
-        Assert.Equal("5 given by RigSight · used after this week's 10, they don't run out", plans.GivenText);
-        Assert.Equal("All 10 used this week · 5 given", plans.Columns.Single(c => c.IsMine).MineText);
+        Assert.Equal("5 extra from RigSight · used after this week's 10, they don't run out", plans.GivenText);
+        Assert.Equal("All 10 used this week · 5 extra", plans.Columns.Single(c => c.IsMine).MineText);
     }
 
     [Theory]
-    [InlineData(2, "2 given questions left")]
-    [InlineData(1, "1 given question left")]
+    [InlineData(2, "2 extra questions left")]
+    [InlineData(1, "1 extra question left")]
     public void With_the_week_used_up_the_line_counts_the_given_ones(int given, string said)
     {
         var (ask, _, _) = Shown(With(Status("free", used: 10), given));
@@ -113,7 +113,7 @@ public sealed class GiftTests
     {
         var (ask, _, _) = Shown(With(Status("free", used: 10), 1));
         Assert.True(ask.IsLastQuestion);
-        Assert.Equal("This is the last of the questions given to you.", ask.LastQuestionTitle);
+        Assert.Equal("This is the last of your extra questions.", ask.LastQuestionTitle);
         Assert.Equal("Your 10 free ones are back on Monday.", ask.LastQuestionText);
     }
 
@@ -122,8 +122,8 @@ public sealed class GiftTests
     {
         var (ask, _, _) = Shown(With(Status("free", used: 9), 2));
         Assert.Equal(3, ask.QuestionsLeft);
-        Assert.Equal("1 of 10 left this week + 2 given", ask.QuestionsLeftText);
-        Assert.Equal("1 of 10 free questions left this week + 2 given", ask.QuestionsLine);
+        Assert.Equal("1 of 10 left this week + 2 extra", ask.QuestionsLeftText);
+        Assert.Equal("1 of 10 free questions left this week + 2 extra", ask.QuestionsLine);
     }
 
     [Fact]

@@ -143,8 +143,8 @@ public sealed class DriverResetTests
         var e = ShutOff(T(9, 22, 9, 47, 0), T(9, 22, 9, 47, 24));
         var signs = new List<CrashSign>
         {
-            new(TimeUtil.ToUnix(T(9, 22, 9, 47, 9)), SignKind.GraphicsHangAt, "The graphics card hung"),
-            new(TimeUtil.ToUnix(T(9, 22, 9, 48, 0)), SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering"),
+            new(TimeUtil.ToUnix(T(9, 22, 9, 47, 9)), SignKind.GraphicsHangAt, "The GPU hung"),
+            new(TimeUtil.ToUnix(T(9, 22, 9, 48, 0)), SignKind.GraphicsHang, "Windows filed a report that the GPU stopped answering"),
         };
         var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", FrontIsGame = true, Signs = signs });
         Assert.Equal((Confidence.Likely, "LIKELY THE GPU HUNG"), (f.Confidence, f.Chip));
@@ -159,7 +159,7 @@ public sealed class DriverResetTests
     {
         // A standard account can't read the report's own time: only that one was filed at the next start.
         var e = ShutOff(T(9, 22, 9, 47, 0), T(9, 22, 9, 47, 24));
-        var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 48, 0)), SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering") };
+        var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 48, 0)), SignKind.GraphicsHang, "Windows filed a report that the GPU stopped answering") };
         var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", FrontIsGame = true, Signs = signs });
         Assert.Equal((Confidence.Possible, "POSSIBLY THE GPU HUNG"), (f.Confidence, f.Chip));
     }
@@ -169,11 +169,11 @@ public sealed class DriverResetTests
     {
         // 22 Sep as stored before R2: Windows' last-known time was 23:07 the night before; hang 9:47:09, restart 9:47:35.
         var e = ShutOff(T(9, 21, 23, 7, 49), T(9, 22, 9, 47, 35));
-        var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 47, 9)), SignKind.GraphicsHangAt, "The graphics card hung") };
+        var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 47, 9)), SignKind.GraphicsHangAt, "The GPU hung") };
         var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Signs = signs });
         Assert.Equal("THE GPU HUNG", f.Cause);
         // A hang hours before the restart says nothing about this shut-off.
-        var early = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 2, 0, 0)), SignKind.GraphicsHangAt, "The graphics card hung") };
+        var early = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 2, 0, 0)), SignKind.GraphicsHangAt, "The GPU hung") };
         Assert.NotEqual("THE GPU HUNG", CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Signs = early }).Cause);
     }
 
@@ -182,7 +182,7 @@ public sealed class DriverResetTests
     {
         using var t = new TestDb("hang-place");
         long hung = TimeUtil.ToUnix(T(9, 22, 9, 47, 9)), next = TimeUtil.ToUnix(T(9, 22, 9, 47, 35)), stale = TimeUtil.ToUnix(T(9, 21, 23, 7, 49));
-        t.Db.InsertSigns([new CrashSign(hung, SignKind.GraphicsHangAt, "The graphics card hung")]);
+        t.Db.InsertSigns([new CrashSign(hung, SignKind.GraphicsHangAt, "The GPU hung")]);
         t.Db.InsertCrashes([new CrashEvent { Ts = stale, WindowsTs = stale, Kind = CrashKind.UnexpectedShutdown, AppExe = "", NextStart = next, Facts = new CrashFacts { NextStart = next } }]);
         Assert.Equal(hung, Assert.Single(t.Db.GetCrashes(0, long.MaxValue / 2)).Ts);
     }
@@ -191,7 +191,7 @@ public sealed class DriverResetTests
     public void A_hang_the_card_recovered_from_minutes_earlier_is_not_put_down_as_the_shut_offs_cause()
     {
         var e = ShutOff(T(9, 22, 9, 47, 0), T(9, 22, 9, 47, 24));
-        var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 40, 0)), SignKind.GraphicsHangAt, "The graphics card hung") };
+        var signs = new List<CrashSign> { new(TimeUtil.ToUnix(T(9, 22, 9, 40, 0)), SignKind.GraphicsHangAt, "The GPU hung") };
         var f = CrashFindings.Judge(new CrashInput(e, CrashExplainer.Explain(e), new AlertSettings()) { Context = Gaming, FrontApp = "Dota 2", FrontIsGame = true, Signs = signs });
         Assert.NotEqual("THE GPU HUNG", f.Cause);
     }

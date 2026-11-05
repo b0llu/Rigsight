@@ -133,7 +133,7 @@ public sealed class YearlyTests
         var plans = Shown(WithYearly(Status("essentials", "subscription"), "month").Replace("2026-11-22T10:00:00Z", renews)
             .Replace("\"price_label\":\"$5\",\"card\"", "\"price_label\":\"$4.99\",\"card\""));
         Assert.True(plans.MonthlyNext);
-        Assert.StartsWith("$49.99 paid to ", plans.Summary);
+        Assert.StartsWith("$49.99 paid until ", plans.Summary);
         Assert.Contains(" · then $4.99 a month", plans.Summary);
         Assert.Equal(("Keep yearly", "save $9.89"), (plans.BillingButton, plans.BillingSave));
         Ui.Run(() => plans.AskBillingCommand.Execute(null));

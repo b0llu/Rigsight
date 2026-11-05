@@ -511,7 +511,7 @@
         <!-- Ask itself, opened straight away on its chats without asking anything (2026-10-27: there was no other way since the
              box replaced the Ask button); lit while Ask is open, and closes it. Beside the box, so the box stays the bar's middle. -->
         <Button x:Name="AskChats" WindowChrome.IsHitTestVisibleInChrome="True" Command="{Binding Ask.ToggleCommand}" Cursor="Hand" Focusable="False" FocusVisualStyle="{x:Null}"
-                HorizontalAlignment="Center" VerticalAlignment="Center" Width="30" Height="30" Margin="526,0,0,0" ToolTip="{ctl:T 'Your chats'}" AutomationProperties.Name="{ctl:T 'Your chats'}"
+                HorizontalAlignment="Center" VerticalAlignment="Center" Width="30" Height="30" Margin="526,0,0,0" ToolTip="{ctl:T 'Your conversations'}" AutomationProperties.Name="{ctl:T 'Your conversations'}"
                 Visibility="{Binding ShowAskBar, Converter={StaticResource Vis}}">
             <Button.Template>
                 <ControlTemplate TargetType="Button">
@@ -1039,7 +1039,7 @@
                                         <Setter Property="Text" Value="{ctl:T 'Background agent not running'}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                                <Setter Property="Text" Value="{ctl:T 'Agent running without admin rights'}" />
+                                                <Setter Property="Text" Value="{ctl:T 'RigSight is running without admin rights'}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding AgentOutOfDate}" Value="True">
                                                 <Setter Property="Text" Value="{ctl:T 'Background agent is another version'}" />
@@ -1697,7 +1697,7 @@
                                 </Border>
                                 <StackPanel>
                                     <TextBlock Text="{ctl:T 'When something goes wrong'}" FontSize="15" FontWeight="SemiBold" />
-                                    <TextBlock Text="{ctl:T 'Crashes, freezes and sudden shut-offs, with what most likely caused them. The last 90 days come in from Windows\' own logs in the next minute.'}"
+                                    <TextBlock Text="{ctl:T 'Crashes, freezes and sudden shut-offs, and what likely caused them when the records show it. The last 90 days come in from Windows\' own logs in the next minute.'}"
                                                FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
                                 </StackPanel>
                             </DockPanel>
@@ -2106,8 +2106,8 @@
                 <TextBlock Text="{ctl:T 'Updating RigSight'}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
                 <TextBlock Text="{Binding OverlayVersions}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,4,0,22" />
                 <ProgressBar Style="{StaticResource Bar}" Height="8" Value="{Binding OverlayFill, Mode=OneWay}" Maximum="100" />
-                <TextBlock Text="{ctl:T 'RigSight closes and opens again by itself.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,16,0,0" />
-                <TextBlock Text="{ctl:T 'This takes about 15 seconds. Your history and settings stay as they are.'}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                <TextBlock Text="{ctl:T 'RigSight closes and opens again by itself in about 15 seconds.'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+                <TextBlock Text="{ctl:T 'Your history and settings stay as they are.'}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
                            HorizontalAlignment="Center" Margin="0,6,0,0" />
                 <!-- Longer than an install takes (an admin's password asked for, say): a way back to the app, the sidebar
                      still saying how it goes. Its room is kept from the start, so nothing moves when it shows. -->

@@ -64,7 +64,14 @@ public sealed partial class NetAppRow : ObservableObject
 public sealed record NetLegend(string BrushKey, string Text, double Opacity = 1);
 
 /// <summary>One app in the graph's hover box: its colour on the chart, its icon, name and what it used.</summary>
-public sealed record NetHoverRow(string BrushKey, string? Path, string Name, string Amount, bool Muted = false);
+public sealed record NetHoverRow(string BrushKey, string? Path, string Name, string Amount, bool Muted = false)
+{
+    /// <summary>The row of every other app together: a grid glyph in the icon's place, so its name lines up with the rest.</summary>
+    public bool IsOthers { get; init; }
+}
+
+/// <summary>An app that used under 1 MB, in the list that opens under the apps (name, icon, amount).</summary>
+public sealed record NetSmallRow(string Name, string? Path, string Amount);
 
 /// <summary>
 /// The graph's hover box for one bar: the hour (or day, or month) and the game played then, its total big with the
@@ -141,6 +148,8 @@ public sealed record NetHappeningRow(bool IsHeader, string Text)
     public bool IsNew { get; init; }
     /// <summary>The bar it points at on the graph (-1: none).</summary>
     public int Bin { get; init; } = -1;
+    /// <summary>The last bar of the stretch it covers ("10 AM – 1 PM"), or -1 for one bar.</summary>
+    public int BinLast { get; init; } = -1;
     /// <summary>Picked on the graph: the line is lit.</summary>
     public bool IsPicked { get; init; }
 
@@ -199,7 +208,7 @@ public sealed partial class NetworkViewModel : ObservableObject
 
     private void NewPeriod()
     {
-        SelectedBin = -1;
+        LetGo();
         Zoomed = null;
         _ = RefreshAsync();
     }
@@ -267,13 +276,13 @@ public sealed partial class NetworkViewModel : ObservableObject
     {
         if (PingChecksOn)
         {
-            PingStatusText = Live.Line is { ProviderFound: false } ? Lang.T("Checking every 5 seconds, to your router")
-                : Lang.T("Checking every 5 seconds, to your internet provider's first router");
+            PingStatusText = Live.Line is { ProviderFound: false } ? Lang.T("Checking your router every 5 seconds")
+                : Lang.T("Checking your internet provider's first router every 5 seconds");
             return;
         }
         PingStatusText = _report?.PingPausedSince is { } since
-            ? Lang.T($"Paused since {(since.Date == DateTime.Today ? TimeText.At(since, "h:mm tt") : since > DateTime.Today.AddDays(-6) ? $"{since:ddd} {TimeText.At(since, "h:mm tt")}" : since.ToString("d MMM"))} · the ping checked before stays")
-            : Lang.T("Paused · the ping checked before stays");
+            ? Lang.T($"Paused since {(since.Date == DateTime.Today ? TimeText.At(since, "h:mm tt") : since > DateTime.Today.AddDays(-6) ? $"{since:ddd} {TimeText.At(since, "h:mm tt")}" : since.ToString("d MMM"))} · the graph keeps what was already checked")
+            : Lang.T("Paused · the graph keeps what was already checked");
     }
 
     [RelayCommand]
@@ -370,7 +379,8 @@ public sealed partial class NetworkViewModel : ObservableObject
         DownNow = Units.Speed(net.Down);
         UpNow = Units.Speed(net.Up);
         // Rows kept where they are when the same apps stay busy (no flicker each second), re-made when they change.
-        var apps = net.Apps.Where(a => a.Down + a.Up >= 1024).ToList();
+        // The busiest first, so with many the one moving most stays on top (the list scrolls inside the card).
+        var apps = net.Apps.Where(a => a.Down + a.Up >= 1024).OrderByDescending(a => a.Down + a.Up).ToList();
         if (!apps.Select(a => a.Exe).SequenceEqual(UsingNow.Select(r => r.Exe)))
         {
             UsingNow.Clear();
@@ -385,7 +395,11 @@ public sealed partial class NetworkViewModel : ObservableObject
             row.UpText = Units.Speed(a.Up);
         }
         NobodyNow = UsingNow.Count == 0;
+        UsingNowTitle = UsingNow.Count >= 2 ? Lang.T("USING IT NOW") + " · " + Lang.T($"{UsingNow.Count} APPS") : Lang.T("USING IT NOW");
     }
+
+    /// <summary>The live list's caption, with how many apps are in it when there are several.</summary>
+    [ObservableProperty] private string _usingNowTitle = Lang.T("USING IT NOW");
 
     /// <summary>The line check's last minute into the Right now card: its words, ping, jitter and what went unanswered.</summary>
     internal void UpdateLine(LineLive? line)
@@ -408,7 +422,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         // Ping checks off: Windows seeing the internet is all there is to go by.
         if (!checksOn) return online == true ? (LineState.Good, Lang.T("Working well")) : (LineState.Checking, Lang.T("Checking…"));
         if (line is null) return (LineState.Checking, Lang.T("Checking…"));
-        if (line.LostPercent >= LosingPercent) return (LineState.Losing, Lang.T("Losing data"));
+        if (line.LostPercent >= LosingPercent) return (LineState.Losing, Lang.T("Some pings lost"));
         int? ping = line.IspMs ?? line.LanMs;
         if (ping is int p && p >= NetLinePing.HighFor(usual ?? 0)) return (LineState.Slow, Lang.T("Slow right now"));
         return (LineState.Good, Lang.T("Working well"));
@@ -443,6 +457,46 @@ public sealed partial class NetworkViewModel : ObservableObject
     [ObservableProperty] private string _dropsCount = "";
     [ObservableProperty] private string _dropsWord = "";
     [ObservableProperty] private string _dropsTip = "";
+
+    // The four figures (the user, 2026-11-05, option A of the summary mock-up): each with what it means beside it.
+    /// <summary>Download and upload as shares of the total (0–100), for the bar under "Used".</summary>
+    [ObservableProperty] private double _downShare;
+    [ObservableProperty] private double _upShare;
+    /// <summary>The background's share of the total (0–100), for its bar.</summary>
+    [ObservableProperty] private double _backgroundShare;
+    /// <summary>Under the background's share: what moved with nobody at the PC.</summary>
+    [ObservableProperty] private string _awayText = "";
+    /// <summary>Downloaded against the period before, in a chip when it's clearly more or less ("3.8×", "40% less"); empty otherwise.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasCompareChip))] private string _compareChip = "";
+    public bool HasCompareChip => CompareChip.Length > 0;
+    /// <summary>Under it: what it's set against ("Against 7.1 GB yesterday by now").</summary>
+    [ObservableProperty] private string _compareText = "";
+    /// <summary>Under the drops: how long the internet was down in all, and the usual ping.</summary>
+    [ObservableProperty] private string _connectionText = "";
+    [ObservableProperty] private bool _noDrops;
+
+    /// <summary>
+    /// Downloaded against the period before, as the What happened line words it (the same comparison, so the page never
+    /// says two things): a day against the day before (yesterday by now while today is going), longer against the
+    /// period before as far as this one has gone. Like for like or nothing.
+    /// </summary>
+    internal static (string Chip, string Text) Compare(NetReport r, bool inProgress)
+    {
+        if (r.PreviousDown is not long before || before <= 0) return ("", Lang.T("Nothing before it to compare with"));
+        string last = (r.Range, inProgress) switch
+        {
+            (ReportRange.Day, true) => Lang.T("yesterday by now"),
+            (ReportRange.Day, false) => Lang.T("the day before"),
+            (ReportRange.Week, _) => Lang.T("the 7 days before"),
+            (ReportRange.Month, _) => Lang.T("the 30 days before"),
+            _ => Lang.T("the 12 months before"),
+        };
+        double ratio = (double)r.Down / before;
+        string chip = ratio >= 1.25 ? $"{ratio:0.0}×" : ratio <= 0.8 ? Lang.T($"{(1 - ratio) * 100:0}% less") : "";
+        // The amount never split over two lines ("(11" / "GB)"): a no-break space inside it.
+        string amount = Units.Data(before).Replace(' ', ' ');
+        return (chip, chip.Length > 0 ? Lang.T($"Against {amount} {last}") : Lang.T($"About the same as {last} ({amount})"));
+    }
 
     /// <summary>Drops worth a look: the AI button asks why, from the Network page's records.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(DropsAsk))] private bool _dropsWarn;
@@ -519,8 +573,8 @@ public sealed partial class NetworkViewModel : ObservableObject
             PingNoteIcon = "\uE769";
             PingNoteTitle = Lang.T("Ping checks are paused");
             PingNoteBody = have > 0
-                ? Lang.T($"Too little ping was checked {PeriodWord} for a graph. Resumed, your connection is checked every 5 seconds and it fills in as you use your PC.")
-                : Lang.T("Your connection's ping isn't being checked. Resumed, it's checked every 5 seconds and shows here.");
+                ? Lang.T($"Too little ping was checked {PeriodWord} for a graph. Once you resume, your connection is checked every 5 seconds and it fills in as you use your PC.")
+                : Lang.T("Your connection's ping isn't being checked. Once you resume, it's checked every 5 seconds and shows here.");
         }
         else if (IncludesToday)
         {
@@ -572,6 +626,32 @@ public sealed partial class NetworkViewModel : ObservableObject
         FillHappenings();
     }
 
+    /// <summary>The last bar of a stretch picked from What happened (-1: one bar is picked).</summary>
+    [ObservableProperty] private int _selectedBinLast = -1;
+    partial void OnSelectedBinLastChanged(int value)
+    {
+        if (SelectedBin < 0) return;
+        FillApps();
+        FillHappenings();
+    }
+
+    /// <summary>The bars picked, first and last (the same for one bar), or null.</summary>
+    internal (int First, int Last)? Picked => SelectedBin < 0 || SelectedBin >= Bins.Count ? null
+        : (SelectedBin, Math.Clamp(SelectedBinLast, SelectedBin, Bins.Count - 1));
+
+    /// <summary>
+    /// Whether bars <paramref name="first"/> to <paramref name="last"/> share an hour (or day) with the bars picked: a
+    /// line of What happened is lit for any bar of its stretch, whichever way it was picked (the user, 2026-11-05: a
+    /// click on a bar lit nothing; only a click on the line lit the bar).
+    /// </summary>
+    internal bool Overlaps(int first, int last) => Picked is (var pf, var pl) && first <= pl && last >= pf;
+
+    private void LetGo()
+    {
+        SelectedBinLast = -1;
+        SelectedBin = -1;
+    }
+
     /// <summary>The stretch dragged across on the graph (null: all of it): the apps list follows it.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsZoomed), nameof(ZoomText))]
@@ -592,9 +672,8 @@ public sealed partial class NetworkViewModel : ObservableObject
     {
         get
         {
-            if (SelectedBin < 0 || SelectedBin >= Bins.Count) return null;
-            var from = Bins[SelectedBin].Start;
-            return (from, BinEnd(SelectedBin));
+            if (Picked is not (var first, var last)) return null;
+            return (Bins[first].Start, BinEnd(last));
         }
     }
 
@@ -607,7 +686,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         : Hourly ? Bins[i].Start.AddHours(1) : Unit == ReportRange.Year ? Bins[i].Start.AddMonths(1) : Bins[i].Start.AddDays(1);
 
     [RelayCommand]
-    private void ClearSelection() => SelectedBin = -1;
+    private void ClearSelection() => LetGo();
 
     // ── The hover box ──
 
@@ -633,7 +712,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             : Unit == ReportRange.Year ? b.Start.ToString("MMMM yyyy") : b.Start.ToString("dddd, d MMMM");
         // What a click does on this bar: picks it (or lets it go); dragging zooms in (not a year's months).
         string unitWord = Hourly ? "hour" : Unit == ReportRange.Year ? "month" : "day";
-        string click = SelectedBin == i
+        string click = Picked == (i, i)
             ? unitWord switch { "hour" => Lang.T("Click again to let go of this hour"), "month" => Lang.T("Click again to let go of this month"), _ => Lang.T("Click again to let go of this day") }
             : unitWord switch { "hour" => Lang.T("Click to see this hour's apps"), "month" => Lang.T("Click to see this month's apps"), _ => Lang.T("Click to see this day's apps") };
         string footer = b.Total == 0 ? "" : Unit == ReportRange.Year ? click : click + " · " + Lang.T("drag across to zoom in");
@@ -671,8 +750,12 @@ public sealed partial class NetworkViewModel : ObservableObject
             foreach (var a in shown) rows.Add(new(DotKey(a.App), _paths.GetValueOrDefault(a.App), AppNames.GetValueOrDefault(a.App) ?? Lang.T("Unknown"), Units.Data(a.Total)));
             long rest = b.Total - shown.Sum(a => a.Total);
             int more = Math.Max(b.AppCount, b.Apps.Count) - shown.Count;
-            if (more > 0 && rest >= 1 << 20)
-                rows.Add(new(NetBarsChart.OtherBrushKey, null, more == 1 ? Lang.T("1 other app") : Lang.T($"{more} other apps"), Units.Data(rest), Muted: true));
+            bool allSmall = b.Apps.Skip(shown.Count).All(a => a.Total < 1 << 20);
+            if (more > 0 && rest > 0)
+                rows.Add(new(NetBarsChart.OtherBrushKey, null,
+                    allSmall ? (more == 1 ? Lang.T("1 more app, under 1 MB") : Lang.T($"{more} more apps, each under 1 MB"))
+                        : more == 1 ? Lang.T("1 other app") : Lang.T($"{more} other apps"),
+                    Units.Data(rest), Muted: true) { IsOthers = true });
         }
         return new NetHoverBox(title, Units.Data(b.Total))
         {
@@ -699,10 +782,9 @@ public sealed partial class NetworkViewModel : ObservableObject
         double top = NetBarsChart.PingTop(shown.Select(x => (double)(x.Ping?.Highest ?? 0)).DefaultIfEmpty(0).Max());
         double Px(int v) => NetHoverBox.RangeWidth * Math.Clamp(v / top, 0, 1);
         var busy = b.Apps.Where(a => a.Up >= NetLine.BusyUploadBytes).MaxBy(a => a.Up);
+        // The hover box's title already names the hour, day or month.
         string? context = busy is null ? null
-            : Hourly ? Lang.T($"{AppNames.GetValueOrDefault(busy.App) ?? Lang.T("Unknown")} uploaded {Units.Data(busy.Up)} this hour")
-            : Unit == ReportRange.Year ? Lang.T($"{AppNames.GetValueOrDefault(busy.App) ?? Lang.T("Unknown")} uploaded {Units.Data(busy.Up)} that month")
-            : Lang.T($"{AppNames.GetValueOrDefault(busy.App) ?? Lang.T("Unknown")} uploaded {Units.Data(busy.Up)} that day");
+            : Lang.T($"{AppNames.GetValueOrDefault(busy.App) ?? Lang.T("Unknown")} uploaded {Units.Data(busy.Up)}");
         return new NetHoverBox(title, "")
         {
             IsPing = true, Game = b.Game, GamePath = b.GamePath, Footer = footer,
@@ -712,7 +794,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             DotLeft = Math.Clamp(Px(p.Usual) - 5, 0, NetHoverBox.RangeWidth - 10),
             ScaleTop = $"{top:0.#} ms",
             UsualText = $"{p.Usual} ms", MostText = Lang.T($"under {p.Most} ms"), HighestText = $"{p.Highest} ms",
-            Loss = p.LostPercent >= NetLine.LostWorthSaying ? Lang.T($"Some data didn't get through: {p.LostPercent:0.#}% packet loss") : null,
+            Loss = p.LostPercent >= NetLine.LostWorthSaying ? Lang.T($"{p.LostPercent:0.#}% of the pings got no reply") : null,
             Context = context, ContextPath = busy is null ? null : _paths.GetValueOrDefault(busy.App),
         };
     }
@@ -757,10 +839,16 @@ public sealed partial class NetworkViewModel : ObservableObject
         if (row.Bin < 0 || row.Bin >= Bins.Count) return;
         // A line outside the stretch zoomed into: back to all of it, so the bar it points at shows.
         if (Zoomed is { } z && (Bins[row.Bin].Start < z.From || Bins[row.Bin].Start >= z.To)) Zoomed = null;
-        SelectedBin = SelectedBin == row.Bin ? -1 : row.Bin;
+        // A line over several hours picks all of them (the user, 2026-11-05: "10 AM – 1 PM" lit only the 10 AM bar).
+        int last = Math.Max(row.Bin, row.BinLast);
+        if (Picked == (row.Bin, last)) { LetGo(); return; }
+        SelectedBinLast = last > row.Bin ? last : -1;
+        SelectedBin = row.Bin;
     }
 
     private NetReport? _report;
+    /// <summary>The period read last (for tests).</summary>
+    internal NetReport? Report => _report;
 
     /// <summary>The period is being read (the picker says so when it takes a moment).</summary>
     [ObservableProperty] private bool _isLoading;
@@ -785,7 +873,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             var (pf, pt) = Period;
             string when = PeriodWord;
             string why = await _reports.EmptyWhyAsync(pf, pt, when,
-                pcWasOn: Lang.T($"Your PC was on {when}, but its internet use wasn't recorded: that needs the background agent running as admin."));
+                pcWasOn: Lang.T($"Your PC was on {when}, but its internet use wasn't recorded, because that needs admin rights."));
             if (id != _load) return;
             EmptyText = why;
         }
@@ -809,7 +897,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             Apps.Clear();
             HasApps = false;
             Bins = [];
-            SelectedBin = -1;
+            LetGo();
             Happenings.Clear();
             Summary.Clear();
             HasHappenings = HasSummary = false;
@@ -843,12 +931,29 @@ public sealed partial class NetworkViewModel : ObservableObject
         DropsWarn = r.Insights.Any(i => i.Key == "net-drops");
         (DropsTitle, DropsTip) = DropsText(r, PeriodWord);
         (DropsCount, DropsWord) = r.Drops.Count switch { 0 => (Lang.C("drops", "No"), Lang.T("drops")), 1 => ("1", Lang.T("drop")), var n => ($"{n}", Lang.T("drops")) };
+        // The four figures' bars and lines.
+        DownShare = all > 0 ? 100.0 * r.Down / all : 0;
+        UpShare = all > 0 ? 100.0 * r.Up / all : 0;
+        BackgroundShare = all > 0 ? 100.0 * behind / all : 0;
+        AwayText = WholeOnly ? Lang.T("Used while nobody was at the PC")
+            : away >= 1 << 20 ? Lang.T($"{Units.Data(away)} while you were away") : Lang.T("Nothing while you were away");
+        (CompareChip, CompareText) = Compare(r, r.To > DateTime.Now);
+        NoDrops = r.Drops.Count == 0;
+        long downFor = r.Drops.Sum(d => d.End - d.Start);
+        ConnectionText = (r.Drops.Count > 0, r.Line) switch
+        {
+            (true, { } ln) => stopped ? Lang.T($"Down for {Units.DurationExact(downFor)} in all · usual ping {ln.Usual} ms until checks were paused")
+                : Lang.T($"Down for {Units.DurationExact(downFor)} in all · usual ping {ln.Usual} ms"),
+            (true, null) => Lang.T($"Down for {Units.DurationExact(downFor)} in all"),
+            (false, { } ln) => stopped ? Lang.T($"Usual ping {ln.Usual} ms until checks were paused") : Lang.T($"Usual ping {ln.Usual} ms"),
+            _ => Lang.T("Ping wasn't checked"),
+        };
         Drops = Models.Kept.Or(Drops, [.. r.Drops.Select(d => new NetDropSpan(TimeUtil.FromUnix(d.Start), TimeUtil.FromUnix(d.End)))]);
 
         // The graph.
         Bins = Models.Kept.Or(Bins, r.Bins);
         Link = Models.Kept.Or(Link, r.Link);
-        if (SelectedBin >= Bins.Count) SelectedBin = -1;
+        if (SelectedBin >= Bins.Count) LetGo();
         ChartTitle = r.Hourly ? Lang.T("Each hour") : r.Range == ReportRange.Year ? Lang.T("Each month") : Lang.T("Each day");
         _lineSentence = r.LineText;
         OnPropertyChanged(nameof(ShowPingNote));
@@ -896,12 +1001,13 @@ public sealed partial class NetworkViewModel : ObservableObject
             return;
         }
         // The whole period, the stretch zoomed into, or the bar picked (each app as it was then).
-        var picked = SelectedBin >= 0 && SelectedBin < r.Bins.Count ? r.Bins[SelectedBin] : null;
-        var zoomBins = picked is null && Zoomed is { } z ? r.Bins.Where(b => b.Start >= z.From && b.Start < z.To).ToList() : null;
-        AppsTitle = picked is not null ? Lang.T("Apps") + " · " + BinWords(SelectedBin)
+        var pickedBins = Picked is (var pf, var pl) && pl < r.Bins.Count ? r.Bins.Skip(pf).Take(pl - pf + 1).ToList() : null;
+        var picked = pickedBins is { Count: 1 } ? pickedBins[0] : null;
+        var zoomBins = pickedBins is null && Zoomed is { } z ? r.Bins.Where(b => b.Start >= z.From && b.Start < z.To).ToList() : null;
+        AppsTitle = Picked is (var wf, var wl) ? Lang.T("Apps") + " · " + BinWords(wf, wl)
             : Zoomed is { } zz ? Lang.T("Apps") + " · " + NetBarsChart.ZoomWords(zz, Step) : Lang.T("Apps");
         var byId = r.Apps.ToDictionary(a => a.Id);
-        IEnumerable<NetAppUse>? uses = picked?.Apps ?? zoomBins?.SelectMany(b => b.Apps).GroupBy(u => u.App).Select(g => Sum(g.Key, g));
+        IEnumerable<NetAppUse>? uses = picked?.Apps ?? (pickedBins ?? zoomBins)?.SelectMany(b => b.Apps).GroupBy(u => u.App).Select(g => Sum(g.Key, g));
         IEnumerable<NetAppStat> source = uses is null ? r.Apps
             : uses.Where(u => byId.ContainsKey(u.App)).Select(u => byId[u.App] is var whole
                 ? new NetAppStat { Id = whole.Id, Exe = whole.Exe, Name = whole.Name, Path = whole.Path, Category = whole.Category, Use = u }
@@ -909,7 +1015,21 @@ public sealed partial class NetworkViewModel : ObservableObject
         bool background = BackgroundOnly;
         var stats = source.Select(a => (Stat: a, Down: background ? a.Use.BgDown + a.Use.AwayDown : a.Use.Down, Up: background ? a.Use.BgUp + a.Use.AwayUp : a.Use.Up))
             .Select(x => (x.Stat, x.Down, x.Up, Key: Sort switch { "Download" => x.Down, "Upload" => x.Up, _ => x.Down + x.Up }))
-            .Where(x => x.Key >= 1 << 20).OrderByDescending(x => x.Key).ToList();
+            .Where(x => x.Key > 0).OrderByDescending(x => x.Key).ToList();
+        // Under 1 MB each: one row at the end that opens to list them (the user, 2026-11-05: "30 other apps" could be
+        // seen nowhere), so the list keeps to what moved real amounts.
+        var small = stats.Where(x => x.Key < 1 << 20).ToList();
+        stats = [.. stats.Where(x => x.Key >= 1 << 20)];
+        var smallRows = small.Select(x => new NetSmallRow(x.Stat.Name, x.Stat.Path, Units.Data(x.Key))).ToList();
+        if (!smallRows.SequenceEqual(SmallApps))
+        {
+            SmallApps.Clear();
+            foreach (var row in smallRows) SmallApps.Add(row);
+        }
+        HasSmallApps = small.Count > 0;
+        SmallAppsText = small.Count == 1 ? Lang.T("1 more app, under 1 MB") : Lang.T($"{small.Count} more apps, each under 1 MB");
+        SmallAppsAmount = Units.Data(small.Sum(x => x.Key));
+        if (!HasSmallApps) SmallAppsOpen = false;
         double max = stats.Count > 0 ? stats.Max(x => x.Key) : 1;
         // Each app's use day by day (a week, a month) or month by month (a year), when the list is the whole period's.
         var sparks = picked is null && zoomBins is null && r.Range != ReportRange.Day ? SparkBuckets(r) : null;
@@ -938,8 +1058,18 @@ public sealed partial class NetworkViewModel : ObservableObject
             else Apps[i] = row;
         }
         while (Apps.Count > stats.Count) Apps.RemoveAt(Apps.Count - 1);
-        HasApps = Apps.Count > 0;
+        HasApps = Apps.Count > 0 || HasSmallApps;
     }
+
+    /// <summary>The apps that used under 1 MB each, listed only when their row is opened.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<NetSmallRow> SmallApps { get; } = [];
+    [ObservableProperty] private bool _hasSmallApps;
+    [ObservableProperty] private string _smallAppsText = "";
+    [ObservableProperty] private string _smallAppsAmount = "";
+    [ObservableProperty] private bool _smallAppsOpen;
+
+    [RelayCommand]
+    private void ToggleSmallApps() => SmallAppsOpen = !SmallAppsOpen;
 
     private static NetAppUse Sum(long app, IEnumerable<NetAppUse> uses)
     {
@@ -971,11 +1101,15 @@ public sealed partial class NetworkViewModel : ObservableObject
     }
 
     /// <summary>"Tue 3 Nov, 7 PM – 8 PM", "Fri 30 Oct", "October" for bar <paramref name="i"/>.</summary>
-    private string BinWords(int i)
+    private string BinWords(int i) => BinWords(i, i);
+
+    /// <summary>The same for bars <paramref name="first"/> to <paramref name="last"/>: "10 AM – 1 PM", "Mon 2 Nov – Wed 4 Nov".</summary>
+    private string BinWords(int first, int last)
     {
-        var start = Bins[i].Start;
-        return Hourly ? (Unit == ReportRange.Day ? "" : start.ToString("ddd d MMM") + ", ") + $"{TimeText.At(start, "h tt")} – {TimeText.At(BinEnd(i), "h tt")}"
-            : Unit == ReportRange.Year ? start.ToString("MMMM") : start.ToString("ddd d MMM");
+        var start = Bins[first].Start;
+        if (Hourly) return (Unit == ReportRange.Day ? "" : start.ToString("ddd d MMM") + ", ") + $"{TimeText.At(start, "h tt")} – {TimeText.At(BinEnd(last), "h tt")}";
+        string Day(int k) => Unit == ReportRange.Year ? Bins[k].Start.ToString("MMMM") : Bins[k].Start.ToString("ddd d MMM");
+        return last > first ? $"{Day(first)} – {Day(last)}" : Day(first);
     }
 
     /// <summary>
@@ -999,10 +1133,11 @@ public sealed partial class NetworkViewModel : ObservableObject
                 if (Unit != ReportRange.Day && h.Day != day) list.Add(new NetHappeningRow(true, DayHeading(h.Day.Value)));
                 day = h.Day;
                 int bin = h.At is { } at ? r.Bins.FindLastIndex(b => b.Start <= at) : -1;
+                int binLast = h.Until is { } until && bin >= 0 ? r.Bins.FindLastIndex(b => b.Start < until) : -1;
                 list.Add(new NetHappeningRow(false, h.Text)
                 {
                     When = h.When, Detail = h.Detail, Amount = h.Amount, PingNote = h.PingNote, Path = h.Path, Icon = h.Icon, Tone = h.Tone, IsNew = h.IsNew,
-                    Bin = bin, IsPicked = bin >= 0 && bin == SelectedBin,
+                    Bin = bin, BinLast = binLast > bin ? binLast : -1, IsPicked = bin >= 0 && Overlaps(bin, Math.Max(bin, binLast)),
                 });
             }
         }

@@ -254,8 +254,8 @@ public sealed class NetReportTests : IDisposable
         var r = Build();
         var seven = r.Bins[7];
         Assert.Equal(3 * GB + 200 * MB + 100_000 + 15 * MB, seven.Total);
-        // Biggest first; an app that moved next to nothing isn't listed.
-        Assert.Equal([steam, chrome], seven.Apps.Select(a => a.App));
+        // Biggest first, every app that moved anything: one under 1 MB too (the page lists those together under one row).
+        Assert.Equal([steam, chrome, tiny], seven.Apps.Select(a => a.App));
         Assert.Equal(3 * GB + 10 * MB, seven.Apps[0].Total);
         Assert.Equal(3 * GB, seven.Background);
         Assert.Equal(0, seven.Away);
@@ -290,51 +290,53 @@ public sealed class NetReportTests : IDisposable
         NetReportBuilder.Build(Db, ReportRange.Day, day ?? asOf, Db.LoadApps().ToDictionary(x => x.Id), settings, asOf: asOf.AddHours(20));
 
     [Fact]
-    public void Free_colours_go_to_the_biggest_users_of_the_last_month()
+    public void The_periods_biggest_users_get_the_colours()
     {
         long a = App("a.exe", "A"), b = App("b.exe", "B"), c = App("c.exe", "C"), d = App("d.exe", "D"), e = App("e.exe", "E"), old = App("old.exe", "Old");
-        // Three months ago one app was by far the biggest; it hasn't been online since.
+        // Three months ago one app was by far the biggest, and three days ago A was: neither has a say in today's colours.
         Hour(Day.AddDays(-90), 9, (old, 500 * GB, 0, 0, 0));
         Hour(Day.AddDays(-3), 9, (a, 50 * GB, 0, 0, 0), (b, 20 * GB, 0, 0, 0));
-        Hour(Day, 9, (e, 5 * GB, 0, 0, 0), (c, 4 * GB, 0, 0, 0), (d, 3 * GB, 0, 0, 0), (b, GB, 0, 0, 0));
+        Hour(Day, 9, (e, 5 * GB, 0, 0, 0), (c, 4 * GB, 0, 0, 0), (d, 3 * GB, 0, 0, 0), (b, GB, 0, 0, 0), (old, 100 * MB, 0, 0, 0));
         var r = Colours(new RigsightSettings(), Day);
-        Assert.Equal([a, b, e, c], r.ColorApps);
-        Assert.Equal(["a.exe", "b.exe", "e.exe", "c.exe"], r.ColorExes);
-        // The same four whichever day is looked at.
-        Assert.Equal(r.ColorApps, Colours(new RigsightSettings(), Day, Day.AddDays(-3)).ColorApps);
+        Assert.Equal([e, c, d, b], r.ColorApps);
+        Assert.Equal(["0:e.exe", "1:c.exe", "2:d.exe", "3:b.exe"], r.ColorExes);
+        // Three days ago, its own two biggest: the colours follow the period looked at.
+        Assert.Equal([a, b, 0L, 0L], Colours(new RigsightSettings(), Day, Day.AddDays(-3)).ColorApps);
         Assert.True(r.ColorsSettled);
     }
 
     [Fact]
-    public void An_app_keeps_its_colour_when_another_overtakes_it()
+    public void An_app_keeps_its_colour_from_one_period_to_the_next()
     {
         long steam = App("steam.exe", "Steam"), chrome = App("chrome.exe", "Google Chrome"), late = App("late.exe", "Late");
         Hour(Day.AddDays(-8), 9, (steam, 37 * GB, 0, 0, 0), (chrome, 31 * GB, 0, 0, 0));
         var settings = new RigsightSettings();
         var first = Colours(settings, Day.AddDays(-1), Day.AddDays(-8));
-        Assert.Equal([steam, chrome], first.ColorApps);
+        Assert.Equal([steam, chrome, 0L, 0L], first.ColorApps);
         Assert.True(first.ColorsSettled);
         settings.NetColorApps = [.. first.ColorExes]; // remembered, as the app does once the choice is settled
 
-        // Chrome passes Steam, and a third app passes both: nobody trades colours; the newcomer gets the next one free.
+        // Today Chrome is second to a newcomer and Steam isn't online: Chrome keeps its colour, the newcomer takes one
+        // nobody remembers (not Steam's), and the memory keeps Steam's for the next day it's back.
         Hour(Day, 9, (chrome, 20 * GB, 0, 0, 0), (late, 90 * GB, 0, 0, 0));
         var later = Colours(settings, Day);
-        Assert.Equal([steam, chrome, late], later.ColorApps);
-        Assert.Equal(later.ColorApps, Colours(settings, Day, Day.AddDays(-8)).ColorApps);
+        Assert.Equal([0L, chrome, late, 0L], later.ColorApps);
+        Assert.Equal(["2:late.exe", "1:chrome.exe", "0:steam.exe"], later.ColorExes);
+        settings.NetColorApps = [.. later.ColorExes];
+        Assert.Equal([steam, chrome, 0L, 0L], Colours(settings, Day, Day.AddDays(-8)).ColorApps);
     }
 
     [Fact]
-    public void An_app_that_stopped_using_the_internet_gives_its_colour_to_the_biggest_without_one()
+    public void Two_apps_never_share_a_colour_in_one_view()
     {
-        long a = App("a.exe", "A"), b = App("b.exe", "B"), c = App("c.exe", "C"), d = App("d.exe", "D"), e = App("e.exe", "E"), f = App("f.exe", "F");
-        Hour(Day.AddDays(-60), 9, (b, 80 * GB, 0, 0, 0));
-        Hour(Day, 9, (a, 9 * GB, 0, 0, 0), (c, 7 * GB, 0, 0, 0), (d, 6 * GB, 0, 0, 0), (e, 5 * GB, 0, 0, 0), (f, 8 * GB, 0, 0, 0));
-        // B has the second colour and hasn't been online for two months; an app that was uninstalled has the fourth.
-        var settings = new RigsightSettings { NetColorApps = ["a.exe", "b.exe", "c.exe", "gone.exe"] };
+        long a = App("a.exe", "A"), b = App("b.exe", "B"), c = App("c.exe", "C");
+        Hour(Day, 9, (a, 9 * GB, 0, 0, 0), (b, 7 * GB, 0, 0, 0), (c, 6 * GB, 0, 0, 0));
+        // A and B both remember the first colour (each had it on days the other wasn't there); C remembers the third.
+        var settings = new RigsightSettings { NetColorApps = ["0:a.exe", "0:b.exe", "2:c.exe"] };
         var r = Colours(settings, Day);
-        // A and C stay where they are; the two free places go to the biggest without a colour, in order: F, then D.
-        Assert.Equal(["a.exe", "f.exe", "c.exe", "d.exe"], r.ColorExes);
-        Assert.Equal([a, f, c, d], r.ColorApps);
+        // The bigger keeps it; B takes a free one nobody remembers.
+        Assert.Equal([a, b, c, 0L], r.ColorApps);
+        Assert.Equal(["0:a.exe", "1:b.exe", "2:c.exe"], r.ColorExes);
     }
 
     [Fact]
@@ -344,17 +346,24 @@ public sealed class NetReportTests : IDisposable
         // The first day of recording: an installer is the biggest user there has ever been.
         Hour(Day, 9, (setup, 4 * GB, 0, 0, 0), (steam, GB, 0, 0, 0));
         var first = Colours(new RigsightSettings(), Day);
-        Assert.Equal(["setup.exe", "steam.exe"], first.ColorExes); // coloured by use for now
-        Assert.False(first.ColorsSettled);                          // and not to be remembered yet
+        Assert.Equal(["0:setup.exe", "1:steam.exe"], first.ColorExes); // coloured by use
+        Assert.False(first.ColorsSettled);                              // but not remembered yet
         Assert.False(Colours(new RigsightSettings(), Day.AddDays(6)).ColorsSettled);
-        // A week in, with Steam far ahead: this is what gets remembered.
         Hour(Day.AddDays(7), 9, (steam, 60 * GB, 0, 0, 0));
         var settled = Colours(new RigsightSettings(), Day.AddDays(7));
         Assert.True(settled.ColorsSettled);
-        Assert.Equal(["steam.exe", "setup.exe"], settled.ColorExes);
-        // The settings file never holds more than there are colours, or the same app twice.
-        var kept = SettingsStore.Deserialize(SettingsStore.Serialize(new RigsightSettings { NetColorApps = ["a.exe", "A.EXE", " ", "b.exe", "c.exe", "d.exe", "e.exe"] }));
-        Assert.Equal(["a.exe", "b.exe", "c.exe", "d.exe"], kept.NetColorApps);
+        Assert.Equal(["0:steam.exe"], settled.ColorExes);
+    }
+
+    [Fact]
+    public void The_colours_remembered_are_read_back_whole_and_old_lists_keep_their_places()
+    {
+        // A list from before 1.5.0 is just exes in the colours' order: each keeps its place as "slot:exe".
+        var old = SettingsStore.Deserialize(SettingsStore.Serialize(new RigsightSettings { NetColorApps = ["a.exe", "b.exe", "c.exe", "gone.exe"] }));
+        Assert.Equal(["0:a.exe", "1:b.exe", "2:c.exe", "3:gone.exe"], old.NetColorApps);
+        // The same app twice is kept once (its newest), and anything else is dropped.
+        var kept = SettingsStore.Deserialize(SettingsStore.Serialize(new RigsightSettings { NetColorApps = ["1:a.exe", "2:A.EXE", " ", "x", "0:b.exe"] }));
+        Assert.Equal(["1:a.exe", "0:b.exe"], kept.NetColorApps);
     }
 
     // ── Not recorded ──
@@ -549,7 +558,7 @@ public sealed class NetReportTests : IDisposable
         Drops(Day, 5);
         var line = Said("net-drops");
         Assert.Equal("Your internet dropped 5 times that day, the longest for 5m at 1:00 PM. Your PC stayed connected to the router each time, "
-            + "so the trouble was past it, in the router or your internet provider.", line?.Text);
+            + "but the internet didn't come through.", line?.Text);
         Assert.Equal(InsightTone.Warn, line!.Tone);
     }
 
@@ -559,7 +568,7 @@ public sealed class NetReportTests : IDisposable
         long chrome = App("chrome.exe", "Google Chrome");
         Use(Day, null, (chrome, GB, 0, 0, 0, 0));
         Drops(Day, 5, NetDropKind.Link);
-        Assert.EndsWith("Each time your PC's own connection to the router (the cable or Wi-Fi) went down.", Said("net-drops")?.Text);
+        Assert.EndsWith("Each time, your PC lost its own connection to the router (the cable or Wi-Fi).", Said("net-drops")?.Text);
     }
 
     [Fact]

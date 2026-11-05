@@ -151,18 +151,18 @@ public sealed partial class CaseReadout : ObservableObject
 
     private string OwnMoment() => _word switch
     {
-        CaseWord.ShutOff => Lang.T("The sudden shut-off's own moment"),
-        CaseWord.BlueScreen => Lang.T("The blue screen's own moment"),
-        CaseWord.DriverReset => Lang.T("The graphics driver reset's own moment"),
-        _ => Lang.T("The crash's own moment"),
+        CaseWord.ShutOff => Lang.T("The moment of the sudden shut-off"),
+        CaseWord.BlueScreen => Lang.T("The moment of the blue screen"),
+        CaseWord.DriverReset => Lang.T("The moment of the graphics driver reset"),
+        _ => Lang.T("The moment of the crash"),
     };
 
     private string OwnMinute() => _word switch
     {
-        CaseWord.ShutOff => Lang.T("The sudden shut-off's own minute"),
-        CaseWord.BlueScreen => Lang.T("The blue screen's own minute"),
-        CaseWord.DriverReset => Lang.T("The graphics driver reset's own minute"),
-        _ => Lang.T("The crash's own minute"),
+        CaseWord.ShutOff => Lang.T("The minute of the sudden shut-off"),
+        CaseWord.BlueScreen => Lang.T("The minute of the blue screen"),
+        CaseWord.DriverReset => Lang.T("The minute of the graphics driver reset"),
+        _ => Lang.T("The minute of the crash"),
     };
 
     private string AgoBefore(string ago) => _word switch
@@ -173,13 +173,8 @@ public sealed partial class CaseReadout : ObservableObject
         _ => Lang.T($"{ago} before the crash"),
     };
 
-    private string MinBefore(int before) => _word switch
-    {
-        CaseWord.ShutOff => Lang.T($"{before} min before the sudden shut-off"),
-        CaseWord.BlueScreen => Lang.T($"{before} min before the blue screen"),
-        CaseWord.DriverReset => Lang.T($"{before} min before the graphics driver reset"),
-        _ => Lang.T($"{before} min before the crash"),
-    };
+    /// <summary>"12m before the crash": whole minutes, said as every other duration.</summary>
+    private string MinBefore(int before) => AgoBefore(Units.Duration(before * 60.0));
 
     /// <summary>The minute at <paramref name="index"/> (pointing) or, with none, the crash's own minute.</summary>
     public void Show(int? index, bool pointing = true)
@@ -194,8 +189,8 @@ public sealed partial class CaseReadout : ObservableObject
             // To the second: the reading nearest the crash, then how far from it each other one is.
             Title = pointing ? Lang.C("time", $"At {said}") : LastBefore(said);
             double from = ((_crashAt ?? _minutes[_crash].Time) - m.Time).TotalSeconds;
-            When = !pointing ? Lang.T("Point at the lanes for any other moment") : Math.Abs(from) < 1.5 ? OwnMoment()
-                : from > 0 ? AgoBefore(Ago(from)) : Lang.T($"{Ago(-from)} after it");
+            When = !pointing ? Lang.T("Point at the graphs for any other moment") : Math.Abs(from) < 1.5 ? OwnMoment()
+                : from > 0 ? AgoBefore(Ago(from)) : AfterIt(Ago(-from));
         }
         else
         {
@@ -204,7 +199,7 @@ public sealed partial class CaseReadout : ObservableObject
             Title = pointing ? Lang.C("time", $"At {said}") : own ? AtThe(said) : JustBefore(said);
             int before = (int)Math.Round((_minutes[_crash].Time - m.Time).TotalMinutes);
             int after = -before;
-            When = !pointing ? Lang.T("Point at the lanes for any other minute") : before > 0 ? MinBefore(before) : before < 0 ? Lang.T($"{after} min after it") : OwnMinute();
+            When = !pointing ? Lang.T("Point at the graphs for any other minute") : before > 0 ? MinBefore(before) : before < 0 ? AfterIt(Units.Duration(after * 60.0)) : OwnMinute();
         }
         Flag1 = m.Flags.ElementAtOrDefault(0) ?? (_seconds ? Lang.T("Nothing stands out at this moment") : Lang.T("Nothing stands out in this minute"));
         Flag2 = m.Flags.ElementAtOrDefault(1) ?? "";
@@ -231,12 +226,15 @@ public sealed partial class CaseReadout : ObservableObject
 
     private static string Temp(double? t) => t is double v ? Units.TempShort(v) : "–";
 
-    /// <summary>"28 s", "1 min 12 s".</summary>
+    /// <summary>"12m after it", "1m 12s after it".</summary>
+    private static string AfterIt(string ago) => Lang.T($"{ago} after it");
+
+    /// <summary>"28s", "1m 12s": as every other duration, to the second (the close-up's readings are seconds apart).</summary>
     private static string Ago(double seconds)
     {
         int s = (int)Math.Round(seconds);
         int min = s / 60, sec = s % 60;
-        return s < 60 ? Lang.T($"{s} s") : sec == 0 ? Lang.T($"{min} min") : Lang.T($"{min} min {sec} s");
+        return s < 60 ? Lang.T($"{s}s") : sec == 0 ? Lang.T($"{min}m") : Lang.T($"{min}m {sec}s");
     }
 
     private static string Load(double? load, double? power) => (load, power) switch

@@ -80,10 +80,10 @@ public static class ReadingCards
     public static (CardApps By, string Title) Apps(TrayPart part) => part switch
     {
         TrayPart.Cpu => (CardApps.Cpu, Lang.T("Using the CPU most now")),
-        TrayPart.Gpu => (CardApps.Gpu, Lang.T("Using the graphics card most now")),
+        TrayPart.Gpu => (CardApps.Gpu, Lang.T("Using the GPU most now")),
         TrayPart.Ram => (CardApps.Memory, Lang.T("Using memory most now")),
         TrayPart.Drive => (CardApps.Disk, Lang.T("Reading and writing most now")),
-        TrayPart.Network => (CardApps.Network, Lang.T("Using the network most now")),
+        TrayPart.Network => (CardApps.Network, Lang.T("Using the internet most now")),
         _ => (CardApps.None, ""),
     };
 

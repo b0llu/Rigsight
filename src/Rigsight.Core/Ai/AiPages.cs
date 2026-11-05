@@ -26,9 +26,9 @@ public static class AiPages
     public static readonly IReadOnlyList<AiPage> All =
     [
         new(Home, Lang.Key("Home"), Lang.Key("How your PC is doing today, with heat, problems and drive health"), 0, ["get_today"]),
-        new(Parts, Lang.Key("Your PC's parts"), Lang.Key("Your processor, graphics card, memory, drives and drivers"), 0, ["get_pc_info"]),
+        new(Parts, Lang.Key("Your PC's parts"), Lang.Key("Your CPU, GPU, memory, drives and drivers"), 0, ["get_pc_info"]),
         new(Temperatures, Lang.Key("Temperatures"), Lang.Key("Heat now and over time, and when parts slowed down to cool off"), 0, ["get_temperatures"]),
-        new(Crashes, Lang.Key("Crashes"), Lang.Key("Every crash, sudden shut-off and driver reset, and what was running"), 1, ["get_crashes"]),
+        new(Crashes, Lang.Key("Crashes"), Lang.Key("Every crash, sudden shut-off and graphics driver reset, and what was running"), 1, ["get_crashes"]),
         new(Memory, Lang.Key("Memory"), Lang.Key("Memory use now and over time, and apps that keep growing"), 1, ["get_memory"]),
         new(Storage, Lang.Key("Storage"), Lang.Key("Space on each drive, drive health, and what you could free"), 1, ["get_storage", "get_drive_scan"]),
         new(Processes, Lang.Key("Processes"), Lang.Key("What's running right now and what it's using"), 0, ["get_running_now"]),

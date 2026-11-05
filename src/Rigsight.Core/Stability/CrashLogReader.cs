@@ -243,7 +243,7 @@ public static partial class CrashLogReader
                 AppExe = "",
                 Module = driver,
                 Code = first.Code,
-                Detail = $"Windows reported that the graphics card stopped answering (LiveKernelEvent {first.Code})",
+                Detail = $"Windows reported that the GPU stopped answering (LiveKernelEvent {first.Code})",
                 Facts = new CrashFacts { Driver = driver, DriverName = driver is null ? null : DriverFiles.Describe(driver), ReportType = $"LiveKernelEvent {first.Code}", HangKey = hang.Key },
             });
         }
@@ -496,7 +496,7 @@ public static partial class CrashLogReader
             // Windows picks these out itself: every error report of the period used to be read here to find a handful.
             var hangs = ReadHangs(since);
             foreach (var h in hangs)
-                found.Add((TimeUtil.ToUnix(h.Logged) / 60 * 60, SignKind.GraphicsHang, Lang.Key("Windows filed a report that the graphics card stopped answering")));
+                found.Add((TimeUtil.ToUnix(h.Logged) / 60 * 60, SignKind.GraphicsHang, Lang.Key("Windows filed a report that the GPU stopped answering")));
             // And the moment each hang really happened, where its report can be read (an admin agent can).
             if (hangs.Count > 0)
             {
@@ -505,7 +505,7 @@ public static partial class CrashLogReader
                 {
                     var at = hang.Select(h => reports.Where(r => Math.Abs((r.Written - h.Logged).TotalSeconds) <= 20).Select(r => (DateTime?)r.Hung).FirstOrDefault())
                         .FirstOrDefault(t => t is not null);
-                    if (at is DateTime hung) found.Add((TimeUtil.ToUnix(hung), SignKind.GraphicsHangAt, Lang.Key("The graphics card hung")));
+                    if (at is DateTime hung) found.Add((TimeUtil.ToUnix(hung), SignKind.GraphicsHangAt, Lang.Key("The GPU hung")));
                 }
             }
         }
@@ -563,7 +563,7 @@ public static partial class CrashLogReader
         "ntfs" => id is 55 ? (SignKind.Drive, Lang.Key("A drive's file system was found damaged")) : null,
         "stornvme" => id is 11 ? (SignKind.Drive, Lang.Key("An SSD's controller reported an error")) : null,
         // 13 and 14 are the card's own faults; 153 is logged on healthy PCs all the time.
-        "nvlddmkm" => id is 13 or 14 ? (SignKind.Graphics, Lang.Key("The NVIDIA driver reported a fault of the graphics card")) : null,
+        "nvlddmkm" => id is 13 or 14 ? (SignKind.Graphics, Lang.Key("The NVIDIA driver reported a fault of the GPU")) : null,
         "microsoft-windows-resource-exhaustion-detector" => id is 2004 ? (SignKind.Memory, Lang.Key("Windows was running out of memory")) : null,
         _ => null,
     };

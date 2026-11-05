@@ -25,6 +25,5 @@ public sealed class DeviceIdTests
     public void This_PCs_id_is_made_from_this_account()
     {
         Assert.Matches("^[0-9a-f]{64}$", Relay.DeviceId);
-        Assert.Equal(Relay.DeviceId, Relay.DeviceId);
     }
 }

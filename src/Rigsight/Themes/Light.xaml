@@ -37,6 +37,8 @@
     <SolidColorBrush x:Key="TextBrush" Color="{StaticResource TextColor}" />
     <SolidColorBrush x:Key="MutedBrush" Color="{StaticResource MutedColor}" />
     <SolidColorBrush x:Key="FaintBrush" Color="{StaticResource FaintColor}" />
+    <!-- Every app without a colour of its own on the Network graph: quieter than the coloured ones (the user, 2026-11-05). -->
+    <SolidColorBrush x:Key="OtherAppsBrush" Color="{StaticResource FaintColor}" Opacity="0.4" />
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
     <SolidColorBrush x:Key="OnAccentBrush" Color="{StaticResource OnAccentColor}" />
     <SolidColorBrush x:Key="CpuBrush" Color="{StaticResource CpuColor}" />

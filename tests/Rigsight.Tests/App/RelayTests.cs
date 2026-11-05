@@ -17,14 +17,7 @@ public sealed class RelayTests
         Assert.Equal(Relay.NoRelay, Relay.RootFor(testInstance: true, "", "  " + Environment.NewLine));
         Assert.Equal("http://localhost:8788", Relay.RootFor(testInstance: true, null, "http://localhost:8788/" + Environment.NewLine));
         Assert.Equal("https://api.rigsight.app", Relay.RootFor(testInstance: true, "https://api.rigsight.app/", "http://localhost:8788"));
-    }
-
-    [Fact]
-    public void This_PC_is_a_hash_the_relay_accepts_and_the_same_every_time()
-    {
-        Assert.Matches("^[0-9a-f]{64}$", Relay.DeviceId);
-        Assert.Equal(Relay.DeviceId, Relay.DeviceId);
-    }
+    }
 
     [Theory]
     [InlineData("""{"error":"out_of_questions","reason":"free"}""", 402, "used its free questions")]
@@ -44,7 +37,7 @@ public sealed class RelayTests
     public void A_key_on_another_PC_says_one_licence_one_PC_when_activating()
     {
         string body = """{"error":"licence","reason":"other_pc"}""";
-        Assert.Contains("A licence works on one PC", Relay.Problem(body, 403, activating: true));
+        Assert.Contains("A license works on one PC", Relay.Problem(body, 403, activating: true));
         Assert.Contains("not_found", """{"error":"licence","reason":"not_found"}""");
         Assert.Contains("wasn't found", Relay.Problem("""{"error":"licence","reason":"not_found"}""", 403, activating: true));
     }

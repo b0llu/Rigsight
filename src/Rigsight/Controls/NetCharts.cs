@@ -105,6 +105,9 @@ public sealed class NetBarsChart : NetChartBase
     public static readonly DependencyProperty SelectedProperty = DependencyProperty.Register(
         nameof(Selected), typeof(int), typeof(NetBarsChart),
         new FrameworkPropertyMetadata(-1, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+    public static readonly DependencyProperty SelectedLastProperty = DependencyProperty.Register(
+        nameof(SelectedLast), typeof(int), typeof(NetBarsChart),
+        new FrameworkPropertyMetadata(-1, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
     public static readonly DependencyProperty DropsProperty = DependencyProperty.Register(
         nameof(Drops), typeof(IReadOnlyList<NetDropSpan>), typeof(NetBarsChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty HighPingProperty = DependencyProperty.Register(
@@ -148,6 +151,14 @@ public sealed class NetBarsChart : NetChartBase
     public IReadOnlyDictionary<long, string>? AppNames { get => (IReadOnlyDictionary<long, string>?)GetValue(AppNamesProperty); set => SetValue(AppNamesProperty, value); }
     /// <summary>The bar picked by a click (-1: none).</summary>
     public int Selected { get => (int)GetValue(SelectedProperty); set => SetValue(SelectedProperty, value); }
+    /// <summary>
+    /// The last bar of a stretch picked from What happened ("10 AM – 1 PM" picks 10, 11 and 12): -1, or no more than
+    /// <see cref="Selected"/>, when one bar is picked.
+    /// </summary>
+    public int SelectedLast { get => (int)GetValue(SelectedLastProperty); set => SetValue(SelectedLastProperty, value); }
+
+    /// <summary>The bars picked (none, one, or a stretch), by their index in <see cref="Bins"/>.</summary>
+    internal (int First, int Last)? Picked => Selected < 0 ? null : (Selected, Math.Max(Selected, SelectedLast));
     public IReadOnlyList<NetDropSpan>? Drops { get => (IReadOnlyList<NetDropSpan>?)GetValue(DropsProperty); set => SetValue(DropsProperty, value); }
     /// <summary>The ping (ms) a bar's highest is marked from (0: no marks).</summary>
     public int HighPing { get => (int)GetValue(HighPingProperty); set => SetValue(HighPingProperty, value); }
@@ -173,7 +184,7 @@ public sealed class NetBarsChart : NetChartBase
     /// <summary>The colours apps are told apart by, in order: none of them one that says how a reading is doing.</summary>
     public static readonly string[] AppBrushKeys = ["CpuBrush", "PinkBrush", "GpuBrush", "PurpleBrush"];
     /// <summary>Every other app together.</summary>
-    public const string OtherBrushKey = "FaintBrush";
+    public const string OtherBrushKey = "OtherAppsBrush";
 
     /// <summary>The width the page's hover box is given room for when it's placed.</summary>
     public const double HoverBoxWidth = 300;
@@ -269,7 +280,11 @@ public sealed class NetBarsChart : NetChartBase
                 SetCurrentValue(ZoomedProperty, new NetDropSpan(r.From, r.To));
                 _settingZoom = false;
                 // The bar picked may now be outside: let go of it.
-                if (Selected >= 0 && (Bins![Selected].Start < r.From || Bins[Selected].Start >= r.To)) SetCurrentValue(SelectedProperty, -1);
+                if (Selected >= 0 && (Bins![Selected].Start < r.From || Bins[Selected].Start >= r.To))
+                {
+                    SetCurrentValue(SelectedProperty, -1);
+                    SetCurrentValue(SelectedLastProperty, -1);
+                }
             }
             ReleaseMouseCapture();
             InvalidateVisual();
@@ -307,7 +322,9 @@ public sealed class NetBarsChart : NetChartBase
     internal void Pick(int i)
     {
         if (Bins is not { } bins || i < 0 || i >= bins.Count) return;
-        SetCurrentValue(SelectedProperty, i == Selected || bins[i].Total == 0 ? -1 : i);
+        bool same = i == Selected && Math.Max(Selected, SelectedLast) == Selected;
+        SetCurrentValue(SelectedProperty, same || bins[i].Total == 0 ? -1 : i);
+        SetCurrentValue(SelectedLastProperty, -1);
     }
 
     /// <summary>A bar's pieces, bottom first, each with its colour: what <see cref="OnRender"/> stacks.</summary>
@@ -356,7 +373,8 @@ public sealed class NetBarsChart : NetChartBase
         double slot = plot.Width / bins.Count, bar = Math.Min(slot * (bins.Count > 60 ? 0.8 : 0.72), 42);
         double Y(double v) => plot.Bottom - plot.Height * Math.Min(v, top) / top;
         int? hover = HoverX is double hx && !_zoom.Dragging ? BarAt(hx) - first : null;
-        int selected = Selected >= first && Selected <= last ? Selected - first : -1;
+        // The picked bars among those shown, by their place on the graph.
+        var selected = Picked is (var pf, var pl) ? Enumerable.Range(pf, pl - pf + 1).Where(k => k >= first && k <= last).Select(k => k - first).ToHashSet() : [];
 
         // Behind everything: the hours a game was played, and the drops.
         var shade = Faded(LabelBrush, 0.07);
@@ -387,20 +405,19 @@ public sealed class NetBarsChart : NetChartBase
                 double x = plot.Left + i * slot + (slot - bar) / 2;
                 if (b.Total > 0)
                 {
-                    // Each app's piece a rounded block of its own, a hairline of the card between them, as Reports' bars
-                    // draw them (the user, 2026-11-05: the same rounded pieces on every such graph). With a bar picked,
-                    // the others step back.
-                    bool back = selected >= 0 && i != selected;
+                    // One plain bar, each app's piece joined square to the next and only the top rounded, as on every
+                    // stacked graph (StackedBar). With bars picked, the others step back.
+                    bool back = selected.Count > 0 && !selected.Contains(i);
                     if (back) dc.PushOpacity(0.3);
-                    double from = 0, radius = bar > 6 ? 2.5 : 1;
+                    double from = 0;
+                    var heights = new List<(Brush, double)>();
                     foreach (var (brush, bytes) in Pieces(b))
                     {
                         if (bytes <= 0) continue;
-                        double y1 = Y(from), y2 = Y(from + bytes), gap = from > 0 && y1 - y2 > 3 ? 1.5 : 0;
-                        double tall = Math.Max(0.5, y1 - y2 - gap), r = Math.Min(radius, tall / 2);
-                        dc.DrawRoundedRectangle(brush, null, new Rect(x, y2, bar, tall), r, r);
+                        heights.Add((brush, Y(from) - Y(from + bytes)));
                         from += bytes;
                     }
+                    StackedBar.Draw(dc, x, bar, plot.Bottom, heights, Res("SurfaceBrush"));
                     if (back) dc.Pop();
                 }
                 // What Steam started downloading: a dot over the bar.
@@ -443,7 +460,7 @@ public sealed class NetBarsChart : NetChartBase
     /// the lowest to where most checks fell (nine in ten), and a lighter one up to the highest. A tight band is a steady
     /// line, a tall faint one a busy line. Packet loss is a band of the warning colour, the only one on the graph with drops.
     /// </summary>
-    private void DrawPing(DrawingContext dc, Rect plot, List<NetBin> bins, double slot, Func<double, double> y, int selected)
+    private void DrawPing(DrawingContext dc, Rect plot, List<NetBin> bins, double slot, Func<double, double> y, HashSet<int> selected)
     {
         var all = Faded(PingBrush, 0.13);
         var most = Faded(PingBrush, 0.26);
@@ -499,8 +516,9 @@ public sealed class NetBarsChart : NetChartBase
             line.Freeze();
             dc.DrawGeometry(null, pen, line);
         }
-        if (selected >= 0)
-            dc.DrawRoundedRectangle(Faded(PingBrush, 0.08), new Pen(Faded(PingBrush, 0.7), 1), new Rect(plot.Left + selected * slot + 0.5, plot.Top, Math.Max(2, slot - 1), plot.Height), 3, 3);
+        if (selected.Count > 0)
+            dc.DrawRoundedRectangle(Faded(PingBrush, 0.08), new Pen(Faded(PingBrush, 0.7), 1),
+                new Rect(plot.Left + selected.Min() * slot + 0.5, plot.Top, Math.Max(2, (selected.Max() - selected.Min() + 1) * slot - 1), plot.Height), 3, 3);
     }
 
     /// <summary>
@@ -815,10 +833,18 @@ public sealed class BarPair : FrameworkElement
 
     protected override void OnRender(DrawingContext dc)
     {
+        // One bar: rounded only at its two outer ends, download and upload joined straight inside it (the user,
+        // 2026-11-05: two rounded pills end to end left a notch where they met, as the stacked bars did).
         double w = ActualWidth, h = ActualHeight;
         double down = w * Math.Clamp(DownShare, 0, 100) / 100, up = w * Math.Clamp(UpShare, 0, 100) / 100;
-        if (down > 0) dc.DrawRoundedRectangle(DownBrush, null, new Rect(0, 0, Math.Max(down, 2), h), h / 2, h / 2);
-        if (up > 0) dc.DrawRoundedRectangle(UpBrush, null, new Rect(Math.Min(down, w - 2), 0, Math.Max(up, 2), h), h / 2, h / 2);
+        if (down > 0 && down < 2) down = 2;
+        if (up > 0 && up < 2) up = 2;
+        double total = Math.Min(w, down + up);
+        if (total <= 0) return;
+        dc.PushClip(new RectangleGeometry(new Rect(0, 0, total, h), h / 2, h / 2));
+        if (down > 0) dc.DrawRectangle(DownBrush, null, new Rect(0, 0, Math.Min(down, total), h));
+        if (up > 0) dc.DrawRectangle(UpBrush, null, new Rect(Math.Max(0, total - up), 0, up, h));
+        dc.Pop();
     }
 }
 

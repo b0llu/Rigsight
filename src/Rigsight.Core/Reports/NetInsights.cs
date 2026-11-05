@@ -133,8 +133,8 @@ public static class NetInsights
         {
             var longest = r.Drops.MaxBy(d => d.Seconds)!;
             int link = r.Drops.Count(d => d.Kind == NetDropKind.Link);
-            string why = link == 0 ? " " + Lang.T("Your PC stayed connected to the router each time, so the trouble was past it, in the router or your internet provider.")
-                : link == r.Drops.Count ? " " + Lang.T("Each time your PC's own connection to the router (the cable or Wi-Fi) went down.")
+            string why = link == 0 ? " " + Lang.T("Your PC stayed connected to the router each time, but the internet didn't come through.")
+                : link == r.Drops.Count ? " " + Lang.T("Each time, your PC lost its own connection to the router (the cable or Wi-Fi).")
                 : "";
             int drops = r.Drops.Count;
             list.Add(new Insight(IconDrop,

@@ -45,18 +45,7 @@ internal sealed class RawClient : IDisposable
     }
 
     public AgentMessage Read(int timeoutMs = 5000) =>
-        ProtocolJson.Deserialize<AgentMessage>(ReadLine(timeoutMs) ?? throw new EndOfStreamException("the agent closed the pipe"))!;
-
-    /// <summary>Reads until a message matching <paramref name="match"/> (skipping others).</summary>
-    public AgentMessage ReadUntil(Func<AgentMessage, bool> match, int timeoutMs = 5000)
-    {
-        var sw = Stopwatch.StartNew();
-        while (true)
-        {
-            var msg = Read(Math.Max(1, timeoutMs - (int)sw.ElapsedMilliseconds));
-            if (match(msg)) return msg;
-        }
-    }
+        ProtocolJson.Deserialize<AgentMessage>(ReadLine(timeoutMs) ?? throw new EndOfStreamException("the agent closed the pipe"))!;
 
     public void WriteLine(string line) => _writer.WriteLine(line);
 

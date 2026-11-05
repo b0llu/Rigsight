@@ -22,7 +22,7 @@ public sealed partial class OllamaRow(string name, string size, bool canLookUp, 
     public string Fit => PartlyOff ? Lang.T("Partly on your card") : fit;
     public bool HasFit => Fit.Length > 0;
     public bool FitIsGood => Loaded is { } l ? l >= 0.95 : fitKind == OllamaFit.Fits;
-    public string FitWhy => PartlyOff ? Lang.T($"Ollama has {Loaded:P0} of it on your graphics card and the rest on the processor, so answers take longer.") : "";
+    public string FitWhy => PartlyOff ? Lang.T($"Ollama has {Loaded:P0} of it on your GPU and the rest on the CPU, so answers take longer.") : "";
     public bool HasFitWhy => FitWhy.Length > 0;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUse))] private bool _inUse;
     public bool CanUse => CanLookUp && !InUse;
@@ -147,7 +147,7 @@ public sealed partial class AiSettingsViewModel
     /// screen; the notice says to start with the first, and its card's tag says it's the pick).
     /// </summary>
     public string PicksLine => OllamaHere ? Lang.T($"Downloads go to {OllamaPicks.ModelsFolder()}")
-        : Lang.T($"Picked by size; how they fit there can't be checked from here · downloads go to Ollama on {Ollama.Host(Ai.OllamaAddress)}");
+        : Lang.T($"Picked by size, since RigSight can't see that computer's GPU. Downloads go to Ollama on {Ollama.Host(Ai.OllamaAddress)}.");
 
     /// <summary>The three cards for this PC (or, for another computer, by size alone), with what's on Ollama marked.</summary>
     private void ShowPicks()
@@ -289,7 +289,7 @@ public sealed partial class AiSettingsViewModel
     {
         OllamaLink.Connected => Lang.T("Ollama is running. Download one below to start; the first is the best fit for this PC."),
         OllamaLink.Stopped => Lang.T("Start it and RigSight connects by itself."),
-        OllamaLink.Missing => Lang.T("It's free, and runs the models on your own graphics card. Install it, then press Check again."),
+        OllamaLink.Missing => Lang.T("It's free, and runs the models on your own GPU. Install it, then press Check again."),
         OllamaLink.Offline => Lang.T("Ollama on another computer needs the network. Connect, then press Try again."),
         OllamaLink.NotAnswering when !OllamaHere => Lang.T("On that computer, Ollama has to be running and set to let other computers in (OLLAMA_HOST=0.0.0.0), then restarted."),
         OllamaLink.NotAnswering => Lang.T("Check that the address is the one Ollama uses. Its own is http://localhost:11434."),
@@ -455,7 +455,7 @@ public sealed partial class AiSettingsViewModel
     /// <summary>The speed the last download here ran at, for how long the next one takes; null until one has run.</summary>
     private static double? _lastSpeed;
 
-    private static string Minutes(double seconds) => seconds < 90 ? Lang.T("a minute") : Lang.T($"{Math.Ceiling(seconds / 60):0} min");
+    private static string Minutes(double seconds) => seconds < 90 ? Lang.T("a minute") : Units.Duration(Math.Ceiling(seconds / 60) * 60);
 
     /// <summary>Ollama left for another way of answering: its downloads stop and a connect under way keeps its result to itself.</summary>
     private void StopOllamaWork()
@@ -502,7 +502,7 @@ public sealed partial class AiSettingsViewModel
             card.ProgressText = DownloadText(p.Done, whole, speed);
             card.ProgressDone = Lang.T($"**{(p.Done / 1e9).ToString("0.0", CultureInfo.CurrentCulture)}** of {(whole / 1e9).ToString("0.#", CultureInfo.CurrentCulture)} GB");
             card.ProgressSpeed = speed >= 1 ? (speed / 1e6).ToString("0", CultureInfo.CurrentCulture) + " MB/s" : "";
-            card.ProgressLeft = speed >= 1 ? ((whole - p.Done) / speed < 60 ? Lang.T("less than a minute left") : Lang.T($"about {Math.Ceiling((whole - p.Done) / speed / 60):0} min left")) : "";
+            card.ProgressLeft = speed >= 1 ? ((whole - p.Done) / speed < 60 ? Lang.T("less than a minute left") : Lang.T($"about {Units.Duration(Math.Ceiling((whole - p.Done) / speed / 60) * 60)} left")) : "";
         });
         string? problem;
         try { problem = await Ollama.PullAsync(Ai.OllamaAddress, card.Tag, progress, stop.Token); }
@@ -535,7 +535,7 @@ public sealed partial class AiSettingsViewModel
         if (bytesPerSecond < 1) return of;
         string speed = (bytesPerSecond / 1e6).ToString("0", CultureInfo.CurrentCulture) + " MB/s";
         double left = (total - done) / bytesPerSecond;
-        string time = left < 60 ? Lang.T("less than a minute left") : Lang.T($"about {Math.Ceiling(left / 60):0} min left");
+        string time = left < 60 ? Lang.T("less than a minute left") : Lang.T($"about {Units.Duration(Math.Ceiling(left / 60) * 60)} left");
         return $"{of} · {speed} · {time}";
     }
 }

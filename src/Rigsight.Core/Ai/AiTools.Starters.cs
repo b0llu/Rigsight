@@ -63,7 +63,7 @@ public sealed partial class AiTools
                 if (resets > 0 && On(AiPages.Crashes))
                     found.Add((new(resets == 1 ? Lang.T("Did this week's graphics driver reset come from heat?") : Lang.T($"Did this week's {resets} graphics driver resets come from heat?"), AiPages.Temperatures), 80 + Math.Min(resets, 5) * 2));
                 if (PlayedIn(db, now.Date.AddDays(-6), now.Date).FirstOrDefault() is { Game: { } game })
-                    found.Add((new(Lang.T($"How hard does {game.Name} push my graphics card?"), AiPages.Games), 45));
+                    found.Add((new(Lang.T($"How hard does {game.Name} push my GPU?"), AiPages.Games), 45));
                 parts = Parts(db);
             }
         }

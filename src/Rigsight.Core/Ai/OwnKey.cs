@@ -168,7 +168,7 @@ public static class OwnKey
             if (!res.IsSuccessStatusCode) return (null, await ProblemAsync(service, res, ct, inSettings: true));
             var list = Parse(JsonNode.Parse(await res.Content.ReadAsStringAsync(ct))?["data"] as JsonArray ?? [], root, filterTools);
             Log.Write("own-key", $"{service} key works: {list.Count} models it can use, {list.Count(m => m.Tier is not null)} of them suggested ({string.Join(", ", list.Where(m => m.Tier is not null).Select(m => $"{m.Tier}: {m.Id}"))})");
-            return list.Count == 0 ? (null, Lang.T($"{service} accepted the key but listed no models that can look at RigSight's records.")) : (list, null);
+            return list.Count == 0 ? (null, Lang.T($"{service} accepted the key but listed no models that can look at RigSight's records. Try a key from another service.")) : (list, null);
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException or UriFormatException or InvalidOperationException)
         {
@@ -537,7 +537,7 @@ public static class OwnKey
             if (got.Error is { } error)
             {
                 Log.Write("own-key", $"{model} round {round}: expected an answer, got: {error}");
-                return new AiReply(null, Lang.T($"{service} couldn't answer ({error})"), lookUps);
+                return new AiReply(null, Lang.T($"{service} couldn't answer ({error}). Ask again, or pick another model in Settings."), lookUps);
             }
             Log.Write("own-key", $"{model} round {round}: first words after {(got.FirstWords is { } f ? $"{(f - asked).TotalSeconds:0.0} s" : "none")}, done after {(DateTime.Now - asked).TotalSeconds:0.0} s");
             if (got.Calls.Count > 0 && IsAnswer(got.Text, lookUps.Count))
@@ -733,7 +733,9 @@ public static class OwnKey
             HttpStatusCode.TooManyRequests => inSettings
                 ? Lang.T($"{service} is busy right now. Press Connect again in a moment.")
                 : Lang.T($"{service} is busy right now. Ask again in a moment."),
-            _ => Lang.T($"{service} couldn't answer ({said ?? ((int)res.StatusCode).ToString(CultureInfo.InvariantCulture)})"),
+            _ => inSettings
+                ? Lang.T($"{service} couldn't answer ({said ?? ((int)res.StatusCode).ToString(CultureInfo.InvariantCulture)}). Press Connect again in a moment.")
+                : Lang.T($"{service} couldn't answer ({said ?? ((int)res.StatusCode).ToString(CultureInfo.InvariantCulture)}). Ask again, or pick another model in Settings."),
         };
     }
 }

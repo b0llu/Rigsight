@@ -26,55 +26,58 @@ public static class CrashExplainer
         ("atiumd", Lang.Key("AMD driver"), Lang.Key("The AMD graphics driver failed while running {0}."), Lang.Key("Update the AMD Adrenalin driver.")),
         ("amdxc", Lang.Key("AMD driver"), Lang.Key("The AMD graphics driver failed while running {0}."), Lang.Key("Update the AMD Adrenalin driver.")),
         ("igd", Lang.Key("Intel graphics driver"), Lang.Key("The Intel graphics driver failed while running {0}."), Lang.Key("Update the Intel graphics driver.")),
-        ("d3d11", Lang.Key("DirectX"), Lang.Key("DirectX 11 failed inside {0} — usually a graphics driver or game problem."), Lang.Key("Update the graphics driver and the game; verify the game files.")),
-        ("d3d12", Lang.Key("DirectX"), Lang.Key("DirectX 12 failed inside {0} — usually a graphics driver or game problem."), Lang.Key("Update the graphics driver and the game; verify the game files.")),
+        ("d3d11", Lang.Key("DirectX"), Lang.Key("DirectX 11 failed inside {0}. This is usually down to the graphics driver or the game."), Lang.Key("Update the graphics driver and the game; verify the game files.")),
+        ("d3d12", Lang.Key("DirectX"), Lang.Key("DirectX 12 failed inside {0}. This is usually down to the graphics driver or the game."), Lang.Key("Update the graphics driver and the game; verify the game files.")),
         ("dxgi", Lang.Key("DirectX"), Lang.Key("The DirectX graphics layer failed inside {0}."), Lang.Key("Update the graphics driver; disable overlays if it keeps happening.")),
         ("vulkan-1", Lang.Key("Vulkan"), Lang.Key("The Vulkan graphics layer failed inside {0}."), Lang.Key("Update the graphics driver.")),
         ("gameoverlayrenderer", Lang.Key("Steam overlay"), Lang.Key("The Steam overlay crashed inside {0}."), Lang.Key("Try disabling the Steam overlay for this game.")),
         ("discordhook", Lang.Key("Discord overlay"), Lang.Key("The Discord overlay crashed inside {0}."), Lang.Key("Try turning off Discord's in-game overlay.")),
         ("rtsshooks", Lang.Key("RivaTuner overlay"), Lang.Key("The RivaTuner/MSI Afterburner overlay crashed inside {0}."), Lang.Key("Update or disable RivaTuner Statistics Server.")),
-        ("unityplayer", Lang.Key("Unity engine"), Lang.Key("The Unity game engine inside {0} crashed — usually a bug in the game."), Lang.Key("Update the game and verify its files. Mods can cause this too.")),
+        ("unityplayer", Lang.Key("Unity engine"), Lang.Key("The Unity game engine inside {0} crashed. This is usually a bug in the game."), Lang.Key("Update the game and verify its files. Mods can cause this too.")),
         ("gameassembly", Lang.Key("Game code"), Lang.Key("{0} crashed in its own game code."), Lang.Key("Update the game and verify its files. Mods can cause this too.")),
         ("ue4", Lang.Key("Unreal Engine"), Lang.Key("The Unreal Engine inside {0} crashed."), Lang.Key("Update the game and verify its files.")),
-        ("coreclr", Lang.Key(".NET runtime"), Lang.Key("{0} hit an unhandled .NET error."), Lang.Key("Update the app; reinstall it if it keeps happening.")),
-        ("clr.dll", Lang.Key(".NET runtime"), Lang.Key("{0} hit an unhandled .NET error."), Lang.Key("Update the app; reinstall it if it keeps happening.")),
+        ("coreclr", Lang.Key(".NET runtime"), Lang.Key("{0} crashed with a .NET error."), Lang.Key("Update the app; reinstall it if it keeps happening.")),
+        ("clr.dll", Lang.Key(".NET runtime"), Lang.Key("{0} crashed with a .NET error."), Lang.Key("Update the app; reinstall it if it keeps happening.")),
     ];
 
-    private static readonly Dictionary<string, (string Name, string Meaning)> ExceptionCodes = new(StringComparer.OrdinalIgnoreCase)
+    // What Windows' error code says happened, and apart from it (RigSight's own reading, never put in Windows' mouth)
+    // what usually causes it.
+    private static readonly Dictionary<string, (string Name, string Meaning, string? Usual)> ExceptionCodes = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["c0000005"] = (Lang.Key("Access violation"), Lang.Key("it tried to use memory it wasn't allowed to")),
-        ["c0000409"] = (Lang.Key("Stack buffer overrun"), Lang.Key("it detected corrupted memory and shut itself down")),
-        ["c0000374"] = (Lang.Key("Heap corruption"), Lang.Key("its memory got corrupted (often mods, overlays or a bug)")),
-        ["c00000fd"] = (Lang.Key("Stack overflow"), Lang.Key("it ran out of stack space (usually a bug)")),
-        ["c000001d"] = (Lang.Key("Illegal instruction"), Lang.Key("the CPU hit an invalid instruction — this can point to an unstable overclock or undervolt")),
-        ["c0000096"] = (Lang.Key("Privileged instruction"), Lang.Key("the CPU refused an instruction — possibly an unstable overclock")),
-        ["e0434352"] = (Lang.Key(".NET exception"), Lang.Key("it threw an error it didn't handle")),
-        ["80000003"] = (Lang.Key("Breakpoint"), Lang.Key("it stopped itself on an internal check")),
-        ["c0000142"] = (Lang.Key("Failed to start"), Lang.Key("it couldn't initialize (often missing files or runtimes)")),
+        ["c0000005"] = (Lang.Key("access violation"), Lang.Key("it tried to use memory it wasn't allowed to"), null),
+        ["c0000409"] = (Lang.Key("stack buffer overrun"), Lang.Key("it detected corrupted memory and shut itself down"), null),
+        ["c0000374"] = (Lang.Key("heap corruption"), Lang.Key("its memory got corrupted"), Lang.Key("Mods, overlays or a bug in the app are the usual causes.")),
+        ["c00000fd"] = (Lang.Key("stack overflow"), Lang.Key("it ran out of stack space"), Lang.Key("This is usually a bug in the app.")),
+        ["c000001d"] = (Lang.Key("illegal instruction"), Lang.Key("the CPU hit an invalid instruction"), Lang.Key("An unstable overclock or undervolt can cause this.")),
+        ["c0000096"] = (Lang.Key("privileged instruction"), Lang.Key("the CPU refused an instruction"), Lang.Key("An unstable overclock can cause this.")),
+        ["e0434352"] = (Lang.Key(".NET exception"), Lang.Key("it threw an error it didn't handle"), null),
+        ["80000003"] = (Lang.Key("breakpoint"), Lang.Key("it stopped itself on an internal check"), null),
+        ["c0000142"] = (Lang.Key("failed to start"), Lang.Key("it couldn't start up"), Lang.Key("Missing files or runtimes are a common cause.")),
     };
 
-    private static readonly Dictionary<uint, (string Name, string Reason, string Advice)> Bugchecks = new()
+    // What happened, then apart from it what can cause it: a stop code names the kind of crash, never the culprit.
+    private static readonly Dictionary<uint, (string Name, string What, string? Usual, string Advice)> Bugchecks = new()
     {
-        [0x124] = ("WHEA_UNCORRECTABLE_ERROR", Lang.Key("The hardware reported an error it couldn't recover from — usually CPU or RAM instability."), Lang.Key("Undo overclocks/undervolts (including Curve Optimizer and XMP/EXPO), update the BIOS, and check temperatures.")),
-        [0x101] = ("CLOCK_WATCHDOG_TIMEOUT", Lang.Key("A CPU core stopped responding — commonly an unstable CPU overclock or undervolt."), Lang.Key("Reset CPU tuning (Curve Optimizer / PBO) to default and update the BIOS.")),
-        [0x133] = ("DPC_WATCHDOG_VIOLATION", Lang.Key("A driver took too long to respond — often storage, network or chipset drivers."), Lang.Key("Update chipset, storage (NVMe/SATA) and network drivers, and the SSD firmware.")),
-        [0x116] = ("VIDEO_TDR_FAILURE", Lang.Key("The graphics driver stopped responding and couldn't be recovered."), Lang.Key("Update or clean-reinstall the graphics driver; undo GPU overclocks; check GPU temperatures.")),
-        [0x119] = ("VIDEO_SCHEDULER_INTERNAL_ERROR", Lang.Key("The graphics scheduler hit an error — usually the graphics driver."), Lang.Key("Update or clean-reinstall the graphics driver.")),
-        [0x1A] = ("MEMORY_MANAGEMENT", Lang.Key("Windows found a memory management error — often faulty or unstable RAM."), Lang.Key("Disable XMP/EXPO to test, and run Windows Memory Diagnostic or MemTest86.")),
-        [0x50] = ("PAGE_FAULT_IN_NONPAGED_AREA", Lang.Key("Invalid memory was accessed — bad RAM or a faulty driver."), Lang.Key("Test RAM (disable XMP/EXPO) and update drivers.")),
-        [0x4E] = ("PFN_LIST_CORRUPT", Lang.Key("Memory bookkeeping got corrupted — often RAM."), Lang.Key("Test your RAM and disable XMP/EXPO to check stability.")),
-        [0x3B] = ("SYSTEM_SERVICE_EXCEPTION", Lang.Key("A system service or driver crashed."), Lang.Key("Update Windows and your drivers (especially GPU and anti-cheat).")),
-        [0x7E] = ("SYSTEM_THREAD_EXCEPTION_NOT_HANDLED", Lang.Key("A driver crashed."), Lang.Key("Update drivers; recently installed software is a common cause.")),
-        [0xD1] = ("DRIVER_IRQL_NOT_LESS_OR_EQUAL", Lang.Key("A driver accessed memory incorrectly."), Lang.Key("Update network, audio and graphics drivers.")),
-        [0xA] = ("IRQL_NOT_LESS_OR_EQUAL", Lang.Key("A driver or hardware accessed memory incorrectly."), Lang.Key("Update drivers; test RAM if it repeats.")),
-        [0x9F] = ("DRIVER_POWER_STATE_FAILURE", Lang.Key("A driver failed during sleep or wake."), Lang.Key("Update chipset and graphics drivers; try disabling fast startup.")),
-        [0xEF] = ("CRITICAL_PROCESS_DIED", Lang.Key("A critical Windows process stopped."), Lang.Key("Run 'sfc /scannow' and check the drive's health.")),
-        [0x7A] = ("KERNEL_DATA_INPAGE_ERROR", Lang.Key("Windows couldn't read data from the drive."), Lang.Key("Check the drive health (Storage page) and cables.")),
-        [0x154] = ("UNEXPECTED_STORE_EXCEPTION", Lang.Key("The storage system hit an error."), Lang.Key("Check SSD health and update its firmware.")),
-        [0x139] = ("KERNEL_SECURITY_CHECK_FAILURE", Lang.Key("Windows detected corrupted data in the kernel — usually a driver."), Lang.Key("Update drivers and Windows.")),
-        [0x19] = ("BAD_POOL_HEADER", Lang.Key("Kernel memory got corrupted — usually a driver."), Lang.Key("Update drivers; test RAM if it repeats.")),
-        [0x1E] = ("KMODE_EXCEPTION_NOT_HANDLED", Lang.Key("A driver crashed."), Lang.Key("Update drivers.")),
-        [0xC2] = ("BAD_POOL_CALLER", Lang.Key("A driver misused memory."), Lang.Key("Update drivers.")),
+        [0x124] = ("WHEA_UNCORRECTABLE_ERROR", Lang.Key("The hardware reported an error it couldn't recover from"), Lang.Key("Unstable CPU or RAM settings are the usual cause."), Lang.Key("Undo overclocks/undervolts (including Curve Optimizer and XMP/EXPO), update the BIOS, and check temperatures.")),
+        [0x101] = ("CLOCK_WATCHDOG_TIMEOUT", Lang.Key("A CPU core stopped answering"), Lang.Key("An unstable CPU overclock or undervolt is a common cause."), Lang.Key("Reset CPU tuning (Curve Optimizer / PBO) to default and update the BIOS.")),
+        [0x133] = ("DPC_WATCHDOG_VIOLATION", Lang.Key("A driver took too long to respond"), Lang.Key("Storage, network and chipset drivers are the usual ones."), Lang.Key("Update chipset, storage (NVMe/SATA) and network drivers, and the SSD firmware.")),
+        [0x116] = ("VIDEO_TDR_FAILURE", Lang.Key("The graphics driver stopped answering and couldn't be recovered"), null, Lang.Key("Update or clean-reinstall the graphics driver; undo GPU overclocks; check GPU temperatures.")),
+        [0x119] = ("VIDEO_SCHEDULER_INTERNAL_ERROR", Lang.Key("The graphics scheduler hit an error"), Lang.Key("The graphics driver is the usual cause."), Lang.Key("Update or clean-reinstall the graphics driver.")),
+        [0x1A] = ("MEMORY_MANAGEMENT", Lang.Key("Windows found an error in how it manages memory"), Lang.Key("Faulty or unstable RAM is a common cause."), Lang.Key("Disable XMP/EXPO to test, and run Windows Memory Diagnostic or MemTest86.")),
+        [0x50] = ("PAGE_FAULT_IN_NONPAGED_AREA", Lang.Key("Windows crashed on an invalid memory access"), Lang.Key("Bad RAM or a faulty driver can cause this."), Lang.Key("Test RAM (disable XMP/EXPO) and update drivers.")),
+        [0x4E] = ("PFN_LIST_CORRUPT", Lang.Key("Windows' own memory records got corrupted"), Lang.Key("Faulty RAM is a common cause."), Lang.Key("Test your RAM and disable XMP/EXPO to check stability.")),
+        [0x3B] = ("SYSTEM_SERVICE_EXCEPTION", Lang.Key("A system service or driver crashed"), null, Lang.Key("Update Windows and your drivers (especially GPU and anti-cheat).")),
+        [0x7E] = ("SYSTEM_THREAD_EXCEPTION_NOT_HANDLED", Lang.Key("A driver crashed"), null, Lang.Key("Update drivers; recently installed software is a common cause.")),
+        [0xD1] = ("DRIVER_IRQL_NOT_LESS_OR_EQUAL", Lang.Key("A driver accessed memory incorrectly"), null, Lang.Key("Update network, audio and graphics drivers.")),
+        [0xA] = ("IRQL_NOT_LESS_OR_EQUAL", Lang.Key("A driver or hardware accessed memory incorrectly"), null, Lang.Key("Update drivers; test RAM if it repeats.")),
+        [0x9F] = ("DRIVER_POWER_STATE_FAILURE", Lang.Key("A driver failed during sleep or wake"), null, Lang.Key("Update chipset and graphics drivers; try disabling fast startup.")),
+        [0xEF] = ("CRITICAL_PROCESS_DIED", Lang.Key("A critical Windows process stopped"), null, Lang.Key("Run 'sfc /scannow' and check the drive's health.")),
+        [0x7A] = ("KERNEL_DATA_INPAGE_ERROR", Lang.Key("Windows couldn't read data from the drive"), null, Lang.Key("Check the drive health (Storage page) and cables.")),
+        [0x154] = ("UNEXPECTED_STORE_EXCEPTION", Lang.Key("The storage system hit an error"), null, Lang.Key("Check SSD health and update its firmware.")),
+        [0x139] = ("KERNEL_SECURITY_CHECK_FAILURE", Lang.Key("Windows found corrupted data in its kernel"), Lang.Key("A driver is the usual cause."), Lang.Key("Update drivers and Windows.")),
+        [0x19] = ("BAD_POOL_HEADER", Lang.Key("Kernel memory got corrupted"), Lang.Key("A driver is the usual cause."), Lang.Key("Update drivers; test RAM if it repeats.")),
+        [0x1E] = ("KMODE_EXCEPTION_NOT_HANDLED", Lang.Key("A driver crashed"), null, Lang.Key("Update drivers.")),
+        [0xC2] = ("BAD_POOL_CALLER", Lang.Key("A driver misused memory"), null, Lang.Key("Update drivers.")),
     };
 
     /// <summary>
@@ -90,9 +93,12 @@ public static class CrashExplainer
         return null;
     }
 
-    /// <summary>What Windows says the error code means, as a sentence that follows another: " Windows says it tried … (Access violation)."</summary>
-    private static string Says((string Name, string Meaning) ex) =>
-        ex.Meaning is null ? "" : " " + Lang.T($"Windows says {Lang.T(ex.Meaning)} ({Lang.T(ex.Name)}).");
+    /// <summary>
+    /// What Windows says the error code means, as a sentence that follows another, then what usually causes it as a
+    /// sentence of its own: " Windows says its memory got corrupted (heap corruption). Mods, overlays or a bug in the app are the usual causes."
+    /// </summary>
+    private static string Says((string Name, string Meaning, string? Usual) ex) =>
+        ex.Meaning is null ? "" : " " + Lang.T($"Windows says {Lang.T(ex.Meaning)} ({Lang.T(ex.Name)}).") + (ex.Usual is null ? "" : " " + Lang.T(ex.Usual));
 
     public static CrashExplanation Explain(CrashEvent e, string? appName = null)
     {
@@ -117,7 +123,9 @@ public static class CrashExplainer
             {
                 uint code = ParseHex(e.Code);
                 if (Bugchecks.TryGetValue(code, out var b))
-                    return new(Wording.Event(CrashKind.SystemCrash, ""), $"{Lang.T(b.Reason)} ({b.Name}, {e.Code})", Lang.T(b.Advice), b.Name, b.Name);
+                    // "Windows crashed on an invalid memory access (PAGE_FAULT_IN_NONPAGED_AREA, 0x50). Bad RAM or a faulty driver can cause this.":
+                    // the first sentence is the headline, what can cause it the text under it.
+                    return new(Wording.Event(CrashKind.SystemCrash, ""), $"{Lang.T(b.What)} ({b.Name}, {e.Code})." + (b.Usual is null ? "" : " " + Lang.T(b.Usual)), Lang.T(b.Advice), b.Name, b.Name);
                 return new(Wording.Event(CrashKind.SystemCrash, ""), Lang.T($"Windows stopped with error {e.Code}."),
                     Lang.T("Search the code online together with your recently installed drivers or software."), e.Code ?? Lang.Key("Bugcheck"), e.Code);
             }
@@ -134,9 +142,9 @@ public static class CrashExplainer
                         Lang.T("Usually harmless. If it keeps happening, try turning off Fast Startup, or update the BIOS and chipset drivers."),
                         Lang.Key("Shutdown")), // no cause: the title says it
                     _ => new(Wording.Event(CrashKind.UnexpectedShutdown, ""),
-                        Lang.T("The PC turned off without shutting down, and no crash report was saved — a power cut, a held power button, or a hard freeze."),
+                        Lang.T("The PC shut off suddenly and no crash report was saved. A power cut, a held power button or a frozen PC all look like this."),
                         Lang.T("If it happened while gaming, check the temperatures just before, and consider the power supply."),
-                        Lang.Key("Power / hard freeze"), Lang.Key("a power cut or a hard freeze")),
+                        Lang.Key("Power or freeze"), Lang.Key("a power cut or a freeze")),
                 };
 
             default:
@@ -180,7 +188,7 @@ public static class CrashExplainer
         {
             "dwm.exe" => new(Lang.T("Windows' display crashed"),
                 Lang.T("The part of Windows that draws everything on screen (Desktop Window Manager) crashed and restarted. The screen probably flickered or went black for a moment.") + what,
-                Lang.T("This is almost always the graphics driver. Update or clean-reinstall it, and undo any GPU overclock."), Lang.Key("Graphics driver")),
+                Lang.T("The graphics driver is the most common cause. Update or clean-reinstall it, and undo any GPU overclock."), Lang.Key("Graphics driver")),
             "explorer.exe" => new(Lang.T("Taskbar and desktop restarted"),
                 Lang.T("Windows Explorer, which runs the taskbar, desktop and file windows, crashed and restarted.") + what,
                 Lang.T("Often a shell extension from another app (right-click menu add-ons, cloud drives). If it repeats, update or remove recently installed tools."), Lang.Key("Windows Explorer")),

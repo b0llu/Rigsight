@@ -104,7 +104,7 @@ public sealed partial class DriveTemp : ObservableObject
     public string LimitTip => ReportedLimit?.Value is double reported and >= 40 and <= 120 ? Lang.T("The limit this drive reports for itself")
         : Kind == DriveKind.Ssd ? Lang.T("This drive reports no limit, so this is the usual one for an SSD")
         : Kind == DriveKind.HardDrive ? Lang.T("This drive reports no limit, so this is the usual one for a hard drive")
-        : Lang.T("This drive reports no limit and Windows didn't say what kind it is, so this is the lower usual limit, a hard drive's");
+        : Lang.T("This drive reports no limit and Windows didn't say what kind it is, so this is the usual limit for a hard drive, the lower of the two");
 
     /// <summary>
     /// Its colour's steps, from its own limit: cool up to 35° (or 15° under a low limit), warm from 10° under the

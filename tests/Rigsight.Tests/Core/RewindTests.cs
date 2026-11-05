@@ -206,7 +206,7 @@ public class RewindTests
         f.Problems = true; f.AppCrashes = 0; f.ShutOffs = 0;
         var card = RewindCards.Of(f).Single(c => c.Id == "problems");
         Assert.Equal(("What went wrong", "Nothing"), (card.Label, card.Big));
-        Assert.Equal("Not one app or game crashed, and your PC never shut down without warning.", card.Sub);
+        Assert.Equal("Not one app or game crashed, and your PC never shut off suddenly.", card.Sub);
     }
 
     [Fact]

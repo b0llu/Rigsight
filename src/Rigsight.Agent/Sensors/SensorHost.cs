@@ -530,7 +530,7 @@ internal sealed class SensorHost
         }
         bool Any(Func<HardwareMeta, bool> which) => schema.Any(which);
         if (!Any(hw => hw.Type == "Cpu")) missing.Add("no CPU found");
-        if (!Any(hw => hw.Type.StartsWith("Gpu", StringComparison.Ordinal))) missing.Add("no graphics card found");
+        if (!Any(hw => hw.Type.StartsWith("Gpu", StringComparison.Ordinal))) missing.Add("no GPU found");
         if (!Any(hw => hw.Type == "Memory")) missing.Add("no memory readings");
         if (!Any(hw => hw.Type == "Storage")) missing.Add("no drives found");
         // A desktop's board chip gives the fans, voltages and board temperatures; a laptop (it has a battery) often has none to read.

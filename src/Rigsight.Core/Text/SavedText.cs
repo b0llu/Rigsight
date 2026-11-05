@@ -38,11 +38,11 @@ public static partial class SavedText
         P(@"^Fan speeds changed while the PC was off$", Lang.Key("Fan speeds changed while the PC was off")),
         P(@"^GPU disconnected for 1 minute: (.+)$", Lang.Key("{0} disconnected for 1 minute")),
         P(@"^GPU disconnected for (\d+) minutes: (.+)$", Lang.Key("{1} disconnected for {0} minutes")),
-        P(@"^Graphics card added: (.+)$", Lang.Key("Graphics card {0} added")),
-        P(@"^Graphics card removed: (.+)$", Lang.Key("Graphics card {0} removed")),
+        P(@"^Graphics card added: (.+)$", Lang.Key("GPU {0} added")),
+        P(@"^Graphics card removed: (.+)$", Lang.Key("GPU {0} removed")),
         P(@"^Drive added: (.+)$", Lang.Key("Drive {0} added")),
         P(@"^Drive removed: (.+)$", Lang.Key("Drive {0} removed")),
-        P(@"^Processor changed to (.+)$", Lang.Key("Processor changed to {0}")),
+        P(@"^(?:Processor|CPU) changed to (.+)$", Lang.Key("CPU changed to {0}")),
         P(@"^Memory changed to (.+)$", Lang.Key("Memory changed to {0}")),
         P(@"^Motherboard changed to (.+)$", Lang.Key("Motherboard changed to {0}")),
         P(@"^BIOS updated to (.+)$", Lang.Key("BIOS updated to {0}")),
@@ -82,10 +82,14 @@ public static partial class SavedText
 
         // ── Crash details (CrashLogReader) ──
         P(@"^Display driver stopped responding and has recovered$", Lang.Key("Display driver stopped responding and has recovered")),
+        // Saved before the copy audit (2026-11-05) said GPU: shown in the words saved now.
+        P(@"^Windows filed a report that the graphics card stopped answering$", Lang.Key("Windows filed a report that the GPU stopped answering")),
+        P(@"^The graphics card hung$", Lang.Key("The GPU hung")),
+        P(@"^The NVIDIA driver reported a fault of the graphics card$", Lang.Key("The NVIDIA driver reported a fault of the GPU")),
         P(@"^Noticed at startup (.+)$", Lang.Key("Noticed at startup {0}")),
         P(@"^Found at next startup \((.+)\)$", Lang.Key("Found at next startup ({0})")),
-        P(@"^Windows reported that the graphics card stopped answering \(LiveKernelEvent (.+)\)$",
-            Lang.Key("Windows reported that the graphics card stopped answering (LiveKernelEvent {0})")),
+        P(@"^Windows reported that the (?:graphics card|GPU) stopped answering \(LiveKernelEvent (.+)\)$",
+            Lang.Key("Windows reported that the GPU stopped answering (LiveKernelEvent {0})")),
 
         // ── History repair (HistoryRepair: a summary is several sentences, each said by itself) ──
         P(@"^Kept (\d+) of (\d+) days in full\.$", Lang.Key("Kept {0} of {1} days in full.")),

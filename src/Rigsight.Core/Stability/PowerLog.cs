@@ -60,7 +60,7 @@ public static class PowerLog
         GapReason.ShutOff => Lang.T("PC shut off suddenly"),
         GapReason.Crashed => Lang.T("Windows crashed"),
         GapReason.Asleep => Lang.T("PC was asleep"),
-        GapReason.NotRunning => Lang.T("RigSight wasn't running"),
+        GapReason.NotRunning => Wording.NotRecorded, // on, and nothing recording: said as every other gap is
         _ => null,
     };
 }

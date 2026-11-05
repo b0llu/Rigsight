@@ -459,7 +459,7 @@ public sealed class ReportService(SettingsModel settings)
                     var own = db.GetCrashes(0, long.MaxValue / 2).Where(c => c.AppExe.StartsWith(stem, StringComparison.OrdinalIgnoreCase)).ToList();
                     string name = row.Input?.NameOf(waited) ?? waited;
                     note = own.Count == 0 ? Lang.T($"{name} has no crashes of its own on record.")
-                        : own.Count == 1 ? Lang.T($"{name} has crashed 1 time on this PC, most recently on {own[0].Time:d MMM yyyy}.")
+                        : own.Count == 1 ? Lang.T($"{name} has crashed once on this PC, on {own[0].Time:d MMM yyyy}.")
                         : Lang.T($"{name} has crashed {own.Count} times on this PC, most recently on {own[0].Time:d MMM yyyy}.");
                 }
             }

@@ -171,7 +171,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>The themes, each with the few colours its small picture is drawn in; "System" in Windows' own mode's.</summary>
     public List<ThemeOption> ThemeOptions => _themeOptions ??=
     [
-        ThemeOption.From(ThemeManager.Dark, Lang.T("Dark"), "Dark"), ThemeOption.From(ThemeManager.Grey, Lang.T("Grey"), "Grey"),
+        ThemeOption.From(ThemeManager.Dark, Lang.T("Dark"), "Dark"), ThemeOption.From(ThemeManager.Grey, Lang.T("Gray"), "Grey"),
         ThemeOption.From(ThemeManager.Midnight, Lang.T("Midnight"), "Midnight"), ThemeOption.From(ThemeManager.Forest, Lang.T("Forest"), "Forest"),
         ThemeOption.From(ThemeManager.Ember, Lang.T("Ember"), "Ember"), ThemeOption.From(ThemeManager.Light, Lang.T("Light"), "Light"),
         ThemeOption.From(ThemeManager.System, Lang.T("Same as Windows"), ThemeManager.WindowsUsesLight() ? "Light" : "Dark"),
@@ -455,7 +455,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     internal static string? SkippedText(SensorStatus? status) => status switch
     {
         { StoppedForMemory: true } => Lang.T("Windows' memory kept growing while the motherboard, fan hubs and power supply were read, so RigSight stopped reading them. Try again once your PC has restarted."),
-        { SafeMode: true } => Lang.T("The last time RigSight read your hardware it didn't finish (your PC may have frozen or been restarted), so the motherboard, fan hubs and power supply are skipped for now."),
+        { SafeMode: true } => Lang.T("The last time RigSight read your hardware it didn't finish, so the motherboard, fan hubs and power supply are skipped for now."),
         _ => null,
     };
 
@@ -774,7 +774,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>The last repair, if there was one: when, and what it kept.</summary>
     public string? HistoryLastRepair => H.RepairedAt is not { } at ? null : H.Outcome switch
     {
-        "lists" => Lang.T($"Lookup lists rebuilt {at:ddd d MMM}. Nothing was lost."),
+        "lists" => Lang.T($"Repaired {at:ddd d MMM}. Nothing was lost."),
         "whole" => Lang.T($"Repaired {at:ddd d MMM}. Nothing was lost."),
         "repaired" or "nothing" => Lang.T($"Repaired {at:ddd d MMM}. {SavedText.Show(H.Summary)}"),
         _ => null,

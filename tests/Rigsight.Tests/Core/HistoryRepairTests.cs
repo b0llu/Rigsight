@@ -519,7 +519,7 @@ public sealed class HistoryCardTests
         Assert.Null(Rigsight.Models.HistoryCard.Of(new() { Outcome = "repaired", Dismissed = true }));
 
         var nothing = Rigsight.Models.HistoryCard.Of(new() { Outcome = "nothing" })!;
-        Assert.Equal(("Your history couldn't be saved", true), (nothing.Title, nothing.IsWarm));
+        Assert.Equal(("Your old history couldn't be recovered", true), (nothing.Title, nothing.IsWarm));
     }
 
     [Fact]

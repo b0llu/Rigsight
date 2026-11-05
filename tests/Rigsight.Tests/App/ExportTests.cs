@@ -197,7 +197,7 @@ public sealed class ExportTests
         Assert.DoesNotContain(text, l => l.Contains('<')); // text, not a page
         Assert.Contains("Nothing was recorded in this time.", ReadableExport.ReportText(new Report { From = day, To = day.AddDays(1) }, "Empty", "0.21.0"));
 
-        Assert.StartsWith($"RigSight crashes{Environment.NewLine}Last 7 days, none recorded.", ReadableExport.CrashesText([], "Last 7 days", day, "0.21.0"));
+        Assert.StartsWith($"Crashes on this PC{Environment.NewLine}Last 7 days, none recorded.", ReadableExport.CrashesText([], "Last 7 days", day, "0.21.0"));
 
         // For the AI helper the same words without the padding (2026-10-26): every value still there, each cell kept.
         var tight = ReadableExport.ReportText(report, "Friday, 9 October 2026", "0.21.0", tight: true).Split(Environment.NewLine);
@@ -254,7 +254,7 @@ public sealed class ExportTests
                 new("NVIDIA GeForce RTX 3080 Ti", "Temperatures", "GPU Core", "48 °C", "44 °C", "68 °C"),
             ], ["Samsung SSD 980  ·  43 °C  ·  Good"]);
         var lines = text.Split(Environment.NewLine);
-        Assert.Equal("RigSight PC snapshot", lines[0]);
+        Assert.Equal("PC snapshot", lines[0]);
         Assert.Equal("Saturday, 10 October 2026, 6:05 PM  ·  RigSight 0.20.1", lines[1]);
         Assert.Contains("  CPU: Ryzen 7 5700X3D", lines);
         Assert.Contains("  Samsung SSD 980  ·  43 °C  ·  Good", lines);
@@ -263,7 +263,7 @@ public sealed class ExportTests
         Assert.Contains("    CPU Total           6 %      1 %  to  100 %", lines);
         Assert.True(Array.IndexOf(lines, "NVIDIA GeForce RTX 3080 Ti") > Array.IndexOf(lines, "AMD Ryzen 7 5700X3D"));
         // No agent, no readings: it says so instead of an empty list.
-        Assert.Contains("No sensor readings because the background agent wasn't running.", ReadableExport.Snapshot(at, "0.20.1", "CPU: x", [], []));
+        Assert.Contains("No sensor readings, because RigSight wasn't recording.", ReadableExport.Snapshot(at, "0.20.1", "CPU: x", [], []));
     }
 
     [Fact]
@@ -434,7 +434,7 @@ public sealed class ExportTests
             "App usage.csv", "Crashes.csv", "Crashes.html", "Drive space.csv", "Fans.csv", "Internet.csv", "Internet each hour.csv", "Memory.csv", "PC snapshot.txt", "Report.html",
             "RigSight full copy.zip", "Sessions.csv", "Temperatures, load and power.csv", "Timeline changes.csv",
         }.Order(), files);
-        Assert.StartsWith("RigSight PC snapshot", File.ReadAllText(Path.Combine(vm.Folder, "PC snapshot.txt")));
+        Assert.StartsWith("PC snapshot", File.ReadAllText(Path.Combine(vm.Folder, "PC snapshot.txt")));
         Assert.StartsWith("<!doctype html>", File.ReadAllText(Path.Combine(vm.Folder, "Report.html")));
         Assert.StartsWith("<!doctype html>", File.ReadAllText(Path.Combine(vm.Folder, "Crashes.html")));
         // Excel reads the degree sign and names right only with the mark at the file's start.
@@ -462,7 +462,7 @@ public sealed class ExportTests
         Assert.StartsWith("Day ", usage[4]);
         Assert.Matches("^[- ]+$", usage[5]);
         Assert.StartsWith("RigSight report", File.ReadAllText(Path.Combine(vm.Folder, "Report.txt")));
-        Assert.StartsWith("RigSight crashes", File.ReadAllText(Path.Combine(vm.Folder, "Crashes with their context.txt")));
+        Assert.StartsWith("Crashes on this PC", File.ReadAllText(Path.Combine(vm.Folder, "Crashes with their context.txt")));
     }
 
     [Fact]

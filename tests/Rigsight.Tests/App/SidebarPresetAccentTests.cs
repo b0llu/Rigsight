@@ -748,7 +748,7 @@ public sealed class SidebarPresetAccentTests
             try
             {
                 var list = Visuals.Descendants<System.Windows.Controls.ListBox>(window)
-                    .Single(l => System.Windows.Automation.AutomationProperties.GetName(l) == "Accent colour");
+                    .Single(l => System.Windows.Automation.AutomationProperties.GetName(l) == "Accent color");
                 var blue = (System.Windows.Controls.ListBoxItem)list.ItemContainerGenerator.ContainerFromItem(vm.AccentOptions.Single(o => o.Key == "blue"));
                 Click(blue);
                 Assert.Equal("blue", settings.Current.Accent);

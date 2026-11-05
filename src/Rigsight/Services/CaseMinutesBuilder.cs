@@ -135,7 +135,8 @@ internal static class CaseMinutesBuilder
         // Never in the way of the crash opening: what stood out is left out, and the log says why.
         List<StoodOut> stood;
         try { stood = CaseMinutes.Find(rows, [.. apps.SelectMany(g => g)], fanRows, fans, drops, at, ramTotal, NameOf,
-            [.. sessions.Where(x => x.Start > f && x.Start < at && onStrips.Contains(NameOf(x.AppId))).Select(x => (x.AppId, x.Start))], power); }
+            [.. sessions.Where(x => x.Start > f && x.Start < at && onStrips.Contains(NameOf(x.AppId))).Select(x => (x.AppId, x.Start))], power,
+            word switch { CaseWord.ShutOff => CrashKind.UnexpectedShutdown, CaseWord.BlueScreen => CrashKind.SystemCrash, CaseWord.DriverReset => CrashKind.GpuDriverReset, _ => CrashKind.AppCrash }); }
         catch (Exception ex)
         {
             Core.Log.Error("crashes", ex);

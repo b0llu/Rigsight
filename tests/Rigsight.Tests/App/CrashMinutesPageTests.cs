@@ -103,7 +103,7 @@ public sealed class CrashMinutesPageTests
                 (box.Fans.Count, box.CpuApps.Count, box.GpuApps.Count, box.MemApps.Count));
             box.Show(0);
             Assert.StartsWith("At ", box.Title);
-            Assert.EndsWith(" min before the crash", box.When);
+            Assert.EndsWith("m before the crash", box.When);
             Assert.Equal((CaseReadout.FanLines, CaseReadout.CpuLines, CaseReadout.GpuLines, CaseReadout.MemLines),
                 (box.Fans.Count, box.CpuApps.Count, box.GpuApps.Count, box.MemApps.Count));
             box.Show(null);

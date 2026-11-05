@@ -82,7 +82,7 @@ public static class StutterCauses
             && vram.Max(v => v.Item1 / v.Item2) >= 0.95)
         {
             var top = vram.MaxBy(v => v.Item1 / v.Item2);
-            return Lang.T($"while the graphics card's memory was nearly full ({top.Item1 / 1024:0.0} of {top.Item2 / 1024:0} GB)");
+            return Lang.T($"while the GPU's memory was nearly full ({top.Item1 / 1024:0.0} of {top.Item2 / 1024:0} GB)");
         }
         // Another app busy on the CPU, more than in the rest of the play.
         var cpu = inside.GroupBy(a => a.App).Select(g => (App: g.Key, Load: g.Sum(a => a.Cpu) / minutesIn)).OrderByDescending(x => x.Load).FirstOrDefault();

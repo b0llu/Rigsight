@@ -70,12 +70,11 @@ public sealed partial class ProcHistory : ObservableObject
             : started.ToString(TimeText.Fit("d MMM, h:mm tt"), culture);
     }
 
-    /// <summary>"5 h 40 min", "22 min", "Under a minute"; "None" for no time at all.</summary>
+    /// <summary>"5h 40m", "22m", "Under a minute"; "None" for no time at all.</summary>
     internal static string Time(double seconds)
     {
         if (!double.IsFinite(seconds) || seconds < 1) return Lang.T("None");
         int minutes = (int)(seconds / 60);
-        int hours = minutes / 60, rest = minutes % 60;
-        return minutes < 1 ? Lang.T("Under a minute") : minutes < 60 ? Lang.T($"{minutes} min") : Lang.T($"{hours} h {rest} min");
+        return minutes < 1 ? Lang.T("Under a minute") : Units.Duration(minutes * 60);
     }
 }

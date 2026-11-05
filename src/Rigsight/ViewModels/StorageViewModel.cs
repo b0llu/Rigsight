@@ -383,7 +383,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         }
 
         Add(Lang.T("Temporary files"), Lang.T("Leftovers from installers and apps. Safe to delete anything not currently in use."), Path.GetTempPath());
-        Add(Lang.T("Windows temporary files"), Lang.T("System temp folder."), Path.Combine(windows, "Temp"));
+        Add(Lang.T("Windows temporary files"), Lang.T("Leftover files in Windows' own temp folder."), Path.Combine(windows, "Temp"));
         Add(Lang.T("Old downloads"), Lang.T("Files in Downloads you haven't touched in 90+ days."), downloads,
             f => f.LastWrite < DateTime.Now.AddDays(-90) && f.LastAccess < DateTime.Now.AddDays(-90));
         Add(Lang.T("Windows Update cache"), Lang.T("Already-installed update files. Disk Cleanup can remove these."), Path.Combine(windows, "SoftwareDistribution", "Download"));
@@ -535,7 +535,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     {
         var gone = now - at;
         // A scan is kept across restarts: one from another day says its day, so it isn't read as today's.
-        return gone.TotalMinutes < 1 ? Lang.T("just now") : gone.TotalMinutes < 60 ? Lang.T($"{gone.TotalMinutes:0} min ago")
+        return gone.TotalMinutes < 1 ? Lang.T("just now") : gone.TotalMinutes < 60 ? Lang.T($"{Units.Duration(Math.Round(gone.TotalMinutes) * 60)} ago")
             : at.Date == now.Date ? Lang.T($"at {TimeText.Time(at)}")
             : at.Date == now.Date.AddDays(-1) ? Lang.T($"yesterday at {TimeText.Time(at)}")
             : Lang.T($"on {TimeText.At(at, "ddd d MMM")} at {TimeText.Time(at)}");

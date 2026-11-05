@@ -487,7 +487,7 @@ public sealed class PlansTests
         var answer = AskViewModel.ToAnswer("E is 73% full.\nYour plan doesn't include Storage, so I can't see which folders fill it.\n[do: open storage E]\nAsk next: How full is C?\n[locked: storage | See what fills the E drive]", []);
         Assert.Equal("storage", answer.Locked!.Id);
         Assert.Equal("See what fills the E drive", answer.LockedTitle);
-        Assert.Equal("Essentials lets me read Storage, which covers space on each drive, drive health, and what you could free.",
+        Assert.Equal("Essentials reads Storage, which covers space on each drive, drive health, and what you could free.",
             (answer with { LockedPlanId = "essentials", LockedPlanName = "Essentials" }).LockedText);
         Assert.DoesNotContain(answer.Parts.OfType<AskLine>(), l => l.Text.Contains("locked") || l.Text.Contains("See what fills"));
     }

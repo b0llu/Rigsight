@@ -174,12 +174,11 @@ public sealed class NetReport
     /// <summary>The period told in lines: the Network page's "What happened" (built only when asked for).</summary>
     public List<NetHappening> Happenings { get; set; } = [];
     /// <summary>
-    /// The apps that have a colour of their own on the chart, in the order of the colours. An app keeps its colour while
-    /// it goes on using the internet (the settings remember them, see <see cref="RigsightSettings.NetColorApps"/>); a
-    /// colour given up, or still free, goes to the biggest user of the last month that has none.
+    /// The apps that have a colour of their own on the chart, one per colour in the order of the colours (0: no app has
+    /// that colour in this period). See <see cref="NetReportBuilder.Colour"/>.
     /// </summary>
     public List<long> ColorApps { get; set; } = [];
-    /// <summary>The same apps by exe, as the settings keep them.</summary>
+    /// <summary>Who had which colour, newest first ("2:obs64.exe"), as the settings remember it.</summary>
     public List<string> ColorExes { get; set; } = [];
     /// <summary>Whether there is a week of history behind the choice: only then is it remembered.</summary>
     public bool ColorsSettled { get; set; }
@@ -271,26 +270,6 @@ public static class NetReportBuilder
                     : new NetBin(day, 0, 0, 0))];
         }
 
-        // The apps with a colour. An app that has one keeps it for as long as it goes on using the internet; one that
-        // hasn't for a month gives its colour up, and a free colour goes to the biggest user of the last month that
-        // has none. So two apps never trade colours, and the colours follow a PC whose habits change.
-        long monthAgo = TimeUtil.ToUnix(now.Date.AddDays(-ColorDays)), tomorrow = TimeUtil.ToUnix(now.Date.AddDays(1));
-        var lately = db.GetNetAppTotals(monthAgo, tomorrow).Where(u => u.Total >= 1 << 20 && apps.ContainsKey(u.App))
-            .OrderByDescending(u => u.Total).Select(u => apps[u.App].Exe).ToList();
-        var slots = settings.NetColorApps.Take(ColoredApps).Select(exe => lately.Contains(exe, StringComparer.OrdinalIgnoreCase) ? exe : null).ToList();
-        var waiting = new Queue<string>(lately.Where(exe => !slots.Contains(exe, StringComparer.OrdinalIgnoreCase)));
-        for (int i = 0; i < ColoredApps; i++)
-        {
-            if (i < slots.Count && slots[i] is not null) continue;
-            if (!waiting.TryDequeue(out var next)) break;
-            if (i < slots.Count) slots[i] = next;
-            else slots.Add(next);
-        }
-        r.ColorExes = [.. slots.OfType<string>()];
-        r.ColorApps = [.. r.ColorExes.Select(exe => apps.Values.First(a => a.Exe.Equals(exe, StringComparison.OrdinalIgnoreCase)).Id)];
-        // Not remembered until there is a week to go by: the biggest users of a PC's first hours (an installer, a
-        // Windows update) shouldn't hold the colours for good. Until then they go by use, and can still change hands.
-        r.ColorsSettled = db.FirstNetDay() is long began && TimeUtil.FromUnix(began).Date <= now.Date.AddDays(-ColorSettleDays);
 
         // The fastest steady download.
         if (days.Where(d => d.Best is not null).MaxBy(d => d.Best) is { BestTs: long bestTs } fastest)
@@ -319,6 +298,10 @@ public static class NetReportBuilder
         foreach (var g in transfers.GroupBy(x => x.App))
             if (stats.TryGetValue(g.Key, out var s)) s.Fastest = g.Max(x => x.Speed);
         r.Apps = [.. stats.Values.OrderByDescending(s => s.Use.Total)];
+        Colour(r, settings);
+        // Not remembered until there is a week to go by: the biggest users of a PC's first hours (an installer, a
+        // Windows update) shouldn't fill the memory. Until then the colours still go to the period's biggest users.
+        r.ColorsSettled = db.FirstNetDay() is long began && TimeUtil.FromUnix(began).Date <= now.Date.AddDays(-ColorSettleDays);
         // The biggest stretches: each app's hours (a day) or days (longer), biggest first, both directions counted.
         var stretch = hourly ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
         r.Downloads = [.. busiest.Where(u => u.Total >= MinBiggest && apps.ContainsKey(u.App)).OrderByDescending(u => u.Total).Take(DownloadsShown).Select(u =>
@@ -499,9 +482,38 @@ public static class NetReportBuilder
             .Select(h => NameOf(apps, settings, h.AppId))];
 
     /// <summary>The apps with a colour of their own on the chart (see <see cref="NetReport.ColorApps"/>).</summary>
-    public const int ColoredApps = RigsightSettings.MaxNetColorApps;
-    /// <summary>The days of use the colours go by: an app with none in them gives its colour up.</summary>
-    public const int ColorDays = 30;
+    public const int ColoredApps = 4;
+
+    /// <summary>
+    /// The colours: the period's biggest users get them (the user, 2026-11-05: OBS Studio, the day's biggest by far, was
+    /// grey because the colours went to the last month's biggest), so the biggest thing on the graph always has one.
+    /// Each keeps the colour it had before where it can (<see cref="RigsightSettings.NetColorApps"/> remembers who had
+    /// which), so an app is the same colour on every period it's coloured in, and two apps never share one in a view.
+    /// One with no colour yet, or whose colour another has here, takes a free one, and that's remembered for it.
+    /// </summary>
+    internal static void Colour(NetReport r, RigsightSettings settings)
+    {
+        var remembered = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in settings.NetColorApps)
+            if (RigsightSettings.ParseNetColor(entry) is { } e) remembered.TryAdd(e.Exe, e.Slot);
+        var top = r.Apps.Where(a => a.Use.Total >= 1 << 20).Take(ColoredApps).ToList();
+        var slots = new long[ColoredApps]; // 0: the colour is free (app ids start at 1)
+        var waiting = new List<NetAppStat>();
+        foreach (var a in top)
+            if (remembered.TryGetValue(a.Exe, out int slot) && slot < ColoredApps && slots[slot] == 0) slots[slot] = a.Id;
+            else waiting.Add(a);
+        foreach (var a in waiting)
+        {
+            // A free colour no other app remembers first, else any free one.
+            int free = Enumerable.Range(0, ColoredApps).Where(i => slots[i] == 0).OrderBy(i => remembered.ContainsValue(i) ? 1 : 0).First();
+            slots[free] = a.Id;
+        }
+        r.ColorApps = [.. slots];
+        // Newest first: this view's apps, then everyone remembered before, so the memory keeps the apps seen lately.
+        var seen = top.Select(a => $"{Array.IndexOf(slots, a.Id)}:{a.Exe}").ToList();
+        r.ColorExes = [.. seen.Concat(settings.NetColorApps.Where(e => RigsightSettings.ParseNetColor(e) is { } x && !top.Any(a => a.Exe.Equals(x.Exe, StringComparison.OrdinalIgnoreCase))))
+            .Take(RigsightSettings.MaxNetColorApps)];
+    }
     /// <summary>The days of history there must be before the colours are remembered.</summary>
     public const int ColorSettleDays = 7;
 
@@ -542,7 +554,9 @@ public static class NetReportBuilder
     private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
 
     /// <summary>A bar's apps, biggest first, without the ones that moved next to nothing.</summary>
-    private static List<NetAppUse> Biggest(IEnumerable<NetAppUse> uses) => [.. uses.Where(u => u.Total >= 1 << 20).OrderByDescending(u => u.Total)];
+    // Every app with any use, biggest first: the ones under 1 MB are listed too, together under one row (the user,
+    // 2026-11-05: "30 other apps" could be seen nowhere).
+    private static List<NetAppUse> Biggest(IEnumerable<NetAppUse> uses) => [.. uses.Where(u => u.Total > 0).OrderByDescending(u => u.Total)];
 
     /// <summary>A day with this long not recorded (seconds) isn't counted among the usual days.</summary>
     internal const int UnrecordedDaySeconds = 3600;

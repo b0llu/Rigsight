@@ -167,7 +167,7 @@ public static class InsightEngine
                         (false, false) => Lang.T($"{app} ran {by} cooler than {when}"),
                     };
                     list.Add(new Insight(IconCompare,
-                        head + " " + (hotter ? Lang.T($"{rest}, so dust or old thermal paste are the likely causes.") : $"{rest}."),
+                        head + " " + (hotter ? Lang.T($"{rest}. Dust or old thermal paste can do this.") : $"{rest}."),
                         hotter ? InsightTone.Warn : InsightTone.Good, "drift", hotter ? 72 : 40,
                         Lang.T($"{now.Minutes} minutes of steady play now, {before.Minutes} {when}; at rest {restTemp} now, {Units.TempShort(rt)} then"))
                         { Short = shortLine, Ask = hotter ? Lang.T($"Why does {app} run {by} hotter than {when}?") : null, AskPage = Ai.AiPages.Temperatures });
@@ -196,11 +196,11 @@ public static class InsightEngine
                     ? new Insight(IconWarn, oneDay
                         ? Lang.T($"Your GPU fan stopped for {mins} from {from:h:mm tt} with the GPU at {temp}, when it always turns at that heat. Check it isn't blocked or unplugged.")
                         : Lang.T($"Your GPU fan stopped for {mins} from {from:ddd d MMM, h:mm tt} with the GPU at {temp}, when it always turns at that heat. Check it isn't blocked or unplugged."),
-                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name} at 0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes with the GPU at 70° or more")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did my GPU fan stop for {mins}?"), AskPage = Ai.AiPages.Fans }
+                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name} stopped for {fan.StoppedMinutes} of the {fan.SpinMinutes} minutes the GPU was at 70° or more")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did my GPU fan stop for {mins}?"), AskPage = Ai.AiPages.Fans }
                     : new Insight(IconWarn, oneDay
                         ? Lang.T($"{fan.Name} on your motherboard stopped for {mins} from {from:h:mm tt}, when it always turns. Check it isn't blocked or unplugged.")
                         : Lang.T($"{fan.Name} on your motherboard stopped for {mins} from {from:ddd d MMM, h:mm tt}, when it always turns. Check it isn't blocked or unplugged."),
-                        InsightTone.Warn, "fan-stopped", 86, Lang.T($"0 rpm in {fan.StoppedMinutes} of {fan.SpinMinutes} minutes on; {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did {fan.Name} stop for {mins}?"), AskPage = Ai.AiPages.Fans });
+                        InsightTone.Warn, "fan-stopped", 86, (was.StoppedMinutes == 0 ? Lang.T($"Stopped for {fan.StoppedMinutes} of the {fan.SpinMinutes} minutes the PC was on, and never {usualLabel}") : Lang.T($"Stopped for {fan.StoppedMinutes} of the {fan.SpinMinutes} minutes the PC was on, and for {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}"))) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did {fan.Name} stop for {mins}?"), AskPage = Ai.AiPages.Fans });
                 gpuSaid |= fan.Gpu;
                 fanSaid.Add((fan.Name, fan.Hardware));
             }
@@ -221,7 +221,7 @@ public static class InsightEngine
                 if (was is null) continue;
                 var before = previous?.Fans.FirstOrDefault(f => f.Name == fan.Name && f.Hardware == fan.Hardware);
                 string? app = FanSoftware.Among(running, fan.Gpu);
-                string where = app is not null ? Lang.T($"in {app}") : fan.Gpu ? Lang.T("in the card's software") : Lang.T("in a fan app");
+                string where = app is not null ? Lang.T($"in {app}") : fan.Gpu ? Lang.T("in the GPU's software") : Lang.T("in a fan app");
                 string Check(bool curve, bool plural) => (curve, plural) switch
                 {
                     (true, true) => Lang.T($"If you changed the fan curve {where}, that's why; if not, check they're clean and turning freely."),
@@ -278,7 +278,7 @@ public static class InsightEngine
                     string part = fan.Follows == FanFollows.Cpu ? "CPU" : "GPU";
                     string name = fan.Name, temp = Units.TempShort(slow.Temp);
                     string when = thenFans.Mid.Year == DateTime.Today.Year ? Lang.T($"in {thenFans.Mid:MMMM}") : Lang.T($"in {thenFans.Mid:MMMM yyyy}");
-                    string where = app is not null ? Lang.T($"in {app}") : fan.Gpu ? Lang.T("in the card's software") : Lang.T("in the BIOS or a fan app");
+                    string where = app is not null ? Lang.T($"in {app}") : fan.Gpu ? Lang.T("in the GPU's software") : Lang.T("in the BIOS or a fan app");
                     list.Add(new Insight(IconWarn,
                         (fan.Gpu
                             ? Lang.T($"Your GPU fans now spin {slow.Percent:0}% slower at the same heat than {when}. They turn at {slow.Now:N0} rpm with the {part} at {temp}, against {slow.Was:N0} rpm then.")
@@ -461,7 +461,7 @@ public static class InsightEngine
                 : Lang.T($"spread across {Wording.JoinAnd(by.Take(3).Select(x => x.App))}");
             // Where the heat went, not a warning: a GPU runs over 75° in most games (the limit and peak lines warn).
             list.Add(new Insight(icon, Lang.T($"Your {part} spent {Wording.Minutes(hot)} over {Units.TempShort(Report.HotLine)}, {who}."),
-                InsightTone.Neutral, "hot-app", priority, string.Join(" · ", by.Take(4).Select(x => Lang.T($"{x.App} {x.Minutes} min")))) { Short = Lang.T($"{part} over {Units.TempShort(Report.HotLine)} for {Wording.Minutes(hot)}") });
+                InsightTone.Neutral, "hot-app", priority, string.Join(" · ", by.Take(4).Select(x => Lang.T($"{x.App} {Units.Duration(x.Minutes * 60.0)}")))) { Short = Lang.T($"{part} over {Units.TempShort(Report.HotLine)} for {Wording.Minutes(hot)}") });
         }
         HotBy("GPU", IconGpu, r.GpuHotMinutes, r.GpuHotByApp, 62);
         HotBy("CPU", IconCpu, r.CpuHotMinutes, r.CpuHotByApp, 61);
@@ -498,10 +498,10 @@ public static class InsightEngine
             string idleName = idleHog.Name, open = Units.Duration(idleHog.BackgroundSec + idleHog.MinimizedSec), usedFor = Units.Duration(idleHog.ActiveSec);
             list.Add(new Insight(IconIdle,
                 idleHog.ActiveSec < 60
-                    ? Lang.T($"{idleName} sat open in the background for {open} and you never opened it.")
-                    : Lang.T($"{idleName} sat open in the background for {open} but you only used it for {usedFor}."),
+                    ? Lang.T($"{idleName} was open in the background for {open} and you never switched to it.")
+                    : Lang.T($"{idleName} was open in the background for {open} but you only used it for {usedFor}."),
                 InsightTone.Neutral, "idle-app", 40)
-                { Short = idleHog.ActiveSec < 60 ? Lang.T($"{idleName} sat open, never used") : Lang.T($"{idleName} sat open for {open}, used {usedFor}") });
+                { Short = idleHog.ActiveSec < 60 ? Lang.T($"{idleName} was open, never used") : Lang.T($"{idleName} was open for {open}, used {usedFor}") });
         }
 
         // Memory: only when one app took a big share, and it isn't the same one as the period before.
@@ -515,8 +515,8 @@ public static class InsightEngine
             string away = Units.Duration(r.LongAwaySec);
             list.Add(new Insight(IconAway,
                 r.Range != ReportRange.Day
-                    ? Lang.T($"Your PC sat on with nobody there for {away}.")
-                    : Lang.T($"Your PC sat on with nobody there for {away} {PeriodWords.Said(r.Range, r.From)}."),
+                    ? Lang.T($"Your PC was on with nobody there for {away}.")
+                    : Lang.T($"Your PC was on with nobody there for {away} {PeriodWords.Said(r.Range, r.From)}."),
                 InsightTone.Neutral, "away", 42, Lang.T($"Stretches of {Report.LongAwayMinutes} minutes or more without use or heavy work")) { Short = Lang.T($"On with nobody there for {away}") });
         }
 

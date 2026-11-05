@@ -226,7 +226,7 @@ public sealed class CrashFindingTests
     {
         // 21 Sep 2026: went off at 11:07 PM; Windows filed a graphics-hang report a minute into the next start.
         var e = ShutOff();
-        var sign = new CrashSign(e.Facts!.NextStart!.Value + 60, SignKind.GraphicsHang, "Windows filed a report that the graphics card stopped answering");
+        var sign = new CrashSign(e.Facts!.NextStart!.Value + 60, SignKind.GraphicsHang, "Windows filed a report that the GPU stopped answering");
         var f = CrashFindings.Judge(Input(e, Idle()) with { Signs = [sign] });
         Assert.Equal((Confidence.Possible, "POSSIBLY THE GPU HUNG", false), (f.Confidence, f.Chip, f.Outside));
         Assert.Contains("the time it was filed, not the time of the hang", f.CantTell);
@@ -344,7 +344,7 @@ public sealed class CrashFindingTests
         var f = CrashFindings.Judge(Input(e, new CrashContext(47, 44, null, 0) { Minutes = 10, CpuLoad = 10, GpuLoad = 12 }, "Rocket League") with { Earlier = [first] });
         Assert.Equal((Confidence.Likely, "LIKELY AT START-UP"), (f.Confidence, f.Chip));
         Assert.Equal("Rocket League crashed as it was starting, twice in 9 seconds.", f.Head);
-        Assert.Contains(f.Points, p => p.Title == "Windows stopped it for touching memory it shouldn't");
+        Assert.Contains(f.Points, p => p.Title == "Windows stopped it for using memory it isn't allowed to");
         Assert.Contains(f.Points, p => p.Title == "Windows couldn't tell which file it crashed in");
         Assert.Contains(f.Points, p => p.Title == "It crashed 4 seconds after starting");
         // The time nine seconds earlier is this time, not "it has happened before".
@@ -444,7 +444,7 @@ public sealed class CrashFindingTests
         Assert.Contains(f.Points, p => p.Title == "3 things failed from 1:03 to 1:08 PM" && p.Detail == "Settings, Windows Explorer, Crimson Desert.");
 
         var plain = CrashFindings.Together([Hang(0, "a.exe", "A"), Hang(30, "b.exe", "B"), Hang(50, "c.exe", "C")]);
-        Assert.Equal((Confidence.Possible, "POSSIBLY SEVERAL THINGS AT ONCE", "Possibly several things at once."), (plain.Confidence, plain.Chip, plain.Verdict));
+        Assert.Equal((Confidence.Possible, "POSSIBLY ONE SHARED CAUSE", "Possibly from one shared cause."), (plain.Confidence, plain.Chip, plain.Verdict));
     }
 
     [Fact]
@@ -470,7 +470,7 @@ public sealed class CrashFindingTests
         var found = CrashCases.Findings(inputs);
         Assert.Same(found[1], found[2]);
         Assert.Same(found[2], found[3]);
-        Assert.Equal("POSSIBLY SEVERAL THINGS AT ONCE", found[1].Chip);
+        Assert.Equal("POSSIBLY ONE SHARED CAUSE", found[1].Chip);
         Assert.Equal(found[1].Chip, CrashCases.Together([.. inputs.Values]).Chip);
         // Alone, each is only its own.
         Assert.Equal("NOT ENOUGH TO SAY", CrashCases.Findings(new() { [1] = inputs[1] })[1].Chip);

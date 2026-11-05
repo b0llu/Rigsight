@@ -171,7 +171,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     private static string ThemeName(WidgetTheme theme) => theme switch
     {
         WidgetTheme.Dark => Lang.T("Dark"),
-        WidgetTheme.Grey => Lang.T("Grey"),
+        WidgetTheme.Grey => Lang.T("Gray"),
         WidgetTheme.Light => Lang.T("Light"),
         WidgetTheme.System => Lang.T("System"),
         _ => theme.ToString(),

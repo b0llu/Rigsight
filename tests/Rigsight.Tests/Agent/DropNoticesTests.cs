@@ -49,7 +49,7 @@ public sealed class DropNoticesTests
         Assert.Equal("Your network disconnected", DropWords.Down(NetDropKind.Link, null, null).Title); // never guessed as Wi-Fi
         Assert.Equal("Your PC is connected to the network, but there's no internet connection.", DropWords.Down(NetDropKind.Internet, "Wi-Fi", null).Body); // the router not checked
         Assert.Equal("Your PC is connected to the network, but there's no internet connection.", DropWords.Down(NetDropKind.Internet, "Wi-Fi", false).Body);
-        Assert.Equal(("50 seconds", "1 minute", "2 minutes 10 seconds", "1 hour 5 minutes"), (DropWords.Long(50), DropWords.Long(60), DropWords.Long(130), DropWords.Long(3900)));
+        Assert.Equal(("50 seconds", "1 minute", "2 minutes and 10 seconds", "1 hour and 5 minutes"), (DropWords.Long(50), DropWords.Long(60), DropWords.Long(130), DropWords.Long(3900)));
     }
 
     [Fact]

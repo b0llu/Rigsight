@@ -107,7 +107,7 @@ public sealed partial class TaskbarSensorRow(string id, string name, string hard
     {
         get
         {
-            if (!Colored) return Lang.T("In grayscale its own colors wait. Pick Color above to use them.");
+            if (!Colored) return Lang.T("Grayscale hides its own colors. Pick Color above to use them.");
             var parts = new List<string> { Lang.T("number") };
             if (ShowsNameColor) parts.Add(SecondWord);
             if (ShowsTileColor) parts.Add(Lang.T("tile"));
@@ -340,8 +340,8 @@ public sealed partial class TaskbarSpot : ObservableObject
     public string StripWord => IsPair ? Lang.T("Side by side") : TrayParts.StyleName(TrayStyle.Strip);
 
     public string ShowsHint => IsPair
-        ? Lang.T("Two readings in one spot: side by side, one over the other, or stacked in an icon.")
-        : Lang.T("Standard: its number over its name, with a look. Two rows: beside its name, in a box. Or an icon.");
+        ? Lang.T("Two readings in one spot, side by side, one over the other or stacked in an icon.")
+        : Lang.T("Standard puts its number over its name, with a look. Two rows puts it beside its name, in a box. Icon shows only an icon.");
 
     /// <summary>
     /// Whether it can be paired: both speeds are two lines already, so in two rows or an icon they fill it (they pair
@@ -931,7 +931,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
 
     /// <summary>Under the side switch, when the left side was picked but Windows' icons fill that end.</summary>
     public string SideNote => StripSupported && OnLeft && IconsAlignedLeft
-        ? Lang.T("Your taskbar's icons are aligned left, so the readings stay next to the clock. Centre them in Windows' taskbar settings to use the left side.")
+        ? Lang.T("Your taskbar's icons are aligned left, so the readings stay next to the clock. Center them in Windows' taskbar settings to use the left side.")
         : "";
 
     /// <summary>Each reading on a tile of its own, unless it has its own background (see <see cref="RigsightSettings.TrayTiles"/>).</summary>
@@ -1067,10 +1067,10 @@ public sealed partial class TaskbarViewModel : ObservableObject
             var waiting = _live.TrayWaiting;
             var names = waiting.Select(id => Sensors.FirstOrDefault(r => r.Id == id)?.Name).OfType<string>().ToList();
             if (names.Count == 0) return "";
-            string which = string.Join(", ", names);
+            string which = Core.Wording.JoinAnd(names);
             return names.Count == 1
-                ? Lang.T($"1 reading doesn't fit in the taskbar on this screen, so it waits in the +1 tile: {which}. The readings at the top of this list stay.")
-                : Lang.T($"{names.Count} readings don't fit in the taskbar on this screen, so they wait in the +{names.Count} tile: {which}. The readings at the top of this list stay.");
+                ? Lang.T($"{which} doesn't fit in the taskbar on this screen, so it waits in the +1 tile. The readings at the top of this list stay.")
+                : Lang.T($"{which} don't fit in the taskbar on this screen, so they wait in the +{names.Count} tile. The readings at the top of this list stay.");
         }
     }
 
@@ -1239,15 +1239,15 @@ public sealed partial class TaskbarViewModel : ObservableObject
         int px = (int)Math.Round(height / scale);
         string note = off.Count == 0 ? ""
             : off.Count == 1
-                ? Lang.T($"Your taskbar is {px} px tall, so {TrayParts.SizeName(off[0])} is off: it needs {TrayParts.SizeNeeds(off[0])} px. To use it, set Show smaller taskbar buttons to Never.")
-                : Lang.T($"Your taskbar is {px} px tall, so {string.Join(" and ", off.Select(TrayParts.SizeName))} are off: they need {TrayParts.SizeNeeds(off[^1])} px. To use them, set Show smaller taskbar buttons to Never.");
+                ? Lang.T($"Your taskbar is {px} px tall and {TrayParts.SizeName(off[0])} needs {TrayParts.SizeNeeds(off[0])} px, so it's off. To use it, set Show smaller taskbar buttons to Never.")
+                : Lang.T($"{string.Join(" and ", off.Select(TrayParts.SizeName))} need more than the {px} px your taskbar has, so they're off. To use them, set Show smaller taskbar buttons to Never.");
         foreach (var spot in Spots)
         {
             spot.CanSmall = Fits(TraySize.Small);
             spot.CanMedium = Fits(TraySize.Medium);
             spot.CanLarge = Fits(TraySize.Large);
             spot.SizeNote = note;
-            spot.SizeNow = spot.First.Size != TraySize.Auto && !Fits(spot.First.Size) ? Lang.T("Shown smaller for now: the taskbar is too short for this size") : "";
+            spot.SizeNow = spot.First.Size != TraySize.Auto && !Fits(spot.First.Size) ? Lang.T("Shown smaller for now because the taskbar is too short for this size") : "";
         }
     }
 

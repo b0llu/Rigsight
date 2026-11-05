@@ -191,7 +191,7 @@ public class CrashNoticeTests
         };
         var finding = Rigsight.Core.Stability.CrashFindings.Judge(new Rigsight.Core.Stability.CrashInput(
             crash, Rigsight.Core.Stability.CrashExplainer.Explain(crash, "Rocket League"), new AlertSettings()) { AppName = "Rocket League" });
-        Assert.Equal("Likely as it was starting, 33s into the game.",
+        Assert.Equal("Likely as it was starting, 33 seconds into the game.",
             CrashNotices.Body(finding, game: true, activeSec: 33));
     }
 
@@ -202,16 +202,16 @@ public class CrashNoticeTests
         var finding = Rigsight.Core.Stability.CrashFindings.Judge(new Rigsight.Core.Stability.CrashInput(
             crash, Rigsight.Core.Stability.CrashExplainer.Explain(crash, "Game"), new AlertSettings()) { AppName = "Game" });
         string body = CrashNotices.Body(finding, game: false, activeSec: 2880);
-        Assert.Equal("It had been running for 48m. There isn't enough on record to say why.", body);
+        Assert.Equal("It had been running for 48 minutes. There isn't enough on record to say why.", body);
         Assert.DoesNotContain("Likely cause", body);
     }
 
     [Fact]
     public void A_crash_that_could_not_be_stored_only_says_it_happened()
     {
-        Assert.Equal("It had been running for 48m.", CrashNotices.Body(null, game: true, activeSec: 2880));
+        Assert.Equal("It had been running for 48 minutes.", CrashNotices.Body(null, game: true, activeSec: 2880));
         // The example in Settings is a made-up crash through the real rules: what it shows is what would be sent.
-        Assert.Equal("Inside the NVIDIA driver, 48m into the game.", CrashNotices.Sample);
+        Assert.Equal("Inside the NVIDIA driver, 48 minutes into the game.", CrashNotices.Sample);
         // The second look comes once Windows has had time to file its report.
         Assert.InRange(CrashNotices.SecondLook.TotalSeconds, 10, 60);
     }

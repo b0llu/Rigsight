@@ -223,12 +223,12 @@ public sealed partial class FansViewModel : ObservableObject
     // ── The period the page shows (Day, Week or Month; today unless picked otherwise, like Home) ──
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDay), nameof(IsYear), nameof(RangeNote), nameof(PeriodCaption), nameof(Days), nameof(DayOfChart))]
+    [NotifyPropertyChangedFor(nameof(IsDay), nameof(IsYear), nameof(RangeNote), nameof(PeriodCaption), nameof(Days), nameof(DayOfChart), nameof(CurveEmptyText))]
     private ReportRange _unit = ReportRange.Day;
 
     /// <summary>Any day in the period.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(PeriodCaption), nameof(Days), nameof(DayOfChart))]
+    [NotifyPropertyChangedFor(nameof(RangeNote), nameof(PeriodCaption), nameof(Days), nameof(DayOfChart), nameof(CurveEmptyText))]
     private DateTime _anchor = DateTime.Today;
 
     /// <summary>The first day with fan speeds recorded (the picker goes no further back).</summary>
@@ -246,6 +246,9 @@ public sealed partial class FansViewModel : ObservableObject
     /// <summary>A year: read from each day's totals and curves (a year of minutes would be too many), so a trend.</summary>
     public bool IsYear => Unit == ReportRange.Year;
     public bool IncludesToday => Period.To > DateTime.Today;
+
+    /// <summary>The speed-at-each-temperature chart with no minutes: still filling in today, or not recorded for a period that's over.</summary>
+    public string CurveEmptyText => !IncludesToday ? Wording.NotRecorded : IsDay ? Lang.T("Nothing measured yet today") : Lang.T("Nothing measured yet");
     public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, FirstDay);
 
     /// <summary>The period as a caption ("TODAY", "THIS WEEK", "MON, 29 SEP").</summary>
@@ -623,8 +626,8 @@ public sealed partial class FansViewModel : ObservableObject
         StartsText = card is null || speed.Count == 0 ? null : starts == 1 ? Lang.T("1 time") : Lang.T($"{starts} times");
         int daysOn = speed.Select(x => TimeUtil.FromUnix(x.Ts).Date).Distinct().Count();
         // A rate only when there's one to give: twice in six days isn't "about 0 a day".
-        StartsNote = !IsDay && daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? Lang.T($"About {Math.Round(starts / (double)daysOn):0} a day, each time the card warmed past its silent point")
-            : Lang.T("Each time the card warmed past its silent point");
+        StartsNote = !IsDay && daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? Lang.T($"About {Math.Round(starts / (double)daysOn):0} a day, each time the GPU warmed past its silent point")
+            : Lang.T("Each time the GPU warmed past its silent point");
         SilentText = best >= 5 ? Units.Duration(best * 60) : null;
         SilentNote = best < 5 ? ""
             : IsDay ? $"{TimeText.At(TimeUtil.FromUnix(bestFrom), "h:mm tt")} – {TimeText.At(TimeUtil.FromUnix(bestFrom + best * 60), "h:mm tt")}"
@@ -737,7 +740,7 @@ public sealed partial class FansViewModel : ObservableObject
             FanFollows.Cpu => (Lang.T("Your CPU's heat"), Lang.T("Faster as it warms")),
             FanFollows.Steady => (Lang.T("A set speed"), Lang.T($"About {Units.Format(SensorKind.Fan, turning.DefaultIfEmpty().Average())}, whatever the heat")),
             FanFollows.Varies => (Lang.T("Its own curve"), Lang.T("Not clearly with your CPU or GPU")),
-            _ => (Lang.T("Learning"), Lang.T("Needs an hour of turning")),
+            _ => (Lang.T("Not known yet"), Lang.T("Needs an hour of turning")),
         };
         var (thirdLabel, thirdValue, thirdNote) = steady && turning.Count > 0
             ? (Lang.T("Steadiness"), Lang.T($"Within {Math.Round(100 * (turning.Max() - turning.Min()) / turning.Average()):0}%"), Lang.T("From its slowest to its fastest"))
@@ -762,7 +765,7 @@ public sealed partial class FansViewModel : ObservableObject
             : usualN > 0 ? Lang.T($"The {UsualDays} days before") : Lang.T("Not recorded before this"));
         if (steady)
         {
-            more.Add(new(Lang.T("Range"), turning.Count > 0 ? Lang.T($"{turning.Min():N0} to {turning.Max():N0}") : "—", Lang.T("Slowest to fastest while spinning, RPM")));
+            more.Add(new(Lang.T("Range"), turning.Count > 0 ? Lang.T($"{turning.Min():N0} to {turning.Max():N0}") : "—", Lang.T("Slowest to fastest while spinning, in rpm")));
             more.Add(usualFact);
         }
         else
@@ -787,7 +790,7 @@ public sealed partial class FansViewModel : ObservableObject
                 }
                 int daysOn = speed.Keys.Select(t => TimeUtil.FromUnix(t).Date).Distinct().Count();
                 more.Add(new(Lang.T("Started up"), starts == 1 ? Lang.T("1 time") : Lang.T($"{starts} times"),
-                    daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? Lang.T($"About {Math.Round(starts / (double)daysOn):0} a day, each past its silent point") : Lang.T("Each time the card warmed past its silent point")));
+                    daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? Lang.T($"About {Math.Round(starts / (double)daysOn):0} a day, each past its silent point") : Lang.T("Each time the GPU warmed past its silent point")));
             }
             else more.Add(usualFact);
         }
@@ -868,7 +871,7 @@ public sealed partial class FansViewModel : ObservableObject
             FanFollows.Cpu => (Lang.T("Your CPU's heat"), Lang.T("Faster as it warms")),
             FanFollows.Steady => (Lang.T("A set speed"), average is double a ? Lang.T($"About {Units.Format(SensorKind.Fan, a)}, whatever the heat") : Lang.T("Whatever the heat")),
             FanFollows.Varies => (Lang.T("Its own curve"), Lang.T("Not clearly with your CPU or GPU")),
-            _ => (Lang.T("Learning"), Lang.T("Needs an hour of turning")),
+            _ => (Lang.T("Not known yet"), Lang.T("Needs an hour of turning")),
         };
         string fastestWhen = top is null ? "" : Lang.T($"On {TimeUtil.FromUnix(top.Day):ddd d MMM}");
 

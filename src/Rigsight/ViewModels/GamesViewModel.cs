@@ -229,7 +229,7 @@ public sealed partial class GamesViewModel : ObservableObject
     {
         if (s.VramTotal is not double t) return Lang.T("Not recorded");
         if (s.VramOwnMax is double own) return Lang.T($"up to {own / 1024:0.0} of {t / 1024:0} GB");
-        return s.VramMax is double v ? Lang.T($"up to {v / 1024:0.0} of {t / 1024:0} GB · whole card, all apps") : Lang.T("Not recorded");
+        return s.VramMax is double v ? Lang.T($"up to {v / 1024:0.0} of {t / 1024:0} GB · whole GPU, all apps") : Lang.T("Not recorded");
     }
 
     /// <summary>The pictures of a game read off the window's thread (they're frozen), so the cards build without a pause.</summary>
@@ -338,9 +338,9 @@ public sealed partial class GamesViewModel : ObservableObject
         if (play is not null)
         {
             pills.Add(new("", Units.Duration(play.ActiveSec), Lang.T($" last time · {Units.Duration(hero.ActiveSec)} in all")));
-            // The graphics card's temperature and its power while played, named (a bare "253 W" said nothing).
-            if (play.Stats.Gpu is double gpu) pills.Add(new(Lang.T("Graphics card "), Units.TempShort(gpu), play.Stats.GpuPower is double gw ? $" · {gw:0} W" : ""));
-            else if (play.Stats.GpuPower is double w) pills.Add(new(Lang.T("Graphics card "), $"{w:0} W"));
+            // The GPU's temperature and its power while played, named (a bare "253 W" said nothing).
+            if (play.Stats.Gpu is double gpu) pills.Add(new(Lang.T("GPU "), Units.TempShort(gpu), play.Stats.GpuPower is double gw ? $" · {gw:0} W" : ""));
+            else if (play.Stats.GpuPower is double w) pills.Add(new(Lang.T("GPU "), $"{w:0} W"));
             if (play.Stats.Fps is double fps) pills.Add(new("", $"{fps:0} fps", play.Stats.FpsLow is double low ? Lang.T($" · 1% low {low:0}") : ""));
         }
         HeroPills = pills;
@@ -688,7 +688,7 @@ public sealed partial class GamesViewModel : ObservableObject
         "running" => Lang.T($"No FPS recorded for {GameName} yet. RivaTuner measures a game that starts after it, so its next play will have it."),
         "stopped" => Lang.T("No FPS for these plays. RigSight reads the frame rate from RivaTuner, which isn't running. Start it before the game."),
         "installing" => Lang.T("No FPS for these plays. RivaTuner is being installed; start the game after it's done."),
-        _ => Lang.T("No FPS for these plays. RigSight reads the frame rate from RivaTuner Statistics Server, a free tool anti-cheat accepts, and it isn't installed."),
+        _ => Lang.T("No FPS for these plays because RivaTuner Statistics Server isn't installed. It's free, anti-cheat accepts it, and the frame rate comes from it."),
     };
     public bool CanStartRtss => _overlay.CanStartRtss;
     public bool CanInstallRtss => _overlay.CanInstallRtss;
@@ -782,7 +782,7 @@ public sealed partial class GamesViewModel : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSettings), nameof(HasSettingLines))] private IReadOnlyList<SettingLine> _settingLines = [];
     /// <summary>Whether NVIDIA's pick is shown beside them (the NVIDIA App is on this PC and has one for the game).</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(SettingsAskText), nameof(SettingsAskNote), nameof(PickColumnWidth))] private bool _hasNvidiaPick;
-    /// <summary>"2 settings differ from NVIDIA's pick for this PC at 2560 × 1440: anti-aliasing and shadow distance."</summary>
+    /// <summary>"NVIDIA's pick for this PC at 2560 × 1440 differs on 2 settings, anti-aliasing and shadow distance."</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSettingsDiff))] private string _settingsDiff = "";
     public bool HasSettings => SettingsRows.Count > 0 || SettingLines.Count > 0;
     public bool HasSettingLines => SettingLines.Count > 0;
@@ -790,7 +790,7 @@ public sealed partial class GamesViewModel : ObservableObject
     public System.Windows.GridLength PickColumnWidth => new(HasNvidiaPick ? 3 : 0, System.Windows.GridUnitType.Star);
     public string SettingsAskText => HasNvidiaPick ? Lang.T("Should I change any of these?") : Lang.T("Compare with recommended settings");
     public string SettingsAskNote => HasNvidiaPick ? Lang.T("NVIDIA's pick is read from the NVIDIA App on this PC.")
-        : Lang.T("The AI looks up what guides and players online recommend for your graphics card.");
+        : Lang.T("The AI looks up what guides and players online recommend for your GPU.");
     /// <summary>The question "How it's set" asks: with NVIDIA's pick, whether to change any; without, against what's recommended online.</summary>
     public AiQuestion? SettingsAsk => Opened?.Entry is { } g
         ? new(HasNvidiaPick ? Lang.T($"Should I change any of {g.Name}'s settings?") : Lang.T($"How do {g.Name}'s settings compare with what's recommended for my PC?"), AiPages.Games)
@@ -838,14 +838,14 @@ public sealed partial class GamesViewModel : ObservableObject
         return lines;
     }
 
-    /// <summary>"2 settings differ from NVIDIA's pick for this PC at 2560 × 1440: anti-aliasing and shadow distance." Empty when none do.</summary>
+    /// <summary>"NVIDIA's pick for this PC at 2560 × 1440 differs on 2 settings, anti-aliasing and shadow distance." Empty when none do.</summary>
     internal static string DiffSentence(GameSettingsRead read)
     {
         if (read.Nvidia is not { } pick || read.Differing is not { Count: > 0 } diff) return "";
         string names = Wording.JoinAnd(diff.Select(r => GameSettingNames.InSentence(r.Label)));
         string size = pick.Resolution.Replace("x", " × ");
-        return diff.Count == 1 ? Lang.T($"1 setting differs from NVIDIA's pick for this PC at {size}: {names}.")
-            : Lang.T($"{diff.Count} settings differ from NVIDIA's pick for this PC at {size}: {names}.");
+        return diff.Count == 1 ? Lang.T($"NVIDIA's pick for this PC at {size} differs on {names}.")
+            : Lang.T($"NVIDIA's pick for this PC at {size} differs on {diff.Count} settings, {names}.");
     }
 
     /// <summary>Where the settings came from and when the game last saved them: "From config.cfg and its saved preferences in Windows · saved Mon 26 Oct".</summary>
@@ -946,7 +946,7 @@ public sealed partial class GamesViewModel : ObservableObject
             new(Lang.T("Shut-offs that weren't a power cut"), st.ShutOffs > 0 ? $"{st.ShutOffs}" : None, "", st.ShutOffs > 0),
             new(Lang.T("Game crashes Windows recorded"), st.Crashes > 0 ? $"{st.Crashes}" : None, "", st.Crashes > 0),
             new(Lang.T("Graphics driver resets"), st.DriverResets > 0 ? $"{st.DriverResets}" : None, "", st.DriverResets > 0),
-            new(Lang.T("Not responding"), st.Hangs > 0 ? $"{st.Hangs}" : None, "", st.Hangs > 0),
+            new(Lang.T("Freezes"), st.Hangs > 0 ? $"{st.Hangs}" : None, "", st.Hangs > 0),
         };
         if (st.PowerCuts.Count > 0)
             problems.Add(new(Lang.T("Power cuts"), $"{st.PowerCuts.Count}", " · " + string.Join(", ", st.PowerCuts.Select(p => p.StartTime.ToString("d MMM"))), false, Grey: true));
@@ -960,7 +960,7 @@ public sealed partial class GamesViewModel : ObservableObject
             new(Lang.T("Hot spot peak"), Units.TempShort(st.All.HotMax), Brush("PurpleBrush")),
             // Without the card's watts the figure is the CPU's alone (an RTX 3050 that gives no power reading, 2026-11-02).
             new(st.All.GpuPower is null ? Lang.T("CPU power") : Lang.T("CPU and GPU power"), st.All.Power is double p ? Lang.T($"{p:0} W · {p / 1000:0.00} kWh an hour") : "—"),
-            new(Lang.T("Graphics memory"), GraphicsMemory(st.All)),
+            new(Lang.T("Video memory"), GraphicsMemory(st.All)),
         };
         Heat = heat;
 
@@ -1001,7 +1001,7 @@ public sealed partial class GamesViewModel : ObservableObject
                 string say = limit is { } l && l.EndsWith(" fps", StringComparison.Ordinal) && int.TryParse(l[..^4], out int n) && Math.Abs(n - max) <= Math.Max(3, max * 0.05)
                         ? Lang.T($"Flat at {max:0} fps most of the time, because the game's own frame limit of {n} fps sets the pace.")
                     : vsync ? Lang.T($"Flat at {max:0} fps most of the time, because V-Sync is on in the game's settings and sets the pace.")
-                    : Lang.T($"Flat at {max:0} fps most of the time, so a frame cap or V-Sync sets the pace.");
+                    : Lang.T($"Flat at {max:0} fps most of the time, so a frame limit or V-Sync sets the pace.");
                 lines.Add(new("", say, Brush("FpsBrush")));
             }
         }
@@ -1009,7 +1009,7 @@ public sealed partial class GamesViewModel : ObservableObject
         if (cap is null && set is not null && st.All.Fps is double avgFps && GameSettings.ScreenHz() is int hz && avgFps > hz * 0.95
             && set.Facts.Any(f => f.Label == GameSettings.FrameLimit && f.Value == GameSettings.NoLimit)
             && set.Facts.Any(f => f.Label == GameSettings.VSync && f.Value == GameSettings.Off))
-            lines.Add(new("\ue7fc", Lang.T($"No frame limit and VSync off on a {hz} Hz screen, at {avgFps:0} fps on average. A limit of {hz - 3} fps in its settings would keep frames even and the card cooler."), Brush("FpsBrush")));
+            lines.Add(new("\ue7fc", Lang.T($"There's no frame limit and V-Sync is off on a {hz} Hz screen, at {avgFps:0} fps on average. A limit of {hz - 3} fps in its settings would keep frames even and the GPU cooler."), Brush("FpsBrush")));
         // Smoothness from every frame is said once, in "How it runs"; without frames, the lows say it here.
         if (st.All.StuttersAnHour is null && st.All.Fps is double avg && st.All.FpsLow is double low && avg > 0)
         {
@@ -1023,17 +1023,17 @@ public sealed partial class GamesViewModel : ObservableObject
         {
             double busy = st.All.GpuLoad ?? 0;
             string load = full >= 1 ? Lang.T($"was at full load only {full:0}% of the time") : Lang.T("never hit full load");
-            string say = full >= 70 ? Lang.T($"Your graphics card was at full load {full:0}% of the time, so lower settings would give more frames.") + UpscalerHint(set)
-                : full >= 30 ? Lang.T($"Your graphics card was at full load {full:0}% of the time, so in busy scenes it's the limit.")
-                : cap is double c ? Lang.T($"Your graphics card averaged {busy:0}% busy and {load}, so you can raise the settings and keep {c:0} fps.")
-                : Lang.T($"Your graphics card averaged {busy:0}% busy and {load}, so something else sets the pace, most likely the CPU.");
+            string say = full >= 70 ? Lang.T($"Your GPU was at full load {full:0}% of the time, so lower settings would give more frames.") + UpscalerHint(set)
+                : full >= 30 ? Lang.T($"Your GPU was at full load {full:0}% of the time, so in busy scenes it's the limit.")
+                : cap is double c ? Lang.T($"Your GPU averaged {busy:0}% busy and {load}, so you can raise the settings and keep {c:0} fps.")
+                : Lang.T($"Your GPU averaged {busy:0}% busy and {load}, so something else sets the pace, most likely the CPU.");
             lines.Add(new("", say, Brush("GpuBrush")));
         }
         // NVIDIA's pick for this PC, when the NVIDIA App has one and it differs from how the game is set.
         if (set?.Nvidia is not null && set.Differing is { Count: > 0 } diff)
         {
             string names = Wording.JoinAnd(diff.Select(r => GameSettingNames.InSentence(r.Label)));
-            lines.Add(new("", diff.Count == 1 ? Lang.T($"NVIDIA's pick for this PC differs on 1 setting: {names}.") : Lang.T($"NVIDIA's pick for this PC differs on {diff.Count} settings: {names}."), Brush("AccentBrush")));
+            lines.Add(new("", diff.Count == 1 ? Lang.T($"NVIDIA's pick for this PC differs on {names}.") : Lang.T($"NVIDIA's pick for this PC differs on {diff.Count} settings, {names}."), Brush("AccentBrush")));
         }
         if (lines.Count == 0) lines.Add(new("", Lang.T("Not enough recorded yet to say. Play it with RivaTuner running to see its frame rate here."), Brush("FaintBrush")));
         return lines;
@@ -1077,11 +1077,11 @@ public sealed partial class GamesViewModel : ObservableObject
         var (ended, endWarm) = p.Ending switch
         {
             PlayEnd.PowerCut => (Lang.T("Power cut"), false),
-            PlayEnd.ShutOff => (Lang.T("PC went off"), true),
+            PlayEnd.ShutOff => (Lang.T("Sudden shut-off"), true),
             PlayEnd.BlueScreen => (Lang.T("Blue screen"), true),
-            PlayEnd.DriverReset => (Lang.T("Driver reset"), true),
+            PlayEnd.DriverReset => (Lang.T("Graphics driver reset"), true),
             PlayEnd.Crashed => (Lang.T("Game crashed"), true),
-            PlayEnd.Hung => (Lang.T("Stopped responding"), true),
+            PlayEnd.Hung => (Lang.T("Froze"), true),
             _ => ((string?)null, false),
         };
         return new PlayRow

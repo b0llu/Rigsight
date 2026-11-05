@@ -1062,18 +1062,18 @@
                     <Border Height="1" Background="{DynamicResource StrokeBrush}" VerticalAlignment="Center" />
                     <Border Grid.Column="2" Height="1" Background="{DynamicResource StrokeBrush}" VerticalAlignment="Center" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,4" Visibility="{Binding IsBusy, Converter={StaticResource Vis}}"
-                                AutomationProperties.Name="{ctl:T 'Summarising earlier messages…'}">
+                                AutomationProperties.Name="{ctl:T 'Summarizing earlier messages…'}">
                         <ctl:Spinner Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Text="{ctl:T 'Summarising earlier messages…'}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Summarizing earlier messages…'}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                     </StackPanel>
                     <Button Grid.Column="1" Margin="4,0" Cursor="Hand" FocusVisualStyle="{x:Null}" Visibility="{Binding IsDone, Converter={StaticResource Vis}}"
-                            AutomationProperties.Name="{ctl:T 'Earlier messages summarised to keep this chat going'}"
+                            AutomationProperties.Name="{ctl:T 'Earlier messages summarized to keep this conversation going'}"
                             Command="{Binding DataContext.ToggleSummaryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Bd" CornerRadius="6" Background="Transparent" Padding="6,4">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock x:Name="Words" Text="{ctl:T 'Earlier messages summarised to keep this chat going'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="Words" Text="{ctl:T 'Earlier messages summarized to keep this conversation going'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
                                         <ctl:InkCentered x:Name="Chevron" Text="&#xE70D;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="9" Fill="{DynamicResource FaintBrush}"
                                                          Width="10" Height="16" Margin="6,0,0,0" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
                                             <ctl:InkCentered.RenderTransform><RotateTransform /></ctl:InkCentered.RenderTransform>

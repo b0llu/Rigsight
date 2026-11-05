@@ -189,7 +189,7 @@ public sealed partial class AskScan : ObservableObject
     public string DoneTitle => Lang.T($"Scanned the {Letter} drive");
     public string DoneText => Result is not { } r ? ""
         : Lang.T($"{Units.Bytes(r.Root.Size)} in {r.FileCount:N0} files · took {Took(r.Elapsed)} · {AskCheck.Time(DoneAt)}");
-    private static string Took(TimeSpan t) => t.TotalSeconds < 60 ? Lang.T($"{t.TotalSeconds:0.0} s") : Lang.T($"{t.TotalMinutes:0} min");
+    private static string Took(TimeSpan t) => t.TotalSeconds < 60 ? Lang.T($"{t.TotalSeconds:0.0}s") : Units.Duration(t.TotalSeconds);
 
     private static readonly string[] Palette = ["CpuBrush", "PurpleBrush", "GpuBrush"];
     /// <summary>The biggest folders as one bar: the three biggest in the palette's own colours, the rest together in grey.</summary>
@@ -394,7 +394,7 @@ public sealed record AskCheck(DateTime At, int Minutes, CheckWhat What, string? 
         get
         {
             var left = Due - DateTime.Now;
-            return left <= TimeSpan.Zero ? Lang.T("Comparing…") : Lang.T($"{Math.Max(1, (int)Math.Ceiling(left.TotalMinutes))} min left");
+            return left <= TimeSpan.Zero ? Lang.T("Comparing…") : Lang.T($"{Math.Max(1, (int)Math.Ceiling(left.TotalMinutes))}m left");
         }
     }
 

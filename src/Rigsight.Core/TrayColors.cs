@@ -21,7 +21,7 @@ public static class TrayColors
     public static readonly IReadOnlyList<(string Name, string Hex)> Palette =
     [
         (Lang.Key("Blue"), "#5B8CFF"), (Lang.Key("Indigo"), "#818CF8"), (Lang.Key("Cyan"), "#22D3EE"), (Lang.Key("Violet"), "#B18CFF"), (Lang.Key("Lilac"), "#C4B5FD"),
-        (Lang.Key("Magenta"), "#E879F9"), (Lang.Key("Pink"), "#F472B6"), (Lang.Key("White"), "#FFFFFF"), (Lang.Key("Silver"), "#C8C8C8"), (Lang.Key("Grey"), "#949494"),
+        (Lang.Key("Magenta"), "#E879F9"), (Lang.Key("Pink"), "#F472B6"), (Lang.Key("White"), "#FFFFFF"), (Lang.Key("Silver"), "#C8C8C8"), (Lang.Key("Gray"), "#949494"),
     ];
 
     /// <summary>"#5B8CFF" (or "5b8cff") as red, green, blue; null for anything else.</summary>

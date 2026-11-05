@@ -42,11 +42,11 @@ public sealed class SavedTextTests
         { ".NET update KB5066000", "«.NET update KB5066000»" },
         { "Windows 11 updated to 25H2", "«Windows 11 updated to 25H2»" },
         { "BIOS updated to F64", "«BIOS updated to F64»" },
-        { "Graphics card removed: NVIDIA GeForce RTX 3080 Ti", "«Graphics card NVIDIA GeForce RTX 3080 Ti removed»" },
-        { "Graphics card added: AMD Radeon", "«Graphics card AMD Radeon added»" },
+        { "Graphics card removed: NVIDIA GeForce RTX 3080 Ti", "«GPU NVIDIA GeForce RTX 3080 Ti removed»" },
+        { "Graphics card added: AMD Radeon", "«GPU AMD Radeon added»" },
         { "Drive added: Samsung SSD 980", "«Drive Samsung SSD 980 added»" },
         { "Drive removed: Kingston A400", "«Drive Kingston A400 removed»" },
-        { "Processor changed to AMD Ryzen 7 5700X3D", "«Processor changed to AMD Ryzen 7 5700X3D»" },
+        { "Processor changed to AMD Ryzen 7 5700X3D", "«CPU changed to AMD Ryzen 7 5700X3D»" },
         { "Memory changed to 32 GB", "«Memory changed to 32 GB»" },
         { "Motherboard changed to B450 AORUS PRO", "«Motherboard changed to B450 AORUS PRO»" },
         { "Power plan changed to High performance", "«Power plan changed to Alto rendimiento»" },
@@ -65,7 +65,7 @@ public sealed class SavedTextTests
         { "1,204 GB freed on the D drive", "«1,204 GB freed on the D drive»" },
         { "Display driver stopped responding and has recovered", "«Display driver stopped responding and has recovered»" },
         { "Noticed at startup 19-10-2026 9:14", "«Noticed at startup 19-10-2026 9:14»" },
-        { "Windows reported that the graphics card stopped answering (LiveKernelEvent 141)", "«Windows reported that the graphics card stopped answering (LiveKernelEvent 141)»" },
+        { "Windows reported that the graphics card stopped answering (LiveKernelEvent 141)", "«Windows reported that the GPU stopped answering (LiveKernelEvent 141)»" },
         { "Drive C: needs 40 MB free for the repair. It has 12 MB.", "«Drive C: needs 40 MB free for the repair. It has 12 MB.»" },
         { "Kept 3 of 5 days in full. Nothing was lost. The damaged file is kept.", "«Kept 3 of 5 days in full.» «Nothing was lost.» «The damaged file is kept.»" },
         { "Everything after Fri 3 Oct, 2:10 PM couldn't be read. The damaged file is kept.", "««Everything after Fri 3 Oct, 2:10 PM» couldn't be read.» «The damaged file is kept.»" },
@@ -94,7 +94,7 @@ public sealed class SavedTextTests
     public void A_line_saved_with_a_colon_is_said_without_one_in_English()
     {
         using var _ = Lang.UseHere(null);
-        Assert.Equal("Graphics card NVIDIA GeForce RTX 3080 Ti added", SavedText.Show("Graphics card added: NVIDIA GeForce RTX 3080 Ti"));
+        Assert.Equal("GPU NVIDIA GeForce RTX 3080 Ti added", SavedText.Show("Graphics card added: NVIDIA GeForce RTX 3080 Ti"));
         Assert.Equal("Kept 5 of 7 days in full. The repair didn't finish (disk full)", SavedText.Show("Kept 5 of 7 days in full. The repair didn't finish: disk full"));
     }
 

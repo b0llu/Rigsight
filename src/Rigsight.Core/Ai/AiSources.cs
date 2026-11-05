@@ -132,7 +132,7 @@ public static partial class AiSources
             "get_on_times" => ("reports", Lang.T("Reports"), Lang.T($"When it was on, {range}")),
             "get_running_now" => ("processes", Lang.T("Processes"), Lang.T("Running now")),
             "get_moment" => ("timeline", Lang.T("Timeline"), Moment(l)),
-            "get_pc_info" => ("", Lang.T("Your PC's parts"), Lang.T("CPU, graphics card, motherboard, RAM")),
+            "get_pc_info" => ("", Lang.T("Your PC's parts"), Lang.T("CPU, GPU, motherboard, RAM")),
             "get_today" => ("home", Lang.T("Home"), Lang.T("Today so far")),
             "get_sensors_now" => ("sensors", Lang.T("All sensors"), Lang.T("Every reading now")),
             // Rewind and dashboards have no page of their own to open at (a rewind plays; a dashboard is found by its id).

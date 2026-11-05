@@ -590,7 +590,7 @@ public static partial class Inventory
                 case App: Add(ChangeKind.AppUpdated, item, item.Value.Length > 0 ? $"{item.Name} updated to {item.Value}" : $"{item.Name} updated", old.Value, item.Value); break;
                 case Startup: Add(ChangeKind.Startup, item, $"{item.Name} turned {item.Value} at startup"); break;
                 case GpuDriver: Add(ChangeKind.Driver, item, $"{item.Name} {item.Value}", old.Value, item.Value); break;
-                case Cpu: Add(ChangeKind.Hardware, item, $"Processor changed to {item.Value}", old.Value, item.Value); break;
+                case Cpu: Add(ChangeKind.Hardware, item, $"CPU changed to {item.Value}", old.Value, item.Value); break;
                 case Ram: Add(ChangeKind.Hardware, item, $"Memory changed to {item.Value}", old.Value, item.Value); break;
                 case Board: Add(ChangeKind.Hardware, item, $"Motherboard changed to {item.Value}", old.Value, item.Value); break;
                 case Bios: Add(ChangeKind.Firmware, item, $"BIOS updated to {item.Value}", old.Value, item.Value); break;

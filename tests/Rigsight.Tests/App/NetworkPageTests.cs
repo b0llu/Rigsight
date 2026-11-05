@@ -65,7 +65,7 @@ public sealed class NetworkPageTests
             Assert.Equal("Ping hasn't been checked on this PC yet.", vm.PingNoteBody);
             Assert.False(vm.PingNoteCollecting);
             // The status line under it: what's being done, and Pause (asking first).
-            Assert.Equal("Checking every 5 seconds, to your internet provider's first router", vm.PingStatusText);
+            Assert.Equal("Checking your internet provider's first router every 5 seconds", vm.PingStatusText);
             Assert.Equal("Pause", vm.PingStatusAction);
             vm.PingStatusCommand.Execute(null);
             Assert.True(vm.ConfirmStopOpen);
@@ -140,6 +140,82 @@ public sealed class NetworkPageTests
             vm.SelectedBin = 14;
             vm.Unit = ReportRange.Week;
             Assert.Equal(-1, vm.SelectedBin);
+        });
+    }
+
+    [Fact]
+    public void A_line_over_several_hours_picks_all_of_them()
+    {
+        var (vm, _) = Page(Yesterday);
+        Ui.Run(() =>
+        {
+            // The user, 2026-11-05: "10 AM – 1 PM" lit only the 10 AM bar. A line with a stretch picks every hour of it.
+            var row = new NetHappeningRow(false, "OBS Studio used 11 GB while you played a game") { Bin = 12, BinLast = 14 };
+            vm.PickHappeningCommand.Execute(row);
+            Assert.Equal((12, 14), vm.Picked);
+            Assert.Equal("Apps · 12 PM – 3 PM", vm.AppsTitle);
+            // The apps are the three hours' together.
+            long steam = vm.Bins[14].Apps[0].App;
+            long together = vm.Bins.Skip(12).Take(3).SelectMany(b => b.Apps).Where(u => u.App == steam).Sum(u => u.Total);
+            Assert.Equal(Rigsight.Core.Units.Data(together), vm.Apps.First(a => a.Stat.Id == steam).Amount);
+            Assert.Equal(new DateTime(Yesterday.Year, Yesterday.Month, Yesterday.Day, 15, 0, 0), vm.PickedBar!.Value.To);
+            // The same line again lets go; a click on one bar picks only that bar.
+            vm.PickHappeningCommand.Execute(row);
+            Assert.Null(vm.Picked);
+            vm.PickHappeningCommand.Execute(row);
+            vm.SelectedBinLast = -1;
+            vm.SelectedBin = 13;
+            Assert.Equal((13, 13), vm.Picked);
+            Assert.Equal("Apps · 1 PM – 2 PM", vm.AppsTitle);
+            // And the other way: a bar picked lights every line whose stretch has that hour, not only a line of it alone.
+            Assert.True(vm.Overlaps(12, 14));
+            Assert.True(vm.Overlaps(13, 13));
+            Assert.False(vm.Overlaps(14, 16));
+            Assert.All(vm.Happenings.Where(h => h.IsPicked), h => Assert.True(h.Bin <= 13 && Math.Max(h.Bin, h.BinLast) >= 13));
+        });
+    }
+
+    [Fact]
+    public void Downloaded_is_set_against_the_period_before_like_for_like()
+    {
+        const long GB = 1L << 30;
+        NetReport R(ReportRange range, long down, long? before) => new() { Range = range, Down = down, PreviousDown = before };
+        Assert.Equal(("3.8×", "Against 1.0 GB yesterday by now"), NetworkViewModel.Compare(R(ReportRange.Day, (long)(3.8 * GB), GB), inProgress: true));
+        Assert.Equal(("40% less", "Against 10 GB the day before"), NetworkViewModel.Compare(R(ReportRange.Day, 6 * GB, 10 * GB), inProgress: false));
+        Assert.Equal(("", "About the same as the 7 days before (10 GB)"), NetworkViewModel.Compare(R(ReportRange.Week, 11 * GB, 10 * GB), inProgress: false));
+        // Nothing before: said so, never a made-up comparison.
+        Assert.Equal(("", "Nothing before it to compare with"), NetworkViewModel.Compare(R(ReportRange.Month, GB, null), inProgress: true));
+    }
+
+    [Fact]
+    public void The_four_figures_fill_from_the_period()
+    {
+        var (vm, _) = Page(Yesterday);
+        Ui.Run(() =>
+        {
+            Assert.Equal(100, vm.DownShare + vm.UpShare, 1);
+            Assert.InRange(vm.BackgroundShare, 0, 100);
+            Assert.NotEmpty(vm.AwayText);
+            Assert.NotEmpty(vm.CompareText);
+            Assert.NotEmpty(vm.ConnectionText);
+            Assert.Equal(vm.Drops.Count == 0, vm.NoDrops);
+        });
+    }
+
+    [Fact]
+    public void Apps_under_1_MB_are_one_row_that_lists_them()
+    {
+        var (vm, _) = Page(Yesterday);
+        Ui.Run(() =>
+        {
+            Assert.All(vm.Apps, a => Assert.True(a.Stat.Use.Total >= 1 << 20));
+            var small = vm.Report!.Apps.Where(a => a.Use.Total is > 0 and < 1 << 20).ToList();
+            Assert.Equal(small.Count > 0, vm.HasSmallApps);
+            Assert.Equal(small.Count, vm.SmallApps.Count);
+            if (small.Count > 1) Assert.Equal($"{small.Count} more apps, each under 1 MB", vm.SmallAppsText);
+            Assert.False(vm.SmallAppsOpen);
+            vm.ToggleSmallAppsCommand.Execute(null);
+            Assert.True(vm.SmallAppsOpen);
         });
     }
 
@@ -247,7 +323,7 @@ public sealed class NetworkPageTests
         Assert.Equal((LineState.Slow, "Slow right now"), NetworkViewModel.LineNow(Line(95), true, 21));
         // A line that is never faster (satellite) isn't slow at its own usual.
         Assert.Equal(LineState.Good, NetworkViewModel.LineNow(Line(600), true, 600).Item1);
-        Assert.Equal((LineState.Losing, "Losing data"), NetworkViewModel.LineNow(Line(19, lost: 8), true, 21));
+        Assert.Equal((LineState.Losing, "Some pings lost"), NetworkViewModel.LineNow(Line(19, lost: 8), true, 21));
         Assert.Equal((LineState.Offline, "No internet"), NetworkViewModel.LineNow(Line(19), false, 21));
         // Without the provider's router, the router's ping is the line's.
         Assert.Equal(LineState.Good, NetworkViewModel.LineNow(Line(null, lan: 2), null, null).Item1);

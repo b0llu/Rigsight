@@ -136,7 +136,7 @@ public class GameSettingNamesTests
         // A setting NVIDIA leaves out has no pick.
         Assert.Null(Row("Bloom").Recommended);
         Assert.Equal(["Anti-aliasing"], read.Differing.Select(r => r.Label));
-        Assert.Equal("1 setting differs from NVIDIA's pick for this PC at 2560 × 1440: anti-aliasing.", GamesViewModel.DiffSentence(read));
+        Assert.Equal("NVIDIA's pick for this PC at 2560 × 1440 differs on anti-aliasing.", GamesViewModel.DiffSentence(read));
         string text = GameSettings.Text(read, exe);
         Assert.Contains("Anti-aliasing Off (NVIDIA: SMAA)", text);
         Assert.Contains("LOD bias 2 (NVIDIA: Ultra)", text);
@@ -165,8 +165,8 @@ public class GameSettingNamesTests
     [InlineData("pp_screendistortion", "Screen distortion")]
     [InlineData("vfxbudget_particle_cost_bias", "VFX budget particle cost bias")]
     [InlineData("sg.ShadowQuality", "Shadow quality")]
-    [InlineData("bUseVSync", "Use VSync")]
-    [InlineData("setting.mat_vsync", "VSync")]
+    [InlineData("bUseVSync", "Use V-Sync")]
+    [InlineData("setting.mat_vsync", "V-Sync")]
     [InlineData("pp_aa", "Anti-aliasing")]
     [InlineData("graphics_basic.TextureQuality", "Texture quality")]
     [InlineData("SSAOQuality", "SSAO quality")]
@@ -201,7 +201,7 @@ public class GameSettingNamesTests
         string Row(string label) => Assert.Single(read.Rows, r => r.Label == label).Value;
         Assert.Equal("Epic", Row("Shadow quality"));
         Assert.Equal("Cinematic", Row("Texture quality"));
-        Assert.Equal("Off", Row("Use VSync"));
+        Assert.Equal("Off", Row("Use V-Sync"));
         Assert.Equal("On", Row("Use dynamic resolution"));
         Assert.Equal("No limit", Row("Frame rate limit"));
         // What the game keeps for itself beside its settings isn't shown.

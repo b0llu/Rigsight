@@ -73,7 +73,7 @@
             <TextBlock TextWrapping="Wrap" Visibility="{Binding ShowNoFans, Converter={StaticResource Vis}}">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
-                        <Setter Property="Text" Value="{ctl:T 'No fan speeds reported. Most motherboards share them only with the agent running as admin.'}" />
+                        <Setter Property="Text" Value="{ctl:T 'No fan speeds reported. Most motherboards share them only when RigSight runs with admin rights.'}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding Live.StandardAccount}" Value="True">
                                 <Setter Property="Text" Value="{ctl:T 'Fan speeds need admin rights on this PC.'}" />
@@ -361,7 +361,7 @@
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="{Binding Detail.CurveTitle}" Style="{StaticResource Caption}" Margin="0,0,0,10" />
-                            <ctl:FanCurveChart ctl:Roomy.Height="220" Dots="{Binding Detail.Dots}" Bins="{Binding Detail.Bins}" Line="{Binding Detail.Line}" LineLabel="{Binding Detail.LineLabel}"
+                            <ctl:FanCurveChart ctl:Roomy.Height="220" Dots="{Binding Detail.Dots}" Bins="{Binding Detail.Bins}" Line="{Binding Detail.Line}" LineLabel="{Binding Detail.LineLabel}" EmptyText="{Binding DataContext.CurveEmptyText, ElementName=Page}"
                                                SilentBelow="{Binding Detail.SilentBelow}" Brush="{Binding Series[0].Brush}" />
                         </StackPanel>
                     </Grid>

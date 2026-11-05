@@ -121,7 +121,7 @@ internal static unsafe class OverlayPlanes
         {
             Free(factory);
         }
-        return (false, "this screen (expected it among the graphics card's outputs, not found)");
+        return (false, "this screen (expected it among the GPU's outputs, not found)");
     }
 
     private static OutputDesc? Describe(nint output)

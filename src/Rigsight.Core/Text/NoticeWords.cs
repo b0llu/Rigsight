@@ -17,9 +17,9 @@ public static class NoticeWords
     public readonly record struct Hot(string Part, double Value, double Limit);
 
     /// <summary>
-    /// The temperature alert: "Your GPU is running hot" / "It has been at 86°C for over 10 seconds, above your 83°C limit,
-    /// while Cyberpunk 2077 was running."; several at once: "Your CPU and GPU are running hot" / "CPU 91°C and GPU 86°C,
-    /// above your limits for over 10 seconds while Cyberpunk 2077 was running."
+    /// The temperature alert: "Your GPU is running hot" / "It has been at 86°C for more than 30 seconds, above your 83°C
+    /// limit, with Cyberpunk 2077 running."; several at once: "Your CPU and GPU are running hot" / "CPU 91°C and GPU 86°C,
+    /// above your limits for more than 30 seconds, with Cyberpunk 2077 running."
     /// </summary>
     public static (string Title, string Body) Running(IReadOnlyList<Hot> over, int sustainSeconds, string? app)
     {
@@ -29,21 +29,22 @@ public static class NoticeWords
         if (over.Count == 1)
         {
             var h = over[0];
-            string value = Temp(h.Value), limit = Temp(h.Limit);
+            string value = Temp(h.Value), limit = Temp(h.Limit), held = Long(sustainSeconds);
             bool spot = h.Part == "GPU hot spot";
             string body = (spot, app is null) switch
             {
-                (false, true) => Lang.T($"It has been at {value} for over {sustainSeconds} seconds, above your {limit} limit."),
-                (false, false) => Lang.T($"It has been at {value} for over {sustainSeconds} seconds, above your {limit} limit, while {app} was running."),
-                (true, true) => Lang.T($"Its hot spot has been at {value} for over {sustainSeconds} seconds, above your {limit} limit."),
-                _ => Lang.T($"Its hot spot has been at {value} for over {sustainSeconds} seconds, above your {limit} limit, while {app} was running."),
+                (false, true) => Lang.T($"It has been at {value} for more than {held}, above your {limit} limit."),
+                (false, false) => Lang.T($"It has been at {value} for more than {held}, above your {limit} limit, with {app} running."),
+                (true, true) => Lang.T($"Its hot spot has been at {value} for more than {held}, above your {limit} limit."),
+                _ => Lang.T($"Its hot spot has been at {value} for more than {held}, above your {limit} limit, with {app} running."),
             };
             return (title, body);
         }
         var named = over.Select(h => $"{Lang.T(h.Part)} {Temp(h.Value)}").ToList();
         string readings = named.Count == 2 ? Lang.T($"{named[0]} and {named[1]}") : Lang.T($"{string.Join(", ", named.Take(named.Count - 1))} and {named[^1]}");
-        return (title, app is null ? Lang.T($"{readings}, above your limits for over {sustainSeconds} seconds.")
-            : Lang.T($"{readings}, above your limits for over {sustainSeconds} seconds while {app} was running."));
+        string time = Long(sustainSeconds);
+        return (title, app is null ? Lang.T($"{readings}, above your limits for more than {time}.")
+            : Lang.T($"{readings}, above your limits for more than {time}, with {app} running."));
     }
 
     /// <summary>The CPU and GPU peaks as a sentence: "The CPU peaked at 71°C and the GPU at 68°C." (empty: neither known).</summary>
@@ -55,13 +56,20 @@ public static class NoticeWords
         _ => "",
     };
 
-    /// <summary>A game session's end: "You played Dota 2 for 2h 14m" / "The CPU peaked at 71°C and the GPU at 68°C."</summary>
+    /// <summary>
+    /// How long, in words, inside a notification's sentences: "48 minutes", "2 hours and 14 minutes" (the user's ruling,
+    /// 2026-11-05: a notification is read as a sentence, away from the app; pages keep the short 2h 14m).
+    /// </summary>
+    public static string Long(double seconds) => CrashFindings.Words(seconds);
+
+    /// <summary>A game session's end: "You played Dota 2 for 2 hours and 14 minutes" / "The CPU peaked at 71°C and the GPU at 68°C."</summary>
     public static (string Title, string Body) Session(string game, double activeSec, double? cpuPeak, double? gpuPeak) =>
-        (Lang.T($"You played {game} for {Units.Duration(activeSec)}"), Peaks(cpuPeak, gpuPeak));
+        (Lang.T($"You played {game} for {Long(activeSec)}"), Peaks(cpuPeak, gpuPeak));
 
     /// <summary>
-    /// The day's recap: "Yesterday: 6h 12m active" / "Mostly Dota 2, for 3h 05m. The CPU peaked at 78°C and the GPU at
-    /// 72°C." A day of the last week by its name, an older one by its date.
+    /// The day's recap: "Yesterday: 6h 12m active" / "Mostly Dota 2, for 3 hours and 5 minutes. The CPU peaked at 78°C and
+    /// the GPU at 72°C." A day of the last week by its name, an older one by its date. The title is a label with its
+    /// figure, so it keeps the short form; the sentence under it says time in words.
     /// </summary>
     public static (string Title, string Body) Recap(DateTime day, DateTime today, double activeSec, string? top, double topSec, double? cpuPeak, double? gpuPeak)
     {
@@ -73,18 +81,18 @@ public static class NoticeWords
             < 7 => Lang.T($"{weekday}: {active} active"),
             _ => Lang.T($"{date}: {active} active"),
         });
-        string mostly = top is null ? "" : Lang.T($"Mostly {top}, for {Units.Duration(topSec)}.");
+        string mostly = top is null ? "" : Lang.T($"Mostly {top}, for {Long(topSec)}.");
         return (title, string.Join(" ", new[] { mostly, Peaks(cpuPeak, gpuPeak) }.Where(s => s.Length > 0)));
     }
 
     /// <summary>
     /// An app or game that crashed or froze, under its title ("Dota 2 crashed"): its cause as its case says it, then how
-    /// long it had run ("Inside the NVIDIA driver, 48m into the game."); with nothing to go on, how long it had run and
+    /// long it had run ("Inside the NVIDIA driver, 48 minutes into the game."); with nothing to go on, how long it had run and
     /// that there isn't enough to say why. A notification never states a cause nothing was read for.
     /// </summary>
     public static string AppDown(CrashFinding? finding, bool game, double activeSec)
     {
-        string time = Units.Duration(activeSec);
+        string time = Long(activeSec);
         string cause = (finding?.Verdict ?? "").TrimEnd('.');
         if (finding is null or { Confidence: Confidence.NotEnough } || cause.Length == 0)
         {

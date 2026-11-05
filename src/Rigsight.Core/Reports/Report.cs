@@ -407,10 +407,21 @@ public sealed class Report
                 ReportRange.Day when From.Date == today.AddDays(-1) => Lang.T("What stood out yesterday?"),
                 ReportRange.Day => Lang.T($"What stood out on {From.ToString(TimeText.Fit("ddd d MMM"))}?"),
                 ReportRange.Week or ReportRange.Month or ReportRange.Year when PeriodWords.Said(Range, From, today) is var when => Lang.T($"What stood out {when}?"),
-                ReportRange.All => Lang.T("What stood out over all this time?"),
-                _ => Lang.T("What stood out in this period?"),
+                ReportRange.All when Days.Count > 0 => Lang.T($"What stood out since {Days[0].Day.ToString("MMMM yyyy")}?"),
+                ReportRange.Custom => CustomStoodOut(From, To),
+                _ => Lang.T("What stood out?"),
             };
         }
+    }
+
+    /// <summary>A custom range by its own dates: "What stood out from 12 Oct to 26 Oct?" ("on 12 Oct" for one day).</summary>
+    private static string CustomStoodOut(DateTime from, DateTime to)
+    {
+        // Ending at midnight belongs to the day it ends, as in CustomTitle.
+        var lastDay = to.TimeOfDay == TimeSpan.Zero && to > from ? to.AddDays(-1).Date : to.Date;
+        bool years = from.Year != DateTime.Today.Year || lastDay.Year != DateTime.Today.Year;
+        string format = years ? "d MMM yyyy" : "d MMM", first = from.ToString(format), last = lastDay.ToString(format);
+        return from.Date == lastDay ? Lang.T($"What stood out on {first}?") : Lang.T($"What stood out from {first} to {last}?");
     }
 
     public string Title => Range switch

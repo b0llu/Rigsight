@@ -198,7 +198,7 @@ public static class CrashFindings
         var (e, f, c, ex) = (x.Crash, x.Crash.Facts, x.Context, x.Explanation);
         if (e.Moment == PowerMoment.ShuttingDown)
             return new(Confidence.Named, Lang.T("Windows was already shutting down when the PC shut off."), Lang.T("It shut off before Windows could record a clean finish. No crash report was saved."), ex.Advice,
-                Lang.T("Windows was already shutting down. Usually harmless.")) { Why = Lang.T("as Windows was already shutting down"), Outside = true, Points = [new("info", Lang.T("Windows was already shutting down"), Lang.T("Its record from the next start says it was shutting down, restarting or hibernate was under way."))] };
+                Lang.T("Windows was already shutting down. Usually harmless.")) { Why = Lang.T("as Windows was already shutting down"), Outside = true, Points = [new("info", Lang.T("Windows was already shutting down"), Lang.T("Its record from the next start says it was shutting down, restarting or going into hibernation."))] };
         if (e.Moment == PowerMoment.Asleep)
             return new(Confidence.Named, Lang.T("The PC shut off while it was asleep."), Lang.T("It was asleep or waking up when it shut off, and no crash report was saved."), ex.Advice,
                 Lang.T("The PC was asleep when it shut off.")) { Why = Lang.T("while it was asleep"), Outside = true, Points = [new("info", Lang.T("The PC was asleep"), Lang.T("Windows' record from the next start says so."))] };
@@ -218,7 +218,7 @@ public static class CrashFindings
         bool noPress = f?.PowerButton == false;
         var points = new List<Evidence>();
         var ruled = new List<Evidence>();
-        string cant = Lang.T("A power cut and a failing power supply look the same from inside the PC. A press of the reset button isn't recorded, and a processor or memory setting that is unstable can switch a PC off the same way.");
+        string cant = Lang.T("A power cut and a failing power supply look the same from inside the PC. A press of the reset button isn't recorded, and an unstable CPU or memory setting can switch a PC off the same way.");
 
         // Trouble Windows logged just before, memory nearly full, a driver that this began with: any of them, and the
         // mains is no longer the likely answer.
@@ -237,7 +237,7 @@ public static class CrashFindings
             : null;
 
         if (f?.PowerButton == true) points.Add(new("power", Lang.T("Someone held the power button"), Lang.T("Windows noted it when the PC next started.")));
-        else if (noPress) points.Add(new("power", Lang.T("Nobody held the power button"), Lang.T("Windows notes it when the PC next starts if someone does, and it noted nothing.")));
+        else if (noPress) points.Add(new("power", Lang.T("Nobody held the power button"), Lang.T("If someone holds the power button, Windows notes it when the PC next starts. It noted nothing this time.")));
         if (has)
         {
             string loads = Loads(c!);
@@ -255,15 +255,15 @@ public static class CrashFindings
         Sort(memory, points, ruled);
 
         if (f?.PowerButton == true)
-            return new(Confidence.Named, Lang.T("It was switched off by holding the power button."), Lang.T("Windows recorded a long press of the power button at the start after. That is usually done when the PC has frozen."),
+            return new(Confidence.Named, Lang.T("It was switched off by holding the power button."), Lang.T("Windows recorded a long press of the power button when the PC next started. People usually do that when the PC has frozen."),
                 Lang.T("If it had frozen, look at what was running just before, below. One freeze is not a pattern; several with the same app in front are."),
                 front is null ? Lang.T("Switched off by holding the power button.") : Lang.T($"Switched off by holding the power button, with {front} in front."))
             { Why = Lang.T("because someone held the power button"), Points = points, RuledOut = ruled, CantTell = Lang.T("Why it had frozen, if it had.") };
         if (hardware)
-            return new(Confidence.Likely, Lang.T("The hardware reported an error."), Lang.T("Windows logged a hardware error it couldn't correct around the time the PC shut off. That points at the processor, the memory or the motherboard, or at tuning that is too tight for them."),
+            return new(Confidence.Likely, Lang.T("The hardware reported an error."), Lang.T("Windows logged a hardware error it couldn't correct around the time the PC shut off. That points at the CPU, the memory or the motherboard, or at tuning that is too tight for them."),
                 Lang.T("Undo any overclock or undervolt (Curve Optimizer, XMP or EXPO included), update the BIOS, and check the temperatures."),
                 Lang.T("Windows logged a hardware error around it."))
-            { Cause = Lang.Key("A HARDWARE FAULT"), Points = [new("warn", Lang.T("Windows logged a hardware error"), f?.HardwareErrors > 0 ? Lang.T($"{f.HardwareErrors} handed over by the firmware at the next start.") : Lang.T("In the minutes around it.")), .. points], RuledOut = ruled, CantTell = Lang.T("Which part reported it.") };
+            { Cause = Lang.Key("A HARDWARE FAULT"), Points = [new("warn", Lang.T("Windows logged a hardware error"), f?.HardwareErrors > 0 ? HandedOver(f.HardwareErrors ?? 0) : Lang.T("In the minutes around it.")), .. points], RuledOut = ruled, CantTell = Lang.T("Which part reported it.") };
         if (hungAt is not null)
         {
             var at = TimeUtil.FromUnix(hungAt.Ts);
@@ -278,7 +278,7 @@ public static class CrashFindings
             };
         }
         if (hang is not null)
-            return new(Confidence.Possible, Lang.T("The GPU may have stopped answering."), Lang.T($"Windows filed a graphics-hang report at the start after, {hang.Time:h:mm tt}. A screen that freezes or goes black, and a PC that then has to be switched off, fit that."),
+            return new(Confidence.Possible, Lang.T("The GPU may have stopped answering."), Lang.T($"Windows filed a graphics-hang report when the PC next started, at {hang.Time:h:mm tt}. A screen that freezes or goes black, and a PC that then has to be switched off, fit that."),
                 Lang.T("Update or clean-reinstall the graphics driver and undo any overclock of the GPU."), Lang.T("Windows filed a graphics-hang report at the next start."))
             { Cause = Lang.Key("THE GPU HUNG"), Why = Lang.T("after the GPU hung"), Points = [new("warn", Lang.T("Windows reported that the GPU hung"), Lang.T($"It filed the report at {hang.Time:h:mm tt}, when the PC started again.")), .. points], RuledOut = ruled, CantTell = Lang.T("When the GPU hung. The report carries the time it was filed, not the time of the hang.") };
         if (f is null && !has)
@@ -299,7 +299,7 @@ public static class CrashFindings
             // Running again within a minute or two: the power dipped for a moment, or the PC reset itself.
             string again = Wording.Minutes(backOn.Value);
             return new(Confidence.Possible, Lang.T($"It shut off and was running again {again} later."),
-                Lang.T("Windows saved no crash and recorded no press of the power button. A PC that is back that fast either lost power for a moment, or reset itself, which a processor or memory setting that is unstable at idle can do."),
+                Lang.T("Windows saved no crash and recorded no press of the power button. A PC that is back that fast either lost power for a moment, or reset itself, which a CPU or memory setting that is unstable at idle can do."),
                 Lang.T("If the lights or other devices flickered too, it was the mains. If it repeats with nothing else affected, undo any undervolt or memory tuning (Curve Optimizer, XMP or EXPO) and see whether it stops."),
                 (idle >= 5 ? Lang.T($"Idle for {idleFor}.") : front is null ? Lang.T("Doing little.") : Lang.T($"In {front}.")) + " " + Lang.T($"Running again {again} later."))
             { Cause = Lang.Key("A POWER DIP OR A RESET"), Points = points, RuledOut = ruled, CantTell = cant };
@@ -372,7 +372,7 @@ public static class CrashFindings
         var ruled = new List<Evidence>();
         var heat = Heat(x);
         if (heat.Hot) points.Add(new("warn", HotTitle, heat.Evidence.Detail)); else ruled.Add(heat.Evidence);
-        if (f?.HardwareErrors > 0) points.Add(new("warn", Lang.T("Windows logged a hardware error"), Lang.T($"{f.HardwareErrors} handed over by the firmware at the next start.")));
+        if (f?.HardwareErrors > 0) points.Add(new("warn", Lang.T("Windows logged a hardware error"), HandedOver(f.HardwareErrors ?? 0)));
         points.AddRange(Signs(x));
         if (Before(x) is { } before) points.Add(before);
         Sort(Memory(x), points, ruled);
@@ -389,7 +389,7 @@ public static class CrashFindings
             string plain = Plain(what);
             // A known culprit is said whole with its article ("the NVIDIA driver", in another language its own article);
             // a name the file gives itself can't be, so those sentences have their own entries ("name") to word around it.
-            string? the = known is { } kc ? Lang.T("the " + Plain(kc.Culprit)) : null;
+            string? the = known is { } kc ? The(kc.Culprit) : null;
             return new(Confidence.Named, what == file ? Lang.T($"Windows crashed inside {file}.") : the is not null ? Lang.T($"Windows crashed inside {file}, {the}.") : Lang.C("name", $"Windows crashed inside {file}, the {plain}."),
                 Lang.T("Windows' own record of the crash names the file it happened in."),
                 known?.Advice ?? (what == file
@@ -398,14 +398,14 @@ public static class CrashFindings
                 what == file ? Lang.T($"Windows crashed inside {file}.") : the is not null ? Lang.T($"Windows crashed inside {the} ({file}).") : Lang.C("name", $"Windows crashed inside the {plain} ({file})."))
             {
                 Why = what == file ? Lang.T($"inside {file}") : the is not null ? Lang.T($"inside {the}") : Lang.C("name", $"inside the {plain}"),
-                Points = [new("info", Lang.T($"Windows blames {file}"), Lang.T("It wrote this beside the crash when the PC next started.")), new("info", Lang.T("The blue screen's code"), code), .. points],
+                Points = [new("info", Lang.T($"Windows names {file}"), Lang.T("It recorded this with the crash when the PC next started.")), new("info", Lang.T("The blue screen's code"), code), .. points],
                 RuledOut = ruled,
                 CantTell = x.Context is { Minutes: > 0 } ? Lang.T("Whether the driver itself failed, or the hardware under it.") : Lang.T("What was running at the time. Nothing was being recorded."),
             };
         }
         Sort(Change(x, anyDriver: true), points, ruled);
         bool hardware = e.Code is "0x124" or "0x101";
-        return new(hardware ? Confidence.Likely : Confidence.Possible, ex.Reason, Lang.T("Windows recorded the kind of crash but named no driver for it."), ex.Advice, ex.Reason)
+        return new(hardware ? Confidence.Likely : Confidence.Possible, First(ex.Reason), Rest(ex.Reason) + Lang.T("Windows recorded the kind of crash but named no driver for it."), ex.Advice, First(ex.Reason))
         {
             Cause = hardware ? Lang.Key("A HARDWARE FAULT") : null,
             Points = [new("info", Lang.T("The blue screen's code"), code), .. points], RuledOut = ruled,
@@ -434,7 +434,7 @@ public static class CrashFindings
             : new Evidence("info", Lang.T("Windows restarted the graphics driver"), Lang.T("It recorded this at that moment."));
         string advice = x.FrontApp is null || !x.FrontIsGame
             ? Lang.T("Update or clean-reinstall the graphics driver and undo any overclock of the GPU. If it keeps happening, check the GPU's temperatures around these times.")
-            : Lang.T($"If it keeps happening in {x.FrontApp}, lower its graphics settings or cap its frame rate first. If it happens in other games too, update or clean-reinstall the graphics driver and undo any overclock of the GPU.");
+            : Lang.T($"If it keeps happening in {x.FrontApp}, lower its graphics settings or limit its frame rate first. If it happens in other games too, update or clean-reinstall the graphics driver and undo any overclock of the GPU.");
         return new(Confidence.Named, Lang.T("The GPU stopped answering and Windows reset its driver."), Lang.T("The screen may have gone black for a moment. Windows records the reset, not why the GPU stopped."),
             advice, x.FrontApp is null ? Lang.T("Windows reset the graphics driver.") : Lang.T($"Windows reset the graphics driver while {x.FrontApp} was in front."))
         { Event = x.FrontApp is null ? Wording.Event(CrashKind.GpuDriverReset, "") : x.FrontIsGame ? Lang.T($"The graphics driver was reset in {x.FrontApp}") : Lang.T($"The graphics driver was reset while {x.FrontApp} was in front"), Points = [said, .. points], RuledOut = ruled, CantTell = Lang.T("Why the GPU stopped answering. It could be its driver, heat, power, or the GPU itself.") };
@@ -450,8 +450,8 @@ public static class CrashFindings
         var ruled = new List<Evidence>();
         if (f?.RanSec is double ran)
             points.Add(new("clock",
-                ran >= StartUpSec ? Lang.T($"It had been running for {Units.Duration(ran)}") : ran < 1.5 ? Lang.T("A second after it was started") : Lang.T($"{ran:0} seconds after it was started"),
-                ran < StartUpSec ? Lang.T("It froze as it was starting.") : Lang.T("So it started and ran normally first.")));
+                ran >= StartUpSec ? Lang.T($"It had been running for {Words(ran)}") : ran < 1.5 ? Lang.T("A second after it was started") : Lang.T($"{ran:0} seconds after it was started"),
+                ran < StartUpSec ? Lang.T("It froze as it was starting.") : Lang.T("So it didn't freeze while starting up.")));
         Shared(x, points, ruled);
         if (f?.WaitedOn is { } other)
         {
@@ -502,7 +502,7 @@ public static class CrashFindings
         else if (f?.RanSec is double ran) points.Add(new("clock", Lang.T($"It had been running fine for {Words(ran)}"), Lang.T("So it didn't fail while starting up.")));
         else if (c?.SessionSec is double s && s >= 60) points.Add(new("clock", x.IsGame ? Lang.T($"It crashed {Words(s)} into your game") : Lang.T($"It crashed {Words(s)} after you started using it"), Lang.T("It was working fine until then.")));
         if (f?.ReportType is { } type && type.StartsWith("BEX", StringComparison.OrdinalIgnoreCase))
-            points.Add(new("info", Lang.T("Windows stopped it for touching memory it shouldn't"), Lang.T($"Its report is of the kind {type}, so the app ran or wrote where it isn't allowed to.")));
+            points.Add(new("info", Lang.T("Windows stopped it for using memory it isn't allowed to"), Lang.T($"Windows filed it as a {type} report, which means the app ran code or wrote to memory it isn't allowed to touch.")));
         if (module.Length == 0) points.Add(new("unknown", Lang.T("Windows couldn't tell which file it crashed in"), Lang.T("Its report lists it as unknown.")));
         else if (f?.AppVersion is not null || f?.ModuleVersion is not null)
             points.Add(new("info", Lang.T($"It crashed in {module}"), string.Join(" ", new[]
@@ -521,8 +521,9 @@ public static class CrashFindings
                 Lang.T("This is a fault in the program. Update it; if it keeps happening, the error's name above is what its makers need."), Lang.T($"{app} crashed on a .NET error ({error})."))
             { Why = Lang.T($"with a .NET error ({ErrorName(error)})"), Points = [new("info", Lang.T("The app recorded its error"), f.ErrorAt is null ? error : Lang.T($"{error}, in {f.ErrorAt}.")), .. points], RuledOut = ruled, CantTell = Lang.T("What caused the error inside the app.") };
         if (known is { } m && !string.IsNullOrEmpty(module))
-            return new(Confidence.Named, First(ex.Reason), Rest(ex.Reason) + Lang.T($"Windows names {module} as the file it crashed in."), ex.Advice, Lang.T($"{app} crashed inside {The(m.Culprit)}."))
-            { Why = Lang.T($"inside {The(m.Culprit)}"), Points = points, RuledOut = ruled, CantTell = what };
+            return new(Confidence.Named, First(ex.Reason), Rest(ex.Reason) + Lang.T($"Windows names {module} as the file it crashed in."), ex.Advice,
+                m.Culprit == "Game code" ? Lang.T($"{app} crashed in its own code.") : Lang.T($"{app} crashed inside {The(m.Culprit)}."))
+            { Why = m.Culprit == "Game code" ? Lang.T("in its own code") : Lang.T($"inside {The(m.Culprit)}"), Points = points, RuledOut = ruled, CantTell = what };
         if (same.Count >= 2)
             return new(Confidence.Likely, Lang.T($"{app} crashes at the same spot every time."), Lang.T($"{same.Count + 1} crashes on record, all at the same place in {module}. A fault that repeats exactly is a fault in the program, not hardware that is unstable."),
                 Lang.T("Update the app. If it has add-ons or mods, try without them."), Lang.T($"{app} crashed at the same spot as {same.Count} times before."))
@@ -620,12 +621,12 @@ public static class CrashFindings
         if (members.Any(m => m.Crash.Kind == CrashKind.GpuDriverReset))
             // Windows records the reset. That the apps failed because of it is the likely reading, not a record.
             return Tidy(new(Confidence.Likely, Lang.T("The graphics driver reset, and apps failed around it."),
-                (oneApp ? Lang.T($"Windows reset the graphics driver, and 1 app failed within {mins}.") : Lang.T($"Windows reset the graphics driver, and {appsCount} apps failed within {mins}.")) + " " + Lang.T("Apps that are drawing when the driver resets often go down with it."),
+                (oneApp ? Lang.T($"Windows reset the graphics driver, and 1 app failed within {mins}.") : Lang.T($"Windows reset the graphics driver, and {appsCount} apps failed within {mins}.")) + " " + Lang.T("Apps that are drawing on screen when the driver resets often crash with it."),
                 Lang.T("Update or clean-reinstall the graphics driver, and undo any overclock of the GPU."),
                 oneApp ? Lang.T($"The graphics driver reset; 1 app failed within {mins}.") : Lang.T($"The graphics driver reset; {appsCount} apps failed within {mins}."))
             { Event = thingsFailed, Cause = Lang.Key("THE GRAPHICS DRIVER"), Why = Lang.T("the graphics driver reset"), Points = points, RuledOut = ruled, CantTell = Lang.T("Why the GPU stopped answering, and whether every app failed because of it.") });
         return Tidy(new(Confidence.Possible, thingsFailed + ".", Lang.T("Nothing on record names one cause for all of them."), advice, thingsFailed + ".")
-        { Event = thingsFailed, Cause = Lang.Key("SEVERAL THINGS AT ONCE"), Points = points, RuledOut = ruled, CantTell = Lang.T("What they had in common.") });
+        { Event = thingsFailed, Cause = Lang.Key("ONE SHARED CAUSE"), Why = Lang.T("from one shared cause"), Points = points, RuledOut = ruled, CantTell = Lang.T("What they had in common.") });
     }
 
     // â”€â”€ Evidence shared by the rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -814,6 +815,11 @@ public static class CrashFindings
     /// <summary>A .NET error's own name without its namespace: "System.NullReferenceException" as "NullReferenceException".</summary>
     private static string ErrorName(string error) => error.LastIndexOf('.') is var i and >= 0 && i < error.Length - 1 ? error[(i + 1)..] : error;
 
+    /// <summary>Hardware errors the firmware kept and gave Windows at the next start: "The PC's firmware passed 2 of them to Windows when it next started."</summary>
+    private static string HandedOver(int n) => n == 1
+        ? Lang.T("The PC's firmware passed it to Windows when it next started.")
+        : Lang.T($"The PC's firmware passed {n} of them to Windows when it next started.");
+
     private static string Apart(long sec) => sec <= 0 ? Lang.T("in the same second") : sec == 1 ? Lang.T("in a second") : Lang.T($"in {sec} seconds");
 
     /// <summary>A graphics card's own kernel driver, or Windows' graphics core: a crash in one is a graphics crash.</summary>
@@ -838,8 +844,17 @@ public static class CrashFindings
     /// <summary>What follows a reason's first sentence, ready to have more put after it ("" when it is one sentence).</summary>
     private static string Rest(string reason) => reason.IndexOf(". ", StringComparison.Ordinal) is > 0 and var i ? reason[(i + 2)..] + " " : "";
 
-    /// <summary>"NVIDIA driver" reads as "the NVIDIA driver" in a sentence; names keep their capitals.</summary>
-    private static string Lower(string culprit) => culprit.StartsWith("The ", StringComparison.Ordinal) ? "the " + culprit[4..] : $"the {culprit}";
+    /// <summary>
+    /// "NVIDIA driver" reads as "the NVIDIA driver" in a sentence; names keep their capitals, and DirectX and Vulkan take
+    /// no "the". An app crashing in its own game code is said as "in its own code" where it's shown.
+    /// </summary>
+    private static string Lower(string culprit) => culprit switch
+    {
+        "DirectX" or "Vulkan" => culprit,
+        "Game code" => "the game's own code",
+        _ when culprit.StartsWith("The ", StringComparison.Ordinal) => "the " + culprit[4..],
+        _ => $"the {culprit}",
+    };
 
     /// <summary>
     /// A known culprit as it reads in a sentence, in the language in use: "the NVIDIA driver". Each is translated whole,
@@ -851,9 +866,7 @@ public static class CrashFindings
     private static readonly string[] TheCulprits =
     [
         Lang.Key("the NVIDIA driver"), Lang.Key("the GeForce Experience overlay"), Lang.Key("the AMD driver"), Lang.Key("the Intel graphics driver"),
-        Lang.Key("the DirectX"), Lang.Key("the Vulkan"), Lang.Key("the Steam overlay"), Lang.Key("the Discord overlay"), Lang.Key("the RivaTuner overlay"),
-        Lang.Key("the Unity engine"), Lang.Key("the Game code"), Lang.Key("the Unreal Engine"), Lang.Key("the .NET runtime"),
-        // As a blue screen's file says them ("the " and the plain name: see Plain).
-        Lang.Key("the GeForce experience overlay"), Lang.Key("the Unreal engine"),
+        Lang.Key("DirectX"), Lang.Key("Vulkan"), Lang.Key("the Steam overlay"), Lang.Key("the Discord overlay"), Lang.Key("the RivaTuner overlay"),
+        Lang.Key("the Unity engine"), Lang.Key("the game's own code"), Lang.Key("the Unreal Engine"), Lang.Key("the .NET runtime"),
     ];
 }

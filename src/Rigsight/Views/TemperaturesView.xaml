@@ -501,7 +501,7 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                 <StackPanel>
                     <TextBlock Text="{ctl:T 'Motherboard and drives'}" Style="{StaticResource H2}" Margin="0,0,0,12" />
-                    <TextBlock Text="{ctl:T 'No motherboard or drive temperatures are being read right now. They need the background agent to run with admin rights.'}"
+                    <TextBlock Text="{ctl:T 'No motherboard or drive temperatures are being read right now. They need RigSight to run with admin rights.'}"
                                Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,2" />
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -527,7 +527,7 @@
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'At rest, last 30 days'}" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                        <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Idle and settled. A flat line means the cooling is holding; a slow climb is dust or old paste. A warmer room raises these too.'}"
+                        <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Taken while the PC sits idle. A flat line means the cooling is holding. A slow climb can come from dust or aging thermal paste, and a warmer room raises these too.'}"
                                    FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
                         <ItemsControl ItemsSource="{Binding Rest}" VerticalAlignment="Center" Focusable="False">
                             <ItemsControl.ItemTemplate>

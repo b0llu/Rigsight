@@ -152,6 +152,8 @@ public sealed class FanCurveChart : FanChartBase
         nameof(LineLabel), typeof(string), typeof(FanCurveChart), new FrameworkPropertyMetadata("", FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty SilentBelowProperty = DependencyProperty.Register(
         nameof(SilentBelow), typeof(double?), typeof(FanCurveChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+    public static readonly DependencyProperty EmptyTextProperty = DependencyProperty.Register(
+        nameof(EmptyText), typeof(string), typeof(FanCurveChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
     /// <summary>The minutes, gathered into dots (temperature in °C, rpm).</summary>
     public IReadOnlyList<FanDot>? Dots { get => (IReadOnlyList<FanDot>?)GetValue(DotsProperty); set => SetValue(DotsProperty, value); }
@@ -162,6 +164,8 @@ public sealed class FanCurveChart : FanChartBase
     public string LineLabel { get => (string)GetValue(LineLabelProperty); set => SetValue(LineLabelProperty, value); }
     /// <summary>Stands still below this temperature (°C); null when it never does.</summary>
     public double? SilentBelow { get => (double?)GetValue(SilentBelowProperty); set => SetValue(SilentBelowProperty, value); }
+    /// <summary>What the chart says with no minutes ("Nothing measured yet today", or "Not recorded" for a period that's over).</summary>
+    public string? EmptyText { get => (string?)GetValue(EmptyTextProperty); set => SetValue(EmptyTextProperty, value); }
 
     protected override void OnRender(DrawingContext dc)
     {
@@ -171,7 +175,7 @@ public sealed class FanCurveChart : FanChartBase
         if (dots.Count == 0 && line.Count == 0)
         {
             dc.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize));
-            Label(dc, Lang.T("Collecting data…"), new Point(ActualWidth / 2, ActualHeight / 2), LabelBrush, center: true);
+            Label(dc, EmptyText ?? Wording.NotRecorded, new Point(ActualWidth / 2, ActualHeight / 2), LabelBrush, center: true);
             return;
         }
         var temps = dots.Select(d => d.Temp).Concat(line.Select(p => p.X)).ToList();

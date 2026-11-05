@@ -210,7 +210,7 @@
                     <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="18,0,0,3"><Run Text="↑ " /></TextBlock>
                     <TextBlock Text="{Binding Net.UpNow, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                 </StackPanel>
-                <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Read while the agent runs as admin.'}" Style="{StaticResource Row}" TextWrapping="Wrap"
+                <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Read while RigSight runs with admin rights.'}" Style="{StaticResource Row}" TextWrapping="Wrap"
                            Visibility="{Binding Net.HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert, FallbackValue=Collapsed}" />
                 <ctl:NetLiveChart Margin="0,8,0,0" MinHeight="40" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
             </DockPanel>
@@ -236,9 +236,9 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="{ctl:T 'Nothing\'s moving right now.'}" Style="{StaticResource Row}"
+                <TextBlock Text="{ctl:T 'No app is using the internet right now.'}" Style="{StaticResource Row}"
                            Visibility="{Binding Net.NobodyNow, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
-                <TextBlock Text="{ctl:T 'Each app\'s speed shows here while the agent runs as admin.'}" Style="{StaticResource Row}" TextWrapping="Wrap" VerticalAlignment="Top"
+                <TextBlock Text="{ctl:T 'Each app\'s speed shows here while RigSight runs with admin rights.'}" Style="{StaticResource Row}" TextWrapping="Wrap" VerticalAlignment="Top"
                            Visibility="{Binding Net.HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert, FallbackValue=Collapsed}" />
             </Grid>
         </DataTemplate>
@@ -387,7 +387,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-                <TextBlock Text="{ctl:T 'Yesterday\'s recap will be here tomorrow.'}" Style="{StaticResource Row}" TextWrapping="Wrap"
+                <TextBlock Text="{ctl:T 'Yesterday\'s recap shows here after a full day on record.'}" Style="{StaticResource Row}" TextWrapping="Wrap"
                            Visibility="{Binding Home.YesterdayHasData, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
             </Grid>
         </DataTemplate>

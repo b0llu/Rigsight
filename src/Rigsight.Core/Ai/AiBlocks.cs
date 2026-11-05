@@ -97,8 +97,8 @@ public sealed partial class AiTools
         (CrashKind.AppCrash, false) => Lang.T("app crashes"),
         (CrashKind.AppHang, true) => Lang.T("app freeze"),
         (CrashKind.AppHang, false) => Lang.T("app freezes"),
-        (CrashKind.GpuDriverReset, true) => Lang.T("driver reset"),
-        (CrashKind.GpuDriverReset, false) => Lang.T("driver resets"),
+        (CrashKind.GpuDriverReset, true) => Lang.T("graphics driver reset"),
+        (CrashKind.GpuDriverReset, false) => Lang.T("graphics driver resets"),
         (CrashKind.SystemCrash, true) => Lang.T("blue screen"),
         (CrashKind.SystemCrash, false) => Lang.T("blue screens"),
         (_, true) => Lang.T("sudden shut-off"),
@@ -273,7 +273,7 @@ public sealed partial class AiTools
     {
         var games = Played(db).Where(g => g.GpuLoad is not null).OrderByDescending(g => g.GpuLoad).Take(8).ToList();
         if (games.Count == 0) return [];
-        return [new AiBarTable(Lang.T("GAME"), Lang.T("GRAPHICS CARD BUSY"), Lang.T("PLAYED"),
+        return [new AiBarTable(Lang.T("GAME"), Lang.T("GPU BUSY"), Lang.T("PLAYED"),
             [.. games.Select((g, i) => new AiTableRow(g.Name, g.GpuLoad!.Value / 100, $"{g.GpuLoad:0}%", Units.Duration(g.ActiveSec), i == 0))])];
     }
 }
