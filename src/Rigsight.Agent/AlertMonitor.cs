@@ -10,8 +10,8 @@ internal sealed class AlertMonitor
     private readonly Dictionary<string, long> _overSince = [];
     private long _lastAlertMs = long.MinValue / 2;
 
-    /// <summary>Returns alert text when one should be shown now, else null.</summary>
-    public string? Check(KeyValues k, string? app, AlertSettings s, long nowMs)
+    /// <summary>Returns the alert's title and words when one should be shown now, else null.</summary>
+    public (string Title, string Body)? Check(KeyValues k, string? app, AlertSettings s, long nowMs)
     {
         if (!s.Enabled)
         {
@@ -20,14 +20,14 @@ internal sealed class AlertMonitor
             return null;
         }
 
-        var over = new List<string>();
+        var over = new List<NoticeWords.Hot>();
         Track("CPU", k.CpuTemp, s.CpuLimit);
         Track("GPU", k.GpuTemp, s.GpuLimit);
         Track(Lang.Key("GPU hot spot"), k.GpuHotSpot, s.GpuHotSpotLimit);
 
         if (over.Count == 0 || nowMs - _lastAlertMs < s.CooldownMinutes * 60_000L) return null;
         _lastAlertMs = nowMs;
-        return Message(over, s.SustainSeconds, app);
+        return NoticeWords.Running(over, s.SustainSeconds, app);
 
         void Track(string name, double? value, double limit)
         {
@@ -36,7 +36,7 @@ internal sealed class AlertMonitor
                 if (!_overSince.TryGetValue(name, out var since))
                     _overSince[name] = since = nowMs;
                 if (nowMs - since >= s.SustainSeconds * 1000L)
-                    over.Add($"{Lang.T(name)} {Units.TempShort(v)}");
+                    over.Add(new NoticeWords.Hot(name, v, limit));
             }
             else
             {
@@ -45,19 +45,4 @@ internal sealed class AlertMonitor
         }
     }
 
-    /// <summary>
-    /// The alert's text: "GPU 86° has been above your limit for 30+ seconds while Cyberpunk 2077 was running.";
-    /// <paramref name="over"/> holds each reading over its limit with its value ("GPU 86°").
-    /// </summary>
-    public static string Message(IReadOnlyList<string> over, int sustainSeconds, string? app)
-    {
-        string readings = string.Join(", ", over);
-        return (over.Count == 1, app is null) switch
-        {
-            (true, true) => Lang.T($"{readings} has been above your limit for {sustainSeconds}+ seconds."),
-            (true, false) => Lang.T($"{readings} has been above your limit for {sustainSeconds}+ seconds while {app} was running."),
-            (false, true) => Lang.T($"{readings} have been above your limit for {sustainSeconds}+ seconds."),
-            _ => Lang.T($"{readings} have been above your limit for {sustainSeconds}+ seconds while {app} was running."),
-        };
-    }
 }

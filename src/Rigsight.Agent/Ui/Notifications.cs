@@ -67,18 +67,8 @@ internal static class CrashNotices
     /// that is ("Likely as it was starting"), then how long it had been in use. Without a finding (the crash couldn't
     /// be stored), or with nothing on record to say why, no cause: a notification never states one nothing was read for.
     /// </summary>
-    public static string Body(Rigsight.Core.Stability.CrashFinding? finding, bool game, double activeSec)
-    {
-        string time = Rigsight.Core.Units.Duration(activeSec);
-        string cause = finding?.Verdict ?? "";
-        if (finding is null or { Confidence: Rigsight.Core.Stability.Confidence.NotEnough } || cause.Length == 0)
-        {
-            string used = game ? Lang.T($"After {time} of play.") : Lang.T($"After {time} of use.");
-            return $"{used}{(finding is { Confidence: Rigsight.Core.Stability.Confidence.NotEnough } ? " " + Rigsight.Core.Wording.NotEnoughWhy : "")} {Rigsight.Core.Wording.FullPicture}";
-        }
-        cause = cause.TrimEnd('.');
-        return (game ? Lang.T($"{cause}, after {time} of play.") : Lang.T($"{cause}, after {time} of use.")) + " " + Rigsight.Core.Wording.FullPicture;
-    }
+    public static string Body(Rigsight.Core.Stability.CrashFinding? finding, bool game, double activeSec) =>
+        Rigsight.Core.NoticeWords.AppDown(finding, game, activeSec);
 }
 
 internal sealed record Notice(NoticeKind Kind, string Title, string Body, string? IconPath = null,

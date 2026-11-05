@@ -22,7 +22,7 @@ public class AlertMonitorTests
         for (int i = 0; i < seconds; i++)
         {
             long now = fromMs + i * 1000L;
-            if (m.Check(k, app, s, now) is { } text) alerts.Add((now, text));
+            if (m.Check(k, app, s, now) is { } alert) alerts.Add((now, alert.Body));
         }
         return alerts;
     }
@@ -45,7 +45,7 @@ public class AlertMonitorTests
         var (ms, text) = Assert.Single(alerts);
         Assert.Equal(1_010_000, ms);
         Units.Fahrenheit = false;
-        Assert.Equal($"CPU {Units.TempShort(90)} has been above your limit for 10+ seconds.", m.Check(HotCpu, null, Settings(cooldown: 0), 1_100_000));
+        Assert.Equal(("Your CPU is running hot", "It has been at 90°C for over 10 seconds, above your 85°C limit."), m.Check(HotCpu, null, Settings(cooldown: 0), 1_100_000));
     }
 
     [Fact]
@@ -104,7 +104,8 @@ public class AlertMonitorTests
         var m = new AlertMonitor();
         var k = new KeyValues { CpuTemp = cpu, GpuTemp = gpu, GpuHotSpot = hot };
         var text = Assert.Single(Run(m, k, Settings(), 0, 20)).Text;
-        Assert.StartsWith($"{which} {Units.TempShort(which == "CPU" ? cpu : which == "GPU" ? gpu : hot)} has been", text);
+        string value = $"{Units.TempShort(which == "CPU" ? cpu : which == "GPU" ? gpu : hot)}C";
+        Assert.StartsWith(which == "GPU hot spot" ? $"Its hot spot has been at {value}" : $"It has been at {value}", text);
     }
 
     [Fact]
@@ -125,8 +126,9 @@ public class AlertMonitorTests
         var m = new AlertMonitor();
         var k = new KeyValues { CpuTemp = 91.4, GpuTemp = 88.6, GpuHotSpot = 104 };
         var text = Assert.Single(Run(m, k, Settings(sustain: 5), 0, 10, app: "Cyberpunk 2077")).Text;
-        Assert.Equal($"CPU {Units.TempShort(91.4)}, GPU {Units.TempShort(88.6)}, GPU hot spot {Units.TempShort(104)} have been above your limit for 5+ seconds while Cyberpunk 2077 was running.", text);
-        Assert.Equal("CPU 91°, GPU 89°, GPU hot spot 104° have been above your limit for 5+ seconds while Cyberpunk 2077 was running.", text);
+        Assert.Equal("CPU 91°C, GPU 89°C and GPU hot spot 104°C, above your limits for over 5 seconds while Cyberpunk 2077 was running.", text);
+        var (title, _) = new AlertMonitor().Check(k, "Cyberpunk 2077", Settings(sustain: 0), 0)!.Value;
+        Assert.Equal("Your CPU and GPU are running hot", title);
     }
 
     [Fact]
@@ -137,9 +139,8 @@ public class AlertMonitorTests
         Assert.Empty(Run(m, HotCpu, s, 0, 8));
         var both = new KeyValues { CpuTemp = 90, GpuTemp = 90 };
         var text = Assert.Single(Run(m, both, s, 8_000, 5)).Text;
-        Assert.StartsWith("CPU ", text);
+        Assert.StartsWith("It has been at 90°C", text);
         Assert.DoesNotContain("GPU", text);
-        Assert.Contains(" has been ", text);
     }
 
     [Fact]
@@ -150,7 +151,7 @@ public class AlertMonitorTests
         {
             Units.Fahrenheit = true;
             var text = Assert.Single(Run(m, HotCpu, Settings(), 0, 15)).Text;
-            Assert.StartsWith("CPU 194° has been", text);
+            Assert.StartsWith("It has been at 194°F", text);
         }
         finally
         {

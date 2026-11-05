@@ -363,10 +363,10 @@ internal sealed class AgentContext : ApplicationContext
         if (version is null || _settings.LastUpdateNotice == version) return;
         MutateSettings(s => s.LastUpdateNotice = version);
         string body = !downloaded ? Lang.T("Click to update.")
-            : _settings.AutoUpdate && _isAdmin ? Lang.T("It installs by itself the next time you start your PC, or click to update now.")
+            : _settings.AutoUpdate && _isAdmin ? Lang.T("It installs the next time you start your PC, or click to update now.")
             : Lang.T("It's downloaded. Click to finish updating.");
         // Clicked, the app opens asking to restart (or downloading), not on its usual page with no word of the update.
-        _notices.Show(new Notice(NoticeKind.Update, downloaded ? Lang.T($"Version {version} is ready") : Lang.T($"Version {version} is out"), body, Page: "update"));
+        _notices.Show(new Notice(NoticeKind.Update, downloaded ? Lang.T($"RigSight {version} is ready") : Lang.T($"RigSight {version} is out"), body, Page: "update"));
     }
 
     // ── Sampler thread ────────────────────────────────────────────────────
@@ -1277,7 +1277,7 @@ internal sealed class AgentContext : ApplicationContext
         return [.. ids.Select(c => _sensors.ReadSensor(c)?.Value is double v ? (float)Math.Clamp(v / 100, 0, 1) : 0f)];
     }
 
-    private void PublishToUi(KeyValues k, bool fullscreen, string? alert)
+    private void PublishToUi(KeyValues k, bool fullscreen, (string Title, string Body)? alert)
     {
         var settings = _settings;
         var trayReadings = TrayReadingsFor(settings);
@@ -1348,8 +1348,8 @@ internal sealed class AgentContext : ApplicationContext
             _overlay.Update(data);
             _notices.SetFullscreen(otherFullscreen);
             if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
-            if (alert is not null)
-                _notices.Show(new Notice(NoticeKind.Alert, Lang.T("Running hot"), alert, activity.Path, "temperatures", Urgent: true));
+            if (alert is { } hot)
+                _notices.Show(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true));
         }, null);
     }
 
@@ -1614,14 +1614,9 @@ internal sealed class AgentContext : ApplicationContext
         });
         if (report is null || !report.HasData || report.ActiveSec < 300) return;
 
-        var parts = new List<string> { Lang.T($"Active {Units.Duration(report.ActiveSec)}") };
         var top = report.Apps.FirstOrDefault(a => a.ActiveSec > 0 && a.Category != AppCategory.System);
-        if (top is not null) parts.Add($"{top.Name} {Units.Duration(top.ActiveSec)}");
-        if (report.CpuTempPeak is { } cpu) parts.Add(Lang.T($"CPU peak {Units.TempShort(cpu.Value)}"));
-        if (report.GpuTempPeak is { } gpu) parts.Add(Lang.T($"GPU peak {Units.TempShort(gpu.Value)}"));
-
-        string text = string.Join("  ·  ", parts) + ". " + Wording.FullPicture;
-        _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Recap, DailyRecap.Title(day, today), text, Page: "reports", Arg: DailyRecap.Key(day))), null);
+        var (title, text) = NoticeWords.Recap(day, today, report.ActiveSec, top?.Name, top?.ActiveSec ?? 0, report.CpuTempPeak?.Value, report.GpuTempPeak?.Value);
+        _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Recap, title, text, Page: "reports", Arg: DailyRecap.Key(day))), null);
     }
 
     private DateTime _rewindsChecked;
@@ -1691,15 +1686,15 @@ internal sealed class AgentContext : ApplicationContext
                         await Task.Delay(CrashNotices.SecondLook);
                         finding = await OnSampler(() => { ScanCrashes(); return FindingOf(crash); }) ?? finding;
                     }
-                    string body = CrashNotices.Body(finding, row.IsGame, row.ActiveSec);
+                    string body = NoticeWords.AppDown(finding, row.IsGame, row.ActiveSec);
                     // The title says what Windows recorded, which is never in doubt: "Dota 2 crashed", "Chrome froze".
                     _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, Wording.Title(crash.Kind, name), body,
                         app.Path, "crashes", crash.Time.Ticks.ToString())), null);
                     return;
                 }
                 if (!summaryWanted) return;
-                string text = SessionText(row.ActiveSec, row.CpuTempMax, row.GpuTempMax);
-                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Session, SessionTitle(name), text, app.Path, "games", app.Exe)), null);
+                var (title, text) = NoticeWords.Session(name, row.ActiveSec, row.CpuTempMax, row.GpuTempMax);
+                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Session, title, text, app.Path, "games", app.Exe)), null);
             }
             catch (Exception ex)
             {
@@ -1708,15 +1703,6 @@ internal sealed class AgentContext : ApplicationContext
         });
     }
 
-    /// <summary>A game session's notification title: "Dota 2 session".</summary>
-    private static string SessionTitle(string name) => Lang.T($"{name} session");
-
-    /// <summary>A game session's notification: "Played for 2h 14m. CPU peak 71°, GPU peak 68°. Click for the full picture."</summary>
-    private static string SessionText(double activeSec, double? cpuPeak, double? gpuPeak)
-    {
-        string played = Units.Duration(activeSec), cpu = Units.TempShort(cpuPeak), gpu = Units.TempShort(gpuPeak);
-        return Lang.T($"Played for {played}. CPU peak {cpu}, GPU peak {gpu}.") + " " + Wording.FullPicture;
-    }
 
     /// <summary>Runs <paramref name="work"/> on the sampler thread (the only one that touches the database) and hands back what it returns.</summary>
     private Task<T> OnSampler<T>(Func<T> work)
@@ -1885,10 +1871,10 @@ internal sealed class AgentContext : ApplicationContext
                 // A graphics card that hangs again and again within minutes: the first is said, the rest are on the page.
                 if (e.Kind == CrashKind.GpuDriverReset && !_crashNotices.Allow("graphics driver", e.Time)) continue;
                 var ex = CrashExplainer.Explain(e);
-                // The title by its kind ("Sudden shut-off"), the event with its time and cause under it.
-                string said = findings.TryGetValue(e.Id, out var finding) ? finding.Told(e.Time.ToString(TimeText.Fit("ddd h:mm tt"))) : $"{TimeText.At(e.Time, "ddd h:mm tt")}. {ex.Reason}";
-                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, Wording.Title(e.Kind, ""),
-                    $"{said} {Wording.FullPicture}", Page: "crashes", Arg: e.Time.Ticks.ToString())), null);
+                // The title says what happened ("Your PC shut off suddenly"); when and why under it, not the event again.
+                string said = NoticeWords.PcDownBody(e.Time, DateTime.Now, findings.GetValueOrDefault(e.Id), ex.Reason);
+                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, NoticeWords.PcDownTitle(e.Kind), said,
+                    Page: "crashes", Arg: e.Time.Ticks.ToString())), null);
             }
         }
         catch (Exception ex)
@@ -2061,14 +2047,13 @@ internal sealed class AgentContext : ApplicationContext
         var activity = _tracker.Activity;
         Notice notice = kind switch
         {
-            "alert" => new(NoticeKind.Alert, Lang.T("Running hot"),
-                AlertMonitor.Message([$"GPU {Units.TempShort(s.Alerts.GpuLimit + 3)}"], s.Alerts.SustainSeconds, "Cyberpunk 2077"), Page: "temperatures", Urgent: true),
-            "session" => new(NoticeKind.Session, SessionTitle("Dota 2"), SessionText(2 * 3600 + 14 * 60, 71, 68), activity.Path, "games"),
+            "alert" => NoticeWords.Running([new("GPU", s.Alerts.GpuLimit + 3, s.Alerts.GpuLimit)], s.Alerts.SustainSeconds, "Cyberpunk 2077") is var (aTitle, aBody)
+                ? new(NoticeKind.Alert, aTitle, aBody, Page: "temperatures", Urgent: true) : null!,
+            "session" => NoticeWords.Session("Dota 2", 2 * 3600 + 14 * 60, 71, 68) is var (sTitle, sBody)
+                ? new(NoticeKind.Session, sTitle, sBody, activity.Path, "games") : null!,
             "crash" => new(NoticeKind.Crash, Wording.Title(CrashKind.AppCrash, "Dota 2"), CrashNotices.Sample, activity.Path, "crashes"),
-            _ => new(NoticeKind.Recap, Lang.T("Yesterday on your PC"),
-                string.Join("  ·  ", Lang.T($"Active {Units.Duration(6 * 3600 + 12 * 60)}"), $"Dota 2 {Units.Duration(3 * 3600 + 5 * 60)}",
-                    Lang.T($"CPU peak {Units.TempShort(78)}"), Lang.T($"GPU peak {Units.TempShort(72)}")) + ". " + Wording.FullPicture,
-                Page: "reports", Arg: "yesterday"),
+            _ => NoticeWords.Recap(DateTime.Today.AddDays(-1), DateTime.Today, 6 * 3600 + 12 * 60, "Dota 2", 3 * 3600 + 5 * 60, 78, 72) is var (rTitle, rBody)
+                ? new(NoticeKind.Recap, rTitle, rBody, Page: "reports", Arg: "yesterday") : null!,
         };
         _notices.Show(notice with { Title = Lang.T($"{notice.Title} (preview)") }, bypassQuiet: true);
     }
@@ -2459,11 +2444,11 @@ internal sealed class AgentContext : ApplicationContext
         var (title, body) = _overlay.RtssState switch
         {
             "running" => (Lang.T($"Restart {app} to see the overlay"),
-                Lang.T($"{app} was already open when RivaTuner started, so RivaTuner isn't drawing in it yet. Restart it and the overlay will show.")),
-            "stopped" => (Lang.T("The overlay can't show in fullscreen games"),
-                Lang.T("RivaTuner isn't running, and fullscreen games need it for the overlay. Start it from the Overlay page, then restart the game.")),
-            _ => (Lang.T("The overlay can't show in fullscreen games"),
-                Lang.T("Fullscreen games need RivaTuner Statistics Server (free) for the overlay. Install it from the Overlay page, then restart the game.")),
+                Lang.T("It was already open when RivaTuner started. Restart the game and the overlay will show.")),
+            "stopped" => (Lang.T("The overlay can't show in this game"),
+                Lang.T("Fullscreen games need RivaTuner, and it isn't running. Start it from the Overlay page, then restart the game.")),
+            _ => (Lang.T("The overlay can't show in this game"),
+                Lang.T("Fullscreen games need RivaTuner Statistics Server (free). Install it from the Overlay page, then restart the game.")),
         };
         _notices.Show(new Notice(NoticeKind.Overlay, title, body, _tracker.Activity.Path, "overlay"));
     }

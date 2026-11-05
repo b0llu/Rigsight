@@ -6,6 +6,93 @@ The shared words live in one place, `src/Rigsight.Core/Text/Wording.cs`. Use the
 
 No colon inside a line people read (since 0.35.0): lead with the fact, join with a comma, "with", "because" or "since", or make it two sentences. "2 graphics driver resets since driver 621.01, none in the 14 days before", not "Driver 621.01: more graphics problems: 2 graphics driver resets". Clock times, short label and value readouts in a chart's hover, and text only the AI reads keep theirs.
 
+## How RigSight writes
+
+Write as a knowledgeable person explaining something about someone's PC. Not a monitoring dashboard, a technical manual, a marketing department or an AI chatbot. Be natural, be precise, be useful, then stop writing.
+
+### 1. Like a human, not a manual
+
+Natural, conversational English. Nothing robotic, overly formal, generic or more technical than it needs to be.
+
+| Good | Not |
+|---|---|
+| Your connection was restored after 50 seconds of downtime. | Internet connectivity has successfully resumed following a network interruption lasting 50 seconds. |
+| Your Wi-Fi disconnected 3 times in the last 10 minutes. | Multiple wireless connectivity interruptions have been detected within the recent monitoring interval. |
+
+### 2. Short, but not robotic
+
+Shorter isn't automatically better; the goal is natural brevity, not the fewest words.
+
+- Remove unneeded words, not useful context.
+- Don't repeat what a title already said.
+- One well-written sentence beats several fragments.
+- Don't squeeze a sentence that reads better a little longer.
+- Never add filler to make a description feel complete.
+
+### 3. Lead with what matters
+
+Copy answers the most relevant of: what happened, what it means, why should I care, what (if anything) to do next. Not every line needs all four.
+
+In a notification the title says what happened; the description adds the most useful supporting fact.
+
+| Title | Good description | Not |
+|---|---|---|
+| Your internet is down | Your router is reachable, but there's no internet connection. | Your PC is still connected to your router, but no internet is coming through it. This is usually your internet provider. |
+
+The good one is direct and doesn't guess at the cause.
+
+### 4. Precise without overexplaining
+
+Accuracy matters more than sounding authoritative.
+
+- An observation is never turned into a diagnosis.
+- Correlation is never said as causation.
+- Consequences are never exaggerated.
+- No invented technical explanations or recommendations.
+- The right terms and units; measurements, thresholds and timeframes kept exactly.
+- What Windows reports, what RigSight observes and what RigSight infers are kept apart.
+
+| Good | Not |
+|---|---|
+| Cyberpunk 2077 runs 7°C hotter since driver 616.92, compared with the 10 days before the update. | Driver 616.92 is overheating your GPU. |
+| Your SSD has only 4% available spare capacity remaining. | Your SSD is almost out of storage. |
+
+The last pair are different technical conditions; never swap one for the other.
+
+### 5. Calm, not alarming
+
+RigSight should be trustworthy, not frightening. No "Your PC is in serious danger!", "This could destroy your hardware!", "Your fan is cooking your CPU!", "Your drive is about to die!", "You must fix this immediately!". Say the actual risk calmly: "A stopped CPU fan can cause temperatures to rise quickly." / "SSD failures can happen with little warning. Backing up your data helps protect against data loss." Urgent words only when the evidence really warrants them.
+
+### 6. No generic AI or marketing writing
+
+None of "It's important to note that…", "In order to ensure…", "Seamlessly monitor…", "Unlock powerful insights…", "Take control of your PC…", "Experience the next generation of…", "Leverage advanced capabilities…", "Comprehensive and actionable insights…", "Designed to empower users…". Simple words that say the actual benefit; ordinary features aren't made to sound revolutionary.
+
+### 7. Every notification earns its place
+
+- Urgent: genuinely serious situations only.
+- Important: meaningful changes.
+- Quiet: useful information that doesn't interrupt.
+- Nothing that only repeats what is already shown elsewhere.
+- Measurements, durations, comparisons and history when they add value; clarity over sounding interesting.
+
+The user should learn something useful every time RigSight interrupts them.
+
+### 8. One voice
+
+Knowledgeable but approachable, technical but understandable, confident but never overconfident, helpful but never preachy, informative but never verbose. The same terms, capitals, units and formatting everywhere (the table below).
+
+### 9. Review before it ships
+
+Read every new or changed line against these, and rewrite it if any answer is wrong:
+
+1. Would a real person naturally say this?
+2. Is the meaning clear at once?
+3. Can words go without losing anything useful?
+4. Does it repeat what the title or the screen around it already says?
+5. Is every technical claim backed by real data?
+6. Does it explain the problem without exaggerating it?
+7. Does it sound like RigSight, not generic AI-written software?
+
 ## The words
 
 | Idea | Say it like this | Not |
@@ -29,7 +116,8 @@ No colon inside a line people read (since 0.35.0): lead with the fact, join with
 | How long | **2h 35m**, **43m**, **40s** (`Units.Duration`). | "7 h 30 min", "43 min" |
 | The graphics part | **GPU** in labels and sentences. "graphics driver" stays. | "graphics card", "GPU driver" |
 | Internet amounts | **Internet** for amounts used: "Internet 66 GB". **Network** is only the page's name. | "network use", "data" |
-| Open the detail | **Click for the full picture.** on every notification. | "Click for the full breakdown." |
+| Open the detail | Nothing: a click on any notification opens its page, so no notification says so (the user, 2026-11-05). Only where the click does something people wouldn't expect: "Click to update.", "Click to watch it." | "Click for the full picture.", "Click for the full breakdown." |
+| A temperature in a notification | With its unit, in the one picked: **78°C**, **7°C hotter** (°F when picked). A notification is read away from the app, with nothing around it to say the unit. Pages keep **77°**. | "78°" in a notification |
 
 ## How sure is about the cause, never the event
 

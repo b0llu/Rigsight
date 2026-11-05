@@ -364,10 +364,13 @@ internal sealed class ReadingCard : Form
         if (draw)
         {
             bool hover = button.Contains(_mouse);
-            using var fill = new SolidBrush(hover ? Blend(_accent, DarkMenuRenderer.Bg, 0.85f) : _accent);
+            // The label's box in the button's own colour: drawn on the plain accent, it showed as a patch over the
+            // hovered (blended) button (the user, 2026-11-05).
+            var face = hover ? Blend(_accent, DarkMenuRenderer.Bg, 0.85f) : _accent;
+            using var fill = new SolidBrush(face);
             using var shape = Rounded(button, 8 * _s);
             g.FillPath(fill, shape);
-            TextRenderer.DrawText(g, sec.Button, bold, Rectangle.Round(button), _onAccent, _accent,
+            TextRenderer.DrawText(g, sec.Button, bold, Rectangle.Round(button), _onAccent, face,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
             _buttons.Add((button, sec.Page));
         }
