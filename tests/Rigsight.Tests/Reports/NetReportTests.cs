@@ -73,9 +73,11 @@ public sealed class NetReportTests : IDisposable
         var week = Build(range: ReportRange.Week);
         Assert.Equal(7, week.Bins.Count);
         Assert.Equal(3 * GB, week.Bins.Sum(b => b.Down));
+        // The last 12 months end with June: it's the last bar.
         var year = Build(range: ReportRange.Year);
         Assert.Equal(12, year.Bins.Count);
-        Assert.Equal(3 * GB, year.Bins[5].Down);
+        Assert.Equal(new DateTime(2025, 7, 1), year.Bins[0].Start);
+        Assert.Equal(3 * GB, year.Bins[11].Down);
     }
 
     [Fact]
@@ -276,8 +278,9 @@ public sealed class NetReportTests : IDisposable
         Assert.Equal([steam, chrome], day.Apps.Select(a => a.App));
         Assert.Equal(3 * GB, day.Background);
         Assert.Equal([chrome], week.Bins.Single(b => b.Start == Day.AddDays(-1)).Apps.Select(a => a.App));
-        Assert.Empty(week.Bins.Single(b => b.Start == Day.AddDays(1)).Apps);
-        var june = Build(range: ReportRange.Year).Bins[5];
+        // The last 7 days end on the day: nothing after it.
+        Assert.Equal(Day, week.Bins[^1].Start);
+        var june = Build(range: ReportRange.Year).Bins[11];
         Assert.Equal([steam, chrome], june.Apps.Select(a => a.App));
         Assert.Equal(3 * GB, june.Apps[0].Total);
         Assert.Equal(3 * GB, june.Apps[1].Total);

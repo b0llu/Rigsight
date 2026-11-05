@@ -48,7 +48,7 @@
             <!-- Header -->
             <DockPanel>
                 <Button Style="{StaticResource PageExportButton}" VerticalAlignment="Center" />
-                <ctl:PeriodPicker DockPanel.Dock="Right" VerticalAlignment="Center" AllowAll="False" BusyOnLeft="True"
+                <ctl:PeriodPicker DockPanel.Dock="Right" VerticalAlignment="Center" BusyOnLeft="True"
                                   IsBusy="{Binding IsLoading}" Unit="{Binding Range}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
                 <!-- How the period went, asked of the AI (hidden while it's off, or with nothing to show). -->

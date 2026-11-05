@@ -26,7 +26,9 @@ public sealed class ReportInvariantTests
             data.Add("small/Year/0");
             data.Add("small/All/0");
             data.Add("typical/Year/0");
-            data.Add("typical/Year/370");
+            // An earlier 12 months that the seed's year of history fills (370 days back, before 1.4.0's rolling year, was
+            // a calendar year reaching forward into the history; now it would end before it).
+            data.Add("typical/Year/35");
             data.Add("typical/All/0");
             return data;
         }
@@ -317,7 +319,7 @@ public sealed class ReportInvariantTests
 
     // ── Year and all-time come from the daily and monthly totals, but must say what adding up every minute says ──
 
-    public static TheoryData<string, string> LongCases => new() { { "typical", "Year/0" }, { "typical", "Year/370" }, { "typical", "All/0" }, { "small", "All/0" }, { "small", "Year/0" } };
+    public static TheoryData<string, string> LongCases => new() { { "typical", "Year/0" }, { "typical", "Year/35" }, { "typical", "All/0" }, { "small", "All/0" }, { "small", "Year/0" } };
 
     [Theory]
     [MemberData(nameof(LongCases))]
@@ -388,13 +390,13 @@ public sealed class ReportInvariantTests
         {
             double diff = report.ActiveSec - before.ActiveSec;
             if (Math.Abs(diff) < 15 * 60 || !before.HasData || before.ActiveSec == 0) { Assert.Null(line); return; }
-            Assert.Equal($"That's {Rigsight.Core.Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} screen time than the week before.", line?.Text);
+            Assert.Equal($"That's {Rigsight.Core.Units.Duration(Math.Abs(diff))} {(diff > 0 ? "more" : "less")} screen time than the 7 days before.", line?.Text);
             return;
         }
         // A month or year: a day at a time, over each one's own length.
         double perDay = report.ActiveSec / (report.To - report.From).TotalDays - before.ActiveSec / (before.To - before.From).TotalDays;
         if (Math.Abs(perDay) < 10 * 60 || !before.HasData || before.ActiveSec == 0) { Assert.Null(line); return; }
-        string than = kind == ReportRange.Year ? "the year before" : "the month before";
+        string than = kind == ReportRange.Year ? "the 12 months before" : "the 30 days before";
         Assert.Equal($"That's {Rigsight.Core.Units.Duration(Math.Abs(perDay))} a day {(perDay > 0 ? "more" : "less")} than {than}.", line?.Text);
     }
 
@@ -403,21 +405,20 @@ public sealed class ReportInvariantTests
         // range, anchor = now, expected previous from, expected previous to
         { "Day", "2025-03-12 15:30", "2025-03-12 15:30", "2025-03-11 00:00", "2025-03-11 15:30" },
         { "Day", "2025-03-01 00:10", "2025-03-01 00:10", "2025-02-28 00:00", "2025-02-28 00:10" },
-        { "Week", "2025-03-12 15:30", "2025-03-12 15:30", "2025-03-03 00:00", "2025-03-05 15:30" },
-        { "Month", "2025-03-12 15:30", "2025-03-12 15:30", "2025-02-01 00:00", "2025-02-12 15:30" },
-        // A month longer than the one before: the comparison stops at the end of February, not in March.
-        { "Month", "2025-03-31 12:00", "2025-03-31 12:00", "2025-02-01 00:00", "2025-03-01 00:00" },
-        { "Month", "2025-03-29 12:00", "2025-03-29 12:00", "2025-02-01 00:00", "2025-03-01 00:00" },
-        { "Month", "2024-03-30 12:00", "2024-03-30 12:00", "2024-02-01 00:00", "2024-03-01 00:00" },
-        { "Month", "2025-05-31 23:59", "2025-05-31 23:59", "2025-04-01 00:00", "2025-05-01 00:00" },
-        { "Year", "2025-03-12 15:30", "2025-03-12 15:30", "2024-01-01 00:00", "2024-03-12 00:00" }, // as many days (2024 had 29 February)
+        // The last 7 or 30 days, still going on: the 7 or 30 before, to the same hour.
+        { "Week", "2025-03-12 15:30", "2025-03-12 15:30", "2025-02-27 00:00", "2025-03-05 15:30" },
+        { "Month", "2025-03-12 15:30", "2025-03-12 15:30", "2025-01-12 00:00", "2025-02-10 15:30" },
+        // 30 days whatever the months: across February, and across 29 February.
+        { "Month", "2025-03-31 12:00", "2025-03-31 12:00", "2025-01-31 00:00", "2025-03-01 12:00" },
+        { "Month", "2024-03-30 12:00", "2024-03-30 12:00", "2024-01-31 00:00", "2024-02-29 12:00" },
+        { "Year", "2025-03-12 15:30", "2025-03-12 15:30", "2023-04-01 00:00", "2024-03-12 00:00" }, // as many days (2024 had 29 February)
         // The last day of a leap year: 366 days against 365.
         { "Year", "2024-12-31 18:00", "2024-12-31 18:00", "2023-01-01 00:00", "2024-01-01 00:00" },
         // Periods that are over compare with the whole period before.
         { "Day", "2025-03-10 12:00", "2025-03-12 15:30", "2025-03-09 00:00", "2025-03-10 00:00" },
-        { "Week", "2025-03-01 12:00", "2025-03-12 15:30", "2025-02-17 00:00", "2025-02-24 00:00" },
-        { "Month", "2025-02-10 12:00", "2025-03-12 15:30", "2025-01-01 00:00", "2025-02-01 00:00" },
-        { "Year", "2024-06-01 12:00", "2025-03-12 15:30", "2023-01-01 00:00", "2024-01-01 00:00" },
+        { "Week", "2025-03-01 12:00", "2025-03-12 15:30", "2025-02-16 00:00", "2025-02-23 00:00" },
+        { "Month", "2025-02-10 12:00", "2025-03-12 15:30", "2024-12-13 00:00", "2025-01-12 00:00" },
+        { "Year", "2024-06-01 12:00", "2025-03-12 15:30", "2022-07-01 00:00", "2023-07-01 00:00" },
     };
 
     [Theory]

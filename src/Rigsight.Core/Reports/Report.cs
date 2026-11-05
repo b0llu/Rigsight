@@ -393,7 +393,7 @@ public sealed class Report
 
     /// <summary>
     /// The AI button's words for this period, the question it asks by the period's own name (audit item 5, 2026-10-29):
-    /// "What stood out today?", "…last week?", "…in October?".
+    /// "What stood out today?", "…in the last 7 days?", "…in the 7 days to 29 Oct?".
     /// </summary>
     public string StoodOut
     {
@@ -406,13 +406,7 @@ public sealed class Report
                 ReportRange.Day when From.Date == today => Lang.T("What stood out today?"),
                 ReportRange.Day when From.Date == today.AddDays(-1) => Lang.T("What stood out yesterday?"),
                 ReportRange.Day => Lang.T($"What stood out on {From.ToString(TimeText.Fit("ddd d MMM"))}?"),
-                ReportRange.Week when now => Lang.T("What stood out this week?"),
-                ReportRange.Week when To.Date == today.AddDays(-(((int)today.DayOfWeek + 6) % 7)) => Lang.T("What stood out last week?"),
-                ReportRange.Week => Lang.T($"What stood out the week of {From:d MMM}?"),
-                ReportRange.Month when now => Lang.T("What stood out this month?"),
-                ReportRange.Month => Lang.T($"What stood out in {From.ToString(From.Year == today.Year ? "MMMM" : "MMMM yyyy")}?"),
-                ReportRange.Year when now => Lang.T("What stood out this year?"),
-                ReportRange.Year => Lang.T($"What stood out in {From.Year}?"),
+                ReportRange.Week or ReportRange.Month or ReportRange.Year when PeriodWords.Said(Range, From, today) is var when => Lang.T($"What stood out {when}?"),
                 ReportRange.All => Lang.T("What stood out over all this time?"),
                 _ => Lang.T("What stood out in this period?"),
             };
@@ -425,9 +419,7 @@ public sealed class Report
         ReportRange.Day when From.Date == DateTime.Today => Lang.T("Today"),
         ReportRange.Day when From.Date == DateTime.Today.AddDays(-1) => Lang.T("Yesterday"),
         ReportRange.Day => From.ToString("dddd, d MMMM"),
-        ReportRange.Week => Lang.T($"Week of {From:d MMM}"),
-        ReportRange.Year when From.Year == DateTime.Today.Year => Lang.T("This year"),
-        ReportRange.Year => From.Year.ToString(),
+        ReportRange.Week or ReportRange.Month or ReportRange.Year => PeriodWords.Label(Range, From, DateTime.Today),
         ReportRange.All => Lang.T("All time"),
         _ => From.ToString("MMMM yyyy"),
     };

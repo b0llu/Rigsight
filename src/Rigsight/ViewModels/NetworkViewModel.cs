@@ -579,7 +579,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     public bool IsZoomed => Zoomed is not null;
     public string ZoomText => Zoomed is { } z ? NetBarsChart.ZoomWords(z, Step) : "";
     /// <summary>The button back: "Whole day", "Whole week", "Whole month".</summary>
-    public string ResetText => Unit switch { ReportRange.Day => Lang.T("Whole day"), ReportRange.Week => Lang.T("Whole week"), _ => Lang.T("Whole month") };
+    public string ResetText => Unit switch { ReportRange.Day => Lang.T("Whole day"), ReportRange.Week => Lang.T("All 7 days"), _ => Lang.T("All 30 days") };
     partial void OnZoomedChanged(NetDropSpan? value) => FillApps();
 
     [RelayCommand]

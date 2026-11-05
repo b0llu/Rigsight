@@ -193,8 +193,9 @@ public partial class DatePager : UserControl
                 Margin = new Thickness(2),
                 Padding = new Thickness(0, 4, 0, 4),
             };
-            // The current year opens on today; an earlier one on its first day.
-            button.Click += (_, _) => Pick(y == today.Year ? today : new DateTime(y, 1, 1));
+            // The current year opens on the last 12 months; an earlier one on its January to December (a year
+            // is the 12 months ending with the picked day's month, see ReportBuilder.Bounds).
+            button.Click += (_, _) => Pick(y == today.Year ? today : new DateTime(y, 12, 31));
             YearGrid.Children.Add(button);
         }
     }

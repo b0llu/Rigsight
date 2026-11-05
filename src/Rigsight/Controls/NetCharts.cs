@@ -24,8 +24,12 @@ public abstract class NetChartBase : FanChartBase
     public Brush DownBrush { get => (Brush)GetValue(DownBrushProperty); set => SetValue(DownBrushProperty, value); }
     public Brush UpBrush { get => (Brush)GetValue(UpBrushProperty); set => SetValue(UpBrushProperty, value); }
 
-    /// <summary>A round top for the axis (four steps of 1, 2 or 5 times a power of ten, in Windows' MB / GB).</summary>
-    protected static double NiceTop(double max)
+    /// <summary>
+    /// A round top for the axis: four steps of a round size (15, 20, 25, 30, 40… in Windows' MB / GB), the smallest
+    /// that holds the highest. With steps of only 1, 2 or 5 times a power of ten an hour of 42 GB went on an axis of
+    /// 80 GB, half the graph empty above it (the user, 2026-11-05: "plotted way too big on y axis"); now 60 GB.
+    /// </summary>
+    internal static double NiceTop(double max)
     {
         if (max <= 0) return 4 << 20;
         double step = max / 4;
@@ -33,9 +37,11 @@ public abstract class NetChartBase : FanChartBase
         double v = step / unit;
         double p = Math.Pow(10, Math.Floor(Math.Log10(v)));
         double m = v / p;
-        double nice = (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+        double nice = Steps.First(s => m <= s + 1e-9) * p;
         return Math.Max(nice * unit, 1) * 4;
     }
+
+    private static readonly double[] Steps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
 
     /// <summary>The plot area, with a dashed grid and labels made by <paramref name="label"/>.</summary>
     protected Rect Grid(DrawingContext dc, double top, Func<double, string> label)
@@ -381,24 +387,21 @@ public sealed class NetBarsChart : NetChartBase
                 double x = plot.Left + i * slot + (slot - bar) / 2;
                 if (b.Total > 0)
                 {
-                    // One rounded bar, its pieces stacked inside it with a hairline of the card between them. With a bar
-                    // picked, the others step back.
-                    var whole = new Rect(x, Y(b.Total), bar, Math.Max(1, plot.Bottom - Y(b.Total)));
-                    var clip = new RectangleGeometry(whole, bar > 6 ? 2.5 : 1, bar > 6 ? 2.5 : 1);
-                    clip.Freeze();
-                    dc.PushClip(clip);
+                    // Each app's piece a rounded block of its own, a hairline of the card between them, as Reports' bars
+                    // draw them (the user, 2026-11-05: the same rounded pieces on every such graph). With a bar picked,
+                    // the others step back.
                     bool back = selected >= 0 && i != selected;
                     if (back) dc.PushOpacity(0.3);
-                    double from = 0;
+                    double from = 0, radius = bar > 6 ? 2.5 : 1;
                     foreach (var (brush, bytes) in Pieces(b))
                     {
                         if (bytes <= 0) continue;
                         double y1 = Y(from), y2 = Y(from + bytes), gap = from > 0 && y1 - y2 > 3 ? 1.5 : 0;
-                        dc.DrawRectangle(brush, null, new Rect(x, y2, bar, Math.Max(0.5, y1 - y2 - gap)));
+                        double tall = Math.Max(0.5, y1 - y2 - gap), r = Math.Min(radius, tall / 2);
+                        dc.DrawRoundedRectangle(brush, null, new Rect(x, y2, bar, tall), r, r);
                         from += bytes;
                     }
                     if (back) dc.Pop();
-                    dc.Pop();
                 }
                 // What Steam started downloading: a dot over the bar.
                 if (b.Steam.Count > 0) dc.DrawEllipse(Res("CpuBrush"), new Pen(Res("SurfaceBrush"), 1.5), new Point(x + bar / 2, Y(b.Total) - 7), 3.5, 3.5);

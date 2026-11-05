@@ -623,23 +623,23 @@ public sealed class PeriodWordsTests
 {
     private static readonly DateTime Today = new(2026, 10, 13); // a Tuesday
 
+    /// <summary>A period by its first day: the last 7 or 30 days end today or yesterday (Home's recaps), older ones say their last day.</summary>
     [Theory]
-    [InlineData(ReportRange.Day, 0, "today")]
-    [InlineData(ReportRange.Day, -1, "yesterday")]
-    [InlineData(ReportRange.Day, -2, "that day")]
-    [InlineData(ReportRange.Week, 0, "this week")]
-    [InlineData(ReportRange.Week, -1, "this week")]   // Monday of the same week
-    [InlineData(ReportRange.Week, -2, "last week")]   // Sunday before
-    [InlineData(ReportRange.Week, -9, "that week")]
-    [InlineData(ReportRange.Month, -12, "this month")]
-    [InlineData(ReportRange.Month, -13, "last month")]
-    [InlineData(ReportRange.Month, -60, "that month")]
-    [InlineData(ReportRange.Year, -200, "this year")]
-    [InlineData(ReportRange.Year, -300, "last year")]
-    [InlineData(ReportRange.Year, -700, "that year")]
-    [InlineData(ReportRange.Custom, -3, "in that time")]
-    public void In_a_recaps_sentence(ReportRange range, int daysAgo, string said) =>
-        Assert.Equal(said, PeriodWords.Said(range, Today.AddDays(daysAgo), Today));
+    [InlineData(ReportRange.Day, "2026-10-13", "today")]
+    [InlineData(ReportRange.Day, "2026-10-12", "yesterday")]
+    [InlineData(ReportRange.Day, "2026-10-11", "that day")]
+    [InlineData(ReportRange.Week, "2026-10-07", "in the last 7 days")]   // ends today
+    [InlineData(ReportRange.Week, "2026-10-06", "in the last 7 days")]   // ends yesterday, as Home's recap
+    [InlineData(ReportRange.Week, "2026-09-30", "in the 7 days to 6 Oct")]
+    [InlineData(ReportRange.Month, "2026-09-14", "in the last 30 days")]
+    [InlineData(ReportRange.Month, "2026-08-15", "in the 30 days to 13 Sep")]
+    [InlineData(ReportRange.Year, "2025-11-01", "in the last 12 months")] // ends with this month
+    [InlineData(ReportRange.Year, "2025-10-01", "in the last 12 months")] // ends with last month, as Home's recap
+    [InlineData(ReportRange.Year, "2025-01-01", "in 2025")]
+    [InlineData(ReportRange.Year, "2024-11-01", "from Nov 2024 to Oct 2025")]
+    [InlineData(ReportRange.Custom, "2026-10-10", "in that time")]
+    public void In_a_recaps_sentence(ReportRange range, string from, string said) =>
+        Assert.Equal(said, PeriodWords.Said(range, DateTime.Parse(from, System.Globalization.CultureInfo.InvariantCulture), Today));
 
     [Fact]
     public void A_net_line_about_yesterday_says_yesterday()

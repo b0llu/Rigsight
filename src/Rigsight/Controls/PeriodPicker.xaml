@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              x:Name="Root">
-    <!-- [Day · Week · Month · Year · All time · Custom]  ‹ This month ▾ ›   The same on every page that looks back in time. -->
+    <!-- [Day · Week · Month · Year · Custom]  ‹ Last 30 days ▾ ›   The same on every page that looks back in time. More than
+         12 months is a custom range (All time was taken out, the user, 2026-11-05). -->
     <StackPanel x:Name="Bar" Orientation="Horizontal" VerticalAlignment="Center">
         <Border Style="{StaticResource SegmentHost}">
             <StackPanel x:Name="UnitButtons" Orientation="Horizontal">
@@ -11,7 +12,6 @@
                 <RadioButton Style="{StaticResource Segment}" Content="{ctl:T Week}" Tag="Week" Checked="Unit_Checked" />
                 <RadioButton Style="{StaticResource Segment}" Content="{ctl:T Month}" Tag="Month" Checked="Unit_Checked" />
                 <RadioButton Style="{StaticResource Segment}" Content="{ctl:T Year}" Tag="Year" Checked="Unit_Checked" />
-                <RadioButton x:Name="AllButton" Style="{StaticResource Segment}" Content="{ctl:T 'All time'}" Tag="All" Checked="Unit_Checked" />
                 <RadioButton x:Name="CustomButton" Style="{StaticResource Segment}" Content="{ctl:T Custom}" Tag="Custom" Checked="Unit_Checked" />
             </StackPanel>
         </Border>

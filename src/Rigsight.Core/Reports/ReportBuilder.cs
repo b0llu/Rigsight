@@ -6,45 +6,50 @@ namespace Rigsight.Core.Reports;
 
 public static class ReportBuilder
 {
+    /// <summary>
+    /// A period's start and end. A week, a month and a year are the time just gone, not the calendar's (since 1.4.0):
+    /// the 7 or 30 days ending on <paramref name="anchor"/>, and the 12 months ending with the anchor's month (whole
+    /// months, so each bar is one). On a Thursday "This week" was 4 days and "This month" barely more on the 5th, and
+    /// people read them as broken (issue #8, 2026-11-05); the Temperatures graph already counted this way.
+    /// </summary>
+    /// <param name="anchor">A day or a custom range: any day in it. A week or month: its last day. A year: a day of its last month.</param>
     public static (DateTime From, DateTime To) Bounds(ReportRange range, DateTime anchor)
     {
         var day = anchor.Date;
+        var month = new DateTime(day.Year, day.Month, 1);
         return range switch
         {
             ReportRange.Day => (day, day.AddDays(1)),
-            ReportRange.Week => WeekOf(day),
-            ReportRange.Year => (new DateTime(day.Year, 1, 1), new DateTime(day.Year + 1, 1, 1)),
+            ReportRange.Week => (day.AddDays(1 - WeekDays), day.AddDays(1)),
+            ReportRange.Year => (month.AddMonths(-11), month.AddMonths(1)),
             // Everything: callers show it from the first recorded day.
             ReportRange.All => (new DateTime(2000, 1, 1), DateTime.Today.AddDays(1)),
             // A custom range has its own start and end (see BuildCustom); on its own, its first day.
             ReportRange.Custom => (day, day.AddDays(1)),
-            _ => (new DateTime(day.Year, day.Month, 1), new DateTime(day.Year, day.Month, 1).AddMonths(1)),
+            _ => (day.AddDays(1 - MonthDays), day.AddDays(1)),
         };
-
-        static (DateTime, DateTime) WeekOf(DateTime d)
-        {
-            int offset = ((int)d.DayOfWeek + 6) % 7; // Monday-based weeks
-            var start = d.AddDays(-offset);
-            return (start, start.AddDays(7));
-        }
     }
 
+    /// <summary>How many days a week and a month are (see <see cref="Bounds"/>).</summary>
+    public const int WeekDays = 7, MonthDays = 30;
+
+    /// <summary>The period just before, of the same length: the 7 days before, the 30 days before, the 12 months before.</summary>
     public static DateTime Previous(ReportRange range, DateTime anchor) => range switch
     {
         ReportRange.Day => anchor.AddDays(-1),
-        ReportRange.Week => anchor.AddDays(-7),
+        ReportRange.Week => anchor.AddDays(-WeekDays),
         ReportRange.Year => anchor.AddYears(-1),
         ReportRange.All => anchor,
-        _ => anchor.AddMonths(-1),
+        _ => anchor.AddDays(-MonthDays),
     };
 
     public static DateTime Next(ReportRange range, DateTime anchor) => range switch
     {
         ReportRange.Day => anchor.AddDays(1),
-        ReportRange.Week => anchor.AddDays(7),
+        ReportRange.Week => anchor.AddDays(WeekDays),
         ReportRange.Year => anchor.AddYears(1),
         ReportRange.All => anchor,
-        _ => anchor.AddMonths(1),
+        _ => anchor.AddDays(MonthDays),
     };
 
     /// <summary>

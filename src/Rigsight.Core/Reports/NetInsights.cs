@@ -113,12 +113,10 @@ public static class NetInsights
                 {
                     (ReportRange.Day, true) => Lang.T("yesterday by now"),
                     (ReportRange.Day, false) => Lang.T("the day before"),
-                    (ReportRange.Week, true) => Lang.T("last week by now"),
-                    (ReportRange.Week, false) => Lang.T("the week before"),
-                    (ReportRange.Month, true) => Lang.T("last month by now"),
-                    (ReportRange.Month, false) => Lang.T("the month before"),
-                    (_, true) => Lang.T("last year by now"),
-                    _ => Lang.T("the year before"),
+                    // The ones before are as long (to the same hour, while these are still going on).
+                    (ReportRange.Week, _) => Lang.T("the 7 days before"),
+                    (ReportRange.Month, _) => Lang.T("the 30 days before"),
+                    _ => Lang.T("the 12 months before"),
                 };
                 double less = (1 - ratio) * 100;
                 against = ratio >= 1.25 ? Lang.T($", {ratio:0.0}× {last}") : ratio <= 0.8 ? Lang.T($", {less:0}% less than {last}") : Lang.T($", about the same as {last}");

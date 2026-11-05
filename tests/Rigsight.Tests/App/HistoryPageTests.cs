@@ -236,11 +236,13 @@ public sealed class HistoryPageTests
 
     [Theory]
     [InlineData("2026-09-28", null, "Yesterday")]
-    [InlineData("2026-09-28", "2026-09-27", "Yesterday, LastWeek")]                 // a day into last week is enough
-    [InlineData("2026-09-28", "2026-09-21", "Yesterday, LastWeek")]                 // last week's Monday
-    [InlineData("2026-09-28", "2026-08-31", "Yesterday, LastWeek, LastMonth")]      // a day of August
+    // Each once history reaches back past the shorter one: with history from yesterday, the last 7 days are yesterday.
+    [InlineData("2026-09-28", "2026-09-27", "Yesterday")]
+    [InlineData("2026-09-26", "2026-09-21", "Yesterday, LastWeek")]                 // a day before yesterday is enough
+    [InlineData("2026-09-28", "2026-09-21", "Yesterday, LastWeek")]                 // the last 7 days' first day: the 30 add nothing
+    [InlineData("2026-09-28", "2026-08-31", "Yesterday, LastWeek, LastMonth")]
     [InlineData("2026-09-28", "2025-12-31", "Yesterday, LastWeek, LastMonth, LastYear")]
-    [InlineData("2026-09-01", "2026-08-30", "Yesterday, LastWeek, LastMonth")]      // the 1st: last month is whole
+    [InlineData("2026-09-01", "2026-08-30", "Yesterday, LastWeek")]
     [InlineData("2026-01-01", "2025-06-01", "Yesterday, LastWeek, LastMonth, LastYear")]
     public void The_periods_offered_follow_when_history_starts(string todayText, string? firstText, string expected)
     {
@@ -251,10 +253,10 @@ public sealed class HistoryPageTests
 
     [Theory]
     // Issue #7: a recap says which days it covers, and from when when the history starts inside it.
-    [InlineData("2026-11-05", "LastMonth", "2026-10-28", "October · recorded since 28 Oct")]
-    [InlineData("2026-11-05", "LastMonth", "2026-09-01", "October")]
-    [InlineData("2026-01-10", "LastMonth", null, "December 2025")]
-    [InlineData("2026-03-10", "LastYear", "2025-06-01", "2025 · recorded since 1 Jun")]
+    [InlineData("2026-11-05", "LastMonth", "2026-10-28", "6 Oct – 4 Nov · recorded since 28 Oct")]
+    [InlineData("2026-11-05", "LastMonth", "2026-09-01", "6 Oct – 4 Nov")]
+    [InlineData("2026-01-10", "LastMonth", null, "11 Dec 2025 – 9 Jan 2026")]
+    [InlineData("2026-03-10", "LastYear", "2025-06-01", "Mar 2025 – Feb 2026 · recorded since 1 Jun")]
     public void A_recap_says_which_days_it_covers(string todayText, string period, string? firstText, string expected)
     {
         DateTime? first = firstText is null ? null : DateTime.Parse(firstText);
@@ -271,16 +273,14 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
-    public void Last_weeks_recap_names_its_first_and_last_day_as_the_week_runs_here()
+    public void The_last_7_days_recap_names_its_first_and_last_day()
     {
-        // The week starts on the day this PC's settings say (Sunday or Monday): the dates follow it.
+        // The 7 whole days before today, Thursday to Wednesday.
         var today = new DateTime(2026, 11, 5);
-        var (from, to) = Rigsight.Core.Reports.ReportBuilder.Bounds(Rigsight.Core.Reports.ReportRange.Week, today.AddDays(-7));
-        var last = to.AddDays(-1);
-        string days = from.Month == last.Month ? $"{from:%d} – {last:d MMM}" : $"{from:d MMM} – {last:d MMM}";
-        Assert.Equal(days, HomeViewModel.DaysOf(RecapPeriod.LastWeek, today, null));
-        Assert.Equal($"{days} · recorded since {from.AddDays(2):d MMM}", HomeViewModel.DaysOf(RecapPeriod.LastWeek, today, from.AddDays(2)));
-        Assert.Equal(days, HomeViewModel.DaysOf(RecapPeriod.LastWeek, today, from)); // history from its first day: whole
+        var from = new DateTime(2026, 10, 29);
+        Assert.Equal("29 Oct – 4 Nov", HomeViewModel.DaysOf(RecapPeriod.LastWeek, today, null));
+        Assert.Equal("29 Oct – 4 Nov · recorded since 31 Oct", HomeViewModel.DaysOf(RecapPeriod.LastWeek, today, from.AddDays(2)));
+        Assert.Equal("29 Oct – 4 Nov", HomeViewModel.DaysOf(RecapPeriod.LastWeek, today, from)); // history from its first day: whole
     }
 
     [Fact]
@@ -310,7 +310,7 @@ public sealed class HistoryPageTests
             // The week, month and year recaps are whole periods either way.
             home.Periods = [RecapPeriod.Yesterday, RecapPeriod.LastWeek];
             home.Period = RecapPeriod.LastWeek;
-            Assert.Equal(("Last week", "last-week", null), (home.RecapTitle, home.RecapArg, home.RecapNote));
+            Assert.Equal(("Last 7 days", "last-week", null), (home.RecapTitle, home.RecapArg, home.RecapNote));
         });
     }
 
@@ -337,9 +337,10 @@ public sealed class HistoryPageTests
         var (range, anchor) = HomeViewModel.Bounds(RecapPeriod.LastWeek, today);
         Assert.Equal((new DateTime(2026, 9, 21), new DateTime(2026, 9, 28)), ReportBuilder.Bounds(range, anchor));
         (range, anchor) = HomeViewModel.Bounds(RecapPeriod.LastMonth, today);
-        Assert.Equal((new DateTime(2026, 8, 1), new DateTime(2026, 9, 1)), ReportBuilder.Bounds(range, anchor));
+        Assert.Equal((new DateTime(2026, 8, 29), new DateTime(2026, 9, 28)), ReportBuilder.Bounds(range, anchor));
+        // The 12 whole months before this one.
         (range, anchor) = HomeViewModel.Bounds(RecapPeriod.LastYear, today);
-        Assert.Equal((new DateTime(2025, 1, 1), new DateTime(2026, 1, 1)), ReportBuilder.Bounds(range, anchor));
+        Assert.Equal((new DateTime(2025, 9, 1), new DateTime(2026, 9, 1)), ReportBuilder.Bounds(range, anchor));
     }
 
     [Fact]
@@ -361,8 +362,9 @@ public sealed class HistoryPageTests
         Ui.Run(() =>
         {
             Assert.False(home.RecapLoading);
-            Assert.Equal(("Last week", "last-week", true), (home.RecapTitle, home.RecapArg, home.IsLastWeek));
-            Assert.Equal(ReportBuilder.Bounds(ReportRange.Week, DateTime.Today.AddDays(-7)).From, home.Recap!.From);
+            Assert.Equal(("Last 7 days", "last-week", true), (home.RecapTitle, home.RecapArg, home.IsLastWeek));
+            Assert.Equal(DateTime.Today.AddDays(-7), home.Recap!.From);
+            Assert.Equal(DateTime.Today, home.Recap.To);
             Assert.True(home.RecapHasData);
         });
         var week = Ui.Run(() => home.Recap);
@@ -483,9 +485,9 @@ public sealed class HistoryPageTests
             Assert.True(vm.HasData);
             Assert.Equal(ReportsViewModel.PeriodText(range, DateTime.Today), range switch
             {
-                ReportRange.Week => "This week",
-                ReportRange.Month => "This month",
-                _ => "This year",
+                ReportRange.Week => "Last 7 days",
+                ReportRange.Month => "Last 30 days",
+                _ => "Last 12 months",
             });
         });
     }
@@ -568,9 +570,9 @@ public sealed class HistoryPageTests
         Ui.Run(() =>
         {
             var note = vm.CoverageNote;
-            // (Early in January the year is no longer than the history: nothing to explain.)
-            if (DateTime.Today.DayOfYear <= ((int)(DateTime.Today - vm.FirstDay!.Value).TotalDays + 1)) Assert.Null(note);
-            else Assert.Equal($"History starts on {vm.FirstDay:d MMMM}, so this year has {((int)(DateTime.Today - vm.FirstDay!.Value).TotalDays + 1)} days of data.", note);
+            // (A history older than the 12 months has nothing to explain.)
+            if (vm.FirstDay!.Value <= vm.Report!.From) Assert.Null(note);
+            else Assert.Equal($"History starts on {vm.FirstDay:d MMMM}, so these 12 months have {((int)(DateTime.Today - vm.FirstDay!.Value).TotalDays + 1)} days of data.", note);
         });
     }
 
@@ -756,7 +758,7 @@ public sealed class HistoryPageTests
     {
         var (vm, _) = Apps();
         Ui.Run(() => vm.Unit = ReportRange.Week);
-        Loaded(vm, () => vm.Summary.EndsWith(" this week") && vm.Apps.Count > 0);
+        Loaded(vm, () => vm.Summary.EndsWith(" in the last 7 days") && vm.Apps.Count > 0);
         Ui.Run(() =>
         {
             Assert.Equal(ReportRange.Week, vm.Unit);
@@ -773,7 +775,7 @@ public sealed class HistoryPageTests
             Assert.Same(vm.Apps[0].Stat, vm.Selected);
             Assert.True(vm.HasSelection);
             Assert.Equal("Active time per day", vm.ChartTitle);
-            Assert.EndsWith(" this week", vm.Summary);
+            Assert.EndsWith(" in the last 7 days", vm.Summary);
             Assert.NotNull(vm.FirstDay);
         });
         Loaded(vm, () => vm.SelectedChart is { Count: 7 });
@@ -962,7 +964,7 @@ public sealed class HistoryPageTests
         Loaded(vm, () => !vm.IncludesToday);
         Ui.Run(() =>
         {
-            Assert.EndsWith(" last week", vm.Summary);
+            Assert.EndsWith($" in the 7 days to {DateTime.Today.AddDays(-7):d MMM}", vm.Summary);
             Assert.NotEmpty(vm.RangeNote);
         });
     }

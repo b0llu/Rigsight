@@ -418,7 +418,7 @@ public sealed class FansPageTests
         Ui.Run(() =>
         {
             Assert.False(vm.IsDay);
-            Assert.Equal("THIS WEEK", vm.PeriodCaption);
+            Assert.Equal("LAST 7 DAYS", vm.PeriodCaption);
             var days = vm.Fans[0].Detail!.Days;
             Assert.Equal(7, days.Count); // a bar a day
             Assert.Contains(days, d => d.Average is not null); // the seeded fans spun yesterday and today
@@ -428,7 +428,9 @@ public sealed class FansPageTests
         Kit.Wait(vm.RefreshAsync);
         Ui.Run(() =>
         {
-            Assert.Equal("LAST WEEK", vm.PeriodCaption);
+            // The 7 days before, by their dates.
+            Assert.Equal(PeriodWords.Label(ReportRange.Week, DateTime.Today.AddDays(-13), DateTime.Today).ToUpperInvariant(), vm.PeriodCaption);
+            Assert.Contains("–", vm.PeriodCaption);
             Assert.All(vm.Fans[0].Detail!.Days, d => Assert.True(d.Day < ReportBuilder.Bounds(ReportRange.Week, DateTime.Today).From));
         });
     }
@@ -445,9 +447,10 @@ public sealed class FansPageTests
             var gpu = vm.Fans[0].Detail!;
             Assert.True(gpu.Monthly);
             Assert.Equal(12, gpu.Days.Count); // a bar a month
-            Assert.Equal(new DateTime(DateTime.Today.Year, 1, 1), gpu.Days[0].Day);
+            // The last 12 months: the 11 before this one, and this one.
+            Assert.Equal(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-11), gpu.Days[0].Day);
             Assert.Contains(gpu.Days, d => d.Average is not null); // this month's (seeded yesterday and today)
-            Assert.Equal(("Average", "Across the year's days"), (gpu.StillLabel, gpu.StillNote));
+            Assert.Equal(("Average", "Across every day of the 12 months"), (gpu.StillLabel, gpu.StillNote));
             Assert.Equal("SPEED AT EACH GPU TEMPERATURE · IN GAMES", gpu.CurveTitle);
             Assert.Equal("AVERAGE SPEED", vm.QuietLabel);
             if (vm.LoudestHour is not null) Assert.Equal("Loudest month", vm.LoudestLabel);

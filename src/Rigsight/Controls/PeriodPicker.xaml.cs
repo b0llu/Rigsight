@@ -8,9 +8,10 @@ using Rigsight.Core.Reports;
 namespace Rigsight.Controls;
 
 /// <summary>
-/// The period a page looks at: a day, a Monday-to-Sunday week, a month, a year, all time, or a custom range (from a
-/// date and hour to another). The arrows step to the period before or after (a custom range by its own length), and the
-/// label opens the matching picker (a calendar for a day or week, a month grid, a year list, the range editor).
+/// The period a page looks at: a day, the last 7 or 30 days, the last 12 months, all time, or a custom range (from a
+/// date and hour to another). The arrows step to the period before or after, as long (a custom range by its own
+/// length), and the label opens the matching picker (a calendar for a day, or for the last day of the 7 or 30, a year
+/// list, the range editor). See <see cref="ReportBuilder.Bounds"/> for why they're the time just gone.
 /// Reports, Apps and Crashes all use it, so a period means the same thing everywhere.
 /// </summary>
 public partial class PeriodPicker : UserControl
@@ -116,15 +117,12 @@ public partial class PeriodPicker : UserControl
     public static readonly DependencyProperty MinDateProperty =
         DependencyProperty.Register(nameof(MinDate), typeof(DateTime?), typeof(PeriodPicker), new PropertyMetadata(null, (d, _) => ((PeriodPicker)d).Refresh()));
 
-    /// <summary>Whether "All time" is offered (Reports leaves it out).</summary>
     /// <summary>Off: no custom range (a page that reads a period's days or months, not any span of hours).</summary>
     public static readonly DependencyProperty AllowCustomProperty =
         DependencyProperty.Register(nameof(AllowCustom), typeof(bool), typeof(PeriodPicker), new PropertyMetadata(true, (d, _) => ((PeriodPicker)d).Refresh()));
 
     public bool AllowCustom { get => (bool)GetValue(AllowCustomProperty); set => SetValue(AllowCustomProperty, value); }
 
-    public static readonly DependencyProperty AllowAllProperty =
-        DependencyProperty.Register(nameof(AllowAll), typeof(bool), typeof(PeriodPicker), new PropertyMetadata(true, (d, _) => ((PeriodPicker)d).Refresh()));
 
     /// <summary>Start of a custom range (whole hours).</summary>
     public static readonly DependencyProperty CustomFromProperty =
@@ -142,7 +140,6 @@ public partial class PeriodPicker : UserControl
     public ReportRange Unit { get => (ReportRange)GetValue(UnitProperty); set => SetValue(UnitProperty, value); }
     public DateTime Anchor { get => (DateTime)GetValue(AnchorProperty); set => SetValue(AnchorProperty, value); }
     public DateTime? MinDate { get => (DateTime?)GetValue(MinDateProperty); set => SetValue(MinDateProperty, value); }
-    public bool AllowAll { get => (bool)GetValue(AllowAllProperty); set => SetValue(AllowAllProperty, value); }
 
     /// <summary>A period's start and end: a custom range's own, or the unit's around <paramref name="anchor"/>.</summary>
     public static (DateTime From, DateTime To) Bounds(ReportRange unit, DateTime anchor, DateTime customFrom, DateTime customTo) =>
@@ -158,73 +155,29 @@ public partial class PeriodPicker : UserControl
 
     /// <summary>
     /// The period as it reads after a statement ("No crashes …", "Nothing recorded …"): by its own name where it has
-    /// one ("today", "yesterday", "this week", "last month"), else by its dates ("on Fri, 9 Oct", "in the week of
-    /// 5–11 Oct", "in August 2026", "in 2025"); "on record" for all time. Never "on this day" or "in this period" for
-    /// a period the app can name. A custom range, which has no name, is "in this time".
+    /// one ("today", "yesterday", "in the last 7 days"), else by its dates ("on Fri, 9 Oct", "in the 7 days to 29 Oct",
+    /// "in 2025"); "on record" for all time. Never "on this day" or "in this period" for a period the app can name. A
+    /// custom range, which has no name, is "in this time". A week, month or year reads as everywhere else (<see cref="PeriodWords.Said"/>).
     /// </summary>
     public static string Words(ReportRange unit, DateTime anchor)
     {
         if (unit == ReportRange.All) return Lang.T("on record");
         if (unit == ReportRange.Custom) return Lang.T("in this time");
-        switch (Named(unit, anchor))
-        {
-            case PeriodName.Today: return Lang.T("today");
-            case PeriodName.Yesterday: return Lang.T("yesterday");
-            case PeriodName.ThisWeek: return Lang.T("this week");
-            case PeriodName.LastWeek: return Lang.T("last week");
-            case PeriodName.ThisMonth: return Lang.T("this month");
-            case PeriodName.LastMonth: return Lang.T("last month");
-            case PeriodName.ThisYear: return Lang.T("this year");
-            case PeriodName.LastYear: return Lang.T("last year");
-        }
-        string label = Text(unit, anchor);
-        return unit switch { ReportRange.Day => Lang.T($"on {label}"), ReportRange.Week => Lang.T($"in the week of {label}"), _ => Lang.T($"in {label}") };
-    }
-
-    private enum PeriodName { None, Today, Yesterday, ThisWeek, LastWeek, ThisMonth, LastMonth, ThisYear, LastYear }
-
-    /// <summary>The period's own name, where it has one (the one in progress, or the one before it).</summary>
-    private static PeriodName Named(ReportRange unit, DateTime anchor)
-    {
-        if (unit == ReportRange.All) return PeriodName.None;
         var (from, _) = ReportBuilder.Bounds(unit, anchor);
-        var (thisFrom, _) = ReportBuilder.Bounds(unit, DateTime.Today);
-        var (lastFrom, _) = ReportBuilder.Bounds(unit, ReportBuilder.Previous(unit, DateTime.Today));
-        bool now = from == thisFrom, before = from == lastFrom;
-        return unit switch
-        {
-            ReportRange.Day => now ? PeriodName.Today : before ? PeriodName.Yesterday : PeriodName.None,
-            ReportRange.Week => now ? PeriodName.ThisWeek : before ? PeriodName.LastWeek : PeriodName.None,
-            ReportRange.Year => now ? PeriodName.ThisYear : before ? PeriodName.LastYear : PeriodName.None,
-            _ => now ? PeriodName.ThisMonth : before ? PeriodName.LastMonth : PeriodName.None,
-        };
+        if (unit != ReportRange.Day) return PeriodWords.Said(unit, from);
+        var today = DateTime.Today;
+        return from == today ? Lang.T("today") : from == today.AddDays(-1) ? Lang.T("yesterday") : Lang.T($"on {Text(unit, anchor)}");
     }
 
-    /// <summary>The period in words: "Today", "Last week", "August 2026", "2025", "All time".</summary>
+    /// <summary>The period in words: "Today", "Yesterday", "Last 7 days", "23–29 Oct", "Dec 2024 – Nov 2025", "2025", "All time".</summary>
     public static string Text(ReportRange unit, DateTime anchor)
     {
         if (unit == ReportRange.All) return Lang.T("All time");
-        var (from, to) = ReportBuilder.Bounds(unit, anchor);
-        return Named(unit, anchor) switch
-        {
-            PeriodName.Today => Lang.T("Today"),
-            PeriodName.Yesterday => Lang.T("Yesterday"),
-            PeriodName.ThisWeek => Lang.T("This week"),
-            PeriodName.LastWeek => Lang.T("Last week"),
-            PeriodName.ThisMonth => Lang.T("This month"),
-            PeriodName.LastMonth => Lang.T("Last month"),
-            PeriodName.ThisYear => Lang.T("This year"),
-            PeriodName.LastYear => Lang.T("Last year"),
-            _ => unit switch
-            {
-                ReportRange.Day => from.Year == DateTime.Today.Year ? from.ToString("ddd, d MMM") : from.ToString("d MMM yyyy"),
-                ReportRange.Week => (from.Month == to.AddDays(-1).Month
-                    ? $"{from:%d}–{to.AddDays(-1):d MMM}"
-                    : $"{from:d MMM} – {to.AddDays(-1):d MMM}") + (from.Year == DateTime.Today.Year ? "" : $" {to.AddDays(-1):yyyy}"),
-                ReportRange.Year => from.Year.ToString(),
-                _ => from.ToString("MMMM yyyy"),
-            },
-        };
+        var (from, _) = ReportBuilder.Bounds(unit, anchor);
+        if (unit != ReportRange.Day) return PeriodWords.Label(unit, from, DateTime.Today);
+        var today = DateTime.Today;
+        return from == today ? Lang.T("Today") : from == today.AddDays(-1) ? Lang.T("Yesterday")
+            : from.Year == today.Year ? from.ToString("ddd, d MMM") : from.ToString("d MMM yyyy");
     }
 
     /// <summary>The dates a period covers, for a subtitle: "1 Jan – 31 Dec 2025"; a period in progress ends today.</summary>
@@ -259,7 +212,6 @@ public partial class PeriodPicker : UserControl
         _refreshing = true;
         try
         {
-            AllButton.Visibility = AllowAll ? Visibility.Visible : Visibility.Collapsed;
             CustomButton.Visibility = AllowCustom ? Visibility.Visible : Visibility.Collapsed;
             foreach (RadioButton button in UnitButtons.Children)
                 button.IsChecked = (string)button.Tag == Unit.ToString();
@@ -275,8 +227,10 @@ public partial class PeriodPicker : UserControl
             }
             Pager.LabelCommand = null;
             Pager.Label = Text(Unit, Anchor);
-            Pager.PickMonth = Unit == ReportRange.Month;
+            // The last 7 or 30 days end on the day picked in the calendar; a year is picked from a list.
+            Pager.PickMonth = false;
             Pager.PickYear = Unit == ReportRange.Year;
+            Pager.LabelText = Unit is ReportRange.Week or ReportRange.Month ? Lang.T("Pick the last day") : Lang.T("Pick a date");
             var (from, to) = ReportBuilder.Bounds(Unit, Anchor);
             Pager.CanGoPrevious = MinDate is not { } first || from > first;
             Pager.CanGoNext = to <= DateTime.Today;

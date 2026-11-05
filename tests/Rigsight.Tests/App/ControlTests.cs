@@ -1235,11 +1235,9 @@ public sealed class ControlTests
     [Theory]
     [InlineData(ReportRange.Day, 0, "Today")]
     [InlineData(ReportRange.Day, -1, "Yesterday")]
-    [InlineData(ReportRange.Week, 0, "This week")]
-    [InlineData(ReportRange.Week, -7, "Last week")]
-    [InlineData(ReportRange.Month, 0, "This month")]
-    [InlineData(ReportRange.Year, 0, "This year")]
-    [InlineData(ReportRange.Year, -366, "Last year")]
+    [InlineData(ReportRange.Week, 0, "Last 7 days")]
+    [InlineData(ReportRange.Month, 0, "Last 30 days")]
+    [InlineData(ReportRange.Year, 0, "Last 12 months")]
     [InlineData(ReportRange.All, -500, "All time")]
     public void Periods_in_words(ReportRange unit, int daysAgo, string text) =>
         Assert.Equal(text, PeriodPicker.Text(unit, DateTime.Today.AddDays(daysAgo)));
@@ -1250,13 +1248,15 @@ public sealed class ControlTests
         var today = DateTime.Today;
         var old = today.AddYears(-2);
         Assert.Equal(old.ToString("d MMM yyyy"), PeriodPicker.Text(ReportRange.Day, old));
-        Assert.Equal(old.ToString("MMMM yyyy"), PeriodPicker.Text(ReportRange.Month, old));
-        Assert.Equal(old.Year.ToString(), PeriodPicker.Text(ReportRange.Year, old));
-        Assert.Equal("Last month", PeriodPicker.Text(ReportRange.Month, today.AddMonths(-1)));
-        // Weeks run Monday to Sunday: within one month, and across two.
-        Assert.Equal("6–12 Jan 2020", PeriodPicker.Text(ReportRange.Week, new DateTime(2020, 1, 8)));
-        Assert.Equal("28 Sep – 4 Oct 2020", PeriodPicker.Text(ReportRange.Week, new DateTime(2020, 9, 30)));
+        // The 7 or 30 days before the latest have no name: their dates (the last 7 days end on the day given).
+        Assert.Contains("–", PeriodPicker.Text(ReportRange.Week, today.AddDays(-7)));
+        Assert.Equal("2–8 Jan 2020", PeriodPicker.Text(ReportRange.Week, new DateTime(2020, 1, 8)));
         Assert.Equal("28 Sep – 4 Oct 2020", PeriodPicker.Text(ReportRange.Week, new DateTime(2020, 10, 4)));
+        Assert.Equal("26 Dec 2020 – 1 Jan 2021", PeriodPicker.Text(ReportRange.Week, new DateTime(2021, 1, 1)));
+        Assert.Equal("15 Feb – 15 Mar 2020", PeriodPicker.Text(ReportRange.Month, new DateTime(2020, 3, 15)));
+        // A year: the 12 months ending with the day's month; January to December by its number.
+        Assert.Equal("Jul 2019 – Jun 2020", PeriodPicker.Text(ReportRange.Year, new DateTime(2020, 6, 1)));
+        Assert.Equal("2020", PeriodPicker.Text(ReportRange.Year, new DateTime(2020, 12, 31)));
     }
 
     [Fact]
@@ -1264,9 +1264,9 @@ public sealed class ControlTests
     {
         var today = DateTime.Today;
         Assert.Equal(today.ToString("dddd, d MMMM yyyy"), PeriodPicker.Span(ReportRange.Day, today));
-        Assert.Equal("1 Jan – 31 Dec 2025", PeriodPicker.Span(ReportRange.Year, new DateTime(2025, 6, 1)));
-        Assert.Equal("1 Dec – 31 Dec 2024", PeriodPicker.Span(ReportRange.Month, new DateTime(2024, 12, 5)));
-        Assert.Equal("28 Dec 2020 – 3 Jan 2021", PeriodPicker.Span(ReportRange.Week, new DateTime(2021, 1, 1)));
+        Assert.Equal("1 Jul 2024 – 30 Jun 2025", PeriodPicker.Span(ReportRange.Year, new DateTime(2025, 6, 1)));
+        Assert.Equal("6 Nov – 5 Dec 2024", PeriodPicker.Span(ReportRange.Month, new DateTime(2024, 12, 5)));
+        Assert.Equal("26 Dec 2020 – 1 Jan 2021", PeriodPicker.Span(ReportRange.Week, new DateTime(2021, 1, 1)));
         Assert.EndsWith(" – " + today.ToString("d MMM yyyy"), PeriodPicker.Span(ReportRange.Month, today)); // in progress: up to today
         var all = PeriodPicker.Span(ReportRange.All, today, today.AddDays(-9));
         Assert.StartsWith(today.AddDays(-9).ToString("d MMM"), all);
@@ -1274,9 +1274,9 @@ public sealed class ControlTests
         Assert.Equal($"{today:d MMM} – {today:d MMM yyyy}", PeriodPicker.Span(ReportRange.All, today)); // nothing recorded yet
     }
 
-    private static PeriodPicker Picker(ReportRange unit, DateTime anchor, DateTime? min = null, bool all = true)
+    private static PeriodPicker Picker(ReportRange unit, DateTime anchor, DateTime? min = null)
     {
-        var p = new PeriodPicker { AllowAll = all, MinDate = min, Unit = unit, Anchor = anchor };
+        var p = new PeriodPicker { MinDate = min, Unit = unit, Anchor = anchor };
         Draw.Render(p, 700, 60);
         return p;
     }
@@ -1311,38 +1311,36 @@ public sealed class ControlTests
         Ui.Run(() =>
         {
             var today = DateTime.Today;
-            var lastMonth = today.AddMonths(-1);
-            // The 31st of last month, stepping to this month, lands on today at the latest.
-            var p = Picker(ReportRange.Month, new DateTime(lastMonth.Year, lastMonth.Month, DateTime.DaysInMonth(lastMonth.Year, lastMonth.Month)));
+            // 30 days ending 20 days ago, stepping on, ends today at the latest: the last 30 days.
+            var p = Picker(ReportRange.Month, today.AddDays(-20));
             p.Pager.NextCommand!.Execute(null);
-            Assert.True(p.Anchor <= today);
-            Assert.Equal("This month", p.Pager.Label);
-            Assert.True(p.Pager.PickMonth);
+            Assert.Equal(today, p.Anchor);
+            Assert.Equal("Last 30 days", p.Pager.Label);
+            // Its calendar picks the last of the 30 days.
+            Assert.False(p.Pager.PickMonth);
             Assert.False(p.Pager.PickYear);
+            Assert.Equal("Pick the last day", p.Pager.LabelText);
             p.Pager.NextCommand.Execute(null);
-            Assert.Equal("This month", p.Pager.Label);
+            Assert.Equal("Last 30 days", p.Pager.Label);
         });
     }
 
     [Fact]
-    public void Picker_units_and_all_time()
+    public void Picker_units_with_custom_for_anything_longer_than_a_year()
     {
         Ui.Run(() =>
         {
             var p = Picker(ReportRange.Year, DateTime.Today);
             Assert.True(p.Pager.PickYear);
-            Assert.Equal(Visibility.Visible, p.AllButton.Visibility);
-            p.Unit = ReportRange.All;
-            Assert.Equal(Visibility.Collapsed, p.Pager.Visibility);
+            // No All time (taken out 2026-11-05): more than 12 months is a custom range.
             var radios = p.UnitButtons.Children.OfType<RadioButton>().ToList();
-            Assert.True(radios.Single(r => (string)r.Tag == "All").IsChecked);
+            Assert.Equal(["Day", "Week", "Month", "Year", "Custom"], radios.Select(r => (string)r.Tag));
+            Assert.True(radios.Single(r => (string)r.Tag == "Year").IsChecked);
             // Clicking "Week".
             radios.Single(r => (string)r.Tag == "Week").IsChecked = true;
             Assert.Equal(ReportRange.Week, p.Unit);
             Assert.Equal(Visibility.Visible, p.Pager.Visibility);
             Assert.Equal(1, radios.Count(r => r.IsChecked == true));
-            var reports = Picker(ReportRange.Day, DateTime.Today, all: false);
-            Assert.Equal(Visibility.Collapsed, reports.AllButton.Visibility);
         });
     }
 

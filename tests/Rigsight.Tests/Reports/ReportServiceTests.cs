@@ -108,7 +108,7 @@ public sealed class ReportServiceTests
         {
             ReportRange.Day => 24,
             ReportRange.Week => 7,
-            ReportRange.Month => DateTime.DaysInMonth(from.Year, from.Month),
+            ReportRange.Month => 30,
             ReportRange.Year => 12,
             _ => (to.Year - first!.Value.Year) * 12 + to.Month - first.Value.Month + (to.Day > 1 ? 1 : 0),
         };

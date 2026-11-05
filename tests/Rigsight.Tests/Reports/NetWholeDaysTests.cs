@@ -29,8 +29,9 @@ public sealed class NetWholeDaysTests : IDisposable
         foreach (var (app, down) in apps) Db.AddNetAppUse(new NetAppUse { Ts = ts, App = app, Down = down });
     }
 
-    private NetReport Build(ReportRange range, DateTime? asOf = null) =>
-        NetReportBuilder.Build(Db, range, Day, Db.LoadApps().ToDictionary(a => a.Id), new RigsightSettings(), asOf: asOf ?? Day.AddDays(400));
+    /// <param name="last">The period's last day (the last 7 or 30 days end on it; the 12 months with its month): the 10th unless said.</param>
+    private NetReport Build(ReportRange range, DateTime? asOf = null, DateTime? last = null) =>
+        NetReportBuilder.Build(Db, range, last ?? Day, Db.LoadApps().ToDictionary(a => a.Id), new RigsightSettings(), asOf: asOf ?? Day.AddDays(400));
 
     [Fact]
     public void A_months_biggest_days_are_whole_days_with_the_apps_that_made_them()
@@ -42,7 +43,7 @@ public sealed class NetWholeDaysTests : IDisposable
         Use(Day.AddDays(2).AddHours(9), (steam, 2 * GB));
         Use(Day.AddDays(4).AddHours(9), (chrome, 10 * MB));
 
-        var r = Build(ReportRange.Month);
+        var r = Build(ReportRange.Month, last: Day.AddDays(4));
         // Each day once, everything every app moved in it: it used to list the 10th once for Steam and again for Chrome.
         Assert.Equal([(Day, 4 * GB + 500 * MB), (Day.AddDays(2), 2 * GB)], r.Biggest.Select(b => (b.Start, b.Bytes)));
         Assert.Equal(Day.AddDays(1), r.Biggest[0].End);
@@ -75,7 +76,7 @@ public sealed class NetWholeDaysTests : IDisposable
         Use(Day.AddDays(1).AddHours(9), (chrome, GB));
         Use(Day.AddDays(40).AddHours(9), (steam, 3 * GB), (chrome, 100 * MB));
 
-        var r = Build(ReportRange.Year);
+        var r = Build(ReportRange.Year, last: Day.AddDays(40));
         Assert.Equal([Day.AddDays(40), Day, Day.AddDays(1)], r.Biggest.Select(b => b.Start));
         Assert.Equal(3 * GB + 100 * MB, r.Biggest[0].Bytes);
         Assert.Equal([steam, chrome], r.Biggest[0].Apps.Select(u => u.App));
@@ -85,7 +86,8 @@ public sealed class NetWholeDaysTests : IDisposable
     [Fact]
     public void Each_day_of_a_week_is_up_dropped_not_recorded_or_still_to_come()
     {
-        // The week of Monday 8 June. Recording began on Tuesday; a drop on Wednesday; Thursday is today; Friday on is to come.
+        // The 7 days from Monday 8 June to Sunday 14 June. Recording began on Tuesday; a drop on Wednesday; Thursday is
+        // today; Friday on is to come.
         long steam = App("steam.exe", "Steam");
         var monday = Day.AddDays(-2);
         Use(monday.AddDays(1).AddHours(9), (steam, MB));
@@ -95,13 +97,13 @@ public sealed class NetWholeDaysTests : IDisposable
         long dropAt = TimeUtil.ToUnix(Day.AddHours(18).AddMinutes(12));
         Db.InsertNetDrop(new NetDrop(dropAt, dropAt + 43 * 60, NetDropKind.Internet));
 
-        var r = Build(ReportRange.Week, asOf: Day.AddDays(1).AddHours(12));
+        var r = Build(ReportRange.Week, asOf: Day.AddDays(1).AddHours(12), last: Day.AddDays(4));
         Assert.Equal(Enumerable.Range(0, 7).Select(i => monday.AddDays(i)), r.Days.Select(d => d.Day));
         Assert.Equal([NetDayState.NotRecorded, NetDayState.Up, NetDayState.Dropped, NetDayState.Up, NetDayState.ToCome, NetDayState.ToCome, NetDayState.ToCome],
             r.Days.Select(d => d.State));
         Assert.Equal([0, 2, 1, 1, 0, 0, 0], r.Days.Select(d => d.RecordedMinutes));
         Assert.Equal(dropAt, Assert.Single(r.Days[2].Drops).Start);
-        // Recording began inside the week: said, for the line under the headline.
+        // Recording began inside the 7 days: said, for the line under the headline.
         Assert.Equal(monday.AddDays(1), r.RecordedSince);
         // A day's report has its quarter hours instead.
         Assert.Empty(Build(ReportRange.Day).Days);

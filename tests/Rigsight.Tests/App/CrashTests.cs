@@ -676,13 +676,13 @@ public sealed class CrashesPageTests
     }
 
     [Fact]
-    public void This_months_timeline_has_a_day_for_each_day_so_far()
+    public void The_last_30_days_timeline_has_a_day_for_each_of_them()
     {
         var vm = Loaded(ReportRange.Month);
         Ui.Run(() =>
         {
-            var first = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-            Assert.Equal((int)(DateTime.Today - first).TotalDays + 1, vm.Days.Count);
+            var first = DateTime.Today.AddDays(-29);
+            Assert.Equal(30, vm.Days.Count);
             Assert.Equal(first, vm.Days[0].Day);
             Assert.Equal(Counted(vm), vm.Days.Sum(d => d.Total));
             Assert.True(vm.IncludesToday);
@@ -710,7 +710,7 @@ public sealed class CrashesPageTests
         Ui.Run(() =>
         {
             Assert.Equal("All clear", vm.StatusTitle);
-            Assert.Equal("No app crashes this month.", vm.StatusDetail);
+            Assert.Equal("No app crashes in the last 30 days.", vm.StatusDetail);
             Assert.Equal("GoodBrush", vm.StatusBrush);
         });
     }
@@ -784,7 +784,7 @@ public sealed class CrashesPageTests
         Ui.Run(() =>
         {
             Assert.Equal("The PC shut off suddenly 5 days ago", vm.StatusTitle);
-            Assert.Equal("Possibly mains or power supply · also 1 likely power cut this month.", vm.StatusDetail);
+            Assert.Equal("Possibly mains or power supply · also 1 likely power cut in the last 30 days.", vm.StatusDetail);
             // Two shut-offs counted, one of them a power cut; the shutdown that didn't finish listed, not counted.
             Assert.Equal((2, 1, 1), (vm.SystemCount, vm.PowerCutCount, vm.UnfinishedCount));
             Assert.Equal("1 likely power cut", vm.PowerCutText);

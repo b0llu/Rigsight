@@ -343,10 +343,10 @@ public static class InsightEngine
                 : r.Range switch
                 {
                     ReportRange.Day => Lang.T($"A quiet day with only {used} of use, so there's not much to point out."),
-                    ReportRange.Week => Lang.T($"A quiet week with only {used} of use, so there's not much to point out."),
-                    ReportRange.Year => Lang.T($"A quiet year with only {used} of use, so there's not much to point out."),
+                    ReportRange.Week => Lang.T($"Only {used} of use in these 7 days, so there's not much to point out."),
+                    ReportRange.Year => Lang.T($"Only {used} of use in these 12 months, so there's not much to point out."),
                     ReportRange.All or ReportRange.Custom => Lang.T($"A quiet stretch with only {used} of use, so there's not much to point out."),
-                    _ => Lang.T($"A quiet month with only {used} of use, so there's not much to point out."),
+                    _ => Lang.T($"Only {used} of use in these 30 days, so there's not much to point out."),
                 };
             list.Add(new Insight(IconInfo, text, InsightTone.Neutral, "early", 60) { Short = text.TrimEnd('.') });
             return Ranked(list);
@@ -561,7 +561,7 @@ public static class InsightEngine
                     : diff > 0 ? Lang.T($"That's {by} more than your usual day of {was}.") : Lang.T($"That's {by} less than your usual day of {was}."), diff < 0,
                     inProgress ? Lang.T($"Already {by} past your usual day") : diff > 0 ? Lang.T($"{by} more than your usual day") : Lang.T($"{by} less than your usual day"));
         }
-        // A whole month or year against the one before, a day at a time: February isn't short on use for being short.
+        // A whole 30 days or 12 months against the ones before, a day at a time: 12 months of 365 days against 366.
         if (!inProgress && r.Range is ReportRange.Month or ReportRange.Year && previous is { HasData: true, ActiveSec: > 0 })
         {
             double perDay = r.ActiveSec / (r.To - r.From).TotalDays - previous.ActiveSec / (previous.To - previous.From).TotalDays;
@@ -570,17 +570,17 @@ public static class InsightEngine
             bool year = r.Range == ReportRange.Year;
             return ((year, perDay > 0) switch
                 {
-                    (true, true) => Lang.T($"That's {by} a day more than the year before."),
-                    (true, false) => Lang.T($"That's {by} a day less than the year before."),
-                    (false, true) => Lang.T($"That's {by} a day more than the month before."),
-                    (false, false) => Lang.T($"That's {by} a day less than the month before."),
+                    (true, true) => Lang.T($"That's {by} a day more than the 12 months before."),
+                    (true, false) => Lang.T($"That's {by} a day less than the 12 months before."),
+                    (false, true) => Lang.T($"That's {by} a day more than the 30 days before."),
+                    (false, false) => Lang.T($"That's {by} a day less than the 30 days before."),
                 }, perDay < 0,
                 (year, perDay > 0) switch
                 {
-                    (true, true) => Lang.T($"{by} a day more than the year before"),
-                    (true, false) => Lang.T($"{by} a day less than the year before"),
-                    (false, true) => Lang.T($"{by} a day more than the month before"),
-                    (false, false) => Lang.T($"{by} a day less than the month before"),
+                    (true, true) => Lang.T($"{by} a day more than the 12 months before"),
+                    (true, false) => Lang.T($"{by} a day less than the 12 months before"),
+                    (false, true) => Lang.T($"{by} a day more than the 30 days before"),
+                    (false, false) => Lang.T($"{by} a day less than the 30 days before"),
                 });
         }
         if (previous is { HasData: true } && previous.ActiveSec > 0)
@@ -590,11 +590,12 @@ public static class InsightEngine
             string than = r.Range switch
             {
                 ReportRange.Day => inProgress ? Lang.T("yesterday by this time") : Lang.T("the day before"),
-                ReportRange.Week => inProgress ? Lang.T("last week by this point") : Lang.T("the week before"),
-                ReportRange.Year => inProgress ? Lang.T("last year by this point") : Lang.T("the year before"),
+                // The ones before are as long (to the same hour, while these are still going on).
+                ReportRange.Week => Lang.T("the 7 days before"),
+                ReportRange.Year => Lang.T("the 12 months before"),
                 ReportRange.Custom when ReportBuilder.IsDayLike(r.Range, r.From, r.To) => (int)Math.Round((r.From - previous.From).TotalDays) == 1 ? Lang.T("the same hours the day before") : Lang.T("the same hours two days before"),
                 ReportRange.Custom => Lang.T("the same length of time just before"),
-                _ => inProgress ? Lang.T("last month by this point") : Lang.T("the month before"),
+                _ => Lang.T("the 30 days before"),
             };
             string by = Units.Duration(Math.Abs(diff));
             return (diff > 0 ? Lang.T($"That's {by} more screen time than {than}.") : Lang.T($"That's {by} less screen time than {than}."), diff < 0,

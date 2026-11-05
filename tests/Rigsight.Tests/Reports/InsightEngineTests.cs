@@ -73,9 +73,9 @@ public sealed class InsightEngineTests : IDisposable
 
     [Theory]
     [InlineData(ReportRange.Day, "A quiet day with only 10m of use, so there's not much to point out.")]
-    [InlineData(ReportRange.Week, "A quiet week with only 10m of use, so there's not much to point out.")]
-    [InlineData(ReportRange.Month, "A quiet month with only 10m of use, so there's not much to point out.")]
-    [InlineData(ReportRange.Year, "A quiet year with only 10m of use, so there's not much to point out.")]
+    [InlineData(ReportRange.Week, "Only 10m of use in these 7 days, so there's not much to point out.")]
+    [InlineData(ReportRange.Month, "Only 10m of use in these 30 days, so there's not much to point out.")]
+    [InlineData(ReportRange.Year, "Only 10m of use in these 12 months, so there's not much to point out.")]
     [InlineData(ReportRange.All, "A quiet stretch with only 10m of use, so there's not much to point out.")]
     public void A_period_with_little_use_is_called_quiet_and_nothing_else_is_said(ReportRange range, string text)
     {
@@ -341,7 +341,7 @@ public sealed class InsightEngineTests : IDisposable
 
     [Theory]
     [InlineData(ReportRange.Day, "the day before")]
-    [InlineData(ReportRange.Week, "the week before")]
+    [InlineData(ReportRange.Week, "the 7 days before")]
     public void A_finished_period_is_compared_with_the_one_before(ReportRange range, string than)
     {
         Assert.Equal($"That's 2h 30m more screen time than {than}.", Line(Gen(Past(range, active: 5 * 3600), Past(range, active: 2.5 * 3600)), "screen-compare"));
@@ -354,21 +354,22 @@ public sealed class InsightEngineTests : IDisposable
         // March (31 days) with 62h against February (28 days) with 28h: 2h a day against 1h.
         Report Month(int month, int days, double hours) =>
             new() { Range = ReportRange.Month, From = new(2025, month, 1), To = new DateTime(2025, month, 1).AddDays(days), HasData = true, ActiveSec = hours * 3600, OnSec = hours * 3600 };
-        Assert.Equal("That's 1h 00m a day more than the month before.", Line(Gen(Month(3, 31, 62), Month(2, 28, 28)), "screen-compare"));
+        Assert.Equal("That's 1h 00m a day more than the 30 days before.", Line(Gen(Month(3, 31, 62), Month(2, 28, 28)), "screen-compare"));
         // More in total, but only for being longer: 31 × 2h against 28 × 2h 12m is less a day.
-        Assert.Equal("That's 12m a day less than the month before.", Line(Gen(Month(3, 31, 62), Month(2, 28, 28 * 2.2)), "screen-compare"));
+        Assert.Equal("That's 12m a day less than the 30 days before.", Line(Gen(Month(3, 31, 62), Month(2, 28, 28 * 2.2)), "screen-compare"));
         None(Gen(Month(3, 31, 62), Month(2, 28, 28 * 2.1)), "screen-compare"); // six minutes a day apart: not worth a line
 
         var year = new Report { Range = ReportRange.Year, From = new(2025, 1, 1), To = new(2026, 1, 1), HasData = true, ActiveSec = 730 * 3600, OnSec = 730 * 3600 };
         var before = new Report { Range = ReportRange.Year, From = new(2024, 1, 1), To = new(2025, 1, 1), HasData = true, ActiveSec = 366 * 3600, OnSec = 366 * 3600 };
-        Assert.Equal("That's 1h 00m a day more than the year before.", Line(Gen(year, before), "screen-compare"));
+        Assert.Equal("That's 1h 00m a day more than the 12 months before.", Line(Gen(year, before), "screen-compare"));
     }
 
     [Theory]
     [InlineData(ReportRange.Day, "yesterday by this time")]
-    [InlineData(ReportRange.Week, "last week by this point")]
-    [InlineData(ReportRange.Month, "last month by this point")]
-    [InlineData(ReportRange.Year, "last year by this point")]
+    // The last 7 or 30 days and 12 months against as long before, to the same hour: the words needn't say "by now".
+    [InlineData(ReportRange.Week, "the 7 days before")]
+    [InlineData(ReportRange.Month, "the 30 days before")]
+    [InlineData(ReportRange.Year, "the 12 months before")]
     public void A_period_in_progress_is_compared_with_the_same_point_of_the_one_before(ReportRange range, string than)
     {
         Assert.Equal($"That's 1h 00m less screen time than {than}.", Line(Gen(Now(range, active: 2 * 3600), Now(range, active: 3 * 3600)), "screen-compare"));

@@ -93,7 +93,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         }
     }
 
-    /// <summary>The period's download against the one before it, each sentence whole: "12% more than the week before".</summary>
+    /// <summary>The period's download against the one before it, each sentence whole: "12% more than the 7 days before".</summary>
     private static string AgainstBefore(ReportRange range, double change)
     {
         double by = Math.Abs(change);
@@ -101,26 +101,26 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
             return range switch
             {
                 ReportRange.Day => Lang.T("About the same as the day before"),
-                ReportRange.Week => Lang.T("About the same as the week before"),
-                ReportRange.Month => Lang.T("About the same as the month before"),
-                ReportRange.Year => Lang.T("About the same as the year before"),
+                ReportRange.Week => Lang.T("About the same as the 7 days before"),
+                ReportRange.Month => Lang.T("About the same as the 30 days before"),
+                ReportRange.Year => Lang.T("About the same as the 12 months before"),
                 _ => Lang.T("About the same as the period before"),
             };
         if (change > 0)
             return range switch
             {
                 ReportRange.Day => Lang.T($"{by:0}% more than the day before"),
-                ReportRange.Week => Lang.T($"{by:0}% more than the week before"),
-                ReportRange.Month => Lang.T($"{by:0}% more than the month before"),
-                ReportRange.Year => Lang.T($"{by:0}% more than the year before"),
+                ReportRange.Week => Lang.T($"{by:0}% more than the 7 days before"),
+                ReportRange.Month => Lang.T($"{by:0}% more than the 30 days before"),
+                ReportRange.Year => Lang.T($"{by:0}% more than the 12 months before"),
                 _ => Lang.T($"{by:0}% more than the period before"),
             };
         return range switch
         {
             ReportRange.Day => Lang.T($"{by:0}% less than the day before"),
-            ReportRange.Week => Lang.T($"{by:0}% less than the week before"),
-            ReportRange.Month => Lang.T($"{by:0}% less than the month before"),
-            ReportRange.Year => Lang.T($"{by:0}% less than the year before"),
+            ReportRange.Week => Lang.T($"{by:0}% less than the 7 days before"),
+            ReportRange.Month => Lang.T($"{by:0}% less than the 30 days before"),
+            ReportRange.Year => Lang.T($"{by:0}% less than the 12 months before"),
             _ => Lang.T($"{by:0}% less than the period before"),
         };
     }
@@ -272,11 +272,11 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     public List<UsualRow> UsualRows => _usualRows = Kept.Or(_usualRows, UsualOf(Report));
     public bool HasUsual => UsualRows.Count > 0;
 
-    /// <summary>The column of this period's figures: "THIS WEEK", "THIS MONTH", "THESE DAYS".</summary>
+    /// <summary>The column of this period's figures: "LAST 7 DAYS", "THOSE 30 DAYS", "THESE DAYS".</summary>
     public string UsualNow => Range switch
     {
-        ReportRange.Week => IncludesNow ? Lang.T("THIS WEEK") : Lang.T("THAT WEEK"),
-        ReportRange.Month => IncludesNow ? Lang.T("THIS MONTH") : Lang.T("THAT MONTH"),
+        ReportRange.Week => IncludesNow ? Lang.T("LAST 7 DAYS") : Lang.T("THOSE 7 DAYS"),
+        ReportRange.Month => IncludesNow ? Lang.T("LAST 30 DAYS") : Lang.T("THOSE 30 DAYS"),
         _ => Lang.T("THESE DAYS"),
     };
 
@@ -488,21 +488,15 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         }
     }
 
-    /// <summary>"History starts on 3 October, so this week has 4 days of data.", each sentence whole.</summary>
-    private static string Coverage(ReportRange range, bool inProgress, DateTime since, int days) => (range, inProgress, days == 1) switch
+    /// <summary>"History starts on 3 October, so these 7 days have 4 days of data.", each sentence whole.</summary>
+    private static string Coverage(ReportRange range, bool inProgress, DateTime since, int days) => (range, days == 1) switch
     {
-        (ReportRange.Week, true, true) => Lang.T($"History starts on {since:d MMMM}, so this week has {days} day of data."),
-        (ReportRange.Week, true, false) => Lang.T($"History starts on {since:d MMMM}, so this week has {days} days of data."),
-        (ReportRange.Week, false, true) => Lang.T($"History starts on {since:d MMMM}, so that week has {days} day of data."),
-        (ReportRange.Week, false, false) => Lang.T($"History starts on {since:d MMMM}, so that week has {days} days of data."),
-        (ReportRange.Year, true, true) => Lang.T($"History starts on {since:d MMMM}, so this year has {days} day of data."),
-        (ReportRange.Year, true, false) => Lang.T($"History starts on {since:d MMMM}, so this year has {days} days of data."),
-        (ReportRange.Year, false, true) => Lang.T($"History starts on {since:d MMMM}, so that year has {days} day of data."),
-        (ReportRange.Year, false, false) => Lang.T($"History starts on {since:d MMMM}, so that year has {days} days of data."),
-        (_, true, true) => Lang.T($"History starts on {since:d MMMM}, so this month has {days} day of data."),
-        (_, true, false) => Lang.T($"History starts on {since:d MMMM}, so this month has {days} days of data."),
-        (_, false, true) => Lang.T($"History starts on {since:d MMMM}, so that month has {days} day of data."),
-        _ => Lang.T($"History starts on {since:d MMMM}, so that month has {days} days of data."),
+        (ReportRange.Week, true) => Lang.T($"History starts on {since:d MMMM}, so these 7 days have {days} day of data."),
+        (ReportRange.Week, false) => Lang.T($"History starts on {since:d MMMM}, so these 7 days have {days} days of data."),
+        (ReportRange.Year, true) => Lang.T($"History starts on {since:d MMMM}, so these 12 months have {days} day of data."),
+        (ReportRange.Year, false) => Lang.T($"History starts on {since:d MMMM}, so these 12 months have {days} days of data."),
+        (_, true) => Lang.T($"History starts on {since:d MMMM}, so these 30 days have {days} day of data."),
+        _ => Lang.T($"History starts on {since:d MMMM}, so these 30 days have {days} days of data."),
     };
 
     private static bool UsedActively(AppStat a) => a.ActiveSec >= 30;

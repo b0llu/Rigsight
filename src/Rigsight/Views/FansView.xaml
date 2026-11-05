@@ -65,7 +65,7 @@
             </DockPanel>
             <!-- The period the whole page shows (the live readings and "Fans: All OK" are always now). -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
-                <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowAll="False" AllowCustom="False"
+                <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowCustom="False"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
                 <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="30,0,0,0" VerticalAlignment="Center" />
             </StackPanel>

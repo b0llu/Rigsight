@@ -13,16 +13,17 @@ public sealed class ReportPeriodTests
     [InlineData("Day", "2025-03-12 15:30", "2025-03-12", "2025-03-13")]
     [InlineData("Day", "2024-12-31 23:59", "2024-12-31", "2025-01-01")]
     [InlineData("Day", "2024-02-29 00:00", "2024-02-29", "2024-03-01")]
-    [InlineData("Week", "2025-03-10 00:00", "2025-03-10", "2025-03-17")] // a Monday starts its own week
-    [InlineData("Week", "2025-03-12 15:30", "2025-03-10", "2025-03-17")]
-    [InlineData("Week", "2025-03-16 23:59", "2025-03-10", "2025-03-17")] // Sunday ends it
-    [InlineData("Week", "2025-01-01 12:00", "2024-12-30", "2025-01-06")] // across the new year
-    [InlineData("Week", "2024-03-01 12:00", "2024-02-26", "2024-03-04")] // across 29 February
-    [InlineData("Month", "2025-03-12 15:30", "2025-03-01", "2025-04-01")]
-    [InlineData("Month", "2025-12-31 23:00", "2025-12-01", "2026-01-01")]
-    [InlineData("Month", "2024-02-10", "2024-02-01", "2024-03-01")]
-    [InlineData("Year", "2025-03-12 15:30", "2025-01-01", "2026-01-01")]
-    [InlineData("Year", "2024-12-31 23:59", "2024-01-01", "2025-01-01")]
+    // A week and a month are the 7 and 30 days ending on the anchor's day; a year the 12 months ending with its month.
+    [InlineData("Week", "2025-03-10 00:00", "2025-03-04", "2025-03-11")]
+    [InlineData("Week", "2025-03-12 15:30", "2025-03-06", "2025-03-13")]
+    [InlineData("Week", "2025-03-16 23:59", "2025-03-10", "2025-03-17")]
+    [InlineData("Week", "2025-01-01 12:00", "2024-12-26", "2025-01-02")] // across the new year
+    [InlineData("Week", "2024-03-01 12:00", "2024-02-24", "2024-03-02")] // across 29 February
+    [InlineData("Month", "2025-03-12 15:30", "2025-02-11", "2025-03-13")]
+    [InlineData("Month", "2025-12-31 23:00", "2025-12-02", "2026-01-01")]
+    [InlineData("Month", "2024-02-10", "2024-01-12", "2024-02-11")]
+    [InlineData("Year", "2025-03-12 15:30", "2024-04-01", "2025-04-01")]
+    [InlineData("Year", "2024-12-31 23:59", "2024-01-01", "2025-01-01")] // a December ends a January to December
     public void A_period_covers_whole_local_days_from_midnight_to_midnight(string range, string anchor, string from, string to)
     {
         Assert.Equal((D(from), D(to)), ReportBuilder.Bounds(Enum.Parse<ReportRange>(range), D(anchor)));
@@ -38,8 +39,8 @@ public sealed class ReportPeriodTests
     [Theory]
     [InlineData("Day", "2025-03-01", "2025-02-28", "2025-03-02")]
     [InlineData("Week", "2025-03-12", "2025-03-05", "2025-03-19")]
-    [InlineData("Month", "2025-03-31", "2025-02-28", "2025-04-30")] // the day is clamped to the shorter month
-    [InlineData("Month", "2025-01-15", "2024-12-15", "2025-02-15")]
+    [InlineData("Month", "2025-03-31", "2025-03-01", "2025-04-30")] // 30 days, whatever the months' lengths
+    [InlineData("Month", "2025-01-15", "2024-12-16", "2025-02-14")]
     [InlineData("Year", "2024-02-29", "2023-02-28", "2025-02-28")]
     [InlineData("All", "2025-03-12", "2025-03-12", "2025-03-12")]
     public void Stepping_back_and_forward_moves_by_one_period(string range, string anchor, string previous, string next)
@@ -91,10 +92,13 @@ public sealed class ReportPeriodTests
         Assert.Equal("Today", Title(ReportRange.Day, DateTime.Now));
         Assert.Equal("Yesterday", Title(ReportRange.Day, DateTime.Now.AddDays(-1)));
         Assert.Equal("Wednesday, 12 March", Title(ReportRange.Day, D("2025-03-12")));
-        Assert.Equal("Week of 10 Mar", Title(ReportRange.Week, D("2025-03-12")));
-        Assert.Equal("March 2025", Title(ReportRange.Month, D("2025-03-12")));
-        Assert.Equal("This year", Title(ReportRange.Year, DateTime.Now));
-        Assert.Equal("2024", Title(ReportRange.Year, D("2024-06-01")));
+        Assert.Equal("Last 7 days", Title(ReportRange.Week, DateTime.Now));
+        Assert.Equal("6–12 Mar 2025", Title(ReportRange.Week, D("2025-03-12")));
+        Assert.Equal("Last 30 days", Title(ReportRange.Month, DateTime.Now));
+        Assert.Equal("11 Feb – 12 Mar 2025", Title(ReportRange.Month, D("2025-03-12")));
+        Assert.Equal("Last 12 months", Title(ReportRange.Year, DateTime.Now));
+        Assert.Equal("Jul 2023 – Jun 2024", Title(ReportRange.Year, D("2024-06-01")));
+        Assert.Equal("2024", Title(ReportRange.Year, D("2024-12-31")));
         Assert.Equal("All time", Title(ReportRange.All, DateTime.Now));
     }
 }

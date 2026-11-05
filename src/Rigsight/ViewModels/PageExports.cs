@@ -1,4 +1,4 @@
-using Rigsight.Core;
+﻿using Rigsight.Core;
 using Rigsight.Core.Export;
 using Rigsight.Core.Games;
 using Rigsight.Core.Reports;
@@ -52,8 +52,8 @@ public static class PageExports
 
     private static PeriodChoice Custom() => new(Lang.T("Custom"), null) { Unit = ReportRange.Custom };
 
-    /// <summary>The period units a page with the shared period picker offers, around its own day.</summary>
-    private static List<PeriodChoice> Units(DateTime anchor, bool all, bool custom)
+    /// <summary>The period units a page with the shared period picker offers, around its own day (more than 12 months: custom).</summary>
+    private static List<PeriodChoice> Units(DateTime anchor, bool custom)
     {
         var list = new List<PeriodChoice>
         {
@@ -62,7 +62,6 @@ public static class PageExports
             Unit(Lang.T("Month"), ReportRange.Month, anchor),
             Unit(Lang.T("Year"), ReportRange.Year, anchor),
         };
-        if (all) list.Add(Unit(Lang.T("All time"), ReportRange.All, anchor));
         if (custom) list.Add(Custom());
         return list;
     }
@@ -76,6 +75,13 @@ public static class PageExports
         return new(label, () => (today.AddDays(-back), today.AddDays(days - back))) { Unit = days == 1 ? ReportRange.Day : null, Anchor = today.AddDays(-back) };
     }
 
+    private static PeriodChoice LastYear()
+    {
+        var today = DateTime.Today;
+        return new(Lang.T("Last 12 months"), () => (today.AddYears(-1).AddDays(1), today.AddDays(1)));
+    }
+
+    /// <summary>The last 7 or 30 days or 12 months, or any range (All time was taken out: a custom range covers it).</summary>
     private static List<PeriodChoice> Rolling()
     {
         var today = DateTime.Today;
@@ -83,8 +89,8 @@ public static class PageExports
         [
             Days(Lang.T("Last 7 days"), 6, 7),
             Days(Lang.T("Last 30 days"), 29, 30),
-            new(Lang.T("Last 12 months"), () => (today.AddYears(-1).AddDays(1), today.AddDays(1))),
-            Unit(Lang.T("All time"), ReportRange.All, today),
+            LastYear(),
+            Custom(),
         ];
     }
 
@@ -126,15 +132,15 @@ public static class PageExports
             [
                 Unit(Lang.T("Today"), ReportRange.Day, today),
                 Recap(Lang.T("Yesterday"), RecapPeriod.Yesterday),
-                Recap(Lang.T("Last week"), RecapPeriod.LastWeek),
-                Recap(Lang.T("Last month"), RecapPeriod.LastMonth),
-                Recap(Lang.T("Last year"), RecapPeriod.LastYear),
+                Recap(Lang.T("Last 7 days"), RecapPeriod.LastWeek),
+                Recap(Lang.T("Last 30 days"), RecapPeriod.LastMonth),
+                Recap(Lang.T("Last 12 months"), RecapPeriod.LastYear),
             ], 0, null, [], NoFilter);
     }
 
     private static PageExportSpec Reports(ReportsViewModel vm)
     {
-        var periods = Units(vm.Anchor, all: false, custom: true);
+        var periods = Units(vm.Anchor, custom: true);
         return new(Lang.T("Export this report"), From(Lang.T("Reports")),
             [
                 new(Lang.T("The report"), Lang.T("Everything on this page in one file, with time, peaks and what stood out, against your usual."), PageItemKind.Report, true),
@@ -147,7 +153,7 @@ public static class PageExports
     /// <summary>Apps: all of them, the category the list is filtered to, or the app picked; and the list's search.</summary>
     private static PageExportSpec Apps(AppsViewModel vm)
     {
-        var periods = Units(vm.Anchor, all: true, custom: true);
+        var periods = Units(vm.Anchor, custom: true);
         var category = vm.Filter?.Category;
         string categoryName = vm.Filter?.Label ?? "";
         var picked = vm.Selected;
@@ -216,13 +222,13 @@ public static class PageExports
                     SheetAsync = async run => { var list = await PickedAsync(); return (db, s) => ExportSheets.Plays(db, list, s, run.From, run.To, run.Now); },
                 },
             ],
-            Rolling(), 3, null, games is null ? [] : [games], NoFilter);
+            Rolling(), 2, null, games is null ? [] : [games], NoFilter);
     }
 
     /// <summary>Crashes: the list as the page builds it (grouped, its filter, search and muting), for whichever period is picked.</summary>
     private static PageExportSpec Crashes(CrashesViewModel vm, ReportService reports, SettingsModel settings)
     {
-        var periods = Units(vm.Anchor, all: true, custom: true);
+        var periods = Units(vm.Anchor, custom: true);
         var show = OneOf(Lang.T("Show"),
             [new(Lang.T("All"), null, vm.Filter is not ("Apps" or "Pc")), new(Lang.T("Apps & games"), "Apps", vm.Filter == "Apps"), new(Lang.T("PC problems"), "Pc", vm.Filter == "Pc")],
             s => (s.Picked.FirstOrDefault() as string) switch
@@ -272,7 +278,7 @@ public static class PageExports
                     Sheet = run => { var facts = now.Select(f => new FactRow(f.Label, f.Value, f.Since)).ToList(); return (_, _) => ExportSheets.PcNow(facts, run.Now); },
                 },
             ],
-            Rolling(), 3, null, scopes,
+            Rolling(), 2, null, scopes,
             Now(_ =>
             {
                 string? key = kinds?.Picked.FirstOrDefault() as string;
@@ -341,7 +347,7 @@ public static class PageExports
 
     private static PageExportSpec Fans(FansViewModel vm, ReportService reports, LiveData live, SettingsModel settings)
     {
-        var periods = Units(vm.Anchor, all: false, custom: false);
+        var periods = Units(vm.Anchor, custom: false);
         var (unitShown, anchorShown) = (vm.Unit, vm.Anchor);
         return new(Lang.T("Export fans"), From(Lang.T("Fans")),
             [
@@ -407,7 +413,7 @@ public static class PageExports
                     },
                 },
             ],
-            [Days(Lang.T("Last 7 days"), 6, 7), Days(Lang.T("Last 30 days"), 29, 30), Unit(Lang.T("All time"), ReportRange.All, DateTime.Today)], 1, null,
+            [Days(Lang.T("Last 7 days"), 6, 7), Days(Lang.T("Last 30 days"), 29, 30), LastYear(), Custom()], 1, null,
             drives.Options.Count > 1 ? [drives] : [],
             Now(_ => drives.AllPicked ? ExportFilter.None : new ExportFilter { Drives = drives.Picked.OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase) }));
     }
@@ -415,7 +421,7 @@ public static class PageExports
     /// <summary>Network: its period, or the bar picked on its chart (the apps list then shows that bar's apps); all use or the Background list.</summary>
     private static PageExportSpec Network(NetworkViewModel vm)
     {
-        var periods = Units(vm.Anchor, all: false, custom: false);
+        var periods = Units(vm.Anchor, custom: false);
         int picked = IndexOf(periods, vm.Unit);
         if (vm.ZoomedStretch is { } zoomed)
         {

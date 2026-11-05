@@ -556,7 +556,7 @@ public sealed partial class FansViewModel : ObservableObject
             // Kept by the day: how fast the card's fans ran on average instead of how long they stood still.
             QuietLabel = Lang.T("AVERAGE SPEED");
             QuietText = card?.Detail?.AverageRpm is double avg ? Units.Format(SensorKind.Fan, avg) : "—";
-            QuietNote = card is null ? "" : Lang.T("GPU fans, across the year's days");
+            QuietNote = card is null ? "" : Lang.T("GPU fans, across every day of the 12 months");
         }
         else
         {
@@ -887,14 +887,14 @@ public sealed partial class FansViewModel : ObservableObject
         var facts = new List<FanFact>
         {
             new(Lang.T("Follows"), followsValue, followsNote),
-            new(Lang.T("Average"), average is double av2 ? Rpm(av2) : "—", Lang.T("Across the year's days")),
+            new(Lang.T("Average"), average is double av2 ? Rpm(av2) : "—", Lang.T("Across every day of the 12 months")),
             new(Lang.T("Fastest"), top is null ? "—" : Rpm(top.RpmMax), fastestWhen),
             new(Lang.T("Under heavy load"), busiest.N > 0 ? Rpm(busiest.Rpm) : "—",
                 busiest.N > 0 ? Lang.T($"Average at {Units.TempShort(busiest.Temp + FanCurves.BinDegrees / 2.0)}, where it spent most time") : Lang.T("No steady load")),
             new(Lang.T("Days recorded"), $"{days.Select(d => d.Day).Distinct().Count()}", Lang.T("Days with this fan's speeds")),
-            new(Lang.T("Change over the year"), changeValue, changeNote),
+            new(Lang.T("Change over the 12 months"), changeValue, changeNote),
         };
-        return new FanDetail(followsValue, followsNote, average is double av ? Units.Format(SensorKind.Fan, av) : "—", Lang.T("Across the year's days"),
+        return new FanDetail(followsValue, followsNote, average is double av ? Units.Format(SensorKind.Fan, av) : "—", Lang.T("Across every day of the 12 months"),
             Lang.T("Fastest"), top is null ? "—" : Units.Format(SensorKind.Fan, top.RpmMax), fastestWhen,
             onGpu ? Lang.T("SPEED AT EACH GPU TEMPERATURE · IN GAMES") : Lang.T("SPEED AT EACH CPU TEMPERATURE · IN GAMES"), dots, tempBins, [], "", null,
             card.IsGroup ? Lang.T("WHAT MADE THEM SPIN") : Lang.T("WHAT MADE IT SPIN"), rows, "", steady, bars)
