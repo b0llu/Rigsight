@@ -24,6 +24,17 @@ public sealed class NoticeWordsTests
     }
 
     [Fact]
+    public void A_long_name_is_shortened_so_the_time_still_fits()
+    {
+        Assert.Equal("Phantom Blade Zero", NoticeWords.Name("Phantom Blade Zero"));
+        Assert.Equal("Warhammer 40,000: Space…", NoticeWords.Name("Warhammer 40,000: Space Marine 2 - Ultra Edition Remastered"));
+        Assert.Equal(new string('W', 29) + "…", NoticeWords.Name(new string('W', 80)));
+        Assert.All(new[] { "Warhammer 40,000: Space Marine 2 - Ultra Edition Remastered", new string('W', 80), "A B C D E F G H I J K L M N O P Q R" },
+            n => Assert.InRange(NoticeWords.Name(n).Length, 2, NoticeWords.NameMax));
+        Assert.EndsWith(" for 3 hours and 5 minutes", NoticeWords.Session("Warhammer 40,000: Space Marine 2 - Ultra Edition Remastered", 11100, null, null).Title);
+    }
+
+    [Fact]
     public void A_session_and_a_day_say_what_happened_first()
     {
         Units.Fahrenheit = false;

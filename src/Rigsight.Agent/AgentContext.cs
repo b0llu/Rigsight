@@ -1688,7 +1688,7 @@ internal sealed class AgentContext : ApplicationContext
                     }
                     string body = NoticeWords.AppDown(finding, row.IsGame, row.ActiveSec);
                     // The title says what Windows recorded, which is never in doubt: "Dota 2 crashed", "Chrome froze".
-                    _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, Wording.Title(crash.Kind, name), body,
+                    _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, Wording.Title(crash.Kind, NoticeWords.Name(name)), body,
                         app.Path, "crashes", crash.Time.Ticks.ToString())), null);
                     return;
                 }

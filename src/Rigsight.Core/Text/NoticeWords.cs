@@ -64,7 +64,24 @@ public static class NoticeWords
 
     /// <summary>A game session's end: "You played Dota 2 for 2 hours and 14 minutes" / "The CPU peaked at 71°C and the GPU at 68°C."</summary>
     public static (string Title, string Body) Session(string game, double activeSec, double? cpuPeak, double? gpuPeak) =>
-        (Lang.T($"You played {game} for {Long(activeSec)}"), Peaks(cpuPeak, gpuPeak));
+        (Lang.T($"You played {Name(game)} for {Long(activeSec)}"), Peaks(cpuPeak, gpuPeak));
+
+    /// <summary>Longest app or game name a notification's title holds whole.</summary>
+    public const int NameMax = 30;
+
+    /// <summary>
+    /// An app or game's name for a notification's title, so the words after it (how long it was played, "crashed") always
+    /// fit the card's two title lines: a name past <see cref="NameMax"/> letters ends at a word with "…" ("Warhammer
+    /// 40,000: Space Marine 2…"). Seen 2026-11-05: "You played Phantom Blade Zero for 2h…" never said how long.
+    /// </summary>
+    public static string Name(string name)
+    {
+        name = name.Trim();
+        if (name.Length <= NameMax) return name;
+        int cut = name.LastIndexOf(' ', NameMax - 1);
+        string head = (cut > NameMax / 2 ? name[..cut] : name[..(NameMax - 1)]).TrimEnd(' ', '-', ':', ',', '–', '—', '|', '.');
+        return head + "…";
+    }
 
     /// <summary>
     /// The day's recap: "Yesterday: 6h 12m active" / "Mostly Dota 2, for 3 hours and 5 minutes. The CPU peaked at 78°C and

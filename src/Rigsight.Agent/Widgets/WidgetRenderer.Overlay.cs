@@ -267,8 +267,11 @@ internal static partial class WidgetRenderer
             .Append($"<FNT=Segoe UI Semibold,{fontHeight},600,{RtssZoom}><P{(top ? 2 : 8)}><L6><M={left},{topMargin},{right},{bottom}>")
             .Append($"<C={bg.A:X2}{Hex(bg)}><B=0,0,R8>\b<C>")
             .Append(RtssTopSpacer)
-            .Append($"{pad}<S=-62><C={Hex(accent)}>{Clean(caption)}<C><S>\n")
-            .Append($"{pad}<C={Hex(Ui.ToastRenderer.Text)}>{Clean(title)}<C>");
+            .Append($"{pad}<S=-62><C={Hex(accent)}>{Clean(caption)}<C><S>");
+        // The title wraps like the body (its letters are bigger, so its lines are shorter): a long game name never pushes
+        // the time out of "You played ... for 2 hours and 14 minutes".
+        foreach (var line in Wrap(Clean(title), NoticeTitleLength))
+            text.Append($"\n{pad}<C={Hex(Ui.ToastRenderer.Text)}>{line}<C>");
         foreach (var line in Wrap(Clean(body), NoticeLineLength))
             text.Append($"\n{pad}<S=-80><C={Hex(Ui.ToastRenderer.Muted)}>{line}<C><S>");
         return text.ToString();
@@ -276,6 +279,9 @@ internal static partial class WidgetRenderer
 
     /// <summary>Characters per line of a notice's text in RivaTuner (about the card's width).</summary>
     private const int NoticeLineLength = 44;
+
+    /// <summary>Characters per line of a notice's title in RivaTuner: drawn at full size, against the body's 80%.</summary>
+    private const int NoticeTitleLength = 35;
 
     /// <summary>Splits text into lines of at most <paramref name="max"/> characters, at spaces.</summary>
     private static IEnumerable<string> Wrap(string text, int max)

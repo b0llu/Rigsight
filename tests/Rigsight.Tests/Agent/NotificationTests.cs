@@ -33,7 +33,7 @@ public class NotificationTests
     }
 
     [Fact]
-    public void A_longer_text_makes_a_taller_card_but_a_long_title_doesnt()
+    public void A_longer_text_makes_a_taller_card_and_a_long_title_takes_two_lines_at_most()
     {
         int Height(string title, string body)
         {
@@ -41,8 +41,13 @@ public class NotificationTests
             return bmp.Height;
         }
         Assert.True(Height("T", LongBody) > Height("T", "Short."));
-        Assert.Equal(Height("T", "Short."), Height(new string('W', 300), "Short."));
         Assert.True(Height("T", "") <= Height("T", "Short."));
+        // A long game name wraps instead of cutting off how long it was played (seen 2026-11-05 with Phantom Blade Zero).
+        int one = Height("You played Dota 2 for 48 minutes", "Short.");
+        int two = Height("You played Phantom Blade Zero for 2 hours and 14 minutes", "Short.");
+        Assert.Equal(Height("T", "Short."), one);
+        Assert.InRange(two - one, 18, 26);
+        Assert.Equal(two, Height(string.Join(' ', Enumerable.Repeat("Word", 80)), "Short."));
     }
 
     [Fact]

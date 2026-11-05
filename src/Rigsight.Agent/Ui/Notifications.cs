@@ -2,6 +2,7 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.Text.RegularExpressions;
 using Rigsight.Agent.Native;
 using Rigsight.Agent.Widgets;
 using Rigsight.Core;
@@ -378,11 +379,21 @@ internal static class ToastRenderer
         using var capFont = new Font("Segoe UI", 10.5f, FontStyle.Bold, GraphicsUnit.Pixel);
         float textX = Pad + 4 + IconSize + 12, textW = Width - textX - Pad - 18;
 
+        // The title wraps onto a second line rather than cut off its end: "You played Phantom Blade Zero for 2 hours…" must
+        // still say how long. Past two lines it ends in "…" at a word. A number stays on the line of its unit ("2 hours").
+        string title = Regex.Replace(n.Title, @"(?<=\d) (?=\p{L})", " ");
         SizeF bodySize;
+        float titleLine, titleH;
         using (var tmp = new Bitmap(1, 1))
         using (var mg = Graphics.FromImage(tmp))
+        {
             bodySize = mg.MeasureString(n.Body, bodyFont, (int)textW, StringFormat.GenericTypographic);
-        float height = Math.Max(Pad + 41 + bodySize.Height + Pad, Pad * 2 + IconSize + 6);
+            titleLine = titleFont.GetHeight(mg);
+            float measured = mg.MeasureString(title, titleFont, (int)textW, StringFormat.GenericTypographic).Height;
+            titleH = Math.Min(measured, titleLine * 2.2f) > titleLine * 1.5f ? titleLine * 2 : titleLine;
+        }
+        float extra = titleH - titleLine;
+        float height = Math.Max(Pad + 41 + extra + bodySize.Height + Pad, Pad * 2 + IconSize + 6);
 
         var bmp = new Bitmap((int)Math.Ceiling(Width * scale), (int)Math.Ceiling(height * scale), PixelFormat.Format32bppArgb);
         using var g = Graphics.FromImage(bmp);
@@ -415,10 +426,10 @@ internal static class ToastRenderer
         g.DrawString(KindLabel(n.Kind), capFont, capBrush, textX, Pad - 2, StringFormat.GenericTypographic);
 
         using var trim = (StringFormat)StringFormat.GenericTypographic.Clone();
-        trim.Trimming = StringTrimming.EllipsisCharacter;
-        trim.FormatFlags |= StringFormatFlags.NoWrap;
-        g.DrawString(n.Title, titleFont, titleBrush, new RectangleF(textX, Pad + 14, textW, 24), trim);
-        g.DrawString(n.Body, bodyFont, bodyBrush, new RectangleF(textX, Pad + 40, textW, bodySize.Height + 4), StringFormat.GenericTypographic);
+        trim.Trimming = StringTrimming.EllipsisWord;
+        trim.FormatFlags |= StringFormatFlags.LineLimit;
+        g.DrawString(title, titleFont, titleBrush, new RectangleF(textX, Pad + 14, textW, titleH + 2), trim);
+        g.DrawString(n.Body, bodyFont, bodyBrush, new RectangleF(textX, Pad + 40 + extra, textW, bodySize.Height + 4), StringFormat.GenericTypographic);
 
         var close = new RectangleF(Width - 30, 10, 20, 20);
         if (hover)

@@ -411,6 +411,16 @@ public partial class OverlayRendererTests
     }
 
     [Fact]
+    public void A_notice_title_is_wrapped_too()
+    {
+        const string title = "You played Phantom Blade Zero for 2 hours and 14 minutes";
+        string text = WidgetRenderer.RtssNoticeText("SESSION SUMMARY", Color.Red, title, "B", false, 1);
+        var lines = Regex.Matches(text, "<C=FFFFFF>([^<]*)<C>").Select(m => m.Groups[1].Value).ToList();
+        Assert.True(lines.Count > 1);
+        Assert.Equal(title, string.Join(' ', lines));
+    }
+
+    [Fact]
     public void A_notice_drops_tags_and_empty_text()
     {
         string text = WidgetRenderer.RtssNoticeText("<CAP>", Color.White, "<Title>", "  a  <b>  ", false, 1);
