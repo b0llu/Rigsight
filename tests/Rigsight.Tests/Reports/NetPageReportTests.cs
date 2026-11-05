@@ -253,6 +253,31 @@ public sealed class NetPageReportTests : IDisposable
     }
 
     [Fact]
+    public void The_internet_strip_says_up_dropped_off_and_still_to_come_and_each_drop_is_a_line()
+    {
+        long chrome = App("chrome.exe", "Google Chrome");
+        for (int m = 0; m < 120; m++) Db.WriteMinute(new SystemMinute { Ts = TimeUtil.ToUnix(Day.AddHours(9).AddMinutes(m)), ActiveSec = 60 });
+        Hour(Day.AddHours(9), (chrome, 100 * MB, 0, 0));
+        Db.InsertNetDrop(new NetDrop(TimeUtil.ToUnix(Day.AddHours(10).AddMinutes(20)), TimeUtil.ToUnix(Day.AddHours(10).AddMinutes(21)), NetDropKind.Internet));
+        // The router answered the line check meanwhile.
+        Db.WriteNetPing(new NetPing(TimeUtil.ToUnix(Day.AddHours(10).AddMinutes(20)), 12, 1, 2, 0, null, null, 12, 0));
+        var r = Build();
+        Assert.Equal(96, r.Link.Count);
+        Assert.Equal(NetLinkState.Off, r.Link[8 * 4].State);           // 8 AM: the PC off
+        Assert.Equal(NetLinkState.Up, r.Link[9 * 4].State);            // 9 AM: on and up
+        Assert.Equal(NetLinkState.Dropped, r.Link[10 * 4 + 1].State);  // 10:15 - 10:30 holds the drop
+        Assert.NotEqual(NetLinkState.Dropped, r.Link[10 * 4 + 2].State);
+        var drop = Assert.Single(r.Happenings, h => h.Kind == NetHappeningKind.Drop);
+        Assert.Equal(("10:20 AM", "Your internet was down for 1 minute", "Your router was reachable, but there was no internet connection."), (drop.When, drop.Text, drop.Detail));
+        // Today, the hours to come are to come.
+        var today = NetReportBuilder.Build(Db, ReportRange.Day, Day, Db.LoadApps().ToDictionary(a => a.Id), new RigsightSettings(), asOf: Day.AddHours(11), forPage: true);
+        Assert.Equal(NetLinkState.ToCome, today.Link[^1].State);
+        // A week by the hour, a month by the day.
+        Assert.Equal(168, Build(range: ReportRange.Week).Link.Count);
+        Assert.Equal(DateTime.DaysInMonth(Day.Year, Day.Month), Build(range: ReportRange.Month).Link.Count);
+    }
+
+    [Fact]
     public void The_periods_insights_come_first()
     {
         long steam = App("steam.exe", "Steam");

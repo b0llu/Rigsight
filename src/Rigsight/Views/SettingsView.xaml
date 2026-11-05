@@ -809,6 +809,10 @@
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding CrashNotifications}" Margin="0,10">
                         <TextBlock Text="{ctl:T 'Crash alerts'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
+                    <!-- When the internet drops and when it's back (1.4.0). -->
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding InternetDrops}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Internet drop alerts'}">
+                        <TextBlock Text="{ctl:T 'Internet drop alerts'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AlertsEnabled}" Margin="0,10">
                         <TextBlock Text="{ctl:T 'Temperature alerts'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>

@@ -6,7 +6,7 @@ using Rigsight.Core.Settings;
 namespace Rigsight.Core.Reports;
 
 /// <summary>What a line of the Network page's "What happened" list is about.</summary>
-public enum NetHappeningKind { Insight, Steam, Played, Busy, New, PingSwitch }
+public enum NetHappeningKind { Insight, Steam, Played, Busy, New, PingSwitch, Drop }
 
 /// <summary>
 /// One line of "What happened": when (<see cref="When"/> as the list shows it, empty for a line about the whole period
@@ -153,6 +153,19 @@ public static class NetHappenings
             {
                 Detail = behind ? Lang.T("In the background") : null, Amount = Units.Data(use.Total), Path = PathOf(use.App),
             }, use.Total));
+        }
+
+        // ── The internet dropped: how long, and what broke (the line check's minutes say whether the router answered) ──
+        foreach (var d in r.Drops)
+        {
+            var at = TimeUtil.FromUnix(d.Start);
+            if (at < r.From || at >= r.To) continue;
+            var pings = db.GetNetPings(d.Start - 30, d.End + 30).Where(p => p.Sent > 0).ToList();
+            bool? router = pings.Count == 0 ? null : pings.Any(p => p.LanMs is not null);
+            lines.Add(new(new NetHappening(NetHappeningKind.Drop, at.Date, at, Clock(at), DropWords.WasDown(d.Seconds))
+            {
+                Detail = DropWords.WhatBroke(d.Kind, null, router), Icon = "\uE871", Tone = InsightTone.Warn,
+            }, long.MaxValue / 2));
         }
 
         // ── Ping checks paused or resumed (Settings, or the Network page) ──

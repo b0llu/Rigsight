@@ -40,6 +40,18 @@ internal sealed class ConnectionWatch
     /// <summary>The PC is going to sleep: whatever was going on is part of that, not a drop.</summary>
     public void Suspend() => _open = null;
 
+    /// <summary>
+    /// The drop going on now (its start and, so far, its kind), with next to nothing coming in: for the notification.
+    /// Null while the internet is there.
+    /// </summary>
+    public (long Start, NetDropKind Kind)? Current(long now)
+    {
+        if (_open is not { } drop) return null;
+        long length = Math.Max(1, now - drop.Start);
+        if (drop.Measured && drop.Bytes / length >= MaxBytesWhileDown) return null;
+        return (drop.Start, drop.CardDown * 2 >= drop.Seconds ? NetDropKind.Link : NetDropKind.Internet);
+    }
+
     /// <summary>How long a drop must have lasted to be written down while it still goes on.</summary>
     public const int MinOngoingSeconds = 60;
 

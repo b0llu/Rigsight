@@ -112,6 +112,8 @@ public sealed class NetBarsChart : NetChartBase
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, (d, e) => ((NetBarsChart)d).OnZoomedChanged()));
     public static readonly DependencyProperty CanZoomProperty = DependencyProperty.Register(
         nameof(CanZoom), typeof(bool), typeof(NetBarsChart), new FrameworkPropertyMetadata(false));
+    public static readonly DependencyProperty LinkProperty = DependencyProperty.Register(
+        nameof(Link), typeof(IReadOnlyList<NetLinkCell>), typeof(NetBarsChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
     public static readonly DependencyProperty PingMarksProperty = DependencyProperty.Register(
         nameof(PingMarks), typeof(IReadOnlyList<NetPingMark>), typeof(NetBarsChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
@@ -150,6 +152,15 @@ public sealed class NetBarsChart : NetChartBase
     /// <summary>The stretch zoomed into (null: all of it). Set to null to zoom out.</summary>
     public NetDropSpan? Zoomed { get => (NetDropSpan?)GetValue(ZoomedProperty); set => SetValue(ZoomedProperty, value); }
     public bool CanZoom { get => (bool)GetValue(CanZoomProperty); set => SetValue(CanZoomProperty, value); }
+    /// <summary>
+    /// The internet strip under the plot, on the same time line in both views: up, dropped (the warning colour), PC off,
+    /// not recorded (see <see cref="NetLinkCell"/>). None: no strip and no room kept for it.
+    /// </summary>
+    public IReadOnlyList<NetLinkCell>? Link { get => (IReadOnlyList<NetLinkCell>?)GetValue(LinkProperty); set => SetValue(LinkProperty, value); }
+
+    /// <summary>The strip's room under the plot (its cells and the gap above them).</summary>
+    private double StripRoom => Link is { Count: > 0 } ? 20 : 0;
+
     /// <summary>When ping checks were stopped and started again in the period (the Ping view marks each).</summary>
     public IReadOnlyList<NetPingMark>? PingMarks { get => (IReadOnlyList<NetPingMark>?)GetValue(PingMarksProperty); set => SetValue(PingMarksProperty, value); }
 
@@ -163,7 +174,7 @@ public sealed class NetBarsChart : NetChartBase
 
     private Brush Res(string key) => TryFindResource(key) as Brush ?? MutedBrush;
 
-    private Rect PlotArea => new(AxisWidth + 12, Top + MarkRoom, Math.Max(1, ActualWidth - AxisWidth - 12 - 2), Math.Max(1, ActualHeight - AxisHeight - Top - MarkRoom));
+    private Rect PlotArea => new(AxisWidth + 12, Top + MarkRoom, Math.Max(1, ActualWidth - AxisWidth - 12 - 2), Math.Max(1, ActualHeight - AxisHeight - Top - MarkRoom - StripRoom));
 
     /// <summary>Room over the plot for the high-ping marks (the page's graph only).</summary>
     private double MarkRoom => CanZoom ? 10 : 0;
@@ -396,6 +407,7 @@ public sealed class NetBarsChart : NetChartBase
                 Unrecorded(dc, plot, b, x, bar);
             }
 
+        DrawLink(dc, plot, bins);
         DrawAxis(dc, plot, bins, first, slot);
 
         // The band of a drag going on.
@@ -486,6 +498,32 @@ public sealed class NetBarsChart : NetChartBase
         }
         if (selected >= 0)
             dc.DrawRoundedRectangle(Faded(PingBrush, 0.08), new Pen(Faded(PingBrush, 0.7), 1), new Rect(plot.Left + selected * slot + 0.5, plot.Top, Math.Max(2, slot - 1), plot.Height), 3, 3);
+    }
+
+    /// <summary>
+    /// The internet strip: a thin row of cells under the plot, green while the internet was up, the warning colour for a
+    /// drop (the one problem on this graph), dark while the PC was off, grey on but not recorded; "INTERNET" beside it.
+    /// </summary>
+    private void DrawLink(DrawingContext dc, Rect plot, List<NetBin> bins)
+    {
+        if (Link is not { Count: > 0 } link || bins.Count == 0) return;
+        DateTime from0 = bins[0].Start, to0 = bins[^1].Start + Step;
+        double span = (to0 - from0).TotalSeconds, top = plot.Bottom + 8, h = 9;
+        double X(DateTime t) => plot.Left + plot.Width * Math.Clamp((t - from0).TotalSeconds / span, 0, 1);
+        var up = Faded(Res("GoodBrush"), 0.5);
+        var off = Faded(LabelBrush, 0.12);
+        var notRecorded = Faded(MutedBrush, 0.45);
+        foreach (var c in link)
+        {
+            if (c.End <= from0 || c.Start >= to0 || c.State == NetLinkState.ToCome) continue;
+            double x1 = X(c.Start), x2 = X(c.End), w = x2 - x1;
+            var brush = c.State switch { NetLinkState.Dropped => DropBrush, NetLinkState.Off => off, NetLinkState.NotRecorded => notRecorded, _ => up };
+            // A gap of a pixel between cells where there's room, none when they're thin (a week's 168 hours).
+            double gap = w >= 4 ? 1 : 0;
+            dc.DrawRectangle(brush, null, new Rect(x1, top, Math.Max(c.State == NetLinkState.Dropped ? 2 : 0.5, w - gap), h));
+        }
+        var ft = Text(Lang.T("INTERNET"), LabelBrush, 9);
+        dc.DrawText(ft, new Point(Math.Max(0, plot.Left - 8 - ft.Width), top + (h - ft.Height) / 2));
     }
 
     /// <summary>The hours ping checks were off: hatched, so the gap is never read as the line gone.</summary>
@@ -580,7 +618,7 @@ public sealed class NetBarsChart : NetChartBase
             else text = AxisLabel(t, first + i);
             if (text is null) continue;
             bool atStart = hours && bins.Count > 48;
-            Label(dc, text, new Point(plot.Left + i * slot + (atStart ? 0 : slot / 2), plot.Bottom + AxisHeight / 2 + 2), LabelBrush, center: !atStart);
+            Label(dc, text, new Point(plot.Left + i * slot + (atStart ? 0 : slot / 2), plot.Bottom + StripRoom + AxisHeight / 2 + 2), LabelBrush, center: !atStart);
         }
     }
 

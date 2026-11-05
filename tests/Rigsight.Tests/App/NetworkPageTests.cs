@@ -228,7 +228,8 @@ public sealed class NetworkPageTests
 
             // The legend names what the colours are; the Ping view has none while its note shows in place of a graph
             // (no line check in the seeded history).
-            Assert.Equal("Every other app", vm.Legend[^1].Text);
+            Assert.Contains(vm.Legend, l => l.Text == "Every other app");
+            Assert.Equal("Internet up", vm.Legend[^1].Text); // the internet strip's colour, last
             Assert.Contains(vm.Legend, l => l.Text == "Steam");
             vm.View = "Ping";
             Assert.True(vm.ShowPingNote);
@@ -380,7 +381,7 @@ public sealed class NetworkPageTests
             var drop = Assert.Single(vm.Drops);
             Assert.Equal(DateTime.Today.AddHours(1), drop.From);
             // The 1 AM hour's hover box says it, in the one warning colour of the box.
-            Assert.Equal("Dropped for 3m at 1:00 AM", vm.BuildHover(1).Drop);
+            Assert.Equal("Your internet was down for 3 minutes, from 1:00 AM", vm.BuildHover(1).Drop);
             Assert.Null(vm.BuildHover(5).Drop);
         });
     }

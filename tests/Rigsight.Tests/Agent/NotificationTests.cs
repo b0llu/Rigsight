@@ -83,7 +83,8 @@ public class NotificationTests
         Assert.Equal(kinds.Length, kinds.Select(ToastRenderer.KindLabel).Distinct().Count());
         Assert.All(kinds, k => Assert.Equal(ToastRenderer.KindLabel(k).ToUpperInvariant(), ToastRenderer.KindLabel(k)));
         Assert.Equal("TEMPERATURE ALERT", ToastRenderer.KindLabel(NoticeKind.Alert));
-        Assert.Equal(5, kinds.Select(k => ToastRenderer.Accent(k)).Distinct().Count()); // overlay and update share one
+        // Overlay and update share one; a drop shares the crash's warning colour and its "back" the session's green.
+        Assert.Equal(5, kinds.Select(k => ToastRenderer.Accent(k)).Distinct().Count());
     }
 
     [Fact]

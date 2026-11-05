@@ -86,6 +86,21 @@ public sealed class AiLookUpGapsTests : IDisposable
     ]);
 
     [Fact]
+    public void The_dashboards_look_up_lists_every_tile_a_dashboard_can_have()
+    {
+        // 2026-11-05: asked for internet and crash tiles, the AI said it couldn't see the list of tiles to add.
+        foreach (var tools in new[] { Tools(TwoDashboards), Tools(_ => { }) })
+        {
+            var text = tools.Run("get_dashboard", "{}");
+            Assert.Contains("Tiles a dashboard can have", text);
+            Assert.Contains("Connection today (Whether the internet dropped today)", text);
+            Assert.Contains("Crashes (Crashes in the last 30 days, and the latest one)", text);
+            Assert.Equal(Rigsight.Core.Settings.DashboardTiles.All.Count, Rigsight.Core.Settings.DashboardTiles.All.Count(t => text.Contains(t.Title + " (")));
+        }
+        Assert.Contains("Gaming: GPU temperature", Tools(TwoDashboards).Run("get_dashboard", "{}"));
+    }
+
+    [Fact]
     public void A_dashboard_name_sent_as_a_number_or_a_list_is_answered_not_thrown()
     {
         // "What tiles would make a useful dashboard for how I use this PC?" (31 Oct): the model asked for get_dashboard and

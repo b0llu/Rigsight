@@ -77,6 +77,10 @@ internal sealed class AgentContext : ApplicationContext
     private volatile AddressBook _addresses = AddressBook.Empty;
     private volatile bool _addressesChanged = true;
     private readonly ConnectionWatch _connection = new();
+    private readonly DropNotices _dropNotices = new();
+    /// <summary>The network card's kind ("Wi-Fi", "Ethernet") while it was last connected: what a drop's words name.</summary>
+    private string? _cardKind;
+    private long _cardKindAt;
     private LineCheck? _line;
     private readonly TraceWatch _traceWatch = new();
     private readonly SensorHealth _sensorHealth = new();
@@ -1559,11 +1563,33 @@ internal sealed class AgentContext : ApplicationContext
                 while (_netHistory.Count > 60) _netHistory.Dequeue();
             }
         }
-        if (_connection.Observe(TimeUtil.NowUnix(), NetAdapters.WindowsSeesInternet(), _addresses.CardConnected, internetDown) is { } drop)
+        long nowTs = TimeUtil.NowUnix();
+        var ended = _connection.Observe(nowTs, NetAdapters.WindowsSeesInternet(), _addresses.CardConnected, internetDown);
+        if (ended is { } drop)
         {
             Log.Write("network", $"The internet dropped for {drop.Seconds} s ({drop.Kind})");
             _tracker.OnDrop(drop);
         }
+        NoticeDrops(nowTs, ended);
+    }
+
+    /// <summary>
+    /// Sampler thread, each second: tell the person the internet dropped and came back (when Settings says so). The card's
+    /// kind is read every half minute while connected, so a drop names what was lost even with the card gone.
+    /// </summary>
+    private void NoticeDrops(long now, NetDrop? ended)
+    {
+        var open = _connection.Current(now);
+        if (open is null && now - _cardKindAt >= 30)
+        {
+            _cardKindAt = now;
+            if (NetAdapters.Current()?.Kind is { } kind) _cardKind = kind;
+        }
+        if (_dropNotices.Tick(now, open, ended, _cardKind, _line?.RouterAnswered(now - 10)) is not { } said) return;
+        Log.Write("network", $"Notice: {said.Title} ({said.Body})" + (_settings.Alerts.InternetDrops ? "" : ", not shown: drop alerts are off"));
+        if (!_settings.Alerts.InternetDrops) return;
+        string day = TimeUtil.FromUnix(said.At).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        _ui.Post(_ => _notices.Show(new Notice(said.Good ? NoticeKind.InternetBack : NoticeKind.Internet, said.Title, said.Body, Page: "network", Arg: day, Urgent: true)), null);
     }
 
     /// <summary>

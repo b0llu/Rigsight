@@ -610,6 +610,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool SessionSummaries { get => S.Alerts.SessionSummaries; set => Set(s => s.Alerts.SessionSummaries = value); }
     public bool DailyRecap { get => S.Alerts.DailyRecap; set => Set(s => s.Alerts.DailyRecap = value); }
     public bool CrashNotifications { get => S.Alerts.CrashNotifications; set => Set(s => s.Alerts.CrashNotifications = value); }
+    public bool InternetDrops { get => S.Alerts.InternetDrops; set => Set(s => s.Alerts.InternetDrops = value); }
     public bool QuietDuringFullscreen { get => S.Alerts.QuietDuringFullscreen; set => Set(s => s.Alerts.QuietDuringFullscreen = value); }
     public int SessionSummaryMinMinutes { get => S.Alerts.SessionSummaryMinMinutes; set => Set(s => s.Alerts.SessionSummaryMinMinutes = value); }
     public int CardSeconds { get => S.Alerts.CardSeconds; set => Set(s => s.Alerts.CardSeconds = value); }

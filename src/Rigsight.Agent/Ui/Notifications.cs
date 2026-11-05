@@ -9,7 +9,7 @@ using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent.Ui;
 
-internal enum NoticeKind { Alert, Recap, Session, Crash, Overlay, Update, Rewind }
+internal enum NoticeKind { Alert, Recap, Session, Crash, Overlay, Update, Rewind, Internet, InternetBack }
 
 /// <summary>Something worth telling the user. <see cref="Urgent"/> notices are shown even during fullscreen games.</summary>
 /// <summary>
@@ -353,12 +353,14 @@ internal static class ToastRenderer
         (NoticeKind.Alert, false) => Color.FromArgb(248, 113, 113),
         (NoticeKind.Recap or NoticeKind.Rewind, false) => Color.FromArgb(91, 140, 255),
         (NoticeKind.Session, false) => Color.FromArgb(61, 220, 151),
-        (NoticeKind.Crash, false) => Color.FromArgb(251, 191, 36),
+        (NoticeKind.Crash or NoticeKind.Internet, false) => Color.FromArgb(251, 191, 36),
+        (NoticeKind.InternetBack, false) => Color.FromArgb(61, 220, 151),
         (_, false) => Color.FromArgb(177, 140, 255),
         (NoticeKind.Alert, true) => Color.FromArgb(220, 38, 38),
         (NoticeKind.Recap or NoticeKind.Rewind, true) => Color.FromArgb(37, 99, 235),
         (NoticeKind.Session, true) => Color.FromArgb(5, 150, 105),
-        (NoticeKind.Crash, true) => Color.FromArgb(217, 119, 6),
+        (NoticeKind.Crash or NoticeKind.Internet, true) => Color.FromArgb(217, 119, 6),
+        (NoticeKind.InternetBack, true) => Color.FromArgb(5, 150, 105),
         (_, true) => Color.FromArgb(124, 58, 237),
     };
 
@@ -370,6 +372,8 @@ internal static class ToastRenderer
         NoticeKind.Crash => Lang.T("WHAT HAPPENED"),
         NoticeKind.Overlay => Lang.T("OVERLAY"),
         NoticeKind.Rewind => Lang.T("REWIND"),
+        NoticeKind.Internet => Lang.T("INTERNET DROP"),
+        NoticeKind.InternetBack => Lang.T("INTERNET BACK"),
         _ => Lang.T("UPDATE"),
     };
 

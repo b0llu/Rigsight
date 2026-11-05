@@ -131,32 +131,117 @@
                     </Border>
                 </ctl:TileWrap>
 
-                <!-- Where the time went: one bar, cut by kind of app. -->
+                <!-- Where the time went: a row for each kind of app, biggest first, every bar from the same edge (one bar cut into
+                     pieces was hard to read past its first piece); its time, its share and its apps. A click shows that kind alone
+                     on the days under it (mock-up FRqgRz6oR4PjbazDL4wt3x, option A). -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding HasTimeSplit, Converter={StaticResource Vis}}">
                     <StackPanel>
-                        <DockPanel Margin="0,0,0,12">
+                        <DockPanel Margin="0,0,0,10">
                             <TextBlock DockPanel.Dock="Right" Text="{Binding TimeSplitNote}" Style="{StaticResource Muted}" FontSize="12.5" VerticalAlignment="Center" />
                             <TextBlock Text="{ctl:T 'Where the time went'}" Style="{StaticResource H2}" />
                         </DockPanel>
-                        <ctl:PartsBar Height="12" Parts="{Binding TimeSplit}" />
-                        <ItemsControl ItemsSource="{Binding TimeSplit}" Focusable="False" Margin="0,12,0,0">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
+                        <ItemsControl ItemsSource="{Binding TimeRows}" Focusable="False" AutomationProperties.Name="Where the time went">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,26,4">
-                                        <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" VerticalAlignment="Center" Margin="0,1,8,0"
-                                                   Fill="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
-                                        <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}">
-                                            <Run Text="{Binding Name, Mode=OneWay}" /> <Run Text="{Binding Text, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
-                                        </TextBlock>
-                                    </StackPanel>
+                                    <Button Style="{StaticResource FlatRowButton}" Margin="-8,0" Padding="8,5" Command="{Binding DataContext.PickKindCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                                            IsHitTestVisible="{Binding DataContext.IsMultiDay, RelativeSource={RelativeSource AncestorType=UserControl}}" AutomationProperties.Name="{Binding Part.Name}">
+                                        <Grid Margin="0,6">
+                                            <Grid.Style>
+                                                <Style TargetType="Grid">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Dim}" Value="True">
+                                                            <Setter Property="Opacity" Value="0.35" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Grid.Style>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="190" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="74" />
+                                                <ColumnDefinition Width="48" />
+                                                <ColumnDefinition Width="2*" MaxWidth="300" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Rectangle Width="9" Height="9" RadiusX="2.5" RadiusY="2.5" VerticalAlignment="Center" Margin="0,1,9,0"
+                                                           Fill="{Binding Part.Brush, Converter={StaticResource ResourceBrush}}" />
+                                                <TextBlock Text="{Binding Part.Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <ProgressBar Grid.Column="1" Style="{StaticResource Bar}" Height="10" Minimum="0" Maximum="1" Value="{Binding Part.OfLargest, Mode=OneWay}"
+                                                         Foreground="{Binding Part.Brush, Converter={StaticResource ResourceBrush}}" VerticalAlignment="Center" Margin="0,0,14,0" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Part.Text}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Part.ShareText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{Binding Part.Apps}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="18,0,0,0"
+                                                       TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </StackPanel>
                 </ctl:SmoothBorder>
+
+                <!-- Timeline / daily bars -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,12">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                                        Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
+                                <!-- What the curves are, as on Temperatures (one remembered choice for both pages). -->
+                                <TextBlock Text="{ctl:T 'Each minute\'s'}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <Border Style="{StaticResource SegmentHost}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Average'}"
+                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Avg}" />
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Highest'}"
+                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=High}" />
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Lowest'}"
+                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Low}" />
+                                    </StackPanel>
+                                </Border>
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" Margin="18,0,0,0" />
+                                <TextBlock Text="CPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,16,0" VerticalAlignment="Center" />
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource GpuBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="GPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{ctl:T 'Your day, minute by minute'}" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
+                                <TextBlock Text="{Binding BarsTitleShown}" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
+                                    <!-- Zoomed in (a drag across the graph): the stretch shown and the way back, beside the title (what is shown), apart
+                                         from the controls on the right. They come in the free space after the title, so nothing moves. -->
+                                    <TextBlock Text="{Binding ZoomText, ElementName=Timeline}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5"
+                                               VerticalAlignment="Center" Margin="16,0,10,0" />
+                                    <Button Command="{Binding ResetZoomCommand, ElementName=Timeline}" AutomationProperties.Name="{Binding ResetText, ElementName=Timeline}"
+                                            VerticalAlignment="Center" FontSize="12">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                                <Setter Property="Visibility" Value="Hidden" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsZoomed, ElementName=Timeline}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding ResetText, ElementName=Timeline}" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+                        </DockPanel>
+                        <ctl:DayTimeline x:Name="Timeline" ctl:Roomy.Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" End="{Binding TimelineEnd}" RecordedUntil="{Binding Report.BuiltAt}"
+                                         Plot="{Binding ChartPlot}" CanZoom="True" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
+                        <ctl:DailyBars ctl:Roomy.Height="220" Days="{Binding Report.Days}" Only="{Binding PickedKinds}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
+                        <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="40,10,0,0" TextWrapping="Wrap"
+                                   Text="{ctl:T 'The strip shows the app in front, colored by category (faded = you were away); the lines below are CPU and GPU temperature. Hover anywhere for details. Drag across it to look closer.'}"
+                                   Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
 
                 <!-- Against your usual: the period's temperatures, fans and problems beside what is normal for this PC. Only
                      what moved is coloured; the rest is said in grey. Not on a day (Home's PC health says that). -->
@@ -222,65 +307,6 @@
                     </StackPanel>
                 </ctl:SmoothBorder>
 
-                <!-- Timeline / daily bars -->
-                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0">
-                    <StackPanel>
-                        <DockPanel Margin="0,0,0,12">
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
-                                        Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
-                                <!-- What the curves are, as on Temperatures (one remembered choice for both pages). -->
-                                <TextBlock Text="{ctl:T 'Each minute\'s'}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                <Border Style="{StaticResource SegmentHost}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Average'}"
-                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Avg}" />
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Highest'}"
-                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=High}" />
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Lowest'}"
-                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Low}" />
-                                    </StackPanel>
-                                </Border>
-                                <Ellipse Width="8" Height="8" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" Margin="18,0,0,0" />
-                                <TextBlock Text="CPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,16,0" VerticalAlignment="Center" />
-                                <Ellipse Width="8" Height="8" Fill="{DynamicResource GpuBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="GPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{ctl:T 'Your day, minute by minute'}" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
-                                <TextBlock Text="{Binding BarsTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
-                                    <!-- Zoomed in (a drag across the graph): the stretch shown and the way back, beside the title (what is shown), apart
-                                         from the controls on the right. They come in the free space after the title, so nothing moves. -->
-                                    <TextBlock Text="{Binding ZoomText, ElementName=Timeline}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5"
-                                               VerticalAlignment="Center" Margin="16,0,10,0" />
-                                    <Button Command="{Binding ResetZoomCommand, ElementName=Timeline}" AutomationProperties.Name="{Binding ResetText, ElementName=Timeline}"
-                                            VerticalAlignment="Center" FontSize="12">
-                                        <Button.Style>
-                                            <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                                                <Setter Property="Visibility" Value="Hidden" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsZoomed, ElementName=Timeline}" Value="True">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
-                                            <TextBlock Text="{Binding ResetText, ElementName=Timeline}" />
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
-                            </StackPanel>
-                        </DockPanel>
-                        <ctl:DayTimeline x:Name="Timeline" ctl:Roomy.Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" End="{Binding TimelineEnd}" RecordedUntil="{Binding Report.BuiltAt}"
-                                         Plot="{Binding ChartPlot}" CanZoom="True" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
-                        <ctl:DailyBars ctl:Roomy.Height="220" Days="{Binding Report.Days}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
-                        <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="40,10,0,0" TextWrapping="Wrap"
-                                   Text="{ctl:T 'The strip shows the app in front, colored by category (faded = you were away); the lines below are CPU and GPU temperature. Hover anywhere for details. Drag across it to look closer.'}"
-                                   Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
-                    </StackPanel>
-                </ctl:SmoothBorder>
 
                 <!-- Insights + hot moments -->
                 <Grid Margin="0,18,0,0">

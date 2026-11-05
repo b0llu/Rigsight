@@ -308,6 +308,53 @@ public sealed class TimelinePageTests
     }
 
     [Fact]
+    public void Every_kind_of_change_shows_by_day_by_month_one_by_one_and_under_its_filter()
+    {
+        // A month view used to leave out every game update a day showed (2026-11-05): no kind may go missing in any view.
+        var kinds = Enum.GetValues<ChangeKind>();
+        Assert.All(kinds, k => Assert.Contains(TimelineViewModel.MonthLines, l => l.Kinds.Contains(k)));
+        string[] filterKeys = ["drivers", "windows", "apps", "games", "startup", "hardware", "settings", "fans", "storage", "ended"];
+        Assert.All(kinds, k => Assert.Contains(filterKeys, f => TimelineViewModel.KindsOf(f)!.Contains(k)));
+
+        // Two months back: two of each kind in one month, and one of each in the month before it.
+        var first = new DateTime(Today.Year, Today.Month, 1).AddMonths(-2);
+        var changes = new List<SystemChange>();
+        int i = 0;
+        foreach (var k in kinds)
+        {
+            i++;
+            string Title(int n) => k == ChangeKind.GameUpdated ? $"Game {i} updated" : $"{k} change {i}.{n}";
+            changes.Add(Change(first.AddDays(1 + i % 20).AddHours(9), k, Title(1)) with { Subject = k == ChangeKind.GameUpdated ? $"{Inventory.Game}:steam:{i}" : Title(1) });
+            changes.Add(Change(first.AddDays(2 + i % 20).AddHours(10), k, Title(2)) with { Subject = k == ChangeKind.GameUpdated ? $"{Inventory.Game}:steam:{i}" : Title(2) });
+            changes.Add(Change(first.AddMonths(-1).AddDays(3).AddHours(8 + i % 10), k, $"{k} earlier {i}"));
+        }
+        var (vm, _) = Page(changes);
+        Ui.Run(() =>
+        {
+            int Count(IEnumerable<TimelineDay> days) => days.SelectMany(d => d.Entries).Sum(e => e.HasChildren ? e.Children.Count : 1);
+            void ShowAll() { while (vm.HasMore) vm.ShowMoreCommand.Execute(null); }
+            foreach (var grouping in new[] { "Day", "Each", "Month" })
+            {
+                vm.Grouping = grouping;
+                ShowAll();
+                Assert.True(changes.Count == Count(vm.Days), $"{grouping}: {Count(vm.Days)} of {changes.Count} changes shown");
+                foreach (var filter in vm.Filters.Where(f => f.Key is not "all" and not "results"))
+                {
+                    vm.Filter = filter;
+                    ShowAll();
+                    Assert.True(filter.Count == Count(vm.Days), $"{grouping}, {filter.Key}: {Count(vm.Days)} of {filter.Count} shown");
+                }
+                vm.Filter = vm.Filters.Single(f => f.Key == "all");
+            }
+            // By month, game updates are one line by game, each opening its game.
+            vm.Grouping = "Month";
+            var games = vm.Days.Single(d => d.Day == first).Entries.Single(e => e.Title == "2 game updates");
+            Assert.Equal($"Game {Array.IndexOf(kinds, ChangeKind.GameUpdated) + 1} ×2", games.Detail);
+            Assert.All(games.Children, c => Assert.NotNull(c.GameKey));
+        });
+    }
+
+    [Fact]
     public void The_filter_lists_the_kinds_there_are_and_shows_one_at_a_time()
     {
         var (changes, problems) = Story();
@@ -400,6 +447,13 @@ public sealed class TimelinePageTests
             vm.Filter = vm.Filters.Single(f => f.Key == TimelineViewModel.ResultsKey);
             Assert.Equal(2, vm.Days.Single().Entries.Count);
             Assert.True(vm.Days.Single().Entries.Single(e => e.Title.StartsWith("NVIDIA")).HasResult);
+
+            // By month it stays under the driver, on a line of its own (not folded into the month's driver updates).
+            vm.Grouping = "Month";
+            var month = vm.Days.Single(d => d.IsSummary);
+            Assert.True(month.Entries.Single(e => e.Title.StartsWith("NVIDIA")).HasResult);
+            Assert.Single(month.Entries, e => e.HasResult);
+            vm.Grouping = "Day";
 
             // With only Windows shown it hangs under the update; with only apps there's no change to hang it on.
             vm.Filter = vm.Filters.Single(f => f.Key == "windows");

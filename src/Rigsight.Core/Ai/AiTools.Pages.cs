@@ -62,7 +62,7 @@ public sealed partial class AiTools
         Def("get_widgets", "The Widgets page: the desktop widgets that are on, with their readings, the ones that are off, the built-in kinds, and every reading a widget can show. For suggesting widgets: suggest only from these.", new JsonObject()),
         Def("get_overlay", "The Overlay page: the in-game overlay, on or off, its shortcut and the readings it shows, and every reading it can show. For suggesting overlay readings: suggest only from these.", new JsonObject()),
         Def("get_taskbar", "The Taskbar page: the readings shown beside the clock, and every reading that can be added there. For suggesting taskbar readings: suggest only from these.", new JsonObject()),
-        Def("get_dashboard", "The dashboards the person made from tiles. Without a name: their names and what tiles each has. With a name: what each of its tiles shows right now.", new JsonObject
+        Def("get_dashboard", "The dashboards the person made from tiles. Without a name: their names, what tiles each has, and every tile a dashboard can have. With a name: what each of its tiles shows right now.", new JsonObject
         {
             ["type"] = "object",
             ["properties"] = new JsonObject { ["name"] = new JsonObject { ["type"] = "string", ["description"] = "The dashboard's name as the list gives it." } },
@@ -300,11 +300,15 @@ public sealed partial class AiTools
     private string DashboardList()
     {
         var pages = settings.CustomPages;
-        if (pages.Count == 0) return "The person hasn't made any dashboards.";
         var sb = new StringBuilder();
-        sb.AppendLine($"The person's dashboards ({pages.Count}):");
-        foreach (var p in pages)
-            sb.AppendLine($"  {Clean(p.Name)}: " + (p.Tiles.Count == 0 ? "no tiles" : string.Join(", ", p.Tiles.Select(TileName))));
+        if (pages.Count == 0) sb.AppendLine("The person hasn't made any dashboards.");
+        else
+        {
+            sb.AppendLine($"The person's dashboards ({pages.Count}):");
+            foreach (var p in pages)
+                sb.AppendLine($"  {Clean(p.Name)}: " + (p.Tiles.Count == 0 ? "no tiles" : string.Join(", ", p.Tiles.Select(TileName))));
+        }
+        sb.Append(TilesYouCanAdd());
         return sb.ToString();
     }
 
@@ -336,43 +340,19 @@ public sealed partial class AiTools
     private static readonly HashSet<string> DayKinds = ["today", "most-used", "insights", "peaks"];
     private static readonly HashSet<string> NetKinds = ["net-speed", "net-now", "net-today", "net-apps", "net-chart", "net-drops"];
 
-    /// <summary>The dashboard tile's title in English (the app's catalog is in the person's language).</summary>
-    private static string TileName(TileConfig t) => t.Kind switch
+    /// <summary>The dashboard tile's title in English, from the one list of tiles (DashboardTiles).</summary>
+    private static string TileName(TileConfig t) => t.Kind == "sensor" && DashboardTiles.All.All(d => d.Sensor != t.Sensor) ? "A sensor reading"
+        : DashboardTiles.For(t.Kind, t.Sensor)?.Title ?? "A tile";
+
+    /// <summary>Every tile a dashboard can have, by group, with what each shows: what the person can add (and the AI can suggest).</summary>
+    internal static string TilesYouCanAdd()
     {
-        "cpu-gauge" => "CPU temperature",
-        "gpu-gauge" => "GPU temperature",
-        "temp-chart" => "Temperature chart",
-        "fans" => "Fans",
-        "drives" => "Drives",
-        "top-memory" => "Top memory users",
-        "sensor" => t.Sensor switch
-        {
-            "key:" + KeySensors.CpuLoad => "CPU load",
-            "key:" + KeySensors.CpuPower => "CPU power",
-            "key:" + KeySensors.CpuClock => "CPU clock",
-            "key:" + KeySensors.GpuLoad => "GPU load",
-            "key:" + KeySensors.GpuPower => "GPU power",
-            "key:" + KeySensors.GpuHotSpot => "GPU hot spot",
-            "key:" + KeySensors.GpuMemJunction => "GPU memory temperature",
-            "key:" + KeySensors.GpuFan => "GPU fan",
-            "key:" + KeySensors.GpuVramLoad => "Video memory",
-            "key:" + KeySensors.RamLoad => "RAM",
-            _ => "A sensor reading",
-        },
-        "net-speed" => "Internet speed",
-        "net-now" => "Using the internet now",
-        "net-today" => "Internet today",
-        "net-apps" => "Top internet users today",
-        "net-chart" => "Internet use by hour",
-        "net-drops" => "Connection today",
-        "today" => "Today so far",
-        "most-used" => "Most used today",
-        "insights" => "What stands out",
-        "peaks" => "Today's peaks",
-        "yesterday" => "Yesterday",
-        "crashes" => "Crashes",
-        _ => "A tile",
-    };
+        var sb = new StringBuilder("Tiles a dashboard can have (on the dashboard: Edit, then click one in the Add tiles list on the right):" + Environment.NewLine);
+        foreach (var g in DashboardTiles.All.GroupBy(d => d.Group))
+            sb.AppendLine($"  {g.Key[0]}{g.Key[1..].ToLowerInvariant()}: " + string.Join("; ", g.Select(d => $"{d.Title} ({d.Description.TrimEnd('.')})")));
+        sb.AppendLine("  Any other sensor can be a single-reading tile too (Add sensor, under the list).");
+        return sb.ToString();
+    }
 
     /// <summary>The Crashes tile: the last 30 days' count and the latest one.</summary>
     private string RecentCrashes(RigsightDb db)

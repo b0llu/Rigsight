@@ -391,6 +391,13 @@ public sealed class AlertSettings
     /// </summary>
     public bool CrashNotifications { get; set; } = true;
 
+    /// <summary>
+    /// Tell me when the internet drops and when it's back (1.4.0, the user's ask 2026-11-05): after 15 s down, then
+    /// with how long it lasted; one "keeps dropping" instead of a stream (see the agent's DropNotices). A click opens the
+    /// Network page on that day.
+    /// </summary>
+    public bool InternetDrops { get; set; } = true;
+
     /// <summary>Hold recaps and summaries while a fullscreen app is in front; show them afterwards.</summary>
     public bool QuietDuringFullscreen { get; set; } = true;
 

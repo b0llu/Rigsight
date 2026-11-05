@@ -41,10 +41,12 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     partial void OnReportChanged(Report? value)
     {
         SyncApps();
+        // Another period: no kind picked (its kinds and days are another's).
+        if (PickedKind is { } picked && !SplitOf(value).Contains(picked)) PickedKind = null;
         foreach (var name in new[]
                  {
                      nameof(ActiveLine), nameof(GamesText), nameof(GamesLine), nameof(InternetText), nameof(InternetLine), nameof(HasEnergy), nameof(EnergyText), nameof(EnergyParts),
-                     nameof(TimeSplit), nameof(HasTimeSplit), nameof(TimeSplitNote), nameof(ShownInsights), nameof(UsualRows), nameof(HasUsual), nameof(UsualNow), nameof(ProblemsLine), nameof(ProblemsTone),
+                     nameof(TimeSplit), nameof(HasTimeSplit), nameof(TimeSplitNote), nameof(TimeRows), nameof(ShownInsights), nameof(UsualRows), nameof(HasUsual), nameof(UsualNow), nameof(ProblemsLine), nameof(ProblemsTone),
                  })
             OnPropertyChanged(name);
     }
@@ -213,6 +215,20 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     /// <summary>The period's time in use by kind of app, biggest first; kinds under a fiftieth of it go into "Everything else".</summary>
     public List<TimePart> TimeSplit => _timeSplit = Kept.Or(_timeSplit, SplitOf(Report));
     public bool HasTimeSplit => TimeSplit.Count >= 2;
+
+    /// <summary>
+    /// The kind picked in Where the time went (null: none): the days' graph under it shows only that kind, with its time
+    /// over each bar. Click it again for all of them.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TimeRows), nameof(PickedKinds), nameof(BarsTitleShown))]
+    private TimePart? _pickedKind;
+    public List<TimeRow> TimeRows => [.. TimeSplit.Select(p => new TimeRow(p, PickedKind is not null && PickedKind != p, PickedKind == p))];
+    public IReadOnlyList<Core.Settings.AppCategory>? PickedKinds => PickedKind?.Kinds;
+    public string BarsTitleShown => PickedKind is { } k && IsMultiDay ? $"{BarsTitle} · {k.Name}" : BarsTitle;
+
+    [RelayCommand]
+    private void PickKind(TimeRow row) => PickedKind = !IsMultiDay || PickedKind == row.Part ? null : row.Part;
     public string TimeSplitNote => Report is { } r ? InUseAway(Units.Duration(r.ActiveSec), Units.Duration(r.AwaySec)) : "";
 
     private static string InUseAway(string inUse, string away) => Lang.T($"{inUse} in use · {away} away");
@@ -220,19 +236,29 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     internal static List<TimePart> SplitOf(Report? report)
     {
         if (report is null) return [];
-        var kinds = report.Apps.Where(a => a.ActiveSec > 0).GroupBy(a => a.Category).Select(g => (Kind: g.Key, Sec: g.Sum(a => a.ActiveSec))).OrderByDescending(k => k.Sec).ToList();
+        var used = report.Apps.Where(a => a.ActiveSec > 0).ToList();
+        var kinds = used.GroupBy(a => a.Category).Select(g => (Kind: g.Key, Sec: g.Sum(a => a.ActiveSec))).OrderByDescending(k => k.Sec).ToList();
         double total = kinds.Sum(k => k.Sec);
         if (total < 60) return [];
-        var parts = new List<TimePart>();
-        double rest = 0;
+        var parts = new List<(string Name, double Sec, string Brush, List<Core.Settings.AppCategory> Kinds)>();
+        var rest = new List<Core.Settings.AppCategory>();
+        double restSec = 0;
         foreach (var (kind, sec) in kinds)
         {
-            // System apps, anything unsorted and slivers too small to see in the bar are one grey part at the end.
-            if (kind is Core.Settings.AppCategory.Other or Core.Settings.AppCategory.System || sec < total / 50) rest += sec;
-            else parts.Add(new TimePart(Core.Apps.AppCatalog.Label(kind), sec, ThemeManager.CategoryHex(kind)));
+            // System apps, anything unsorted and slivers too small to see are one grey part at the end.
+            if (kind is Core.Settings.AppCategory.Other or Core.Settings.AppCategory.System || sec < total / 50) { restSec += sec; rest.Add(kind); }
+            else parts.Add((Core.Apps.AppCatalog.Label(kind), sec, ThemeManager.CategoryHex(kind), [kind]));
         }
-        if (rest >= 60) parts.Add(new TimePart(Lang.T("Everything else"), rest, ThemeManager.CategoryHex(Core.Settings.AppCategory.System)));
-        return parts;
+        if (restSec >= 60) parts.Add((Lang.T("Everything else"), restSec, ThemeManager.CategoryHex(Core.Settings.AppCategory.System), rest));
+        double largest = parts.Count > 0 ? parts.Max(p => p.Sec) : 1;
+        return [.. parts.Select(p =>
+        {
+            // Named from a minute of use; the rest are "N more".
+            var apps = used.Where(a => p.Kinds.Contains(a.Category) && a.ActiveSec >= 60).OrderByDescending(a => a.ActiveSec).ToList();
+            var named = apps.Take(2).Select(a => $"{a.Name} {Units.Duration(a.ActiveSec)}").ToList();
+            if (apps.Count > 2) named.Add(Lang.T($"{apps.Count - 2} more"));
+            return new TimePart(p.Name, p.Sec, p.Brush) { Kinds = p.Kinds, Share = p.Sec / total, OfLargest = p.Sec / largest, Apps = string.Join(" · ", named) };
+        })];
     }
 
     // ── Against your usual ──
@@ -559,6 +585,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         OnPropertyChanged(nameof(IsMultiDay));
         OnPropertyChanged(nameof(IsYear));
         OnPropertyChanged(nameof(BarsTitle));
+        OnPropertyChanged(nameof(BarsTitleShown));
         if (Range != ReportRange.Custom || _customPending) return;
         _customPending = true;
         System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(() =>

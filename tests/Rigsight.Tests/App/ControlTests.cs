@@ -19,6 +19,19 @@ using Rigsight.ViewModels;
 
 namespace Rigsight.Tests.App;
 
+/// <summary>The Reports graph's average day (issue #9): the days used, today left out while it goes on.</summary>
+public sealed class DailyBarsAverageTests
+{
+    [Fact]
+    public void The_average_day_is_of_the_days_used_and_leaves_today_out()
+    {
+        var today = new DateTime(2026, 11, 5);
+        DayBucket D(int ago, double hours) => new() { Day = today.AddDays(-ago), ActiveSec = hours * 3600 };
+        Assert.Equal(3 * 3600, DailyBars.AverageDay([D(3, 2), D(2, 0), D(1, 4), D(0, 9)], today.AddHours(15)));
+        Assert.Null(DailyBars.AverageDay([D(1, 4), D(0, 9)], today.AddHours(15))); // one day is its own average
+    }
+}
+
 /// <summary>Lays out and draws a control off screen, the way a window would.</summary>
 internal static class Draw
 {

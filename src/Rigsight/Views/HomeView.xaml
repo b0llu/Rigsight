@@ -270,7 +270,12 @@
                                                  Visibility="{Binding HasLastYear, Converter={StaticResource Vis}}" />
                                 </StackPanel>
                             </Border>
-                            <TextBlock Text="{Binding RecapTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            <!-- The days a week, month or year covers, quietly under its title (issue #7). -->
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding RecapTitle}" Style="{StaticResource H2}" />
+                                <TextBlock Text="{Binding RecapDays}" Style="{StaticResource Muted}" FontSize="12.5" Margin="0,2,0,0"
+                                           Visibility="{Binding RecapDays, Converter={StaticResource Vis}}" />
+                            </StackPanel>
                         </DockPanel>
                         <!-- Another day standing in for yesterday: why. -->
                         <TextBlock DockPanel.Dock="Top" Text="{Binding RecapNote}" Style="{StaticResource Muted}" FontSize="12" Margin="0,-8,0,12"
@@ -343,10 +348,12 @@
                                     <Grid>
                                         <Grid x:Name="App" Margin="0,5" Visibility="{Binding IsApp, Converter={StaticResource Vis}}">
                                             <Grid.ColumnDefinitions>
+                                                <!-- The time in a fixed column: sized to its text, a short "49m" widened the name and moved
+                                                     that bar (issue #7). -->
                                                 <ColumnDefinition Width="30" />
                                                 <ColumnDefinition Width="*" MaxWidth="170" />
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="66" />
                                             </Grid.ColumnDefinitions>
                                             <Image Source="{Binding App.Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="20" Height="20" HorizontalAlignment="Left" />
                                             <TextBlock ctl:TrimmedText.ToolTip="True" Grid.Column="1" Text="{Binding App.Name}" Style="{StaticResource Body}" VerticalAlignment="Center" />
@@ -355,7 +362,7 @@
                                                          Value="{Binding App.ActiveSec, Mode=OneWay}"
                                                          Foreground="{Binding App.Category, Converter={StaticResource CategoryBrush}, ConverterParameter=Bar}" />
                                             <TextBlock Grid.Column="3" Text="{Binding App.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}" FontWeight="SemiBold"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" HorizontalAlignment="Right" />
                                         </Grid>
                                         <Button x:Name="Line" Style="{StaticResource FlatRowButton}" Margin="-6,1" ToolTip="{Binding Line.DetailOrNull}" ToolTipService.ShowOnDisabled="True"
                                                 IsEnabled="{Binding Line.CanOpen, FallbackValue=False}" AutomationProperties.Name="{Binding Line.Line}"

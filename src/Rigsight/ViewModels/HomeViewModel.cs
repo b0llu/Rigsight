@@ -109,7 +109,8 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     public bool ShowNoChanges => Loaded && !HasChanges;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(RecapAsk), nameof(RecapAskText), nameof(IsYesterday), nameof(IsLastWeek), nameof(IsLastMonth), nameof(IsLastYear))]
+    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(RecapAsk), nameof(RecapAskText), nameof(IsYesterday), nameof(IsLastWeek), nameof(IsLastMonth), nameof(IsLastYear),
+        nameof(RecapDays))]
     private RecapPeriod _period;
 
     /// <summary>The periods there's history for, in order (a period only once it's whole and something was recorded in it).</summary>
@@ -133,7 +134,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// yesterday). A PC left off over a weekend opens on Friday's recap, not on an empty card.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(RecapAsk), nameof(RecapAskText))]
+    [NotifyPropertyChangedFor(nameof(RecapTitle), nameof(RecapArg), nameof(RecapNote), nameof(RecapAsk), nameof(RecapAskText), nameof(RecapDays))]
     private DateTime? _lastUsedDay;
 
     /// <summary>The last day used stands in for yesterday (the "Day" recap, and that day isn't yesterday).</summary>
@@ -168,6 +169,37 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         _ when StandIn is { } day => (DateTime.Today - day).TotalDays <= 6 ? Lang.T($"What stood out on {day:dddd}?") : Lang.T($"What stood out on {day.ToString(TimeText.Fit("ddd d MMM"))}?"),
         _ => Lang.T("What stood out yesterday?"),
     };
+
+    /// <summary>The first day of the history, for <see cref="RecapDays"/>.</summary>
+    private DateTime? _firstDay;
+
+    /// <summary>
+    /// Under the title of a week, month or year: the days it covers ("27 Oct – 2 Nov", "October"), and from when it was
+    /// recorded when the history starts inside it ("October · recorded since 28 Oct"). Without it a month that held only
+    /// four days of history read as less than the week after it, and looked wrong (issue #7, 2026-11-05).
+    /// </summary>
+    public string? RecapDays => Period == RecapPeriod.Yesterday ? DayOf(StandIn ?? DateTime.Today.AddDays(-1), DateTime.Today) : DaysOf(Period, DateTime.Today, _firstDay);
+
+    /// <summary>
+    /// The Day recap's date under its title, saying what the title doesn't: "Wednesday, 4 November" under "Yesterday",
+    /// the date under a day of the last week named by its day ("Monday"), the day's name under an older one titled by its date.
+    /// </summary>
+    internal static string DayOf(DateTime day, DateTime today) =>
+        day == today.AddDays(-1) ? day.ToString("dddd, d MMMM") : (today - day).TotalDays <= 6 ? day.ToString("d MMMM") : day.ToString("dddd");
+
+    internal static string DaysOf(RecapPeriod period, DateTime today, DateTime? firstDay)
+    {
+        var (range, anchor) = Bounds(period, today);
+        var (from, to) = ReportBuilder.Bounds(range, anchor);
+        var last = to.AddDays(-1);
+        string days = period switch
+        {
+            RecapPeriod.LastMonth => from.ToString(from.Year == today.Year ? "MMMM" : "MMMM yyyy"),
+            RecapPeriod.LastYear => from.ToString("yyyy"),
+            _ => from.Month == last.Month ? $"{from:%d} – {last:d MMM}" : $"{from:d MMM} – {last:d MMM}",
+        };
+        return firstDay is { } first && first.Date > from && first.Date <= last ? Lang.T($"{days} · recorded since {first:d MMM}") : days;
+    }
 
     /// <summary>Under the title when another day stands in for yesterday: why ("Not used for 2 days.").</summary>
     public string? RecapNote => StandIn is not { } day ? null
@@ -324,7 +356,9 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
 
     private async Task LoadDayRecapAsync()
     {
-        Periods = PeriodsFor(await reports.FirstDayAsync(), DateTime.Today);
+        _firstDay = await reports.FirstDayAsync();
+        Periods = PeriodsFor(_firstDay, DateTime.Today);
+        OnPropertyChanged(nameof(RecapDays));
         if (!Periods.Contains(Period)) Period = RecapPeriod.Yesterday;
         await LoadRecapAsync();
         YesterdayChanged();

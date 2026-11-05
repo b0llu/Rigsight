@@ -105,6 +105,10 @@ public sealed class HistoryPageTests
         Assert.Equal(["Games 4h 09m", "Browsing 3h 10m", "Development 3h 05m", "Chat & calls 1h 05m", "Everything else 1h 14m"], parts.Select(p => $"{p.Name} {p.Text}"));
         Assert.Equal(Rigsight.Core.Apps.AppCatalog.Color(AppCategory.Game), parts[0].Brush);
         Assert.Equal(parts.Sum(p => p.Weight), report.Apps.Sum(a => a.ActiveSec), 6);
+        // Each row: its share, its bar against the biggest, the apps that made it up, and the kinds it covers.
+        Assert.Equal(("Apex 2h 30m · Dota 1h 39m", "33%", 1.0), (parts[0].Apps, parts[0].ShareText, parts[0].OfLargest));
+        Assert.Equal("Explorer 40m · Odd 30m · 1 more", parts[^1].Apps);
+        Assert.Equal([AppCategory.System, AppCategory.Other, AppCategory.Media], parts[^1].Kinds);
         Assert.Empty(ReportsViewModel.SplitOf(null));
         Assert.Empty(ReportsViewModel.SplitOf(new Report { Apps = [App("Blink", AppCategory.Game, 0.5)] }));
     }
@@ -173,6 +177,20 @@ public sealed class HistoryPageTests
             Assert.Equal(vm.Crashes.Count == 0, vm.ProblemsLine == "No PC problems");
             Assert.Equal(vm.Report!.EnergyWh is > 0, vm.HasEnergy);
             Assert.Equal(vm.TimeSplit.Count >= 2, vm.HasTimeSplit);
+            // A kind clicked shows alone on the days under it (a week, month or year), and again for all of them.
+            if (vm.TimeRows.Count > 1)
+            {
+                vm.PickKindCommand.Execute(vm.TimeRows[0]);
+                Assert.Equal(vm.IsMultiDay ? vm.TimeRows[0].Part : null, vm.PickedKind);
+                if (vm.IsMultiDay)
+                {
+                    Assert.All(vm.TimeRows.Skip(1), r => Assert.True(r.Dim));
+                    Assert.EndsWith(vm.TimeRows[0].Part.Name, vm.BarsTitleShown);
+                    Assert.Equal(vm.TimeRows[0].Part.Kinds, vm.PickedKinds);
+                    vm.PickKindCommand.Execute(vm.TimeRows.First(r => r.Picked));
+                    Assert.Null(vm.PickedKind);
+                }
+            }
             // The totals are the tiles: not the first line of the list as well. Every other line shows, with no button to press.
             Assert.DoesNotContain(vm.ShownInsights, i => i.Key == "screen");
             Assert.Equal(vm.Insights.Count(i => i.Key != "screen"), vm.ShownInsights.Count);
@@ -229,6 +247,40 @@ public sealed class HistoryPageTests
         var today = DateTime.Parse(todayText);
         DateTime? first = firstText is null ? null : DateTime.Parse(firstText);
         Assert.Equal(expected, string.Join(", ", HomeViewModel.PeriodsFor(first, today)));
+    }
+
+    [Theory]
+    // Issue #7: a recap says which days it covers, and from when when the history starts inside it.
+    [InlineData("2026-11-05", "LastMonth", "2026-10-28", "October · recorded since 28 Oct")]
+    [InlineData("2026-11-05", "LastMonth", "2026-09-01", "October")]
+    [InlineData("2026-01-10", "LastMonth", null, "December 2025")]
+    [InlineData("2026-03-10", "LastYear", "2025-06-01", "2025 · recorded since 1 Jun")]
+    public void A_recap_says_which_days_it_covers(string todayText, string period, string? firstText, string expected)
+    {
+        DateTime? first = firstText is null ? null : DateTime.Parse(firstText);
+        Assert.Equal(expected, HomeViewModel.DaysOf(Enum.Parse<RecapPeriod>(period), DateTime.Parse(todayText), first));
+    }
+
+    [Fact]
+    public void The_day_recap_says_its_date_too()
+    {
+        var today = new DateTime(2026, 11, 5);
+        Assert.Equal("Wednesday, 4 November", HomeViewModel.DayOf(today.AddDays(-1), today)); // under "Yesterday"
+        Assert.Equal("2 November", HomeViewModel.DayOf(today.AddDays(-3), today));            // under "Monday"
+        Assert.Equal("Friday", HomeViewModel.DayOf(new DateTime(2026, 10, 23), today));       // under "23 October"
+    }
+
+    [Fact]
+    public void Last_weeks_recap_names_its_first_and_last_day_as_the_week_runs_here()
+    {
+        // The week starts on the day this PC's settings say (Sunday or Monday): the dates follow it.
+        var today = new DateTime(2026, 11, 5);
+        var (from, to) = Rigsight.Core.Reports.ReportBuilder.Bounds(Rigsight.Core.Reports.ReportRange.Week, today.AddDays(-7));
+        var last = to.AddDays(-1);
+        string days = from.Month == last.Month ? $"{from:%d} – {last:d MMM}" : $"{from:d MMM} – {last:d MMM}";
+        Assert.Equal(days, HomeViewModel.DaysOf(RecapPeriod.LastWeek, today, null));
+        Assert.Equal($"{days} · recorded since {from.AddDays(2):d MMM}", HomeViewModel.DaysOf(RecapPeriod.LastWeek, today, from.AddDays(2)));
+        Assert.Equal(days, HomeViewModel.DaysOf(RecapPeriod.LastWeek, today, from)); // history from its first day: whole
     }
 
     [Fact]

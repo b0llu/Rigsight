@@ -306,7 +306,7 @@
                                               Bins="{Binding Bins}" Unit="{Binding Unit}" Mode="{Binding ChartMode}" View="{Binding ChartView}"
                                               ColorApps="{Binding ColorApps}" AppNames="{Binding AppNames}" Selected="{Binding SelectedBin}"
                                               Drops="{Binding Drops}" HighPing="{Binding HighPing}" Zoomed="{Binding Zoomed}"
-                                              HoverIndex="{Binding HoverIndex}" HoverPoint="{Binding HoverPoint}" PingMarks="{Binding PingMarks}"
+                                              HoverIndex="{Binding HoverIndex}" HoverPoint="{Binding HoverPoint}" PingMarks="{Binding PingMarks}" Link="{Binding Link}"
                                               AutomationProperties.Name="Usage chart">
                                 <ctl:NetBarsChart.Style>
                                     <Style TargetType="ctl:NetBarsChart">

@@ -83,6 +83,12 @@ public sealed record NetStretch(DateTime Start, DateTime End, long Bytes, IReadO
 /// <summary>How a day of a week, month or year went for the connection: one square of the Connection card's strip.</summary>
 public enum NetDayState { Up, Dropped, NotRecorded, ToCome }
 
+/// <summary>A stretch of the Network page's internet strip: up, dropped, PC off, on but not recorded, or still to come.</summary>
+public enum NetLinkState { Up, Dropped, Off, NotRecorded, ToCome }
+
+/// <summary>One cell of the internet strip under the Each hour graph (a quarter hour, an hour, a day or a month).</summary>
+public sealed record NetLinkCell(DateTime Start, DateTime End, NetLinkState State);
+
 /// <summary>A day of the connection strip: its state, the minutes of it recorded, and its drops in order.</summary>
 public sealed record NetDayLink(DateTime Day, NetDayState State, int RecordedMinutes, IReadOnlyList<NetDrop> Drops)
 {
@@ -140,6 +146,11 @@ public sealed class NetReport
     /// <summary>The first day internet use was recorded, when it falls inside the period. A year isn't searched for
     /// stretches not recorded (see <see cref="Unrecorded"/>), so this is the part of it the Connection card can say.</summary>
     public DateTime? RecordedSince { get; set; }
+    /// <summary>
+    /// The internet strip under the Network page's graph, on its time line: a day in quarter hours, a week in hours, a
+    /// month in days, a year in months (the 1.2.1 Connection card's strip, back where it's seen; the user, 2026-11-05).
+    /// </summary>
+    public List<NetLinkCell> Link { get; set; } = [];
     /// <summary>A day's quarter hours (96), each true when the PC was on and online in it: the connection strip.</summary>
     public bool[] Quarters { get; set; } = [];
     /// <summary>The stretches the PC was on with no internet use written and no drop to explain it: not recorded (see
@@ -413,8 +424,43 @@ public static class NetReportBuilder
         r.PingBars = r.Bins.Count(b => b.Ping is not null);
         r.PingBarsNeeded = NetLine.BarsToDraw(r.Hourly, r.Range);
         if (r.Range != ReportRange.Year) r.Bins = OffReasons(db, r, f, t, readPower);
+        r.Link = LinkCells(db, r, f, t);
         r.LineText = NetLine.Sentence(r, r.Apps.ToDictionary(a => a.Id, a => a.Name));
         r.Happenings = NetHappenings.Build(db, r, apps, settings);
+    }
+
+    /// <summary>
+    /// The internet strip: each cell dropped when a drop touches it, off when the PC wasn't on in any minute of it, not
+    /// recorded when it lies in a stretch with nothing written, still to come after now, otherwise up.
+    /// </summary>
+    private static List<NetLinkCell> LinkCells(RigsightDb db, NetReport r, long f, long t)
+    {
+        TimeSpan step = r.Range switch { ReportRange.Day => TimeSpan.FromMinutes(15), ReportRange.Week => TimeSpan.FromHours(1), _ => TimeSpan.FromDays(1) };
+        var cells = new List<(DateTime Start, DateTime End)>();
+        if (r.Range == ReportRange.Year) for (var m = r.From; m < r.To; m = m.AddMonths(1)) cells.Add((m, m.AddMonths(1)));
+        else for (var c = r.From; c < r.To; c += step) cells.Add((c, c + step));
+        var drops = r.Drops.Select(d => (From: TimeUtil.FromUnix(d.Start), To: TimeUtil.FromUnix(d.End))).ToList();
+        // Which cells the PC was on in: its minutes (a year's months by their days with any use, not 500,000 minutes).
+        var on = new HashSet<int>();
+        if (r.Range == ReportRange.Year)
+        {
+            for (int i = 0; i < cells.Count && i < r.Bins.Count; i++) if (r.Bins[i].Total > 0) on.Add(i);
+        }
+        else
+            foreach (var ts in db.GetMinuteTimes(f, Math.Min(t, TimeUtil.ToUnix(r.BuiltAt) + 60)))
+                on.Add((int)((TimeUtil.FromUnix(ts) - r.From) / step));
+        var list = new List<NetLinkCell>(cells.Count);
+        for (int i = 0; i < cells.Count; i++)
+        {
+            var (from, to) = cells[i];
+            var state = from >= r.BuiltAt ? NetLinkState.ToCome
+                : drops.Any(d => d.From < to && d.To > from) ? NetLinkState.Dropped
+                : !on.Contains(i) ? NetLinkState.Off
+                : r.Unrecorded.Any(u => u.Start <= from && u.End >= (to < r.BuiltAt ? to : r.BuiltAt)) ? NetLinkState.NotRecorded
+                : NetLinkState.Up;
+            list.Add(new NetLinkCell(from, to, state));
+        }
+        return list;
     }
 
     /// <summary>

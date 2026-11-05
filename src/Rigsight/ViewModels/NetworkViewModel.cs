@@ -204,6 +204,14 @@ public sealed partial class NetworkViewModel : ObservableObject
         _ = RefreshAsync();
     }
 
+    /// <summary>A drop's notification was clicked: that day.</summary>
+    public void ShowDay(DateTime day)
+    {
+        if (Unit == ReportRange.Day && Anchor == day.Date) { _ = RefreshAsync(); return; }
+        Unit = ReportRange.Day;
+        Anchor = day.Date;
+    }
+
     /// <summary>Midnight passed with the window open (see <see cref="Controls.PeriodPicker.AfterMidnight"/>).</summary>
     public void NewDay(DateTime was)
     {
@@ -491,6 +499,9 @@ public sealed partial class NetworkViewModel : ObservableObject
     [ObservableProperty] private string _pingNoteSoFar = "";
     [ObservableProperty] private string _pingNoteNow = "";
 
+    /// <summary>The internet strip under the graph (see <see cref="NetReport.Link"/>).</summary>
+    [ObservableProperty] private IReadOnlyList<NetLinkCell> _link = [];
+
     /// <summary>When ping checks were stopped and started again in the period, marked on the Ping view.</summary>
     [ObservableProperty] private IReadOnlyList<NetPingMark> _pingMarks = [];
 
@@ -630,8 +641,8 @@ public sealed partial class NetworkViewModel : ObservableObject
         string? missing = b.UnrecordedMinutes >= NetBarsChart.MinUnrecorded ? Lang.T($"Not recorded for {Units.Duration(b.UnrecordedMinutes * 60)}") : null;
         var drops = _report?.Drops.Where(d => TimeUtil.FromUnix(d.Start) < end && TimeUtil.FromUnix(d.End) > b.Start).ToList() ?? [];
         string? drop = drops.Count == 0 ? null : drops.Count == 1
-            ? Lang.T($"Dropped for {Took(drops[0].Seconds)} at {TimeText.At(TimeUtil.FromUnix(drops[0].Start), "h:mm tt")}")
-            : Lang.T($"Dropped {drops.Count} times, {Took(drops.Sum(d => d.Seconds))} in all");
+            ? Lang.T($"Your internet was down for {DropWords.Long(drops[0].Seconds)}, from {TimeText.At(TimeUtil.FromUnix(drops[0].Start), "h:mm tt")}")
+            : Lang.T($"Your internet dropped {drops.Count} times, for {DropWords.Long(drops.Sum(d => d.Seconds))} in all");
         string? steam = b.Steam.Count switch
         {
             0 => null,
@@ -836,6 +847,7 @@ public sealed partial class NetworkViewModel : ObservableObject
 
         // The graph.
         Bins = Models.Kept.Or(Bins, r.Bins);
+        Link = Models.Kept.Or(Link, r.Link);
         if (SelectedBin >= Bins.Count) SelectedBin = -1;
         ChartTitle = r.Hourly ? Lang.T("Each hour") : r.Range == ReportRange.Year ? Lang.T("Each month") : Lang.T("Each day");
         _lineSentence = r.LineText;
@@ -867,6 +879,9 @@ public sealed partial class NetworkViewModel : ObservableObject
                     .Where(l => l.Name is not null).Select(l => new NetLegend(l.Key, l.Name!)),
                new(NetBarsChart.OtherBrushKey, Lang.T("Every other app"))];
         if (!IsPingView && Bins.Any(b => b.UnrecordedMinutes >= NetBarsChart.MinUnrecorded)) legend = [.. legend, new NetLegend("MutedBrush", Lang.T("Not recorded"), 0.7)];
+        // The internet strip's colours, in both views (none while the Ping view's note stands in for the graph).
+        if (Link.Count > 0 && !(IsPingView && ShowPingNote))
+            legend = [.. legend, new NetLegend("GoodBrush", Lang.T("Internet up"), 0.5), .. Link.Any(c => c.State == NetLinkState.Dropped) ? [new NetLegend("WarmBrush", Lang.T("Dropped"))] : Array.Empty<NetLegend>()];
         Legend = Models.Kept.Or(Legend, legend);
     }
 

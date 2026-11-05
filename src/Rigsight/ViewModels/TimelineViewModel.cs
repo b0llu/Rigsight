@@ -443,8 +443,12 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     private static string NameOf(SystemChange c) => c.Title.Split(" updated")[0];
 
     /// <summary>A month's lines, in this order under its problems: what a PC-wide problem usually comes from first.</summary>
-    /// <remarks>Many: how many of them (always two or more), a whole text with the count as its hole.</remarks>
-    private static readonly (string Key, ChangeKind[] Kinds, string Many)[] MonthLines =
+    /// <remarks>
+    /// Many: how many of them (always two or more), a whole text with the count as its hole. Every kind of change has a
+    /// line here (a test checks): game updates were missing, so a month left out every game update a day showed (the
+    /// user, 2026-11-05).
+    /// </remarks>
+    internal static readonly (string Key, ChangeKind[] Kinds, string Many)[] MonthLines =
     [
         ("drivers", [ChangeKind.Driver], Lang.Key("{0} driver updates")),
         ("windows", [ChangeKind.WindowsUpdate, ChangeKind.Windows], Lang.Key("{0} Windows updates")),
@@ -452,6 +456,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         ("installed", [ChangeKind.AppInstalled], Lang.Key("{0} apps installed")),
         ("removed", [ChangeKind.AppRemoved], Lang.Key("{0} apps removed")),
         ("updated", [ChangeKind.AppUpdated], Lang.Key("{0} app updates")),
+        ("games", [ChangeKind.GameUpdated], Lang.Key("{0} game updates")),
         ("startup", [ChangeKind.Startup], Lang.Key("{0} startup changes")),
         ("settings", [ChangeKind.Setting], Lang.Key("{0} settings changed")),
         ("fans", [ChangeKind.Fans], Lang.Key("{0} fan speed changes")),
@@ -480,17 +485,28 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
                 Title = n == 1 ? last.Title : last.Outside ? Core.Wording.PowerCuts(n) : Core.Wording.Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
             });
         }
+        // A change that made something better or worse keeps its own line with the result under it, as its day shows it
+        // (folded into "3 driver updates" its result had nowhere to go, and a month said nothing of it).
+        var withResult = new Dictionary<SystemChange, Core.Reports.ChangeResult>();
+        foreach (var day in changes.Select(c => c.Time.Date).Distinct())
+            if (_results.GetValueOrDefault(day) is { } r && r.Changes.FirstOrDefault(changes.Contains) is { } named) withResult[named] = r;
         foreach (var (key, kinds, many) in MonthLines)
         {
-            var of = changes.Where(c => kinds.Contains(c.Kind)).OrderByDescending(c => c.Time).ToList();
+            foreach (var c in withResult.Keys.Where(c => kinds.Contains(c.Kind)).OrderByDescending(c => c.Time))
+            {
+                var own = EntryOf(c, Span([c.Time]));
+                own.Result = withResult[c];
+                entries.Add(own);
+            }
+            var of = changes.Where(c => kinds.Contains(c.Kind) && !withResult.ContainsKey(c)).OrderByDescending(c => c.Time).ToList();
             if (of.Count == 0) continue;
             if (of.Count == 1)
             {
                 entries.Add(EntryOf(of[0], Span([of[0].Time])));
                 continue;
             }
-            // App updates by app, the most updated first; the rest as they're worded, newest first.
-            bool updates = key == "updated";
+            // App and game updates by name, the most updated first; the rest as they're worded, newest first.
+            bool updates = key is "updated" or "games";
             var names = updates
                 ? of.GroupBy(NameOf).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key).ToList()
                 : [.. of.Select(c => c.Shown)];
@@ -501,7 +517,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             {
                 Key = key, TimeText = Span(of.Select(c => c.Time)), Icon = IconOf(of[0].Kind), Title = Lang.F(many, of.Count), IsKey = of[0].IsSystemLevel,
                 Detail = more > 0 ? Lang.T($"{list} and {more} more") : list,
-                Children = [.. of.Select(c => new TimelineEntry { Title = c.Shown, Detail = c.Was is null ? $"{c.Time:d MMM}" : Lang.T($"{c.Time:d MMM} · was {c.Was}") })],
+                Children = [.. of.Select(c => new TimelineEntry { Title = c.Shown, Detail = c.Was is null ? $"{c.Time:d MMM}" : Lang.T($"{c.Time:d MMM} · was {c.Was}"), GameKey = GameKeyOf(c) })],
                 ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((month, key)),
             });
         }
@@ -528,10 +544,14 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         Title = c.Shown,
         // An app just installed has no "before": its version is the detail.
         Detail = c.Kind == ChangeKind.AppInstalled ? c.Now : c.Detail,
-        GameKey = c.Kind == ChangeKind.GameUpdated && c.Subject is { } subject && subject.StartsWith(Inventory.Game + ":", StringComparison.Ordinal)
-            ? subject[(Inventory.Game.Length + 1)..] : null,
+        GameKey = GameKeyOf(c),
         IsKey = c.IsSystemLevel,
     };
+
+    /// <summary>The game a game update opens on the Games page (null for any other change).</summary>
+    private static string? GameKeyOf(SystemChange c) =>
+        c.Kind == ChangeKind.GameUpdated && c.Subject is { } subject && subject.StartsWith(Inventory.Game + ":", StringComparison.Ordinal)
+            ? subject[(Inventory.Game.Length + 1)..] : null;
 
     /// <summary>
     /// When it happened, as exactly as it's known: a drive's space is compared day to day ("All day"); a change found

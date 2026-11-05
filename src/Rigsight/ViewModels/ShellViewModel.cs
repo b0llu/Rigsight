@@ -900,6 +900,14 @@ public sealed partial class ShellViewModel : ObservableObject
                 ActivateRequested?.Invoke();
                 return;
             }
+            // The internet dropped or came back: the Network page on that day.
+            if (page == "network" && DateTime.TryParseExact(arg, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dropDay))
+            {
+                CurrentPage = "network";
+                Network.ShowDay(dropDay);
+                ActivateRequested?.Invoke();
+                return;
+            }
             // A rewind's notification: watched straight away.
             if (page == "rewind")
             {
