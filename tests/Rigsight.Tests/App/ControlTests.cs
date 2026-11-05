@@ -704,6 +704,35 @@ public sealed class ControlTests
     }
 
     [Fact]
+    public void A_line_moves_its_explain_button_and_date_under_the_sentence_when_beside_them_it_would_be_squeezed()
+    {
+        Ui.Run(() =>
+        {
+            var text = new TextBlock { Text = "2 graphics driver resets in the 11 days after driver 621.01, none in the 14 days before", TextWrapping = TextWrapping.Wrap, FontSize = 13.5 };
+            var side = new Border { Width = 130, Height = 24 };
+            var panel = new TextAndSide { Children = { text, side } };
+            // A wide card: side by side, the sentence in what the side part leaves.
+            panel.Measure(new Size(500, double.PositiveInfinity));
+            panel.Arrange(new Rect(0, 0, 500, panel.DesiredSize.Height));
+            Assert.Equal(360, text.RenderSize.Width);
+            Assert.Equal(370, side.TranslatePoint(default, panel).X);
+            // Home's three small cards at a 1440 by 932 window (about 175 for the line): the side part goes under the
+            // sentence, which has the whole width.
+            panel.Measure(new Size(175, double.PositiveInfinity));
+            panel.Arrange(new Rect(0, 0, 175, panel.DesiredSize.Height));
+            Assert.Equal(175, text.RenderSize.Width);
+            Assert.Equal(new Point(0, text.DesiredSize.Height + 10), side.TranslatePoint(default, panel));
+            Assert.Equal(text.DesiredSize.Height + 10 + 24, panel.DesiredSize.Height);
+            // Nothing beside it (no Explain, no date): the sentence keeps the whole width at any size.
+            side.Visibility = Visibility.Collapsed;
+            panel.Measure(new Size(175, double.PositiveInfinity));
+            panel.Arrange(new Rect(0, 0, 175, panel.DesiredSize.Height));
+            Assert.Equal(175, text.RenderSize.Width);
+            Assert.Equal(text.DesiredSize.Height, panel.DesiredSize.Height);
+        });
+    }
+
+    [Fact]
     public void Charts_and_lists_grow_with_a_taller_window_and_never_shrink()
     {
         Ui.Run(() =>

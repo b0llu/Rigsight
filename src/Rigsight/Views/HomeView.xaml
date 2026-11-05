@@ -40,12 +40,8 @@
                     </HeaderedContentControl.Header>
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Right" Style="{StaticResource LineArrow}" Visibility="{Binding CanOpen, Converter={StaticResource Vis}}" />
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding When}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="10,0,0,0"
-                                   Visibility="{Binding When, Converter={StaticResource Vis}}" />
-                        <!-- A line in amber: Explain (hidden while the AI is off). -->
-                        <Border DockPanel.Dock="Right" Margin="10,0,0,0" VerticalAlignment="Center" Visibility="{Binding IsWarm, Converter={StaticResource Vis}}">
-                            <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Explain'}" CommandParameter="{Binding Ask}" AutomationProperties.Name="{ctl:T 'Explain'}" />
-                        </Border>
+                        <!-- The sentence, with Explain and the date beside it; under it where beside them the sentence would be squeezed (see TextAndSide). -->
+                        <ctl:TextAndSide>
                         <TextBlock Text="{Binding Text}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource LineText}">
@@ -62,6 +58,25 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- A line in amber: Explain (hidden while the AI is off). -->
+                            <Border VerticalAlignment="Center" Visibility="{Binding IsWarm, Converter={StaticResource Vis}}">
+                                <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Explain'}" CommandParameter="{Binding Ask}" AutomationProperties.Name="{ctl:T 'Explain'}" />
+                            </Border>
+                            <TextBlock Text="{Binding When}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center"
+                                       Visibility="{Binding When, Converter={StaticResource Vis}}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsWarm}" Value="True">
+                                                <Setter Property="Margin" Value="10,0,0,0" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                        </ctl:TextAndSide>
                     </DockPanel>
                 </HeaderedContentControl>
             </Button>

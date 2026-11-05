@@ -209,6 +209,7 @@ public static class Changelog
                 Lang.T("Home's recaps say which days they cover, and from when, when your history starts inside them.")],
             fixedBugs: [Lang.T("The apps' bars in Home's recaps line up again, however long each app was used."),
                 Lang.T("The Timeline grouped by month shows game updates again, and each change keeps its before and after."),
+                Lang.T("In a narrow window, Home's What changed lately puts Explain and the date under a sentence instead of squeezing it."),
                 Lang.T("The button on a taskbar reading's card no longer shows a light box behind its words when you point at it.")]),
         V("1.3.0", 11, 5,
             added: [Lang.T("Your download and upload speed can go in the taskbar, each on its own or both in one place."),
