@@ -25,11 +25,11 @@
   "standard-accounts": "2026-11-04",
   "taskbar-tiles": "2026-11-04",
   "free-pc-monitoring-software": "2026-11-04",
-  "check-gpu-temperature-history": "2026-11-04"
+  "check-gpu-temperature-history": "2026-11-04",
+  "blue-screen-of-death-causes": "2026-11-05",
+  "how-sure-is-it": "2026-11-05"
  },
  "queue": [
-  "blue-screen-of-death-causes",
-  "how-sure-is-it",
   "pc-restarts-randomly-while-gaming",
   "bringing-ai-back",
   "one-percent-low-fps",
@@ -52,7 +52,6 @@
  ],
  "_rework": "PC-problem posts still in the old how-to shape. Each must be rewritten in the new shape (GUIDES.md: how RigSight caught it, why it happens, then the fix) and shown to the user before release, even when queued or already live.",
  "rework": [
-  "blue-screen-of-death-causes",
   "check-fan-speed-pc",
   "did-windows-update-cause-crashes",
   "gpu-fan-not-spinning",
