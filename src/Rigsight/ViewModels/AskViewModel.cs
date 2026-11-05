@@ -1862,8 +1862,20 @@ public sealed partial class AskViewModel : ObservableObject
         var model = _ollamaModels.FirstOrDefault(m => m.Name == Ai.OllamaModel) ?? _ollamaModels.FirstOrDefault(m => m.CanLookUp) ?? _ollamaModels.FirstOrDefault();
         if (model is null) return new AiReply(null, Lang.T("Ollama has no models yet. Download one in Ollama, then pick it in Settings › Ask RigSight."), []);
         Tools();
-        return await Ollama.AskAsync(Ai.OllamaAddress, model.Name, model.CanLookUp, [.. talk.Sent], question, _tools,
-            step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), ct);
+        return Used(await Ollama.AskAsync(Ai.OllamaAddress, model.Name, model.CanLookUp, [.. talk.Sent], question, _tools,
+            step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), ct));
+    }
+
+    /// <summary>
+    /// A saved key (or server) that answered is marked used now, so Settings' list says "Used today" instead of the
+    /// "Never used" it said for every key (nothing recorded a use until 1.5.0's fix).
+    /// </summary>
+    private static AiReply Used(AiReply reply)
+    {
+        if (reply.Text is { Length: > 0 } && reply.Problem is null)
+            try { SavedKeys.Touch(); }
+            catch (Exception ex) { Core.Log.Error("ask", ex); }
+        return reply;
     }
 
     /// <summary>RigSight AI: the relay counts the question; afterwards the pill shows what's left.</summary>
@@ -2018,8 +2030,8 @@ public sealed partial class AskViewModel : ObservableObject
         if (Ai.Model.Length == 0)
             return new AiReply(null, Lang.T("Pick a model in Settings › Ask RigSight."), []);
         Tools();
-        return await OwnKey.AskAsync(Ai.Service, OwnKey.Root(Ai.Service, Ai.CustomAddress), key, Ai.Model, [.. talk.Sent], question, _tools,
-            step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct);
+        return Used(await OwnKey.AskAsync(Ai.Service, OwnKey.Root(Ai.Service, Ai.CustomAddress), key, Ai.Model, [.. talk.Sent], question, _tools,
+            step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct));
     }
 
     /// <summary>Past this many characters a first line is a paragraph, not an opening sentence.</summary>
