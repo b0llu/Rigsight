@@ -187,6 +187,17 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.5.0", 11, 5,
+            better: [Lang.T("The Network summary now has four figures: what was used with its download and upload, downloaded compared with before, the background share and your connection."),
+                Lang.T("On the Network graph, the period's biggest apps get the colors, and each app keeps its color from one period to the next."),
+                Lang.T("Stacked bars on Network, Reports, Apps and Crashes are one solid bar instead of separate rounded pieces."),
+                Lang.T("A What happened line that covers several hours picks all of them on the graph, and clicking a bar highlights its lines."),
+                Lang.T("Every app that used the internet in an hour is listed, with the ones under 1 MB together in a row that opens."),
+                Lang.T("Internet drops show the icon Windows uses for them: a globe with a crossed circle, or Wi-Fi or Ethernet with a cross."),
+                Lang.T("Text across the app says what happened in plain words, and no longer guesses at causes the records can't show."),
+                Lang.T("Notifications give durations in words, and the update screen gives one restart time, about 15 seconds.")],
+            fixedBugs: [Lang.T("The Network page no longer moves down when Whole period appears after you pick an hour."),
+                Lang.T("The bar of download and upload is one bar again, with no notch where the two colors meet.")]),
         V("1.4.0", 11, 5,
             feature: new(Lang.T("Network, rebuilt"), Lang.T("See how your internet is doing right now, and what used it hour by hour."),
                 [Lang.T("Right now sits on top: your speeds, whether the connection is working well, its ping and packet loss, and every app using it."),
