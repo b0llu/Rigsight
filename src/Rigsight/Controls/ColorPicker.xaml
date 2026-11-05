@@ -87,13 +87,13 @@
                     <WrapPanel x:Name="NumberTiles" />
                 </ScrollViewer>
 
-                <TextBlock Text="{ctl:T 'NAME'}" Style="{StaticResource Caption}" Margin="0,6,0,8" />
+                <TextBlock x:Name="NameCaption" Text="{ctl:T 'NAME'}" Style="{StaticResource Caption}" Margin="0,6,0,8" />
                 <ScrollViewer x:Name="NameScroll" Style="{StaticResource CardScroll}" MaxHeight="140" VerticalScrollBarVisibility="Auto">
                     <WrapPanel x:Name="NameTiles" />
                 </ScrollViewer>
 
                 <!-- The tile behind the reading, in every style: Auto (the usual tile) first -->
-                <TextBlock Text="{ctl:T 'TILE'}" Style="{StaticResource Caption}" Margin="0,6,0,8" />
+                <TextBlock x:Name="TileCaption" Text="{ctl:T 'TILE'}" Style="{StaticResource Caption}" Margin="0,6,0,8" />
                 <ScrollViewer x:Name="TileScroll" Style="{StaticResource CardScroll}" MaxHeight="140" VerticalScrollBarVisibility="Auto">
                     <WrapPanel x:Name="TileTiles" />
                 </ScrollViewer>

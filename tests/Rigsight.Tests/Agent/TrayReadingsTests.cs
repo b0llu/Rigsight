@@ -308,8 +308,8 @@ public class TrayReadingsTests
         using var b = WidgetRenderer.RenderStrip([Showing("11%", "111 W")], 48, 1, out var edgesB);
         Assert.Equal(a.Width, b.Width);
         Assert.Equal(edgesA, edgesB);
-        // Right-aligned in its place: the last digit ends at the same spot either way.
-        Assert.Equal(RightmostInk(a), RightmostInk(b));
+        // Left-aligned in its place (1.3): the first digit starts at the same spot either way.
+        Assert.Equal(LeftmostInk(a), LeftmostInk(b));
     }
 
     [Fact]
@@ -330,6 +330,14 @@ public class TrayReadingsTests
         var (first, second) = (Words(0, bmp.Width / 2), Words(bmp.Width / 2, bmp.Width));
         Assert.Equal(first.Strongest, second.Strongest);
         Assert.InRange(second.Ink, first.Ink * 0.9, first.Ink * 1.1);
+    }
+
+    private static int LeftmostInk(Bitmap bmp)
+    {
+        for (int x = 0; x < bmp.Width; x++)
+            for (int y = 0; y < bmp.Height / 2; y++)
+                if (bmp.GetPixel(x, y).A > 128) return x;
+        return -1;
     }
 
     private static int RightmostInk(Bitmap bmp)
@@ -417,10 +425,11 @@ public class TrayReadingsTests
     [Fact]
     public void A_graph_never_reaches_over_its_number()
     {
-        // The user's word: at its highest the graph goes up to the number, behind the word only.
+        // The user's word: at its highest the graph goes up to the number, behind the word only (a graph behind, 1.3's
+        // choice for each reading and where 1.2 drew every graph).
         var blue = Color.FromArgb(91, 140, 255);
         List<PointF> full = [new(0, 1), new(1, 1)];
-        using var bmp = WidgetRenderer.RenderStrip([new("CPU", blue, [new("88%", Color.White, "CPU", Graph: new StripGraph(full, blue))])], 48, 1, out _);
+        using var bmp = WidgetRenderer.RenderStrip([new("CPU", blue, [new("88%", Color.White, "CPU", Graph: new StripGraph(full, blue), Behind: true)])], 48, 1, out _);
         int fillTop = Enumerable.Range(0, bmp.Height).First(y => bmp.GetPixel(bmp.Width / 2, y) is { A: > 40 and < 255 } c && c.B > c.R);
         int digitsBottom = Ink(bmp, c => c.A > 200 && c.R > 200 && c.G > 200 && c.B > 200).Max(p => p.Y);
         Assert.True(fillTop > digitsBottom - 2, $"fill from {fillTop}, digits down to {digitsBottom}");
@@ -441,7 +450,7 @@ public class TrayReadingsTests
     {
         var blue = Color.FromArgb(91, 140, 255);
         List<PointF> points = [new(0, 0.5f), new(0.2f, 0.5f), new(0.4f, float.NaN), new(0.6f, float.NaN), new(0.8f, 0.5f), new(1, 0.5f)];
-        using var bmp = WidgetRenderer.RenderStrip([new("CPU", blue, [new("", blue, "", Graph: new StripGraph(points, blue))])], 48, 1, out _);
+        using var bmp = WidgetRenderer.RenderStrip([new("CPU", blue, [new("", blue, "", Graph: new StripGraph(points, blue), Behind: true)])], 48, 1, out _);
         int middle = 4 + (int)(WidgetRenderer.StripGraphWidth / 2);
         Assert.DoesNotContain(Enumerable.Range(0, bmp.Height - 5), y => bmp.GetPixel(middle, y).A > 40);
         Assert.True(bmp.GetPixel(6, bmp.Height - 5).A > 40, "either side of it filled");

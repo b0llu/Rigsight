@@ -52,6 +52,7 @@
     <Compile Include="..\Rigsight.Agent\Ui\StripComposer.cs" Link="TaskbarDrawing\StripComposer.cs" />
     <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Strip.cs" Link="TaskbarDrawing\WidgetRenderer.Strip.cs" />
     <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Tray.cs" Link="TaskbarDrawing\WidgetRenderer.Tray.cs" />
+    <Compile Include="..\Rigsight.Agent\Widgets\DirectWriteText.cs" Link="TaskbarDrawing\DirectWriteText.cs" />
   </ItemGroup>
 
   <ItemGroup>

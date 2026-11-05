@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
@@ -1151,7 +1151,9 @@ internal sealed class AgentContext : ApplicationContext
 
             var page = ReadingCards.Page(first.Part, first.Kind);
             sections.Add(new CardSection(TrayParts.Label(first.Part), first.Hardware, first.NameOn(light, gray), [.. group.Select(Big)], rows,
-                apps.Count > 0 ? appsTitle : null, apps, cools.Count > 0 ? Lang.T("What the fans are cooling now") : null, cools, ReadingCards.Button(page), page));
+                // Its app list kept even while nothing uses the part ("Nothing much right now"): dropping it when the last app
+                // went moved the button up the card (the user: "why did open temperature shift to top").
+                by != Core.CardApps.None ? appsTitle : null, apps, cools.Count > 0 ? Lang.T("What the fans are cooling now") : null, cools, ReadingCards.Button(page), page));
         }
         return sections;
 
@@ -1226,7 +1228,7 @@ internal sealed class AgentContext : ApplicationContext
                 reading = new TrayReading(id, name, SensorKind.Throughput, id == TrayParts.NetUp ? up : down, TrayPart.Network, SensorWords.Show(TrayParts.NetHardware),
                     own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel } o ? o : id == TrayParts.NetUp ? Lang.T("Up") : Lang.T("Down"),
                     TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
-                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size,
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
                     Second: id == TrayParts.NetBoth ? up : null);
             }
             else if (_sensors.ReadSensor(id) is { } r)
@@ -1239,11 +1241,11 @@ internal sealed class AgentContext : ApplicationContext
                 reading = new TrayReading(id, own ?? SensorWords.Show(r.Name), r.Kind, r.Value, part, r.HardwareName,
                     TrayParts.ShortLabel(r.Kind, r.Name, part, own),
                     TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
-                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size,
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
                     LookId: source is null ? null : from, LookKind: source?.Kind, LookValue: source?.Value, Cores: cores);
             }
             else reading = new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, "",
-                Alone: alone.Contains(id), Style: style, Size: size);
+                Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id));
             list.Add(reading);
         }
         return list;
@@ -1321,8 +1323,9 @@ internal sealed class AgentContext : ApplicationContext
             _tray.Update(tip, health);
             // In the taskbar, drawn by RigSight in any style, where it can be (Windows 11); else as Windows' own tray icons.
             bool inStrip = _taskbarStrip.Update(trayReadings, settings.TrayGrayscale, settings.TraySide, settings.TrayStyle, settings.TrayTiles, settings.TrayWidth,
-                settings.TrayLetterNames, settings.TraySpeedBits);
-            _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped, settings.TrayGrayscale, settings.TrayTiles);
+                settings.TrayLetterNames, settings.TraySpeedBits, settings.TrayGap);
+            // Windows 10's own tray icons: an icon per part as before 1.3, or with any pair saved since.
+            _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped || settings.TrayPairs is { Count: > 0 }, settings.TrayGrayscale, settings.TrayTiles);
             _trayWaiting = _taskbarStrip.Waiting;
             if (cardKey is not null && cardSections is { Count: > 0 }) _card.Renew(cardKey, cardSections);
             // Asked of Windows here, on this tick and for the same window, so Alt+Enter between windowed and borderless
@@ -2263,12 +2266,18 @@ internal sealed class AgentContext : ApplicationContext
     private static string TrayLooksText(RigsightSettings s) =>
         string.Join("; ", s.TrayLooks.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"));
 
-    /// <summary>Each reading's own style, size and look source, and the speeds' unit, in one line, to compare and to log.</summary>
+    /// <summary>Each reading's own style, size, look source, pairs, grayscale, tiles and names, and the speeds' unit, in one line, to compare and to log.</summary>
     private static string TrayOwnText(RigsightSettings s) =>
         "styles " + string.Join("; ", s.TrayStyles.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
         + " | sizes " + string.Join("; ", s.TraySizes.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
         + " | looks from " + string.Join("; ", s.TrayLookFrom.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
-        + (s.TraySpeedBits ? " | speeds in bits" : " | speeds in bytes");
+        + (s.TraySpeedBits ? " | speeds in bits" : " | speeds in bytes")
+        + " | pairs " + (s.TrayPairs is null ? "as before 1.3" : string.Join(", ", s.TrayPairs))
+        + " | grayscale " + string.Join("; ", s.TrayGrayOf.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        + " | tiles " + string.Join("; ", s.TrayTilesOf.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        + " | one letter " + string.Join(", ", s.TrayLetters)
+        + " | room between " + s.TrayGap
+        + " | graphs behind " + string.Join(", ", s.TrayGraphsBehind);
 
     private static void LogSettingsChanges(RigsightSettings before, RigsightSettings after, string from)
     {

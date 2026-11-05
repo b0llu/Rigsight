@@ -131,6 +131,9 @@ public sealed class RigsightSettings
     /// <summary>How much room the strip's readings take (see <see cref="TrayWidth"/>).</summary>
     public TrayWidth TrayWidth { get; set; }
 
+    /// <summary>The room between the readings (see <see cref="TrayGap"/>).</summary>
+    public TrayGap TrayGap { get; set; }
+
     /// <summary>In two rows, each reading's name as one letter ("C", "L") instead of in full ("CPU", "Load").</summary>
     public bool TrayLetterNames { get; set; }
 
@@ -139,6 +142,32 @@ public sealed class RigsightSettings
     /// <see cref="TraySensors"/>'s order, so the list's order is how they pair (see <see cref="TrayParts.Boxes"/>).
     /// </summary>
     public List<string> TrayAlone { get; set; } = [];
+
+    /// <summary>
+    /// 1.3: the readings that share their spot with the next in <see cref="TraySensors"/> (by sensor id): side by side on
+    /// one tile, one over the other in two rows, or stacked in one icon. Null until the Taskbar page first writes it: till
+    /// then the spots are as before 1.3 (the strip and icon per part by part, two rows by the list's order and
+    /// <see cref="TrayAlone"/>; see <see cref="TrayParts.Spots"/>).
+    /// </summary>
+    public List<string>? TrayPairs { get; set; }
+
+    /// <summary>1.3: readings in colour or grayscale of their own (true: grayscale); one not listed is like the rest (<see cref="TrayGrayscale"/>).</summary>
+    public Dictionary<string, bool> TrayGrayOf { get; set; } = [];
+
+    /// <summary>1.3: readings with a background of their own (true: on a tile); one not listed is like the rest (<see cref="TrayTiles"/>).</summary>
+    public Dictionary<string, bool> TrayTilesOf { get; set; } = [];
+
+    /// <summary>
+    /// 1.3: readings whose name shows as one letter in two rows, set for each spot (both of a pair listed). Before 1.3
+    /// one switch for all (<see cref="TrayLetterNames"/>), which still counts while <see cref="TrayPairs"/> is null.
+    /// </summary>
+    public List<string> TrayLetters { get; set; } = [];
+
+    /// <summary>
+    /// 1.3: readings whose graph is drawn behind their name, under their number (as 1.2 drew every graph), not beside them;
+    /// each reading's own choice (the user: "per reading ... keep compact roomy standard completely different").
+    /// </summary>
+    public List<string> TrayGraphsBehind { get; set; } = [];
 
     /// <summary>Taskbar readings given colours of their own (by sensor id); a reading not listed looks as RigSight colours it.</summary>
     public Dictionary<string, TrayColor> TrayColors { get; set; } = [];
@@ -407,6 +436,12 @@ public enum TraySize { Auto, Small, Medium, Large }
 /// <see cref="Compact"/>: graphs as narrow as their words, on tighter tiles; <see cref="Roomy"/>: graphs half as wide again.
 /// </summary>
 public enum TrayWidth { Standard, Compact, Roomy }
+
+/// <summary>
+/// The room between the taskbar's readings (1.3, the user: "if users want it very close they can do that"): as the
+/// width sets it (Normal), very close (None), closer (Small), or further apart (Large). A pair's two keep theirs.
+/// </summary>
+public enum TrayGap { Normal, None, Small, Large }
 
 /// <summary>
 /// A taskbar reading's own colours: its number's (null: as RigSight colours it; "heat": by how warm, temperatures

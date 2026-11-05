@@ -87,7 +87,7 @@ internal static partial class WidgetRenderer
         if (look is { Look: TrayLook.Level } fillLook)
         {
             // Fill: a faint tile of the reading's colour, filled up from the bottom as far as the reading is, stronger.
-            using var shape = RoundedRect(new RectangleF(0, 0, size, size), size * 0.2f);
+            using var shape = RoundedRect(new RectangleF(0, 0, size, size), size * 0.15f);
             using (var faint = new SolidBrush(Color.FromArgb(46, fillLook.Color))) g.FillPath(faint, shape);
             float top = size * (1 - Math.Clamp(fillLook.Fill, 0, 1));
             var state = g.Save();
@@ -113,7 +113,7 @@ internal static partial class WidgetRenderer
         {
             // The whole icon, corners rounded; the digits keep a sliver of it on each side.
             using var tileBrush = new SolidBrush(t);
-            using var shape = RoundedRect(new RectangleF(0, 0, size, size), size * 0.2f);
+            using var shape = RoundedRect(new RectangleF(0, 0, size, size), size * 0.15f);
             g.FillPath(tileBrush, shape);
             left = (float)TrayParts.IconInset(size);
         }
@@ -127,7 +127,8 @@ internal static partial class WidgetRenderer
 
         int count = Math.Min(lines.Count, 2);
         // Inside a ring the digits keep to the ring's inside, top and bottom too, so the ring never runs over them.
-        float digitsTop = look is { Look: TrayLook.Ring } ? left : 0, inside = size - 2 * digitsTop;
+        // On a tile (or filling up) they keep the same room above and below as at the sides, as a reading in its box does.
+        float digitsTop = look is { Look: TrayLook.Ring } || ((tile is not null || look is { Look: TrayLook.Level }) && size > 16) ? left : 0, inside = size - 2 * digitsTop;
         float band = inside / count, width = size - left - (tile is null && look is null ? 0 : left);
         using var family = new FontFamily("Segoe UI");
         // Two digits set the size: a wider reading ("100", "1.2k") shrinks to fit, a narrower one ("7", "–") isn't

@@ -126,9 +126,10 @@ public sealed class TaskbarLooksTests
     [Fact]
     public void Icons_drawn_in_the_taskbar_are_half_as_big_again_as_windows_own()
     {
-        // 24 at 100% and 36 at 150% on Windows 11's 48-pixel taskbar, 6 apart; a short taskbar keeps them clear of its edges.
-        Assert.Equal((24, 30), (Rigsight.Agent.Ui.TaskbarStrip.IconSize(48, 1), Rigsight.Agent.Ui.TaskbarStrip.IconSlot(48, 1)));
-        Assert.Equal(36, Rigsight.Agent.Ui.TaskbarStrip.IconSize(72, 1.5f));
+        // 30 at 100% and 45 at 150% on Windows 11's 48-pixel taskbar, 8 apart (1.3: 24 grew to 30 so the digits keep their
+        // size inside the tile's wider edge); a short taskbar keeps them clear of its edges.
+        Assert.Equal((30, 38), (Rigsight.Agent.Ui.TaskbarStrip.IconSize(48, 1), Rigsight.Agent.Ui.TaskbarStrip.IconSlot(48, 1)));
+        Assert.Equal(45, Rigsight.Agent.Ui.TaskbarStrip.IconSize(72, 1.5f));
         Assert.Equal(20, Rigsight.Agent.Ui.TaskbarStrip.IconSize(32, 1));
         // On its tile the number keeps a tenth of the icon clear on each side; Windows' own 16-pixel icons keep a pixel.
         using var bmp = WidgetRenderer.RenderTrayIcon([("88", Color.White)], 24, tile: Color.FromArgb(60, Blue));
@@ -159,7 +160,7 @@ public sealed class TaskbarLooksTests
     public void A_fill_up_look_needs_a_top(SensorKind kind, TrayLook picked, TrayLook drawn)
     {
         Assert.Equal(drawn, TrayParts.LookFor(kind, picked));
-        Assert.Equal(TrayParts.HasTop(kind) ? 7 : 4, TrayParts.LooksFor(kind).Count);
+        Assert.Equal(TrayParts.HasTop(kind) ? 10 : 5, TrayParts.LooksFor(kind).Count); // 1.3: a big number, a half ring and a pie too
     }
 
     [Theory]
@@ -268,7 +269,8 @@ public sealed class TaskbarLooksTests
         // A tile per box, the two numbers one over the other: white ink in the top half and the bottom half.
         bool Ink(int y0, int y1) => Enumerable.Range(y0, y1 - y0).Any(y => Enumerable.Range(0, rows.Width).Any(x => rows.GetPixel(x, y) is { A: > 200, R: > 220, G: > 220, B: > 220 }));
         Assert.True(Ink(6, 24) && Ink(24, 42));
-        Assert.InRange(rows.GetPixel((int)edges[0] - 3, 6).A, 10, 40);
+        // The first box's tile, see-through, somewhere in it (1.3 fits each tile to what it holds).
+        Assert.Contains(Enumerable.Range(0, (int)edges[0]).SelectMany(x => Enumerable.Range(0, rows.Height).Select(y => (int)rows.GetPixel(x, y).A)), a => a is >= 10 and <= 40);
     }
 
     [Theory]

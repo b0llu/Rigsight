@@ -160,7 +160,10 @@ internal sealed class ReadingCard : Form
 
     // ── Layout and drawing (sizes at 96 dpi, times the taskbar's scale) ──
 
-    private const float Pad = 14, SectionWidth = 312, SectionGap = 16, Gap = 12, GraphHeight = 54;
+    // Roomier since 1.3 (the user: "it feels crowded"): more padding, the graph the section's full width under the
+    // value, the low, average and high as three labelled columns, and as many app rows kept as can show, so the card
+    // never grows or shrinks while it's open as apps come and go ("layout shifts are lot").
+    private const float Pad = 18, SectionWidth = 300, SectionGap = 18, Gap = 16, GraphHeight = 48, RowHeight = 22;
 
     private Font F(float px, FontStyle style = FontStyle.Regular, string family = "Segoe UI") => new(family, px * _s, style, GraphicsUnit.Pixel);
 
@@ -172,13 +175,19 @@ internal sealed class ReadingCard : Form
     private static Color Blend(Color a, Color b, float t) =>
         Color.FromArgb((int)(a.R * t + b.R * (1 - t)), (int)(a.G * t + b.G * (1 - t)), (int)(a.B * t + b.B * (1 - t)));
 
-    /// <summary>Sizes the card to its sections and puts it above the clicked reading, inside its screen.</summary>
+    /// <summary>
+    /// Sizes the card to its sections and puts it above the clicked reading, inside its screen. While the same card stays
+    /// open it never gets shorter (a second's new readings can only need the room it has: rows are kept for every app and
+    /// note it could show), so nothing in it moves.
+    /// </summary>
     private void Relayout()
     {
         using var g = CreateGraphics();
         float height = _sections.Count == 0 ? 0 : _sections.Max(sec => Section(g, sec, 0, 0, draw: false));
         int w = (int)Math.Ceiling((2 * Pad + _sections.Count * SectionWidth + Math.Max(0, _sections.Count - 1) * (2 * SectionGap + 1)) * _s);
         int h = (int)Math.Ceiling(height + 2 * Pad * _s);
+        if (Visible && Key == _laidOutKey) h = Math.Max(h, Height);
+        _laidOutKey = Key;
         var area = Screen.FromPoint(new Point(_anchor.Left + _anchor.Width / 2, _anchor.Top)).WorkingArea;
         int gap = (int)(10 * _s);
         int x = Math.Clamp(_anchor.Left + _anchor.Width / 2 - w / 2, area.Left + gap, Math.Max(area.Left + gap, area.Right - gap - w));
@@ -187,6 +196,9 @@ internal sealed class ReadingCard : Form
         Bounds = new Rectangle(x, y, w, h);
         Invalidate();
     }
+
+    /// <summary>The card last laid out (its readings), so a renewal of it keeps its height.</summary>
+    private string? _laidOutKey;
 
     protected override void OnPaintBackground(PaintEventArgs e) => e.Graphics.Clear(DarkMenuRenderer.Bg);
 
@@ -222,7 +234,7 @@ internal sealed class ReadingCard : Form
         using var tiny = F(11.5f);
         using var body = F(13);
         using var bold = F(13, FontStyle.Regular, "Segoe UI Semibold");
-        using var big = F(30, FontStyle.Regular, "Segoe UI Semibold");
+        using var big = F(28, FontStyle.Regular, "Segoe UI Semibold");
         using var caption = F(11, FontStyle.Bold);
 
         // The part: its colour, name and hardware.
@@ -234,43 +246,49 @@ internal sealed class ReadingCard : Form
             Write(g, sec.Title, title, Ink, x + 18 * _s, y, w - 18 * _s);
             Write(g, sec.Hardware, small, Muted, x + 18 * _s, y + 19 * _s, w - 18 * _s);
         }
-        y += 36 * _s;
+        y += 38 * _s;
 
-        // Each clicked reading: its value and name, its graph beside them, the span and its low, average and high under.
+        // Each clicked reading: its value and what it is, its graph the full width under them, the time it covers, then
+        // its low, average and high in three columns.
         foreach (var b in sec.Big)
         {
             y += Gap * _s;
             string value = Units.StripText(b.Kind, b.Value); // as the taskbar writes it
-            float valueWidth = Measure(g, value, big), nameWidth = Measure(g, Lang.T($"{b.Name} now"), small);
-            float textWidth = Math.Min(w * 0.55f, Math.Max(valueWidth, nameWidth));
-            var graph = new RectangleF(x + textWidth + 14 * _s, y, Math.Max(40 * _s, w - textWidth - 14 * _s), GraphHeight * _s);
             if (draw)
             {
-                Write(g, value, big, b.ValueColor, x, y + 4 * _s, textWidth + 4 * _s);
-                Write(g, Lang.T($"{b.Name} now"), small, Muted, x, y + 40 * _s, textWidth);
+                Write(g, value, big, b.ValueColor, x, y, w);
+                Write(g, Lang.T($"{b.Name} now"), small, Muted, x, y + 36 * _s, w);
+            }
+            y += 58 * _s;
+            var graph = new RectangleF(x, y, w, GraphHeight * _s);
+            if (draw)
+            {
                 DrawGraph(g, graph, b, sec.PartColor);
                 _graphs.Add((graph, b));
+                Write(g, b.Span, tiny, Muted, x, y + (GraphHeight + 6) * _s, w);
             }
-            y += GraphHeight * _s + 4 * _s;
-            // The low, average and high beside the span, or under it when they don't fit (clocks, fans, speeds). Measured
-            // with every digit an 8, so a card kept up to date doesn't jump between the two as the numbers change.
-            float spanWidth = Measure(g, b.Span, tiny) + 2 * _s;
-            bool under = spanWidth + 12 * _s + Measure(g, Eights(b.LowAvgHigh), tiny) > w;
+            y += (GraphHeight + 6 + 22) * _s;
+            var real = b.History.Select(p => p.Value).Where(float.IsFinite).ToList();
+            string[] labels = [Lang.T("Low"), Lang.T("Average"), Lang.T("High")];
+            string[] values = real.Count == 0 ? ["–", "–", "–"]
+                : [Units.StripText(b.Kind, real.Min()), Units.StripText(b.Kind, real.Average()), Units.StripText(b.Kind, real.Max())];
             if (draw)
-            {
-                Write(g, b.Span, tiny, Muted, x, y, under ? w : spanWidth);
-                WriteRight(g, b.LowAvgHigh, tiny, Muted, x + w, under ? y + 16 * _s : y, under ? w : w - spanWidth - 12 * _s);
-            }
-            y += (under ? 32 : 16) * _s;
+                for (int i = 0; i < 3; i++)
+                {
+                    float cx = x + i * w / 3;
+                    Write(g, labels[i], tiny, Muted, cx, y, w / 3 - 6 * _s);
+                    Write(g, values[i], bold, Ink, cx, y + 16 * _s, w / 3 - 6 * _s);
+                }
+            y += 38 * _s;
         }
 
-        // The part's other readings, then today's highest.
+        // The part's other readings, then today's highest (two lines kept for each, so a long one moves nothing).
         var notes = sec.Big.Select(b => b.Highest).OfType<string>().ToList();
         if (sec.Rows.Count > 0 || notes.Count > 0)
         {
-            y += Gap * _s;
+            y += (Gap - 4) * _s;
             if (draw) Divider(g, x, y, w);
-            y += 10 * _s;
+            y += 12 * _s;
             foreach (var r in sec.Rows)
             {
                 if (draw)
@@ -278,51 +296,53 @@ internal sealed class ReadingCard : Form
                     Write(g, r.Label, body, Soft, x, y, w * 0.55f);
                     WriteRight(g, r.Value, bold, r.Color ?? Ink, x + w, y, w * 0.45f);
                 }
-                y += 21 * _s;
+                y += RowHeight * _s;
             }
             foreach (var n in notes)
             {
-                // A long one ("... while Cyberpunk2077.exe ran") on two lines rather than cut.
-                int lines = Measure(g, n, small) > w ? 2 : 1;
                 if (draw)
-                    TextRenderer.DrawText(g, n, small, new Rectangle((int)x, (int)(y + 1 * _s), (int)w, lines * (small.Height + 2)), Muted,
+                    TextRenderer.DrawText(g, n, small, new Rectangle((int)x, (int)(y + 1 * _s), (int)w, 2 * (small.Height + 2)), Muted,
                         TextFormatFlags.NoPadding | TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis | TextFormatFlags.Left);
-                y += 18 * _s * lines;
+                y += 36 * _s;
             }
         }
 
-        // What uses the part (or what the fans cool).
-        if (sec.AppsTitle is { } appsTitle && sec.Apps.Count > 0)
+        // What uses the part: always its rows, as many as it can list, so apps coming and going move nothing; "nothing
+        // much" in the first while none is (or what the fans cool).
+        if (sec.AppsTitle is { } appsTitle)
         {
-            y += Gap * _s - 4 * _s;
+            y += (Gap - 4) * _s;
             if (draw) Divider(g, x, y, w);
-            y += 10 * _s;
+            y += 12 * _s;
             if (draw) Write(g, appsTitle.ToUpperInvariant(), caption, Muted, x, y, w);
-            y += 19 * _s;
-            double most = Math.Max(sec.Apps.Max(a => a.Amount), 1e-9);
-            foreach (var a in sec.Apps)
+            y += 22 * _s;
+            double most = sec.Apps.Count == 0 ? 1 : Math.Max(sec.Apps.Max(a => a.Amount), 1e-9);
+            if (draw && sec.Apps.Count == 0) Write(g, Lang.T("Nothing much right now"), body, Muted, x, y, w);
+            for (int i = 0; i < sec.Apps.Count && i < ReadingCards.MaxApps; i++)
             {
+                var a = sec.Apps[i];
                 if (draw)
                 {
-                    float meterX = x + w - 64 * _s - 70 * _s;
-                    Write(g, a.Name, body, Ink, x, y, meterX - x - 10 * _s);
+                    float meterX = x + w - 64 * _s - 74 * _s;
+                    Write(g, a.Name, body, Ink, x, y + i * RowHeight * _s, meterX - x - 10 * _s);
+                    float ry = y + i * RowHeight * _s;
                     using (var track = new SolidBrush(Blend(Ink, DarkMenuRenderer.Bg, 0.12f)))
-                    using (var trackShape = Rounded(new RectangleF(meterX, y + 7 * _s, 64 * _s, 5 * _s), 2.5f * _s)) g.FillPath(track, trackShape);
+                    using (var trackShape = Rounded(new RectangleF(meterX, ry + 7 * _s, 64 * _s, 5 * _s), 2.5f * _s)) g.FillPath(track, trackShape);
                     float fill = (float)Math.Clamp(a.Amount / most, 0.04, 1);
                     using (var bar = new SolidBrush(sec.PartColor))
-                    using (var barShape = Rounded(new RectangleF(meterX, y + 7 * _s, 64 * _s * fill, 5 * _s), 2.5f * _s)) g.FillPath(bar, barShape);
-                    WriteRight(g, a.Value, body, Soft, x + w, y, 66 * _s);
+                    using (var barShape = Rounded(new RectangleF(meterX, ry + 7 * _s, 64 * _s * fill, 5 * _s), 2.5f * _s)) g.FillPath(bar, barShape);
+                    WriteRight(g, a.Value, body, Soft, x + w, ry, 70 * _s);
                 }
-                y += 21 * _s;
             }
+            y += ReadingCards.MaxApps * RowHeight * _s;
         }
         if (sec.CoolsTitle is { } coolsTitle && sec.Cools.Count > 0)
         {
-            y += Gap * _s - 4 * _s;
+            y += (Gap - 4) * _s;
             if (draw) Divider(g, x, y, w);
-            y += 10 * _s;
+            y += 12 * _s;
             if (draw) Write(g, coolsTitle.ToUpperInvariant(), caption, Muted, x, y, w);
-            y += 19 * _s;
+            y += 22 * _s;
             foreach (var c in sec.Cools)
             {
                 if (draw)
@@ -330,13 +350,16 @@ internal sealed class ReadingCard : Form
                     Write(g, c.Label, body, Ink, x, y, w * 0.6f);
                     WriteRight(g, c.Value, bold, c.Color ?? Ink, x + w, y, w * 0.4f);
                 }
-                y += 21 * _s;
+                y += RowHeight * _s;
             }
         }
 
         // The page it belongs to.
-        y += Gap * _s;
-        float buttonWidth = Measure(g, sec.Button, bold) + 28 * _s, buttonHeight = 32 * _s;
+        y += (Gap + 2) * _s;
+        float buttonWidth = Measure(g, sec.Button, bold) + 32 * _s, buttonHeight = 34 * _s;
+        // At the card's foot when drawing: a card kept taller than its readings now need (it never shrinks while open)
+        // keeps its button where it was, and side-by-side parts' buttons line up.
+        if (draw) y = Math.Max(y, Height - Pad * _s - buttonHeight);
         var button = new RectangleF(x, y, buttonWidth, buttonHeight);
         if (draw)
         {

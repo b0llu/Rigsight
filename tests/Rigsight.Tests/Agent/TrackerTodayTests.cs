@@ -166,16 +166,16 @@ public class TrackerTodayTests
         rig.Keys = new KeyValues { CpuTemp = 61, GpuTemp = 50 };
         rig.Use("rigsight.exe", 20);
         Assert.Equal(78, rig.Tracker.Today().CpuPeak);
-        Assert.Equal("Rigsight", rig.Tracker.Today().CpuPeakApp);
-        Assert.Equal("Rigsight", rig.Tracker.Today().GpuPeakApp);
+        Assert.Equal("RigSight", rig.Tracker.Today().CpuPeakApp);
+        Assert.Equal("RigSight", rig.Tracker.Today().GpuPeakApp);
 
         rig.Use("rigsight.exe", 120); // the minute is written
         Assert.Equal(rig.AppId("rigsight.exe"), rig.Minutes().Single(m => m.CpuTempMax == 78).CpuApp); // what the insight names
 
         rig.Restart(); // rebuilt from the database: the same app
         Assert.Equal(78, rig.Tracker.Today().CpuPeak);
-        Assert.Equal("Rigsight", rig.Tracker.Today().CpuPeakApp);
-        Assert.Equal("Rigsight", rig.Tracker.Today().GpuPeakApp);
+        Assert.Equal("RigSight", rig.Tracker.Today().CpuPeakApp);
+        Assert.Equal("RigSight", rig.Tracker.Today().GpuPeakApp);
         Assert.Equal(rig.Tracker.Today().CpuPeakTime, rig.Minutes().Single(m => m.CpuTempMax == 78).Ts); // to the minute
     }
 

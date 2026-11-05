@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using Rigsight.Agent.Widgets;
 using Rigsight.Core;
@@ -93,7 +93,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     /// in bits when <paramref name="speedBits"/>; false when it can't (nothing is shown then).
     /// </summary>
     public bool Update(IReadOnlyList<TrayReading> readings, bool gray = false, TraySide side = TraySide.Right, TrayStyle style = TrayStyle.Strip,
-        bool tiles = true, TrayWidth width = TrayWidth.Standard, bool letters = false, bool speedBits = false)
+        bool tiles = true, TrayWidth width = TrayWidth.Standard, bool letters = false, bool speedBits = false, TrayGap spacing = TrayGap.Normal)
     {
         _side = side;
         _style = style;
@@ -140,7 +140,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             float scale = GetDpiForWindow(taskbar) / 96f;
             if (scale <= 0) scale = 1;
             _scale = scale;
-            var options = new StripComposer.Options(light, gray, tiles, width, letters, speedBits);
+            var options = new StripComposer.Options(light, gray, tiles, width, letters, speedBits, spacing);
             int barWidth = bar.R - bar.L;
             float graphWide = WidgetRenderer.StripGraphWidthFor(barWidth, scale, width);
             var places = _buttons.Latest;
@@ -159,7 +159,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             NoteFit(full, room, graphWide, fitWide, wait, readings);
             // Drawn again only when something shown changed; placed again whenever the tray moved.
             // A graph moves with every reading, so a strip with one is drawn each time.
-            string key = $"{barHeight}|{barWidth}|{scale}|{light}|{gray}|{tiles}|{width}|{letters}|{speedBits}|{fitWide}|{wait}|" + layout.Key;
+            string key = $"{barHeight}|{barWidth}|{scale}|{light}|{gray}|{tiles}|{width}|{letters}|{speedBits}|{spacing}|{fitWide}|{wait}|" + layout.Key;
             Size size = _size;
             if (key != _drawn)
             {
@@ -378,9 +378,10 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         if (cell is not null)
         {
             var showThis = new ToolStripMenuItem(cell.Count > 1 ? Lang.T("Show these as") : Lang.T("Show this as"));
-            foreach (var style in new[] { TrayStyle.Strip, TrayStyle.TwoRows, TrayStyle.Icons, TrayStyle.Grouped })
+            // An icon per part is an icon with its pairs since 1.3: the three styles the Taskbar page offers.
+            foreach (var style in new[] { TrayStyle.Strip, TrayStyle.TwoRows, TrayStyle.Icons })
             {
-                var choice = new ToolStripMenuItem(TrayParts.StyleName(style)) { Checked = style == cellStyle };
+                var choice = new ToolStripMenuItem(TrayParts.StyleName(style)) { Checked = style == cellStyle || style == TrayStyle.Icons && cellStyle == TrayStyle.Grouped };
                 choice.Click += (_, _) => setStyleOf([.. cell.Select(r => r.Id)], style);
                 showThis.DropDownItems.Add(choice);
             }
@@ -393,9 +394,9 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         // Every reading in one style (each one's own style goes).
         var showAll = new ToolStripMenuItem(Lang.T("Show all as"));
         bool mixed = _cellStyles.Distinct().Count() > 1;
-        foreach (var style in new[] { TrayStyle.Strip, TrayStyle.TwoRows, TrayStyle.Icons, TrayStyle.Grouped })
+        foreach (var style in new[] { TrayStyle.Strip, TrayStyle.TwoRows, TrayStyle.Icons })
         {
-            var choice = new ToolStripMenuItem(TrayParts.StyleName(style)) { Checked = !mixed && style == _style };
+            var choice = new ToolStripMenuItem(TrayParts.StyleName(style)) { Checked = !mixed && (style == _style || style == TrayStyle.Icons && _style == TrayStyle.Grouped) };
             choice.Click += (_, _) => setStyle(style);
             showAll.DropDownItems.Add(choice);
         }

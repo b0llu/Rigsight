@@ -104,7 +104,7 @@ public static class SettingsStore
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
 
-    private const int CurrentVersion = 11;
+    private const int CurrentVersion = 12;
 
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
@@ -184,6 +184,9 @@ public static class SettingsStore
             s.Ai.Shortcut = "Ctrl+K";
             s.Ai.ShortcutGiven = true;
         }
+        // v12 (1.3): a graph is drawn beside the number unless its reading asks for it behind; before, every graph was
+        // behind. Applied below, once the looks are read (the user: "make sure we dont change the users already setup readings").
+        bool graphsWereBehind = s.SettingsVersion is > 0 and < 12;
         s.SettingsVersion = CurrentVersion;
 
         if (s.Theme is not ("dark" or "grey" or "midnight" or "forest" or "ember" or "light" or "system")) s.Theme = "dark";
@@ -266,7 +269,13 @@ public static class SettingsStore
             && Enum.IsDefined(kv.Value) && kv.Value != TrayLook.Number));
         foreach (var id in s.TrayGraphs ?? []) if (!string.IsNullOrWhiteSpace(id)) s.TrayLooks.TryAdd(id, TrayLook.Area);
         s.TrayGraphs = [];
+        // v12: each reading that had a graph before 1.3 keeps it behind its name, where 1.2 drew it.
+        s.TrayGraphsBehind ??= [];
+        if (graphsWereBehind)
+            foreach (var (id, look) in s.TrayLooks)
+                if (look is TrayLook.Area or TrayLook.Line or TrayLook.Bars && !s.TrayGraphsBehind.Contains(id)) s.TrayGraphsBehind.Add(id);
         if (!Enum.IsDefined(s.TrayWidth)) s.TrayWidth = TrayWidth.Standard;
+        if (!Enum.IsDefined(s.TrayGap)) s.TrayGap = TrayGap.Normal;
         if (!Enum.IsDefined(s.TrayStyle)) s.TrayStyle = TrayStyle.Strip;
         s.TrayAlone = [.. (s.TrayAlone ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct()];
         // 1.3: a style, a size and a look drawn from another reading, each reading's own. Only known ones are kept; the
@@ -277,6 +286,12 @@ public static class SettingsStore
             && Enum.IsDefined(kv.Value) && kv.Value != TraySize.Auto));
         s.TrayLookFrom = new Dictionary<string, string>((s.TrayLookFrom ?? []).Where(kv => !string.IsNullOrWhiteSpace(kv.Key)
             && !string.IsNullOrWhiteSpace(kv.Value) && kv.Key != kv.Value));
+        // 1.3: spots shared, and each reading's own colours, background and one-letter names (null pairs: as before 1.3).
+        if (s.TrayPairs is not null) s.TrayPairs = [.. s.TrayPairs.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct()];
+        s.TrayGrayOf = new Dictionary<string, bool>((s.TrayGrayOf ?? []).Where(kv => !string.IsNullOrWhiteSpace(kv.Key)));
+        s.TrayTilesOf = new Dictionary<string, bool>((s.TrayTilesOf ?? []).Where(kv => !string.IsNullOrWhiteSpace(kv.Key)));
+        s.TrayLetters = [.. (s.TrayLetters ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct()];
+        s.TrayGraphsBehind = [.. (s.TrayGraphsBehind ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct()];
         s.MutedCrashApps = [.. (s.MutedCrashApps ?? []).Where(e => !string.IsNullOrWhiteSpace(e)).Distinct(StringComparer.OrdinalIgnoreCase)];
 
         var t = s.Tracking;

@@ -33,9 +33,18 @@ public partial class ColorPicker : UserControl
     public event Action<string, string>? CustomMade;
 
     /// <summary>Opens under <paramref name="target"/> for a reading: its name, whether it's a temperature, its colours and its part's.</summary>
+    /// <summary>
+    /// The name's and tile's rows show only for colours the reading draws (a big number has no name; a reading off a tile
+    /// has none); the name's row is headed as what it colours (<paramref name="nameCaption"/>: an icon's ring or fill).
+    /// </summary>
     public void Open(FrameworkElement target, string heading, bool temperature, string? number, string? name, string? tile, string partHex, string defaultText,
-        IReadOnlyList<string> numberCustoms, IReadOnlyList<string> nameCustoms, IReadOnlyList<string> tileCustoms)
+        IReadOnlyList<string> numberCustoms, IReadOnlyList<string> nameCustoms, IReadOnlyList<string> tileCustoms,
+        bool showName = true, bool showTile = true, string? nameCaption = null)
     {
+        var nameShows = showName ? Visibility.Visible : Visibility.Collapsed;
+        NameCaption.Visibility = NameScroll.Visibility = nameShows;
+        NameCaption.Text = nameCaption ?? Lang.T("NAME");
+        TileCaption.Visibility = TileScroll.Visibility = showTile ? Visibility.Visible : Visibility.Collapsed;
         _numberCustoms = [.. numberCustoms];
         _nameCustoms = [.. nameCustoms];
         _tileCustoms = [.. tileCustoms];

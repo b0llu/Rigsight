@@ -1,46 +1,15 @@
-﻿<UserControl x:Class="Rigsight.Views.TaskbarView"
+<UserControl x:Class="Rigsight.Views.TaskbarView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
-             xmlns:conv="clr-namespace:Rigsight.Converters"
-             xmlns:svc="clr-namespace:Rigsight.Services">
+             xmlns:svc="clr-namespace:Rigsight.Services"
+             UseLayoutRounding="True">
+    <!-- The page in the app's own look (round 6, 2026-11-04): a card per group, its rows split by a hairline instead of a
+         box each, the controls in the theme's grey wells. A spot's row opens in place, its settings indented under it. -->
     <UserControl.Resources>
         <!-- Windows 11's taskbar, dark or light as the user has it, for the preview. -->
         <SolidColorBrush x:Key="BarDark" Color="#1C1C1C" />
         <SolidColorBrush x:Key="BarLight" Color="#EEEEEE" />
-
-        <!-- The kind of reading, as on All sensors: sensors of one chip often share a name ("GPU Core"). -->
-        <DataTemplate x:Key="KindBadge">
-            <Border Style="{StaticResource Badge}" Background="{Binding Kind, Converter={StaticResource KindBrush}, ConverterParameter=soft}"
-                    VerticalAlignment="Center" Padding="6,2" Width="44">
-                <TextBlock Text="{Binding TypeLabel}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"
-                           Foreground="{Binding Kind, Converter={StaticResource KindBrush}}" />
-            </Border>
-        </DataTemplate>
-
-        <!-- A way to show the readings, as a card to pick: a small picture of it, its name and one line. -->
-        <Style x:Key="ModeCard" TargetType="RadioButton">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <ctl:SmoothBorder x:Name="Bd" CornerRadius="12" Padding="16,14" BorderThickness="1.5"
-                                          Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}">
-                            <ContentPresenter />
-                        </ctl:SmoothBorder>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
         <!-- A common reading, added with one click. -->
         <Style x:Key="QuickChip" TargetType="Button">
@@ -76,15 +45,12 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" CornerRadius="9" Padding="{TemplateBinding Padding}" Background="Transparent" BorderThickness="1.5" BorderBrush="Transparent">
+                        <Border x:Name="Bd" CornerRadius="8" Padding="{TemplateBinding Padding}" Background="Transparent">
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="Tag" Value="on">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
@@ -96,6 +62,153 @@
             </Setter>
         </Style>
 
+        <!-- A dropdown in a grey well, no border: its content left, lit on hover; muted when it can't be used. -->
+        <Style x:Key="DropButton" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="12,7,10,7" />
+            <Setter Property="MinWidth" Value="180" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualStateGroup.Transitions>
+                                        <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                                        <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                                    </VisualStateGroup.Transitions>
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="MouseOver">
+                                        <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <Storyboard><DoubleAnimation Storyboard.TargetName="Body" Storyboard.TargetProperty="Opacity" To="0.4" Duration="0" /></Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="8" />
+                            <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="8" Opacity="0" />
+                            <DockPanel x:Name="Body" Margin="{TemplateBinding Padding}">
+                                <TextBlock DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="9" Margin="10,1,0,0"
+                                           Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                <ContentPresenter VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A spot's row head opens it: a plain button, its shade drawn by the whole row (see SpotRow), as Windows' settings
+             cards shade edge to edge. -->
+        <Style x:Key="SpotHead" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid Background="Transparent">
+                            <ContentPresenter />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- The row's quick remove: a small cross in a quiet red, its own soft red behind it under the pointer. -->
+        <Style x:Key="QuickRemove" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualStateGroup.Transitions>
+                                        <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                                        <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                                    </VisualStateGroup.Transitions>
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="MouseOver">
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                            <DoubleAnimation Storyboard.TargetName="Cross" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                            <DoubleAnimation Storyboard.TargetName="Cross" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <Border x:Name="Hover" Background="{DynamicResource HotSoftBrush}" CornerRadius="8" Opacity="0" />
+                            <TextBlock x:Name="Cross" Text="&#xE711;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource HotBrush}" Opacity="0.6"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
+        <!-- "Like the rest" by a setting's title, when the spot has its own: back to the whole taskbar's. -->
+        <Style x:Key="ResetLink" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Margin" Value="10,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="6,1">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE7A7;" Style="{StaticResource Icon}" FontSize="10" Margin="0,1,5,0" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock x:Name="Words" Text="{ctl:T 'Like the rest'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                <Setter TargetName="Words" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- The handle to drag a spot by: six dots, as lists that can be reordered use. -->
+        <DrawingImage x:Key="GripDots">
+            <DrawingImage.Drawing>
+                <GeometryDrawing Brush="{DynamicResource MutedBrush}">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <EllipseGeometry Center="1.5,1.5" RadiusX="1.5" RadiusY="1.5" />
+                            <EllipseGeometry Center="6.5,1.5" RadiusX="1.5" RadiusY="1.5" />
+                            <EllipseGeometry Center="1.5,6.5" RadiusX="1.5" RadiusY="1.5" />
+                            <EllipseGeometry Center="6.5,6.5" RadiusX="1.5" RadiusY="1.5" />
+                            <EllipseGeometry Center="1.5,11.5" RadiusX="1.5" RadiusY="1.5" />
+                            <EllipseGeometry Center="6.5,11.5" RadiusX="1.5" RadiusY="1.5" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingImage.Drawing>
+        </DrawingImage>
+
         <!-- A segment that can't be picked now (a size the taskbar is too short for): still there, muted. -->
         <Style x:Key="SizeSegment" TargetType="RadioButton" BasedOn="{StaticResource Segment}">
             <Style.Triggers>
@@ -103,6 +216,26 @@
                     <Setter Property="Opacity" Value="0.4" />
                 </Trigger>
             </Style.Triggers>
+        </Style>
+
+        <!-- A setting's words: its name, and a line under it. -->
+        <Style x:Key="SetTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <Style x:Key="SetHint" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,2,24,0" />
+        </Style>
+        <!-- A setting in an open spot: its words left, its control right. -->
+        <Style x:Key="SpotSetting" TargetType="DockPanel">
+            <Setter Property="Margin" Value="0,9" />
+        </Style>
+        <!-- A row of the whole taskbar's card: one box with no lines between its rows, spaced as Settings' rows are. -->
+        <Style x:Key="CardRow" TargetType="Border">
+            <Setter Property="Padding" Value="0,10" />
         </Style>
 
         <!-- Text on the preview's taskbar: white on dark, black on light. -->
@@ -114,92 +247,287 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
-        <Style x:Key="BarApp" TargetType="Border">
-            <Setter Property="Width" Value="26" />
-            <Setter Property="Height" Value="26" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Margin" Value="5,0" />
-            <Setter Property="Background" Value="#2EFFFFFF" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding DataContext.TaskbarLight, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                    <Setter Property="Background" Value="#1F000000" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
 
-        <!-- A reading in the list: what it is, its live value, its colours, how it shows, its order. -->
-        <DataTemplate x:Key="ReadingRow">
-            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="9" Padding="12,9" Margin="0,0,0,6">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
-                        <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="Move up"
-                                Command="{Binding DataContext.MoveSensorUpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                            <TextBlock Text="&#xE70E;" />
-                        </Button>
-                        <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move down'}" AutomationProperties.Name="Move down"
-                                Command="{Binding DataContext.MoveSensorDownCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                            <TextBlock Text="&#xE70D;" />
-                        </Button>
-                        <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Remove from the taskbar'}" AutomationProperties.Name="Remove"
-                                Command="{Binding DataContext.RemoveSensorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                            <TextBlock Text="&#xE711;" />
-                        </Button>
-                    </StackPanel>
-                    <!-- In two rows: a box of its own, or shared with the next -->
-                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'On its own'}" FontSize="12.5" Margin="18,0,4,0"
-                              VerticalAlignment="Center" IsChecked="{Binding Alone}" AutomationProperties.Name="{Binding AloneName}"
-                              Visibility="{Binding InBoxes, Converter={StaticResource Vis}}" />
-                    <!-- How it shows: its picture as the taskbar draws it, and its style, look and size in words; the picker floating under it -->
-                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Background="{DynamicResource SurfaceBrush}" Padding="5,4,10,4" Margin="16,0,0,0"
-                            VerticalAlignment="Center" Click="Look_Click" MinWidth="170" AutomationProperties.Name="{Binding LookButtonName}"
-                            Visibility="{Binding Found, Converter={StaticResource Vis}}">
-                        <StackPanel Orientation="Horizontal">
-                            <Border Width="64" Height="32" CornerRadius="5" Background="{Binding BarBrush}" Margin="0,0,9,0" ClipToBounds="True">
-                                <Viewbox Stretch="Uniform" StretchDirection="DownOnly" Margin="2">
-                                    <Image Source="{Binding Picture}" Stretch="None" SnapsToDevicePixels="True" />
-                                </Viewbox>
-                            </Border>
-                            <TextBlock Text="{Binding ShowsAsText}" FontSize="12.5" VerticalAlignment="Center" MaxWidth="190" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="9" Margin="8,1,0,0" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+
+
+        <!-- A spot in the list: closed, what it is, how it shows in words and its picture; open, its settings under it. A
+             hairline under each but the last. The whole head shades under the pointer, edge to edge (the card clips it to
+             its corners), its handle and quick remove brighter with it. -->
+        <DataTemplate x:Key="SpotRow">
+            <Grid AllowDrop="True" DragOver="Spot_DragOver" DragLeave="Spot_DragLeave" Drop="Spot_Drop" Background="Transparent">
+                <Border x:Name="Line" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1">
+                    <StackPanel>
+                        <Grid x:Name="Head" Background="Transparent" Cursor="Hand" MouseLeftButtonUp="Head_Click">
+                            <Border x:Name="HeadShade" Background="{DynamicResource Surface2Brush}" Opacity="0" />
+                            <Grid Margin="8,0,14,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="24" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <!-- The handle: drag the row to move the spot, or the arrow keys while it has the focus -->
+                                <Border Tag="grip" Background="Transparent" Cursor="SizeAll" Focusable="True" FocusVisualStyle="{x:Null}" ToolTip="{ctl:T 'Drag to move'}"
+                                        AutomationProperties.Name="{Binding MoveName}" PreviewMouseLeftButtonDown="Grip_Down" MouseMove="Grip_Move" KeyDown="Grip_Key">
+                                    <Image x:Name="Grip" Source="{StaticResource GripDots}" Width="8" Height="13" Opacity="0.45"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Button Grid.Column="1" Style="{StaticResource SpotHead}" Command="{Binding ToggleCommand}" AutomationProperties.Name="{Binding ToggleName}">
+                                    <Grid Margin="6,12,0,12" MinHeight="48">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="4" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <!-- Its colours: one reading's, or a pair's two -->
+                                        <Grid Height="32" VerticalAlignment="Center">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition />
+                                                <RowDefinition />
+                                            </Grid.RowDefinitions>
+                                            <Border Background="{Binding StripeTop}" CornerRadius="2,2,0,0" />
+                                            <Border Grid.Row="1" Background="{Binding StripeBottom}" CornerRadius="0,0,2,2" />
+                                        </Grid>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,12,0">
+                                            <TextBlock Text="{Binding Title}" FontSize="14" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                                       Visibility="{Binding IsPair, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                                <Run Text="{Binding What, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding First.Sensor.FormattedValue, Mode=OneWay, FallbackValue='—'}" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                                       Visibility="{Binding IsPair, Converter={StaticResource Vis}}">
+                                                <Run Text="{Binding First.Name, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding First.Sensor.FormattedValue, Mode=OneWay, FallbackValue='—'}" /><Run Text=" · " /><Run Text="{Binding Second.Name, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding Second.Sensor.FormattedValue, Mode=OneWay, FallbackValue='—'}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Text="{Binding Summary}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"
+                                                   TextAlignment="Right" Margin="0,0,16,0" MaxWidth="260" TextTrimming="CharacterEllipsis" />
+                                        <!-- Its picture as the taskbar draws it, pixel for pixel, straight on the card -->
+                                        <Border Grid.Column="3" Background="{Binding First.BarBrush}" CornerRadius="8" Padding="6,4" VerticalAlignment="Center" Margin="0,0,4,0"
+                                                Visibility="{Binding First.Found, Converter={StaticResource Vis}}">
+                                            <Image Source="{Binding Picture}" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                                        </Border>
+                                    </Grid>
+                                </Button>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button x:Name="QuickX" Style="{StaticResource QuickRemove}" Command="{Binding RemoveCommand}" ToolTip="{ctl:T 'Remove from the taskbar'}"
+                                            AutomationProperties.Name="{Binding RemoveName}" Margin="2,0,2,0" />
+                                    <Button Style="{StaticResource SpotHead}" Command="{Binding ToggleCommand}" Width="28" Height="30" Focusable="False"
+                                            AutomationProperties.Name="{Binding ToggleName}">
+                                        <TextBlock Text="&#xE70D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10" Foreground="{DynamicResource FaintBrush}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                                            <Setter Property="RenderTransform">
+                                                                <Setter.Value>
+                                                                    <RotateTransform Angle="180" />
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+
+                        <!-- Open: its settings, one a line, indented under its name, no box round them -->
+                        <StackPanel Margin="52,2,22,14" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
+                            <DockPanel Style="{StaticResource SpotSetting}" Visibility="{Binding First.Found, Converter={StaticResource Vis}}">
+                                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" Content="{Binding StripWord}" GroupName="{Binding Key, StringFormat=show{0}}"
+                                                     IsChecked="{Binding ShowsText, Converter={StaticResource Equals}, ConverterParameter=Strip}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Two rows'}" GroupName="{Binding Key, StringFormat=show{0}}"
+                                                     IsChecked="{Binding ShowsText, Converter={StaticResource Equals}, ConverterParameter=TwoRows}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Icon'}" GroupName="{Binding Key, StringFormat=show{0}}"
+                                                     IsChecked="{Binding ShowsText, Converter={StaticResource Equals}, ConverterParameter=Icons}" />
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{ctl:T 'Shows as'}" Style="{StaticResource SetTitle}" />
+                                    <TextBlock Text="{Binding ShowsHint}" Style="{StaticResource SetHint}" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <!-- Paired with: None, or any reading of this PC (not for both speeds in two rows or an icon: their two lines fill it) -->
+                            <DockPanel Style="{StaticResource SpotSetting}" Visibility="{Binding CanPair, Converter={StaticResource Vis}}">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource DropButton}" Click="Partner_Click" AutomationProperties.Name="{ctl:T 'Paired with'}">
+                                    <TextBlock Text="{Binding PartnerText}" TextTrimming="CharacterEllipsis" MaxWidth="240" />
+                                </Button>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{ctl:T 'Paired with'}" Style="{StaticResource SetTitle}" />
+                                    <TextBlock Text="{Binding PartnerHint}" Style="{StaticResource SetHint}" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <!-- Each reading's look: its own picture in the button (none in two rows; an icon's from its first) -->
+                            <ItemsControl ItemsSource="{Binding LookRows}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel>
+                                        <DockPanel Style="{StaticResource SpotSetting}">
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource DropButton}" Padding="8,4,10,4" Click="Look_Click"
+                                                    AutomationProperties.Name="{Binding LookTitle}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Border Background="{Binding BarBrush}" CornerRadius="6" Padding="4,2" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                        <Image Source="{Binding Picture}" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding LookName}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Button>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding LookTitle}" Style="{StaticResource SetTitle}" />
+                                                <TextBlock Text="{Binding LookHint}" Style="{StaticResource SetHint}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                        <!-- A graph beside its number, or behind its name (its number clear above it): each reading's own -->
+                                        <DockPanel Style="{StaticResource SpotSetting}" Visibility="{Binding HasGraph, Converter={StaticResource Vis}}">
+                                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Beside'}" GroupName="{Binding Id, StringFormat=graph{0}}"
+                                                                 IsChecked="{Binding GraphPlaceText, Converter={StaticResource Equals}, ConverterParameter=Beside}" />
+                                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Behind'}" GroupName="{Binding Id, StringFormat=graph{0}}"
+                                                                 IsChecked="{Binding GraphPlaceText, Converter={StaticResource Equals}, ConverterParameter=Behind}" />
+                                                </StackPanel>
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding GraphTitle}" Style="{StaticResource SetTitle}" />
+                                                <TextBlock Text="{ctl:T 'Beside its number, or behind its name with the number clear above it.'}" Style="{StaticResource SetHint}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <DockPanel Style="{StaticResource SpotSetting}" Visibility="{Binding ShowNames, Converter={StaticResource Vis}}">
+                                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" Content="{Binding DataContext.FullWord, RelativeSource={RelativeSource AncestorType=UserControl}}" GroupName="{Binding Key, StringFormat=names{0}}"
+                                                     IsChecked="{Binding NamesText, Converter={StaticResource Equals}, ConverterParameter=Full}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'One letter'}" GroupName="{Binding Key, StringFormat=names{0}}"
+                                                     IsChecked="{Binding NamesText, Converter={StaticResource Equals}, ConverterParameter=Letter}" />
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{ctl:T 'Names'}" Style="{StaticResource SetTitle}" />
+                                    <TextBlock Text="{ctl:T 'The name beside each number, in full or as one letter.'}" Style="{StaticResource SetHint}" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <DockPanel Style="{StaticResource SpotSetting}">
+                                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Auto'}" GroupName="{Binding Key, StringFormat=size{0}}"
+                                                     IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Auto}" />
+                                        <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Small'}" GroupName="{Binding Key, StringFormat=size{0}}" IsEnabled="{Binding CanSmall}"
+                                                     IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Small}" />
+                                        <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Medium'}" GroupName="{Binding Key, StringFormat=size{0}}" IsEnabled="{Binding CanMedium}"
+                                                     IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Medium}" />
+                                        <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Large'}" GroupName="{Binding Key, StringFormat=size{0}}" IsEnabled="{Binding CanLarge}"
+                                                     IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Large}" />
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{ctl:T 'Size'}" Style="{StaticResource SetTitle}" />
+                                    <TextBlock Text="{ctl:T 'Small: one line. Medium: a shorter tile. Large: everything bigger. Auto fits your taskbar.'}" Style="{StaticResource SetHint}" />
+                                    <TextBlock Text="{Binding SizeNow}" Style="{StaticResource SetHint}" Foreground="{DynamicResource MutedBrush}"
+                                               Visibility="{Binding SizeNow, Converter={StaticResource Vis}}" />
+                                </StackPanel>
+                            </DockPanel>
+                            <!-- A size the taskbar is too short for: why, and where Windows changes it -->
+                            <DockPanel Margin="0,0,0,8" Visibility="{Binding SizeNote, Converter={StaticResource Vis}}">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,6" Margin="16,0,0,0" VerticalAlignment="Center"
+                                        Content="{ctl:T 'Open taskbar settings'}" Click="OpenTaskbarSettings_Click" AutomationProperties.Name="{ctl:T 'Open taskbar settings'}" />
+                                <TextBlock Text="{Binding SizeNote}" Style="{StaticResource SetHint}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <!-- Colors: a switch with what it has now; picked, its own ("Like the rest" by the title takes it back) -->
+                            <DockPanel Style="{StaticResource SpotSetting}" Visibility="{Binding First.Found, Converter={StaticResource Vis}}">
+                                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Color'}" GroupName="{Binding Key, StringFormat=colors{0}}"
+                                                     IsChecked="{Binding ColorsText, Converter={StaticResource Equals}, ConverterParameter=Color}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grayscale'}" GroupName="{Binding Key, StringFormat=colors{0}}"
+                                                     IsChecked="{Binding ColorsText, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{ctl:T 'Colors'}" Style="{StaticResource SetTitle}" VerticalAlignment="Center" />
+                                        <Button Style="{StaticResource ResetLink}" Command="{Binding ResetColorsCommand}" AutomationProperties.Name="{ctl:T 'Colors like the rest of the taskbar'}"
+                                                Visibility="{Binding ColorsOwn, Converter={StaticResource Vis}}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ColorsHint}" Style="{StaticResource SetHint}" />
+                                </StackPanel>
+                            </DockPanel>
+                            <!-- Each reading's own colours: their swatches on one button, the picker floating from it -->
+                            <ItemsControl ItemsSource="{Binding PickRows}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Style="{StaticResource SpotSetting}">
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource DropButton}" MinWidth="0" Padding="12,9,10,9" Click="Pick_Click"
+                                                    IsEnabled="{Binding Colored}" AutomationProperties.Name="{Binding ColorsName}" ToolTip="{Binding ColorsHint}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Border Width="14" Height="14" CornerRadius="4" Background="{Binding NumberDot}" />
+                                                    <!-- Only the colours it draws: its name's (or an icon's ring or fill), its tile's when on one -->
+                                                    <Border Width="14" Height="14" CornerRadius="4" Background="{Binding Mark}" Margin="5,0,0,0"
+                                                            Visibility="{Binding ShowsNameColor, Converter={StaticResource Vis}}" />
+                                                    <Border Width="14" Height="14" CornerRadius="4" Background="{Binding TileDot}" BorderThickness="1" BorderBrush="{DynamicResource StrokeBrush}" Margin="5,0,0,0"
+                                                            Visibility="{Binding ShowsTileColor, Converter={StaticResource Vis}}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding ColorsTitle}" Style="{StaticResource SetTitle}" />
+                                                <TextBlock Text="{Binding ColorsHint}" Style="{StaticResource SetHint}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <DockPanel Style="{StaticResource SpotSetting}">
+                                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" Content="{Binding DataContext.TilesWord, RelativeSource={RelativeSource AncestorType=UserControl}}" GroupName="{Binding Key, StringFormat=tiles{0}}"
+                                                     IsChecked="{Binding BackgroundText, Converter={StaticResource Equals}, ConverterParameter=Tiles}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'None'}" GroupName="{Binding Key, StringFormat=tiles{0}}"
+                                                     IsChecked="{Binding BackgroundText, Converter={StaticResource Equals}, ConverterParameter=None}" />
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding DataContext.BackgroundWord, RelativeSource={RelativeSource AncestorType=UserControl}}" Style="{StaticResource SetTitle}" VerticalAlignment="Center" />
+                                        <Button Style="{StaticResource ResetLink}" Command="{Binding ResetBackgroundCommand}" AutomationProperties.Name="{ctl:T 'Background like the rest of the taskbar'}"
+                                                Visibility="{Binding BackgroundOwn, Converter={StaticResource Vis}}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding BackgroundHint}" Style="{StaticResource SetHint}" />
+                                </StackPanel>
+                            </DockPanel>
+
                         </StackPanel>
-                    </Button>
-                    <!-- Its own colours: the number's, the name's and the tile's dots, a picker floating under it -->
-                    <Button DockPanel.Dock="Right" Padding="10,6" Margin="16,0,0,0" VerticalAlignment="Center" Click="Colors_Click"
-                            Background="{DynamicResource SurfaceBrush}" AutomationProperties.Name="{Binding ColorsName}"
-                            IsEnabled="{Binding DataContext.Colored, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                            Visibility="{Binding Found, Converter={StaticResource Vis}}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                                <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                        <StackPanel Orientation="Horizontal">
-                            <Border Width="12" Height="12" CornerRadius="3" Background="{Binding NumberDot}" Margin="0,0,3,0" />
-                            <Border Width="12" Height="12" CornerRadius="3" Background="{Binding Mark}" Margin="0,0,3,0" />
-                            <Border Width="12" Height="12" CornerRadius="3" Background="{Binding TileDot}" BorderThickness="1" Margin="0,0,8,0"
-                                    BorderBrush="{DynamicResource StrokeBrush}" />
-                            <TextBlock Text="{ctl:T 'Colors'}" FontSize="12.5" VerticalAlignment="Center" />
-                            <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="9" Margin="7,1,0,0" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <!-- The live reading -->
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding Sensor.FormattedValue, FallbackValue='—'}" FontSize="13.5" FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" MinWidth="70" TextAlignment="Right" />
-                    <Rectangle DockPanel.Dock="Left" Width="3" Height="26" RadiusX="1.5" RadiusY="1.5" Fill="{Binding Mark}" Margin="0,0,10,0"
-                               ToolTip="{Binding PartLabel}" Visibility="{Binding Found, Converter={StaticResource Vis}}" />
-                    <!-- Its own bindings see the sensor (its content), so whether the row's was found comes from the row -->
-                    <ContentPresenter DockPanel.Dock="Left" Content="{Binding Sensor}" ContentTemplate="{StaticResource KindBadge}" Margin="0,0,12,0"
-                                      Visibility="{Binding DataContext.Found, RelativeSource={RelativeSource AncestorType=DockPanel}, Converter={StaticResource Vis}}" />
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Name}" FontSize="13.5" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding HardwareLine}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding SizeNow}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"
-                                   Visibility="{Binding SizeNow, Converter={StaticResource Vis}}" />
                     </StackPanel>
-                </DockPanel>
-            </Border>
+                </Border>
+                <!-- Where a dragged spot would go -->
+                <Border Height="2" Background="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="20,-1,20,0"
+                        Visibility="{Binding DropAbove, Converter={StaticResource Vis}}" IsHitTestVisible="False" />
+                <Border Height="2" Background="{DynamicResource AccentBrush}" VerticalAlignment="Bottom" Margin="20,0,20,-1"
+                        Visibility="{Binding DropBelow, Converter={StaticResource Vis}}" IsHitTestVisible="False" />
+            </Grid>
+            <DataTemplate.Triggers>
+                <Trigger SourceName="Head" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="HeadShade" Property="Opacity" Value="1" />
+                    <Setter TargetName="Grip" Property="Opacity" Value="0.9" />
+                </Trigger>
+                <!-- The last row has no line under it: the card's edge is there -->
+                <DataTrigger Binding="{Binding IsLast}" Value="True">
+                    <Setter TargetName="Line" Property="BorderThickness" Value="0" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -207,30 +535,24 @@
         <!-- A narrow column, in the middle of a wide window (at the left of the frame it left half the window empty
              on one side only). -->
         <Grid MaxWidth="{StaticResource PageFrame}">
-        <StackPanel Margin="32,26,32,32" MaxWidth="900">
+        <StackPanel Margin="32,26,32,32" MaxWidth="960">
             <DockPanel>
                 <!-- The page's own question for the AI (mock-up board 5). -->
                 <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'What should it show?'}" CommandParameter="{x:Static svc:PageAsks.Taskbar}" AutomationProperties.Name="{ctl:T 'What should it show?'}" />
                 <TextBlock Text="{ctl:T 'Taskbar'}" Style="{StaticResource H1}" />
             </DockPanel>
-            <TextBlock Text="{ctl:T 'Readings next to the clock, always in view. In color, each part has its own, and any reading can have its own colors too.'}"
-                       Style="{StaticResource Muted}" Margin="0,4,0,20" TextWrapping="Wrap" />
+            <TextBlock Text="{ctl:T 'Readings next to the clock, always in view.'}" Style="{StaticResource Muted}" Margin="0,4,0,20" TextWrapping="Wrap" />
 
             <!-- Preview: the corner of the taskbar, as the taskbar will draw it (the agent's own drawing, at its real height) -->
-            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="12">
                 <StackPanel>
-                    <!-- Rounded as the card is inside its line (16 less 1), at the bottom too unless a note sits under it -->
-                    <Border Padding="22,14" ClipToBounds="True">
+                    <Border Padding="18,12" ClipToBounds="True" CornerRadius="10">
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="Background" Value="{StaticResource BarDark}" />
-                                <Setter Property="CornerRadius" Value="15" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding TaskbarLight}" Value="True">
                                         <Setter Property="Background" Value="{StaticResource BarLight}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding ShowTrayNote}" Value="True">
-                                        <Setter Property="CornerRadius" Value="15,15,0,0" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -247,7 +569,7 @@
                             </StackPanel>
                             <!-- Windows' arrow for its hidden icons, next to Wi-Fi; RigSight's readings sit left of it -->
                             <TextBlock DockPanel.Dock="Right" Text="&#xE70E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12"
-                                       Style="{StaticResource BarText}" VerticalAlignment="Center" Margin="0,0,0,0" Opacity="0.8" />
+                                       Style="{StaticResource BarText}" VerticalAlignment="Center" Opacity="0.8" />
                             <!-- The readings, drawn as the taskbar draws them, pixel for pixel: next to the clock or at the left end -->
                             <Image Source="{Binding PreviewImage}" Stretch="None" SnapsToDevicePixels="True" VerticalAlignment="Center"
                                    RenderOptions.BitmapScalingMode="NearestNeighbor" AutomationProperties.Name="{ctl:T 'The taskbar readings, as they will show'}">
@@ -258,23 +580,18 @@
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding PreviewOnLeft}" Value="True">
                                                 <Setter Property="DockPanel.Dock" Value="Left" />
-                                                <Setter Property="Margin" Value="-12,0,0,0" />
+                                                <Setter Property="Margin" Value="-8,0,0,0" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Image.Style>
                             </Image>
-                            <!-- The middle of the taskbar, hinted: apps pinned there -->
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Border Style="{StaticResource BarApp}" />
-                                <Border Style="{StaticResource BarApp}" />
-                                <Border Style="{StaticResource BarApp}" />
-                                <Border Style="{StaticResource BarApp}" />
-                            </StackPanel>
+                            <!-- The rest of the taskbar, left empty (the readings are what's shown) -->
+                            <Border />
                         </DockPanel>
                     </Border>
                     <!-- Under the preview: Windows' own tray icons (Windows 10) can be hidden behind its arrow -->
-                    <DockPanel Margin="22,14,22,16" Visibility="{Binding ShowTrayNote, Converter={StaticResource Vis}}">
+                    <DockPanel Margin="10,12,10,4" Visibility="{Binding ShowTrayNote, Converter={StaticResource Vis}}">
                         <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" Margin="0,2,10,0" />
                         <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap"
                                    Text="{ctl:T 'Windows may tuck new icons behind the arrow next to the clock. Drag them out once and they stay in view.'}" />
@@ -285,188 +602,9 @@
             <TextBlock Text="{Binding BarNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
                        Visibility="{Binding BarNote, Converter={StaticResource Vis}}" />
 
-            <!-- Every reading in one style: a strip, an icon each, an icon per part, or two rows (each reading can have its own too) -->
-            <TextBlock Text="{ctl:T 'SET ALL TO'}" Style="{StaticResource Caption}" Margin="4,26,0,10" />
-            <UniformGrid Columns="4" Margin="-6,0">
-                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding InStrip}" Margin="6,0" AutomationProperties.Name="In the taskbar">
-                    <StackPanel>
-                        <Border CornerRadius="7" Background="{StaticResource BarDark}" Padding="8,6" HorizontalAlignment="Left" Margin="0,0,0,12" Height="36">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <StackPanel Margin="0,0,8,0">
-                                    <TextBlock Text="62°" Foreground="#34D399" FontFamily="Segoe UI Semibold" FontSize="11" HorizontalAlignment="Right" />
-                                    <TextBlock Text="CPU" Foreground="#5B8CFF" FontSize="8.5" FontWeight="Bold" HorizontalAlignment="Right" />
-                                </StackPanel>
-                                <StackPanel Margin="0,0,8,0">
-                                    <TextBlock Text="35%" Foreground="White" FontFamily="Segoe UI Semibold" FontSize="11" HorizontalAlignment="Right" />
-                                    <TextBlock Text="{ctl:T 'Load'}" Foreground="#5B8CFF" FontSize="8.5" FontWeight="Bold" HorizontalAlignment="Right" />
-                                </StackPanel>
-                                <StackPanel>
-                                    <TextBlock Text="71°" Foreground="#FBBF24" FontFamily="Segoe UI Semibold" FontSize="11" HorizontalAlignment="Right" />
-                                    <TextBlock Text="GPU" Foreground="#22D3EE" FontSize="8.5" FontWeight="Bold" HorizontalAlignment="Right" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Text="{ctl:T 'In the taskbar'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                        <TextBlock Text="{ctl:T 'Each reading over a short name, like the clock, with a look of its own.'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
-                    </StackPanel>
-                </RadioButton>
-                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Separate}" Margin="6,0" AutomationProperties.Name="An icon each">
-                    <StackPanel>
-                        <Border CornerRadius="7" Background="{StaticResource BarDark}" Padding="8,8" HorizontalAlignment="Left" Margin="0,0,0,12">
-                            <StackPanel Orientation="Horizontal">
-                                <ctl:TaskbarIconView Width="20" Height="20" Text1="62" Brush1="#34D399" Tile="#3D5B8CFF" Margin="0,0,6,0" />
-                                <ctl:TaskbarIconView Width="20" Height="20" Text1="71" Brush1="#FBBF24" Tile="#3D22D3EE" Margin="0,0,6,0" />
-                                <ctl:TaskbarIconView Width="20" Height="20" Text1="35" Brush1="White" Tile="#3D5B8CFF" />
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Text="{ctl:T 'An icon each'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                        <TextBlock Text="{ctl:T 'Small icons in the taskbar, each on a tile in the color of its part.'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
-                    </StackPanel>
-                </RadioButton>
-                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding Grouped}" Margin="6,0" AutomationProperties.Name="An icon per part">
-                    <StackPanel>
-                        <Border CornerRadius="7" Background="{StaticResource BarDark}" Padding="8,5" HorizontalAlignment="Left" Margin="0,0,0,12">
-                            <StackPanel Orientation="Horizontal">
-                                <ctl:TaskbarIconView Width="26" Height="26" Text1="62" Brush1="#34D399" Text2="35" Brush2="White" Tile="#3D5B8CFF" Margin="0,0,6,0" />
-                                <ctl:TaskbarIconView Width="26" Height="26" Text1="71" Brush1="#FBBF24" Text2="98" Brush2="White" Tile="#3D22D3EE" />
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Text="{ctl:T 'An icon per part'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                        <TextBlock Text="{ctl:T 'Two readings stacked in each, the temperature on top. Takes the least room.'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
-                    </StackPanel>
-                </RadioButton>
-                <RadioButton Style="{StaticResource ModeCard}" GroupName="traymode" IsChecked="{Binding TwoRows}" Margin="6,0" AutomationProperties.Name="Two rows">
-                    <StackPanel>
-                        <Border CornerRadius="7" Background="{StaticResource BarDark}" Padding="5,0" HorizontalAlignment="Left" Margin="0,0,0,12" Height="36">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <StackPanel.LayoutTransform>
-                                    <ScaleTransform ScaleX="0.85" ScaleY="0.85" />
-                                </StackPanel.LayoutTransform>
-                                <Border CornerRadius="4" Background="#14FFFFFF" Padding="5,3" Margin="0,0,4,0">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="15" />
-                                            <RowDefinition Height="15" />
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Text="CPU" Foreground="#5B8CFF" FontSize="9.5" FontWeight="Bold" VerticalAlignment="Bottom" Margin="0,0,5,1" />
-                                        <TextBlock Grid.Column="1" Text="62°" Foreground="#34D399" FontFamily="Segoe UI Semibold" FontSize="11.5" TextAlignment="Right" VerticalAlignment="Bottom" />
-                                        <TextBlock Grid.Row="1" Text="{ctl:T 'Load'}" Foreground="#5B8CFF" FontSize="9.5" FontWeight="Bold" VerticalAlignment="Bottom" Margin="0,0,5,1" />
-                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="35%" Foreground="White" FontFamily="Segoe UI Semibold" FontSize="11.5" TextAlignment="Right" VerticalAlignment="Bottom" />
-                                    </Grid>
-                                </Border>
-                                <Border CornerRadius="4" Background="#14FFFFFF" Padding="5,3">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="15" />
-                                            <RowDefinition Height="15" />
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Text="GPU" Foreground="#22D3EE" FontSize="9.5" FontWeight="Bold" VerticalAlignment="Bottom" Margin="0,0,5,1" />
-                                        <TextBlock Grid.Column="1" Text="71°" Foreground="#FBBF24" FontFamily="Segoe UI Semibold" FontSize="11.5" TextAlignment="Right" VerticalAlignment="Bottom" />
-                                        <TextBlock Grid.Row="1" Text="{ctl:T 'Load'}" Foreground="#22D3EE" FontSize="9.5" FontWeight="Bold" VerticalAlignment="Bottom" Margin="0,0,5,1" />
-                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="98%" Foreground="White" FontFamily="Segoe UI Semibold" FontSize="11.5" TextAlignment="Right" VerticalAlignment="Bottom" />
-                                    </Grid>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Text="{ctl:T 'Two rows'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                        <TextBlock Text="{ctl:T 'Readings in boxes of two that you pick, the name beside the number.'}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0" />
-                    </StackPanel>
-                </RadioButton>
-            </UniformGrid>
-            <TextBlock Text="{Binding StripNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
-                       Visibility="{Binding StripNote, Converter={StaticResource Vis}}" />
-
-            <!-- Colours, which end of the taskbar, tiles, for the strip how roomy, two rows' names, speeds' unit: side by side -->
-            <WrapPanel Margin="0,26,0,0">
-                <!-- The parts' colours, or grayscale -->
-                <StackPanel Margin="0,0,40,0">
-                    <TextBlock Text="{ctl:T 'COLORS'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
-                    <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Color'}" GroupName="traycolors"
-                                         IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Color}" />
-                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grayscale'}" GroupName="traycolors"
-                                         IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-                <!-- Where they sit, in any style: the taskbar's left end, or the right, next to the clock -->
-                <StackPanel Margin="0,0,40,0" Visibility="{Binding ShowPlace, Converter={StaticResource Vis}}">
-                    <TextBlock Text="{ctl:T 'PLACE'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
-                    <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Left'}" GroupName="trayside"
-                                         IsChecked="{Binding SideText, Converter={StaticResource Equals}, ConverterParameter=Left}" />
-                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Right'}" GroupName="trayside"
-                                         IsChecked="{Binding SideText, Converter={StaticResource Equals}, ConverterParameter=Right}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-                <!-- Each reading on a tile, or on nothing -->
-                <StackPanel Margin="0,0,40,0">
-                    <TextBlock Text="{Binding BackgroundCaption}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
-                    <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'None'}" GroupName="traytiles"
-                                         IsChecked="{Binding Background, Converter={StaticResource Equals}, ConverterParameter=None}" />
-                            <RadioButton Style="{StaticResource Segment}" Content="{Binding TilesWord}" GroupName="traytiles"
-                                         IsChecked="{Binding Background, Converter={StaticResource Equals}, ConverterParameter=Tiles}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-                <!-- How much room the strip takes -->
-                <StackPanel Margin="0,0,40,0" Visibility="{Binding ShowWidth, Converter={StaticResource Vis}}">
-                    <TextBlock Text="{ctl:T 'WIDTH'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
-                    <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Compact'}" GroupName="traywidth"
-                                         IsChecked="{Binding WidthText, Converter={StaticResource Equals}, ConverterParameter=Compact}" />
-                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Standard'}" GroupName="traywidth"
-                                         IsChecked="{Binding WidthText, Converter={StaticResource Equals}, ConverterParameter=Standard}" />
-                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Roomy'}" GroupName="traywidth"
-                                         IsChecked="{Binding WidthText, Converter={StaticResource Equals}, ConverterParameter=Roomy}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-                <!-- Two rows' names: in full, or one letter -->
-                <StackPanel Margin="0,0,40,0" Visibility="{Binding ShowNames, Converter={StaticResource Vis}}">
-                    <TextBlock Text="{ctl:T 'NAMES'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
-                    <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton Style="{StaticResource Segment}" Content="{Binding FullNamesWord}" GroupName="traynames"
-                                         IsChecked="{Binding NamesText, Converter={StaticResource Equals}, ConverterParameter=Full}" />
-                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'One letter'}" GroupName="traynames"
-                                         IsChecked="{Binding NamesText, Converter={StaticResource Equals}, ConverterParameter=Letter}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-                <!-- Speeds in bytes or in bits, as internet plans say them -->
-                <StackPanel Visibility="{Binding ShowSpeeds, Converter={StaticResource Vis}}">
-                    <TextBlock Text="{ctl:T 'SPEEDS IN'}" Style="{StaticResource Caption}" Margin="4,0,0,10" />
-                    <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton Style="{StaticResource Segment}" Content="MB/s" GroupName="trayspeeds"
-                                         IsChecked="{Binding SpeedsText, Converter={StaticResource Equals}, ConverterParameter=Bytes}" />
-                            <RadioButton Style="{StaticResource Segment}" Content="Mbps" GroupName="trayspeeds"
-                                         IsChecked="{Binding SpeedsText, Converter={StaticResource Equals}, ConverterParameter=Bits}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </WrapPanel>
-            <TextBlock Text="{Binding SideNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
-                       Visibility="{Binding SideNote, Converter={StaticResource Vis}}" />
-
-            <!-- What: the readings, in order, with adding at the top (search next to the title, the list floating under it) -->
+            <!-- The readings: a row per spot, in the taskbar's order; adding in the box by the title (its list floating under it) -->
             <DockPanel Margin="4,26,0,10">
-                <Grid DockPanel.Dock="Right" Width="300">
+                <Grid DockPanel.Dock="Right" Width="320">
                     <!-- The app's search box (its magnifier, its placeholder where the caret is, no box drawn inside it) -->
                     <TextBox x:Name="AddSearchText" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Add a reading…'}" Text="{Binding AddSearch, UpdateSourceTrigger=PropertyChanged}"
                              GotKeyboardFocus="AddBox_Focus" PreviewMouseLeftButtonUp="AddBox_Click" PreviewKeyDown="AddBox_KeyDown"
@@ -477,9 +615,9 @@
                          it. It closes as the title bar's ask drop does: a click elsewhere in the window, another window, Esc, Tab, or the
                          page scrolling or going (see TaskbarView.xaml.cs). -->
                     <Popup x:Name="AddPop" PlacementTarget="{Binding ElementName=AddSearchText}" Placement="Bottom" VerticalOffset="6" StaysOpen="True"
-                           AllowsTransparency="True" PopupAnimation="Fade">
+                           AllowsTransparency="True" PopupAnimation="Fade" HorizontalOffset="-80">
                         <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                                          CornerRadius="12" Padding="8" Margin="0,0,8,8" Width="380">
+                                          CornerRadius="12" Padding="8" Margin="0,0,8,8" Width="400">
                             <Border.Effect>
                                 <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                             </Border.Effect>
@@ -503,7 +641,7 @@
                                 <TextBlock Text="{ctl:T 'No sensor matches that. Try a part, like GPU, or a kind, like temp.'}" Style="{StaticResource Muted}" FontSize="12.5"
                                            Margin="8" TextWrapping="Wrap" Visibility="{Binding AddListEmpty, Converter={StaticResource Vis}}" />
                                 <ItemsControl ItemsSource="{Binding AddList}" Focusable="False" MaxHeight="360" VirtualizingPanel.IsVirtualizing="True"
-                                              ScrollViewer.CanContentScroll="True">
+                                              ScrollViewer.CanContentScroll="True" PreviewMouseWheel="List_Wheel">
                                     <ItemsControl.Template>
                                         <ControlTemplate TargetType="ItemsControl">
                                             <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" CanContentScroll="True">
@@ -550,10 +688,10 @@
                 </Grid>
                 <TextBlock Text="{ctl:T 'READINGS'}" Style="{StaticResource Caption}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
             </DockPanel>
-            <ctl:SmoothBorder Style="{StaticResource Card}">
-                <StackPanel>
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0">
+                <StackPanel ctl:RoundClip.Radius="15">
                     <!-- Readings waiting for room in "+N", as the agent says -->
-                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="9" Padding="12,9" Margin="0,0,0,10"
+                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="9" Padding="12,9" Margin="14,14,14,4"
                             Visibility="{Binding WaitingText, Converter={StaticResource Vis}}">
                         <DockPanel>
                             <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource WarmBrush}" VerticalAlignment="Top" Margin="0,2,10,0" />
@@ -562,120 +700,224 @@
                     </Border>
 
                     <!-- Nothing yet -->
-                    <StackPanel HorizontalAlignment="Center" Margin="0,10,0,18" Visibility="{Binding HasSensors, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                    <StackPanel HorizontalAlignment="Center" Margin="0,22" Visibility="{Binding HasSensors, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                         <TextBlock Text="&#xE75B;" Style="{StaticResource Icon}" FontSize="26" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                         <TextBlock Text="{ctl:T 'Nothing in the taskbar yet'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,10,0,2" />
                         <TextBlock Text="{ctl:T 'Add a reading with the search box above.'}" Style="{StaticResource Muted}" FontSize="12.5" HorizontalAlignment="Center" />
                     </StackPanel>
 
-                    <ItemsControl ItemsSource="{Binding Sensors}" Focusable="False" ItemTemplate="{StaticResource ReadingRow}" />
+                    <ItemsControl x:Name="SpotList" ItemsSource="{Binding Spots}" Focusable="False" ItemTemplate="{StaticResource SpotRow}" />
+                </StackPanel>
+            </ctl:SmoothBorder>
+            <TextBlock Text="{Binding StripNote}" Style="{StaticResource Muted}" FontSize="12" Margin="4,10,0,0" TextWrapping="Wrap"
+                       Visibility="{Binding StripNote, Converter={StaticResource Vis}}" />
+
+            <!-- The whole taskbar: what every reading without its own has, and what's the taskbar's alone -->
+            <TextBlock Text="{ctl:T 'THE WHOLE TASKBAR'}" Style="{StaticResource Caption}" Margin="4,26,0,10" />
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
+                <StackPanel>
+                    <Border Style="{StaticResource CardRow}">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Color'}" GroupName="traycolors"
+                                                 IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Color}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grayscale'}" GroupName="traycolors"
+                                                 IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
+                                </StackPanel>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{ctl:T 'Colors'}" Style="{StaticResource SetTitle}" />
+                                <TextBlock Text="{ctl:T 'Each part in its own color, or in gray and the taskbar text color. A reading can choose its own.'}" Style="{StaticResource SetHint}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardRow}">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'None'}" GroupName="traytiles"
+                                                 IsChecked="{Binding Background, Converter={StaticResource Equals}, ConverterParameter=None}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{Binding TilesWord}" GroupName="traytiles"
+                                                 IsChecked="{Binding Background, Converter={StaticResource Equals}, ConverterParameter=Tiles}" />
+                                </StackPanel>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding BackgroundWord}" Style="{StaticResource SetTitle}" />
+                                <TextBlock Text="{ctl:T 'Each reading on a tile, or on the taskbar itself. A reading can choose its own.'}" Style="{StaticResource SetHint}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardRow}" Visibility="{Binding ShowPlace, Converter={StaticResource Vis}}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Left'}" GroupName="trayside"
+                                                     IsChecked="{Binding SideText, Converter={StaticResource Equals}, ConverterParameter=Left}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Right'}" GroupName="trayside"
+                                                     IsChecked="{Binding SideText, Converter={StaticResource Equals}, ConverterParameter=Right}" />
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{ctl:T 'Place'}" Style="{StaticResource SetTitle}" />
+                                    <TextBlock Text="{ctl:T 'Next to the clock, or at the left end of the taskbar.'}" Style="{StaticResource SetHint}" />
+                                </StackPanel>
+                            </DockPanel>
+                            <TextBlock Text="{Binding SideNote}" Style="{StaticResource SetHint}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"
+                                       Visibility="{Binding SideNote, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardRow}" Visibility="{Binding ShowWidth, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Compact'}" GroupName="traywidth"
+                                                 IsChecked="{Binding WidthText, Converter={StaticResource Equals}, ConverterParameter=Compact}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Standard'}" GroupName="traywidth"
+                                                 IsChecked="{Binding WidthText, Converter={StaticResource Equals}, ConverterParameter=Standard}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Roomy'}" GroupName="traywidth"
+                                                 IsChecked="{Binding WidthText, Converter={StaticResource Equals}, ConverterParameter=Roomy}" />
+                                </StackPanel>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{ctl:T 'Width'}" Style="{StaticResource SetTitle}" />
+                                <TextBlock Text="{ctl:T 'How much room the graphs take.'}" Style="{StaticResource SetHint}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <!-- The room between the readings: very close, closer, as it is, further apart -->
+                    <Border Style="{StaticResource CardRow}">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'None'}" GroupName="traygap"
+                                                 IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=None}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Small'}" GroupName="traygap"
+                                                 IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=Small}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Normal'}" GroupName="traygap"
+                                                 IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=Normal}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Large'}" GroupName="traygap"
+                                                 IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=Large}" />
+                                </StackPanel>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{ctl:T 'Space between'}" Style="{StaticResource SetTitle}" />
+                                <TextBlock Text="{ctl:T 'How close the readings sit to each other. A pair keeps its two together.'}" Style="{StaticResource SetHint}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardRow}" Visibility="{Binding ShowSpeeds, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'MB/s'}" GroupName="trayspeeds"
+                                                 IsChecked="{Binding SpeedsText, Converter={StaticResource Equals}, ConverterParameter=Bytes}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Mbps'}" GroupName="trayspeeds"
+                                                 IsChecked="{Binding SpeedsText, Converter={StaticResource Equals}, ConverterParameter=Bits}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="{ctl:T 'Speeds in'}" Style="{StaticResource SetTitle}" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
                 </StackPanel>
             </ctl:SmoothBorder>
 
-            <!-- How a reading shows, floating next to its button: its style, its size, its look (a picture of each, as the
-                 taskbar will draw it) and the reading its look comes from. Takes no room on the page. Its reading is given as
-                 it opens (none before: the page's own would be looked in for a Name and Looks). -->
-            <Popup x:Name="LookPop" Placement="Bottom" VerticalOffset="6" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" DataContext="{x:Null}">
+            <!-- A reading's looks, floating under its Look button: each one's picture (that reading alone), its name, a tick on
+                 the one in use. Takes no room on the page; the wheel scrolls it alone. -->
+            <Popup x:Name="ChoicePop" Placement="Bottom" VerticalOffset="4" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
                 <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                                  CornerRadius="12" Padding="14,12" Margin="0,0,8,8" Width="470">
+                                  CornerRadius="10" Padding="5" Margin="0,0,8,8" MinWidth="250">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                    </Border.Effect>
+                    <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" MaxHeight="440" PreviewMouseWheel="List_Wheel">
+                        <ItemsControl x:Name="ChoiceList" Focusable="False" Grid.IsSharedSizeScope="True">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource ListChoice}" Padding="10,8" Click="Choice_Click" AutomationProperties.Name="{Binding Name}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="pic" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="20" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Background="{Binding Tag, ElementName=ChoicePop}" CornerRadius="6" Padding="4,2" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,14,0"
+                                                    Visibility="{Binding HasPicture, Converter={StaticResource Vis}}">
+                                                <Image Source="{Binding Picture}" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" />
+                                                <TextBlock Text="{Binding Detail}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}"
+                                                           Visibility="{Binding HasDetail, Converter={StaticResource Vis}}" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource AccentBrush}"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </ctl:SmoothBorder>
+            </Popup>
+
+            <!-- Paired with: a search box and every reading of this PC under its part, None first; one already in the taskbar
+                 says so, one that can't share this spot is greyed. A pick pairs it at once (a new one is added for it). -->
+            <Popup x:Name="PartnerPop" Placement="Bottom" VerticalOffset="4" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
+                   Opened="PartnerPop_Opened">
+                <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                  CornerRadius="12" Padding="8" Margin="0,0,8,8" Width="400">
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                     </Border.Effect>
                     <StackPanel>
-                        <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="2,0,0,12" TextTrimming="CharacterEllipsis">
-                            <Run Text="{ctl:T 'How it shows on the taskbar:'}" />
-                            <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                        </TextBlock>
-
-                        <TextBlock Text="{ctl:T 'STYLE'}" Style="{StaticResource Caption}" Margin="2,0,0,8" />
-                        <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'In the taskbar'}" GroupName="rowstyle"
-                                             IsChecked="{Binding StyleText, Converter={StaticResource Equals}, ConverterParameter=Strip}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Two rows'}" GroupName="rowstyle"
-                                             IsChecked="{Binding StyleText, Converter={StaticResource Equals}, ConverterParameter=TwoRows}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'An icon each'}" GroupName="rowstyle"
-                                             IsChecked="{Binding StyleText, Converter={StaticResource Equals}, ConverterParameter=Icons}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'An icon per part'}" GroupName="rowstyle"
-                                             IsChecked="{Binding StyleText, Converter={StaticResource Equals}, ConverterParameter=Grouped}" />
-                            </StackPanel>
-                        </Border>
-
-                        <TextBlock Text="{ctl:T 'SIZE'}" Style="{StaticResource Caption}" Margin="2,16,0,8" />
-                        <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Auto'}" GroupName="rowsize"
-                                             IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Auto}" />
-                                <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Small'}" GroupName="rowsize" IsEnabled="{Binding CanSmall}"
-                                             IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Small}" />
-                                <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Medium'}" GroupName="rowsize" IsEnabled="{Binding CanMedium}"
-                                             IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Medium}" />
-                                <RadioButton Style="{StaticResource SizeSegment}" Content="{ctl:T 'Large'}" GroupName="rowsize" IsEnabled="{Binding CanLarge}"
-                                             IsChecked="{Binding SizeText, Converter={StaticResource Equals}, ConverterParameter=Large}" />
-                            </StackPanel>
-                        </Border>
-                        <!-- A size the taskbar is too short for: why, and where Windows changes it -->
-                        <Border Background="{DynamicResource Surface2Brush}" CornerRadius="9" Padding="12,9" Margin="0,10,0,0"
-                                Visibility="{Binding SizeNote, Converter={StaticResource Vis}}">
-                            <DockPanel>
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Background="{DynamicResource SurfaceBrush}" Padding="10,5" Margin="12,0,0,0"
-                                        VerticalAlignment="Center" Content="{ctl:T 'Open taskbar settings'}" Click="OpenTaskbarSettings_Click"
-                                        AutomationProperties.Name="{ctl:T 'Open taskbar settings'}" />
-                                <TextBlock Text="{Binding SizeNote}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                            </DockPanel>
-                        </Border>
-
-                        <StackPanel Visibility="{Binding HasLooks, Converter={StaticResource Vis}}">
-                            <TextBlock Text="{ctl:T 'LOOK'}" Style="{StaticResource Caption}" Margin="2,16,0,8" />
-                            <ItemsControl ItemsSource="{Binding Looks}" Focusable="False">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <UniformGrid Columns="4" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Style="{StaticResource ListChoice}" Padding="4,6,4,7" Margin="0,0,6,6" Click="LookChoice_Click" Tag="{Binding Tag}"
-                                                Command="{Binding Row.PickLookCommand}" CommandParameter="{Binding Look}" AutomationProperties.Name="{Binding Name}">
-                                            <StackPanel>
-                                                <Border Width="96" Height="52" CornerRadius="7" Background="{Binding Row.BarBrush}" ClipToBounds="True">
-                                                    <Viewbox Stretch="Uniform" Margin="4,2" StretchDirection="DownOnly">
-                                                        <Image Source="{Binding Picture}" Stretch="None" SnapsToDevicePixels="True" />
-                                                    </Viewbox>
-                                                </Border>
-                                                <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
+                        <TextBox x:Name="PartnerSearch" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search readings…'}" TextChanged="PartnerSearch_Changed"
+                                 PreviewKeyDown="PartnerSearch_KeyDown" AutomationProperties.Name="{ctl:T 'Search readings to pair with'}" Margin="0,0,0,6" />
+                        <TextBlock x:Name="PartnerEmpty" Text="{ctl:T 'No sensor matches that. Try a part, like GPU, or a kind, like temp.'}" Style="{StaticResource Muted}" FontSize="12.5"
+                                   Margin="8" TextWrapping="Wrap" Visibility="Collapsed" />
+                        <ItemsControl x:Name="PartnerList" Focusable="False" MaxHeight="360" VirtualizingPanel.IsVirtualizing="True" ScrollViewer.CanContentScroll="True"
+                                      PreviewMouseWheel="List_Wheel">
+                            <ItemsControl.Template>
+                                <ControlTemplate TargetType="ItemsControl">
+                                    <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" CanContentScroll="True">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VirtualizingStackPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <TextBlock Text="{Binding Heading}" Style="{StaticResource Caption}" Margin="6,10,0,4"
+                                                   Visibility="{Binding IsHeading, Converter={StaticResource Vis}}" />
+                                        <Button Style="{StaticResource ListChoice}" Padding="8,6" Visibility="{Binding IsChoice, Converter={StaticResource Vis}}"
+                                                IsEnabled="{Binding Enabled}" Click="PartnerPick_Click" AutomationProperties.Name="{Binding Name}">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource AccentBrush}" Width="16"
+                                                           TextAlignment="Center" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="12.5" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                               Visibility="{Binding HasDetail, Converter={StaticResource Vis}}" />
+                                                </StackPanel>
+                                            </DockPanel>
                                         </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-
-                        <!-- Together: the look drawn from another reading of its part, the number its own -->
-                        <StackPanel Visibility="{Binding ShowLookFrom, Converter={StaticResource Vis}}">
-                            <TextBlock Text="{ctl:T 'DRAW THE LOOK FROM'}" Style="{StaticResource Caption}" Margin="2,10,0,8" />
-                            <ItemsControl ItemsSource="{Binding LookFromChoices}" Focusable="False">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Style="{StaticResource ListChoice}" Padding="10,5" Margin="0,0,6,6" Tag="{Binding Tag}" Background="{DynamicResource Surface2Brush}"
-                                                Command="{Binding Row.PickLookFromCommand}" CommandParameter="{Binding Id}" AutomationProperties.Name="{Binding Name}">
-                                            <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" />
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </ctl:SmoothBorder>
             </Popup>
 
-            <!-- A reading's colours, floating next to its Colors button (takes no room on the page) -->
+            <!-- A reading's colours, floating next to its Pick button (takes no room on the page) -->
             <ctl:ColorPicker x:Name="ColorPick" />
         </StackPanel>
         </Grid>

@@ -526,6 +526,25 @@ public sealed class SettingsStoreTests
     }
 
     [Fact]
+    public void Graphs_set_up_before_1_3_stay_behind_their_names()
+    {
+        // 1.2 drew every graph behind its reading's name; 1.3 draws one beside its number unless the reading asks for it
+        // behind. An update keeps each one where it was: the graphs (and a graph from before 1.2) behind, nothing else.
+        var before = SettingsStore.Deserialize("""
+            { "SettingsVersion": 11, "TraySensors": ["/a", "/b", "/c", "/d", "/e"], "TrayGraphs": ["/e"],
+              "TrayLooks": { "/a": "Area", "/b": "Line", "/c": "Bars", "/d": "Ring" } }
+            """);
+        Assert.Equal(["/a", "/b", "/c", "/e"], before.TrayGraphsBehind.Order());
+        Assert.Equal(TrayLook.Ring, before.TrayLooks["/d"]); // the look itself unchanged
+
+        // Once only: a graph moved beside since stays beside, and a 1.3 setup is left as it is.
+        before.TrayGraphsBehind.Remove("/a");
+        Assert.DoesNotContain("/a", SettingsStore.Deserialize(SettingsStore.Serialize(before)).TrayGraphsBehind);
+        Assert.Empty(SettingsStore.Deserialize("""{ "SettingsVersion": 12, "TrayLooks": { "/a": "Area" } }""").TrayGraphsBehind);
+        Assert.Empty(SettingsStore.Deserialize("""{ "TrayLooks": { "/a": "Area" } }""").TrayGraphsBehind); // a new install
+    }
+
+    [Fact]
     public void Two_rows_names_and_readings_on_their_own_are_kept()
     {
         var old = SettingsStore.Deserialize("""{ "SettingsVersion": 12, "TraySensors": ["/a", "/b"] }""");

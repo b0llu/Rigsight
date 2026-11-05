@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Rigsight.Core;
 
 namespace Rigsight.Services;
@@ -188,15 +188,23 @@ public static class Changelog
     [
         // Version and date settled at release.
         // The taskbar release (issue #6); version settled at release (the Network rebuild waits on its own branch, network-1.3).
-        V("1.3.0", 11, 4,
+        V("1.3.0", 11, 5,
             added: [Lang.T("Your download and upload speed can go in the taskbar, each on its own or both in one place."),
-                Lang.T("Each taskbar reading can have its own style and size, so the strip, two rows and icons can sit side by side."),
+                Lang.T("Each taskbar reading can have its own style, size, colors and background, so the strip, two rows and icons can sit side by side."),
                 Lang.T("Taskbar readings have seven new looks: a half ring, a pie, each core, a big number, a number with a small graph, down and up, and a mirrored graph."),
                 Lang.T("Icons in the taskbar can fill up or ring round as their reading rises."),
-                Lang.T("A reading's look can come from another reading, so CPU temperature can show as the number with CPU load as its ring."),
-                Lang.T("CPU or GPU load and temperature go in the taskbar together with one click from the common readings.")],
+                Lang.T("Any two taskbar readings can share one spot: side by side on one tile, one over the other in two rows, or stacked in one icon."),
+                Lang.T("In two rows, each box can show its names in full or as one letter."),
+                Lang.T("CPU or GPU load and temperature go in the taskbar together with one click from the common readings."),
+                Lang.T("A taskbar graph can sit beside its number or behind it, for each reading."),
+                Lang.T("You can choose how much space sits between taskbar readings, from none to large.")],
             better: [Lang.T("Words and numbers over a taskbar graph have an outline in the taskbar's colour, and a light taskbar gets deeper colours, so they stay easy to read."),
-                Lang.T("The Taskbar page shows your readings exactly as your taskbar draws them, at its real height.")],
+                Lang.T("The Taskbar page shows your readings exactly as your taskbar draws them, at its real height."),
+                Lang.T("The Taskbar page has a row for each spot that opens in place, and a card for what the whole taskbar shares."),
+                Lang.T("Numbers and words in the taskbar are drawn sharper."),
+                Lang.T("When two readings of the same part are in the taskbar, only one is named after the part, so they are easy to tell apart."),
+                Lang.T("The card that opens when you click a taskbar reading is roomier and keeps its size while apps come and go."),
+                Lang.T("RigSight shows up as RigSight in lists of apps.")],
             fixedBugs: [Lang.T("On a taskbar with Windows' smaller buttons, Blocks are bigger and the Taskbar page no longer shows them larger than they are.")]),
         V("1.2.1", 11, 4,
             added: [Lang.T("Click a reading in the taskbar to see its last ten minutes, its part's other readings and the apps using it most."),

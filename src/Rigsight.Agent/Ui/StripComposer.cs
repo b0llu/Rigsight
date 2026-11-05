@@ -20,8 +20,8 @@ namespace Rigsight.Agent.Ui;
 /// </summary>
 internal sealed class StripComposer
 {
-    /// <summary>How the readings are drawn: on a light taskbar, in grayscale, on tiles, how roomy, two rows' names as one letter, speeds in bits.</summary>
-    public readonly record struct Options(bool Light, bool Gray, bool Tiles, TrayWidth Width, bool Letters, bool SpeedBits);
+    /// <summary>How the readings are drawn: on a light taskbar, in grayscale, on tiles, how roomy, two rows' names as one letter, speeds in bits, how far apart.</summary>
+    public readonly record struct Options(bool Light, bool Gray, bool Tiles, TrayWidth Width, bool Letters, bool SpeedBits, TrayGap Room = TrayGap.Normal);
 
     /// <summary>
     /// What will be drawn: the cells (the strip's parts, two rows' boxes, icons; "+N" last when readings wait) with each
@@ -50,8 +50,6 @@ internal sealed class StripComposer
     /// <summary>Each graph's readings with their times (ms), the last <see cref="TrayParts.GraphSeconds"/> kept (both speeds' upload as "id#up").</summary>
     private readonly Dictionary<string, Queue<(long At, float Value)>> _graphs = [];
 
-    /// <summary>Each reading's widest shape so far ("88°", "888 W"): the place kept for it (see <see cref="Shape"/>).</summary>
-    private readonly Dictionary<string, string> _widest = [];
 
     /// <summary>The graphs kept now (by look source), for the log.</summary>
     public IReadOnlyCollection<string> Graphs => _graphs.Keys;
@@ -84,26 +82,23 @@ internal sealed class StripComposer
     /// </summary>
     public Layout Build(IReadOnlyList<TrayReading> readings, Options o, float graphWide, int wait, int barHeight, float scale, long now)
     {
-        // Runs: readings next to each other with the same style and size.
-        var runs = new List<(TrayStyle Style, TraySize Size, List<List<TrayReading>> Cells)>();
+        // Runs: readings next to each other with the same style, size, colours, background and names (each run drawn with
+        // its own). With pairs saved (1.3), an icon per part is an icon each with its pairs.
+        bool paired = readings.Count > 0 && readings.All(r => r.PairNext is not null);
+        TrayStyle StyleOf(TrayReading r) => paired && r.Style == TrayStyle.Grouped ? TrayStyle.Icons : r.Style;
+        Options With(TrayReading r) => o with { Gray = r.Gray ?? o.Gray, Tiles = r.Tiles ?? o.Tiles, Letters = r.Letters ?? o.Letters };
+        var runs = new List<(TrayStyle Style, TraySize Size, Options With, List<List<TrayReading>> Cells)>();
         foreach (var r in readings)
         {
-            if (runs.Count > 0 && runs[^1].Style == r.Style && runs[^1].Size == r.Size) runs[^1].Cells.Add([r]);
-            else runs.Add((r.Style, r.Size, [[r]]));
+            var with = With(r);
+            if (runs.Count > 0 && runs[^1].Style == StyleOf(r) && runs[^1].Size == r.Size && runs[^1].With == with) runs[^1].Cells.Add([r]);
+            else runs.Add((StyleOf(r), r.Size, with, [[r]]));
         }
-        // Each run's cells as its style groups them (a reading per cell until now).
+        // Each run's cells: its spots (see TrayParts.Spots; both speeds take a box of their own, their two lines fill it).
         for (int k = 0; k < runs.Count; k++)
         {
             var items = runs[k].Cells.Select(c => c[0]).ToList();
-            var cells = runs[k].Style switch
-            {
-                TrayStyle.Strip => TrayParts.Group(items, r => (r.Group, r.Kind), int.MaxValue),
-                // Both speeds take a box of their own: their two lines fill it.
-                TrayStyle.TwoRows => TrayParts.Boxes(items, r => r.Alone || r.BothSpeeds),
-                TrayStyle.Grouped => TrayParts.Group(items, r => (r.Group, r.Kind)),
-                _ => [.. items.Select(r => new List<TrayReading> { r })],
-            };
-            runs[k] = (runs[k].Style, runs[k].Size, cells);
+            runs[k] = (runs[k].Style, runs[k].Size, runs[k].With, TrayParts.Spots(items, runs[k].Style, r => r.Spot));
         }
 
         // The last ones shown wait for room in "+N", whatever their style.
@@ -111,12 +106,12 @@ internal sealed class StripComposer
         var waiting = wait > 0 ? shown.Skip(Math.Max(0, shown.Count - wait)).ToList() : [];
         var waitIds = waiting.Select(r => r.Id).ToHashSet();
         for (int k = 0; k < runs.Count; k++)
-            runs[k] = (runs[k].Style, runs[k].Size, [.. runs[k].Cells.Select(c => c.Where(r => !waitIds.Contains(r.Id)).ToList()).Where(c => c.Count > 0)]);
+            runs[k] = (runs[k].Style, runs[k].Size, runs[k].With, [.. runs[k].Cells.Select(c => c.Where(r => !waitIds.Contains(r.Id)).ToList()).Where(c => c.Count > 0)]);
         runs.RemoveAll(run => run.Cells.Count == 0);
         int moreRun = -1;
         if (waiting.Count > 0)
         {
-            if (runs.Count == 0) runs.Add((waiting[0].Style, waiting[0].Size, []));
+            if (runs.Count == 0) runs.Add((StyleOf(waiting[0]), waiting[0].Size, With(waiting[0]), []));
             moreRun = runs.Count - 1;
             runs[moreRun].Cells.Add(waiting);
         }
@@ -125,12 +120,17 @@ internal sealed class StripComposer
         var groups = readings.Select(r => r.Group).Distinct().ToList();
         var partNames = TrayParts.Names([.. groups.Select(g => readings.First(r => r.Group == g).Part)]);
         var nameOf = groups.Select((g, i) => (g, partNames[i])).ToDictionary(x => x.g, x => x.Item2);
+        // Each reading's word across the whole taskbar: a part's name once, never one word twice (see TrayParts.Words).
+        var words = TrayParts.Words([.. runs.SelectMany(run => run.Cells).Select(c => (IReadOnlyList<TrayReading>)c)],
+            r => (r.Id, r.Group, nameOf.GetValueOrDefault(r.Group, TrayParts.Label(r.Part)), r.Part == TrayPart.Network, r.OwnShort, r.Short, r.Name));
 
-        var look = new StripLook(o.Tiles, o.Width, o.Light);
         var segments = runs.Select((run, k) =>
         {
             int h = TrayParts.SizeHeight(run.Size, barHeight, scale);
-            return Segment(run.Style, run.Cells, k == moreRun ? run.Cells.Count - 1 : -1, waiting.Count, readings, nameOf, o, look, graphWide, h, scale, now);
+            // Large is drawn bigger as well as taller: its text, rings and icons a fifth bigger (when the taskbar has the room).
+            float grow = TrayParts.SizeGrows(run.Size, barHeight, scale) ? TrayParts.LargeGrowth : 1;
+            var look = new StripLook(run.With.Tiles, o.Width, o.Light, o.Room);
+            return Segment(run.Style, run.Cells, k == moreRun ? run.Cells.Count - 1 : -1, waiting.Count, readings, words, run.With, look, graphWide, h, scale * grow, now);
         }).ToList();
 
         var cellsAll = new List<List<TrayReading>>();
@@ -143,8 +143,13 @@ internal sealed class StripComposer
             styles.AddRange(Enumerable.Repeat(runs[k].Style, runs[k].Cells.Count));
         }
 
-        int gap = (int)Math.Round((o.Tiles ? 6 : 10) * scale);
-        int width = Math.Max(1, segments.Sum(s => s.Width) + gap * Math.Max(0, segments.Count - 1));
+        // Every tile the same distance from the next, whatever its style: a run's own blank edges count towards the gap
+        // between runs (between a strip's parts, two rows' boxes and icons the same room is kept inside a run).
+        float between = new StripLook(o.Tiles, o.Width, o.Light, o.Room).Spacing.Gap * scale;
+        // A gap smaller than two blank edges (None, Small) lets the runs overlap there: their edges are empty, so only the
+        // room asked for shows between the tiles.
+        int[] gaps = [.. segments.Select((s, k) => k == segments.Count - 1 ? 0 : (int)Math.Round(between - s.Edge - segments[k + 1].Edge))];
+        int width = Math.Max(1, segments.Sum(s => s.Width) + gaps.Sum());
         string key = string.Join("‖", segments.Select(s => s.Key));
         return new Layout
         {
@@ -176,10 +181,10 @@ internal sealed class StripComposer
                     {
                         // A run's last cell reaches halfway into the gap to the next; the very last, to the end.
                         bool runEnd = i == e.Length - 1;
-                        edges.Add(runEnd ? (last ? width : x + segments[k].Width + gap / 2f) : x + e[i]);
+                        edges.Add(runEnd ? (last ? width : x + segments[k].Width + gaps[k] / 2f) : x + e[i]);
                         valueEdges.Add(i < v.Length && v[i] is { } ve ? [.. ve.Select(edge => edge == float.MaxValue ? edge : x + edge)] : null);
                     }
-                    x += segments[k].Width + gap;
+                    x += segments[k].Width + gaps[k];
                 }
                 return (bmp, [.. edges], [.. valueEdges]);
             },
@@ -210,15 +215,15 @@ internal sealed class StripComposer
         return (graph, fewest);
     }
 
-    /// <summary>One run drawn: its width, what tells a change, and its drawing at its own height.</summary>
-    private sealed record Run(int Width, string Key, Func<(Bitmap Bitmap, float[] Edges, float[]?[] ValueEdges)> Draw);
+    /// <summary>One run drawn: its width, what tells a change, its drawing at its own height, and the blank it leaves at each end.</summary>
+    private sealed record Run(int Width, string Key, Func<(Bitmap Bitmap, float[] Edges, float[]?[] ValueEdges)> Draw, float Edge);
 
     private Run Segment(TrayStyle style, List<List<TrayReading>> cells, int moreCell, int waitCount, IReadOnlyList<TrayReading> readings,
-        Dictionary<string, string> nameOf, Options o, StripLook look, float graphWide, int height, float scale, long now)
+        Dictionary<string, string> words, Options o, StripLook look, float graphWide, int height, float scale, long now)
     {
         var ink = o.Light ? Color.Black : Color.White;
         var neutral = Color.FromArgb(TrayColors.NeutralTileAlpha(o.Light), ink);
-        string sizeKey = $"{style}:{height}:";
+        string sizeKey = $"{style}:{height}:{o.Gray}:{o.Tiles}:{o.Letters}:";
 
         if (style == TrayStyle.Strip)
         {
@@ -227,10 +232,9 @@ internal sealed class StripComposer
                 if (i == moreCell)
                     return new StripCell("", ink, [new StripValue($"+{waitCount}", ink, Lang.T("more"), "+88", LabelColor: Color.FromArgb(160, ink),
                         Tile: look.Tiles ? neutral : null, More: true)]);
-                string name = nameOf.GetValueOrDefault(c[0].Group, TrayParts.Label(c[0].Part));
-                // Speeds say their direction ("Down", "Up"), not "Network".
-                var labels = c[0].Part == TrayPart.Network ? [.. c.Select(r => r.Short)] : TrayParts.StripLabels([.. c.Select(r => r.Short)], name);
-                return new StripCell(name, c[0].WordOn(o.Light, o.Gray), [.. c.Select((r, j) => Value(r, o, labels[j], now))]);
+                // Each reading's word as the whole taskbar has it (a part's name once; see TrayParts.Words).
+                string Word(TrayReading r) => words.GetValueOrDefault(r.Id, r.Short);
+                return new StripCell(Word(c[0]), c[0].WordOn(o.Light, o.Gray), [.. c.Select(r => Value(r, o, Word(r), now))]);
             }).ToList();
             string key = sizeKey + string.Join('|', strip.Select(c => c.Name + ":" + string.Join(',', c.Values.Select(v => v.Text + v.Second + v.Label + v.Color.ToArgb() + "/" + v.LabelColor?.ToArgb()
                 + v.Look + v.Fill.ToString("0.###") + v.Tile?.ToArgb() + Points(v.Graph) + Points(v.Graph2) + (v.Cores is { } cores ? string.Join(';', cores.Select(f => f.ToString("0.##"))) : "")))));
@@ -239,19 +243,19 @@ internal sealed class StripComposer
             {
                 var bmp = WidgetRenderer.RenderStrip(strip, height, scale, out var edges, out var valueEdges, graphWide, look);
                 return (bmp, edges, [.. valueEdges.Select(v => (float[]?)v)]);
-            });
+            }, WidgetRenderer.StripEdge * scale);
         }
 
         if (style == TrayStyle.TwoRows)
         {
-            var columns = TwoRowColumns(cells, moreCell, waitCount, nameOf, o, look.Tiles);
+            var columns = TwoRowColumns(cells, moreCell, waitCount, words, o, look.Tiles);
             string key = sizeKey + string.Join('|', columns.Select(c => c.Tile?.ToArgb() + ":" + string.Join(',', c.Lines.Select(l => $"{l.Label}{l.LabelColor.ToArgb()}{l.Text}{l.Color.ToArgb()}{l.Reserve}"))));
             int width = WidgetRenderer.MeasureTwoRows(columns, height, scale, look);
             return new Run(width, key, () =>
             {
                 var bmp = WidgetRenderer.RenderTwoRows(columns, height, scale, out var edges, look);
                 return (bmp, edges, new float[]?[edges.Length]);
-            });
+            }, WidgetRenderer.StripEdge * scale);
         }
 
         // Icons, as the notification area would draw them, side by side about as far apart as Windows' own.
@@ -260,18 +264,19 @@ internal sealed class StripComposer
             : (IconLines(c, o), IconTile(c, o), IconLookOf(c, o))).ToList();
         string iconKey = sizeKey + string.Join('|', icons.Select(ic => string.Join(',', ic.Item1.Select(l => l.Text + l.Color.ToArgb())) + "/" + ic.Item2?.ToArgb()
             + "/" + ic.Item3?.Look + ic.Item3?.Fill.ToString("0.##")));
-        int size = IconSize(height, scale), slot = IconSlot(height, scale);
+        // Icons as far apart as every other tile (the room between readings set on the page).
+        int size = IconSize(height, scale), slot = size + (int)Math.Round(look.Spacing.Gap * scale);
         return new Run(Math.Max(1, slot * icons.Count), iconKey, () =>
         {
             var bmp = WidgetRenderer.RenderIconRow(icons, height, size, slot, out var edges);
             return (bmp, edges, new float[]?[edges.Length]);
-        });
+        }, (slot - size) / 2f);
     }
 
     private static string Points(StripGraph? graph) => graph is null ? "" : string.Join(';', graph.Points.Select(pt => $"{pt.X:0.###},{pt.Y:0.###}"));
 
     /// <summary>
-    /// An icon's size (see <see cref="TrayParts.IconSize"/>: 24 at 100%, 36 at 150%), kept clear of a short taskbar's top
+    /// An icon's size (see <see cref="TrayParts.IconSize"/>: 30 at 100%, 45 at 150%), kept clear of a short taskbar's top
     /// and bottom.
     /// </summary>
     internal static int IconSize(int height, float scale) =>
@@ -284,13 +289,21 @@ internal sealed class StripComposer
     private static string StripText(TrayReading r, double? value, Options o) =>
         r.Kind == SensorKind.Throughput ? Units.StripSpeed(value, o.SpeedBits) : Units.StripText(r.Kind, value);
 
-    /// <summary>A reading's number on an icon, no unit: speeds in MB/s or, in bits, Mbps.</summary>
+    /// <summary>
+    /// A reading's number on an icon: speeds with one letter for their unit ("0.2K", "12M", "1.1G"; in bits the same
+    /// steps of bits), since a slow speed in MB would read "0.0".
+    /// </summary>
     private static string IconText(TrayReading r, double? value, Options o)
     {
         if (r.Kind != SensorKind.Throughput) return WidgetRenderer.TrayText(r.Kind, value);
         if (value is not double v || !double.IsFinite(v)) return "–";
-        double n = o.SpeedBits ? v * 8 / 1e6 : v / (1024 * 1024);
-        return n < 10 ? n.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) : Math.Round(n).ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+        v = Math.Max(0, v);
+        double k = o.SpeedBits ? 1000 : 1024, n = o.SpeedBits ? v * 8 / k : v / k;
+        string unit = "K";
+        if (n >= k) { n /= k; unit = "M"; }
+        if (n >= k) { n /= k; unit = "G"; }
+        string num = n < 10 ? n.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) : Math.Round(n).ToString("0", System.Globalization.CultureInfo.InvariantCulture);
+        return num + unit;
     }
 
     /// <summary>An icon's numbers, each in its colour: both speeds as two (download on top).</summary>
@@ -320,7 +333,7 @@ internal sealed class StripComposer
     /// comes twice, "GPU 2") in its words' colour and its number in its own, on the box's tile (the first one picked in
     /// it, else the top's); both speeds as two lines, "↓" and "↑"; "+N" last, over "more".
     /// </summary>
-    private List<TwoRowColumn> TwoRowColumns(List<List<TrayReading>> cells, int moreCell, int waitCount, Dictionary<string, string> nameOf, Options o, bool tiles)
+    private List<TwoRowColumn> TwoRowColumns(List<List<TrayReading>> cells, int moreCell, int waitCount, Dictionary<string, string> words, Options o, bool tiles)
     {
         var ink = o.Light ? Color.Black : Color.White;
         return [.. cells.Select((box, i) =>
@@ -340,21 +353,21 @@ internal sealed class StripComposer
                     lines.Add(new TwoRowLine(o.Letters ? TrayParts.Letter(Lang.T("Up")) : Lang.T("Up"), r.WordOn(o.Light, o.Gray), up, r.NumberOn(o.Light, o.Gray), Widest(r.Id + "#up", up)));
                     continue;
                 }
+                // Its word as the whole taskbar has it (a part's name once; see TrayParts.Words), or one letter of it.
+                string word = words.GetValueOrDefault(r.Id, r.Short);
                 string label = r.Hardware.Length == 0 ? "" // not found yet: the hover names it
-                    : TrayParts.BoxLabel(nameOf.GetValueOrDefault(r.Group, TrayParts.Label(r.Part)), r.Group, r.Kind, r.Short, r.OwnShort, j == 0 ? null : box[0].Group, o.Letters);
+                    : o.Letters ? TrayParts.Letter(word) : word;
                 lines.Add(new TwoRowLine(label, r.WordOn(o.Light, o.Gray), text, r.NumberOn(o.Light, o.Gray), widest));
             }
             return new TwoRowColumn(lines, tiles ? box.FirstOrDefault(r => r.TileColor is not null, box[0]).TileOn(o.Light, o.Gray, icon: false) : null);
         })];
     }
 
-    /// <summary>The widest shape a reading has had (see <see cref="Shape"/>), kept for its place.</summary>
-    private string Widest(string key, string text)
-    {
-        string shape = Shape(text);
-        if (!_widest.TryGetValue(key, out var widest) || shape.Length > widest.Length) _widest[key] = widest = shape;
-        return widest;
-    }
+    /// <summary>
+    /// The room a reading's number keeps: its shape now (see <see cref="Shape"/>), each digit an 8, so a digit changing
+    /// moves nothing. Since 1.3 not the widest it has ever been: a load that once hit 100% left a gap beside "5%" for good.
+    /// </summary>
+    private static string Widest(string key, string text) => Shape(text);
 
     /// <summary>A reading on the strip as drawn: its number, its word, its look with what it needs (graph, fill, cores, the upload), its tile.</summary>
     private StripValue Value(TrayReading r, Options o, string label, long now)
@@ -370,7 +383,7 @@ internal sealed class StripComposer
         string second = r.BothSpeeds ? StripText(r, r.Second, o) : "";
         return new StripValue(text, r.NumberOn(o.Light, o.Gray), label, widest, graph, r.WordOn(o.Light, o.Gray), look, r.Fill,
             o.Tiles ? r.TileOn(o.Light, o.Gray, icon: false) : null, Second: second, SecondReserve: second.Length > 0 ? Widest(r.Id + "#up", second) : "",
-            Graph2: graph2, Cores: r.Cores);
+            Graph2: graph2, Cores: r.Cores, Behind: r.GraphBehind);
     }
 
     /// <summary>A graph's points, across its two minutes (now at the right) and up its range (see <see cref="TrayParts.GraphRange"/>).</summary>

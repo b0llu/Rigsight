@@ -18,13 +18,19 @@ namespace Rigsight.Agent.Ui;
 /// Since 1.3 also its own <paramref name="Style"/> and <paramref name="Size"/>; the reading its look is drawn from
 /// (<paramref name="LookId"/>, its kind and value: another reading's for "Together", else its own); a second value
 /// (<paramref name="Second"/>: the upload speed of both speeds); and its cores' loads, 0 to 1, for Each core.
+/// Since 1.3 also its own colours or grayscale (<paramref name="Gray"/>), background (<paramref name="Tiles"/>), names as
+/// one letter in two rows (<paramref name="Letters"/>), and whether it shares its spot with the next (<paramref name="PairNext"/>;
+/// null while no pairs are saved: as before 1.3), each already its own or the taskbar's (null: the taskbar's, as the drawing is told).
 /// Shared with the Taskbar page, which draws its preview with the agent's own drawing (linked into the app).
 /// </summary>
 internal readonly record struct TrayReading(string Id, string Name, SensorKind Kind, double? Value, TrayPart Part, string Hardware, string Short = "",
     string? NumberColor = null, string? NameColor = null, TrayLook Look = TrayLook.Number, string? TileColor = null, bool OwnShort = false, bool Alone = false,
     TrayStyle Style = TrayStyle.Strip, TraySize Size = TraySize.Auto, string? LookId = null, SensorKind? LookKind = null, double? LookValue = null,
-    double? Second = null, float[]? Cores = null)
+    double? Second = null, float[]? Cores = null, bool? Gray = null, bool? Tiles = null, bool? Letters = null, bool? PairNext = null, bool GraphBehind = false)
 {
+    /// <summary>What its spot depends on (see <see cref="TrayParts.Spots"/>).</summary>
+    public TrayParts.SpotOf Spot => new(Id, Group, Kind, Alone, BothSpeeds, PairNext);
+
     /// <summary>Both speeds in one reading (download its number, upload with it).</summary>
     public bool BothSpeeds => Id == TrayParts.NetBoth;
 

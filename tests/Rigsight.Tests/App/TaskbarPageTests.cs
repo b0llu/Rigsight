@@ -7,8 +7,9 @@ using Rigsight.ViewModels;
 namespace Rigsight.Tests.App;
 
 /// <summary>
-/// The Taskbar page: which readings go in the taskbar, in what order, and how: a strip, an icon each, or an icon per
-/// part, at either end, on tiles, each reading with its look and colours.
+/// The Taskbar page (1.3): a row per spot (one reading, or two sharing it), each spot with its own style, size, colors,
+/// background and names, each reading its look and colours; the whole taskbar's colours, background, place, width and
+/// speeds; and the spots made from settings exactly as the agent makes them.
 /// </summary>
 [Collection("UI")]
 public sealed class TaskbarPageTests
@@ -19,21 +20,19 @@ public sealed class TaskbarPageTests
         return (Ui.Run(() => new TaskbarViewModel(settings, live)), settings, live);
     }
 
-    /// <summary>A brush's colour without its alpha: a tile is its colour, faint.</summary>
-    private static Color Rgb(Brush? b) => b is SolidColorBrush s ? Color.FromRgb(s.Color.R, s.Color.G, s.Color.B) : Colors.Transparent;
+    private static void Quick(TaskbarViewModel page, string label) => page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == label));
+
+    private static string[] SpotIds(TaskbarViewModel page) => [.. page.Spots.Select(s => string.Join("+", s.Rows.Select(r => r.Id)))];
 
     [Fact]
-    public void Starts_empty_in_the_strip_on_tiles_at_standard_width()
+    public void Starts_empty_on_tiles_at_standard_width()
     {
         var (page, _, _) = Make();
         Ui.Run(() =>
         {
             Assert.False(page.HasSensors);
-            Assert.True(page.InStrip);
-            Assert.False(page.Separate || page.Grouped);
-            Assert.Equal(TaskbarViewModel.StripSupported, page.ShowStrip);
-            Assert.Empty(page.PreviewIcons);
-            Assert.Empty(page.PreviewStrip);
+            Assert.Empty(page.Spots);
+            Assert.Null(page.PreviewImage);
             Assert.NotEmpty(page.AllSensors);
             Assert.Equal(("Tiles", "Standard"), (page.Background, page.WidthText));
             Assert.True(page.ShowCommon); // the common readings first in the Add list
@@ -42,52 +41,30 @@ public sealed class TaskbarPageTests
     }
 
     [Fact]
-    public void Grayscale_to_start_and_the_preview_follows_the_colors_switch()
-    {
-        var (page, settings, _) = Make();
-        Ui.Run(() =>
-        {
-            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "GPU temperature"));
-            Assert.Equal(("Grayscale", true), (page.Colors, settings.Current.TrayGrayscale));
-            var grey = TaskbarViewModel.MarkBrush(TrayPart.Other, page.TaskbarLight);
-            Assert.Equal(grey, page.PreviewStrip.Single().Readings[0].LabelBrush);
-            page.Separate = true;
-            Assert.Equal(Rgb(grey), Rgb(page.PreviewIcons.Single().Tile)); // an icon's tile in its colour (grey in grayscale)
-
-            page.Colors = "Color";
-            Assert.False(settings.Current.TrayGrayscale);
-            Assert.Equal(Rgb(TaskbarViewModel.MarkBrush(TrayPart.Gpu, page.TaskbarLight)), Rgb(page.PreviewIcons.Single().Tile));
-            page.InStrip = true;
-            Assert.Equal(TaskbarViewModel.MarkBrush(TrayPart.Gpu, page.TaskbarLight), page.PreviewStrip.Single().Readings[0].LabelBrush);
-
-            page.Colors = "Grayscale";
-            Assert.True(settings.Current.TrayGrayscale);
-        });
-    }
-
-    [Fact]
-    public void Readings_are_added_from_the_list_once_each_with_no_limit_and_kept_in_order()
+    public void Readings_are_added_once_each_in_order_and_spots_move_and_go()
     {
         var (page, settings, live) = Make();
         Ui.Run(() =>
         {
-            var picks = live.PickableSensors.Take(7).ToList();
+            var picks = live.PickableSensors.Take(5).ToList();
             foreach (var s in picks) page.AddReadingCommand.Execute(s);
             Assert.Equal(picks.Select(s => s.Id), settings.Current.TraySensors);
             Assert.Equal(picks.Select(s => s.Id), page.Sensors.Select(r => r.Id));
+            Assert.Equal(5, page.Spots.Count); // added one by one: a spot each
             Assert.All(page.Sensors, r => Assert.True(r.Found));
+            Assert.NotNull(settings.Current.TrayPairs); // the page saves its spots from the first change
             // The list ticks the ones already there; adding one again does nothing.
             Assert.All(page.AddList.Where(i => i.Sensor is { } s && picks.Contains(s)), i => Assert.False(i.CanAdd));
             page.AddReadingCommand.Execute(picks[0]);
-            Assert.Equal(7, settings.Current.TraySensors.Count);
+            Assert.Equal(5, settings.Current.TraySensors.Count);
 
-            page.MoveSensorDownCommand.Execute(page.Sensors[0]);
-            Assert.Equal([picks[1].Id, picks[0].Id], settings.Current.TraySensors.Take(2));
-            page.MoveSensorUpCommand.Execute(page.Sensors[0]); // already first: nothing
+            page.MoveSpot(page.Spots[0], 2);
+            Assert.Equal([picks[1].Id, picks[2].Id, picks[0].Id], settings.Current.TraySensors.Take(3));
+            page.MoveSpot(page.Spots[0], -3); // already first: nothing
             Assert.Equal(picks[1].Id, settings.Current.TraySensors[0]);
-            page.RemoveSensorCommand.Execute(page.Sensors[^1]);
-            Assert.Equal(6, settings.Current.TraySensors.Count);
-            Assert.DoesNotContain(picks[6].Id, settings.Current.TraySensors);
+            page.Spots[^1].RemoveCommand.Execute(null);
+            Assert.Equal(4, settings.Current.TraySensors.Count);
+            Assert.DoesNotContain(picks[4].Id, settings.Current.TraySensors);
         });
     }
 
@@ -115,203 +92,269 @@ public sealed class TaskbarPageTests
     }
 
     [Fact]
-    public void Grouped_the_preview_has_an_icon_per_part_on_a_tile_in_its_colour()
+    public void Load_and_temperature_with_one_click_share_a_spot_that_can_part()
     {
         var (page, settings, live) = Make();
         Ui.Run(() =>
         {
-            foreach (var label in new[] { "CPU load", "GPU temperature", "RAM in use", "CPU temperature", "GPU load" })
-                page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == label));
-            page.Colors = "Color";
-            page.Separate = true;
-            Assert.Equal(TrayStyle.Icons, settings.Current.TrayStyle);
-            Assert.True(page.ShowIcons);
-            Assert.Equal(["CPU", "GPU", "RAM", "CPU", "GPU"], page.PreviewIcons.Select(i => i.Label)); // an icon each, as listed
+            Quick(page, "CPU load and temperature");
+            Assert.Equal([live.CpuTemp!.Id, live.CpuLoad!.Id], settings.Current.TraySensors); // the temperature first
+            Assert.Equal([live.CpuTemp.Id], settings.Current.TrayPairs);
+            var spot = Assert.Single(page.Spots);
+            Assert.True(spot.IsPair);
+            Assert.Equal("CPU temperature and load", spot.Title);
+            Assert.Equal("CPU load", spot.PartnerText);
+            Assert.Equal(("Strip", "Side by side"), (spot.ShowsText, spot.StripWord));
+            Assert.Equal(2, spot.LookRows.Count); // side by side: a look each
 
-            page.Grouped = true;
-            Assert.Equal(TrayStyle.Grouped, settings.Current.TrayStyle);
-            Assert.False(page.Separate || page.InStrip);
-            var icons = page.PreviewIcons;
-            Assert.Equal(["CPU", "GPU", "RAM"], icons.Select(i => i.Label));
-            Assert.Equal([live.CpuTemp!.Id, live.CpuLoad!.Id], icons[0].Rows.Select(r => r.Id)); // the temperature on top
-            Assert.Equal([live.GpuTemp!.Id, live.GpuLoad!.Id], icons[1].Rows.Select(r => r.Id));
-            Assert.Equal((true, false), (icons[0].HasSecond, icons[2].HasSecond));
-            Assert.Equal(Rgb(TaskbarViewModel.MarkBrush(TrayPart.Cpu, page.TaskbarLight)), Rgb(icons[0].Tile));
-            Assert.All(icons, i => Assert.True(i.ShowLabel)); // each part named once
-            Assert.StartsWith(live.CpuTemp.HardwareName, icons[0].Tooltip);
-            Assert.Equal(TrayPart.Gpu, page.Sensors.Single(r => r.Id == live.GpuLoad.Id).Part);
+            spot.ShowsText = "Icons"; // the whole spot: both readings
+            Assert.All(page.Sensors, r => Assert.Equal(TrayStyle.Icons, settings.Current.TrayStyles[r.Id]));
+            spot = Assert.Single(page.Spots); // still one icon of two
+            Assert.Equal([live.CpuTemp.Id], spot.LookRows.Select(r => r.Id)); // the icon's look is its first's
 
-            // No tiles: the numbers alone.
-            page.Background = "None";
-            Assert.False(settings.Current.TrayTiles);
-            Assert.All(page.PreviewIcons, i => Assert.Null(i.Tile));
+            spot.ShowsText = "TwoRows";
+            spot = Assert.Single(page.Spots);
+            Assert.Empty(spot.LookRows); // two rows have no looks
+            Assert.True(spot.ShowNames);
 
-            page.Separate = true;
-            Assert.Equal(TrayStyle.Icons, settings.Current.TrayStyle);
-            Assert.Equal(5, page.PreviewIcons.Count);
-            // A part's icons side by side: named once, under the first.
-            page.MoveSensorUpCommand.Execute(page.Sensors[3]);
-            page.MoveSensorUpCommand.Execute(page.Sensors[2]);
-            Assert.Equal(["CPU", "CPU", "GPU", "RAM", "GPU"], page.PreviewIcons.Select(i => i.Label));
-            Assert.Equal([true, false, true, true, true], page.PreviewIcons.Select(i => i.ShowLabel));
+            page.SetPartner(spot, null); // None: a spot each
+            Assert.Empty(settings.Current.TrayPairs!);
+            Assert.Equal(2, page.Spots.Count);
+            Assert.All(page.Spots, s => Assert.False(s.IsPair));
         });
     }
 
     [Fact]
-    public void The_strip_preview_has_each_part_once_with_all_its_readings_and_its_name()
+    public void A_spot_paired_with_another_reading_takes_it_next_to_it_with_its_settings()
     {
         var (page, settings, live) = Make();
         Ui.Run(() =>
         {
-            foreach (var label in new[] { "GPU load", "CPU temperature", "RAM in use", "GPU temperature", "CPU load", "GPU power" })
-                page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == label));
-            page.Colors = "Color";
-            Assert.True(page.InStrip);
-            var parts = page.PreviewStrip;
-            Assert.Equal(["GPU", "CPU", "RAM"], parts.Select(p => p.Readings[0].Label));
-            Assert.Equal([live.GpuTemp!.Id, live.GpuLoad!.Id, live.GpuPower!.Id], parts[0].Readings.Select(r => r.Row.Id)); // temperature, load, the rest
-            Assert.Equal(TaskbarViewModel.MarkBrush(TrayPart.Gpu, page.TaskbarLight), parts[0].Readings[0].LabelBrush);
-            Assert.StartsWith(live.GpuTemp.HardwareName, parts[0].Tooltip);
-            Assert.Equal(TaskbarViewModel.StripSupported ? "" : "The strip needs Windows 11, so here the readings show as an icon each.", page.StripNote);
-            // On tiles at Standard: 3 apart within a part, 8 between parts, none after the last.
-            Assert.Equal([3.0, 3.0, 8.0], parts[0].Readings.Select(r => r.Gap));
-            Assert.Equal(0, parts[^1].Readings[^1].Gap);
-            Assert.All(parts.SelectMany(p => p.Readings), r => Assert.NotNull(r.Tile));
+            Quick(page, "CPU temperature");
+            Quick(page, "RAM in use");
+            Quick(page, "GPU load");
+            page.SetSize(page.Spots[0], TraySize.Small);
+            page.SetTiles(page.Spots[0], false);
+            var items = page.PartnerItems(page.Spots[0], "");
+            Assert.Equal("None", items[0].Name);
+            Assert.True(items[0].Selected);
+            // Two readings named "Memory" on this PC (RAM's and virtual memory's): the one in the taskbar says so, the other
+            // its hardware, so the two can be told apart.
+            Assert.Equal(["In the taskbar", "Virtual Memory"], items.Where(i => i.IsChoice && i.Name == live.RamLoad!.DisplayName).Select(i => i.Detail));
+            Assert.DoesNotContain(items, i => i.IsChoice && i.Name == live.CpuTemp!.DisplayName); // not itself
+            Assert.All(page.PartnerItems(page.Spots[0], "GPU").Where(i => i.IsChoice), i => Assert.NotEqual("None", i.Name)); // typing: no None
 
-            page.Grouped = true; // and back to the strip from the page
-            page.InStrip = true;
-            Assert.Equal(TrayStyle.Strip, settings.Current.TrayStyle);
+            items.Single(i => i.Id == live.GpuLoad!.Id).Pick!();
+            Assert.Equal([live.CpuTemp!.Id, live.GpuLoad!.Id, live.RamLoad!.Id], settings.Current.TraySensors);
+            Assert.Equal([live.CpuTemp.Id], settings.Current.TrayPairs);
+            Assert.Equal(TraySize.Small, settings.Current.TraySizes[live.GpuLoad.Id]); // it took the spot's size
+            Assert.False(settings.Current.TrayTilesOf[live.GpuLoad.Id]); // and its background
+            var pair = page.Spots[0];
+            Assert.True(pair.IsPair);
+            Assert.Equal("CPU temperature and GPU load", pair.Title); // two parts: both named
+            Assert.Equal("GPU load", pair.PartnerText);
+            // A reading already in a pair can't be picked for another spot.
+            Assert.False(page.PartnerItems(page.Spots[1], "").Single(i => i.Id == live.GpuLoad.Id).Enabled);
+
+            // Another one for the same spot: the second leaves, alone where it is.
+            page.PartnerItems(page.Spots[0], "").Single(i => i.Id == live.RamLoad.Id).Pick!();
+            Assert.Equal([live.CpuTemp.Id, live.RamLoad.Id, live.GpuLoad.Id], settings.Current.TraySensors);
+            Assert.Equal([$"{live.CpuTemp.Id}+{live.RamLoad.Id}", live.GpuLoad.Id], SpotIds(page));
         });
     }
 
     [Fact]
-    public void Width_and_background_are_saved_and_change_the_strip()
+    public void A_reading_not_in_the_taskbar_yet_is_added_by_pairing_it()
+    {
+        var (page, settings, live) = Make();
+        Ui.Run(() =>
+        {
+            Quick(page, "GPU temperature");
+            Quick(page, "RAM in use");
+            var power = page.PartnerItems(page.Spots[0], "power").Single(i => i.Id == live.GpuPower!.Id);
+            Assert.True(power.Enabled);
+            Assert.Equal(live.GpuPower!.HardwareShown, power.Detail);
+            power.Pick!();
+            Assert.Equal([live.GpuTemp!.Id, live.GpuPower.Id, live.RamLoad!.Id], settings.Current.TraySensors);
+            Assert.True(page.Spots[0].IsPair);
+        });
+    }
+
+    [Fact]
+    public void Two_of_the_same_kind_say_their_own_names()
+    {
+        var (page, _, live) = Make();
+        Ui.Run(() =>
+        {
+            var temps = live.PickableSensors.Where(s => s.Kind == SensorKind.Temperature && TrayParts.PartOf(s.HardwareType) == TrayPart.Cpu).Take(2).ToList();
+            if (temps.Count < 2) return; // the stand-in PC has one CPU temperature only
+            page.AddReadingCommand.Execute(temps[0]);
+            page.PartnerItems(page.Spots[0], "").Single(i => i.Id == temps[1].Id).Pick!();
+            var pair = page.Spots[0];
+            Assert.Equal($"{temps[0].DisplayName} and {temps[1].DisplayName}", pair.Title);
+            Assert.Equal([$"Look of {temps[0].DisplayName}", $"Look of {temps[1].DisplayName}"], pair.LookRows.Select(r => r.LookTitle));
+        });
+    }
+
+    [Fact]
+    public void Both_speeds_pair_only_side_by_side()
     {
         var (page, settings, _) = Make();
         Ui.Run(() =>
         {
-            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "CPU temperature"));
-            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "GPU temperature"));
-            Assert.Equal(TaskbarViewModel.StripSupported, page.ShowWidth);
+            Quick(page, "Download and upload");
+            Quick(page, "CPU temperature");
+            var both = page.Spots[0];
+            Assert.True(both.CanPair);
+            page.PartnerItems(both, "").Single(i => i.Id == page.Spots[1].First.Id).Pick!();
+            Assert.True(page.Spots[0].IsPair);
 
-            page.WidthText = "Compact";
-            Assert.Equal(TrayWidth.Compact, settings.Current.TrayWidth);
-            Assert.Equal(TrayWidth.Compact, page.PreviewStrip[0].Readings[0].WidthMode);
-            Assert.Equal(6, page.PreviewStrip[0].Readings[0].Gap); // tighter between parts
-            page.WidthText = "Roomy";
-            Assert.Equal(TrayWidth.Roomy, settings.Current.TrayWidth);
-            page.WidthText = "nonsense";
-            Assert.Equal(TrayWidth.Roomy, settings.Current.TrayWidth);
-
-            page.Background = "None";
-            Assert.False(settings.Current.TrayTiles);
-            Assert.All(page.PreviewStrip.SelectMany(p => p.Readings), r => Assert.Null(r.Tile));
-            Assert.Equal(16, page.PreviewStrip[0].Readings[0].Gap); // today's spacing without tiles
-            page.Background = "Tiles";
-            Assert.True(settings.Current.TrayTiles);
-
-            page.Separate = true; // only the strip has a width
-            Assert.False(page.ShowWidth);
+            page.Spots[0].ShowsText = "TwoRows"; // two lines already: they part
+            Assert.Empty(settings.Current.TrayPairs!);
+            Assert.All(page.Spots, s => Assert.False(s.IsPair));
+            var speeds = page.Spots.Single(s => s.First.Id == TrayParts.NetBoth);
+            Assert.False(speeds.CanPair);
+            // And a spot in two rows can't take both speeds.
+            page.Spots.Single(s => s != speeds).ShowsText = "TwoRows";
+            var other = page.Spots.Single(s => s.First.Id != TrayParts.NetBoth);
+            Assert.False(page.PartnerItems(other, "").Single(i => i.Id == speeds.First.Id).Enabled);
         });
     }
 
     [Fact]
-    public void The_preview_writes_readings_as_the_strip_does()
-    {
-        var convert = new Converters.TrayTextConverter();
-        Assert.Equal("62°", convert.Convert([SensorKind.Temperature, (double?)61.6], typeof(string), "strip", System.Globalization.CultureInfo.InvariantCulture));
-        Assert.Equal("62", convert.Convert([SensorKind.Temperature, (double?)61.6], typeof(string), null, System.Globalization.CultureInfo.InvariantCulture));
-        var fill = new Converters.TrayFillConverter();
-        Assert.Equal(0.62, (double)fill.Convert((double?)62, typeof(double), null, System.Globalization.CultureInfo.InvariantCulture), 3);
-        Assert.Equal(1.0, (double)fill.Convert((double?)140, typeof(double), null, System.Globalization.CultureInfo.InvariantCulture));
-        Assert.Equal(0.0, (double)fill.Convert(null, typeof(double), null, System.Globalization.CultureInfo.InvariantCulture));
-    }
-
-    [Fact]
-    public void The_usual_readings_are_one_click_and_leave_the_list_once_added()
+    public void Colors_and_background_are_the_whole_taskbars_unless_a_spot_has_its_own()
     {
         var (page, settings, live) = Make();
         Ui.Run(() =>
         {
-            Assert.True(page.HasQuickPicks);
-            var labels = page.QuickPicks.Select(p => p.Label).ToList();
-            Assert.Contains("GPU temperature", labels);
-            Assert.Contains("RAM in use", labels);
-            var gpu = page.QuickPicks.Single(p => p.Label == "GPU temperature");
-            Assert.Same(live.GpuTemp, gpu.Sensor);
-            page.AddQuickCommand.Execute(gpu);
-            Assert.Equal([live.GpuTemp!.Id], settings.Current.TraySensors);
-            Assert.DoesNotContain(page.QuickPicks, p => p.Label == "GPU temperature");
-            Assert.Equal("1 in the taskbar", page.CountText);
+            Quick(page, "CPU load and temperature");
+            Quick(page, "GPU temperature");
+            page.Colors = "Color";
+            var cpu = page.Spots[0];
+            Assert.Equal(("Color", false), (cpu.ColorsText, cpu.ColorsOwn));
+            Assert.Equal(("Tiles", false), (cpu.BackgroundText, cpu.BackgroundOwn));
+            Assert.All(page.Sensors, r => Assert.False(r.IsGray));
+
+            cpu.ColorsText = "Grayscale"; // its own: both of its readings
+            Assert.True(settings.Current.TrayGrayOf[live.CpuTemp!.Id]);
+            Assert.True(settings.Current.TrayGrayOf[live.CpuLoad!.Id]);
+            cpu = page.Spots[0];
+            Assert.Equal(("Grayscale", true), (cpu.ColorsText, cpu.ColorsOwn));
+            Assert.Contains("grayscale", cpu.Summary);
+            Assert.All(cpu.Rows, r => Assert.True(r.IsGray && !r.Colored)); // its colours wait while it's gray
+            Assert.False(page.Spots[1].First.IsGray);
+
+            page.Colors = "Grayscale"; // the taskbar's: the one with its own keeps it
+            Assert.True(page.Spots[1].First.IsGray);
+            page.Spots[0].ColorsText = "Color";
+            Assert.False(page.Spots[0].First.IsGray);
+            Assert.Contains("grayscale", page.Spots[0].ColorsHint); // the rest of the taskbar is
+            page.Spots[0].ResetColorsCommand.Execute(null); // like the rest again
+            Assert.Empty(settings.Current.TrayGrayOf);
+            Assert.True(page.Spots[0].First.IsGray);
+            Assert.False(page.Spots[0].ColorsOwn);
+
+            page.Spots[1].BackgroundText = "None";
+            Assert.False(settings.Current.TrayTilesOf[live.GpuTemp!.Id]);
+            Assert.True(page.Spots[1].BackgroundOwn);
+            Assert.Contains("no tile", page.Spots[1].Summary);
+            page.Background = "None";
+            Assert.False(settings.Current.TrayTiles);
+            Assert.Equal("None", page.Spots[0].BackgroundText);
+            page.Spots[1].ResetBackgroundCommand.Execute(null);
+            Assert.Empty(settings.Current.TrayTilesOf);
+        });
+    }
+
+  [Fact]
+    public void Names_and_size_are_each_spots()
+    {
+        var (page, settings, live) = Make();
+        Ui.Run(() =>
+        {
+            Quick(page, "GPU load and temperature");
+            Quick(page, "CPU temperature");
+            page.Spots[0].ShowsText = "TwoRows";
+            var box = page.Spots[0];
+            Assert.Equal("Full", box.NamesText);
+            box.NamesText = "Letter";
+            Assert.Equal(new[] { live.GpuTemp!.Id, live.GpuLoad!.Id }.Order(), settings.Current.TrayLetters.Order());
+            Assert.Contains("one-letter names", page.Spots[0].Summary);
+            Assert.False(page.Spots[1].ShowNames); // not in two rows: no names to set
+
+            page.Spots[1].SizeText = "Large";
+            Assert.Equal(TraySize.Large, settings.Current.TraySizes[live.CpuTemp!.Id]);
+            Assert.False(settings.Current.TraySizes.ContainsKey(live.GpuTemp.Id));
+            page.Spots[1].SizeText = "Auto";
+            Assert.Empty(settings.Current.TraySizes);
         });
     }
 
     [Fact]
-    public void A_sensor_this_pc_doesnt_have_is_listed_as_not_found()
+    public void Spots_from_before_13_are_as_the_taskbar_showed_them_and_saved_on_the_first_change()
     {
-        var (page, _, _) = Make(new RigsightSettings { TraySensors = ["/no/such/sensor"] });
+        var (page, settings, live) = Make();
+        string gpuT = live.GpuTemp!.Id, gpuL = live.GpuLoad!.Id, cpuT = live.CpuTemp!.Id, ram = live.RamLoad!.Id;
         Ui.Run(() =>
         {
-            var row = Assert.Single(page.Sensors);
-            Assert.False(row.Found);
-            Assert.False(row.ShowLookButton);
-            Assert.Equal("Not found on this PC right now", row.Hardware);
-            Assert.Empty(page.PreviewIcons); // nothing to draw for it
-            Assert.Equal(TrayPart.Other, row.Part);
-        });
-    }
-
-    [Fact]
-    public void Every_style_goes_to_the_left_side_and_back()
-    {
-        var (page, settings, _) = Make();
-        Ui.Run(() =>
-        {
-            Assert.Equal(("Right", false), (page.SideText, page.OnLeft)); // next to the clock to start
-            Assert.Equal(TaskbarViewModel.StripSupported, page.ShowPlace);
-            foreach (var style in new[] { TrayStyle.Strip, TrayStyle.Icons, TrayStyle.Grouped })
+            // As 1.2 left them: no pairs saved, the strip grouping by part (a part's temperature first), names as one letter.
+            settings.Update(s =>
             {
-                page.Style = style;
-                page.SideText = "Left";
-                Assert.Equal(TraySide.Left, settings.Current.TraySide);
-                Assert.True(page.OnLeft);
-                Assert.Equal(TaskbarViewModel.StripSupported && !page.IconsAlignedLeft, page.PreviewOnLeft);
-                // Said only when Windows' icons fill the left end.
-                Assert.Equal(TaskbarViewModel.StripSupported && page.IconsAlignedLeft, page.SideNote.Length > 0);
-                page.SideText = "Right";
-                Assert.Equal(TraySide.Right, settings.Current.TraySide);
-                Assert.Equal("", page.SideNote);
-            }
+                s.TraySensors = [gpuL, cpuT, ram, gpuT];
+                s.TrayPairs = null;
+                s.TrayLetterNames = true;
+            });
+            page.LoadSensors();
+            Assert.Equal([$"{gpuT}+{gpuL}", cpuT, ram], SpotIds(page));
+
+            page.SetSize(page.Spots[2], TraySize.Small); // the first change: the spots saved as they show
+            Assert.Equal([gpuT, gpuL, cpuT, ram], settings.Current.TraySensors);
+            Assert.Equal([gpuT], settings.Current.TrayPairs);
+            Assert.False(settings.Current.TrayLetterNames);
+            Assert.Equal(4, settings.Current.TrayLetters.Count);
+            Assert.Equal([$"{gpuT}+{gpuL}", cpuT, ram], SpotIds(page));
+
+            // Two rows from before 1.3: two to a box in the list's order, one with a box of its own alone.
+            settings.Update(s =>
+            {
+                s.TraySensors = [cpuT, gpuT, gpuL];
+                s.TrayPairs = null;
+                s.TrayStyle = TrayStyle.TwoRows;
+                s.TrayStyles.Clear();
+                s.TraySizes.Clear();
+                s.TrayAlone = [cpuT];
+            });
+            page.LoadSensors();
+            Assert.Equal([cpuT, $"{gpuT}+{gpuL}"], SpotIds(page));
         });
     }
 
     [Fact]
-    public void Each_reading_on_the_strip_has_a_look_picked_from_its_list()
+    public void Each_reading_has_a_look_picked_from_its_list()
     {
         var (page, settings, live) = Make();
         Ui.Run(() =>
         {
-            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "CPU temperature"));
-            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "GPU power"));
+            Quick(page, "CPU temperature");
+            Quick(page, "GPU power");
             var (temp, power) = (page.Sensors[0], page.Sensors[1]);
             Assert.Equal((TrayLook.Number, TrayLook.Number), (temp.Look, power.Look)); // numbers alone to start
-            Assert.Equal(("Number only", TaskbarViewModel.StripSupported), (temp.LookName, temp.ShowLookButton));
-            Assert.Equal(7, temp.Looks.Count); // a temperature has a top: every look
-            Assert.Equal([TrayLook.Number, TrayLook.Area, TrayLook.Line, TrayLook.Bars], power.Looks.Select(l => l.Look)); // watts don't
+            Assert.Equal("Number only", temp.LookName);
+            Assert.Equal("Look", temp.LookTitle);
+            var looks = temp.LookChoices();
+            Assert.True(looks.Count > power.LookChoices().Count); // a temperature has a top: more looks than watts
+            Assert.True(looks[0].Selected);
 
-            temp.PickLookCommand.Execute(TrayLook.Ring);
+            looks.Single(l => l.Name == "Ring").Pick();
             Assert.Equal(TrayLook.Ring, settings.Current.TrayLooks[live.CpuTemp!.Id]);
-            Assert.Equal(("Ring", true), (temp.LookName, temp.Looks.Single(l => l.Look == TrayLook.Ring).Selected));
-            Assert.Equal(TrayLook.Ring, page.PreviewStrip.Single(p => p.Readings[0].Row == temp).Readings[0].Look);
-
-            power.PickLookCommand.Execute(TrayLook.Bars);
-            Assert.Equal(TrayLook.Bars, settings.Current.TrayLooks[live.GpuPower!.Id]);
-            temp.PickLookCommand.Execute(TrayLook.Number); // back to the number: nothing kept for it
+            Assert.Equal("Ring", page.Sensors[0].LookName);
+            Assert.Contains("ring", page.Spots[0].Summary);
+            page.Sensors[0].LookChoices().Single(l => l.Name == "Number only").Pick(); // back to the number: nothing kept
             Assert.False(settings.Current.TrayLooks.ContainsKey(live.CpuTemp.Id));
 
-            // As icons there's no look to draw: no button.
-            page.Separate = true;
-            Assert.False(temp.ShowLookButton);
+            // As an icon: the icon's own looks.
+            page.Spots[0].ShowsText = "Icons";
+            Assert.All(page.Sensors[0].LookChoices(), l => Assert.Contains(l.Name, new[] { TrayParts.IconLookName(TrayLook.Number), TrayParts.IconLookName(TrayLook.Level), TrayParts.IconLookName(TrayLook.Ring) }));
         });
     }
 
@@ -321,7 +364,7 @@ public sealed class TaskbarPageTests
         var (page, settings, live) = Make();
         Ui.Run(() =>
         {
-            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "GPU temperature"));
+            Quick(page, "GPU temperature");
             settings.Update(s => s.TrayLooks[live.GpuTemp!.Id] = TrayLook.Blocks); // as the agent's right-click menu does
             page.LoadSensors();
             Assert.Equal(TrayLook.Blocks, page.Sensors.Single().Look);
@@ -329,20 +372,76 @@ public sealed class TaskbarPageTests
     }
 
     [Fact]
-    public void A_tile_colour_is_saved_with_the_others_and_shows_on_the_preview()
+    public void A_sensor_this_pc_doesnt_have_is_listed_as_not_found()
+    {
+        var (page, _, _) = Make(new RigsightSettings { TraySensors = ["/no/such/sensor"] });
+        Ui.Run(() =>
+        {
+            var spot = Assert.Single(page.Spots);
+            Assert.False(spot.First.Found);
+            Assert.Empty(spot.LookRows);
+            Assert.Empty(spot.PickRows);
+            Assert.Null(spot.Picture);
+            Assert.Equal("Not found on this PC right now", spot.What);
+            Assert.Equal(TrayPart.Other, spot.First.Part);
+        });
+    }
+
+    [Fact]
+    public void The_taskbar_goes_to_the_left_side_and_back()
+    {
+        var (page, settings, _) = Make();
+        Ui.Run(() =>
+        {
+            Assert.Equal(("Right", false), (page.SideText, page.OnLeft)); // next to the clock to start
+            Assert.Equal(TaskbarViewModel.StripSupported, page.ShowPlace);
+            page.SideText = "Left";
+            Assert.Equal(TraySide.Left, settings.Current.TraySide);
+            Assert.True(page.OnLeft);
+            Assert.Equal(TaskbarViewModel.StripSupported && !page.IconsAlignedLeft, page.PreviewOnLeft);
+            // Said only when Windows' icons fill the left end.
+            Assert.Equal(TaskbarViewModel.StripSupported && page.IconsAlignedLeft, page.SideNote.Length > 0);
+            page.SideText = "Right";
+            Assert.Equal(TraySide.Right, settings.Current.TraySide);
+            Assert.Equal("", page.SideNote);
+        });
+    }
+
+    [Fact]
+    public void Width_and_speeds_show_with_what_needs_them()
+    {
+        var (page, settings, _) = Make();
+        Ui.Run(() =>
+        {
+            Quick(page, "CPU temperature");
+            Assert.Equal(TaskbarViewModel.StripSupported, page.ShowWidth);
+            Assert.False(page.ShowSpeeds);
+            page.WidthText = "Compact";
+            Assert.Equal(TrayWidth.Compact, settings.Current.TrayWidth);
+            page.WidthText = "nonsense";
+            Assert.Equal(TrayWidth.Compact, settings.Current.TrayWidth);
+            page.Spots[0].ShowsText = "Icons"; // only the strip has a width
+            Assert.False(page.ShowWidth);
+
+            Quick(page, "Download and upload");
+            Assert.True(page.ShowSpeeds);
+            page.SpeedsText = "Bits";
+            Assert.True(settings.Current.TraySpeedBits);
+        });
+    }
+
+    [Fact]
+    public void A_tile_colour_is_saved_with_the_others()
     {
         var (page, settings, live) = Make();
         Ui.Run(() =>
         {
-            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "CPU load"));
+            Quick(page, "CPU load");
             page.Colors = "Color";
             var row = page.Sensors.Single();
             page.SetColors(row, null, null, "#F472B6");
             Assert.Equal("#F472B6", settings.Current.TrayColors[live.CpuLoad!.Id].Tile);
-            Assert.Equal(Color.FromRgb(0xF4, 0x72, 0xB6), Rgb(page.PreviewStrip.Single().Readings[0].Tile));
-            Assert.True(row.HasTileColor);
-            page.Separate = true;
-            Assert.Equal(Color.FromRgb(0xF4, 0x72, 0xB6), Rgb(page.PreviewIcons.Single().Tile));
+            Assert.Equal("#F472B6", row.TileColor);
 
             page.AddCustomColor("tile", "#123456");
             Assert.Equal(["#123456"], settings.Current.TrayTileColors);
@@ -358,8 +457,8 @@ public sealed class TaskbarPageTests
         var (page, _, live) = Make();
         Ui.Run(() =>
         {
-            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "CPU temperature"));
-            page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == "GPU temperature"));
+            Quick(page, "CPU temperature");
+            Quick(page, "GPU temperature");
             var tick = Pc.Tick(1000);
             tick.TrayWaiting = [live.GpuTemp!.Id];
             live.ApplyTick(tick);
@@ -381,69 +480,46 @@ public sealed class TaskbarPageTests
         Assert.Empty(s.TrayGraphs);
         Assert.True(s.TrayTiles);
         Assert.Equal(TrayWidth.Standard, s.TrayWidth);
+        Assert.Null(s.TrayPairs); // no pairs yet: the spots as before 1.3
         // Saved and read again: the same.
         var again = SettingsStore.Deserialize(SettingsStore.Serialize(s));
         Assert.Equal(TrayLook.Area, again.TrayLooks["/cpu/0/load/0"]);
+        Assert.Null(again.TrayPairs);
         // Nothing is added for someone who had no readings.
         Assert.Empty(SettingsStore.Deserialize("""{ "SettingsVersion": 11 }""").TraySensors);
     }
 
     [Fact]
-    public void Two_rows_pair_the_readings_as_listed_and_one_can_have_a_box_of_its_own()
+    public void Pairs_and_each_readings_own_colours_background_and_names_are_kept()
     {
-        var (page, settings, live) = Make();
-        Ui.Run(() =>
+        var s = new RigsightSettings
         {
-            foreach (var label in new[] { "CPU temperature", "GPU temperature", "CPU load", "GPU load" })
-                page.AddQuickCommand.Execute(page.QuickPicks.Single(p => p.Label == label));
-            page.Colors = "Color";
-            page.TwoRows = true;
-            Assert.Equal(TrayStyle.TwoRows, settings.Current.TrayStyle);
-            Assert.False(page.InStrip || page.Separate || page.Grouped);
-            Assert.Equal(TaskbarViewModel.StripSupported, page.ShowBoxes);
-            Assert.False(page.ShowWidth); // no graphs in two rows
-            Assert.All(page.Sensors, r => Assert.Equal(page.ShowBoxes, r.InBoxes));
-            Assert.All(page.Sensors, r => Assert.False(r.ShowLookButton));
-
-            // Two to a box, in the list's order: whatever parts they are.
-            string Boxes() => string.Join(" | ", page.Boxes.Select(b => string.Join(" ", b.Lines.Select(l => l.Label))));
-            Assert.Equal("CPU GPU | CPU GPU", Boxes());
-            Assert.Equal([live.CpuTemp!.Id, live.GpuTemp!.Id], page.Boxes[0].Rows.Select(r => r.Id));
-            Assert.Equal(["Box 1", "Box 2"], page.Boxes.Select(b => b.Title));
-            Assert.All(page.Boxes, b => Assert.NotNull(b.Tile));
-
-            // Moved in the list: the CPU's two share a box, its load saying what it is.
-            page.MoveSensorDownCommand.Execute(page.Sensors[1]);
-            Assert.Equal("CPU Load | GPU Load", Boxes());
-
-            // On its own: a box alone, and the rest pair on after it.
-            page.Sensors[0].Alone = true;
-            Assert.Equal([live.CpuTemp.Id], settings.Current.TrayAlone);
-            Assert.Equal("CPU | CPU GPU | GPU", Boxes());
-            Assert.Equal(["Box 1 · on its own", "Box 2", "Box 3 · one reading"], page.Boxes.Select(b => b.Title));
-
-            // A colour picked keeps the boxes (the picker floats from a button in them); the tile changes in place.
-            var box = page.Boxes[0];
-            page.SetColors(page.Sensors[0], null, null, "#FF00AA");
-            Assert.Same(box, page.Boxes[0]);
-            Assert.Equal(Color.FromRgb(0xFF, 0x00, 0xAA), Rgb(box.Tile));
-
-            page.NamesText = "Letter";
-            Assert.True(settings.Current.TrayLetterNames);
-            Assert.Equal("C | C G | G", Boxes());
-
-            page.Sensors[0].Alone = false;
-            Assert.Empty(settings.Current.TrayAlone);
-            Assert.Equal("C L | G L", Boxes());
-        });
+            TraySensors = ["/a", "/b", "/c"],
+            TrayGrayscale = false, // the rest in colour (a new install's default is grayscale)
+            TrayPairs = ["/a", "/a", " "],
+            TrayGrayOf = new() { ["/a"] = true, [" "] = false },
+            TrayTilesOf = new() { ["/c"] = false },
+            TrayLetters = ["/b", "/b"],
+        };
+        var back = SettingsStore.Deserialize(SettingsStore.Serialize(s));
+        Assert.Equal(["/a"], back.TrayPairs); // once, and no blanks
+        Assert.Equal(new Dictionary<string, bool> { ["/a"] = true }, back.TrayGrayOf);
+        Assert.Equal(new Dictionary<string, bool> { ["/c"] = false }, back.TrayTilesOf);
+        Assert.Equal(["/b"], back.TrayLetters);
+        Assert.Equal((true, false, true), (TrayParts.GrayOf(back, "/a"), TrayParts.GrayOf(back, "/b"), TrayParts.TilesOf(back, "/a")));
+        Assert.Equal((false, true), (TrayParts.TilesOf(back, "/c"), TrayParts.LettersOf(back, "/b")));
+        Assert.Equal((true, false), (TrayParts.PairNextOf(back, "/a"), TrayParts.PairNextOf(back, "/b")));
+        Assert.Null(TrayParts.PairNextOf(new RigsightSettings(), "/a"));
     }
 
     [Fact]
-    public void The_preview_shows_what_the_taskbar_will()
+    public void Spots_pair_as_saved_two_at_most_in_two_rows_and_icons_and_both_speeds_alone_there()
     {
-        // The same short numbers as the real icons (the agent's drawing uses Units.TrayText too).
-        Assert.Equal("62", new Converters.TrayTextConverter().Convert([SensorKind.Temperature, (double?)61.6], typeof(string), null, System.Globalization.CultureInfo.InvariantCulture));
-        Assert.Equal("–", new Converters.TrayTextConverter().Convert([SensorKind.Load, null!], typeof(string), null, System.Globalization.CultureInfo.InvariantCulture));
-        Assert.Equal("–", new Converters.TrayTextConverter().Convert([], typeof(string), null, System.Globalization.CultureInfo.InvariantCulture));
+        TrayParts.SpotOf Of(string id, bool? next) => new(id, "g", SensorKind.Load, false, id == TrayParts.NetBoth, next);
+        var run = new[] { Of("/a", true), Of("/b", true), Of("/c", false), Of("/d", true), Of(TrayParts.NetBoth, false) };
+        string Show(TrayStyle style) => string.Join(" | ", TrayParts.Spots(run, style, r => r).Select(spot => string.Join("+", spot.Select(r => r.Id))));
+        Assert.Equal($"/a+/b+/c | /d+{TrayParts.NetBoth}", Show(TrayStyle.Strip)); // the strip: as many as share a tile
+        Assert.Equal($"/a+/b | /c | /d | {TrayParts.NetBoth}", Show(TrayStyle.TwoRows));
+        Assert.Equal($"/a+/b | /c | /d | {TrayParts.NetBoth}", Show(TrayStyle.Icons));
     }
 }

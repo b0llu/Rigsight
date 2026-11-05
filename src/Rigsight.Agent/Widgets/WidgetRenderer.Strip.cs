@@ -22,7 +22,7 @@ namespace Rigsight.Agent.Widgets;
 /// (<see cref="Graph2"/>, the mirrored graph's lower half); <see cref="Cores"/>, each core's load 0 to 1 (Each core).</remarks>
 internal readonly record struct StripValue(string Text, Color Color, string Label = "", string Reserve = "", StripGraph? Graph = null, Color? LabelColor = null,
     TrayLook Look = TrayLook.Number, float Fill = 0, Color? Tile = null, bool More = false, string Second = "", string SecondReserve = "",
-    StripGraph? Graph2 = null, float[]? Cores = null);
+    StripGraph? Graph2 = null, float[]? Cores = null, bool Behind = false);
 
 /// <summary>
 /// A reading's graph of the last minutes, filled in behind its number and word (as taskbar-monitor draws them): its points, each across (time, 0 = the
@@ -43,12 +43,30 @@ internal sealed record TwoRowColumn(IReadOnlyList<TwoRowLine> Lines, Color? Tile
 /// How the strip is laid out: on tiles or not, how much room (see <see cref="TrayWidth"/>), and on a light taskbar (the
 /// ink of tracks and unlit blocks).
 /// </summary>
-internal readonly record struct StripLook(bool Tiles, TrayWidth Width, bool Light)
+internal readonly record struct StripLook(bool Tiles, TrayWidth Width, bool Light, TrayGap Room = TrayGap.Normal)
 {
-    /// <summary>Room inside a tile on each side, between readings of one part, and between parts (at 96 dpi).</summary>
-    public (float Pad, float Inner, float Gap) Spacing => Tiles
-        ? Width switch { TrayWidth.Compact => (3, 2, 6), TrayWidth.Roomy => (6, 4, 10), _ => (5, 3, 8) }
-        : Width == TrayWidth.Compact ? (0, 5, 12) : (0, 7, 16);
+
+    /// <summary>
+    /// Room inside a tile on each side, between readings sharing a spot, and between spots (at 96 dpi): the last as the
+    /// width has it, or as the person set the room between readings (very close, closer, further apart).
+    /// </summary>
+    public (float Pad, float Inner, float Gap) Spacing
+    {
+        get
+        {
+            var (pad, inner, gap) = Tiles
+                ? Width switch { TrayWidth.Compact => (3f, 2f, 6f), TrayWidth.Roomy => (6f, 4f, 10f), _ => (5f, 3f, 8f) }
+                : Width == TrayWidth.Compact ? (0f, 5f, 12f) : (0f, 7f, 16f);
+            gap = Room switch
+            {
+                TrayGap.None => Tiles ? 2 : 6,
+                TrayGap.Small => Tiles ? 4 : 10,
+                TrayGap.Large => gap * 1.75f,
+                _ => gap,
+            };
+            return (pad, Math.Min(inner, gap), gap);
+        }
+    }
 }
 
 /// <summary>The taskbar strip (see TaskbarStrip): readings drawn like the taskbar's clock, on nothing or on tiles.</summary>
@@ -56,6 +74,9 @@ internal static partial class WidgetRenderer
 {
     /// <summary>Below this height (at 96 dpi) a word doesn't fit under the numbers: the part's name goes before them, on one line.</summary>
     internal const float StripTwoLineHeight = 36;
+
+    /// <summary>The blank a strip or two rows leaves at each end (at 96 dpi), counted in the room between runs so every tile is as far from the next.</summary>
+    internal const float StripEdge = 4;
 
     /// <summary>A graph's least width on the strip (at 96 dpi): room for two minutes' shape behind its number.</summary>
     internal const float StripGraphWidth = 38;
@@ -94,6 +115,12 @@ internal static partial class WidgetRenderer
     /// <summary>How strong a graph's fill is (of 255): plainly there, the white number still clear over it.</summary>
     internal const int GraphFillAlpha = 90;
 
+    /// <summary>
+    /// A line of text's place snapped to whole pixels: its start, and its baseline (the top moved so the baseline lands
+    /// on a pixel). Text between pixels is smeared over two rows of them, softer than Windows' own beside it (1.3).
+    /// </summary>
+    private static (float X, float Y) Snap(Font font, float x, float top) => (MathF.Round(x), MathF.Round(top + Ascent(font)) - Ascent(font));
+
     /// <summary>From a line's top to its baseline, as DrawString places it with the typographic format.</summary>
     private static float Ascent(Font font) =>
         font.Size * font.FontFamily.GetCellAscent(font.Style) / font.FontFamily.GetEmHeight(font.Style);
@@ -130,6 +157,8 @@ internal static partial class WidgetRenderer
         using var g = Graphics.FromImage(bmp);
         using (var catcher = new SolidBrush(Color.FromArgb(1, 0, 0, 0))) g.FillRectangle(catcher, 0, 0, layout.Width, height);
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        // Its smoothing at the strongest contrast (0; the default is 4): the strokes read sharper beside Windows' own text (1.3).
+        g.TextContrast = 0;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         layout.Draw(g);
         return bmp;
@@ -189,7 +218,7 @@ internal static partial class WidgetRenderer
             _mg = Graphics.FromImage(_measuring);
             _twoLines = height >= StripTwoLineHeight * scale;
             var (tilePad, inner, gap) = look.Spacing;
-            _pad = 4 * scale;
+            _pad = StripEdge * scale;
             _gap = gap * scale;
             _inner = inner * scale;
             _tilePad = tilePad * scale;
@@ -197,7 +226,9 @@ internal static partial class WidgetRenderer
             _graphWidth = Math.Max(graphWide, 24) * scale;
             _rooms = [.. cells.Select(c => c.Values.Select(RoomOf).ToArray())];
             _widths = [.. cells.Select((c, k) => _rooms[k].Sum(r => r.Width) + 2 * _tilePad * c.Values.Count + _inner * Math.Max(0, c.Values.Count - 1))];
-            Width = Math.Max(1, (int)Math.Ceiling(_pad * 2 + _widths.Sum() + _gap * Math.Max(0, cells.Count - 1)));
+            // Exactly its pad past its last tile, which sits on whole pixels: rounding the whole up left a stray pixel at its
+            // end, so the room to the next run was a pixel more than between its own tiles (the user: "slight different spacing").
+            Width = Math.Max(1, (int)MathF.Round(_pad + _widths.Sum() + _gap * Math.Max(0, cells.Count - 1)) + (int)MathF.Round(_pad));
             Edges = new float[cells.Count];
             ValueEdges = new float[cells.Count][];
             float x = _pad;
@@ -218,7 +249,7 @@ internal static partial class WidgetRenderer
             }
         }
 
-        private float TextWidth(string text, Font font) => text.Length == 0 ? 0 : _mg.MeasureString(text, font, PointF.Empty, _format).Width;
+        private float TextWidth(string text, Font font) => text.Length == 0 ? 0 : DirectWriteText.Width(text, font) ?? _mg.MeasureString(text, font, PointF.Empty, _format).Width;
 
         /// <summary>A text's place: as wide as it is now or as the widest it's been (<paramref name="reserve"/>).</summary>
         private float Slot(string text, string reserve, Font font) => Math.Max(TextWidth(text, font), TextWidth(reserve, font));
@@ -251,7 +282,18 @@ internal static partial class WidgetRenderer
         private float TextOf(StripValue v)
         {
             var look = Shown(v);
-            if (look == TrayLook.Big) return Slot(v.Text, v.Reserve, _bigFont);
+            if (look == TrayLook.Big)
+            {
+                // A big number sits centred on its tile: the room round its ink an even number of pixels, so it splits
+                // evenly left and right (11 spare pixels made 5 and 6; the user: "is this properly at center?").
+                float room = Slot(v.Text, v.Reserve, _bigFont);
+                if (DirectWriteText.InkPixels(v.Text, _bigFont) is int ink)
+                {
+                    int tile = (int)MathF.Round(room + 2 * _tilePad);
+                    if ((tile - ink) % 2 != 0) room += 1;
+                }
+                return room;
+            }
             float number = Slot(v.Text, v.Reserve, _valueFont);
             if (look == TrayLook.DownUp)
             {
@@ -274,7 +316,10 @@ internal static partial class WidgetRenderer
                 TrayLook.Level => MeterWidth,
                 _ => 0,
             };
-            float right = look is TrayLook.Area or TrayLook.Line or TrayLook.Bars or TrayLook.Mirror ? _graphWidth : 0;
+            bool graphed = look is TrayLook.Area or TrayLook.Line or TrayLook.Bars or TrayLook.Mirror;
+            // Behind its name (1.2's way, the reading's own choice): no room beside, the tile as wide as the graph or the text.
+            if (graphed && v.Behind) return new Room(left, Math.Max(TextOf(v), _graphWidth), 0, LookGap);
+            float right = graphed ? _graphWidth : 0;
             return new Room(left, TextOf(v), right, LookGap);
         }
 
@@ -282,9 +327,18 @@ internal static partial class WidgetRenderer
         private float BlocksHeight => (_height >= 44 * _scale ? 5 : 4) * _scale;
         private float BlocksGap => 3 * _scale;
 
+        /// <summary>
+        /// The tile's margin from the top and bottom of its height: 4 px; 2 when the reading is shorter than a usual
+        /// taskbar on two lines (Medium, and Large's bigger text), so its tile has the room its two lines need.
+        /// </summary>
+        private float TileMargin => !_look.Tiles ? 0 : _twoLines && _height < 44 * _scale ? 2 * _scale : 4 * _scale;
+
+        /// <summary>The least room kept above and below the text inside its tile (the text never touches its edges).</summary>
+        private float TextPad => 4 * _scale;
+
         public void Draw(Graphics g)
         {
-            float tileTop = _look.Tiles ? 4 * _scale : 0, tileHeight = _height - 2 * tileTop, middle = tileTop + tileHeight / 2;
+            float tileTop = TileMargin, tileHeight = _height - 2 * tileTop, middle = tileTop + tileHeight / 2;
             var ink = _look.Light ? Color.Black : Color.White;
             float valueHeight = _valueFont.GetHeight(g);
             float x = _pad;
@@ -296,14 +350,19 @@ internal static partial class WidgetRenderer
                 {
                     var value = cell.Values[i];
                     var room = _rooms[k][i];
-                    float tileX = vx, tileW = room.Width + 2 * _tilePad;
+                    // Tiles on whole pixels: crisp edges, and what's centred in one is centred to the eye (1.3).
+                    float tileX = MathF.Round(vx), tileW = MathF.Round(vx + room.Width + 2 * _tilePad) - tileX;
                     float left = tileX + _tilePad;
                     using var tile = RoundedRect(new RectangleF(tileX, tileTop, tileW, tileHeight), 4 * _scale);
                     var state = g.Save();
                     if (_look.Tiles && value.Tile is { } tileColor)
                     {
                         using var tileBrush = new SolidBrush(tileColor);
+                        // Its edges on pixel boundaries (no half-lit column either side), so it's as wide as it says.
+                        var offset = g.PixelOffsetMode;
+                        g.PixelOffsetMode = PixelOffsetMode.Half;
                         g.FillPath(tileBrush, tile);
+                        g.PixelOffsetMode = offset;
                         g.SetClip(tile);
                     }
                     var look = Shown(value);
@@ -330,31 +389,55 @@ internal static partial class WidgetRenderer
                     if (look == TrayLook.Big)
                     {
                         float big = DigitHeight(_bigFont);
-                        Text(g, value.Text, _bigFont, value.Color, textX, middle + big / 2 - Ascent(_bigFont));
+                        // Alone on its tile, so in the middle of the room it keeps ("88°"), not at its left: a narrower
+                        // number left the spare room all on its right (2 px off, the user: "is this properly at center?").
+                        float bigX = DirectWriteText.Ink(value.Text, _bigFont) is { } seen
+                            ? textX + (room.Text - (seen.Right - seen.Left)) / 2 - seen.Left // what's seen, centred
+                            : textX + Math.Max(0, (room.Text - TextWidth(value.Text, _bigFont)) / 2);
+                        // In the middle of its tile by the pixels it really inks (DirectWrite says where); as above when it can't.
+                        if (!DirectWriteText.Draw(g, value.Text, _bigFont, value.Color, bigX, (int)MathF.Round(middle + big / 2), centre: (tileX, tileW)))
+                            Text(g, value.Text, _bigFont, value.Color, bigX, middle + big / 2 - Ascent(_bigFont));
                     }
                     else if (look == TrayLook.DownUp)
                         DrawDownUp(g, value, textX, middle, word);
                     else if (_twoLines)
                     {
-                        // Digit tops to the word's baseline is what's centred (the font's empty line above isn't).
-                        float pair = DigitHeight(_valueFont) + (valueHeight - Ascent(_valueFont)) + Ascent(_nameFont);
+                        // Digit tops to the word's baseline is what's centred (the font's empty line above isn't). When that
+                        // and the blocks are taller than the tile less its padding (Medium, Large), the room between the
+                        // lines gives first, down to half, then the blocks' gap: the text keeps its padding.
+                        float lineGap = valueHeight - Ascent(_valueFont), blocksGap = blocks ? BlocksGap : 0;
+                        float pair = DigitHeight(_valueFont) + lineGap + Ascent(_nameFont);
+                        float over = pair + under - (tileHeight - 2 * TextPad);
+                        if (over > 0)
+                        {
+                            float fromLines = Math.Min(over, lineGap / 2);
+                            lineGap -= fromLines;
+                            pair -= fromLines;
+                            float fromBlocks = Math.Min(over - fromLines, Math.Max(0, blocksGap - 1.5f * _scale));
+                            blocksGap -= fromBlocks;
+                            under -= fromBlocks;
+                        }
                         float digitTop = middle - (pair + under) / 2;
                         float valueTop = digitTop - (Ascent(_valueFont) - DigitHeight(_valueFont));
+                        // Behind: the graph fills the tile under the number, behind the word, which keeps an outline.
+                        bool behind = BehindGraph(g, value, look, color, tileX, tileW, digitTop + DigitHeight(_valueFont) + 2 * _scale, lookBottom);
                         Text(g, value.Text, _valueFont, value.Color, textX, valueTop);
-                        if (value.Label.Length > 0) Text(g, value.Label, _nameFont, word, textX, valueTop + valueHeight);
-                        if (blocks) DrawBlocks(g, new RectangleF(textX, digitTop + pair + BlocksGap, room.Text, BlocksHeight), value.Fill, color, ink);
+                        if (value.Label.Length > 0) Text(g, value.Label, _nameFont, word, textX, valueTop + Ascent(_valueFont) + lineGap, behind);
+                        if (blocks) DrawBlocks(g, new RectangleF(textX, digitTop + pair + blocksGap, room.Text, BlocksHeight), value.Fill, color, ink);
                     }
                     else
                     {
                         float digits = DigitHeight(_valueFont);
                         float baseline = middle - (digits + under) / 2 + digits;
                         float numberX = textX;
+                        // Behind on one line: no room under the number, so the graph is behind the whole tile, the text outlined.
+                        bool behind = BehindGraph(g, value, look, color, tileX, tileW, lookTop, lookBottom);
                         if (value.Label.Length > 0)
                         {
-                            Text(g, value.Label, _nameFont, word, textX, baseline - Ascent(_nameFont));
+                            Text(g, value.Label, _nameFont, word, textX, baseline - Ascent(_nameFont), behind);
                             numberX = textX + TextWidth(value.Label, _nameFont) + LookGap;
                         }
-                        Text(g, value.Text, _valueFont, value.Color, numberX, baseline - Ascent(_valueFont));
+                        Text(g, value.Text, _valueFont, value.Color, numberX, baseline - Ascent(_valueFont), behind);
                         if (blocks) DrawBlocks(g, new RectangleF(textX, baseline + BlocksGap, room.Text, BlocksHeight), value.Fill, color, ink);
                     }
 
@@ -376,11 +459,38 @@ internal static partial class WidgetRenderer
             }
         }
 
-        private void Text(Graphics g, string text, Font font, Color color, float x, float y)
+        /// <summary>
+        /// A reading's graph behind its text (its own choice, 1.2's way) in the tile from <paramref name="top"/> down: true
+        /// when it drew one, so the words over it get an outline in the taskbar's colour and stay readable.
+        /// </summary>
+        private bool BehindGraph(Graphics g, StripValue v, TrayLook look, Color color, float tileX, float tileW, float top, float bottom)
+        {
+            if (!v.Behind || v.More || bottom - top < 3 * _scale) return false;
+            var box = new RectangleF(tileX + _tilePad / 2, top, tileW - _tilePad, bottom - top);
+            if (look == TrayLook.Mirror) DrawMirror(g, v, box, color);
+            else if (v.Graph is { } graph)
+            {
+                if (look == TrayLook.Bars) DrawBars(g, graph.Points, color, box, _scale);
+                else if (look is TrayLook.Area or TrayLook.Line) DrawGraph(g, graph.Points, color, box, _scale, fill: look == TrayLook.Area, baseLine: true);
+                else return false;
+            }
+            else return false;
+            return true;
+        }
+
+        /// <summary>The outline round words over a graph: the colour behind them (a tile's, else the taskbar's), so they stand out from the graph's.</summary>
+        private Color Halo => _look.Tiles
+            ? (_look.Light ? Color.FromArgb(230, 222, 222, 222) : Color.FromArgb(230, 46, 46, 46))
+            : (_look.Light ? Color.FromArgb(230, 238, 238, 238) : Color.FromArgb(230, 28, 28, 28));
+
+        private void Text(Graphics g, string text, Font font, Color color, float x, float y, bool outlined = false)
         {
             if (text.Length == 0) return;
+            // DirectWrite, as Windows' own taskbar text (see DirectWriteText); as before when it can't.
+            if (DirectWriteText.Draw(g, text, font, color, x, (int)MathF.Round(y + Ascent(font)), outlined ? Halo : null)) return;
             using var brush = new SolidBrush(color);
-            g.DrawString(text, font, brush, x, y, _format);
+            var (sx, sy) = Snap(font, x, y);
+            g.DrawString(text, font, brush, sx, sy, _format);
         }
 
         /// <summary>
@@ -624,6 +734,8 @@ internal static partial class WidgetRenderer
         using var g = Graphics.FromImage(bmp);
         using (var catcher = new SolidBrush(Color.FromArgb(1, 0, 0, 0))) g.FillRectangle(catcher, 0, 0, layout.Width, height);
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        // Its smoothing at the strongest contrast (0; the default is 4): the strokes read sharper beside Windows' own text (1.3).
+        g.TextContrast = 0;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         layout.Draw(g);
         return bmp;
@@ -664,9 +776,10 @@ internal static partial class WidgetRenderer
             _valueFont = new Font(_valueFamily, (_roomy ? 11.5f : 9.5f) * scale, FontStyle.Regular, GraphicsUnit.Pixel);
             _nameFont = new Font(_nameFamily, (_roomy ? 9.5f : 8f) * scale, FontStyle.Bold, GraphicsUnit.Pixel);
             _mg = Graphics.FromImage(_measuring);
-            _pad = 4 * scale;
+            _pad = StripEdge * scale;
             _tilePad = look.Tiles ? look.Spacing.Pad * scale : 0;
-            _gap = (look.Tiles ? 4 : 12) * scale;
+            // Boxes as far apart as the strip's parts and every other tile (1.3: they were closer, 4 px).
+            _gap = look.Spacing.Gap * scale;
             _mid = 5 * scale;
             _sizes = [.. columns.Select(c =>
             {
@@ -674,7 +787,7 @@ internal static partial class WidgetRenderer
                 float numbers = c.Lines.Max(l => Math.Max(TextWidth(l.Text, _valueFont), TextWidth(l.Reserve, _valueFont)));
                 return (words, numbers, words + (words > 0 && numbers > 0 ? _mid : 0) + numbers + 2 * _tilePad);
             })];
-            Width = Math.Max(1, (int)Math.Ceiling(_pad * 2 + _sizes.Sum(s => s.Width) + _gap * Math.Max(0, columns.Count - 1)));
+            Width = Math.Max(1, (int)MathF.Round(_pad + _sizes.Sum(s => s.Width) + _gap * Math.Max(0, columns.Count - 1)) + (int)MathF.Round(_pad));
             Edges = new float[columns.Count];
             float x = _pad;
             for (int k = 0; k < columns.Count; k++)
@@ -685,33 +798,51 @@ internal static partial class WidgetRenderer
             }
         }
 
-        private float TextWidth(string text, Font font) => text.Length == 0 ? 0 : _mg.MeasureString(text, font, PointF.Empty, _format).Width;
+        private float TextWidth(string text, Font font) => text.Length == 0 ? 0 : DirectWriteText.Width(text, font) ?? _mg.MeasureString(text, font, PointF.Empty, _format).Width;
 
         public void Draw(Graphics g)
         {
             float tileTop = _tiles ? 4 * _scale : 0, tileHeight = _height - 2 * tileTop;
-            // The two lines' digits centred in the tile as a pair, each word on its number's baseline (a box of one reading
-            // keeps it on the top line, where its pair's first would be).
+            // The lines' digits centred in the tile, each word on its number's baseline: a pair's two together, and since 1.3
+            // a box of one reading (a spot of its own, picked so) in the middle, not on the top line where a pair's first is.
             float digits = DigitHeight(_valueFont), between = (_roomy ? 7 : 3.5f) * _scale;
-            float firstBaseline = tileTop + tileHeight / 2 - (2 * digits + between) / 2 + digits;
             float x = _pad;
             for (int k = 0; k < _columns.Count; k++)
             {
                 var column = _columns[k];
                 float width = _sizes[k].Width;
+                int lines = Math.Max(1, column.Lines.Count(l => l.Label.Length > 0 || l.Text.Length > 0));
+                float firstBaseline = tileTop + tileHeight / 2 - (lines * digits + (lines - 1) * between) / 2 + digits;
                 if (_tiles && column.Tile is { } tile)
                 {
                     using var brush = new SolidBrush(tile);
-                    using var shape = RoundedRect(new RectangleF(x, tileTop, width, tileHeight), 4 * _scale);
+                    // On whole pixels, its edges on pixel boundaries (no half-lit column either side), as the strip's tiles.
+                    float left = MathF.Round(x), right = MathF.Round(x + width);
+                    using var shape = RoundedRect(new RectangleF(left, tileTop, right - left, tileHeight), 4 * _scale);
+                    var offset = g.PixelOffsetMode;
+                    g.PixelOffsetMode = PixelOffsetMode.Half;
                     g.FillPath(brush, shape);
+                    g.PixelOffsetMode = offset;
                 }
                 for (int i = 0; i < column.Lines.Count; i++)
                 {
                     var l = column.Lines[i];
                     float baseline = firstBaseline + i * (digits + between);
-                    using (var nameBrush = new SolidBrush(l.LabelColor)) g.DrawString(l.Label, _nameFont, nameBrush, x + _tilePad, baseline - Ascent(_nameFont), _format);
-                    using var brush = new SolidBrush(l.Color);
-                    g.DrawString(l.Text, _valueFont, brush, x + width - _tilePad - TextWidth(l.Text, _valueFont), baseline - Ascent(_valueFont), _format);
+                    // DirectWrite, as Windows' own taskbar text (see DirectWriteText); as before when it can't.
+                    int line = (int)MathF.Round(baseline);
+                    float numberX = x + width - _tilePad - TextWidth(l.Text, _valueFont);
+                    if (!DirectWriteText.Draw(g, l.Label, _nameFont, l.LabelColor, x + _tilePad, line))
+                    {
+                        var (nx, ny) = Snap(_nameFont, x + _tilePad, baseline - Ascent(_nameFont));
+                        using var nameBrush = new SolidBrush(l.LabelColor);
+                        g.DrawString(l.Label, _nameFont, nameBrush, nx, ny, _format);
+                    }
+                    if (!DirectWriteText.Draw(g, l.Text, _valueFont, l.Color, numberX, line))
+                    {
+                        using var brush = new SolidBrush(l.Color);
+                        var (vx, vy) = Snap(_valueFont, numberX, baseline - Ascent(_valueFont));
+                        g.DrawString(l.Text, _valueFont, brush, vx, vy, _format);
+                    }
                 }
                 x += width + _gap;
             }
