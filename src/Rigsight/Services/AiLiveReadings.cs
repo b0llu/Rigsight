@@ -14,8 +14,9 @@ namespace Rigsight.Services;
 public static class AiLiveReadings
 {
     /// <summary>Hooks for AiTools: read on the app's own thread, since the look-ups run on another one.</summary>
-    public static Func<string> Sensors(LiveData live) => () => OnUi(() => SensorsText(live));
-    public static Func<string> Drives(LiveData live) => () => OnUi(() => DrivesText(live));
+    // On the app's thread the look-up's fixed formats don't reach: set there too ("2.4 GB" on a PC whose region writes "2,4").
+    public static Func<string> Sensors(LiveData live) => () => OnUi(() => Core.Ai.AiText.Fixed(() => SensorsText(live)));
+    public static Func<string> Drives(LiveData live) => () => OnUi(() => Core.Ai.AiText.Fixed(() => DrivesText(live)));
 
     private static string OnUi(Func<string> read)
     {

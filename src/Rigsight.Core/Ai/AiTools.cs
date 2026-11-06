@@ -96,8 +96,13 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         },
     };
 
-    /// <summary>Answers one look-up; a mistake in what the model asked for comes back as text it can correct.</summary>
-    public string Run(string name, string argsJson)
+    /// <summary>
+    /// Answers one look-up; a mistake in what the model asked for comes back as text it can correct. Dates, times and
+    /// numbers are written one fixed way whatever the PC's region (see <see cref="AiText"/>).
+    /// </summary>
+    public string Run(string name, string argsJson) => AiText.Fixed(() => RunHere(name, argsJson));
+
+    private string RunHere(string name, string argsJson)
     {
         JsonObject args;
         try { args = JsonNode.Parse(string.IsNullOrWhiteSpace(argsJson) ? "{}" : argsJson) as JsonObject ?? []; }
@@ -152,13 +157,15 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     private Report BuildReport(RigsightDb db, DateTime from, DateTime to) =>
         from == to ? ReportBuilder.Build(db, ReportRange.Day, from.AddHours(12), settings) : ReportBuilder.BuildCustom(db, from, to.AddDays(1), settings);
 
-    private string Report(RigsightDb db, DateTime from, DateTime to)
+    /// <param name="began">Whether to say when recording began, when that was inside the period (Home says it itself, first).</param>
+    private string Report(RigsightDb db, DateTime from, DateTime to, bool began = true)
     {
         if (to < from) (from, to) = (to, from);
         var report = BuildReport(db, from, to);
         Trim(report);
         string title = from == to ? from.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture) : $"{from:d MMM yyyy} to {to:d MMM yyyy}";
-        return WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports), tight: true)) + Energy(report, from, to)
+        string start = began && Began(db, from, to.AddDays(1), report.Usual) is { } b ? b + "\n" : "";
+        return start + WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports), tight: true)) + Energy(report, from, to)
             + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
     }
 

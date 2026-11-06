@@ -9,8 +9,10 @@ namespace Rigsight.Core.Ai;
 
 /// <summary>One app running now (every process of its exe together), as the AI helper's "running now" look-up saw it.</summary>
 /// <param name="Ours">Running in this person's Windows session (not a service, not another account's).</param>
+/// <param name="UsedBy">For a helper that runs inside other apps (WebView2, an embedded browser): the apps that started
+/// it, by name, most processes first. Empty when it isn't one, or none of them could be told.</param>
 public sealed record RunningApp(string Exe, string Name, string? Path, int Processes, double MemMb, double Cpu, double Gpu,
-    bool HasWindow, bool InFront, AppCategory Category, bool Ours = true)
+    bool HasWindow, bool InFront, AppCategory Category, bool Ours = true, IReadOnlyList<string>? UsedBy = null)
 {
     /// <summary>What ending it would do (a part of Windows, RigSight itself): only an ordinary app may be closed from an answer.</summary>
     public EndRisk Risk => EndRisks.Classify(Exe, Path);
@@ -52,7 +54,11 @@ public sealed record RunningSnapshot(DateTime At, IReadOnlyList<RunningApp> Apps
             var notes = new List<string>();
             if (a.InFront) notes.Add("the app in front");
             if (a.Category == AppCategory.Game) notes.Add("a game");
-            if (!a.HasWindow) notes.Add("no window, working in the background");
+            // A helper's host apps (2026-11-06: "Microsoft Edge WebView2, 25 processes, no window" and no way to say whose).
+            if (a.UsedBy is { Count: > 0 } hosts)
+                notes.Add($"no window of its own: it runs inside {(hosts.Count == 1 ? "the app" : "the apps")} that started it, used by {string.Join(", ", hosts.Take(6))}"
+                    + (hosts.Count > 6 ? $" and {hosts.Count - 6} more" : ""));
+            else if (!a.HasWindow) notes.Add("no window, working in the background");
             if (a.Risk != EndRisk.None) notes.Add(a.Risk is EndRisk.OwnWindow or EndRisk.OwnAgent ? "RigSight itself" : "part of Windows, never closed from here");
             else if (!a.Ours || string.IsNullOrEmpty(a.Path)) notes.Add("a Windows or system process, never closed from here");
             string usualMb = usual is not null && usual.TryGetValue(a.Exe, out double u) ? $" (usual {Units.Megabytes(u)})" : "";
@@ -90,6 +96,9 @@ public static unsafe class RunningNow
 
         double cores = Environment.ProcessorCount * seconds * TimeSpan.TicksPerSecond;
         uint session = (uint)Process.GetCurrentProcess().SessionId;
+        var paths = new Dictionary<int, string?>();
+        string? PathCached(int pid) => paths.TryGetValue(pid, out var known) ? known : paths[pid] = PathOf(pid);
+        var hosts = HelperHosts(second.Values, p => AppCatalog.ResolveName(p.Exe, PathCached(p.Pid)));
         var apps = new List<RunningApp>();
         foreach (var group in second.Values.Where(p => p.Pid > 4).GroupBy(p => p.Exe, StringComparer.OrdinalIgnoreCase))
         {
@@ -101,21 +110,61 @@ public static unsafe class RunningNow
                 if (first.TryGetValue((p.Pid, p.Created), out var before) && cores > 0) cpu += Math.Max(0, p.CpuTime - before.CpuTime) / cores * 100;
                 gpuUse += gpuByPid.GetValueOrDefault(p.Pid);
                 mem += p.MemMb;
-                path ??= PathOf(p.Pid);
+                path ??= PathCached(p.Pid);
                 hasWindow |= windowed.Contains((uint)p.Pid);
                 inFront |= (uint)p.Pid == front;
                 ours |= p.Session == session;
             }
             string exe = group.Key;
             string name = AppCatalog.ResolveName(exe, path);
-            apps.Add(new RunningApp(exe, name, path, group.Count(), mem, Math.Min(100, cpu), Math.Min(100, gpuUse), hasWindow, inFront, AppCatalog.Classify(exe, path), ours));
+            apps.Add(new RunningApp(exe, name, path, group.Count(), mem, Math.Min(100, cpu), Math.Min(100, gpuUse), hasWindow, inFront, AppCatalog.Classify(exe, path), ours,
+                hosts.TryGetValue(exe, out var usedBy) ? usedBy : null));
         }
         // Busiest first: whichever of memory, CPU and graphics card it uses most of, as a share of the PC.
         double totalMb = Math.Max(1, apps.Sum(a => a.MemMb));
         return new RunningSnapshot(DateTime.Now, [.. apps.OrderByDescending(a => Math.Max(a.MemMb / totalMb * 100, Math.Max(a.Cpu, a.Gpu)))]);
     }
 
-    private readonly record struct Proc(int Pid, long Created, string Exe, long CpuTime, double MemMb, uint Session);
+    internal readonly record struct Proc(int Pid, long Created, string Exe, long CpuTime, double MemMb, uint Session, int Parent = 0);
+
+    /// <summary>
+    /// Helpers that run inside other apps and have no window of their own: an app's WebView2 (Widgets, Teams, Outlook
+    /// and many launchers draw their pages with it), or another embedded browser. Their processes are started by the
+    /// app that uses them, the rest by the helper's own first process.
+    /// </summary>
+    internal static readonly HashSet<string> Helpers = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "msedgewebview2.exe", "CefSharp.BrowserSubprocess.exe", "QtWebEngineProcess.exe",
+    };
+
+    /// <summary>
+    /// Each helper's host apps, by the helper's exe: up from each of its processes through the processes that started
+    /// it (Windows' parent id) to the first that isn't the helper. A parent started after its child is another program
+    /// that took a closed one's id, so the walk stops there. Names come from <paramref name="nameOf"/>, most processes first.
+    /// </summary>
+    internal static Dictionary<string, IReadOnlyList<string>> HelperHosts(IEnumerable<Proc> procs, Func<Proc, string> nameOf)
+    {
+        var all = procs.ToList();
+        var byPid = all.GroupBy(p => p.Pid).ToDictionary(g => g.Key, g => g.First());
+        var found = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in all.Where(p => Helpers.Contains(p.Exe)))
+        {
+            var at = p;
+            for (int hops = 0; hops < 10 && at.Parent != at.Pid && byPid.TryGetValue(at.Parent, out var parent) && parent.Created <= at.Created; hops++)
+            {
+                if (!parent.Exe.Equals(p.Exe, StringComparison.OrdinalIgnoreCase))
+                {
+                    string host = nameOf(parent);
+                    var counts = found.TryGetValue(p.Exe, out var c) ? c : found[p.Exe] = new(StringComparer.OrdinalIgnoreCase);
+                    counts[host] = counts.GetValueOrDefault(host) + 1;
+                    break;
+                }
+                at = parent;
+            }
+        }
+        return found.ToDictionary(f => f.Key, f => (IReadOnlyList<string>)[.. f.Value.OrderByDescending(x => x.Value).ThenBy(x => x.Key, StringComparer.OrdinalIgnoreCase).Select(x => x.Key)],
+            StringComparer.OrdinalIgnoreCase);
+    }
 
     private static Dictionary<(int, long), Proc> Read()
     {
@@ -140,7 +189,8 @@ public static unsafe class RunningNow
                 if (pid > 4 && info->ImageName.Buffer != IntPtr.Zero)
                 {
                     string exe = new((char*)info->ImageName.Buffer, 0, info->ImageName.Length / 2);
-                    result[(pid, info->CreateTime)] = new Proc(pid, info->CreateTime, exe, info->UserTime + info->KernelTime, info->WorkingSetPrivateSize / 1_048_576.0, info->SessionId);
+                    result[(pid, info->CreateTime)] = new Proc(pid, info->CreateTime, exe, info->UserTime + info->KernelTime, info->WorkingSetPrivateSize / 1_048_576.0, info->SessionId,
+                        (int)info->InheritedFromUniqueProcessId);
                 }
                 if (info->NextEntryOffset == 0) break;
                 p += info->NextEntryOffset;

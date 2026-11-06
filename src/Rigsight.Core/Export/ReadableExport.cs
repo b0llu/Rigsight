@@ -167,9 +167,9 @@ public static class ReadableExport
             {
                 if (c.CpuBefore is not null || c.GpuBefore is not null)
                     rows.Add((Lang.T("Just before"), JustBefore(c)));
-                if (c.SessionSec is double sec && sec >= 60) rows.Add((Lang.T("Had been running"), Units.Duration(sec)));
             }
             else if (s.Context is { NoReadings: true }) rows.Add((Lang.T("Just before"), Wording.NotRecorded));
+            rows.Add((Lang.T("Had been running"), HadBeenRunning(s)));
             rows.Add((Lang.T("In front"), s.AppInFront));
             if (s.ChangesBefore.Count > 0) rows.Add((Lang.T("Changed in the 7 days before"), s.Changed));
             rows.Add((Lang.T("Module"), s.Crash.Module));
@@ -179,6 +179,22 @@ public static class ReadableExport
             foreach (var (l, v) in shown) sb.AppendLine(tight ? $"  {l}: {v}" : $"  {l.PadRight(label)}  {v}");
         }
         return sb.AppendLine().AppendLine(Foot(made, version)).ToString();
+    }
+
+    /// <summary>
+    /// How long it had been running: Windows' record of the program that crashed, as the Crashes page says it, or else
+    /// the app's time in use from RigSight's own record. When both are known and the app had been in use far longer, the
+    /// one line says which is which: "4 seconds" from Windows beside "Had been running: 4m" from the app's use read as a
+    /// crash at start and four minutes of running at once (Medal, 5 Nov 2026: its updater had just started and crashed).
+    /// </summary>
+    private static string? HadBeenRunning(CrashStory s)
+    {
+        double? used = s.Context is { NoReadings: false, SessionSec: double sec } && sec >= 60 ? sec : null;
+        if (s.Crash.Facts?.RanSec is not double ran) return used is double u ? Units.Duration(u) : null;
+        string ranText = ran < 90 ? Lang.T($"{ran:0} seconds") : Units.Duration(ran);
+        if (used is not double inUse || inUse <= ran + 60) return ranText;
+        string app = s.App ?? s.Crash.AppExe, time = Units.Duration(inUse);
+        return Lang.T($"{ranText}, as Windows recorded the program that crashed; {app} itself had been in use for {time}");
     }
 
     /// <summary>"CPU up to 81°, GPU up to 76°": the readings in the minutes before a crash.</summary>
@@ -384,9 +400,9 @@ public static class ReadableExport
             {
                 if (c.CpuBefore is not null || c.GpuBefore is not null)
                     Row(Lang.T("Just before"), JustBefore(c));
-                if (c.SessionSec is double sec && sec >= 60) Row(Lang.T("Had been running"), Units.Duration(sec));
             }
             else if (s.Context is { NoReadings: true }) Row(Lang.T("Just before"), Wording.NotRecorded);
+            Row(Lang.T("Had been running"), HadBeenRunning(s));
             Row(Lang.T("In front"), s.AppInFront);
             if (s.ChangesBefore.Count > 0) Row(Lang.T("Changed in the 7 days before"), s.Changed);
             Row(Lang.T("Module"), s.Crash.Module);

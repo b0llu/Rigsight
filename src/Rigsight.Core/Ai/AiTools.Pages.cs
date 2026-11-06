@@ -62,7 +62,7 @@ public sealed partial class AiTools
         Def("get_widgets", "The Widgets page: the desktop widgets that are on, with their readings, the ones that are off, the built-in kinds, and every reading a widget can show. For suggesting widgets: suggest only from these.", new JsonObject()),
         Def("get_overlay", "The Overlay page: the in-game overlay, on or off, its shortcut and the readings it shows, and every reading it can show. For suggesting overlay readings: suggest only from these.", new JsonObject()),
         Def("get_taskbar", "The Taskbar page: the readings shown beside the clock, and every reading that can be added there. For suggesting taskbar readings: suggest only from these.", new JsonObject()),
-        Def("get_dashboard", "The dashboards the person made from tiles. Without a name: their names, what tiles each has, and every tile a dashboard can have. With a name: what each of its tiles shows right now.", new JsonObject
+        Def("get_dashboard", "The dashboards the person made from tiles. Without a name: their names, what tiles each has, and every tile a dashboard can have. With a name: what each of its tiles shows right now, and every tile that could be added.", new JsonObject
         {
             ["type"] = "object",
             ["properties"] = new JsonObject { ["name"] = new JsonObject { ["type"] = "string", ["description"] = "The dashboard's name as the list gives it." } },
@@ -169,6 +169,12 @@ public sealed partial class AiTools
 
         var report = BuildReport(db, day, day);
         Trim(report);
+        // Recording began inside the 7 days Home reads (a new install): said first, so "no problems in the last 7 days"
+        // and "as usual" aren't read as a week of history (2 minutes of it, live answer 5 Nov 2026).
+        string? began = Began(db, day.AddDays(-6), now, report.Usual);
+        if (began is not null) sb.AppendLine(began);
+        // Before Windows' logs are first read, "no problems" would only be RigSight's few minutes: not said.
+        bool unread = began is not null && db.GetMeta(RigsightDb.CrashScannedKey) is null;
         // As Home reads them: the PC's own problems in the last 7 days, shut-offs that look like the power apart.
         var problems = new List<CrashKind>();
         int mains = 0, mainsLikely = 0;
@@ -183,6 +189,7 @@ public sealed partial class AiTools
         var health = UsualLines.Health(report, problems, mains, mainsLikely)
             .Where(i => On(Switch.Heat) || !i.Key.Contains("heat") && !i.Key.Contains("temps") && !i.Key.StartsWith("fan"))
             .Where(i => On(Switch.Crashes) || i.Key is not ("no-problems" or "pc-problems" or "usual-problems" or "usual-power" or "power-cuts"))
+            .Where(i => !unread || i.Key != "no-problems")
             .ToList();
         if (health.Count > 0)
         {
@@ -196,8 +203,35 @@ public sealed partial class AiTools
             else if (Fullest(db) is { } full) sb.AppendLine($"Fullest drive (daily record): {full}. Drive health isn't known here; get_storage has the drives.");
         }
         sb.AppendLine();
-        sb.Append(Report(db, day, day));
+        sb.Append(Report(db, day, day, began: false));
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// When recording began after <paramref name="from"/>: when it began, how much history there is, whether this PC
+    /// has a usual yet, and where the crash records come from (Windows' own logs, read back 90 days when RigSight first
+    /// starts). Null when the records reach back to <paramref name="from"/>.
+    /// </summary>
+    internal static string? Began(RigsightDb db, DateTime from, DateTime to, Reports.PcUsual? usual)
+    {
+        if (db.FirstDataTime() is not long data) return "NO HISTORY YET: RigSight hasn't recorded anything on this PC so far, so there's no history and no usual to compare with. Say so; don't call anything usual or normal for this PC.";
+        // The first minute, when it's in the first hour of the app totals (those are by the hour; minutes are kept for less time).
+        long first = db.FirstMinuteTime() is long m && m - data < 3600 ? m : data;
+        var at = TimeUtil.FromUnix(first);
+        if (at <= from) return null;
+        var now = to > DateTime.Now ? DateTime.Now : to;
+        string when = at.Date == DateTime.Today ? $"today at {at:h:mm tt}" : $"on {at:ddd d MMM yyyy} at {at:h:mm tt}";
+        if (now <= at) return $"RECORDING BEGAN {when}, after this period: nothing was recorded in it, so say that rather than that nothing happened.";
+        bool hasUsual = usual is { } u && (u.HasHeat || u.Fans.Count > 0 || u.Problems is not null);
+        string compare = hasUsual
+            ? $"This PC's usual is from only {Math.Max(1, (int)Math.Round((now.Date - at.Date).TotalDays))} days before today: say so when calling something usual."
+            : "There's no usual for this PC to compare with yet: don't call temperatures, fans or problems usual or normal for this PC, and say how long it has been recording.";
+        string crashes = db.GetMeta(RigsightDb.CrashScannedKey) is null
+            ? " Windows' own crash records haven't been read yet, so problems from before now aren't known."
+            : " Crashes, freezes and shut-offs come from Windows' own records, which reach back before recording began.";
+        var held = now - at;
+        string history = held.TotalDays >= 2 ? $"{(int)held.TotalDays} days" : Units.Duration(held.TotalSeconds);
+        return $"RECORDING BEGAN {when}, so there's {history} of history; nothing was recorded before. {compare}{crashes}";
     }
 
     /// <summary>"C: 81% full", the fullest drive by the last daily record, or null when none is recorded.</summary>
@@ -318,7 +352,8 @@ public sealed partial class AiTools
         if (page is null)
             return settings.CustomPages.Count == 0 ? "The person hasn't made any dashboards."
                 : $"No dashboard is called \"{Clean(name)}\". The dashboards are: {string.Join(", ", settings.CustomPages.Select(p => Clean(p.Name)))}.";
-        if (page.Tiles.Count == 0) return $"The dashboard \"{Clean(page.Name)}\" has no tiles.";
+        // What could be added comes with it: "what tiles would help on Gaming?" is looked up by its name (2026-11-06).
+        if (page.Tiles.Count == 0) return $"The dashboard \"{Clean(page.Name)}\" has no tiles.{Environment.NewLine}{TilesYouCanAdd()}";
         var kinds = page.Tiles.Select(t => t.Kind).ToHashSet();
         var sb = new StringBuilder();
         sb.AppendLine($"The dashboard \"{Clean(page.Name)}\", its tiles top to bottom: {string.Join(", ", page.Tiles.OrderBy(t => t.Y).ThenBy(t => t.X).Select(TileName))}.");
@@ -333,6 +368,7 @@ public sealed partial class AiTools
         if (kinds.Overlaps(NetKinds))
             sb.AppendLine(On(Switch.Network) ? "Internet today:" + Environment.NewLine + WithDb(db => Network(db, DateTime.Today, DateTime.Today)).TrimEnd()
                 : "Internet: left out, the user turned off sharing \"Internet use\".");
+        sb.Append(TilesYouCanAdd());
         return sb.ToString();
     }
 
