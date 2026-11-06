@@ -33,6 +33,27 @@ public sealed record ThemeOption(string Key, string Name, System.Windows.Media.B
     }
 }
 
+/// <summary>
+/// A theme's card in Settings › Appearance: its small picture, and whether it's picked. With Match Windows on, two are
+/// picked (a light one and a dark or colorful one), each tagged with the Windows mode it is for.
+/// </summary>
+public sealed partial class ThemeCard(ThemeOption look, Rigsight.Core.Settings.ThemeCatalog.Group group) : ObservableObject
+{
+    public ThemeOption Look { get; } = look;
+    public string Key => Look.Key;
+    public string Name => Look.Name;
+    public Rigsight.Core.Settings.ThemeCatalog.Group Group { get; } = group;
+
+    [ObservableProperty] private bool _isPicked;
+
+    /// <summary>"Light mode" or "Dark mode" beside its name while Match Windows is on and it's one of the two; else null.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasModeTag))]
+    private string? _modeTag;
+
+    public bool HasModeTag => ModeTag is not null;
+}
+
 /// <summary>A swatch in Settings' accent row.</summary>
 public sealed record AccentOption(string Key, string Name, System.Windows.Media.Brush Brush);
 
@@ -50,7 +71,16 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     // ── General ───────────────────────────────────────────────────────────
     public bool UseFahrenheit { get => S.UseFahrenheit; set => Set(s => s.UseFahrenheit = value); }
     public ClockStyle ClockStyle { get => S.ClockStyle; set => Set(s => s.ClockStyle = value); }
-    public string Theme { get => S.Theme; set { if (value is not null) Set(s => s.Theme = value); } }
+    public string Theme
+    {
+        get => S.Theme;
+        set
+        {
+            if (value is null) return;
+            Set(s => s.Theme = value);
+            UpdateThemePicks();
+        }
+    }
     public int LiveRefreshMs { get => S.LiveRefreshMs; set => Set(s => s.LiveRefreshMs = value); }
 
     /// <summary>The sidebar, for the Sidebar row and the editor it opens (set by the shell).</summary>
@@ -166,16 +196,101 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     /// <summary>Settings → Rewind: the rewinds made, and what is made and how (set by the shell).</summary>
     public global::Rigsight.Rewind.RewindViewModel? Rewind { get; set; }
 
-    private List<ThemeOption>? _themeOptions;
+    private List<ThemeCard>? _themeCards;
 
-    /// <summary>The themes, each with the few colours its small picture is drawn in; "System" in Windows' own mode's.</summary>
-    public List<ThemeOption> ThemeOptions => _themeOptions ??=
-    [
-        ThemeOption.From(ThemeManager.Dark, Lang.T("Dark"), "Dark"), ThemeOption.From(ThemeManager.Grey, Lang.T("Gray"), "Grey"),
-        ThemeOption.From(ThemeManager.Midnight, Lang.T("Midnight"), "Midnight"), ThemeOption.From(ThemeManager.Forest, Lang.T("Forest"), "Forest"),
-        ThemeOption.From(ThemeManager.Ember, Lang.T("Ember"), "Ember"), ThemeOption.From(ThemeManager.Light, Lang.T("Light"), "Light"),
-        ThemeOption.From(ThemeManager.System, Lang.T("Same as Windows"), ThemeManager.WindowsUsesLight() ? "Light" : "Dark"),
-    ];
+    /// <summary>Every theme as a card, each with the few colours its small picture is drawn in (2026-11-05: ten in each group).</summary>
+    public List<ThemeCard> ThemeCards => _themeCards ??= MakeThemeCards();
+
+    private List<ThemeCard> MakeThemeCards()
+    {
+        var cards = Rigsight.Core.Settings.ThemeCatalog.All.Select(t => new ThemeCard(ThemeOption.From(t.Key, Lang.T(t.Name), t.File), t.Group)).ToList();
+        _themeCards = cards;
+        UpdateThemePicks();
+        return cards;
+    }
+
+    /// <summary>
+    /// The group shown, as a tab over its cards (the user, 2026-11-05: tabs, and no count beside each name). Opens on the
+    /// group of the theme in use; with Match Windows on, on the group of the one Windows shows now.
+    /// </summary>
+    public Rigsight.Core.Settings.ThemeCatalog.Group ThemeGroup
+    {
+        // Worked out when first read (the tabs and the cards read it together), so both open on the same group.
+        get => _themeGroup ??= Rigsight.Core.Settings.ThemeCatalog.Find(ShownTheme)?.Group ?? Rigsight.Core.Settings.ThemeCatalog.Group.Dark;
+        set
+        {
+            if (_themeGroup == value) return;
+            _themeGroup = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(VisibleThemes));
+        }
+    }
+
+    private Rigsight.Core.Settings.ThemeCatalog.Group? _themeGroup;
+
+    /// <summary>The open group's cards: always ten, so the card keeps its height whichever tab is open.</summary>
+    public List<ThemeCard> VisibleThemes => [.. ThemeCards.Where(c => c.Group == ThemeGroup)];
+
+    /// <summary>The theme the window shows now: the one picked, or with Match Windows the one for Windows' mode.</summary>
+    private string ShownTheme => S.Theme == ThemeManager.System ? (ThemeManager.WindowsUsesLight() ? S.LightTheme : S.DarkTheme) : S.Theme;
+
+    /// <summary>
+    /// Match Windows: the picked light theme while Windows is light, the picked dark or colorful one while it's dark
+    /// (in place of the Look row and the old Same as Windows card, the user, 2026-11-05).
+    /// </summary>
+    public bool MatchWindows
+    {
+        get => S.Theme == ThemeManager.System;
+        set
+        {
+            if (value == MatchWindows) return;
+            Set(s => s.Theme = value ? ThemeManager.System : ThemeManager.WindowsUsesLight() ? s.LightTheme : s.DarkTheme);
+            UpdateThemePicks();
+            OnPropertyChanged(nameof(MatchLine));
+        }
+    }
+
+    /// <summary>"RigSight shows Paper while Windows is light and Graphite while it's dark."</summary>
+    public string MatchLine
+    {
+        get
+        {
+            string light = NameOf(S.LightTheme), dark = NameOf(S.DarkTheme);
+            return Lang.T($"RigSight shows {light} while Windows is light and {dark} while it's dark.");
+        }
+    }
+
+    private static string NameOf(string key) => Rigsight.Core.Settings.ThemeCatalog.Find(key) is { } t ? Lang.T(t.Name) : key;
+
+    /// <summary>
+    /// A card clicked: the theme in use, and the one its kind returns to (so turning Match Windows on keeps it); with
+    /// Match Windows on, the light or the dark pick.
+    /// </summary>
+    [RelayCommand]
+    private void PickTheme(ThemeCard? card)
+    {
+        if (card is null) return;
+        bool light = Rigsight.Core.Settings.ThemeCatalog.IsLight(card.Key);
+        Set(s =>
+        {
+            if (light) s.LightTheme = card.Key; else s.DarkTheme = card.Key;
+            if (s.Theme != ThemeManager.System) s.Theme = card.Key;
+        }, nameof(Theme));
+        UpdateThemePicks();
+        OnPropertyChanged(nameof(MatchLine));
+    }
+
+    private void UpdateThemePicks()
+    {
+        if (_themeCards is null) return;
+        bool match = S.Theme == ThemeManager.System;
+        foreach (var c in _themeCards)
+        {
+            bool picked = match ? c.Key == S.LightTheme || c.Key == S.DarkTheme : c.Key == S.Theme;
+            c.IsPicked = picked;
+            c.ModeTag = match && picked ? (Rigsight.Core.Settings.ThemeCatalog.IsLight(c.Key) ? Lang.T("Light mode") : Lang.T("Dark mode")) : null;
+        }
+    }
 
     private List<AccentOption>? _accentOptions;
     private (bool Light, System.Windows.Media.Color? Windows, System.Windows.Media.Color Own) _accentShades;
@@ -645,6 +760,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     public void Refresh()
     {
+        UpdateThemePicks();
         OnPropertyChanged(string.Empty);
         OnPropertyChanged(nameof(Accent)); // again, after the swatches (new ones in a new theme) are in
         ExcludedApps.Clear();

@@ -5,7 +5,7 @@
              xmlns:svc="clr-namespace:Rigsight.Services">
     <UserControl.Resources>
         <Style x:Key="StatValue" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Display}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Margin" Value="0,4,0,0" />
@@ -15,13 +15,13 @@
              its own colour. Amber says it needs a look. Only a line with more behind it opens a page: it takes the
              pointer and has an arrow; a complete fact is plain text and opens nothing (see InsightLinks). -->
         <Style x:Key="LineText" TargetType="TextBlock" BasedOn="{StaticResource Body}">
-            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.BodyPlus}" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style x:Key="LineArrow" TargetType="TextBlock" BasedOn="{StaticResource Icon}">
             <Setter Property="Text" Value="&#xE76C;" />
-            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S10}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Margin" Value="10,0,0,0" />
@@ -34,7 +34,7 @@
                 <HeaderedContentControl Style="{StaticResource IconRow}" Margin="8,6">
                     <HeaderedContentControl.Header>
                         <Border Style="{StaticResource IconBox}">
-                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center"
                                        Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
                         </Border>
                     </HeaderedContentControl.Header>
@@ -63,7 +63,7 @@
                             <Border VerticalAlignment="Center" Visibility="{Binding IsWarm, Converter={StaticResource Vis}}">
                                 <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Explain'}" CommandParameter="{Binding Ask}" AutomationProperties.Name="{ctl:T 'Explain'}" />
                             </Border>
-                            <TextBlock Text="{Binding When}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center"
+                            <TextBlock Text="{Binding When}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center"
                                        Visibility="{Binding When, Converter={StaticResource Vis}}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -90,7 +90,7 @@
                 <HeaderedContentControl Style="{StaticResource IconRow}" Margin="8,6">
                     <HeaderedContentControl.Header>
                         <Border Style="{StaticResource IconBox}">
-                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center"
                                        Foreground="{Binding ., Converter={StaticResource InsightBrush}}" />
                         </Border>
                     </HeaderedContentControl.Header>
@@ -145,7 +145,7 @@
                                     Command="{Binding DataContext.GoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="reports">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Full report'}" />
-                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
+                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,0,0,0" />
                                 </StackPanel>
                             </Button>
                             <TextBlock Text="{ctl:T 'Today so far'}" Style="{StaticResource H2}" />
@@ -153,7 +153,7 @@
 
                         <!-- Until the agent has sent today's totals the figures are held back (their room kept) behind a loader. -->
                         <Grid>
-                        <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center"
                                      Visibility="{Binding Live.TodayIn, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <StackPanel>
                         <StackPanel.Style>
@@ -193,7 +193,7 @@
                                 <StackPanel>
                                     <TextBlock Text="{ctl:T 'CPU BUSIEST'}" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding Live.Today.CpuBusy, StringFormat='{}{0:0} %', FallbackValue='—', TargetNullValue='—'}" Style="{StaticResource StatValue}" />
-                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Live.Today.CpuBusyLine, TargetNullValue={ctl:T 'No reading yet today'}}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0"
+                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Live.Today.CpuBusyLine, TargetNullValue={ctl:T 'No reading yet today'}}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,2,0,0"
                                                TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
@@ -202,7 +202,7 @@
                                     <TextBlock Text="{ctl:T 'CPU PEAK'}" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding Live.Today.CpuPeak, Converter={StaticResource TempShort}, FallbackValue='—', TargetNullValue='—'}" Style="{StaticResource StatValue}"
                                                Foreground="{Binding Live.Today.CpuPeak, Converter={StaticResource TempBrush}}" />
-                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Live.Today.CpuPeakLine, TargetNullValue={ctl:T 'No reading yet today'}}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0"
+                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Live.Today.CpuPeakLine, TargetNullValue={ctl:T 'No reading yet today'}}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,2,0,0"
                                                TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
@@ -211,7 +211,7 @@
                                     <TextBlock Text="{ctl:T 'GPU PEAK'}" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding Live.Today.GpuPeak, Converter={StaticResource TempShort}, FallbackValue='—', TargetNullValue='—'}" Style="{StaticResource StatValue}"
                                                Foreground="{Binding Live.Today.GpuPeak, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
-                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Live.Today.GpuPeakLine, TargetNullValue={ctl:T 'No reading yet today'}}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0"
+                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Live.Today.GpuPeakLine, TargetNullValue={ctl:T 'No reading yet today'}}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,2,0,0"
                                                TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
@@ -219,7 +219,7 @@
                                 <StackPanel>
                                     <TextBlock Text="{ctl:T 'INTERNET'}" Style="{StaticResource Caption}" />
                                     <TextBlock Text="{Binding TodayInternet}" Style="{StaticResource StatValue}" />
-                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding TodayInternetLine}" Style="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0"
+                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding TodayInternetLine}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,2,0,0"
                                                TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
@@ -288,18 +288,18 @@
                             <!-- The days a week, month or year covers, quietly under its title (issue #7). -->
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding RecapTitle}" Style="{StaticResource H2}" />
-                                <TextBlock Text="{Binding RecapDays}" Style="{StaticResource Muted}" FontSize="12.5" Margin="0,2,0,0"
+                                <TextBlock Text="{Binding RecapDays}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,2,0,0"
                                            Visibility="{Binding RecapDays, Converter={StaticResource Vis}}" />
                             </StackPanel>
                         </DockPanel>
                         <!-- Another day standing in for yesterday: why. -->
-                        <TextBlock DockPanel.Dock="Top" Text="{Binding RecapNote}" Style="{StaticResource Muted}" FontSize="12" Margin="0,-8,0,12"
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding RecapNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,-8,0,12"
                                    Visibility="{Binding RecapNote, Converter={StaticResource Vis}}" />
 
-                        <ctl:Spinner DockPanel.Dock="Top" Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,60,0,0"
+                        <ctl:Spinner DockPanel.Dock="Top" Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,60,0,0"
                                      Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <StackPanel DockPanel.Dock="Top" Visibility="{Binding ShowRecapEmpty, Converter={StaticResource Vis}}">
-                            <TextBlock Text="&#xE708;" Style="{StaticResource Icon}" FontSize="28" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
+                            <TextBlock Text="&#xE708;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S28}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
                             <TextBlock Text="{Binding RecapEmptyTitle}" Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,12,0,4" />
                             <TextBlock Text="{Binding RecapEmptyText}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
                         </StackPanel>
@@ -311,7 +311,7 @@
                             <Button Style="{StaticResource AccentButton}" Click="OpenRecap_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Open full recap'}" />
-                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
+                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,0,0,0" />
                                 </StackPanel>
                             </Button>
                             <Button Style="{StaticResource AiButton}" Content="{Binding RecapAskText}" CommandParameter="{Binding RecapAsk}"
@@ -320,26 +320,26 @@
                         </Border>
 
                         <StackPanel DockPanel.Dock="Top" Style="{StaticResource HiddenWhileLoading}" Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
-                            <TextBlock Text="{Binding Recap.ActiveSec, Converter={StaticResource Duration}}" FontSize="34" FontWeight="SemiBold"
+                            <TextBlock Text="{Binding Recap.ActiveSec, Converter={StaticResource Duration}}" FontSize="{x:Static ctl:TextSize.Jumbo}" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextBrush}" />
                             <TextBlock Style="{StaticResource Muted}">
                                 <Run Text="{ctl:T 'active · PC on for'}" /> <Run Text="{Binding Recap.OnSec, Converter={StaticResource Duration}, Mode=OneWay}" />
                             </TextBlock>
                             <!-- The period's figures on one line (three boxes here took a third of the card). -->
                             <WrapPanel Margin="0,10,0,0">
-                                <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,0,20,2" Visibility="{Binding Recap.CpuTempPeak, Converter={StaticResource Vis}}">
+                                <TextBlock Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Body}" Margin="0,0,20,2" Visibility="{Binding Recap.CpuTempPeak, Converter={StaticResource Vis}}">
                                     <Run Text="{ctl:T 'CPU peak'}" /> <Run Text="{Binding Recap.CpuTempPeak.Value, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"
                                                                  Foreground="{Binding Recap.CpuTempPeak.Value, Converter={StaticResource TempBrush}}" />
                                 </TextBlock>
                                 <!-- A period with no CPU temperature (a standard account): how busy the CPU got instead. -->
-                                <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,0,20,2" Visibility="{Binding ShowRecapCpuBusiest, Converter={StaticResource Vis}}">
+                                <TextBlock Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Body}" Margin="0,0,20,2" Visibility="{Binding ShowRecapCpuBusiest, Converter={StaticResource Vis}}">
                                     <Run Text="{ctl:T 'CPU busiest'}" /> <Run Text="{Binding Recap.CpuLoadPeak.Value, StringFormat='{}{0:0}%', Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                 </TextBlock>
-                                <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,0,20,2" Visibility="{Binding Recap.GpuTempPeak, Converter={StaticResource Vis}}">
+                                <TextBlock Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Body}" Margin="0,0,20,2" Visibility="{Binding Recap.GpuTempPeak, Converter={StaticResource Vis}}">
                                     <Run Text="{ctl:T 'GPU peak'}" /> <Run Text="{Binding Recap.GpuTempPeak.Value, Converter={StaticResource TempShort}, Mode=OneWay}" FontWeight="SemiBold"
                                                                  Foreground="{Binding Recap.GpuTempPeak.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                 </TextBlock>
-                                <TextBlock Style="{StaticResource Muted}" FontSize="13" Margin="0,0,0,2" Visibility="{Binding RecapInternet, Converter={StaticResource Vis}}">
+                                <TextBlock Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Body}" Margin="0,0,0,2" Visibility="{Binding RecapInternet, Converter={StaticResource Vis}}">
                                     <Run Text="{ctl:T 'Internet'}" /> <Run Text="{Binding RecapInternet, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                 </TextBlock>
                             </WrapPanel>
@@ -384,10 +384,10 @@
                                                 Command="{Binding DataContext.OpenRecapInsightCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Line}"
                                                 Visibility="{Binding IsApp, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                             <DockPanel Margin="6,4">
-                                                <TextBlock Text="{Binding Line.Icon}" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="2,2,12,0"
+                                                <TextBlock Text="{Binding Line.Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" VerticalAlignment="Top" Margin="2,2,12,0"
                                                            Foreground="{Binding Line, Converter={StaticResource InsightBrush}}" />
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource LineArrow}" Visibility="{Binding Line.CanOpen, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
-                                                <TextBlock Text="{Binding Line.Line}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Line.Line}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                                             </DockPanel>
                                         </Button>
                                     </Grid>
@@ -403,7 +403,7 @@
                     </DockPanel>
                     <!-- A period just picked, not read yet. Not while the page itself is first being read: the loader above is
                          already turning then, and two at once looked odd. -->
-                    <ctl:Spinner Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ctl:Spinner Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <ctl:Spinner.Style>
                             <Style TargetType="ctl:Spinner">
                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -443,7 +443,7 @@
                                     AutomationProperties.Name="Open the Timeline">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Timeline'}" />
-                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
+                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,0,0,0" />
                                 </StackPanel>
                             </Button>
                             <TextBlock Text="{ctl:T 'What changed lately'}" Style="{StaticResource H2}" VerticalAlignment="Center" />

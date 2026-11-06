@@ -50,7 +50,7 @@ public partial class AppsView : UserControl
         static MenuItem Item(string header, string glyph) => new()
         {
             Header = header,
-            Icon = new TextBlock { Text = glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = 14 },
+            Icon = new TextBlock { Text = glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = Controls.IconSize.S14 },
             FocusVisualStyle = null,
         };
 

@@ -16,7 +16,7 @@
             <Button.Template>
                 <ControlTemplate TargetType="Button">
                     <!-- Centred on the letters, not the line: without descenders, a centred line sits a pixel low. -->
-                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9" Padding="14,0">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="{x:Static ctl:Corner.Button}" Padding="14,0">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,1" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -31,7 +31,7 @@
             </Button.Template>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding Label, ElementName=Root}" />
-                <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10" Margin="8,1,0,0" Foreground="{DynamicResource MutedBrush}"
+                <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,1,0,0" Foreground="{DynamicResource MutedBrush}"
                            Visibility="{Binding Pickable, ElementName=Root, Converter={StaticResource Vis}}" />
             </StackPanel>
         </Button>
@@ -43,7 +43,7 @@
         <Popup x:Name="Picker" PlacementTarget="{Binding ElementName=LabelButton}" Placement="Custom"
                StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
             <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                    CornerRadius="12" Padding="10" Margin="0,0,8,8">
+                    CornerRadius="{x:Static ctl:Corner.Tile}" Padding="10" Margin="0,0,8,8">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                 </Border.Effect>
@@ -60,18 +60,18 @@
                                     ToolTip="{ctl:T 'Previous year'}" AutomationProperties.Name="Previous year">
                                 <TextBlock Text="&#xE76B;" />
                             </Button>
-                            <TextBlock x:Name="YearText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="YearText" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                         </DockPanel>
                         <UniformGrid x:Name="MonthGrid" Columns="4" Rows="3" />
                     </StackPanel>
                     <!-- Year ranges pick a year from the years with history. -->
                     <StackPanel x:Name="YearPanel" Width="264" Visibility="Collapsed">
-                        <TextBlock Text="{ctl:T 'Pick a year'}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="6,6,0,12" />
+                        <TextBlock Text="{ctl:T 'Pick a year'}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="6,6,0,12" />
                         <UniformGrid x:Name="YearGrid" Columns="4" />
                     </StackPanel>
                     <DockPanel Margin="4,8,4,0">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T Today}" Click="Today_Click" />
-                        <TextBlock x:Name="SinceText" Style="{StaticResource Muted}" FontSize="11.5" VerticalAlignment="Center" />
+                        <TextBlock x:Name="SinceText" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Label}" VerticalAlignment="Center" />
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>

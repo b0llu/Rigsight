@@ -16,7 +16,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" CornerRadius="22" Background="{DynamicResource Surface2Brush}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="14" />
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S14}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
@@ -35,18 +35,18 @@
         <Grid x:Name="RevealPanel" Visibility="{Binding IsRevealing, Converter={StaticResource Vis}}">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Canvas x:Name="Fan" Width="420" Height="320" Margin="0,0,0,26" />
-                <TextBlock Text="{Binding RevealTitle}" FontFamily="Segoe UI" FontSize="30" FontWeight="SemiBold"
+                <TextBlock Text="{Binding RevealTitle}" FontFamily="Segoe UI" FontSize="{x:Static ctl:TextSize.Hero}" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
-                <TextBlock Text="{Binding RevealSub}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                <TextBlock Text="{Binding RevealSub}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
                     <Button Style="{StaticResource AccentButton}" Command="{Binding WatchRevealedCommand}" Padding="22,9" Margin="0,0,8,0" AutomationProperties.Name="Watch">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
-                            <TextBlock Text="{ctl:T 'Watch'}" FontSize="14" />
+                            <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Margin="0,0,8,0" />
+                            <TextBlock Text="{ctl:T 'Watch'}" FontSize="{x:Static ctl:TextSize.Lead}" />
                         </StackPanel>
                     </Button>
                     <Button Style="{StaticResource GhostButton}" Command="{Binding LaterCommand}" Padding="22,9" AutomationProperties.Name="Later">
-                        <TextBlock Text="{ctl:T 'Later'}" FontSize="14" />
+                        <TextBlock Text="{ctl:T 'Later'}" FontSize="{x:Static ctl:TextSize.Lead}" />
                     </Button>
                 </StackPanel>
             </StackPanel>
@@ -55,13 +55,13 @@
                 <Button Style="{StaticResource ActionButton}" Command="{Binding NoFullScreenCommand}" Content="{ctl:T 'Don’t show rewinds full screen'}"
                         Visibility="{Binding AskedNoFullScreen, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                 <StackPanel Orientation="Horizontal" Visibility="{Binding AskedNoFullScreen, Converter={StaticResource Vis}}">
-                    <TextBlock Text="{ctl:T 'Rewinds will wait in Settings → Rewind instead.'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="{ctl:T 'Rewinds will wait in Settings → Rewind instead.'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                     <Button Style="{StaticResource GhostButton}" Command="{Binding UndoNoFullScreenCommand}" Content="{ctl:T 'Undo'}" Margin="10,0,0,0" />
                 </StackPanel>
             </StackPanel>
             <Button Style="{StaticResource ActionButton}" Command="{Binding RevealSettingsCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,20">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,6,0" />
+                    <TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,6,0" />
                     <TextBlock Text="{ctl:T 'Rewind settings'}" />
                 </StackPanel>
             </Button>
@@ -77,51 +77,51 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding WatchedTitle}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                    <TextBlock Text="{Binding WatchedKind}" FontSize="14" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" />
+                    <TextBlock Text="{Binding WatchedTitle}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="{Binding WatchedKind}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" />
                 </StackPanel>
                 <Button Grid.Column="2" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" HorizontalAlignment="Right" Width="32" Height="30"
                         AutomationProperties.Name="Close" ToolTip="{ctl:T 'Close'}">
-                    <TextBlock Text="&#xE711;" FontSize="12" />
+                    <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S12}" />
                 </Button>
             </Grid>
-            <TextBlock DockPanel.Dock="Bottom" Height="44" Text="{ctl:T 'Click the card or press → for the next one'}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
+            <TextBlock DockPanel.Dock="Bottom" Height="44" Text="{ctl:T 'Click the card or press → for the next one'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}"
                        HorizontalAlignment="Center" Padding="0,14,0,0" Visibility="{Binding AtEnd, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
             <Grid DockPanel.Dock="Bottom" Height="44" Visibility="{Binding AtEnd, Converter={StaticResource Vis}}" />
             <!-- Laid out at one size and scaled to the window, so the card is as big as the window allows. -->
             <Viewbox Stretch="Uniform" Margin="0,0,0,4">
                 <Grid Width="1240" Height="660">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Border x:Name="PeekPrev" Width="200" Height="356" CornerRadius="16" ClipToBounds="True" Opacity="0.28" Margin="0,0,28,0" Cursor="Hand"
+                        <Border x:Name="PeekPrev" Width="200" Height="356" CornerRadius="{x:Static ctl:Corner.Card}" ClipToBounds="True" Opacity="0.28" Margin="0,0,28,0" Cursor="Hand"
                                 MouseLeftButtonUp="PeekPrev_Click" Visibility="{Binding AtEnd, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <Button x:Name="PrevButton" Style="{StaticResource RoundArrow}" Command="{Binding PreviousCommand}" IsEnabled="{Binding CanGoBack}"
                                 AutomationProperties.Name="Previous card">
-                            <TextBlock Text="&#xE76B;" FontFamily="{StaticResource IconFont}" FontSize="14" />
+                            <TextBlock Text="&#xE76B;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" />
                         </Button>
                         <Grid Margin="28,0">
-                            <Border x:Name="CardFrame" Width="362" Height="644" CornerRadius="20" Cursor="Hand" MouseLeftButtonUp="Card_Click"
+                            <Border x:Name="CardFrame" Width="362" Height="644" CornerRadius="{x:Static ctl:Corner.Sheet}" Cursor="Hand" MouseLeftButtonUp="Card_Click"
                                     Visibility="{Binding AtEnd, Converter={StaticResource Vis}, ConverterParameter=Invert}" AutomationProperties.Name="Next card">
                                 <Border.Effect><DropShadowEffect BlurRadius="60" ShadowDepth="18" Opacity="0.8" Color="Black" /></Border.Effect>
-                                <Border x:Name="CardHost" CornerRadius="20" ClipToBounds="True" />
+                                <Border x:Name="CardHost" CornerRadius="{x:Static ctl:Corner.Sheet}" ClipToBounds="True" />
                             </Border>
-                            <ctl:SmoothBorder Width="760" Height="644" CornerRadius="20" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                            <ctl:SmoothBorder Width="760" Height="644" CornerRadius="{x:Static ctl:Corner.Sheet}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                                               Visibility="{Binding AtEnd, Converter={StaticResource Vis}}">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding EndTitle}" FontFamily="Segoe UI" FontSize="30" FontWeight="SemiBold"
+                                <TextBlock Text="{Binding EndTitle}" FontFamily="Segoe UI" FontSize="{x:Static ctl:TextSize.Hero}" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
-                                <TextBlock Text="{Binding EndSub}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                                <TextBlock Text="{Binding EndSub}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
                                 <WrapPanel x:Name="Thumbs" HorizontalAlignment="Center" MaxWidth="700" Margin="0,24,0,26" />
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                     <Button Style="{StaticResource AccentButton}" Command="{Binding OpenShareCommand}" Padding="22,9" Margin="0,0,8,0" AutomationProperties.Name="Share">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE72D;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
-                                            <TextBlock Text="{ctl:T 'Share'}" FontSize="14" />
+                                            <TextBlock Text="&#xE72D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Margin="0,0,8,0" />
+                                            <TextBlock Text="{ctl:T 'Share'}" FontSize="{x:Static ctl:TextSize.Lead}" />
                                         </StackPanel>
                                     </Button>
                                     <Button Style="{StaticResource GhostButton}" Command="{Binding AgainCommand}" Padding="22,9" AutomationProperties.Name="Watch again">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
-                                            <TextBlock Text="{ctl:T 'Watch again'}" FontSize="14" />
+                                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Margin="0,0,8,0" />
+                                            <TextBlock Text="{ctl:T 'Watch again'}" FontSize="{x:Static ctl:TextSize.Lead}" />
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -129,9 +129,9 @@
                             </ctl:SmoothBorder>
                         </Grid>
                         <Button Style="{StaticResource RoundArrow}" Command="{Binding NextCommand}" IsEnabled="{Binding CanGoNext}" AutomationProperties.Name="Next">
-                            <TextBlock Text="&#xE76C;" FontFamily="{StaticResource IconFont}" FontSize="14" />
+                            <TextBlock Text="&#xE76C;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" />
                         </Button>
-                        <Border x:Name="PeekNext" Width="200" Height="356" CornerRadius="16" ClipToBounds="True" Opacity="0.28" Margin="28,0,0,0" Cursor="Hand"
+                        <Border x:Name="PeekNext" Width="200" Height="356" CornerRadius="{x:Static ctl:Corner.Card}" ClipToBounds="True" Opacity="0.28" Margin="28,0,0,0" Cursor="Hand"
                                 MouseLeftButtonUp="Card_Click" Visibility="{Binding AtEnd, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     </StackPanel>
                 </Grid>
@@ -141,13 +141,13 @@
         <!-- Share: one window. The preview with its shape and look stuck to its foot; which cards, and where to. -->
         <Grid x:Name="SharePanel" Visibility="{Binding IsSharing, Converter={StaticResource Vis}}">
             <Border Background="#99000000" MouseLeftButtonDown="ShareBackdrop_MouseDown" />
-            <ctl:SmoothBorder Margin="40,30,40,26" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+            <ctl:SmoothBorder Margin="40,30,40,26" CornerRadius="{x:Static ctl:Corner.Panel}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="22,14,14,12">
                         <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseShareCommand}" AutomationProperties.Name="Close" ToolTip="{ctl:T 'Close'}">
-                            <TextBlock Text="&#xE711;" FontSize="12" />
+                            <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S12}" />
                         </Button>
-                        <TextBlock Text="{Binding ShareTitle}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ShareTitle}" FontSize="{x:Static ctl:TextSize.Subtitle}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                     </DockPanel>
                     <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource StrokeBrush}" />
                     <Grid>
@@ -165,30 +165,30 @@
                                         <RadioButton Style="{StaticResource Segment}" GroupName="RewindShape" Content="{ctl:T 'Wide'}" IsChecked="{Binding Shape, Converter={StaticResource Equals}, ConverterParameter=wide}" />
                                     </StackPanel>
                                 </Border>
-                                <TextBlock Text="{Binding ShapeSize}" Width="96" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                <TextBlock Text="{Binding ShapeSize}" Width="96" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,0" />
                                 <Border Width="1" Height="22" Background="{DynamicResource StrokeBrush}" Margin="4,0,10,0" />
                                 <StackPanel x:Name="AccentSwatches" Orientation="Horizontal" VerticalAlignment="Center" />
                                 <Button Style="{StaticResource ActionButton}" Command="{Binding SameAsAppCommand}" Content="{ctl:T 'RigSight colors'}" Margin="10,0,0,0" VerticalAlignment="Center"
                                         Visibility="{Binding LookIsApps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             </StackPanel>
                             <Grid x:Name="PreviewBox" Margin="18" ClipToBounds="False">
-                                <Border x:Name="PreviewFrame" CornerRadius="10" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border x:Name="PreviewFrame" CornerRadius="{x:Static ctl:Corner.Control}" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Border.Effect><DropShadowEffect BlurRadius="40" ShadowDepth="12" Opacity="0.7" Color="Black" /></Border.Effect>
-                                    <Border x:Name="PreviewHost" CornerRadius="10" ClipToBounds="True" />
+                                    <Border x:Name="PreviewHost" CornerRadius="{x:Static ctl:Corner.Control}" ClipToBounds="True" />
                                 </Border>
                             </Grid>
                         </DockPanel>
                         <DockPanel Grid.Column="1">
                             <Border DockPanel.Dock="Left" Width="1" Background="{DynamicResource StrokeBrush}" />
                             <DockPanel DockPanel.Dock="Top" Margin="16,14,16,6">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding PickCount}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                <TextBlock Text="{ctl:T 'Pictures to share'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding PickCount}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock Text="{ctl:T 'Pictures to share'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                             </DockPanel>
                             <StackPanel DockPanel.Dock="Bottom" Margin="12,8,12,14">
                                 <!-- Every ticked picture, in order, to paste into a post anywhere. -->
                                 <Button Style="{StaticResource AccentButton}" Command="{Binding CopyCommand}" AutomationProperties.Name="Copy pictures" Padding="12,9">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE8C8;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
+                                        <TextBlock Text="&#xE8C8;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Margin="0,0,8,0" />
                                         <TextBlock Text="{Binding CopyText}" />
                                     </StackPanel>
                                 </Button>
@@ -197,7 +197,7 @@
                                 <ItemsControl x:Name="PickList" ItemsSource="{Binding Picks}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border x:Name="Row" CornerRadius="8" Padding="6" Margin="0,2" Background="Transparent" Cursor="Hand"
+                                            <Border x:Name="Row" CornerRadius="{x:Static ctl:Corner.Field}" Padding="6" Margin="0,2" Background="Transparent" Cursor="Hand"
                                                     Tag="{Binding}" MouseLeftButtonUp="PickRow_Click">
                                                 <DockPanel>
                                                     <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Included}" VerticalAlignment="Center" Margin="2,0,8,0"
@@ -208,8 +208,8 @@
                                                             <ControlTemplate TargetType="Button"><Border Background="Transparent"><ContentPresenter /></Border></ControlTemplate>
                                                         </Button.Template>
                                                         <StackPanel Orientation="Horizontal">
-                                                            <Border x:Name="Thumb" Width="36" Height="64" CornerRadius="5" ClipToBounds="True" Tag="{Binding}" Loaded="PickThumb_Loaded" />
-                                                            <TextBlock x:Name="PickName" Text="{Binding Name}" FontSize="13" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+                                                            <Border x:Name="Thumb" Width="36" Height="64" CornerRadius="{x:Static ctl:Corner.Chip}" ClipToBounds="True" Tag="{Binding}" Loaded="PickThumb_Loaded" />
+                                                            <TextBlock x:Name="PickName" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
                                                         </StackPanel>
                                                     </Button>
                                                 </DockPanel>
@@ -234,12 +234,12 @@
         </Grid>
 
         <!-- What just happened (copied, saved), at the foot, for a few seconds. -->
-        <ctl:SmoothBorder HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,100" CornerRadius="10" Padding="16,10"
+        <ctl:SmoothBorder HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,100" CornerRadius="{x:Static ctl:Corner.Control}" Padding="16,10"
                           Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                           Visibility="{Binding HasToast, Converter={StaticResource Vis}}">
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource GoodBrush}" Margin="0,0,10,0" />
-                <TextBlock Text="{Binding Toast}" FontSize="13" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource GoodBrush}" Margin="0,0,10,0" />
+                <TextBlock Text="{Binding Toast}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
 </StackPanel>
         </ctl:SmoothBorder>
     </Grid>

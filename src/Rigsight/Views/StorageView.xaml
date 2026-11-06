@@ -8,7 +8,7 @@
          freed on the drive picked, and the disks' health. -->
     <UserControl.Resources>
         <Style x:Key="Caps" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Label}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
         </Style>
@@ -21,7 +21,7 @@
                     <ControlTemplate TargetType="ProgressBar">
                         <Grid>
                             <Border x:Name="PART_Track" Background="Transparent" />
-                            <Border x:Name="PART_Indicator" Background="{DynamicResource Surface2Brush}" CornerRadius="6" HorizontalAlignment="Left" />
+                            <Border x:Name="PART_Indicator" Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Small}" HorizontalAlignment="Left" />
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -31,12 +31,12 @@
         <Style x:Key="Tab" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="Transparent" CornerRadius="7" Padding="12,5">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Choice}" Padding="12,5">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -62,19 +62,19 @@
                     <ColumnDefinition Width="130" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <Border Width="26" Height="26" CornerRadius="7" Background="{DynamicResource Surface2Brush}" HorizontalAlignment="Left" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Letter}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Border Width="26" Height="26" CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Letter}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,12,0">
-                    <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding Sub}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                    <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Sub}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
                                Visibility="{Binding HasSub, Converter={StaticResource Vis}}" />
                 </StackPanel>
                 <Grid Grid.Column="2" Height="6" VerticalAlignment="Center" ClipToBounds="True">
-                    <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
+                    <Border CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource Surface2Brush}" />
                     <ProgressBar Style="{StaticResource Bar}" Height="6" Value="{Binding UsedPercent, Mode=OneWay}" />
                 </Grid>
-                <TextBlock Grid.Column="3" Text="{Binding FullText}" FontSize="12.5" VerticalAlignment="Center" Margin="12,0,0,0">
+                <TextBlock Grid.Column="3" Text="{Binding FullText}" FontSize="{x:Static ctl:TextSize.Detail}" VerticalAlignment="Center" Margin="12,0,0,0">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -84,15 +84,15 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
-                <TextBlock Grid.Column="4" Text="{Binding Growth}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="4" Text="{Binding Growth}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 <Grid Grid.Column="5" VerticalAlignment="Center" MinWidth="70">
-                    <Button x:Name="ScanBtn" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="12" Content="{ctl:T Scan}" HorizontalAlignment="Right"
+                    <Button x:Name="ScanBtn" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" Content="{ctl:T Scan}" HorizontalAlignment="Right"
                             Command="{Binding DataContext.ScanCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             CommandParameter="{Binding Root}" AutomationProperties.Name="{Binding ScanName}" />
                     <!-- While this drive is being scanned: how far along, and the shared spinner. -->
                     <StackPanel x:Name="Scanning" Orientation="Horizontal" HorizontalAlignment="Right" Visibility="Collapsed">
-                        <TextBlock Text="{Binding ScanText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <ctl:Spinner Width="12" Height="12" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ScanText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ctl:Spinner Width="16" Height="16" VerticalAlignment="Center" />
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -116,7 +116,7 @@
                         AutomationProperties.Name="{ctl:T Refresh}" ToolTip="{ctl:T 'Check the drives, the cleanup list and the scan again'}">
                     <StackPanel Orientation="Horizontal">
                         <Grid Width="12" Margin="0,0,8,0">
-                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" HorizontalAlignment="Center"
+                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" HorizontalAlignment="Center"
                                        Visibility="{Binding RefreshAllCommand.IsRunning, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <ctl:Spinner Visibility="{Binding RefreshAllCommand.IsRunning, Converter={StaticResource Vis}}" />
                         </Grid>
@@ -133,11 +133,11 @@
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,14,20,12">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,8">
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding DrivesSummary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding DrivesSummary}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
                         <TextBlock Text="{ctl:T 'DRIVES · FULLEST FIRST'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
                     </DockPanel>
                     <ItemsControl ItemsSource="{Binding ShownVolumes}" ItemTemplate="{StaticResource DriveRow}" Focusable="False" />
-                    <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Padding="10,4" FontSize="12" Margin="0,4,0,0"
+                    <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Padding="10,4" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,4,0,0"
                             Content="{Binding MoreDrivesText}" Command="{Binding ToggleDrivesCommand}" Visibility="{Binding HasMoreDrives, Converter={StaticResource Vis}}" />
                     <StackPanel Visibility="{Binding HasOtherVolumes, Converter={StaticResource Vis}}">
                         <TextBlock Text="{ctl:T 'USB AND NETWORK'}" Style="{StaticResource Caps}" Margin="0,12,0,6" />
@@ -164,7 +164,7 @@
                                     </ItemsControl>
                                     <Button Style="{StaticResource Tab}" Command="{Binding ChooseFolderCommand}">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,6,0" VerticalAlignment="Center" />
                                             <TextBlock Text="{ctl:T 'Pick a folder…'}" />
                                         </StackPanel>
                                     </Button>
@@ -174,10 +174,10 @@
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="{ctl:T 'What fills a drive'}" Style="{StaticResource H2}" />
                             <StackPanel Orientation="Horizontal" Margin="0,2,0,0" Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
-                                <TextBlock Text="{Binding ScanStatus}" Style="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
-                                <Button Style="{StaticResource GhostButton}" Padding="8,2" FontSize="12" Margin="8,0,0,0" Content="{ctl:T 'Scan again'}" Command="{Binding ScanAgainCommand}"
+                                <TextBlock Text="{Binding ScanStatus}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" />
+                                <Button Style="{StaticResource GhostButton}" Padding="8,2" FontSize="{x:Static ctl:TextSize.Small}" Margin="8,0,0,0" Content="{ctl:T 'Scan again'}" Command="{Binding ScanAgainCommand}"
                                         Visibility="{Binding IsScanning, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                <Button Style="{StaticResource GhostButton}" Padding="8,2" FontSize="12" Margin="8,0,0,0" Content="{ctl:T Cancel}" Command="{Binding CancelScanCommand}"
+                                <Button Style="{StaticResource GhostButton}" Padding="8,2" FontSize="{x:Static ctl:TextSize.Small}" Margin="8,0,0,0" Content="{ctl:T Cancel}" Command="{Binding CancelScanCommand}"
                                         Visibility="{Binding IsScanning, Converter={StaticResource Vis}}" />
                             </StackPanel>
                         </StackPanel>
@@ -186,13 +186,13 @@
                     <!-- Where the list and map are, and what can be done there. -->
                     <DockPanel Margin="0,0,0,10" Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Style="{StaticResource GhostButton}" Padding="10,5" FontSize="12" Command="{Binding UpCommand}" IsEnabled="{Binding CanGoUp}" Margin="0,0,6,0">
+                            <Button Style="{StaticResource GhostButton}" Padding="10,5" FontSize="{x:Static ctl:TextSize.Small}" Command="{Binding UpCommand}" IsEnabled="{Binding CanGoUp}" Margin="0,0,6,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE74A;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE74A;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,6,0" VerticalAlignment="Center" />
                                     <TextBlock Text="{ctl:T Up}" />
                                 </StackPanel>
                             </Button>
-                            <Button Padding="10,5" FontSize="12" Command="{Binding ShowFilesCommand}" Margin="0,0,6,0">
+                            <Button Padding="10,5" FontSize="{x:Static ctl:TextSize.Small}" Command="{Binding ShowFilesCommand}" Margin="0,0,6,0">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
                                         <Setter Property="Content" Value="{ctl:T 'Largest files'}" />
@@ -202,11 +202,11 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button Style="{StaticResource GhostButton}" Padding="10,5" FontSize="12" Command="{Binding RevealCommand}" CommandParameter="{Binding Current.Path}"
+                            <Button Style="{StaticResource GhostButton}" Padding="10,5" FontSize="{x:Static ctl:TextSize.Small}" Command="{Binding RevealCommand}" CommandParameter="{Binding Current.Path}"
                                     ToolTip="{ctl:T 'Open the folder shown here in Explorer'}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Open in Explorer'}" />
-                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="10" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,0,0,0" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -221,10 +221,10 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock x:Name="Arrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="9" Foreground="{DynamicResource FaintBrush}" Margin="2,0" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="Arrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S9}" Foreground="{DynamicResource FaintBrush}" Margin="2,0" VerticalAlignment="Center" />
                                         <Button Style="{StaticResource IconButton}" Width="Auto" Padding="4,0" MaxWidth="220"
                                                 Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                            <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="13" Margin="4,0" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="{x:Static ctl:TextSize.Body}" Margin="4,0" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
                                         </Button>
                                     </StackPanel>
                                     <DataTemplate.Triggers>
@@ -242,7 +242,7 @@
                             <TextBlock Text="{Binding NotScannedText}" Style="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" />
                             <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Center" Margin="0,14,0,0" Command="{Binding ScanCommand}" CommandParameter="{Binding PickedRoot}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" VerticalAlignment="Center" />
                                     <TextBlock Text="{Binding ScanPickedText}" />
                                 </StackPanel>
                             </Button>
@@ -253,15 +253,15 @@
                         <!-- Scanning: how far, how much, where it is now, and Cancel. -->
                         <StackPanel VerticalAlignment="Center" Margin="40,0" Visibility="{Binding ShowScanLoader, Converter={StaticResource Vis}}">
                             <DockPanel Margin="0,0,0,8">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding ScanCounts}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
-                                <TextBlock FontSize="13" Foreground="{DynamicResource TextBrush}">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding ScanCounts}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}">
                                     <Run Text="{Binding ScanPercent, StringFormat='{}{0:0}%', Mode=OneWay}" FontWeight="SemiBold" />
                                 </TextBlock>
                             </DockPanel>
                             <ProgressBar Style="{StaticResource Bar}" Value="{Binding ScanPercent, Mode=OneWay}" />
                             <DockPanel Margin="0,8,0,0">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,4" FontSize="12" Content="{ctl:T Cancel}" Command="{Binding CancelScanCommand}" Margin="12,0,0,0" />
-                                <TextBlock Text="{Binding ScanFolder}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,4" FontSize="{x:Static ctl:TextSize.Small}" Content="{ctl:T Cancel}" Command="{Binding CancelScanCommand}" Margin="12,0,0,0" />
+                                <TextBlock Text="{Binding ScanFolder}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             </DockPanel>
                         </StackPanel>
 
@@ -273,7 +273,7 @@
                                     <ColumnDefinition Width="14" />
                                     <ColumnDefinition Width="1.15*" />
                                 </Grid.ColumnDefinitions>
-                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
+                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Control}" ClipToBounds="True">
                                     <ScrollViewer x:Name="ListBox" Style="{StaticResource GutterScroll}" CanContentScroll="False">
                                         <ItemsControl ItemsSource="{Binding CurrentItems}" Focusable="False">
                                             <ItemsControl.ItemTemplate>
@@ -284,7 +284,7 @@
                                                         <Grid>
                                                             <!-- The row's share of the folder, as a shade behind it. -->
                                                             <ProgressBar Style="{StaticResource Shade}" Value="{Binding Share, Mode=OneWay}" />
-                                                            <Border x:Name="HotLine" BorderBrush="{DynamicResource TextBrush}" BorderThickness="1.5" CornerRadius="6" Visibility="Collapsed" />
+                                                            <Border x:Name="HotLine" BorderBrush="{DynamicResource TextBrush}" BorderThickness="1.5" CornerRadius="{x:Static ctl:Corner.Small}" Visibility="Collapsed" />
                                                             <Grid Margin="10,8">
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="18" />
@@ -292,10 +292,10 @@
                                                                     <ColumnDefinition Width="80" />
                                                                     <ColumnDefinition Width="46" />
                                                                 </Grid.ColumnDefinitions>
-                                                                <Border Width="10" Height="10" CornerRadius="3" Background="{Binding KindBrush}" VerticalAlignment="Center" HorizontalAlignment="Left" />
-                                                                <TextBlock Grid.Column="1" ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" />
-                                                                <TextBlock Grid.Column="2" Text="{Binding Size, Converter={StaticResource Bytes}}" FontSize="12.5" HorizontalAlignment="Right" Foreground="{DynamicResource TextBrush}" />
-                                                                <TextBlock Grid.Column="3" Text="{Binding Share, StringFormat='{}{0:0}%'}" FontSize="12" HorizontalAlignment="Right" Foreground="{DynamicResource FaintBrush}" />
+                                                                <Border Width="10" Height="10" CornerRadius="{x:Static ctl:Corner.Mark}" Background="{Binding KindBrush}" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                                                                <TextBlock Grid.Column="1" ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding Size, Converter={StaticResource Bytes}}" FontSize="{x:Static ctl:TextSize.Detail}" HorizontalAlignment="Right" Foreground="{DynamicResource TextBrush}" />
+                                                                <TextBlock Grid.Column="3" Text="{Binding Share, StringFormat='{}{0:0}%'}" FontSize="{x:Static ctl:TextSize.Small}" HorizontalAlignment="Right" Foreground="{DynamicResource FaintBrush}" />
                                                             </Grid>
                                                         </Grid>
                                                     </Button>
@@ -314,8 +314,8 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,14,2">
-                                                    <Border Width="9" Height="9" CornerRadius="3" Background="{Binding Brush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                    <TextBlock Text="{Binding Name}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" />
+                                                    <Border Width="9" Height="9" CornerRadius="{x:Static ctl:Corner.Mark}" Background="{Binding Brush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                    <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -339,7 +339,7 @@
                                                            VerticalAlignment="Center" Margin="12,0" />
                                                 <StackPanel>
                                                     <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
-                                                    <TextBlock Text="{Binding Folder}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Folder}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
                                             </DockPanel>
                                         </DataTemplate>
@@ -383,22 +383,22 @@
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8">
                                         <DockPanel>
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center" MinWidth="64"
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" Margin="12,0,0,0" VerticalAlignment="Center" MinWidth="64"
                                                     Command="{Binding DataContext.CleanupActionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
                                                 <!-- The word keeps its room while the spinner takes its place: the button doesn't change size. -->
                                                 <Grid>
                                                     <TextBlock x:Name="Word" Text="{Binding ActionText}" />
-                                                    <ctl:Spinner x:Name="Busy" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
+                                                    <ctl:Spinner x:Name="Busy" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
                                                 </Grid>
                                             </Button>
                                             <!-- Whether it's safe to delete, asked of the AI (hidden while it's off). -->
                                             <Button DockPanel.Dock="Right" Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Is it safe?'}" CommandParameter="{Binding Ask}"
                                                     VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{ctl:T 'Is it safe to delete?'}" />
-                                            <TextBlock DockPanel.Dock="Right" Text="{Binding SizeText}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding SizeText}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
                                             <StackPanel Margin="0,0,12,0">
-                                                <TextBlock Text="{Binding Title}" FontSize="13" Foreground="{DynamicResource TextBrush}" />
-                                                <TextBlock Text="{Binding Description}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" />
+                                                <TextBlock Text="{Binding Description}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
                                             </StackPanel>
                                         </DockPanel>
                                     </Border>
@@ -414,12 +414,12 @@
                         <TextBlock Text="{ctl:T 'Nothing found here to free.'}" Style="{StaticResource Muted}" Margin="0,10,0,0"
                                    Visibility="{Binding CleanupEmpty, Converter={StaticResource Vis}}" />
                         <DockPanel Margin="0,10,0,0" Visibility="{Binding HasCleanupHint, Converter={StaticResource Vis}}">
-                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="12" Content="{ctl:T Scan}" Command="{Binding ScanCleanupDriveCommand}"
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" Content="{ctl:T Scan}" Command="{Binding ScanCleanupDriveCommand}"
                                     VerticalAlignment="Center" Margin="12,0,0,0" />
-                            <TextBlock Text="{Binding CleanupHint}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding CleanupHint}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
                         </DockPanel>
                         <TextBlock Text="{ctl:T 'Nothing here is deleted automatically. It shows where the space is, and you decide.'}"
-                                   FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                   FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
                                    Visibility="{Binding CleanupRead, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
@@ -433,16 +433,16 @@
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8" Background="Transparent" ToolTip="{Binding HealthToolTip}">
                                         <DockPanel>
-                                            <TextBlock DockPanel.Dock="Right" Text="{Binding StateWord}" FontSize="12.5" FontWeight="SemiBold" Foreground="{Binding HealthBrush}"
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding StateWord}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" Foreground="{Binding HealthBrush}"
                                                        VerticalAlignment="Top" Margin="12,0,0,0" />
                                             <Ellipse DockPanel.Dock="Left" Width="7" Height="7" Fill="{Binding HealthBrush}" VerticalAlignment="Top" Margin="0,6,8,0"
                                                      Visibility="{Binding HasHealth, Converter={StaticResource Vis}}" />
                                             <StackPanel>
-                                                <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Details}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
+                                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Details}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
                                                            Visibility="{Binding Details, Converter={StaticResource Vis}}" />
                                                 <!-- Why it isn't healthy, in the colour of its dot (today's wording, kept). -->
-                                                <TextBlock Text="{Binding HealthReason}" FontSize="11.5" Foreground="{Binding HealthBrush}" Margin="0,3,0,0" TextWrapping="Wrap"
+                                                <TextBlock Text="{Binding HealthReason}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{Binding HealthBrush}" Margin="0,3,0,0" TextWrapping="Wrap"
                                                            Visibility="{Binding HealthReason, Converter={StaticResource Vis}}" />
                                                 <!-- Not healthy: what it means, asked of the AI (hidden while it's off). -->
                                                 <Border HorizontalAlignment="Left" Margin="0,6,0,0" Visibility="{Binding HealthReason, Converter={StaticResource Vis}}">

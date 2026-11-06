@@ -14,14 +14,14 @@ public static class AccentColors
     /// <summary>Each named accent: what settings.json stores, its name (a language key), and its two shades.</summary>
     public static readonly IReadOnlyList<(string Key, string Name, string OnDark, string OnLight)> Named =
     [
-        ("blue", Lang.Key("Blue"), "#60A5FA", "#2563EB"),
-        ("teal", Lang.Key("Teal"), "#2DD4BF", "#0D9488"),
-        ("green", Lang.Key("Green"), "#4ADE80", "#16A34A"),
-        ("purple", Lang.Key("Purple"), "#A78BFA", "#7C3AED"),
-        ("pink", Lang.Key("Pink"), "#F472B6", "#DB2777"),
-        ("red", Lang.Key("Red"), "#F87171", "#DC2626"),
-        ("orange", Lang.Key("Orange"), "#FB923C", "#EA580C"),
-        ("yellow", Lang.Key("Yellow"), "#FACC15", "#CA8A04"),
+        ("blue", Lang.Key("Blue"), "#66A9FA", "#215BD7"),
+        ("teal", Lang.Key("Teal"), "#2DD4BF", "#0F7169"),
+        ("green", Lang.Key("Green"), "#4ADE80", "#137437"),
+        ("purple", Lang.Key("Purple"), "#B198FB", "#7838E6"),
+        ("pink", Lang.Key("Pink"), "#F580BD", "#BE185D"),
+        ("red", Lang.Key("Red"), "#F98484", "#B91C1C"),
+        ("orange", Lang.Key("Orange"), "#FB923C", "#B33C0B"),
+        ("yellow", Lang.Key("Yellow"), "#FACC15", "#8E5706"),
     ];
 
     /// <summary>A known accent's key, else <see cref="Mono"/>.</summary>

@@ -82,7 +82,7 @@ internal static partial class WidgetRenderer
         if (c is not double t) return p.Faint;
         if (Gray) return p.Text;
         if (p.Light)
-            return t < 45 ? Color.FromArgb(2, 132, 199) : t < 70 ? Color.FromArgb(5, 150, 105) : t < 85 ? Color.FromArgb(217, 119, 6) : Color.FromArgb(220, 38, 38);
+            return t < 45 ? Color.FromArgb(3, 105, 161) : t < 70 ? Color.FromArgb(4, 120, 87) : t < 85 ? Color.FromArgb(180, 83, 9) : Color.FromArgb(185, 28, 28);
         return t < 45 ? Color.FromArgb(56, 189, 248) : t < 70 ? Color.FromArgb(52, 211, 153) : t < 85 ? Color.FromArgb(251, 191, 36) : Color.FromArgb(248, 113, 113);
     }
 

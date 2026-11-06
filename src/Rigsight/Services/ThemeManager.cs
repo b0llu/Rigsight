@@ -8,21 +8,23 @@ using Rigsight.Core.Settings;
 namespace Rigsight.Services;
 
 /// <summary>
-/// The app's theme: swaps the palette dictionary (Themes/Dark.xaml, Grey.xaml, Midnight.xaml, Forest.xaml, Ember.xaml
-/// or Light.xaml), puts a picked accent into it, switches the Fluent controls to match, and reloads the colors the
-/// custom-drawn charts use.
+/// The app's theme: swaps the palette dictionary (one of Themes/*.xaml, as <see cref="ThemeCatalog"/> lists them), puts a
+/// picked accent into it, switches the Fluent controls to match, and reloads the colors the custom-drawn charts use.
+/// "system" (Match Windows) shows the picked dark theme while Windows is dark and the picked light one while it's light.
 /// </summary>
 public static class ThemeManager
 {
-    public const string Dark = "dark", Grey = "grey", Midnight = "midnight", Forest = "forest", Ember = "ember", Light = "light", System = "system";
+    public const string Dark = "dark", Grey = "grey", Midnight = "midnight", Forest = "forest", Ember = "ember", Light = "light",
+        Soft = "soft", Paper = "paper", Mist = "mist", System = ThemeCatalog.System;
 
     /// <summary>The themes with a palette file of their own: what settings.json calls each, and its file's name.</summary>
-    private static readonly Dictionary<string, string> Palettes = new()
-    {
-        [Dark] = "Dark", [Grey] = "Grey", [Midnight] = "Midnight", [Forest] = "Forest", [Ember] = "Ember", [Light] = "Light",
-    };
+    private static readonly Dictionary<string, string> Palettes = ThemeCatalog.All.ToDictionary(t => t.Key, t => t.File);
+
+    /// <summary>The light themes: Fluent's light controls, the accents' deeper shades, a dark title bar's opposite.</summary>
+    public static bool IsLightTheme(string? mode) => ThemeCatalog.IsLight(mode);
 
     private static string _mode = Dark;
+    private static string _darkTheme = ThemeCatalog.DefaultDark, _lightTheme = ThemeCatalog.DefaultLight;
     private static string _accent = Accents.Mono;
     private static string? _palette;
     private static Color? _accentColor;
@@ -52,20 +54,24 @@ public static class ThemeManager
     /// <summary>Raised after the theme changed (not on the first apply).</summary>
     public static event Action? Changed;
 
-    /// <param name="mode">A theme's name ("dark", "grey", "midnight", "forest", "ember", "light") or "system" (follow Windows' app mode).</param>
+    /// <param name="mode">A theme's key from <see cref="ThemeCatalog"/> or "system" (Match Windows: follow Windows' app mode).</param>
     /// <param name="accent">A key from <see cref="Accents.All"/>, or "windows" (follow Windows' accent).</param>
     /// <param name="keepStatus">With an accent picked: readings stay blue, green, amber and red by how they are doing (warnings always do).</param>
-    public static void Apply(string? mode, string? accent = Accents.Mono, bool keepStatus = true)
+    /// <param name="darkTheme">With "system": the dark (or colorful) theme shown while Windows is dark.</param>
+    /// <param name="lightTheme">With "system": the light theme shown while Windows is light.</param>
+    public static void Apply(string? mode, string? accent = Accents.Mono, bool keepStatus = true, string? darkTheme = null, string? lightTheme = null)
     {
         _mode = mode is not null && (mode == System || Palettes.ContainsKey(mode)) ? mode : Dark;
+        _darkTheme = ThemeCatalog.IsDarkKind(darkTheme) ? darkTheme! : ThemeCatalog.DefaultDark;
+        _lightTheme = ThemeCatalog.IsLight(lightTheme) ? lightTheme! : ThemeCatalog.DefaultLight;
         _accent = Accents.Normalize(accent);
         if ((_mode == System || _accent == Accents.Windows) && !_listening)
         {
             _listening = true;
             SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
         }
-        bool light = _mode == Light || (_mode == System && WindowsUsesLight());
-        string name = _mode == System ? (light ? "Light" : "Dark") : Palettes[_mode];
+        bool light = IsLightTheme(_mode) || (_mode == System && WindowsUsesLight());
+        string name = Palettes[_mode == System ? (light ? _lightTheme : _darkTheme) : _mode];
         var accentColor = Accents.ColorFor(_accent, light);
         if (name == _palette && accentColor == _accentColor && keepStatus == _keepStatus) return;
 
@@ -78,7 +84,8 @@ public static class ThemeManager
         var own = (Color)palette["AccentColor"];
         if (accentColor is { } color) Accents.TakeOver(palette, color, goodToo: !keepStatus);
         // A theme with a coloured accent of its own: the palette's keys for the Fluent controls are written in black and white.
-        else if (own != Colors.White && own != Colors.Black) Accents.ApplyTo(palette, own);
+        // Soft, Paper and Mist are like Light: their accent is their own text colour, and their file already uses it.
+        else if (own != Colors.White && own != Colors.Black && own != (Color)palette["TextColor"]) Accents.ApplyTo(palette, own);
         Accents.Popups(palette);
         // The frame rate keeps its own blue (as parts keep theirs) until an accent is picked, then it is the accent.
         Accents.Fps(palette, accentColor ?? (light ? Color.FromRgb(0x25, 0x6F, 0xE8) : Color.FromRgb(0x4C, 0x9A, 0xFF)));
@@ -161,7 +168,7 @@ public static class ThemeManager
         // A change of Windows' accent arrives as General (or Color on some builds).
         if (e.Category is not (UserPreferenceCategory.General or UserPreferenceCategory.Color)) return;
         if (_mode != System && _accent != Accents.Windows) return;
-        Application.Current?.Dispatcher.BeginInvoke(() => Apply(_mode, _accent, _keepStatus));
+        Application.Current?.Dispatcher.BeginInvoke(() => Apply(_mode, _accent, _keepStatus, _darkTheme, _lightTheme));
     }
 
     /// <summary>Windows' own app mode is the light one.</summary>

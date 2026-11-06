@@ -31,6 +31,8 @@ public sealed class LookTests
     [InlineData(ThemeManager.Ember, Accents.Mono)]
     [InlineData(ThemeManager.Midnight, "pink")]
     [InlineData(ThemeManager.Light, "pink")]
+    [InlineData(ThemeManager.Paper, Accents.Mono)]
+    [InlineData(ThemeManager.Mist, "teal")]
     public void Dropdowns_and_menus_are_in_the_themes_own_shades_with_the_accent_as_the_mark(string theme, string accent)
     {
         // The user: on a brown theme the dropdowns and right-click menus were Windows' neutral grey with a grey mark.
@@ -45,6 +47,34 @@ public sealed class LookTests
                     Assert.Equal(Res("HoverColor"), BrushOf(key).Color);
                 Assert.Equal(Res("StrokeColor"), BrushOf("ContextMenuBorderBrush").Color);
                 Assert.Equal(Res("AccentColor"), BrushOf("ComboBoxItemPillFillBrush").Color);
+            });
+        }
+        finally { Reset(); }
+    }
+
+    [Theory]
+    [InlineData(ThemeManager.Soft, "Soft")]
+    [InlineData(ThemeManager.Paper, "Paper")]
+    [InlineData(ThemeManager.Mist, "Mist")]
+    public void A_lighter_light_theme_is_a_light_theme_with_its_own_page_and_its_text_colour_as_accent(string theme, string file)
+    {
+        // The user, 2026-11-05: "can we also add a lighter light theme?" then "how about all 3?".
+        try
+        {
+            Ui.Run(() =>
+            {
+                ThemeManager.Apply(theme);
+                Assert.True(ThemeManager.IsLight);
+                Assert.Equal(ThemeMode.Light, Application.Current.ThemeMode);
+                Assert.Single(Application.Current.Resources.MergedDictionaries, d => d.Source?.OriginalString.EndsWith($"Themes/{file}.xaml") == true);
+                Assert.NotEqual(Colors.White, Res("BgColor"));
+                // Like Light's black: the accent is the theme's own text colour, in the Fluent controls too.
+                Assert.Equal(Res("TextColor"), Res("AccentColor"));
+                Assert.Equal(Res("TextColor"), Res("SystemAccentColor"));
+                Assert.Equal(Colors.White, Res("OnAccentColor"));
+                // A picked accent takes its deeper, light-theme shade.
+                ThemeManager.Apply(theme, "green");
+                Assert.Equal((Color)ColorConverter.ConvertFromString("#137437"), Res("AccentColor"));
             });
         }
         finally { Reset(); }
@@ -80,7 +110,12 @@ public sealed class LookTests
 
                 // No accent was picked, so nothing is taken over: the parts and the warnings are the dark theme's.
                 Assert.False(ThemeManager.AccentTakesOver);
-                Assert.Equal((darkCpu, darkGpu, darkHot), (Res("CpuColor"), Res("GpuColor"), Res("HotColor")));
+                Assert.Equal((darkGpu, darkHot), (Res("GpuColor"), Res("HotColor")));
+                // The CPU is Dark's blue, one step lighter on the three coloured themes so it reads on their hover shade
+                // (2026-11-05): the same blue, never another colour.
+                Assert.Equal(Color.FromRgb(0x6E, 0x99, 0xFF), Res("CpuColor"));
+                double Hue(Color c) => System.Drawing.Color.FromArgb(c.R, c.G, c.B).GetHue();
+                Assert.InRange(Math.Abs(Hue(Res("CpuColor")) - Hue(darkCpu)), 0, 4);
                 Assert.Equal(Res("HoverColor"), BrushOf("SegmentOnBrush").Color);
                 Assert.Equal(Res("FaintColor"), BrushOf("ListBarBrush").Color);
             });
@@ -317,22 +352,83 @@ public sealed class LookTests
             Ui.Run(() =>
             {
                 var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings));
-                Assert.Equal(["dark", "grey", "midnight", "forest", "ember", "light", "system"], vm.ThemeOptions.Select(o => o.Key));
-                Assert.Equal(vm.ThemeOptions.Count, vm.ThemeOptions.Select(o => o.Name).Distinct().Count());
+                // Every theme, ten in each group, in the catalog's order, each with a name of its own.
+                Assert.Equal(Rigsight.Core.Settings.ThemeCatalog.All.Select(t => t.Key), vm.ThemeCards.Select(c => c.Key));
+                foreach (var g in Enum.GetValues<Rigsight.Core.Settings.ThemeCatalog.Group>())
+                    Assert.Equal(10, vm.ThemeCards.Count(c => c.Group == g));
+                Assert.Equal(vm.ThemeCards.Count, vm.ThemeCards.Select(c => c.Name).Distinct().Count());
                 Color Of(Brush b) => ((SolidColorBrush)b).Color;
-                Assert.Equal(Colors.Black, Of(vm.ThemeOptions[0].Bg));
-                Assert.Equal(Colors.White, Of(vm.ThemeOptions.Single(o => o.Key == "light").Bg));
-                var midnight = vm.ThemeOptions.Single(o => o.Key == "midnight");
+                Assert.Equal(Colors.Black, Of(vm.ThemeCards[0].Look.Bg));
+                Assert.Equal(Colors.White, Of(vm.ThemeCards.Single(o => o.Key == "light").Look.Bg));
+                var midnightCard = vm.ThemeCards.Single(o => o.Key == "midnight");
+                var midnight = midnightCard.Look;
                 Assert.NotEqual(Colors.White, Of(midnight.Accent));
                 Assert.NotEqual(Of(midnight.Bg), Of(midnight.Card));
-                Assert.Same(vm.ThemeOptions, vm.ThemeOptions); // one list: a new one would drop the picked card's ring
+                Assert.Same(vm.ThemeCards, vm.ThemeCards); // one list: a new one would drop the picked card's ring
+                // The tab opens on the theme's own group, ten cards whichever tab, and only the theme in use is picked.
+                Assert.Equal(Rigsight.Core.Settings.ThemeCatalog.Group.Dark, vm.ThemeGroup);
+                Assert.Equal(10, vm.VisibleThemes.Count);
+                Assert.Equal(["dark"], vm.ThemeCards.Where(c => c.IsPicked).Select(c => c.Key));
+                vm.ThemeGroup = Rigsight.Core.Settings.ThemeCatalog.Group.Colorful;
+                Assert.Equal(10, vm.VisibleThemes.Count);
+                Assert.All(vm.VisibleThemes, c => Assert.Equal(Rigsight.Core.Settings.ThemeCatalog.Group.Colorful, c.Group));
 
                 // Picking one saves it, and the first accent swatch becomes that theme's own accent.
-                vm.Theme = "midnight";
+                vm.PickThemeCommand.Execute(midnightCard);
                 Assert.Equal("midnight", settings.Current.Theme);
+                Assert.Equal("midnight", settings.Current.DarkTheme);
+                Assert.True(midnightCard.IsPicked);
+                Assert.Null(midnightCard.ModeTag);
                 ThemeManager.Apply(settings.Current.Theme, settings.Current.Accent, settings.Current.KeepStatusColors);
                 Assert.Equal(Of(midnight.Accent), Of(vm.AccentOptions[0].Brush));
                 Assert.Equal(Accents.Mono, vm.AccentOptions[0].Key);
+            });
+        }
+        finally { Reset(); }
+    }
+
+    [Fact]
+    public void Match_Windows_keeps_a_light_and_a_dark_pick_and_shows_the_one_for_Windows_mode()
+    {
+        // The user, 2026-11-05: no Look row; a Match Windows switch, then one light theme and one dark (or colorful) one.
+        var settings = Kit.OfflineSettings();
+        try
+        {
+            Ui.Run(() =>
+            {
+                var vm = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings));
+                ThemeCard Card(string key) => vm.ThemeCards.Single(c => c.Key == key);
+                vm.PickThemeCommand.Execute(Card("paper"));
+                Assert.Equal(("paper", "paper"), (settings.Current.Theme, settings.Current.LightTheme));
+                vm.PickThemeCommand.Execute(Card("plum"));
+                Assert.Equal(("plum", "plum", "paper"), (settings.Current.Theme, settings.Current.DarkTheme, settings.Current.LightTheme));
+                // Opened again, the tabs and the cards both open on the group of the theme in use.
+                var reopened = new SettingsViewModel(settings, new AgentClient(Ui.Dispatcher), new ReportService(settings));
+                Assert.Equal(Rigsight.Core.Settings.ThemeCatalog.Group.Colorful, reopened.ThemeGroup);
+                Assert.Contains(reopened.VisibleThemes, c => c.Key == "plum");
+
+                vm.MatchWindows = true;
+                Assert.Equal(ThemeManager.System, settings.Current.Theme);
+                Assert.Equal(["paper", "plum"], vm.ThemeCards.Where(c => c.IsPicked).Select(c => c.Key).Order());
+                Assert.Equal("Light mode", Card("paper").ModeTag);
+                Assert.Equal("Dark mode", Card("plum").ModeTag);
+                Assert.Equal("RigSight shows Paper while Windows is light and Plum while it's dark.", vm.MatchLine);
+
+                // With it on, a card changes only its own kind's pick.
+                vm.PickThemeCommand.Execute(Card("sage"));
+                Assert.Equal((ThemeManager.System, "sage", "plum"), (settings.Current.Theme, settings.Current.LightTheme, settings.Current.DarkTheme));
+                Assert.False(Card("paper").IsPicked);
+
+                // The window shows the pick for Windows' own mode.
+                ThemeManager.Apply(settings.Current.Theme, settings.Current.Accent, settings.Current.KeepStatusColors, settings.Current.DarkTheme, settings.Current.LightTheme);
+                string file = ThemeManager.WindowsUsesLight() ? "Themes/Sage.xaml" : "Themes/Plum.xaml";
+                Assert.Single(Application.Current.Resources.MergedDictionaries, d => d.Source?.OriginalString.EndsWith(file) == true);
+
+                // Off again: the theme Windows shows now stays.
+                vm.MatchWindows = false;
+                Assert.Equal(ThemeManager.WindowsUsesLight() ? "sage" : "plum", settings.Current.Theme);
+                Assert.Single(vm.ThemeCards, c => c.IsPicked);
+                Assert.All(vm.ThemeCards, c => Assert.Null(c.ModeTag));
             });
         }
         finally { Reset(); }

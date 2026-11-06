@@ -10,10 +10,10 @@
     <Color x:Key="StrokeColor">#1E2747</Color>
     <Color x:Key="TextColor">#EEF2FF</Color>
     <Color x:Key="MutedColor">#AAB4D4</Color>
-    <Color x:Key="FaintColor">#8490B4</Color>
+    <Color x:Key="FaintColor">#8E99BA</Color>
     <Color x:Key="AccentColor">#7AA2FF</Color>
     <Color x:Key="OnAccentColor">#0A0E1C</Color>
-    <Color x:Key="CpuColor">#5B8CFF</Color>
+    <Color x:Key="CpuColor">#6E99FF</Color>
     <Color x:Key="GpuColor">#22D3EE</Color>
     <Color x:Key="WarmColor">#FBBF24</Color>
     <Color x:Key="HotColor">#F87171</Color>

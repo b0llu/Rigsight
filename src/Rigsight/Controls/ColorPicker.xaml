@@ -13,7 +13,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" BorderThickness="2" BorderBrush="Transparent">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="{x:Static ctl:Corner.Field}" BorderThickness="2" BorderBrush="Transparent">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -42,8 +42,8 @@
                         <Grid>
                             <Rectangle x:Name="Dash" RadiusX="8" RadiusY="8" Fill="{DynamicResource Surface2Brush}" Stroke="{DynamicResource FaintBrush}"
                                        StrokeThickness="1" StrokeDashArray="3 2" />
-                            <Border x:Name="On" CornerRadius="8" BorderThickness="2" BorderBrush="{DynamicResource TextBrush}" Visibility="Collapsed" />
-                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource TextBrush}"
+                            <Border x:Name="On" CornerRadius="{x:Static ctl:Corner.Field}" BorderThickness="2" BorderBrush="{DynamicResource TextBrush}" Visibility="Collapsed" />
+                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource TextBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
                         <ControlTemplate.Triggers>
@@ -64,22 +64,22 @@
     <!-- Floats over the page, so nothing under it moves (opened by its owner next to the button pressed). -->
     <Popup x:Name="Pop" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Placement="Bottom" VerticalOffset="6">
         <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                          CornerRadius="12" Padding="13,12,13,12" Margin="0,0,8,8">
+                          CornerRadius="{x:Static ctl:Corner.Tile}" Padding="13,12,13,12" Margin="0,0,8,8">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
             </Border.Effect>
             <StackPanel Width="205">
-                <TextBlock x:Name="Heading" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="Heading" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
 
                 <TextBlock Text="{ctl:T 'NUMBER'}" Style="{StaticResource Caption}" Margin="0,12,0,8" />
                 <!-- Temperatures only: by how warm, as RigSight colours them everywhere -->
                 <Button x:Name="HeatButton" Style="{StaticResource Swatch}" Width="198" HorizontalAlignment="Left" Height="30" Background="{DynamicResource Surface2Brush}" Click="Heat_Click">
                     <StackPanel Orientation="Horizontal">
-                        <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource CoolBrush}" Margin="0,0,3,0" />
-                        <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource GoodBrush}" Margin="0,0,3,0" />
-                        <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource WarmBrush}" Margin="0,0,3,0" />
-                        <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource HotBrush}" Margin="0,0,8,0" />
-                        <TextBlock Text="{ctl:T 'By heat'}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                        <Border Width="9" Height="9" CornerRadius="{x:Static ctl:Corner.Bar}" Background="{DynamicResource CoolBrush}" Margin="0,0,3,0" />
+                        <Border Width="9" Height="9" CornerRadius="{x:Static ctl:Corner.Bar}" Background="{DynamicResource GoodBrush}" Margin="0,0,3,0" />
+                        <Border Width="9" Height="9" CornerRadius="{x:Static ctl:Corner.Bar}" Background="{DynamicResource WarmBrush}" Margin="0,0,3,0" />
+                        <Border Width="9" Height="9" CornerRadius="{x:Static ctl:Corner.Bar}" Background="{DynamicResource HotBrush}" Margin="0,0,8,0" />
+                        <TextBlock Text="{ctl:T 'By heat'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <!-- Three rows at most, the fourth half in sight so it's plain there are more to scroll to -->
@@ -102,7 +102,7 @@
                 <StackPanel x:Name="Custom" Visibility="Collapsed" Margin="0,4,0,0">
                     <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,0,0,12" />
                     <TextBlock x:Name="CustomHeading" Style="{StaticResource Caption}" Margin="0,0,0,10" />
-                    <Border Height="124" CornerRadius="8" ClipToBounds="True" Cursor="Cross" Background="Transparent"
+                    <Border Height="124" CornerRadius="{x:Static ctl:Corner.Field}" ClipToBounds="True" Cursor="Cross" Background="Transparent"
                             MouseLeftButtonDown="Square_Down" MouseMove="Square_Move" MouseLeftButtonUp="Drag_Up">
                         <Grid x:Name="Square">
                             <Rectangle x:Name="SquareHue" RadiusX="8" RadiusY="8" Fill="Red" />
@@ -155,11 +155,11 @@
                         </Canvas>
                     </Grid>
                     <DockPanel Margin="0,10,0,0">
-                        <Border x:Name="Preview" DockPanel.Dock="Left" Width="30" Height="30" CornerRadius="8" BorderThickness="1"
+                        <Border x:Name="Preview" DockPanel.Dock="Left" Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" BorderThickness="1"
                                 BorderBrush="{DynamicResource StrokeBrush}" Margin="0,0,8,0" />
                         <Button x:Name="UseButton" DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{ctl:T 'Use'}" Padding="12,6"
                                 Margin="8,0,0,0" Click="Use_Click" />
-                        <Border x:Name="CodeBox" Background="{DynamicResource Surface2Brush}" CornerRadius="6" BorderThickness="1" BorderBrush="Transparent">
+                        <Border x:Name="CodeBox" Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Small}" BorderThickness="1" BorderBrush="Transparent">
                             <TextBox x:Name="Code" Style="{StaticResource InlineEdit}" FontFamily="Cascadia Mono, Consolas" MaxLength="7"
                                      TextChanged="Code_Changed" KeyDown="Code_KeyDown" AutomationProperties.Name="{ctl:T 'Color code'}" />
                         </Border>
@@ -167,8 +167,8 @@
                 </StackPanel>
 
                 <DockPanel Margin="0,10,0,0">
-                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Default'}" Padding="11,5" FontSize="12" Click="Default_Click" />
-                    <TextBlock x:Name="DefaultText" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Default'}" Padding="11,5" FontSize="{x:Static ctl:TextSize.Small}" Click="Default_Click" />
+                    <TextBlock x:Name="DefaultText" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
                 </DockPanel>
             </StackPanel>
         </ctl:SmoothBorder>

@@ -20,8 +20,16 @@ public sealed class RigsightSettings
     /// <summary>The language the app and the agent show: "en" (built in) or a downloaded pack's code ("es").</summary>
     public string Language { get; set; } = LanguagePack.English;
 
-    /// <summary>The app's colors: "dark", "grey", "midnight", "forest", "ember", "light" or "system" (follow Windows).</summary>
+    /// <summary>The app's colors: a theme's key from <see cref="ThemeCatalog"/> ("dark", "paper", "plum"...) or "system" (follow Windows).</summary>
     public string Theme { get; set; } = "dark";
+
+    /// <summary>
+    /// The dark (or colorful) theme picked last: the one Same as Windows shows while Windows is dark, and the one the Dark
+    /// look returns to. <see cref="LightTheme"/> is the same for the light ones (2026-11-05).
+    /// </summary>
+    public string DarkTheme { get; set; } = ThemeCatalog.DefaultDark;
+
+    public string LightTheme { get; set; } = ThemeCatalog.DefaultLight;
 
     /// <summary>The app's accent: "mono" (the theme's own), a colour's name, or "windows" (follow Windows).</summary>
     public string Accent { get; set; } = "mono";

@@ -294,16 +294,22 @@ public sealed class ChartZoomUiTests
     }
 
     [Fact]
-    public void On_reports_the_switch_and_the_button_back_move_nothing()
+    public void On_reports_the_temperatures_switch_is_the_temperature_pages_and_moves_nothing()
     {
+        // The minute-by-minute card left Reports (2026-11-06): its Temperatures card has the same switch, the same pick
+        // as the Temperatures page, and picking moves nothing on the page.
         var settings = Kit.OfflineSettings();
         var live = Kit.Live(settings);
         Ui.TakeProblems();
         Ui.Run(() =>
         {
             var day = DateTime.Today.AddDays(-1);
+            var hours = Enumerable.Range(0, 24).Select(h => new DayBucket
+            {
+                Day = day.AddHours(h), OnSec = 3600, ActiveSec = 1800, CpuTempAvg = 50 + h % 5, CpuTempMax = 70, CpuTempMin = 40, GpuTempAvg = 45, GpuTempMax = 60, GpuTempMin = 38,
+            }).ToList();
             var vm = new ReportsViewModel(new ReportService(settings)) { Live = live };
-            vm.Report = new Report { Range = ReportRange.Day, From = day, To = day.AddDays(1), HasData = true, Temps = Temps(day) };
+            vm.Report = new Report { Range = ReportRange.Day, From = day, To = day.AddDays(1), HasData = true, Temps = Temps(day), Days = hours };
             vm.Ready = true;
             var view = new Views.ReportsView { DataContext = vm };
             var window = new Window { Content = view, Left = -32000, Top = -32000, Width = 1440, Height = 900, ShowActivated = false, ShowInTaskbar = false };
@@ -311,29 +317,22 @@ public sealed class ChartZoomUiTests
             try
             {
                 Ui.Pump(150);
-                var timeline = (DayTimeline)view.FindName("Timeline");
-                Assert.True(timeline.ActualWidth > 500, "the timeline isn't shown");
-                Point Where() => timeline.TranslatePoint(new Point(0, 0), view);
-                var before = (Where(), timeline.ActualWidth);
-                var button = Visuals.Descendants<System.Windows.Controls.Button>(view).Single(b => b.Command == timeline.ResetZoomCommand);
-                Assert.Equal(Visibility.Hidden, button.Visibility);
-
-                Drag(timeline, 300, 600);
-                Ui.Pump(150);
-                Assert.Equal(Visibility.Visible, button.Visibility);
-                Assert.Equal(before, (Where(), timeline.ActualWidth));
-                // The switch picks what the timeline draws, and Temperatures' pick with it.
+                var temps = Visuals.Descendants<PeriodTemps>(view).Single();
+                Assert.True(temps.ActualWidth > 500, "the Temperatures card isn't shown");
+                Assert.True(Visuals.Descendants<DailyBars>(view).Single().ActualWidth > 500, "the hours aren't shown");
+                Point Where() => temps.TranslatePoint(new Point(0, 0), view);
+                var before = (Where(), temps.ActualWidth);
                 vm.ChartPlot = "High";
-                Assert.Equal(("High", "High"), (timeline.Plot, live.ChartPlot));
-                button.Command.Execute(null);
                 Ui.Pump(150);
-                Assert.Equal(Visibility.Hidden, button.Visibility);
-                Assert.Equal(before, (Where(), timeline.ActualWidth));
+                Assert.Equal(("High", "High"), (temps.Plot, live.ChartPlot));
+                Assert.Equal(before, (Where(), temps.ActualWidth));
+                live.ChartPlot = "Low";
+                Assert.Equal("Low", temps.Plot);
                 live.ChartPlot = "Avg";
             }
             finally { window.Close(); }
         });
-        Ui.AssertNoProblems("reports minute by minute");
+        Ui.AssertNoProblems("reports temperatures");
     }
 
     [Fact]

@@ -136,15 +136,18 @@ public sealed class HistoryPageTests
             Ui.Run(() => { _ = vm.LoadAsync(); Assert.False(vm.Switching); Assert.True(vm.ShowLoading); });
             Kit.Wait(() => vm.LoadAsync());
             Ui.Run(() => { Assert.True(vm.ShowData); Assert.False(vm.ShowLoading); _ = vm.LoadAsync(); Assert.False(vm.Switching); });
-            // A week picked: the day's figures go at once, and the week's come with the loader gone.
+            // A week picked: the day's figures stay, under the cover and its ring, until the week's are read (issue #11:
+            // the page emptied and everything popped in at once); the heading changes with them.
+            var day = Ui.Run(() => (vm.Title, vm.Subtitle));
             Ui.Run(() =>
             {
                 vm.Range = ReportRange.Week;
                 Assert.True(vm.Switching);
-                Assert.True(vm.ShowLoading);
-                Assert.False(vm.ShowData);
+                Assert.True(vm.Covered);
+                Assert.False(vm.ShowLoading);
+                Assert.True(vm.ShowData);
                 Assert.False(vm.ShowEmpty);
-                Assert.Equal(("", ""), (vm.Title, vm.Subtitle)); // not the day's heading over a week on its way
+                Assert.Equal(day, (vm.Title, vm.Subtitle));
             });
             Kit.Wait(() => vm.LoadAsync());
             Ui.Run(() =>
@@ -152,6 +155,7 @@ public sealed class HistoryPageTests
                 Assert.False(vm.Switching);
                 Assert.False(vm.ShowLoading);
                 Assert.Equal(ReportRange.Week, vm.Report!.Range);
+                Assert.False(vm.Covered);
                 Assert.NotEqual("", vm.Title);
                 Assert.Equal(vm.HasData, vm.ShowData);
             });
@@ -173,16 +177,18 @@ public sealed class HistoryPageTests
             Assert.NotEqual("", vm.GamesLine);
             Assert.NotEqual("", vm.InternetLine);
             // The tile counts the PC's own problems; power cuts and app crashes are said under the number.
-            Assert.Equal(vm.Crashes.Any(c => PcUsual.CountsAsPcProblem(c.Event, c.Finding)), vm.ProblemsText != "0");
+            // None is said as a word, never a green 0 over a line of app crashes (2026-11-06).
+            Assert.Equal(vm.Crashes.Any(c => PcUsual.CountsAsPcProblem(c.Event, c.Finding)), vm.ProblemsText != "None");
+            Assert.Equal(vm.Crashes.Count == 0 ? "Good" : vm.ProblemsText == "None" ? "Plain" : vm.ProblemsTone, vm.ProblemsTone);
             Assert.Equal(vm.Crashes.Count == 0, vm.ProblemsLine == "No PC problems");
             Assert.Equal(vm.Report!.EnergyWh is > 0, vm.HasEnergy);
             Assert.Equal(vm.TimeSplit.Count >= 2, vm.HasTimeSplit);
             // A kind clicked shows alone on the days under it (a week, month or year), and again for all of them.
             if (vm.TimeRows.Count > 1)
             {
+                // A day too, since its bars are hours (2026-11-06).
                 vm.PickKindCommand.Execute(vm.TimeRows[0]);
-                Assert.Equal(vm.IsMultiDay ? vm.TimeRows[0].Part : null, vm.PickedKind);
-                if (vm.IsMultiDay)
+                Assert.Equal(vm.TimeRows[0].Part, vm.PickedKind);
                 {
                     Assert.All(vm.TimeRows.Skip(1), r => Assert.True(r.Dim));
                     Assert.EndsWith(vm.TimeRows[0].Part.Name, vm.BarsTitleShown);
@@ -191,15 +197,15 @@ public sealed class HistoryPageTests
                     Assert.Null(vm.PickedKind);
                 }
             }
-            // The totals are the tiles: not the first line of the list as well. Every other line shows, with no button to press.
-            Assert.DoesNotContain(vm.ShownInsights, i => i.Key == "screen");
-            Assert.Equal(vm.Insights.Count(i => i.Key != "screen"), vm.ShownInsights.Count);
-            // One list of highs: temperatures first, the voltages and the CPU's power after them.
+            // What another card or tile says isn't said again in the list (audit, 2026-11-06); every other line shows.
+            Assert.DoesNotContain(vm.ShownInsights, i => ReportsViewModel.SaidElsewhere.Contains(i.Key));
+            Assert.Equal(vm.Insights.Count(i => !ReportsViewModel.SaidElsewhere.Contains(i.Key)), vm.ShownInsights.Count);
+            // One list of highs, the page's own: no voltages (All sensors) and no fastest download (Network).
             var r = vm.Report!;
-            Assert.Equal(r.CpuVoltPeak is not null, vm.Peaks.Any(p => p.Label == "CPU core voltage"));
+            Assert.DoesNotContain(vm.Peaks, p => p.Label.Contains("voltage") || p.Label == "Fastest download");
             Assert.Equal(r.CpuPowerPeak is not null, vm.Peaks.Any(p => p.Label.StartsWith("CPU power", StringComparison.Ordinal)));
-            if (vm.Peaks.FindIndex(p => p.Label.Contains("voltage")) is >= 0 and var volt)
-                Assert.True(vm.Peaks.FindLastIndex(p => p.Label.Contains("temperature")) < volt);
+            Assert.True(vm.TopSessions.Count <= ReportsViewModel.SessionsShown);
+            Assert.DoesNotContain(vm.UsualRows, u => u.Key is "problems" or "power" && u.Tone != EffectTone.Worse);
             Assert.True(vm.Changes.Count <= ReportsViewModel.ChangesShown);
             Assert.Equal(vm.Changes.Count > 0, vm.HasChanges);
         });
@@ -427,7 +433,9 @@ public sealed class HistoryPageTests
             Assert.True(vm.IncludesNow);
             Assert.Equal("What stands out so far", vm.InsightsTitle);
             Assert.Null(vm.CoverageNote); // never for a day
-            Assert.Equal("Active time per day", vm.BarsTitle);
+            Assert.Equal("Active time per hour", vm.BarsTitle);
+            Assert.Equal("Temperatures per hour", vm.TempsTitle);
+            Assert.Equal(24, vm.Report.Days.Count);
             Assert.NotNull(vm.FirstDay);
             Assert.InRange((int)(DateTime.Today - vm.FirstDay!.Value).TotalDays + 1, 2, 15);
         });

@@ -13,7 +13,7 @@
         <!-- A row that opens with a click (no hover look: rows don't light up in Rigsight). -->
         <Style x:Key="RowButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -33,25 +33,25 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style x:Key="LegendText" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Label}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="Margin" Value="6,0,14,0" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style x:Key="Note" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <!-- A figure of the period's line: the number big, its word after it. -->
         <Style x:Key="Figure" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Body}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="Margin" Value="0,2,26,2" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style x:Key="FigureBig" TargetType="Run">
-            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Title}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         </Style>
@@ -77,12 +77,12 @@
             </Style.Triggers>
         </Style>
         <Style x:Key="KvLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Body}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="Margin" Value="0,3" />
         </Style>
         <Style x:Key="KvValue" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Body}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="HorizontalAlignment" Value="Right" />
@@ -121,14 +121,14 @@
                                         <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource SkyBrush}" />
                                         <TextBlock Text="{ctl:T 'Download'}" Style="{StaticResource LegendText}" />
                                     </StackPanel>
-                                    <TextBlock Text="{Binding DownNow}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
+                                    <TextBlock Text="{Binding DownNow}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <StackPanel Margin="30,0,0,0">
                                     <StackPanel Orientation="Horizontal">
                                         <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource PurpleBrush}" />
                                         <TextBlock Text="{ctl:T 'Upload'}" Style="{StaticResource LegendText}" />
                                     </StackPanel>
-                                    <TextBlock Text="{Binding UpNow}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
+                                    <TextBlock Text="{Binding UpNow}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
                                 </StackPanel>
                             </StackPanel>
                             <ctl:NetLiveChart Height="120" Margin="0,10,0,0" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
@@ -136,7 +136,7 @@
                                        Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <!-- Windows stopped delivering network events and the agent couldn't get them back. -->
                             <TextBlock Text="{ctl:T 'Internet use isn\'t being recorded right now. Restarting your PC should bring it back.'}"
-                                       FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource WarmBrush}" Margin="0,8,0,0"
+                                       FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Foreground="{DynamicResource WarmBrush}" Margin="0,8,0,0"
                                        Visibility="{Binding Stalled, Converter={StaticResource Vis}}" />
                         </StackPanel>
                     </Border>
@@ -145,7 +145,7 @@
                             <TextBlock Text="{ctl:T 'CONNECTION'}" Style="{StaticResource Caption}" />
                             <StackPanel Orientation="Horizontal" Margin="0,12,0,10">
                                 <Ellipse Style="{StaticResource LineDot}" />
-                                <TextBlock Text="{Binding LineWords}" FontSize="17" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding LineWords}" FontSize="{x:Static ctl:TextSize.SubtitlePlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -196,8 +196,8 @@
                                             <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="18" Height="18" />
                                             <TextBlock Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" Margin="10,0" VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
-                                            <TextBlock Grid.Column="2" Text="{Binding DownText}" FontSize="12.5" Foreground="{DynamicResource SkyBrush}" TextAlignment="Right" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="3" Text="{Binding UpText}" FontSize="12.5" Foreground="{DynamicResource PurpleBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding DownText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource SkyBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding UpText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource PurpleBrush}" TextAlignment="Right" VerticalAlignment="Center" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -210,12 +210,12 @@
             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
                 <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowCustom="False"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
-                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="30,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="30,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
 
             <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Muted}" TextWrapping="Wrap"
                        Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}" />
-            <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
+            <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,150,0,0"
                          Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
 
             <StackPanel Visibility="{Binding HasData, Converter={StaticResource Vis}}">
@@ -232,12 +232,12 @@
                         <!-- Used: the total, the download and upload bar, the two amounts in their colours. -->
                         <StackPanel Margin="20,14,20,15" AutomationProperties.Name="Used">
                             <TextBlock Text="{ctl:T 'USED'}" Style="{StaticResource Caption}" />
-                            <TextBlock Text="{Binding TotalText}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding TotalText}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
                             <Grid Height="6" Margin="0,9,0,0">
-                                <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
+                                <Border CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource Surface2Brush}" />
                                 <ctl:BarPair DownShare="{Binding DownShare}" UpShare="{Binding UpShare}" />
                             </Grid>
-                            <TextBlock FontSize="12.5" Margin="0,7,0,0" TextTrimming="CharacterEllipsis">
+                            <TextBlock FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,7,0,0" TextTrimming="CharacterEllipsis">
                                 <Run Text="↓" Foreground="{DynamicResource SkyBrush}" /> <Run Text="{Binding DownText, Mode=OneWay}" Foreground="{DynamicResource SkyBrush}" /><Run Text="    " /><Run Text="↑" Foreground="{DynamicResource PurpleBrush}" /> <Run Text="{Binding UpText, Mode=OneWay}" Foreground="{DynamicResource PurpleBrush}" />
                             </TextBlock>
                         </StackPanel>
@@ -246,26 +246,26 @@
                             <StackPanel Margin="20,14,20,15" AutomationProperties.Name="Downloaded">
                                 <TextBlock Text="{ctl:T 'DOWNLOADED'}" Style="{StaticResource Caption}" />
                                 <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                    <TextBlock Text="{Binding DownText}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                                    <Border CornerRadius="6" Background="{DynamicResource Surface2Brush}" Padding="7,1" Margin="8,0,0,0" VerticalAlignment="Center"
+                                    <TextBlock Text="{Binding DownText}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                    <Border CornerRadius="{x:Static ctl:Corner.Small}" Background="{DynamicResource Surface2Brush}" Padding="7,1" Margin="8,0,0,0" VerticalAlignment="Center"
                                             Visibility="{Binding HasCompareChip, Converter={StaticResource Vis}}">
-                                        <TextBlock Text="{Binding CompareChip}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                        <TextBlock Text="{Binding CompareChip}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                     </Border>
                                 </StackPanel>
                                 <!-- Wraps rather than cut: "About the same as the day before (11 GB)" is the whole point of the figure. -->
-                                <TextBlock Text="{Binding CompareText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding CompareText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
                         <!-- In the background: its share as a bar, and what moved with nobody there. -->
                         <Border Grid.Column="2" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0">
                             <StackPanel Margin="20,14,20,15" AutomationProperties.Name="In the background" ToolTip="{Binding BackgroundTip}">
                                 <TextBlock Text="{ctl:T 'IN THE BACKGROUND'}" Style="{StaticResource Caption}" />
-                                <TextBlock Text="{Binding BackgroundText}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding BackgroundText}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
                                 <Grid Height="6" Margin="0,9,0,0">
-                                    <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
+                                    <Border CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource Surface2Brush}" />
                                     <ctl:BarPair DownShare="{Binding BackgroundShare}" Opacity="0.55" />
                                 </Grid>
-                                <TextBlock Text="{Binding AwayText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,0"
+                                <TextBlock Text="{Binding AwayText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="0,7,0,0"
                                            TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
                             </StackPanel>
                         </Border>
@@ -281,7 +281,7 @@
                                     <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                                         <Ellipse Width="8" Height="8" Fill="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,2,8,0"
                                                  Visibility="{Binding NoDrops, Converter={StaticResource Vis}}" />
-                                        <TextBlock FontSize="24" FontWeight="SemiBold">
+                                        <TextBlock FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -295,7 +295,7 @@
                                             <Run Text="{Binding DropsCount, Mode=OneWay}" /> <Run Text="{Binding DropsWord, Mode=OneWay}" />
                                         </TextBlock>
                                     </StackPanel>
-                                    <TextBlock Text="{Binding ConnectionText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding ConnectionText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
                                 </StackPanel>
                             </DockPanel>
                         </Border>
@@ -332,8 +332,8 @@
                                     </StackPanel>
                                 </Border>
                                 <!-- Zoomed in: the stretch shown and the way back. The button keeps its place while hidden. -->
-                                <TextBlock Text="{Binding ZoomText}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" VerticalAlignment="Center" Margin="16,0,10,0" />
-                                <Button Command="{Binding ResetZoomCommand}" VerticalAlignment="Center" FontSize="12" AutomationProperties.Name="{Binding ResetText}">
+                                <TextBlock Text="{Binding ZoomText}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" VerticalAlignment="Center" Margin="16,0,10,0" />
+                                <Button Command="{Binding ResetZoomCommand}" VerticalAlignment="Center" FontSize="{x:Static ctl:TextSize.Small}" AutomationProperties.Name="{Binding ResetText}">
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
                                             <Setter Property="Visibility" Value="Hidden" />
@@ -345,7 +345,7 @@
                                         </Style>
                                     </Button.Style>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                        <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" />
                                         <TextBlock Text="{Binding ResetText}" />
                                     </StackPanel>
                                 </Button>
@@ -377,16 +377,16 @@
                                     MaxWidth="460" AutomationProperties.Name="Ping note">
                                 <StackPanel>
                                     <Border Width="44" Height="44" CornerRadius="22" Background="{DynamicResource Surface2Brush}" HorizontalAlignment="Center">
-                                        <TextBlock Text="{Binding PingNoteIcon}" Style="{StaticResource Icon}" FontSize="18" Foreground="{DynamicResource CpuBrush}"
+                                        <TextBlock Text="{Binding PingNoteIcon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S18}" Foreground="{DynamicResource CpuBrush}"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
-                                    <TextBlock Text="{Binding PingNoteTitle}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,12,0,0" />
-                                    <TextBlock Text="{Binding PingNoteBody}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,0" />
+                                    <TextBlock Text="{Binding PingNoteTitle}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,12,0,0" />
+                                    <TextBlock Text="{Binding PingNoteBody}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,0" />
                                     <StackPanel Visibility="{Binding PingNoteCollecting, Converter={StaticResource Vis}}" Margin="0,14,0,0" Width="280">
                                         <ProgressBar Height="6" Minimum="0" Maximum="1" Value="{Binding PingNoteProgress, Mode=OneWay}" Foreground="{DynamicResource CpuBrush}"
                                                      Background="{DynamicResource Surface2Brush}" BorderThickness="0" />
-                                        <TextBlock Text="{Binding PingNoteSoFar}" FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
-                                        <TextBlock Text="{Binding PingNoteNow}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                        <TextBlock Text="{Binding PingNoteSoFar}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                                        <TextBlock Text="{Binding PingNoteNow}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -395,16 +395,16 @@
                                    HorizontalOffset="{Binding HoverPoint.X}" VerticalOffset="{Binding HoverPoint.Y}" AllowsTransparency="True"
                                    IsHitTestVisible="False" Focusable="False">
                                 <Border Width="{x:Static ctl:NetBarsChart.HoverBoxWidth}" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource HoverBrush}"
-                                        BorderThickness="1" CornerRadius="10" DataContext="{Binding HoverBox}" Margin="0,0,8,8">
+                                        BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Control}" DataContext="{Binding HoverBox}" Margin="0,0,8,8">
                                     <Border.Effect>
                                         <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" />
                                     </Border.Effect>
                                     <StackPanel>
                                         <StackPanel Margin="14,10,14,9">
-                                            <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                            <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                             <StackPanel Orientation="Horizontal" Margin="0,4,0,0" Visibility="{Binding HasGame, Converter={StaticResource Vis}}">
                                                 <Image Source="{Binding GamePath, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="16" Height="16" />
-                                                <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="7,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="7,0,0,0" VerticalAlignment="Center">
                                                     <Run Text="{ctl:T 'Playing'}" /> <Run Text="{Binding Game, Mode=OneWay}" />
                                                 </TextBlock>
                                             </StackPanel>
@@ -412,11 +412,11 @@
                                         <Border Height="1" Background="{DynamicResource HoverBrush}" />
                                         <!-- Ping view: the usual big, the hour's spread on the graph's scale, three figures, packet loss, what was uploading. -->
                                         <StackPanel Margin="14,10,14,12" Visibility="{Binding IsPing, Converter={StaticResource Vis}}">
-                                            <TextBlock Text="{Binding Empty}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Visibility="{Binding HasEmpty, Converter={StaticResource Vis}}" />
+                                            <TextBlock Text="{Binding Empty}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Visibility="{Binding HasEmpty, Converter={StaticResource Vis}}" />
                                             <StackPanel Visibility="{Binding HasPingFigures, Converter={StaticResource Vis}}">
                                                 <TextBlock>
-                                                    <Run Text="{Binding PingBig, Mode=OneWay}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                                                    <Run Text="{ctl:T 'usual ping'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
+                                                    <Run Text="{Binding PingBig, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                    <Run Text="{ctl:T 'usual ping'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" />
                                                 </TextBlock>
                                                 <Canvas Width="{x:Static vm:NetHoverBox.RangeWidth}" Height="10" Margin="0,9,0,0" HorizontalAlignment="Left">
                                                     <Rectangle Width="{x:Static vm:NetHoverBox.RangeWidth}" Height="10" RadiusX="5" RadiusY="5" Fill="{DynamicResource Surface2Brush}" />
@@ -425,47 +425,47 @@
                                                     <Ellipse Canvas.Left="{Binding DotLeft}" Width="10" Height="10" Fill="{DynamicResource TextBrush}" Stroke="{DynamicResource CpuBrush}" StrokeThickness="2" />
                                                 </Canvas>
                                                 <DockPanel Width="{x:Static vm:NetHoverBox.RangeWidth}" HorizontalAlignment="Left" Margin="0,3,0,0">
-                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding ScaleTop}" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" />
-                                                    <TextBlock Text="0" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" />
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding ScaleTop}" FontSize="{x:Static ctl:TextSize.MiniPlus}" Foreground="{DynamicResource FaintBrush}" />
+                                                    <TextBlock Text="0" FontSize="{x:Static ctl:TextSize.MiniPlus}" Foreground="{DynamicResource FaintBrush}" />
                                                 </DockPanel>
-                                                <Border CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="9,7" Margin="0,8,0,0">
+                                                <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" Padding="9,7" Margin="0,8,0,0">
                                                     <UniformGrid Columns="3">
                                                         <StackPanel>
-                                                            <TextBlock Text="{ctl:T 'Usual'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
-                                                            <TextBlock Text="{Binding UsualText}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                            <TextBlock Text="{ctl:T 'Usual'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource MutedBrush}" />
+                                                            <TextBlock Text="{Binding UsualText}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                                         </StackPanel>
                                                         <StackPanel>
-                                                            <TextBlock Text="{ctl:T 'Most checks'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
-                                                            <TextBlock Text="{Binding MostText}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                            <TextBlock Text="{ctl:T 'Most checks'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource MutedBrush}" />
+                                                            <TextBlock Text="{Binding MostText}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                                         </StackPanel>
                                                         <StackPanel>
-                                                            <TextBlock Text="{ctl:T 'Highest'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" />
-                                                            <TextBlock Text="{Binding HighestText}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                            <TextBlock Text="{ctl:T 'Highest'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource MutedBrush}" />
+                                                            <TextBlock Text="{Binding HighestText}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                                         </StackPanel>
                                                     </UniformGrid>
                                                 </Border>
-                                                <TextBlock Text="{Binding Loss}" FontSize="12.5" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,9,0,0"
+                                                <TextBlock Text="{Binding Loss}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,9,0,0"
                                                            Visibility="{Binding HasLoss, Converter={StaticResource Vis}}" />
                                                 <StackPanel Orientation="Horizontal" Margin="0,9,0,0" Visibility="{Binding NoLoss, Converter={StaticResource Vis}}">
                                                     <Ellipse Width="7" Height="7" Fill="{DynamicResource GoodBrush}" VerticalAlignment="Center" />
-                                                    <TextBlock Text="{ctl:T 'No packet loss'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="7,0,0,0" />
+                                                    <TextBlock Text="{ctl:T 'No packet loss'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="7,0,0,0" />
                                                 </StackPanel>
-                                                <Border CornerRadius="7" Background="{DynamicResource Surface2Brush}" Padding="9,6" Margin="0,9,0,0" Visibility="{Binding HasContext, Converter={StaticResource Vis}}">
+                                                <Border CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" Padding="9,6" Margin="0,9,0,0" Visibility="{Binding HasContext, Converter={StaticResource Vis}}">
                                                     <StackPanel Orientation="Horizontal">
                                                         <Image Source="{Binding ContextPath, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="16" Height="16" />
-                                                        <TextBlock Text="{Binding Context}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" Margin="8,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="230" />
+                                                        <TextBlock Text="{Binding Context}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" Margin="8,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="230" />
                                                     </StackPanel>
                                                 </Border>
                                             </StackPanel>
                                         </StackPanel>
                                         <StackPanel Margin="14,10,14,11" Visibility="{Binding IsUsage, Converter={StaticResource Vis}}">
                                             <TextBlock Visibility="{Binding HasSplit, Converter={StaticResource Vis}}">
-                                                <Run Text="{Binding Total, Mode=OneWay}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                                                <Run Text="{ctl:T 'used'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
+                                                <Run Text="{Binding Total, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                <Run Text="{ctl:T 'used'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" />
                                             </TextBlock>
-                                            <TextBlock Text="{Binding Split}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" Visibility="{Binding HasSplit, Converter={StaticResource Vis}}" />
-                                            <TextBlock Text="{Binding Empty}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Visibility="{Binding HasEmpty, Converter={StaticResource Vis}}" />
-                                            <Border CornerRadius="7" Background="{DynamicResource Surface2Brush}" Padding="9,6" Margin="0,9,0,0" Visibility="{Binding HasPing, Converter={StaticResource Vis}}">
+                                            <TextBlock Text="{Binding Split}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" Visibility="{Binding HasSplit, Converter={StaticResource Vis}}" />
+                                            <TextBlock Text="{Binding Empty}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Visibility="{Binding HasEmpty, Converter={StaticResource Vis}}" />
+                                            <Border CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" Padding="9,6" Margin="0,9,0,0" Visibility="{Binding HasPing, Converter={StaticResource Vis}}">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Ellipse Width="7" Height="7" VerticalAlignment="Center">
                                                         <Ellipse.Style>
@@ -479,22 +479,22 @@
                                                             </Style>
                                                         </Ellipse.Style>
                                                     </Ellipse>
-                                                    <TextBlock FontSize="12.5" Margin="8,0,0,0">
+                                                    <TextBlock FontSize="{x:Static ctl:TextSize.Detail}" Margin="8,0,0,0">
                                                         <Run Text="{Binding Ping, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                                         <Run Text="· " Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding PingNote, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
                                                     </TextBlock>
                                                 </StackPanel>
                                             </Border>
-                                            <Border CornerRadius="7" Background="{DynamicResource AccentSoftBrush}" Padding="9,6" Margin="0,7,0,0" Visibility="{Binding HasSteam, Converter={StaticResource Vis}}">
+                                            <Border CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource AccentSoftBrush}" Padding="9,6" Margin="0,7,0,0" Visibility="{Binding HasSteam, Converter={StaticResource Vis}}">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Image Source="{Binding SteamPath, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="16" Height="16" />
-                                                    <TextBlock Text="{Binding Steam}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" Margin="8,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Steam}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" Margin="8,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </Border>
-                                            <TextBlock Text="{Binding Drop}" FontSize="12.5" Foreground="{DynamicResource WarmBrush}" Margin="0,8,0,0" TextWrapping="Wrap" Visibility="{Binding HasDrop, Converter={StaticResource Vis}}" />
-                                            <TextBlock Text="{Binding Missing}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0" Visibility="{Binding HasMissing, Converter={StaticResource Vis}}" />
+                                            <TextBlock Text="{Binding Drop}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource WarmBrush}" Margin="0,8,0,0" TextWrapping="Wrap" Visibility="{Binding HasDrop, Converter={StaticResource Vis}}" />
+                                            <TextBlock Text="{Binding Missing}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0" Visibility="{Binding HasMissing, Converter={StaticResource Vis}}" />
                                             <StackPanel Visibility="{Binding HasRows, Converter={StaticResource Vis}}" Margin="0,10,0,0">
-                                                <TextBlock Text="{ctl:T 'APPS'}" Style="{StaticResource Caption}" FontSize="10.5" Margin="0,0,0,3" />
+                                                <TextBlock Text="{ctl:T 'APPS'}" Style="{StaticResource Caption}" FontSize="{x:Static ctl:TextSize.MiniPlus}" Margin="0,0,0,3" />
                                                 <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate DataType="{x:Type vm:NetHoverRow}">
@@ -508,9 +508,9 @@
                                                                 <Rectangle Style="{StaticResource Swatch}" Fill="{Binding BrushKey, Converter={StaticResource ResourceBrush}}" />
                                                                 <Image Grid.Column="1" Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="16" Height="16" Margin="8,0,0,0" />
                                                                 <!-- Every other app together: a grid in the icon's place, so its name lines up with the others. -->
-                                                                <TextBlock Grid.Column="1" Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="12" Margin="10,0,0,0" HorizontalAlignment="Left"
+                                                                <TextBlock Grid.Column="1" Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="10,0,0,0" HorizontalAlignment="Left"
                                                                            Foreground="{DynamicResource MutedBrush}" Visibility="{Binding IsOthers, Converter={StaticResource Vis}}" />
-                                                                <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="12.5" Margin="8,0,8,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                                                <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="8,0,8,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
                                                                     <TextBlock.Style>
                                                                         <Style TargetType="TextBlock">
                                                                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -522,7 +522,7 @@
                                                                         </Style>
                                                                     </TextBlock.Style>
                                                                 </TextBlock>
-                                                                <TextBlock Grid.Column="3" Text="{Binding Amount}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="3" Text="{Binding Amount}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                                                             </Grid>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
@@ -530,7 +530,7 @@
                                             </StackPanel>
                                         </StackPanel>
                                         <Border Height="1" Background="{DynamicResource HoverBrush}" Visibility="{Binding HasFooter, Converter={StaticResource Vis}}" />
-                                        <TextBlock Text="{Binding Footer}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="14,7,14,8" TextWrapping="Wrap" Visibility="{Binding HasFooter, Converter={StaticResource Vis}}" />
+                                        <TextBlock Text="{Binding Footer}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" Margin="14,7,14,8" TextWrapping="Wrap" Visibility="{Binding HasFooter, Converter={StaticResource Vis}}" />
                                     </StackPanel>
                                 </Border>
                             </Popup>
@@ -551,8 +551,8 @@
                                         </Style>
                                     </Ellipse.Style>
                                 </Ellipse>
-                                <TextBlock Text="{Binding PingStatusText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                                <TextBlock x:Name="PingStatusLink" FontSize="12" Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding PingStatusText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="PingStatusLink" FontSize="{x:Static ctl:TextSize.Small}" Margin="10,0,0,0" VerticalAlignment="Center">
                                     <Hyperlink Command="{Binding PingStatusCommand}" Focusable="False" Foreground="{DynamicResource AccentBrush}"
                                                AutomationProperties.Name="{Binding PingStatusAction}"><Run Text="{Binding PingStatusAction, Mode=OneWay}" /></Hyperlink>
                                 </TextBlock>
@@ -560,14 +560,14 @@
                                 <Popup IsOpen="{Binding ConfirmStopOpen}" PlacementTarget="{Binding ElementName=PingStatusLink}" Placement="Top" HorizontalOffset="-24"
                                        StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
                                     <Border Width="340" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1"
-                                            CornerRadius="10" Padding="16,14" Margin="0,8,8,8" AutomationProperties.Name="Pause ping checks">
+                                            CornerRadius="{x:Static ctl:Corner.Control}" Padding="16,14" Margin="0,8,8,8" AutomationProperties.Name="Pause ping checks">
                                         <Border.Effect>
                                             <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" />
                                         </Border.Effect>
                                         <StackPanel>
-                                            <TextBlock Text="{ctl:T 'Pause ping checks?'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                            <TextBlock Text="{ctl:T 'Pause ping checks?'}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                             <TextBlock Text="{ctl:T 'Your router and your provider\'s router won\'t be pinged until you resume. The ping already checked stays on this graph. You can also resume in Settings › Tracking.'}"
-                                                       FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,14" />
+                                                       FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,14" />
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Cancel'}" Command="{Binding CancelStopPingCommand}" Margin="0,0,8,0" />
                                                 <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Pause checks'}" Command="{Binding StopPingCommand}" />
@@ -652,13 +652,13 @@
                                                     <ctl:NetSpark Grid.Column="2" Grid.RowSpan="2" Width="92" Height="22" Margin="0,0,12,0" VerticalAlignment="Center"
                                                                   Bars="{Binding Spark}" Brush="{Binding DotKey, Converter={StaticResource ResourceBrush}}"
                                                                   Visibility="{Binding HasSpark, Converter={StaticResource Vis}}" />
-                                                    <TextBlock Grid.Column="3" Text="{Binding Amount}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding Amount}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                                     <Grid Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Height="6" Margin="0,7,0,5"
                                                           Visibility="{Binding HasSpark, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                                        <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
+                                                        <Border CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource Surface2Brush}" />
                                                         <ctl:BarPair DownShare="{Binding DownBar}" UpShare="{Binding UpBar}" />
                                                     </Grid>
-                                                    <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding SubText}" FontSize="11.5" Margin="0,3,0,0"
+                                                    <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding SubText}" FontSize="{x:Static ctl:TextSize.Label}" Margin="0,3,0,0"
                                                                Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
                                                 </Grid>
                                             </Button>
@@ -674,10 +674,10 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Left" Margin="3,0,0,0" />
+                                        <TextBlock Text="&#xF0E2;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Left" Margin="3,0,0,0" />
                                         <StackPanel Grid.Column="1" Orientation="Horizontal">
                                             <TextBlock Text="{Binding SmallAppsText}" Style="{StaticResource Body}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="8,2,0,0" VerticalAlignment="Center">
+                                            <TextBlock FontSize="{x:Static ctl:TextSize.Mini}" Foreground="{DynamicResource MutedBrush}" Margin="8,2,0,0" VerticalAlignment="Center">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
                                                         <Setter Property="Text" Value="&#xE70D;" />
@@ -690,7 +690,7 @@
                                                 </TextBlock.Style>
                                             </TextBlock>
                                         </StackPanel>
-                                        <TextBlock Grid.Column="2" Text="{Binding SmallAppsAmount}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding SmallAppsAmount}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                     </Grid>
                                 </Button>
                                 <ItemsControl ItemsSource="{Binding SmallApps}" Focusable="False" Margin="0,0,16,6" AutomationProperties.Name="Apps under 1 MB"
@@ -704,8 +704,8 @@
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="16" Height="16" HorizontalAlignment="Left" Margin="2,0,0,0" />
-                                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="2" Text="{Binding Amount}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Amount}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -721,7 +721,7 @@
                             <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Nothing stood out.'}" Style="{StaticResource Note}" Margin="0,8,0,0"
                                        Visibility="{Binding HasHappenings, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <!-- What's said of the whole period: a summary set apart on top, with no time, the timeline under it. -->
-                            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="12,10" Margin="0,6,10,6"
+                            <Border DockPanel.Dock="Top" Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}" Padding="12,10" Margin="0,6,10,6"
                                     Visibility="{Binding HasSummary, Converter={StaticResource Vis}}">
                                 <ItemsControl ItemsSource="{Binding Summary}" Focusable="False" AutomationProperties.Name="Summary">
                                     <ItemsControl.ItemTemplate>
@@ -731,11 +731,11 @@
                                                     <ColumnDefinition Width="30" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="13" VerticalAlignment="Top" Margin="2,2,0,0"
+                                                <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" VerticalAlignment="Top" Margin="2,2,0,0"
                                                            Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
                                                 <StackPanel Grid.Column="1">
-                                                    <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
-                                                    <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                    <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                                Visibility="{Binding HasDetail, Converter={StaticResource Vis}}" />
                                                 </StackPanel>
                                             </Grid>
@@ -753,7 +753,7 @@
                                                 <Button Style="{StaticResource RowButton}" Command="{Binding DataContext.PickHappeningCommand, ElementName=Page}" CommandParameter="{Binding}"
                                                         IsEnabled="{Binding CanPick}" AutomationProperties.Name="{Binding Text}"
                                                         Visibility="{Binding IsHeader, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                                    <Border x:Name="Line" CornerRadius="9" Padding="8,8">
+                                                    <Border x:Name="Line" CornerRadius="{x:Static ctl:Corner.Button}" Padding="8,8">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="86" />
@@ -761,31 +761,31 @@
                                                                 <ColumnDefinition Width="*" />
                                                                 <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
-                                                            <TextBlock Text="{Binding When}" FontSize="12" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
+                                                            <TextBlock Text="{Binding When}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
                                                             <Image Grid.Column="1" Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="18" Height="18"
                                                                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,1,0,0" />
-                                                            <Border Grid.Column="1" Width="22" Height="22" CornerRadius="6" Background="{DynamicResource Surface2Brush}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                            <Border Grid.Column="1" Width="22" Height="22" CornerRadius="{x:Static ctl:Corner.Small}" Background="{DynamicResource Surface2Brush}" HorizontalAlignment="Left" VerticalAlignment="Top"
                                                                     Visibility="{Binding HasIcon, Converter={StaticResource Vis}}">
-                                                                <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                                            Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
                                                             </Border>
                                                             <StackPanel Grid.Column="2" Margin="4,0,10,0">
-                                                                <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource TextBrush}">
+                                                                <TextBlock TextWrapping="Wrap" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}">
                                                                     <Run Text="{Binding Text, Mode=OneWay}" />
                                                                     <InlineUIContainer BaselineAlignment="Center">
-                                                                        <Border CornerRadius="5" Background="{DynamicResource AccentSoftBrush}" Padding="6,0" Margin="4,0,0,0"
+                                                                        <Border CornerRadius="{x:Static ctl:Corner.Chip}" Background="{DynamicResource AccentSoftBrush}" Padding="6,0" Margin="4,0,0,0"
                                                                                 Visibility="{Binding IsNew, Converter={StaticResource Vis}}">
-                                                                            <TextBlock Text="{ctl:T 'New'}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                                                            <TextBlock Text="{ctl:T 'New'}" FontSize="{x:Static ctl:TextSize.MiniPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                                                         </Border>
                                                                     </InlineUIContainer>
                                                                 </TextBlock>
                                                                 <!-- What the ping did meanwhile: a plain fact, never a warning colour. -->
-                                                                <TextBlock Text="{Binding PingNote}" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0"
+                                                                <TextBlock Text="{Binding PingNote}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0"
                                                                            Visibility="{Binding HasPingNote, Converter={StaticResource Vis}}" />
-                                                                <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                                <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                                            Visibility="{Binding HasDetail, Converter={StaticResource Vis}}" />
                                                             </StackPanel>
-                                                            <TextBlock Grid.Column="3" Text="{Binding Amount}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                                            <TextBlock Grid.Column="3" Text="{Binding Amount}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
                                                                        Visibility="{Binding HasAmount, Converter={StaticResource Vis}}" />
                                                         </Grid>
                                                     </Border>

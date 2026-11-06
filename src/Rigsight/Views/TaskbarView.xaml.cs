@@ -10,6 +10,16 @@ public partial class TaskbarView : UserControl
 {
     private TaskbarSensorRow? _picking;
 
+    /// <summary>Side by side from this page width: the readings' rows keep room for their name, look and picture.</summary>
+    private const double WideFrom = 1240, RightWidth = 640;
+
+    private void Columns_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // Under the readings, the whole taskbar's own title keeps the space it had (its 26 px over it).
+        bool wide = Controls.PageColumns.Arrange(Columns, LeftColumn, RightColumn, RightWidth, WideFrom, stackedGap: 0);
+        WholeHeader.Height = wide && ReadingsHeader.ActualHeight > 0 ? ReadingsHeader.ActualHeight : double.NaN;
+    }
+
     public TaskbarView()
     {
         InitializeComponent();

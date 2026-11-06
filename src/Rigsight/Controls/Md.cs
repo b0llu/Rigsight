@@ -41,7 +41,7 @@ public static partial class Md
         {
             if (piece.File is { } file) { span.Inlines.Add(Chip(file)); continue; }
             Inline inline = new Run(piece.Text);
-            if (piece.Code) { inline.FontFamily = Mono; inline.FontSize = 12.5; }
+            if (piece.Code) { inline.FontFamily = Mono; inline.FontSize = TextSize.Detail; }
             if (piece.Bold) inline.FontWeight = FontWeights.SemiBold;
             if (piece.Italic) inline.FontStyle = FontStyles.Italic;
             span.Inlines.Add(inline);
@@ -55,15 +55,15 @@ public static partial class Md
     private static Inline Chip(FileRef f)
     {
         var good = (Brush)Application.Current.FindResource("GoodBrush");
-        var name = new System.Windows.Controls.TextBlock { Text = f.Name, FontFamily = Mono, FontSize = 12, VerticalAlignment = VerticalAlignment.Center,
+        var name = new System.Windows.Controls.TextBlock { Text = f.Name, FontFamily = Mono, FontSize = TextSize.Small, VerticalAlignment = VerticalAlignment.Center,
             Foreground = (Brush)Application.Current.FindResource("TextBrush"), TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 320 };
-        var mark = new InkCentered { Text = "\uE8A5", Font = "Segoe Fluent Icons, Segoe MDL2 Assets", FontSize = 11, Width = 11, Height = 16, Fill = good, Margin = new Thickness(0, 0, 5, 0) };
+        var mark = new InkCentered { Text = "\uE8A5", Font = "Segoe Fluent Icons, Segoe MDL2 Assets", FontSize = IconSize.S11, Width = 11, Height = 16, Fill = good, Margin = new Thickness(0, 0, 5, 0) };
         var row = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
         row.Children.Add(mark);
         row.Children.Add(name);
         var chip = new System.Windows.Controls.Border
         {
-            Child = row, CornerRadius = new CornerRadius(5), Padding = new Thickness(5, 3, 6, 0), Margin = new Thickness(1, 3, 1, -2),
+            Child = row, CornerRadius = Corner.Chip, Padding = new Thickness(5, 3, 6, 0), Margin = new Thickness(1, 3, 1, -2),
             BorderThickness = new Thickness(1), BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, ((SolidColorBrush)good).Color.R, ((SolidColorBrush)good).Color.G, ((SolidColorBrush)good).Color.B)),
             Background = new SolidColorBrush(Color.FromArgb(0x1C, ((SolidColorBrush)good).Color.R, ((SolidColorBrush)good).Color.G, ((SolidColorBrush)good).Color.B)),
             Cursor = System.Windows.Input.Cursors.Hand,

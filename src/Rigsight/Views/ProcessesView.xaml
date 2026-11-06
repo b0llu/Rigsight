@@ -24,7 +24,7 @@
         <!-- The figures: grey, and white and semi-bold in the column the list is sorted by. The only colour on this
              page is in the four totals. -->
         <Style x:Key="Fig" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Body}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -76,8 +76,8 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
-                            <TextBlock Text="{Binding Label}" FontSize="11" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}" />
-                            <TextBlock x:Name="Arrow" Text="{Binding Arrow}" FontSize="11" Margin="5,0,0,0" Foreground="{DynamicResource FaintBrush}" Opacity="0" />
+                            <TextBlock Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}" />
+                            <TextBlock x:Name="Arrow" Text="{Binding Arrow}" FontSize="{x:Static ctl:TextSize.Caption}" Margin="5,0,0,0" Foreground="{DynamicResource FaintBrush}" Opacity="0" />
                         </StackPanel>
                         <ControlTemplate.Triggers>
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
@@ -100,7 +100,7 @@
              that is open (see the row's template), so the other rows stay as light as they were. -->
         <DataTemplate x:Key="OpenedApp">
             <StackPanel>
-                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Margin="10,2,10,4" Padding="16,13,16,14">
+                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}" Margin="10,2,10,4" Padding="16,13,16,14">
                     <StackPanel>
                         <DockPanel>
                             <!-- The history is being read: the line says what it can meanwhile. -->
@@ -112,7 +112,7 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="0,0,26,4">
+                                        <TextBlock FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,26,4">
                                             <Run Text="{Binding Label, Mode=OneWay}" /> <Run Text="{Binding Value, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
                                         </TextBlock>
                                     </DataTemplate>
@@ -125,9 +125,9 @@
                                 <TextBlock Text="{ctl:T 'MEMORY TODAY'}" Style="{StaticResource Caption}" Margin="0,0,0,6" />
                                 <ctl:HourLine Height="44" Values="{Binding History.Hours}" Usual="{Binding History.UsualMB}" />
                                 <DockPanel Margin="0,4,0,0">
-                                    <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
-                                    <TextBlock DockPanel.Dock="Left" Text="{ctl:T '12 AM'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
-                                    <TextBlock Text="{ctl:T 'Dashed line is its usual'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center"
+                                    <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" />
+                                    <TextBlock DockPanel.Dock="Left" Text="{ctl:T '12 AM'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" />
+                                    <TextBlock Text="{ctl:T 'Dashed line is its usual'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center"
                                                Visibility="{Binding History.UsualMB, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
                                 </DockPanel>
                             </StackPanel>
@@ -143,7 +143,7 @@
                                             <StackPanel Orientation="Horizontal" Margin="0,0,26,4">
                                                 <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" VerticalAlignment="Center" Margin="0,1,8,0"
                                                            Fill="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
-                                                <TextBlock FontSize="13" Foreground="{DynamicResource MutedBrush}">
+                                                <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}">
                                                     <Run Text="{Binding Name, Mode=OneWay}" /> <Run Text="{Binding Text, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
                                                 </TextBlock>
                                             </StackPanel>
@@ -161,7 +161,7 @@
                 <ItemsControl ItemsSource="{Binding Children}" Focusable="False" Visibility="{Binding ShowChildren, Converter={StaticResource Vis}}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border x:Name="Line" Background="Transparent" CornerRadius="8" Padding="10,5" MouseRightButtonUp="Process_RightClick">
+                            <Border x:Name="Line" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Field}" Padding="10,5" MouseRightButtonUp="Process_RightClick">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -175,7 +175,7 @@
                                                Fill="{Binding KindBrush, Converter={StaticResource ResourceBrush}}"
                                                Visibility="{Binding HasKind, Converter={StaticResource Vis}}" />
                                     <TextBlock Margin="54,0,16,0" Style="{StaticResource Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Label}">
-                                        <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding PidText, Mode=OneWay}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                        <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding PidText, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" />
                                     </TextBlock>
                                     <TextBlock Grid.Column="1" Text="{Binding MemText}" Style="{StaticResource FigMemory}" />
                                     <TextBlock Grid.Column="2" Text="{Binding CpuCell}" Style="{StaticResource FigCpu}" />
@@ -271,9 +271,9 @@
                                         <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" />
                                     </StackPanel>
                                     <TextBlock Margin="0,6,0,0" TextTrimming="CharacterEllipsis">
-                                        <Run Text="{Binding Value, Mode=OneWay}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="  " /><Run Text="{Binding Note, Mode=OneWay}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                        <Run Text="{Binding Value, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="  " /><Run Text="{Binding Note, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                                     </TextBlock>
-                                    <TextBlock Text="{Binding Most}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Most}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
                                     <!-- Across the whole foot of the tile, edge to edge (the margins undo the card's padding), and stretched
                                          over the readings there are: a page just opened showed a squiggle in one corner. -->
                                     <ctl:Sparkline Height="40" Margin="-18,10,-18,-12" Source="{Binding History}" Version="{Binding Version}" Kind="{Binding Kind}" Minimum="0" FitToData="True" FootRadius="15"
@@ -287,7 +287,7 @@
                 <ctl:SmoothBorder Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,8,20">
-                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Only apps with windows'}" FontSize="12.5" IsChecked="{Binding OnlyWindowed}" />
+                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Only apps with windows'}" FontSize="{x:Static ctl:TextSize.Detail}" IsChecked="{Binding OnlyWindowed}" />
                             <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search apps…'}" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
                                      AutomationProperties.Name="{ctl:T 'Search the running apps'}" ctl:Debounce.Text="{Binding Search}" />
                             <TextBlock Text="{ctl:T 'Running now'}" Style="{StaticResource H2}" />
@@ -315,7 +315,7 @@
                                    Visibility="{Binding NoneMatch, Converter={StaticResource Vis}}" />
                         <Grid>
                             <!-- The list arrives from the agent a moment after the window opens: the box says it's on its way. -->
-                            <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,8,40"
+                            <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,8,40"
                                          Visibility="{Binding Live.AppsPending, Converter={StaticResource Vis}}" />
                             <!-- Click an app for its processes; right-click it, or its dots, for its menu; Ctrl+click picks several. -->
                             <ListBox x:Name="LiveList" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource ProcItem}" ItemsSource="{Binding Apps}"
@@ -323,7 +323,7 @@
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel x:Name="Root" Margin="0,0,8,0">
-                                            <Border x:Name="Head" Background="Transparent" CornerRadius="10" Padding="10,8" MouseLeftButtonUp="App_Click" MouseRightButtonUp="App_RightClick">
+                                            <Border x:Name="Head" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Control}" Padding="10,8" MouseLeftButtonUp="App_Click" MouseRightButtonUp="App_RightClick">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
@@ -335,16 +335,16 @@
                                                     </Grid.ColumnDefinitions>
                                                     <DockPanel>
                                                         <Grid Width="20" VerticalAlignment="Center">
-                                                            <TextBlock x:Name="Chevron" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource MutedBrush}"
+                                                            <TextBlock x:Name="Chevron" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
                                                                        HorizontalAlignment="Left" VerticalAlignment="Center" />
                                                             <!-- Turns while the app's processes are on their way from the agent, as on Memory. -->
-                                                            <ctl:Spinner x:Name="Opening" Width="10" Height="10" StrokeThickness="1.5" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                            <ctl:Spinner x:Name="Opening" Width="10" Height="10" StrokeThickness="2" HorizontalAlignment="Left" VerticalAlignment="Center"
                                                                          Visibility="Collapsed" />
                                                         </Grid>
                                                         <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="22" Height="22" />
                                                         <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
                                                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
-                                                            <TextBlock Text="{Binding CountText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" />
+                                                            <TextBlock Text="{Binding CountText}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" />
                                                         </StackPanel>
                                                     </DockPanel>
                                                     <TextBlock Grid.Column="1" Text="{Binding MemText}" Style="{StaticResource FigMemory}" />
@@ -400,11 +400,11 @@
         </ScrollViewer>
 
         <!-- What just happened ("Ended Discord · 1.1 GB freed"), at the bottom of the page for a moment. -->
-        <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,28" Padding="16,10" CornerRadius="10" IsHitTestVisible="False"
+        <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,28" Padding="16,10" CornerRadius="{x:Static ctl:Corner.Control}" IsHitTestVisible="False"
                 Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                 Visibility="{Binding Message, Converter={StaticResource Vis}}">
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource WarmBrush}" Margin="0,0,9,0"
+                <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource WarmBrush}" Margin="0,0,9,0"
                            Visibility="{Binding MessageWarns, Converter={StaticResource Vis}}" />
                 <TextBlock Text="{Binding Message}" Style="{StaticResource Body}" AutomationProperties.LiveSetting="Polite" />
             </StackPanel>

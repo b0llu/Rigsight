@@ -10,10 +10,10 @@ namespace Rigsight.Agent.Ui;
 /// </summary>
 internal sealed class DarkMenuRenderer() : ToolStripProfessionalRenderer(new MenuColors())
 {
-    /// <summary>The app's Theme setting ("dark", "grey", "light" or "system"), kept up to date by the agent.</summary>
+    /// <summary>The app's Theme setting (a theme's key or "system"), kept up to date by the agent.</summary>
     public static string Theme { get; set; } = "dark";
 
-    internal static bool Light => Theme == "light" || Theme == "system" && WidgetRenderer.WindowsUsesLight();
+    internal static bool Light => Rigsight.Core.Settings.ThemeCatalog.IsLight(Theme) || Theme == Rigsight.Core.Settings.ThemeCatalog.System && WidgetRenderer.WindowsUsesLight();
 
     internal static bool Grey => Theme == "grey";
 

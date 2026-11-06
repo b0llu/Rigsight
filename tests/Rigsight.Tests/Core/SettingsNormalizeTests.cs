@@ -46,6 +46,11 @@ public sealed class SettingsNormalizeTests
     [InlineData("midnight", "midnight")]
     [InlineData("forest", "forest")]
     [InlineData("ember", "ember")]
+    [InlineData("soft", "soft")]
+    [InlineData("paper", "paper")]
+    [InlineData("mist", "mist")]
+    [InlineData("neon", "neon")]
+    [InlineData("contrast", "contrast")]
     [InlineData("system", "system")]
     [InlineData("blue", "dark")]
     [InlineData("", "dark")]
@@ -55,6 +60,21 @@ public sealed class SettingsNormalizeTests
 
     [Fact]
     public void A_null_theme_falls_back_to_dark() => Assert.Equal("dark", Load("\"Theme\": null").Theme);
+
+    [Fact]
+    public void Match_Windows_keeps_a_light_and_a_dark_pick_and_older_settings_start_from_the_theme_in_use()
+    {
+        // From before the two picks: the theme in use fills its kind's pick, the other is the default.
+        var old = Load("\"Theme\": \"plum\"");
+        Assert.Equal(("plum", "light"), (old.DarkTheme, old.LightTheme));
+        var oldLight = Load("\"Theme\": \"paper\"");
+        Assert.Equal(("dark", "paper"), (oldLight.DarkTheme, oldLight.LightTheme));
+        // A light theme can't stand in for dark (nor the other way), nor can something unknown.
+        var wrong = Load("\"Theme\": \"system\", \"DarkTheme\": \"paper\", \"LightTheme\": \"midnight\"");
+        Assert.Equal(("system", "dark", "light"), (wrong.Theme, wrong.DarkTheme, wrong.LightTheme));
+        var kept = Load("\"Theme\": \"system\", \"DarkTheme\": \"neon\", \"LightTheme\": \"sage\"");
+        Assert.Equal(("neon", "sage"), (kept.DarkTheme, kept.LightTheme));
+    }
 
     [Theory]
     [InlineData(0, 500)]

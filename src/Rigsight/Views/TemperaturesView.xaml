@@ -40,7 +40,7 @@
                             <!-- A DockPanel, so the sentence is held to the card's width and wraps on a narrow window (in a
                                  horizontal StackPanel it ran past the edge and was cut). -->
                             <DockPanel>
-                                <TextBlock DockPanel.Dock="Left" Text="&#xEA18;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,3,9,0" VerticalAlignment="Top" />
+                                <TextBlock DockPanel.Dock="Left" Text="&#xEA18;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" Margin="0,3,9,0" VerticalAlignment="Top" />
                                 <TextBlock Text="{ctl:T 'Temperature, power and clock speed need admin rights on this PC.'}" Style="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center" />
                             </DockPanel>
                         </Border>
@@ -56,8 +56,8 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Height="40" Margin="2,0" CornerRadius="4" Background="{DynamicResource Surface2Brush}" ToolTip="{Binding FormattedValue}">
-                                            <Border VerticalAlignment="Bottom" CornerRadius="4" Background="{DynamicResource CpuBrush}"
+                                        <Border Height="40" Margin="2,0" CornerRadius="{x:Static ctl:Corner.Tag}" Background="{DynamicResource Surface2Brush}" ToolTip="{Binding FormattedValue}">
+                                            <Border VerticalAlignment="Bottom" CornerRadius="{x:Static ctl:Corner.Tag}" Background="{DynamicResource CpuBrush}"
                                                     Height="{Binding Value, Converter={StaticResource Scale}, ConverterParameter=0.4}" />
                                         </Border>
                                     </DataTemplate>
@@ -73,10 +73,10 @@
                             <Grid Width="190" Height="190" VerticalAlignment="Center" HorizontalAlignment="Center">
                                 <ctl:ArcGauge Value="{Binding CpuLoad.Value}" Maximum="100" Thickness="13" Brush="{DynamicResource CpuBrush}" />
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding CpuLoad.Value, StringFormat='{}{0:0}%', FallbackValue='—', TargetNullValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                    <TextBlock Text="{Binding CpuLoad.Value, StringFormat='{}{0:0}%', FallbackValue='—', TargetNullValue='—'}" FontSize="{x:Static ctl:TextSize.Gauge}" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                Foreground="{DynamicResource CpuBrush}" />
                                     <TextBlock Text="{ctl:T LOAD}" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding CpuLoad.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding CpuLoad.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <StackPanel VerticalAlignment="Center" Margin="12,0,0,0">
@@ -89,8 +89,8 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Height="96" Margin="4" CornerRadius="5" Background="{DynamicResource Surface2Brush}" ToolTip="{Binding FormattedValue}">
-                                                <Border VerticalAlignment="Bottom" CornerRadius="5" Background="{DynamicResource CpuBrush}"
+                                            <Border Height="96" Margin="4" CornerRadius="{x:Static ctl:Corner.Chip}" Background="{DynamicResource Surface2Brush}" ToolTip="{Binding FormattedValue}">
+                                                <Border VerticalAlignment="Bottom" CornerRadius="{x:Static ctl:Corner.Chip}" Background="{DynamicResource CpuBrush}"
                                                         Height="{Binding Value, Converter={StaticResource Scale}, ConverterParameter=0.96}" />
                                             </Border>
                                         </DataTemplate>
@@ -105,10 +105,10 @@
                                 <ctl:ArcGauge Value="{Binding CpuTemp.Value}" Maximum="100" Thickness="13"
                                               Brush="{Binding CpuTemp.Value, Converter={StaticResource TempBrush}}" />
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding CpuTemp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                    <TextBlock Text="{Binding CpuTemp.ShortValue, FallbackValue='—'}" FontSize="{x:Static ctl:TextSize.Gauge}" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                Foreground="{Binding CpuTemp.Value, Converter={StaticResource TempBrush}}" />
                                     <TextBlock Text="{ctl:T TEMPERATURE}" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding CpuTemp.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding CpuTemp.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <UniformGrid Columns="2">
@@ -143,13 +143,13 @@
 
                         <StackPanel DockPanel.Dock="Bottom" Margin="5,14,5,0" Visibility="{Binding SelectedGpu.HasVram, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
                             <DockPanel Margin="0,0,0,8">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedGpu.VramText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedGpu.VramText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                                 <TextBlock Text="{ctl:T 'VIDEO MEMORY'}" Style="{StaticResource Caption}" />
                             </DockPanel>
                             <ProgressBar Style="{StaticResource Bar}" Height="8" Foreground="{DynamicResource GpuBrush}"
                                          Value="{Binding SelectedGpu.VramPercent, Mode=OneWay, FallbackValue=0}" />
                             <DockPanel Margin="0,12,0,0">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedGpu.Clock.FormattedValue, FallbackValue='—'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedGpu.Clock.FormattedValue, FallbackValue='—'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                                 <TextBlock Text="{ctl:T 'CORE CLOCK'}" Style="{StaticResource Caption}" />
                             </DockPanel>
                         </StackPanel>
@@ -160,10 +160,10 @@
                                 <ctl:ArcGauge Value="{Binding SelectedGpu.Temp.Value}" Maximum="100" Thickness="13"
                                               Brush="{Binding SelectedGpu.Temp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding SelectedGpu.Temp.ShortValue, FallbackValue='—'}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                    <TextBlock Text="{Binding SelectedGpu.Temp.ShortValue, FallbackValue='—'}" FontSize="{x:Static ctl:TextSize.Gauge}" FontWeight="SemiBold" HorizontalAlignment="Center"
                                                Foreground="{Binding SelectedGpu.Temp.Value, Converter={StaticResource TempBrush}, ConverterParameter='45,70,83'}" />
                                     <TextBlock Text="{ctl:T TEMPERATURE}" Style="{StaticResource Caption}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding SelectedGpu.Temp.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="11" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding SelectedGpu.Temp.MinMaxText}" ToolTip="{ctl:T 'Lowest and highest today'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
                             <UniformGrid Columns="2">
@@ -200,7 +200,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </StackPanel.Style>
-                            <TextBlock Text="{Binding ChartPlotLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ChartPlotLabel}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,0,10,0" VerticalAlignment="Center" />
                             <Border Style="{StaticResource SegmentHost}">
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton Style="{StaticResource Segment}" GroupName="ChartPlot" Content="{ctl:T Average}"
@@ -221,7 +221,7 @@
                         <Popup x:Name="RangeMenu" PlacementTarget="{Binding ElementName=ChartPager}" Placement="Custom" StaysOpen="False"
                                AllowsTransparency="True" PopupAnimation="Fade" Closed="RangeMenu_Closed">
                             <Border Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                                    CornerRadius="12" Padding="6" MinWidth="210" Margin="0,0,8,8">
+                                    CornerRadius="{x:Static ctl:Corner.Tile}" Padding="6" MinWidth="210" Margin="0,0,8,8">
                                 <Border.Effect>
                                     <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                                 </Border.Effect>
@@ -237,11 +237,11 @@
                                             <Setter Property="Template">
                                                 <Setter.Value>
                                                     <ControlTemplate TargetType="Button">
-                                                        <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="10,8">
+                                                        <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Field}" Padding="10,8">
                                                             <DockPanel>
-                                                                <TextBlock x:Name="Tick" DockPanel.Dock="Left" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12"
+                                                                <TextBlock x:Name="Tick" DockPanel.Dock="Left" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}"
                                                                            Foreground="{DynamicResource AccentBrush}" Width="16" TextAlignment="Center" Visibility="Hidden" />
-                                                                <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center" TextElement.FontSize="13"
+                                                                <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center" TextElement.FontSize="{x:Static ctl:TextSize.Body}"
                                                                                   TextElement.Foreground="{TemplateBinding Foreground}" />
                                                             </DockPanel>
                                                         </Border>
@@ -293,10 +293,10 @@
                              sit after the title, in the room before the pickers; the button keeps its place while hidden. -->
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{ctl:T History}" Style="{StaticResource H2}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding ZoomText, ElementName=HistoryChart}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5"
+                            <TextBlock Text="{Binding ZoomText, ElementName=HistoryChart}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}"
                                        VerticalAlignment="Center" Margin="16,0,10,0" />
                             <Button Command="{Binding ResetZoomCommand, ElementName=HistoryChart}" AutomationProperties.Name="{Binding ResetText, ElementName=HistoryChart}"
-                                    VerticalAlignment="Center" FontSize="12">
+                                    VerticalAlignment="Center" FontSize="{x:Static ctl:TextSize.Small}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
                                         <Setter Property="Visibility" Value="Hidden" />
@@ -308,7 +308,7 @@
                                     </Style>
                                 </Button.Style>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                    <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" />
                                     <TextBlock Text="{Binding ResetText, ElementName=HistoryChart}" />
                                 </StackPanel>
                             </Button>
@@ -330,9 +330,9 @@
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,22,0">
                                     <Ellipse Width="8" Height="8" Fill="{Binding Brush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding Label}" Margin="8,0,6,0" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                    <TextBlock x:Name="Peak" Text="{Binding PeakText}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Visibility="Collapsed" />
-                                    <TextBlock x:Name="When" Text="{Binding PeakWhen}" Margin="6,0,0,0" FontSize="12" Foreground="{DynamicResource FaintBrush}" Visibility="Collapsed" />
+                                    <TextBlock Text="{Binding Label}" Margin="8,0,6,0" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                    <TextBlock x:Name="Peak" Text="{Binding PeakText}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Visibility="Collapsed" />
+                                    <TextBlock x:Name="When" Text="{Binding PeakWhen}" Margin="6,0,0,0" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Visibility="Collapsed" />
                                 </StackPanel>
                                 <DataTemplate.Triggers>
                                     <DataTrigger Binding="{Binding DataContext.CanChartPlot, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True">
@@ -346,7 +346,7 @@
                     </DockPanel>
                     <ctl:LineChart x:Name="HistoryChart" ctl:Roomy.Height="230" Series="{Binding TempSeries}" Version="{Binding Tick}" WindowSeconds="{Binding ChartWindowSeconds}" Day="{Binding ChartDay}"
                                    CustomFrom="{Binding ChartCustomFrom}" CustomTo="{Binding ChartCustomTo}"
-                                   Plot="{Binding ChartPlot}" GapReason="{Binding ChartGapReason}" EmptyText="{Binding ChartEmptyText}" CanZoom="True"
+                                   Plot="{Binding ChartPlot}" GapReason="{Binding ChartGapReason}" EmptyText="{Binding ChartEmptyText}" CanZoom="True" Who="{Binding ChartWho}"
                                    DetailWanted="{Binding ChartDetail, Mode=OneWayToSource}" />
                 </DockPanel>
             </ctl:SmoothBorder>
@@ -358,7 +358,7 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasDriveTemps, Converter={StaticResource Vis}}">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top">
-                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now, against each drive\'s limit'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now, against each drive\'s limit'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
                             <TextBlock Text="{ctl:T Drives}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <!-- The card is as tall as the board's beside it: the rows share that height evenly, instead of
@@ -384,10 +384,10 @@
                                             </Grid.RowDefinitions>
                                             <StackPanel VerticalAlignment="Center">
                                                 <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Detail}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
                                                            Margin="0,1,0,0" Visibility="{Binding HasDetail, Converter={StaticResource Vis}}" />
                                             </StackPanel>
-                                            <TextBlock Grid.Column="1" Text="{Binding Sensor.ShortValue, FallbackValue='—'}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" Margin="14,0,0,0">
+                                            <TextBlock Grid.Column="1" Text="{Binding Sensor.ShortValue, FallbackValue='—'}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="14,0,0,0">
                                                 <TextBlock.Foreground>
                                                     <MultiBinding Converter="{StaticResource ScaledTempBrush}">
                                                         <Binding Path="Sensor.Value" />
@@ -415,8 +415,8 @@
                                                 </Grid>
                                             </Grid>
                                             <DockPanel Grid.Row="2" Grid.ColumnSpan="2">
-                                                <TextBlock DockPanel.Dock="Right" Text="{Binding LimitText}" ToolTip="{Binding LimitTip}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0" />
-                                                <TextBlock Text="{Binding Sensor.RangeText}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding LimitText}" ToolTip="{Binding LimitTip}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0" />
+                                                <TextBlock Text="{Binding Sensor.RangeText}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
                                             </DockPanel>
                                         </Grid>
                                     </Border>
@@ -437,7 +437,7 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasBoardTemps, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,12">
-                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now, against today\'s range'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now, against today\'s range'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
                             <TextBlock Text="{ctl:T Motherboard}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding BoardChips}" Focusable="False">
@@ -446,7 +446,7 @@
                                     <StackPanel x:Name="Group" Margin="0,18,0,0">
                                         <DockPanel Margin="0,0,0,8">
                                             <TextBlock DockPanel.Dock="Left" Text="{Binding ChipCaps}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Board}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Board}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center" Margin="8,0,0,0" Visibility="{Binding HasBoard, Converter={StaticResource Vis}}" />
                                         </DockPanel>
                                         <ItemsControl ItemsSource="{Binding Tiles}" Focusable="False">
@@ -460,8 +460,8 @@
                                                 <DataTemplate>
                                                     <Border Style="{StaticResource Tile}">
                                                         <StackPanel>
-                                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
-                                                            <TextBlock Text="{Binding Sensor.ShortValue, FallbackValue='—'}" FontSize="18" FontWeight="SemiBold" Margin="0,3,0,0">
+                                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding Sensor.ShortValue, FallbackValue='—'}" FontSize="{x:Static ctl:TextSize.Title}" FontWeight="SemiBold" Margin="0,3,0,0">
                                                                 <TextBlock.Foreground>
                                                                     <MultiBinding Converter="{StaticResource ScaledTempBrush}">
                                                                         <Binding Path="Sensor.Value" />
@@ -477,7 +477,7 @@
                                                                     </MultiBinding>
                                                                 </ProgressBar.Foreground>
                                                             </ProgressBar>
-                                                            <TextBlock Text="{Binding Sensor.RangeText}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding Sensor.RangeText}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
                                                         </StackPanel>
                                                     </Border>
                                                 </DataTemplate>
@@ -516,7 +516,7 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}">
                     <DockPanel>
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Each box is an hour\'s average'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Each box is an hour\'s average'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
                             <TextBlock Text="{ctl:T 'Warmest hours this week'}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <ctl:HeatGrid Height="170" Hours="{Binding HeatWeek}" AutomationProperties.Name="{ctl:T 'The last seven days, hour by hour'}" />
@@ -528,7 +528,7 @@
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'At rest, last 30 days'}" Style="{StaticResource H2}" Margin="0,0,0,8" />
                         <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Taken while the PC sits idle. A flat line means the cooling is holding. A slow climb can come from dust or aging thermal paste, and a warmer room raises these too.'}"
-                                   FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
+                                   FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
                         <ItemsControl ItemsSource="{Binding Rest}" VerticalAlignment="Center" Focusable="False">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -541,9 +541,9 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{Binding Part}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Text="{Binding TodayText}" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"
+                                        <TextBlock Grid.Column="1" Text="{Binding TodayText}" FontSize="{x:Static ctl:TextSize.FigureLarge}" FontWeight="SemiBold" VerticalAlignment="Center"
                                                    Foreground="{Binding Today, Converter={StaticResource TempBrush}}" />
-                                        <TextBlock Grid.Column="2" Text="{Binding UsualText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,14,0" />
+                                        <TextBlock Grid.Column="2" Text="{Binding UsualText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,14,0" />
                                         <ctl:TrendLine Grid.Column="3" Height="34" Values="{Binding Days}" Tips="{Binding Tips}" Stroke="{Binding Brush, Converter={StaticResource ResourceBrush}}"
                                                        Visibility="{Binding HasLine, Converter={StaticResource Vis}}" />
                                         <!-- Warmer at rest than usual: ask why (hidden while the AI is off). -->

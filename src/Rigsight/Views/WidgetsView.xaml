@@ -20,7 +20,7 @@
 
         <!-- One widget on the page: its picture, name, switch and an Edit button; outlined while it's in the editor. -->
         <DataTemplate x:Key="WidgetCardTemplate">
-            <ctl:SmoothBorder Width="250" Margin="0,0,14,14" Padding="14" CornerRadius="16" BorderThickness="1"
+            <ctl:SmoothBorder Width="250" Margin="0,0,14,14" Padding="14" CornerRadius="{x:Static ctl:Corner.Card}" BorderThickness="1"
                               Background="{DynamicResource SurfaceBrush}">
                 <ctl:SmoothBorder.Style>
                     <Style TargetType="ctl:SmoothBorder">
@@ -33,9 +33,9 @@
                     </Style>
                 </ctl:SmoothBorder.Style>
                 <StackPanel>
-                    <Border Height="100" CornerRadius="10" ClipToBounds="True" Background="{StaticResource Backdrop}">
+                    <Border Height="100" CornerRadius="{x:Static ctl:Corner.Control}" ClipToBounds="True" Background="{StaticResource Backdrop}">
                         <Grid>
-                            <TextBlock Text="{ctl:T 'Preview appears when the agent is running'}" Style="{StaticResource Muted}" FontSize="11.5"
+                            <TextBlock Text="{ctl:T 'Preview appears when the agent is running'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Label}"
                                        TextWrapping="Wrap" TextAlignment="Center" Margin="12,0" HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding Preview, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="10"
@@ -45,9 +45,9 @@
                     <DockPanel Margin="0,12,0,0">
                         <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Enabled}" VerticalAlignment="Center"
                                   AutomationProperties.Name="{Binding Title, StringFormat='Show {0}'}" ToolTip="{ctl:T 'Show it on the desktop'}" />
-                        <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" FontSize="15" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" FontSize="{x:Static ctl:TextSize.Heading}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     </DockPanel>
-                    <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                    <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                Height="34" Margin="0,4,0,0" />
                     <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Edit'}" Command="{Binding EditCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"
                             AutomationProperties.Name="{Binding Title, StringFormat='Edit {0}'}" />
@@ -64,7 +64,7 @@
                     <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Command="{Binding CreateCommand}" VerticalAlignment="Top"
                             Margin="16,4,0,0" AutomationProperties.Name="Create widget">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource OnAccentBrush}" />
+                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource OnAccentBrush}" />
                             <TextBlock Text="{ctl:T 'Create widget'}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -103,8 +103,8 @@
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Create widget'}" Command="{Binding CreateCommand}"
                                 VerticalAlignment="Center" Margin="16,0,0,0" />
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{ctl:T 'Make your own'}" Style="{StaticResource H2}" FontSize="15" />
-                            <TextBlock Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0"
+                            <TextBlock Text="{ctl:T 'Make your own'}" Style="{StaticResource H2}" FontSize="{x:Static ctl:TextSize.Heading}" />
+                            <TextBlock Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0"
                                        Text="{ctl:T 'Pick a layout and the readings you want, like frame rate, temperatures, loads, or any sensor on your PC.'}" />
                         </StackPanel>
                     </DockPanel>
@@ -139,11 +139,11 @@
                         </Button>
                         <StackPanel>
                             <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0" />
                         </StackPanel>
                     </DockPanel>
 
-                    <Border Height="150" CornerRadius="12" ClipToBounds="True" Background="{StaticResource Backdrop}" Margin="0,16,0,0">
+                    <Border Height="150" CornerRadius="{x:Static ctl:Corner.Tile}" ClipToBounds="True" Background="{StaticResource Backdrop}" Margin="0,16,0,0">
                         <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="14"
                                RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
@@ -187,7 +187,7 @@
                                    AllowsTransparency="True" PopupAnimation="Fade" IsOpen="{Binding PickerOpen, Mode=TwoWay}">
                                 <!-- As wide as the field above it; the popup is 8 px wider and taller for the shadow. -->
                                 <Border Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                                        CornerRadius="12" Padding="0,10,0,6" Margin="0,0,8,8" Width="{Binding ActualWidth, ElementName=PickBox}">
+                                        CornerRadius="{x:Static ctl:Corner.Tile}" Padding="0,10,0,6" Margin="0,0,8,8" Width="{Binding ActualWidth, ElementName=PickBox}">
                                     <Border.Effect>
                                         <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                                     </Border.Effect>
@@ -206,8 +206,8 @@
                                                             <ControlTemplate TargetType="Button">
                                                                 <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" CornerRadius="11" Padding="10,3">
                                                                     <StackPanel Orientation="Horizontal">
-                                                                        <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                                                        <TextBlock x:Name="Count" Text="{Binding Count}" FontSize="10.5" Foreground="{DynamicResource FaintBrush}"
+                                                                        <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                                                        <TextBlock x:Name="Count" Text="{Binding Count}" FontSize="{x:Static ctl:TextSize.MiniPlus}" Foreground="{DynamicResource FaintBrush}"
                                                                                    Margin="6,1,0,0" VerticalAlignment="Center" />
                                                                     </StackPanel>
                                                                 </Border>
@@ -229,7 +229,7 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource StrokeBrush}" />
-                                        <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Click to add · Enter adds the first · Esc to close'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="14,6,14,0" />
+                                        <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Click to add · Enter adds the first · Esc to close'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" Margin="14,6,14,0" />
                                         <Border DockPanel.Dock="Bottom" Height="1" Background="{DynamicResource StrokeBrush}" />
                                         <Grid>
                                                 <ItemsControl x:Name="PickScroll" ItemsSource="{Binding PickerOptions}" Margin="6,4" Focusable="False" MaxHeight="340"
@@ -249,24 +249,24 @@
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <StackPanel>
-                                                                <TextBlock Text="{Binding Header}" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" Margin="8,10,8,4"
+                                                                <TextBlock Text="{Binding Header}" FontSize="{x:Static ctl:TextSize.MiniPlus}" Foreground="{DynamicResource FaintBrush}" Margin="8,10,8,4"
                                                                            Visibility="{Binding HasHeader, Converter={StaticResource Vis}}" />
                                                                 <Button Cursor="Hand" Focusable="False" IsEnabled="{Binding CanAdd}" AutomationProperties.Name="{Binding Name}"
                                                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                                         Command="{Binding DataContext.PickOptionCommand, ElementName=PickBox}" CommandParameter="{Binding}">
                                                                     <Button.Template>
                                                                         <ControlTemplate TargetType="Button">
-                                                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="8,6" HorizontalAlignment="Stretch">
+                                                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Field}" Padding="8,6" HorizontalAlignment="Stretch">
                                                                                 <DockPanel>
                                                                                     <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,10,0" VerticalAlignment="Center"
                                                                                              Fill="{Binding DotBrush, Converter={StaticResource ResourceBrush}}" />
-                                                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Side}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Side}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
                                                                                                VerticalAlignment="Center" Margin="10,0,0,0" MaxWidth="230" TextTrimming="CharacterEllipsis" />
                                                                                     <StackPanel VerticalAlignment="Center">
                                                                                         <StackPanel Orientation="Horizontal">
-                                                                                            <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                                                            <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
                                                                                         </StackPanel>
-                                                                                        <TextBlock Text="{Binding Source}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                                                        <TextBlock Text="{Binding Source}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
                                                                                                    Visibility="{Binding HasSource, Converter={StaticResource Vis}}" />
                                                                                     </StackPanel>
                                                                                 </DockPanel>
@@ -292,9 +292,9 @@
                                                 </ItemsControl>
                                             <!-- Nothing to show: says so, and where else there's a match. -->
                                             <StackPanel Margin="16,24,16,22" HorizontalAlignment="Center" Visibility="{Binding PickerEmpty, Converter={StaticResource Vis}}">
-                                                <TextBlock Text="{Binding PickerEmptyText}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                                <TextBlock Text="{Binding PickerEmptyText}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
                                                            HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
-                                                <TextBlock Text="{Binding PickerEmptyHint}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"
+                                                <TextBlock Text="{Binding PickerEmptyHint}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"
                                                            TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" Visibility="{Binding PickerEmptyHint, Converter={StaticResource Vis}}" />
                                                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Search all groups'}" HorizontalAlignment="Center" Margin="0,10,0,0"
                                                         Command="{Binding SearchAllCommand}" Visibility="{Binding CanSearchAll, Converter={StaticResource Vis}}" />
@@ -307,7 +307,7 @@
                         <ItemsControl ItemsSource="{Binding Items}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="10" Padding="12,8" Margin="0,0,0,6">
+                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}" Padding="12,8" Margin="0,0,0,6">
                                         <DockPanel>
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="Move up"
@@ -325,9 +325,9 @@
                                             </StackPanel>
                                             <!-- Short name on the widget: typed over its usual one, which shows as the hint. -->
                                             <Grid DockPanel.Dock="Right" Width="110" Margin="10,0,6,0" VerticalAlignment="Center">
-                                                <TextBox x:Name="LabelBox" Text="{Binding Label, UpdateSourceTrigger=LostFocus}" MaxLength="18" FontSize="12"
+                                                <TextBox x:Name="LabelBox" Text="{Binding Label, UpdateSourceTrigger=LostFocus}" MaxLength="18" FontSize="{x:Static ctl:TextSize.Small}"
                                                          ToolTip="{ctl:T 'Short name on the widget (up to 18 letters). Leave empty for the usual one.'}" />
-                                                <TextBlock Text="{ctl:T 'Short name'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
+                                                <TextBlock Text="{ctl:T 'Short name'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
                                                            Margin="11,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
@@ -342,11 +342,11 @@
                                                 </TextBlock>
                                             </Grid>
                                             <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
                                                            Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
                                                 <!-- Kept for another layout: greyed, with why. -->
-                                                <TextBlock Text="{Binding NotShownText}" FontSize="11" Foreground="{DynamicResource WarmBrush}"
+                                                <TextBlock Text="{Binding NotShownText}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource WarmBrush}"
                                                            Visibility="{Binding NotShown, Converter={StaticResource Vis}}" />
                                             </StackPanel>
                                         </DockPanel>

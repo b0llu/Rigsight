@@ -5,7 +5,7 @@
              xmlns:views="clr-namespace:Rigsight.Views">
     <UserControl.Resources>
         <Style x:Key="Small" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Detail}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
@@ -23,7 +23,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid x:Name="Root">
-                            <Border x:Name="Bd" CornerRadius="9" ClipToBounds="True">
+                            <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Button}" ClipToBounds="True">
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                                         <GradientStop Color="{DynamicResource CpuColor}" Offset="0" />
@@ -42,7 +42,7 @@
                                     </Rectangle>
                                 </Canvas>
                             </Border>
-                            <Border x:Name="Hover" CornerRadius="9" Background="#22FFFFFF" Opacity="0" />
+                            <Border x:Name="Hover" CornerRadius="{x:Static ctl:Corner.Button}" Background="#22FFFFFF" Opacity="0" />
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
                         <ControlTemplate.Triggers>
@@ -58,16 +58,16 @@
              Free is while you're on a plan. The plan to pick has the blue-to-violet one. DataContext: PlanColumn. -->
         <DataTemplate x:Key="PlanAction">
             <Grid MinHeight="38">
-                <Button x:Name="Get" Style="{StaticResource GhostButton}" Content="{Binding BuyText}" HorizontalAlignment="Stretch" Padding="14,10" FontSize="14"
+                <Button x:Name="Get" Style="{StaticResource GhostButton}" Content="{Binding BuyText}" HorizontalAlignment="Stretch" Padding="14,10" FontSize="{x:Static ctl:TextSize.Lead}"
                         Command="{Binding DataContext.BuyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
                         Visibility="{Binding CanBuy, Converter={StaticResource Vis}}" />
-                <Button x:Name="Switch" Style="{StaticResource GhostButton}" Content="{Binding SwitchText}" HorizontalAlignment="Stretch" Padding="14,10" FontSize="14"
+                <Button x:Name="Switch" Style="{StaticResource GhostButton}" Content="{Binding SwitchText}" HorizontalAlignment="Stretch" Padding="14,10" FontSize="{x:Static ctl:TextSize.Lead}"
                         Command="{Binding DataContext.AskSwitchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
                         Visibility="{Binding CanSwitch, Converter={StaticResource Vis}}" />
                 <TextBlock Text="{Binding NothingText}" Style="{StaticResource Small}" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"
                            Visibility="{Binding ShowNothing, Converter={StaticResource Vis}}" />
-                <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="14,10" Visibility="{Binding ShowMine, Converter={StaticResource Vis}}">
-                    <TextBlock Text="{Binding MineText}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" Padding="14,10" Visibility="{Binding ShowMine, Converter={StaticResource Vis}}">
+                    <TextBlock Text="{Binding MineText}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                 </ctl:SmoothBorder>
             </Grid>
             <DataTemplate.Triggers>
@@ -85,19 +85,19 @@
 
         <!-- Monthly / Yearly: a pill each, the picked one filled (Tag On: picked when Yearly is, Off: when it isn't). -->
         <ControlTemplate x:Key="BillingPicked" TargetType="Button">
-            <ctl:SmoothBorder CornerRadius="14" Background="{DynamicResource TextBrush}" Padding="18,6" MinWidth="86">
+            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Panel}" Background="{DynamicResource TextBrush}" Padding="18,6" MinWidth="86">
                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{DynamicResource BgBrush}" TextElement.FontWeight="SemiBold" />
             </ctl:SmoothBorder>
         </ControlTemplate>
         <Style x:Key="BillingPick" TargetType="Button">
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
-            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.BodyPlus}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <ctl:SmoothBorder x:Name="Bd" CornerRadius="14" Background="Transparent" Padding="18,6" MinWidth="86">
+                        <ctl:SmoothBorder x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Panel}" Background="Transparent" Padding="18,6" MinWidth="86">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </ctl:SmoothBorder>
                         <ControlTemplate.Triggers>
@@ -126,20 +126,20 @@
 
         <!-- What an example reads, as a source pill under a real answer. -->
         <Style x:Key="WebPill" TargetType="Border">
-            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="CornerRadius" Value="{x:Static ctl:Corner.Control}" />
             <Setter Property="Padding" Value="8,1" />
             <Setter Property="Margin" Value="0,0,6,4" />
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
-            <Setter Property="TextElement.FontSize" Value="11" />
+            <Setter Property="TextElement.FontSize" Value="{x:Static ctl:TextSize.Caption}" />
             <Setter Property="TextElement.Foreground" Value="{DynamicResource MutedBrush}" />
         </Style>
 
         <!-- A page's icon in a square of its plan's colour: the colour from the nearest element tagged with it. -->
         <DataTemplate x:Key="PageSquare">
             <Grid Width="26" Height="26">
-                <Border CornerRadius="7" Background="{Binding Tag, RelativeSource={RelativeSource AncestorType=ctl:SmoothBorder}}" Opacity="0.16" />
+                <Border CornerRadius="{x:Static ctl:Corner.Choice}" Background="{Binding Tag, RelativeSource={RelativeSource AncestorType=ctl:SmoothBorder}}" Opacity="0.16" />
                 <Viewbox Width="13" Height="13">
-                    <ContentControl Content="{Binding Converter={StaticResource NavIcon}}" Focusable="False" FontFamily="{StaticResource IconFont}" FontSize="16"
+                    <ContentControl Content="{Binding Converter={StaticResource NavIcon}}" Focusable="False" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S16}"
                                     Foreground="{Binding Tag, RelativeSource={RelativeSource AncestorType=ctl:SmoothBorder}}" />
                 </Viewbox>
             </Grid>
@@ -156,7 +156,7 @@
                     <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Payments by Lemon Squeezy'}" Style="{StaticResource Small}" VerticalAlignment="Center" />
                     <Button Style="{StaticResource GhostButton}" Command="{Binding BackCommand}" HorizontalAlignment="Left" AutomationProperties.Name="{ctl:T 'Back'}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" VerticalAlignment="Center" />
                             <TextBlock Text="{ctl:T 'Back'}" />
                         </StackPanel>
                     </Button>
@@ -166,32 +166,32 @@
                      pressed in that moment opened Free's plans on a Complete PC). Couldn't ask: why, and Try again. -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,80,0,0" Visibility="{Binding Loading, Converter={StaticResource Vis}}">
                     <ctl:Spinner Width="16" Height="16" Margin="0,0,10,0" VerticalAlignment="Center" />
-                    <TextBlock Text="{ctl:T 'Checking your plan…'}" FontSize="14" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="{ctl:T 'Checking your plan…'}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                 </StackPanel>
                 <StackPanel HorizontalAlignment="Center" Margin="0,80,0,0" Visibility="{Binding CantTell, Converter={StaticResource Vis}}">
-                    <TextBlock Text="{ctl:T 'Couldn\'t check your plan'}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" HorizontalAlignment="Center" />
-                    <TextBlock Text="{Binding CantTellText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" HorizontalAlignment="Center" Margin="0,4,0,12" />
+                    <TextBlock Text="{ctl:T 'Couldn\'t check your plan'}" FontSize="{x:Static ctl:TextSize.Subtitle}" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding CantTellText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" HorizontalAlignment="Center" Margin="0,4,0,12" />
                     <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Try again'}" Command="{Binding CheckPlanAgainCommand}" HorizontalAlignment="Center" />
                 </StackPanel>
                 <StackPanel Visibility="{Binding ShowPlan, Converter={StaticResource Vis}}">
-                <TextBlock Text="{Binding Heading}" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,18,0,6" />
-                <TextBlock Text="{Binding Subheading}" FontSize="14" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,24" />
+                <TextBlock Text="{Binding Heading}" FontSize="{x:Static ctl:TextSize.DisplayLarge}" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,18,0,6" />
+                <TextBlock Text="{Binding Subheading}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,24" />
 
                 <!-- Your plan -->
-                <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="14" Padding="22,18"
+                <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Panel}" Padding="22,18"
                                   Margin="0,0,0,24" Visibility="{Binding IsPaid, Converter={StaticResource Vis}}">
                     <views:PlanDetails />
                 </ctl:SmoothBorder>
 
-                <TextBlock Text="{Binding Problem}" FontSize="13" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" HorizontalAlignment="Center" Margin="0,0,0,14"
+                <TextBlock Text="{Binding Problem}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" HorizontalAlignment="Center" Margin="0,0,0,14"
                            Visibility="{Binding HasProblem, Converter={StaticResource Vis}}" />
-                <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,0,0,16" MaxWidth="560"
+                <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,0,0,16" MaxWidth="560"
                                   Visibility="{Binding Waiting, Converter={StaticResource Vis}}">
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Cancel'}" Command="{Binding StopWaitingCommand}" Margin="12,0,0,0" VerticalAlignment="Center" />
-                        <ctl:Spinner DockPanel.Dock="Left" Width="14" Height="14" Margin="0,0,12,0" VerticalAlignment="Center" />
+                        <ctl:Spinner DockPanel.Dock="Left" Width="16" Height="16" Margin="0,0,12,0" VerticalAlignment="Center" />
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{ctl:T 'Waiting for your plan…'}" FontSize="13" />
+                            <TextBlock Text="{ctl:T 'Waiting for your plan…'}" FontSize="{x:Static ctl:TextSize.Body}" />
                             <TextBlock Text="{ctl:T 'Finish paying in your browser. Your plan turns on here by itself.'}" Style="{StaticResource Small}" />
                         </StackPanel>
                     </DockPanel>
@@ -213,10 +213,10 @@
                         <DataTemplate>
                             <Grid Margin="0,10,14,0">
                                 <ctl:SmoothBorder x:Name="Card" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                                                  CornerRadius="14" AutomationProperties.Name="{Binding Name}" Tag="{DynamicResource SkyBrush}">
+                                                  CornerRadius="{x:Static ctl:Corner.Panel}" AutomationProperties.Name="{Binding Name}" Tag="{DynamicResource SkyBrush}">
                                     <Grid>
                                         <!-- The plan to pick glows faintly from its top corner. -->
-                                        <Border x:Name="Glow" CornerRadius="14" Visibility="Collapsed">
+                                        <Border x:Name="Glow" CornerRadius="{x:Static ctl:Corner.Panel}" Visibility="Collapsed">
                                             <Border.Background>
                                                 <LinearGradientBrush StartPoint="0,0" EndPoint="0.6,1">
                                                     <GradientStop Color="#295B8CFF" Offset="0" />
@@ -232,11 +232,11 @@
                                                 <ItemsControl ItemsSource="{Binding Tries}" Focusable="False">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,8" Margin="0,6,0,0" MinHeight="52">
+                                                            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" Padding="10,8" Margin="0,6,0,0" MinHeight="52">
                                                                 <DockPanel VerticalAlignment="Center">
-                                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE8BD;" Style="{StaticResource Icon}" FontSize="11" Width="18" VerticalAlignment="Center"
+                                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE8BD;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Width="18" VerticalAlignment="Center"
                                                                                Foreground="{Binding Tag, ElementName=Card}" />
-                                                                    <TextBlock Text="{Binding}" FontSize="12.5" LineHeight="18" TextWrapping="Wrap" />
+                                                                    <TextBlock Text="{Binding}" FontSize="{x:Static ctl:TextSize.Detail}" LineHeight="18" TextWrapping="Wrap" />
                                                                 </DockPanel>
                                                             </ctl:SmoothBorder>
                                                         </DataTemplate>
@@ -246,48 +246,48 @@
                                             <StackPanel>
                                                 <!-- The name, its colour under the whole word. -->
                                                 <StackPanel HorizontalAlignment="Left">
-                                                    <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.SubtitlePlus}" FontWeight="SemiBold" />
                                                     <Border Height="3" CornerRadius="1.5" Margin="0,6,0,0" Background="{Binding Tag, ElementName=Card}" />
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding For}" Style="{StaticResource Small}" Margin="0,8,0,14" MinHeight="36" />
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Price}" FontSize="32" FontWeight="SemiBold" />
-                                                    <TextBlock Text="{ctl:T 'a month'}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="6,0,0,6"
+                                                    <TextBlock Text="{Binding Price}" FontSize="{x:Static ctl:TextSize.HeroLarge}" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{ctl:T 'a month'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" Margin="6,0,0,6"
                                                                Visibility="{Binding Monthly, Converter={StaticResource Vis}}" />
                                                 </StackPanel>
                                                 <!-- For a year: the real charge, the monthly price crossed out, the saving. Always its line's height, so switching never moves the button. -->
-                                                <TextBlock FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" MinHeight="17" Margin="0,2,0,0"><Run Text="{Binding BilledOld, Mode=OneWay}" TextDecorations="Strikethrough" /><Run Text="{Binding BilledText, Mode=OneWay}" /><Run Text="{Binding SaveText, Mode=OneWay}" Foreground="{DynamicResource GoodBrush}" /></TextBlock>
+                                                <TextBlock FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" MinHeight="17" Margin="0,2,0,0"><Run Text="{Binding BilledOld, Mode=OneWay}" TextDecorations="Strikethrough" /><Run Text="{Binding BilledText, Mode=OneWay}" /><Run Text="{Binding SaveText, Mode=OneWay}" Foreground="{DynamicResource GoodBrush}" /></TextBlock>
                                                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="0,14,0,18" />
                                                 <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,0,0,16" />
                                                 <DockPanel Margin="0,0,0,14">
-                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE8BD;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{Binding Tag, ElementName=Card}" />
+                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE8BD;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S15}" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{Binding Tag, ElementName=Card}" />
                                                     <StackPanel>
-                                                        <TextBlock Text="{Binding Questions}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding Questions}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                         <TextBlock Text="{Binding QuestionsWhen}" Style="{StaticResource Small}" />
                                                     </StackPanel>
                                                 </DockPanel>
                                                 <!-- Web search: the paid plans' (Free answers from the PC's records only, 2026-10-27). Free's row says so,
                                                      greyed, in the same place, so the columns stay alike. -->
                                                 <DockPanel Visibility="{Binding Offer.Search, Converter={StaticResource Vis}}">
-                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE774;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{Binding Tag, ElementName=Card}" />
+                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE774;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S15}" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{Binding Tag, ElementName=Card}" />
                                                     <StackPanel>
-                                                        <TextBlock Text="{ctl:T 'Searches the web'}" FontSize="13.5" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{ctl:T 'Searches the web'}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" />
                                                         <TextBlock Text="{ctl:T 'Finds known problems and fixes for your parts, drivers and games'}" Style="{StaticResource Small}" />
                                                     </StackPanel>
                                                 </DockPanel>
                                                 <DockPanel Visibility="{Binding Offer.Search, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE774;" Style="{StaticResource Icon}" FontSize="15" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{DynamicResource FaintBrush}" />
+                                                    <TextBlock DockPanel.Dock="Left" Text="&#xE774;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S15}" Width="22" Margin="0,2,4,0" VerticalAlignment="Top" Foreground="{DynamicResource FaintBrush}" />
                                                     <StackPanel>
-                                                        <TextBlock Text="{ctl:T 'Your PC\'s records only'}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" />
+                                                        <TextBlock Text="{ctl:T 'Your PC\'s records only'}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" />
                                                         <TextBlock Text="{ctl:T 'Answers come only from what RigSight recorded on this PC'}" Style="{StaticResource Small}" />
                                                     </StackPanel>
                                                 </DockPanel>
                                                 <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,18,0,14" />
                                                 <TextBlock Text="{ctl:T 'ANSWERS BACK UP WHAT THEY SAY WITH'}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,10" />
-                                                <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,7" Margin="0,0,0,10" Visibility="{Binding HasEverything, Converter={StaticResource Vis}}">
+                                                <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" Padding="10,7" Margin="0,0,0,10" Visibility="{Binding HasEverything, Converter={StaticResource Vis}}">
                                                     <DockPanel>
-                                                        <TextBlock DockPanel.Dock="Left" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Tag, ElementName=Card}" />
-                                                        <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center"><Run Text="{Binding EverythingIn, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="{ctl:T ', plus'}" /></TextBlock>
+                                                        <TextBlock DockPanel.Dock="Left" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{Binding Tag, ElementName=Card}" />
+                                                        <TextBlock FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center"><Run Text="{Binding EverythingIn, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="{ctl:T ', plus'}" /></TextBlock>
                                                     </DockPanel>
                                                 </ctl:SmoothBorder>
                                                 <!-- Each page with its own icon in the plan's colour; the page's name on hover. -->
@@ -296,13 +296,13 @@
                                                         <DataTemplate>
                                                             <DockPanel Margin="0,0,0,8" ToolTip="{Binding From}" Background="Transparent">
                                                                 <Grid DockPanel.Dock="Left" Width="26" Height="26" Margin="0,0,10,0" VerticalAlignment="Center">
-                                                                    <Border CornerRadius="7" Opacity="0.16" Background="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                                                    <Border CornerRadius="{x:Static ctl:Corner.Choice}" Opacity="0.16" Background="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                                     <Viewbox Width="13" Height="13">
-                                                                        <ContentControl Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False" FontFamily="{StaticResource IconFont}" FontSize="16"
+                                                                        <ContentControl Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S16}"
                                                                                         Foreground="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                                     </Viewbox>
                                                                 </Grid>
-                                                                <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                                <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" VerticalAlignment="Center" />
                                                             </DockPanel>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
@@ -312,14 +312,14 @@
                                     </Grid>
                                 </ctl:SmoothBorder>
                                 <!-- The badge sits on the card's top edge: the plan to pick, or the one you're on -->
-                                <Border x:Name="Badge" CornerRadius="6" Padding="9,2" Margin="22,-10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed">
+                                <Border x:Name="Badge" CornerRadius="{x:Static ctl:Corner.Small}" Padding="9,2" Margin="22,-10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed">
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                                             <GradientStop Color="{DynamicResource CpuColor}" Offset="0" />
                                             <GradientStop Color="{DynamicResource PurpleColor}" Offset="1" />
                                         </LinearGradientBrush>
                                     </Border.Background>
-                                    <TextBlock x:Name="BadgeText" Text="{ctl:T 'Best value'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource PickInk}" />
+                                    <TextBlock x:Name="BadgeText" Text="{ctl:T 'Best value'}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="Bold" Foreground="{DynamicResource PickInk}" />
                                 </Border>
                             </Grid>
                             <DataTemplate.Triggers>
@@ -354,20 +354,20 @@
                 </ItemsControl>
 
                 <!-- Which plans check the web: the heading across the top, then three examples alike, each with what it reads -->
-                <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="14" Padding="22,18" Margin="0,22,0,0">
+                <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Panel}" Padding="22,18" Margin="0,22,0,0">
                     <StackPanel>
                         <DockPanel>
                             <Grid DockPanel.Dock="Left" Width="30" Height="30" Margin="0,0,12,0" VerticalAlignment="Center">
-                                <Border CornerRadius="8" Background="{DynamicResource CpuBrush}" Opacity="0.16" />
-                                <TextBlock Text="&#xE774;" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource CpuBrush}" Opacity="0.16" />
+                                <TextBlock Text="&#xE774;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Grid>
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{Binding WebHeading}" FontSize="15" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding WebHeading}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" />
                                 <TextBlock Text="{ctl:T 'Answers start from what\'s recorded on this PC, then check the web for your exact parts, and show what they read.'}" Style="{StaticResource Small}" />
                             </StackPanel>
                         </DockPanel>
                         <UniformGrid Rows="1" Margin="0,14,-10,0">
-                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0" Tag="{DynamicResource SkyBrush}">
+                            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0" Tag="{DynamicResource SkyBrush}">
                                 <DockPanel>
                                     <WrapPanel DockPanel.Dock="Bottom" Margin="36,10,0,0">
                                         <Border Style="{StaticResource WebPill}"><TextBlock Text="{ctl:T 'Temperatures'}" /></Border>
@@ -376,13 +376,13 @@
                                     <DockPanel VerticalAlignment="Top">
                                         <ContentControl DockPanel.Dock="Left" Content="&#xE9CA;" ContentTemplate="{StaticResource PageSquare}" Focusable="False" Margin="0,0,10,0" VerticalAlignment="Top" />
                                         <StackPanel>
-                                            <TextBlock Text="{ctl:T '“Is 88°C OK for my GPU?”'}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{ctl:T '“Is 88°C OK for my GPU?”'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                             <TextBlock Text="{Binding WebExampleHeat}" Style="{StaticResource Small}" Margin="0,2,0,0" />
                                         </StackPanel>
                                     </DockPanel>
                                 </DockPanel>
                             </ctl:SmoothBorder>
-                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0" Tag="{DynamicResource CpuBrush}">
+                            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0" Tag="{DynamicResource CpuBrush}">
                                 <DockPanel>
                                     <WrapPanel DockPanel.Dock="Bottom" Margin="36,10,0,0">
                                         <Border Style="{StaticResource WebPill}"><TextBlock Text="{ctl:T 'Crashes'}" /></Border>
@@ -392,13 +392,13 @@
                                     <DockPanel VerticalAlignment="Top">
                                         <ContentControl DockPanel.Dock="Left" Content="&#xE7BA;" ContentTemplate="{StaticResource PageSquare}" Focusable="False" Margin="0,0,10,0" VerticalAlignment="Top" />
                                         <StackPanel>
-                                            <TextBlock Text="{ctl:T '“Why does my game crash?”'}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{ctl:T '“Why does my game crash?”'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                             <TextBlock Text="{ctl:T 'Checks whether others hit the same crash with your driver, and what fixed it.'}" Style="{StaticResource Small}" Margin="0,2,0,0" />
                                         </StackPanel>
                                     </DockPanel>
                                 </DockPanel>
                             </ctl:SmoothBorder>
-                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0" Tag="{DynamicResource PurpleBrush}">
+                            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="14" Margin="0,0,10,0" Tag="{DynamicResource PurpleBrush}">
                                 <DockPanel>
                                     <WrapPanel DockPanel.Dock="Bottom" Margin="36,10,0,0">
                                         <Border Style="{StaticResource WebPill}"><TextBlock Text="{ctl:T 'Your PC\'s parts'}" /></Border>
@@ -407,7 +407,7 @@
                                     <DockPanel VerticalAlignment="Top">
                                         <ContentControl DockPanel.Dock="Left" Content="&#xE950;" ContentTemplate="{StaticResource PageSquare}" Focusable="False" Margin="0,0,10,0" VerticalAlignment="Top" />
                                         <StackPanel>
-                                            <TextBlock Text="{ctl:T '“Should I update my BIOS?”'}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{ctl:T '“Should I update my BIOS?”'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                             <TextBlock Text="{ctl:T 'Reads what the newer BIOS for your board fixes.'}" Style="{StaticResource Small}" Margin="0,2,0,0" />
                                         </StackPanel>
                                     </DockPanel>
@@ -418,7 +418,7 @@
                 </ctl:SmoothBorder>
 
                 <!-- Page by page, always shown, in groups: what every plan opens, then what each plan adds -->
-                <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="12" Margin="0,22,0,0" ClipToBounds="True">
+                <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Tile}" Margin="0,22,0,0" ClipToBounds="True">
                     <Grid>
                         <!-- The top plan's column shaded as one strip, header to buttons. -->
                         <Grid Margin="16,0" IsHitTestVisible="False">
@@ -438,18 +438,18 @@
                                     <ColumnDefinition Width="130" />
                                     <ColumnDefinition Width="130" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{ctl:T 'What answers can read'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" />
+                                <TextBlock Text="{ctl:T 'What answers can read'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Bottom" />
                                 <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding Columns[0].Name}" FontSize="13.5" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding Columns[0].Price}" FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding Columns[0].Name}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding Columns[0].Price}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding Columns[1].Name}" FontSize="13.5" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                                    <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"><Run Text="{Binding Columns[1].Price, Mode=OneWay}" /> <Run Text="{ctl:T 'a month'}" /></TextBlock>
+                                    <TextBlock Text="{Binding Columns[1].Name}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                    <TextBlock FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"><Run Text="{Binding Columns[1].Price, Mode=OneWay}" /> <Run Text="{ctl:T 'a month'}" /></TextBlock>
                                 </StackPanel>
                                 <StackPanel Grid.Column="3" HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding Columns[2].Name}" FontSize="13.5" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource PurpleBrush}" />
-                                    <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"><Run Text="{Binding Columns[2].Price, Mode=OneWay}" /> <Run Text="{ctl:T 'a month'}" /></TextBlock>
+                                    <TextBlock Text="{Binding Columns[2].Name}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource PurpleBrush}" />
+                                    <TextBlock FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"><Run Text="{Binding Columns[2].Price, Mode=OneWay}" /> <Run Text="{ctl:T 'a month'}" /></TextBlock>
                                 </StackPanel>
                             </Grid>
                             <ItemsControl ItemsSource="{Binding CompareGroups}" Focusable="False" AlternationCount="100">
@@ -460,7 +460,7 @@
                                             <Border x:Name="Head" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="16,28,16,10">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Ellipse Width="8" Height="8" Fill="{Binding Tag, ElementName=Group}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                                    <TextBlock Text="{Binding Title}" FontSize="11.5" FontWeight="Bold" Foreground="{Binding Tag, ElementName=Group}" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Label}" FontWeight="Bold" Foreground="{Binding Tag, ElementName=Group}" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </Border>
                                             <ItemsControl ItemsSource="{Binding Rows}" Focusable="False" Tag="{Binding Tag, ElementName=Group}">
@@ -476,20 +476,20 @@
                                                                 </Grid.ColumnDefinitions>
                                                                 <DockPanel>
                                                                     <Grid DockPanel.Dock="Left" Width="26" Height="26" Margin="0,0,10,0" VerticalAlignment="Center">
-                                                                        <Border CornerRadius="7" Opacity="0.16" Background="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                                                        <Border CornerRadius="{x:Static ctl:Corner.Choice}" Opacity="0.16" Background="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                                         <Viewbox Width="13" Height="13">
-                                                                            <ContentControl Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False" FontFamily="{StaticResource IconFont}" FontSize="16"
+                                                                            <ContentControl Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S16}"
                                                                                             Foreground="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                                                         </Viewbox>
                                                                     </Grid>
                                                                     <StackPanel VerticalAlignment="Center">
-                                                                        <TextBlock Text="{Binding Page}" FontSize="13.5" />
-                                                                        <TextBlock Text="{Binding What}" Style="{StaticResource Small}" FontSize="12" />
+                                                                        <TextBlock Text="{Binding Page}" FontSize="{x:Static ctl:TextSize.BodyPlus}" />
+                                                                        <TextBlock Text="{Binding What}" Style="{StaticResource Small}" FontSize="{x:Static ctl:TextSize.Small}" />
                                                                     </StackPanel>
                                                                 </DockPanel>
-                                                                <Grid Grid.Column="1"><TextBlock x:Name="F" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /><TextBlock x:Name="FNo" Text="–" FontSize="14" Foreground="{DynamicResource FaintBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" /></Grid>
-                                                                <Grid Grid.Column="2"><TextBlock x:Name="M" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /><TextBlock x:Name="MNo" Text="–" FontSize="14" Foreground="{DynamicResource FaintBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" /></Grid>
-                                                                <Grid Grid.Column="3"><TextBlock x:Name="T" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /><TextBlock x:Name="TNo" Text="–" FontSize="14" Foreground="{DynamicResource FaintBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" /></Grid>
+                                                                <Grid Grid.Column="1"><TextBlock x:Name="F" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /><TextBlock x:Name="FNo" Text="–" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource FaintBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" /></Grid>
+                                                                <Grid Grid.Column="2"><TextBlock x:Name="M" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /><TextBlock x:Name="MNo" Text="–" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource FaintBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" /></Grid>
+                                                                <Grid Grid.Column="3"><TextBlock x:Name="T" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /><TextBlock x:Name="TNo" Text="–" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource FaintBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" /></Grid>
                                                             </Grid>
                                                         </Border>
                                                         <DataTemplate.Triggers>
@@ -530,7 +530,7 @@
                                         <ColumnDefinition Width="130" />
                                         <ColumnDefinition Width="130" />
                                     </Grid.ColumnDefinitions>
-                                    <ContentControl Grid.Column="1" Content="{Binding Columns[0]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" FontSize="12.5" Tag="Foot" />
+                                    <ContentControl Grid.Column="1" Content="{Binding Columns[0]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" FontSize="{x:Static ctl:TextSize.Detail}" Tag="Foot" />
                                     <ContentControl Grid.Column="2" Content="{Binding Columns[1]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" Tag="Foot" />
                                     <ContentControl Grid.Column="3" Content="{Binding Columns[2]}" ContentTemplate="{StaticResource PlanAction}" Focusable="False" Margin="6,0" Tag="Foot" />
                                 </Grid>
@@ -542,23 +542,23 @@
                 <!-- How paying works -->
                 <WrapPanel HorizontalAlignment="Center" Margin="0,22,0,0">
                     <StackPanel Orientation="Horizontal" Margin="10,2">
-                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <TextBlock Text="{Binding PaidText}" Style="{StaticResource Small}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="10,2">
-                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <TextBlock Text="{ctl:T 'Cancel any time in RigSight'}" Style="{StaticResource Small}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="10,2">
-                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <TextBlock Text="{Binding AfterCancelText}" Style="{StaticResource Small}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="10,2">
-                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <TextBlock Text="{Binding RefundText}" Style="{StaticResource Small}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="10,2">
-                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <TextBlock Text="{ctl:T 'Your conversations stay on this PC whatever the plan'}" Style="{StaticResource Small}" />
                     </StackPanel>
                 </WrapPanel>

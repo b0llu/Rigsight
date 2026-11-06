@@ -830,6 +830,35 @@ public sealed partial class LiveData : ObservableObject
         DateTimeOffset.FromUnixTimeMilliseconds(from).LocalDateTime, DateTimeOffset.FromUnixTimeMilliseconds(to).LocalDateTime, _power,
         TimeSpan.FromSeconds(Math.Max(120, _minuteStep)));
 
+    /// <summary>
+    /// What was in front over a stretch of the temperature graph (its ends in Unix milliseconds), for its hover: from
+    /// the minutes the graph has already read, so it's there with the box (read on the first hover, it came a moment
+    /// later and the box jumped, 2026-11-06). None on the week, month and year graphs, whose points are hours and days.
+    /// </summary>
+    public Func<long, long, Controls.HeatWho?> ChartWho => WhoFor;
+
+    /// <summary>Each app by its id, for the hover's names (set by the window with each read of the graph's minutes).</summary>
+    public IReadOnlyDictionary<long, (string Name, string? Path, bool IsGame)>? AppsById { get; set; }
+
+    private Controls.HeatWho? WhoFor(long fromMs, long toMs)
+    {
+        if (_minuteStep != 60 || AppsById is not { } apps || _minutes.Count == 0) return null;
+        long from = fromMs / 1000, to = (toMs + 999) / 1000;
+        int i = _minutes.BinarySearch(new Core.Data.SystemMinute { Ts = from }, MinuteByTime.Instance);
+        if (i < 0) i = ~i;
+        var inStretch = new List<Core.Data.SystemMinute>();
+        for (; i < _minutes.Count && _minutes[i].Ts < to; i++) inStretch.Add(_minutes[i]);
+        var front = Core.Reports.HeatWhoReader.FrontOf(inStretch, id => apps.TryGetValue(id, out var a) ? a : null);
+        // An hour or more is said with how long each app was in front; a minute, or a few, without.
+        return front.Count == 0 ? null : new Controls.HeatWho(front, Timed: toMs - fromMs >= 30 * 60_000);
+    }
+
+    private sealed class MinuteByTime : IComparer<Core.Data.SystemMinute>
+    {
+        public static readonly MinuteByTime Instance = new();
+        public int Compare(Core.Data.SystemMinute? x, Core.Data.SystemMinute? y) => (x?.Ts ?? 0).CompareTo(y?.Ts ?? 0);
+    }
+
     /// <summary>Why the period the graph shows has nothing recorded, when it has nothing (null otherwise): see <see cref="Core.Reports.WhyEmpty"/>.</summary>
     [ObservableProperty] private string? _chartEmptyText;
 

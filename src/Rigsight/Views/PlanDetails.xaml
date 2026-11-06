@@ -4,11 +4,11 @@
              xmlns:ctl="clr-namespace:Rigsight.Controls">
     <UserControl.Resources>
         <Style x:Key="Label" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
         </Style>
         <Style x:Key="Value" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.BodyPlus}" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
@@ -26,13 +26,13 @@
     <StackPanel>
         <DockPanel>
             <StackPanel DockPanel.Dock="Right" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="16,0,0,0">
-                <TextBlock Text="{Binding LeftToday}" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                <TextBlock Text="{Binding LeftToday}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" HorizontalAlignment="Right" />
                 <TextBlock Text="{Binding LeftLabel}" Style="{StaticResource Label}" HorizontalAlignment="Right" />
             </StackPanel>
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding PlanName}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <Border CornerRadius="9" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding PlanName}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <Border CornerRadius="{x:Static ctl:Corner.Button}" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center">
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="Background" Value="{DynamicResource GoodSoftBrush}" />
@@ -41,7 +41,7 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <TextBlock Text="{Binding StateText}" FontSize="11.5" FontWeight="SemiBold">
+                        <TextBlock Text="{Binding StateText}" FontSize="{x:Static ctl:TextSize.Label}" FontWeight="SemiBold">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
@@ -53,43 +53,43 @@
                         </TextBlock>
                     </Border>
                 </StackPanel>
-                <TextBlock Text="{Binding Summary}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                <TextBlock Text="{Binding Summary}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
             </StackPanel>
         </DockPanel>
         <!-- Today's questions: the bar fills as they're used -->
         <Grid Height="6" Margin="0,14,0,6" ClipToBounds="True">
-            <Border CornerRadius="3" Background="{DynamicResource Surface2Brush}" />
-            <Border CornerRadius="3" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
+            <Border CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource Surface2Brush}" />
+            <Border CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
                 <Border.RenderTransform><ScaleTransform ScaleX="{Binding UsedPart}" /></Border.RenderTransform>
             </Border>
         </Grid>
         <TextBlock Text="{Binding UsedText}" Style="{StaticResource Label}" />
         <!-- Questions given, kept until used: their own line, not part of the day's bar (2026-10-25) -->
-        <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="12,9" Margin="0,10,0,0" Visibility="{Binding HasGiven, Converter={StaticResource Vis}}">
+        <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" Padding="12,9" Margin="0,10,0,0" Visibility="{Binding HasGiven, Converter={StaticResource Vis}}">
             <DockPanel>
-                <TextBlock Text="&#xF133;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource PurpleBrush}" Margin="0,1,10,0" VerticalAlignment="Top" />
-                <TextBlock Text="{Binding GivenText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="&#xF133;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource PurpleBrush}" Margin="0,1,10,0" VerticalAlignment="Top" />
+                <TextBlock Text="{Binding GivenText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
             </DockPanel>
         </ctl:SmoothBorder>
 
         <!-- Cancelled (works until the end) or a failed payment: said in full, above the facts -->
-        <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,14,0,0"
+        <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,14,0,0"
                           Visibility="{Binding IsEnding, Converter={StaticResource Vis}}">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{Binding KeepText}" Command="{Binding KeepCommand}" VerticalAlignment="Center" Margin="14,0,0,0" />
-                <TextBlock Text="{Binding EndingText}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding EndingText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
             </DockPanel>
         </ctl:SmoothBorder>
-        <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,14,0,0"
+        <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,14,0,0"
                           Visibility="{Binding IsPastDue, Converter={StaticResource Vis}}">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Command="{Binding ChangeCardCommand}" VerticalAlignment="Center" Margin="14,0,0,0">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{ctl:T 'Change card'}" />
-                        <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="10" Margin="8,0,0,0" />
+                        <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,0,0,0" />
                     </StackPanel>
                 </Button>
-                <TextBlock Text="{Binding PastDueText}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding PastDueText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
             </DockPanel>
         </ctl:SmoothBorder>
 
@@ -106,19 +106,19 @@
                             <Setter Property="Margin" Value="0,0,0,3" />
                         </Style>
                         <Style x:Key="FactIcon" TargetType="TextBlock" BasedOn="{StaticResource Icon}">
-                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S12}" />
                             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
                             <Setter Property="Margin" Value="0,0,7,0" />
                             <Setter Property="VerticalAlignment" Value="Center" />
                         </Style>
                         <Style x:Key="Amount" TargetType="TextBlock">
-                            <Setter Property="FontSize" Value="15" />
+                            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Heading}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                         </Style>
                         <Style x:Key="When" TargetType="TextBlock">
-                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />
                             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
                             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                             <Setter Property="Margin" Value="0,1,0,0" />
@@ -139,9 +139,9 @@
                                 <TextBlock Text="{ctl:T 'Paid with'}" Style="{StaticResource Label}" />
                             </StackPanel>
                             <StackPanel Orientation="Horizontal">
-                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="0,0,8,0" VerticalAlignment="Center"
+                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Tag}" Padding="5,0" Margin="0,0,8,0" VerticalAlignment="Center"
                                         Visibility="{Binding HasCard, Converter={StaticResource Vis}}">
-                                    <TextBlock Text="{Binding CardBrand}" FontSize="10" FontWeight="Bold" FontStyle="Italic" Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="{Binding CardBrand}" FontSize="{x:Static ctl:TextSize.Mini}" FontWeight="Bold" FontStyle="Italic" Foreground="{DynamicResource TextBrush}" />
                                 </Border>
                                 <TextBlock Text="{Binding CardDigits}" Style="{StaticResource Amount}" />
                             </StackPanel>
@@ -175,13 +175,13 @@
                             Visibility="{Binding IsPastDue, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{ctl:T 'Change card'}" />
-                            <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="10" Margin="8,0,0,0" />
+                            <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,0,0,0" />
                         </StackPanel>
                     </Button>
                     <Button Style="{StaticResource GhostButton}" Command="{Binding ReceiptsCommand}" Margin="0,0,8,8">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{ctl:T 'See receipts'}" />
-                            <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="10" Margin="8,0,0,0" />
+                            <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,0,0,0" />
                         </StackPanel>
                     </Button>
                 </WrapPanel>
@@ -191,7 +191,7 @@
         <!-- Given by support: no payments, nothing to manage -->
         <DockPanel Margin="0,14,0,0" Visibility="{Binding IsGift, Converter={StaticResource Vis}}">
             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'See plans'}" Command="{Binding ShowCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
-            <TextBlock Text="{Binding GiftText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding GiftText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
         </DockPanel>
     </StackPanel>
 </UserControl>

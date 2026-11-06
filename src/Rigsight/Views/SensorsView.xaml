@@ -11,7 +11,7 @@
             <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
         <Style x:Key="Num" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Body}" />
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
@@ -59,13 +59,13 @@
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Style="{StaticResource GhostButton}" Command="{Binding SetAllExpandedCommand}" CommandParameter="False" Margin="0,0,8,0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,8,0" />
+                        <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" />
                         <TextBlock Text="{ctl:T 'Collapse all'}" />
                     </StackPanel>
                 </Button>
                 <Button Style="{StaticResource GhostButton}" Command="{Binding SetAllExpandedCommand}" CommandParameter="True">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="11" Margin="0,0,8,0" />
+                        <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" />
                         <TextBlock Text="{ctl:T 'Expand all'}" />
                     </StackPanel>
                 </Button>
@@ -81,7 +81,7 @@
                         Visibility="{Binding HiddenCount, Converter={StaticResource Vis}}">
                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShowHidden}" VerticalAlignment="Center"
                           ToolTip="{ctl:T 'Hidden sensors appear dimmed; click their eye icon to bring them back.'}">
-                    <TextBlock Text="{Binding ShowHiddenText}" FontSize="13" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="{Binding ShowHiddenText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" />
                 </CheckBox>
                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Unhide all'}" Command="{Binding UnhideAllCommand}" Margin="12,0,0,0" />
             </StackPanel>
@@ -140,12 +140,12 @@
                         <ctl:SmoothBorder x:Name="Card" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                                 BorderThickness="1,1,1,0" CornerRadius="16,16,0,0" Padding="20,16,20,0">
                             <StackPanel>
-                                <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,-6" Padding="8,6" CornerRadius="10"
+                                <Border Background="Transparent" Cursor="Hand" Margin="-8,-6,-8,-6" Padding="8,6" CornerRadius="{x:Static ctl:Corner.Control}"
                                         MouseLeftButtonDown="Header_MouseDown" MouseMove="Header_MouseMove" MouseLeftButtonUp="Header_Click"
                                         ToolTip="{ctl:T 'Click to collapse or expand. Drag to change the order.'}">
                                     <DockPanel>
                                         <Grid DockPanel.Dock="Right" Style="{StaticResource WithStats}">
-                                            <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,4" />
+                                            <TextBlock Text="{Binding Summary}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,4" />
                                         </Grid>
                                         <!-- What the part is doing, in two or three readings: a folded card still says something. -->
                                         <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding Keys}" Focusable="False" VerticalAlignment="Center" Margin="0,0,0,3">
@@ -156,14 +156,14 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate DataType="{x:Type m:HardwareKey}">
-                                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="8" Padding="9,3" Margin="6,0,0,0"
+                                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Field}" Padding="9,3" Margin="6,0,0,0"
                                                             Visibility="{Binding IsShown, Converter={StaticResource Vis}}">
                                                         <StackPanel Orientation="Horizontal">
-                                                            <TextBlock x:Name="Value" Text="{Binding Sensor.ShortValue}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                                            <TextBlock x:Name="Value" Text="{Binding Sensor.ShortValue}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
                                                                        Visibility="{Binding Sensor, Converter={StaticResource Vis}}" />
-                                                            <TextBlock Text="{Binding Label}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0" VerticalAlignment="Center"
+                                                            <TextBlock Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0" VerticalAlignment="Center"
                                                                        Visibility="{Binding Label, Converter={StaticResource Vis}}" />
-                                                            <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource TextBrush}"
+                                                            <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}"
                                                                        Visibility="{Binding Text, Converter={StaticResource Vis}}" />
                                                         </StackPanel>
                                                     </Border>
@@ -182,7 +182,7 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                        <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,12,0" VerticalAlignment="Center" />
                                         <Border Style="{StaticResource Badge}" Background="{Binding Type, Converter={StaticResource KindBrush}, ConverterParameter=soft}">
                                             <TextBlock Text="{Binding BadgeText}" Style="{StaticResource BadgeText}" Foreground="{Binding Type, Converter={StaticResource KindBrush}}" />
                                         </Border>
@@ -243,7 +243,7 @@
                     <DataTemplate DataType="{x:Type m:SensorItem}">
                         <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}"
                                 BorderThickness="1,0,1,0" Padding="20,0">
-                            <Border x:Name="Row" CornerRadius="8" Padding="0,3" Background="Transparent">
+                            <Border x:Name="Row" CornerRadius="{x:Static ctl:Corner.Field}" Padding="0,3" Background="Transparent">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="58" />
@@ -258,7 +258,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Border Style="{StaticResource Badge}" Background="{Binding Kind, Converter={StaticResource KindBrush}, ConverterParameter=soft}"
                                             HorizontalAlignment="Left" Padding="6,2" Margin="6,0,0,0">
-                                        <TextBlock Text="{Binding TypeLabel}" FontSize="9" FontWeight="Bold"
+                                        <TextBlock Text="{Binding TypeLabel}" FontSize="{x:Static ctl:TextSize.Tiny}" FontWeight="Bold"
                                                    Foreground="{Binding Kind, Converter={StaticResource KindBrush}}" />
                                     </Border>
                                     <TextBox Grid.Column="1" Style="{StaticResource InlineEdit}"
@@ -328,20 +328,20 @@
                 <ctl:SmoothBorder.Resources>
                     <DataTemplate DataType="{x:Type vm:GlanceRow}">
                         <Button Command="{Binding DataContext.RevealCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
-                                Cursor="Hand" FocusVisualStyle="{x:Null}" HorizontalAlignment="Stretch" ToolTip="{ctl:T 'Show it in the list'}"
+                                Cursor="Hand" FocusVisualStyle="{StaticResource FocusRingWide}" HorizontalAlignment="Stretch" ToolTip="{ctl:T 'Show it in the list'}"
                                 AutomationProperties.Name="{Binding Sensor.DisplayName}">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Box" Background="Transparent" CornerRadius="8" Padding="8,6" Margin="-8,0">
+                                    <Border x:Name="Box" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Field}" Padding="8,6" Margin="-8,0">
                                         <StackPanel>
                                             <DockPanel>
-                                                <TextBlock x:Name="Value" DockPanel.Dock="Right" Text="{Binding Sensor.FormattedValue}" FontSize="13.5" FontWeight="SemiBold"
+                                                <TextBlock x:Name="Value" DockPanel.Dock="Right" Text="{Binding Sensor.FormattedValue}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource TextBrush}" Margin="10,0,0,0" />
                                                 <TextBlock Text="{Binding Sensor.DisplayName}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" />
                                             </DockPanel>
-                                            <TextBlock Text="{Binding Note}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Note}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
                                             <Grid Height="4" Margin="0,5,0,0" Visibility="{Binding HasBar, Converter={StaticResource Vis}}">
-                                                <Border CornerRadius="2" Background="{DynamicResource Surface2Brush}" />
+                                                <Border CornerRadius="{x:Static ctl:Corner.Bar}" Background="{DynamicResource Surface2Brush}" />
                                                 <ctl:BarPair x:Name="Bar" DownShare="{Binding Bar, Converter={StaticResource Scale}, ConverterParameter=100}" UpShare="0" />
                                             </Grid>
                                         </StackPanel>
@@ -397,11 +397,11 @@
                          stands 8 out on each side, isn't cut off at its left. -->
                     <ScrollViewer Style="{StaticResource PaneScroll}" Margin="-8,0,-20,0" ctl:WheelChain.Enabled="True">
                 <StackPanel Margin="8,0">
-                    <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,40,0,26"
+                    <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,40,0,26"
                                  Visibility="{Binding ReadingsPending, Converter={StaticResource Vis}}" />
                     <StackPanel Visibility="{Binding Warmest.Count, Converter={StaticResource Vis}}">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'nearest its limit'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'nearest its limit'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
                             <TextBlock Text="{ctl:T WARMEST}" Style="{StaticResource GlanceTitle}" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding Warmest}" Focusable="False" />
@@ -416,7 +416,7 @@
                     </StackPanel>
                     <StackPanel Visibility="{Binding PowerDraw.Count, Converter={StaticResource Vis}}">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding PowerNote}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding PowerNote}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
                             <TextBlock Text="{ctl:T 'DRAWING POWER'}" Style="{StaticResource GlanceTitle}" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding PowerDraw}" Focusable="False" />

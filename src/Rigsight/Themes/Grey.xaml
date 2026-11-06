@@ -11,20 +11,20 @@
     <Color x:Key="StrokeColor">#353535</Color>
     <Color x:Key="TextColor">#FFFFFF</Color>
     <Color x:Key="MutedColor">#ADADAD</Color>
-    <Color x:Key="FaintColor">#9A9A9A</Color>
+    <Color x:Key="FaintColor">#A6A6A6</Color>
     <Color x:Key="AccentColor">#FFFFFF</Color>
     <Color x:Key="OnAccentColor">#1E1E1E</Color>
-    <Color x:Key="CpuColor">#6B98FF</Color>
+    <Color x:Key="CpuColor">#7FA6FF</Color>
     <Color x:Key="GpuColor">#22D3EE</Color>
     <Color x:Key="WarmColor">#FBBF24</Color>
-    <Color x:Key="HotColor">#F87171</Color>
-    <Color x:Key="PurpleColor">#B18CFF</Color>
+    <Color x:Key="HotColor">#F98484</Color>
+    <Color x:Key="PurpleColor">#B795FF</Color>
     <!-- RigSight AI's own colour: every button that hands something to the AI, and nothing else (2026-10-26). -->
     <Color x:Key="AiColor">#E879F9</Color>
     <Color x:Key="OrangeColor">#FB923C</Color>
     <Color x:Key="CoolColor">#38BDF8</Color>
     <Color x:Key="GoodColor">#34D399</Color>
-    <Color x:Key="PinkColor">#F472B6</Color>
+    <Color x:Key="PinkColor">#F580BD</Color>
     <Color x:Key="TooltipColor">#3A3A3A</Color>
     <!-- Sky: the blue of a kind of thing (voltages, drives, the internet), apart from Cool, which says a temperature is low. -->
     <Color x:Key="SkyColor">#38BDF8</Color>

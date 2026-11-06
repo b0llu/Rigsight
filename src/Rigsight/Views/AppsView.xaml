@@ -10,14 +10,14 @@
             <Setter Property="Padding" Value="16,14" />
         </Style>
         <Style x:Key="GroupMain" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Figure}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Margin" Value="0,6,0,8" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
         <Style x:Key="GroupWord" TargetType="Run">
-            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Detail}" />
             <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
         </Style>
@@ -64,7 +64,7 @@
             </DockPanel>
             <StackPanel Orientation="Horizontal" Height="36" Margin="0,14,0,0">
                 <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
-                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="30,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="30,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
         </StackPanel>
 
@@ -114,9 +114,9 @@
                                 </Grid.ColumnDefinitions>
                                 <!-- The app's icon, or its first letter when it has none (so every row lines up). -->
                                 <Grid Width="28" Height="28" VerticalAlignment="Center">
-                                    <Border CornerRadius="7" Background="{DynamicResource Surface2Brush}"
+                                    <Border CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}"
                                             Visibility="{Binding Source, ElementName=RowIcon, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                        <TextBlock Text="{Binding Stat.Name, Converter={StaticResource Initial}}" FontSize="13" FontWeight="SemiBold"
+                                        <TextBlock Text="{Binding Stat.Name, Converter={StaticResource Initial}}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     <Image x:Name="RowIcon" Source="{Binding Stat.Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" />
@@ -137,7 +137,7 @@
         <!-- Detail -->
         <ScrollViewer Grid.Row="1" Grid.Column="2" Style="{StaticResource GutterScroll}">
             <StackPanel>
-                <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
+                <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,150,0,0"
                              Visibility="{Binding Ready, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                 <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}">
                     <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Muted}" />
@@ -153,9 +153,9 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <Border Width="52" Height="52" CornerRadius="14" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Center">
+                                <Border Width="52" Height="52" CornerRadius="{x:Static ctl:Corner.Panel}" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Center">
                                     <Grid>
-                                        <TextBlock Text="{Binding Selected.Name, Converter={StaticResource Initial}}" FontSize="20" FontWeight="SemiBold"
+                                        <TextBlock Text="{Binding Selected.Name, Converter={StaticResource Initial}}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                    Visibility="{Binding Source, ElementName=DetailIcon, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                                         <Image x:Name="DetailIcon" Source="{Binding Selected.Path, Converter={StaticResource ExeIcon}}" Width="36" Height="36"
@@ -163,7 +163,7 @@
                                     </Grid>
                                 </Border>
                                 <StackPanel Grid.Column="1" Margin="16,0,12,0" VerticalAlignment="Center">
-                                    <TextBox Style="{StaticResource InlineEdit}" FontSize="20" FontWeight="SemiBold" Margin="-5,0,0,0"
+                                    <TextBox Style="{StaticResource InlineEdit}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" Margin="-5,0,0,0"
                                              Text="{Binding SelectedAlias, UpdateSourceTrigger=LostFocus}" KeyDown="Rename_KeyDown"
                                              ToolTip="{Binding RenameTip}" />
                                     <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" Margin="0,3,0,0" />
@@ -171,7 +171,7 @@
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
                                 <Button Style="{StaticResource GhostButton}" Height="34" Padding="12,0" Margin="0,0,8,0" Command="{Binding OpenGameHistoryCommand}"
                                         Visibility="{Binding SelectedIsGame, Converter={StaticResource Vis}}" ToolTip="{ctl:T 'Every play, how it runs and its problems, on the Games page'}">
-                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="{ctl:T 'Game history'}" /></StackPanel>
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Margin="0,0,8,0" /><TextBlock Text="{ctl:T 'Game history'}" /></StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource IconButton}" Width="34" Height="34" VerticalAlignment="Top"
                                         Click="More_Click" ToolTip="{ctl:T 'Category, tracking and file location'}" AutomationProperties.Name="More options">

@@ -11,7 +11,7 @@
     <Color x:Key="StrokeColor">#1F1F1F</Color>
     <Color x:Key="TextColor">#EDEDED</Color>
     <Color x:Key="MutedColor">#A3A3A3</Color>
-    <Color x:Key="FaintColor">#8A8A8A</Color>
+    <Color x:Key="FaintColor">#8C8C8C</Color>
     <Color x:Key="AccentColor">#FFFFFF</Color>
     <Color x:Key="OnAccentColor">#000000</Color>
     <Color x:Key="CpuColor">#5B8CFF</Color>

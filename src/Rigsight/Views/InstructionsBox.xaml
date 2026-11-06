@@ -4,7 +4,7 @@
              xmlns:ctl="clr-namespace:Rigsight.Controls">
     <UserControl.Resources>
         <ControlTemplate x:Key="TextArea" TargetType="TextBox">
-            <Border x:Name="Bd" Background="{DynamicResource BgBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="10" Padding="10,8">
+            <Border x:Name="Bd" Background="{DynamicResource BgBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Control}" Padding="10,8">
                 <ScrollViewer x:Name="PART_ContentHost" />
             </Border>
             <ControlTemplate.Triggers>
@@ -16,26 +16,26 @@
          2026-10-24): a warning that their text replaces RigSight's, then one text at a time with Yours / RigSight's tabs so
          the box they type in keeps the whole width, then what RigSight always keeps. Shrinks with a small window. -->
     <ctl:SmoothBorder MaxWidth="860" Margin="24" Padding="24,20,24,18" HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="16"
+                      Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Card}"
                       AutomationProperties.Name="{ctl:T 'Edit the full instructions'}">
         <DockPanel>
             <DockPanel DockPanel.Dock="Top">
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CancelCommand}" VerticalAlignment="Top"
                         ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Cancel'}">
-                    <TextBlock Text="&#xE8BB;" FontSize="11" />
+                    <TextBlock Text="&#xE8BB;" FontSize="{x:Static ctl:IconSize.S11}" />
                 </Button>
                 <StackPanel>
-                    <TextBlock Text="{ctl:T 'Edit the full instructions'}" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                    <TextBlock Text="{Binding ModeName}" Style="{StaticResource Muted}" FontSize="12.5" Margin="0,2,0,0" />
+                    <TextBlock Text="{ctl:T 'Edit the full instructions'}" FontSize="{x:Static ctl:TextSize.DialogTitle}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="{Binding ModeName}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,2,0,0" />
                 </StackPanel>
             </DockPanel>
 
             <!-- What changes when they write their own: said once, before the box. -->
-            <ctl:SmoothBorder DockPanel.Dock="Top" CornerRadius="10" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,14,0,0">
+            <ctl:SmoothBorder DockPanel.Dock="Top" CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource WarmSoftBrush}" Padding="14,10" Margin="0,14,0,0">
                 <StackPanel>
-                    <TextBlock Text="{ctl:T 'This replaces RigSight\'s instructions'}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="{ctl:T 'This replaces RigSight\'s instructions'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" />
                     <TextBlock Text="{ctl:T 'Answers may be less accurate, and you won\'t get RigSight\'s future improvements. To change only the tone, length or language, use the How it answers settings.'}"
-                               FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                               FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                 </StackPanel>
             </ctl:SmoothBorder>
 
@@ -46,12 +46,12 @@
                     <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Cancel'}" Command="{Binding CancelCommand}" Margin="8,0,0,0" />
                     <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Save my instructions'}" Command="{Binding SaveCommand}" Margin="8,0,0,0" />
                 </StackPanel>
-                <TextBlock Text="{Binding Count}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Count}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
             </DockPanel>
 
             <!-- What can't be written away: the rules RigSight adds after any text. -->
-            <ctl:SmoothBorder DockPanel.Dock="Bottom" CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="14,10" Margin="0,12,0,0">
-                <TextBlock FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"
+            <ctl:SmoothBorder DockPanel.Dock="Bottom" CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="14,10" Margin="0,12,0,0">
+                <TextBlock FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"
                            Text="{ctl:T 'Whatever you write, RigSight still reads your PC\'s records first, sticks to what they show, skips pages you\'ve turned off, and keeps its sources, number cards and buttons.'}" />
             </ctl:SmoothBorder>
 
@@ -64,17 +64,17 @@
                                      IsChecked="{Binding ShowingRigSights, Converter={StaticResource Equals}, ConverterParameter=True}" />
                     </StackPanel>
                 </Border>
-                <TextBlock Text="{ctl:T 'Open RigSight\'s to compare; yours stays as you left it.'}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                <TextBlock Text="{ctl:T 'Open RigSight\'s to compare; yours stays as you left it.'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}"
                            TextWrapping="Wrap" VerticalAlignment="Center" Margin="12,0,0,0" />
             </DockPanel>
 
             <Grid Height="330">
                 <TextBox x:Name="Box" Template="{StaticResource TextArea}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" AcceptsTab="False"
-                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontSize="13" Foreground="{DynamicResource TextBrush}" CaretBrush="{DynamicResource TextBrush}"
+                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" CaretBrush="{DynamicResource TextBrush}"
                          SelectionBrush="{DynamicResource AccentBrush}" SpellCheck.IsEnabled="False" AutomationProperties.Name="{ctl:T 'Your instructions'}"
                          Visibility="{Binding ShowingYours, Converter={StaticResource Vis}}" />
                 <TextBox Template="{StaticResource TextArea}" Text="{Binding RigSightText, Mode=OneWay}" IsReadOnly="True" IsReadOnlyCaretVisible="False"
-                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontSize="13" Foreground="{DynamicResource MutedBrush}"
+                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
                          SelectionBrush="{DynamicResource AccentBrush}" AutomationProperties.Name="{ctl:T 'RigSight\'s instructions'}"
                          Visibility="{Binding ShowingRigSights, Converter={StaticResource Vis}}" />
             </Grid>

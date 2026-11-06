@@ -162,6 +162,8 @@ public static class ReportBuilder
         // And further back: the same weekday over recent weeks, and how the PC ran a few months ago.
         var context = new InsightContext(range == ReportRange.Day ? WeekdayUsualOf(db, from, apps, settings) : null,
             IsLong(range) ? null : ThenHeatOf(db, from, id => NameOf(apps, settings, id)), IsLong(range) ? null : ThenFansOf(db, from));
+        if (context.Weekday is { } weekday)
+            (report.UsualHours, report.UsualDay) = (weekday.Hours, weekday.Day);
         // What is normal for this PC: a day with the 6 days before it (a day alone is too little to set against a usual).
         if (!IsLong(range))
             report.Usual = PcUsual.Read(db, settings, range == ReportRange.Day ? from.AddDays(-6) : from, to, PcUsual.UsualDaysFor(range), DateTime.Now, id => NameOf(apps, settings, id));
@@ -199,20 +201,28 @@ public static class ReportBuilder
         var same = rows.Where(r => r.ActiveSec > 0 && TimeUtil.FromUnix(r.Day).DayOfWeek == day.DayOfWeek).ToList();
         if (same.Count < 3) return null;
         double gaming = 0;
+        var perHour = new double[24];
         foreach (var r in same)
             foreach (var h in db.GetAppHours(r.Day, r.Day + 86400))
+            {
+                perHour[TimeUtil.FromUnix(h.Ts).Hour] += h.FgSec;
                 if (apps.TryGetValue(h.AppId, out var a) && (settings.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category) == AppCategory.Game)
                     gaming += h.FgSec;
-        return new WeekdayUsual(day.DayOfWeek, same.Count, same.Sum(r => r.ActiveSec) / same.Count, gaming / same.Count);
+            }
+        // Each hour's usual is at most the hour itself (two apps' rows can overlap a few seconds at a switch).
+        return new WeekdayUsual(day.DayOfWeek, same.Count, same.Sum(r => r.ActiveSec) / same.Count, gaming / same.Count)
+        {
+            Hours = [.. perHour.Select(sec => Math.Min(3600, sec / same.Count))],
+        };
     }
 
-    internal static string NameOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
+    public static string NameOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
     {
         if (id is not long i || !apps.TryGetValue(i, out var a)) return Lang.T("Unknown");
         return settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name;
     }
 
-    internal static AppCategory CategoryOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
+    public static AppCategory CategoryOf(IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long? id)
     {
         if (id is not long i || !apps.TryGetValue(i, out var a)) return AppCategory.Other;
         return settings.AppCategories.TryGetValue(a.Exe, out var c) ? c : a.Category;
@@ -474,37 +484,40 @@ public static class ReportBuilder
             report.Timeline.Add(current);
         }
 
-        // Daily buckets (used by week and month views).
-        if (range != ReportRange.Day)
+        // The graph's bars: an hour each for a day (or a custom range of up to two), else a day each (a week, a month).
+        bool hourly = IsDayLike(range, from, to);
+        DateTime BarOf(DateTime t) => hourly ? t.Date.AddHours(t.Hour) : t.Date;
+        for (var d = BarOf(from); d < to; d = hourly ? d.AddHours(1) : d.AddDays(1))
+            report.Days.Add(new DayBucket { Day = d });
         {
-            for (var d = from.Date; d < to; d = d.AddDays(1))
-                report.Days.Add(new DayBucket { Day = d });
-
-            foreach (var g in minutes.GroupBy(m => TimeUtil.FromUnix(m.Ts).Date))
+            var byStart = report.Days.ToDictionary(b => b.Day);
+            foreach (var g in minutes.GroupBy(m => BarOf(TimeUtil.FromUnix(m.Ts))))
             {
-                var bucket = report.Days.FirstOrDefault(b => b.Day == g.Key);
-                if (bucket is null) continue;
+                if (!byStart.TryGetValue(g.Key, out var bucket)) continue;
                 bucket.OnSec = g.Count() * 60;
                 bucket.ActiveSec = g.Sum(m => (double)m.ActiveSec);
                 bucket.CpuTempAvg = Avg(g.Select(m => m.CpuTemp));
                 bucket.GpuTempAvg = Avg(g.Select(m => m.GpuTemp));
                 bucket.CpuTempMax = g.Max(m => m.CpuTempMax);
                 bucket.GpuTempMax = g.Max(m => m.GpuTempMax);
+                bucket.CpuTempMin = g.Min(m => m.CpuTempMin);
+                bucket.GpuTempMin = g.Min(m => m.GpuTempMin);
             }
-            foreach (var g in hours.GroupBy(h => TimeUtil.FromUnix(h.Ts).Date))
+            foreach (var g in hours.GroupBy(h => BarOf(TimeUtil.FromUnix(h.Ts))))
             {
-                var bucket = report.Days.FirstOrDefault(b => b.Day == g.Key);
-                if (bucket is null) continue;
+                if (!byStart.TryGetValue(g.Key, out var bucket)) continue;
                 foreach (var h in g.Where(h => h.FgSec > 0))
                 {
                     var cat = CategoryOf(h.AppId);
                     bucket.ActiveByCategory[cat] = bucket.ActiveByCategory.GetValueOrDefault(cat) + h.FgSec;
                 }
-                var top = g.GroupBy(h => h.AppId).Select(x => (Id: x.Key, Sec: x.Sum(h => h.FgSec))).MaxBy(x => x.Sec);
-                if (top.Sec > 0) bucket.TopApp = NameOf(top.Id);
+                var front = g.GroupBy(h => h.AppId).Select(x => (Id: x.Key, Sec: x.Sum(h => h.FgSec))).Where(x => x.Sec >= 60).OrderByDescending(x => x.Sec).ToList();
+                if (front.Count > 0) bucket.TopApp = NameOf(front[0].Id);
+                foreach (var (id, sec) in front.Take(3))
+                    bucket.Front.Add(new FrontApp(NameOf(id), apps.TryGetValue(id, out var row) ? row.Path : null, sec, CategoryOf(id) == AppCategory.Game));
 
                 // A day older than the minute detail: its totals and temperatures from the hourly rows.
-                if (!minuteDays.Contains(g.Key))
+                if (!minuteDays.Contains(g.Key.Date))
                 {
                     var list = g.ToList();
                     bucket.ActiveSec = list.Sum(h => h.FgSec);

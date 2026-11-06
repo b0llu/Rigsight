@@ -17,30 +17,30 @@
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="CornerRadius" Value="{x:Static ctl:Corner.Panel}" />
             <Setter Property="Padding" Value="16,13" />
             <Setter Property="Margin" Value="9,0" />
         </Style>
         <Style x:Key="TileBig" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="21" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Figure}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Margin" Value="0,4,0,2" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
         <Style x:Key="TileNote" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style x:Key="Fact" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
-            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="CornerRadius" Value="{x:Static ctl:Corner.Tile}" />
             <Setter Property="Padding" Value="13,11" />
             <Setter Property="Margin" Value="5" />
         </Style>
         <Style x:Key="FactValue" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Heading}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Margin" Value="0,2" />
@@ -67,7 +67,7 @@
             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
                 <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowCustom="False"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
-                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="30,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="30,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
 
             <TextBlock TextWrapping="Wrap" Visibility="{Binding ShowNoFans, Converter={StaticResource Vis}}">
@@ -82,7 +82,7 @@
                     </Style>
                 </TextBlock.Style>
             </TextBlock>
-            <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
+            <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,150,0,0"
                          Visibility="{Binding ShowLoading, Converter={StaticResource Vis}}" />
 
             <StackPanel Visibility="{Binding HasFans, Converter={StaticResource Vis}}">
@@ -140,7 +140,7 @@
                          the row stays the same). Whether it scrolls depends on the fans only, never on which one is picked. -->
                     <ctl:SmoothBorder Style="{StaticResource RowCard}" Padding="12,14" MaxHeight="{x:Static views:FansView.ListMaxHeight}">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Bottom" Text="{Binding EmptyHeadersText}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap"
+                            <TextBlock DockPanel.Dock="Bottom" Text="{Binding EmptyHeadersText}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap"
                                        Margin="10,8,10,0" Visibility="{Binding EmptyHeadersText, Converter={StaticResource Vis}}" />
                             <ListBox Style="{StaticResource CardList}" ItemsSource="{Binding Source={StaticResource Grouped}}"
                                      SelectedItem="{Binding Selected}" AutomationProperties.Name="{ctl:T Fans}">
@@ -164,7 +164,7 @@
                                             <Ellipse Width="8" Height="8" Fill="{Binding Series[0].Brush}" VerticalAlignment="Center" Margin="0,0,10,0" />
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Title}" Style="{StaticResource Body}" />
-                                                <TextBlock x:Name="Note" Text="{Binding Note}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
+                                                <TextBlock x:Name="Note" Text="{Binding Note}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
                                             </StackPanel>
                                             <TextBlock Grid.Column="2" Text="{Binding ValueText}" Style="{StaticResource Body}" FontWeight="SemiBold"
                                                        VerticalAlignment="Center" Margin="10,0,0,0" />
@@ -217,18 +217,18 @@
                                 </Border>
                                 <Grid>
                                     <!-- One fan: click its name to rename it (it shows everywhere). A card's fans: their own names below. -->
-                                    <TextBox Style="{StaticResource InlineEdit}" FontSize="18" FontWeight="SemiBold" Margin="-5,0,0,0"
+                                    <TextBox Style="{StaticResource InlineEdit}" FontSize="{x:Static ctl:TextSize.Title}" FontWeight="SemiBold" Margin="-5,0,0,0"
                                              Text="{Binding Sensor.Label, UpdateSourceTrigger=LostFocus}" KeyDown="Rename_KeyDown"
                                              ToolTip="{ctl:T 'Click to rename this fan (the name shows everywhere)'}"
                                              Visibility="{Binding IsGroup, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                    <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" FontSize="18"
+                                    <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" FontSize="{x:Static ctl:TextSize.Title}"
                                                Visibility="{Binding IsGroup, Converter={StaticResource Vis}}" />
                                 </Grid>
                             </DockPanel>
                             <TextBlock Text="{Binding Place}" Style="{StaticResource Caption}" Margin="0,2,0,12" />
 
-                            <TextBlock Text="{Binding ValueText}" FontSize="32" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                            <TextBlock Text="{Binding Sensor.MinMaxText}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0"
+                            <TextBlock Text="{Binding ValueText}" FontSize="{x:Static ctl:TextSize.HeroLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text="{Binding Sensor.MinMaxText}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0"
                                        ToolTip="{ctl:T 'Slowest and fastest today'}" Visibility="{Binding IsGroup, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <!-- A card's fans, each with its speed. -->
                             <ItemsControl ItemsSource="{Binding Series}" Margin="0,6,0,0" Visibility="{Binding IsGroup, Converter={StaticResource Vis}}">
@@ -241,15 +241,15 @@
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
                                             <Ellipse Width="8" Height="8" Fill="{Binding Brush}" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding Sensor.DisplayName}" Margin="8,0,6,0" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                            <TextBlock Text="{Binding Sensor.FormattedValue}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                            <TextBlock Text="{Binding Sensor.DisplayName}" Margin="8,0,6,0" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                            <TextBlock Text="{Binding Sensor.FormattedValue}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
                             <!-- The period's warning about this fan, as the insights put it. -->
-                            <Border CornerRadius="10" Padding="12,10" Margin="0,14,0,0" Visibility="{Binding HasAlert, Converter={StaticResource Vis}}">
+                            <Border CornerRadius="{x:Static ctl:Corner.Control}" Padding="12,10" Margin="0,14,0,0" Visibility="{Binding HasAlert, Converter={StaticResource Vis}}">
                                 <Border.Style>
                                     <Style TargetType="Border">
                                         <Setter Property="Background" Value="{DynamicResource WarmSoftBrush}" />
@@ -261,7 +261,7 @@
                                     </Style>
                                 </Border.Style>
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Alert}" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="{Binding Alert}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
                                     <!-- Why, and what to do, asked of the AI (hidden while it's off). -->
                                     <Button Style="{StaticResource AiButtonSmall}" HorizontalAlignment="Left" Margin="0,8,0,0" Content="{ctl:T 'Is this fan okay?'}"
                                             CommandParameter="{Binding AlertAsk}" AutomationProperties.Name="{ctl:T 'Is this fan okay?'}" />
@@ -269,7 +269,7 @@
                             </Border>
 
                             <!-- Its speed setting changed during the period: the facts and the curve are of the setting since. -->
-                            <TextBlock Text="{Binding Detail.SettingNote}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,14,0,0"
+                            <TextBlock Text="{Binding Detail.SettingNote}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,14,0,0"
                                        Visibility="{Binding Detail.HasSettingNote, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
 
                             <!-- Six facts, two rows of three. -->
@@ -309,10 +309,10 @@
                                  caption's line without making it taller, so the two charts stay level and nothing moves. -->
                             <DockPanel Margin="0,0,0,10">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,-10" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding ZoomText, ElementName=SpeedChart}" Foreground="{DynamicResource MutedBrush}" FontSize="12"
+                                    <TextBlock Text="{Binding ZoomText, ElementName=SpeedChart}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Small}"
                                                VerticalAlignment="Center" Margin="0,0,10,0" />
                                     <Button Command="{Binding ResetZoomCommand, ElementName=SpeedChart}" AutomationProperties.Name="{Binding ResetText, ElementName=SpeedChart}"
-                                            VerticalAlignment="Center" FontSize="12">
+                                            VerticalAlignment="Center" FontSize="{x:Static ctl:TextSize.Small}">
                                         <Button.Style>
                                             <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
                                                 <Setter Property="Visibility" Value="Hidden" />
@@ -324,7 +324,7 @@
                                             </Style>
                                         </Button.Style>
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                                            <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" />
                                             <TextBlock Text="{Binding ResetText, ElementName=SpeedChart}" />
                                         </StackPanel>
                                     </Button>
@@ -340,9 +340,9 @@
                             <DockPanel Margin="0,0,0,10">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                     <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" Fill="{Binding Series[0].Brush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="{ctl:T average}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="5,0,10,0" />
+                                    <TextBlock Text="{ctl:T average}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="5,0,10,0" />
                                     <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" Fill="{DynamicResource HoverBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="{ctl:T fastest}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0" />
+                                    <TextBlock Text="{ctl:T fastest}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0" />
                                 </StackPanel>
                                 <TextBlock>
                                     <TextBlock.Style>
@@ -414,9 +414,9 @@
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'A SET SPEED'}" Style="{StaticResource Caption}" Margin="0,0,0,10" />
                             <TextBlock Text="{ctl:T 'This fan turns at the same speed whatever runs and however hot things get.'}"
-                                       FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                       FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
                             <TextBlock Text="{ctl:T 'For a quieter PC at rest and more airflow in games, give it a fan curve in your BIOS.'}"
-                                       FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                       FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
                         </StackPanel>
                     </ctl:SmoothBorder>
 

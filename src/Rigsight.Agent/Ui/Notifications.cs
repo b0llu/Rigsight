@@ -338,7 +338,7 @@ internal static class ToastRenderer
     private static Bitmap? _logo;
     internal static readonly Widgets.RecentIcons Icons = new();
 
-    /// <summary>Each kind's colour: the bright one on dark, a deeper one that reads on white.</summary>
+    /// <summary>Each kind's colour: the bright one on dark, a deeper one that reads on white (at least 4.5:1, as the app's Light theme).</summary>
     public static Color Accent(NoticeKind kind, bool light = false) => (kind, light) switch
     {
         (NoticeKind.Alert, false) => Color.FromArgb(248, 113, 113),
@@ -347,11 +347,11 @@ internal static class ToastRenderer
         (NoticeKind.Crash or NoticeKind.Internet, false) => Color.FromArgb(251, 191, 36),
         (NoticeKind.InternetBack, false) => Color.FromArgb(61, 220, 151),
         (_, false) => Color.FromArgb(177, 140, 255),
-        (NoticeKind.Alert, true) => Color.FromArgb(220, 38, 38),
+        (NoticeKind.Alert, true) => Color.FromArgb(185, 28, 28),
         (NoticeKind.Recap or NoticeKind.Rewind, true) => Color.FromArgb(37, 99, 235),
-        (NoticeKind.Session, true) => Color.FromArgb(5, 150, 105),
-        (NoticeKind.Crash or NoticeKind.Internet, true) => Color.FromArgb(217, 119, 6),
-        (NoticeKind.InternetBack, true) => Color.FromArgb(5, 150, 105),
+        (NoticeKind.Session, true) => Color.FromArgb(4, 120, 87),
+        (NoticeKind.Crash or NoticeKind.Internet, true) => Color.FromArgb(180, 83, 9),
+        (NoticeKind.InternetBack, true) => Color.FromArgb(4, 120, 87),
         (_, true) => Color.FromArgb(124, 58, 237),
     };
 

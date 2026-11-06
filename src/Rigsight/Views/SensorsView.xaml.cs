@@ -112,7 +112,7 @@ public partial class SensorsView : UserControl
         static MenuItem Item(object header, string glyph) => new()
         {
             Header = header,
-            Icon = new TextBlock { Text = glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = 14 },
+            Icon = new TextBlock { Text = glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = Controls.IconSize.S14 },
             FocusVisualStyle = null,
         };
 
@@ -125,7 +125,7 @@ public partial class SensorsView : UserControl
             var header = new DockPanel { LastChildFill = true, MinWidth = 150 };
             if (place.IsShown)
             {
-                var tick = new TextBlock { Text = "", Style = (Style)Application.Current.FindResource("Icon"), FontSize = 12, Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+                var tick = new TextBlock { Text = "", Style = (Style)Application.Current.FindResource("Icon"), FontSize = Controls.IconSize.S12, Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
                 tick.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
                 DockPanel.SetDock(tick, Dock.Right);
                 header.Children.Add(tick);

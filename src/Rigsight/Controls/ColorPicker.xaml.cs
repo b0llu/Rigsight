@@ -103,7 +103,7 @@ public partial class ColorPicker : UserControl
             {
                 Style = (Style)Resources["Swatch"], Background = (Brush)FindResource("Surface2Brush"), Tag = selected is null ? "on" : null,
                 ToolTip = Lang.T("The usual tile"),
-                Content = new TextBlock { Text = Lang.T("Auto"), FontSize = 10.5, Foreground = (Brush)FindResource("TextBrush") },
+                Content = new TextBlock { Text = Lang.T("Auto"), FontSize = TextSize.MiniPlus, Foreground = (Brush)FindResource("TextBrush") },
             };
             AutomationProperties.SetName(auto, Lang.T("The usual tile"));
             auto.Click += (_, _) => Pick("tile", null);
@@ -142,7 +142,7 @@ public partial class ColorPicker : UserControl
             ToolTip = name,
             Content = on ? new TextBlock
             {
-                Text = "", Style = (Style)FindResource("Icon"), FontSize = 13,
+                Text = "", Style = (Style)FindResource("Icon"), FontSize = IconSize.S13,
                 Foreground = Dark(c) ? Brushes.White : Brushes.Black,
             } : null,
         };

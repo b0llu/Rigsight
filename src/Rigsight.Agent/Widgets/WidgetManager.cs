@@ -40,16 +40,39 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         UpdateVisibility();
     }
 
+    /// <summary>
+    /// Widgets whose saved spot is on no screen right now (a screen not there yet as the agent starts after an update or a
+    /// sign-in, say): shown in the corner for now, their spot kept, and put back on it once a screen has it.
+    /// </summary>
+    private readonly HashSet<string> _waitingForScreen = [];
+    private bool _watchingScreens;
+
+    /// <summary>
+    /// Enough of a widget at that spot shows on some screen, by the screen's whole area (a widget may sit over the taskbar
+    /// or partly off an edge, as the user dragged it: 2026-11-06, a report of widgets back in the corner after every
+    /// update, when the check was a point 20 px in, inside the area the taskbar leaves free).
+    /// </summary>
+    internal static bool OnAScreen(Rectangle widget, IEnumerable<Rectangle> screens) =>
+        screens.Any(s => Rectangle.Intersect(s, widget) is { Width: >= 24, Height: >= 16 });
+
+    private static IEnumerable<Rectangle> ScreenAreas => Screen.AllScreens.Select(s => s.Bounds);
+
     private void PlaceInitially(WidgetForm form, WidgetConfig cfg)
     {
         // No screen at all (a remote session as it starts, say): a usual size, not an error that stops the agent starting.
         var screen = (Screen.PrimaryScreen ?? Screen.AllScreens.FirstOrDefault())?.WorkingArea ?? new Rectangle(0, 0, 1920, 1040);
-        if (cfg.X is int cx && cfg.Y is int cy && Screen.AllScreens.Any(s => s.WorkingArea.Contains(cx + 20, cy + 20)))
+        if (cfg.X is int cx && cfg.Y is int cy)
         {
             form.Location = new Point(cx, cy);
             form.Show();
-            form.Redraw();
-            return;
+            form.Redraw(); // now at its real size
+            if (OnAScreen(form.Bounds, ScreenAreas)) return;
+            // Kept, not forgotten: the corner below is not saved, and the spot comes back with its screen.
+            _waitingForScreen.Add(cfg.Id);
+            WatchScreens();
+            Log.Write("widgets", $"{WidgetCatalog.Title(cfg)} saved at {cx},{cy} ({form.Width}x{form.Height}) is on no screen now " +
+                                 $"(screens: {string.Join(", ", Screen.AllScreens.Select(s => $"{s.Bounds.X},{s.Bounds.Y} {s.Bounds.Width}x{s.Bounds.Height}"))}): " +
+                                 "shown in the corner for now, its spot kept for when that screen is back");
         }
 
         // No saved spot: render off-screen first to learn the real size, then tuck it into the
@@ -65,6 +88,40 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         form.Location = new Point(screen.Right - form.Width - margin, y);
         form.Redraw();
     }
+
+    /// <summary>Screens added, removed or resized: a widget waiting for its spot goes back to it once a screen has it.</summary>
+    private void WatchScreens()
+    {
+        if (_watchingScreens) return;
+        _watchingScreens = true;
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += (_, _) =>
+        {
+            // Raised on the events' own thread: the forms are moved on theirs.
+            if (_forms.Values.FirstOrDefault() is { IsHandleCreated: true } any) any.BeginInvoke(ReturnToSavedSpots);
+        };
+    }
+
+    private void ReturnToSavedSpots()
+    {
+        if (_waitingForScreen.Count == 0) return;
+        var widgets = getSettings().Widgets;
+        foreach (var id in _waitingForScreen.ToList())
+        {
+            if (!_forms.TryGetValue(id, out var form) || widgets.FirstOrDefault(w => w.Id == id) is not { X: int x, Y: int y } cfg)
+            {
+                _waitingForScreen.Remove(id);
+                continue;
+            }
+            if (!OnAScreen(new Rectangle(x, y, form.Width, form.Height), ScreenAreas)) continue;
+            form.Location = new Point(x, y);
+            form.Redraw();
+            _waitingForScreen.Remove(id);
+            Log.Write("widgets", $"{WidgetCatalog.Title(cfg)} back at its saved spot {x},{y}: its screen is there now");
+        }
+    }
+
+    /// <summary>A widget dragged somewhere new no longer waits for its old spot.</summary>
+    public void Moved(string id) => _waitingForScreen.Remove(id);
 
     /// <param name="gameInFront">A game (not a video or another app) is in front.</param>
     /// <param name="fillsScreen">The window in front covers its whole screen (borderless or exclusive).</param>

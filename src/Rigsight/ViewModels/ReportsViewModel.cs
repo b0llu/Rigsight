@@ -15,7 +15,7 @@ public sealed record PeakRow(string Label, string Value, string When, string? Ap
 public sealed partial class ReportsViewModel(ReportService reports) : ObservableObject
 {
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDay), nameof(IsMultiDay), nameof(IsYear), nameof(BarsTitle), nameof(InsightsTitle))]
+    [NotifyPropertyChangedFor(nameof(IsDay), nameof(IsMultiDay), nameof(IsYear), nameof(BarsTitle), nameof(BarsTitleShown), nameof(TempsTitle), nameof(InsightsTitle))]
     private ReportRange _range = ReportRange.Day;
 
     [ObservableProperty] private DateTime _anchor = DateTime.Today;
@@ -47,6 +47,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
                  {
                      nameof(ActiveLine), nameof(GamesText), nameof(GamesLine), nameof(InternetText), nameof(InternetLine), nameof(HasEnergy), nameof(EnergyText), nameof(EnergyParts),
                      nameof(TimeSplit), nameof(HasTimeSplit), nameof(TimeSplitNote), nameof(TimeRows), nameof(ShownInsights), nameof(UsualRows), nameof(HasUsual), nameof(UsualNow), nameof(ProblemsLine), nameof(ProblemsTone),
+                     nameof(ProblemsText), nameof(UsualHoursName), nameof(HasPeriodTemps), nameof(BarsTitle), nameof(BarsTitleShown), nameof(TempsTitle),
                  })
             OnPropertyChanged(name);
     }
@@ -56,7 +57,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     /// <summary>Under the time in use: how it compares ("4h 38m more than your usual day of 8h 47m"), or how long the PC was on.</summary>
     public string ActiveLine => Report is not { } r ? ""
         // In another language the sentence's own opening can't be cut off by its English words: its one statement is used.
-        : r.Insights.FirstOrDefault(i => i.Key == "screen-compare") is { } compare ? (Lang.Translating && compare.Short is { } s ? s : Bare(compare.Text))
+        : r.Insights.FirstOrDefault(i => i.Key == "screen-compare") is { } compare ? (Lang.Translating && compare.Short is { } s ? s : Bare(compare.Text).Replace(" screen time", ""))
         : PcOnFor(Units.Duration(r.OnSec));
 
     private static string PcOnFor(string time) => Lang.T($"PC on for {time}");
@@ -153,13 +154,13 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private int PowerCount => Crashes.Count(c => PcUsual.LooksLikePower(c.Event, c.Finding));
     private int PowerLikelyCount => Crashes.Count(c => PcUsual.ShutOffOf(c.Event, c.Finding) == ShutOff.PowerLikely);
 
-    public string ProblemsText => PcProblems.Count.ToString(System.Globalization.CultureInfo.CurrentCulture);
+    public string ProblemsText => PcProblems.Count == 0 ? Lang.T("None") : PcProblems.Count.ToString(System.Globalization.CultureInfo.CurrentCulture);
 
     /// <summary>
     /// The number's colour, by the same rule as everywhere in R4: amber only when more than usual (or, where there is no
     /// usual to go by, when there were any), green with none, plain when there were some as usual.
     /// </summary>
-    public string ProblemsTone => PcProblems.Count == 0 ? "Good"
+    public string ProblemsTone => PcProblems.Count == 0 ? (Crashes.Count == 0 ? "Good" : "Plain")
         : (Report?.Usual?.Problems is { } pr && PcUsual.CardRows(Report).Count > 0 ? pr.Tone == EffectTone.Worse : true) ? "Warm" : "Plain";
 
     public string ProblemsLine
@@ -235,10 +236,10 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private TimePart? _pickedKind;
     public List<TimeRow> TimeRows => [.. TimeSplit.Select(p => new TimeRow(p, PickedKind is not null && PickedKind != p, PickedKind == p))];
     public IReadOnlyList<Core.Settings.AppCategory>? PickedKinds => PickedKind?.Kinds;
-    public string BarsTitleShown => PickedKind is { } k && IsMultiDay ? $"{BarsTitle} · {k.Name}" : BarsTitle;
+    public string BarsTitleShown => PickedKind is { } k ? $"{BarsTitle} · {k.Name}" : BarsTitle;
 
     [RelayCommand]
-    private void PickKind(TimeRow row) => PickedKind = !IsMultiDay || PickedKind == row.Part ? null : row.Part;
+    private void PickKind(TimeRow row) => PickedKind = PickedKind == row.Part ? null : row.Part;
     public string TimeSplitNote => Report is { } r ? InUseAway(Units.Duration(r.ActiveSec), Units.Duration(r.AwaySec)) : "";
 
     private static string InUseAway(string inUse, string away) => Lang.T($"{inUse} in use · {away} away");
@@ -290,7 +291,8 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         _ => Lang.T("THESE DAYS"),
     };
 
-    internal static List<UsualRow> UsualOf(Report? r) => PcUsual.CardRows(r);
+    internal static List<UsualRow> UsualOf(Report? r) =>
+        [.. PcUsual.CardRows(r).Where(row => row.Key is not ("problems" or "power") || row.Tone == EffectTone.Worse)];
 
     /// <summary>
     /// Opened from a line of Home about the usual: the days it speaks of (a week, a month, or the 7 days Home's usual is
@@ -315,14 +317,18 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     // ── What stood out ──
 
-    // The totals are the tiles above: not said again as the first line.
+    // Only what nothing else on the page says (audit, 2026-11-06: 6 of 11 lines repeated something already on screen):
+    // the time in use and against before (the Active tile), the time in games (In games, Longest sessions), the app with
+    // the most time (Where the time went), the download (Internet), the crashes (their own card) and the most memory
+    // (the Apps table's Memory peak).
+    internal static readonly HashSet<string> SaidElsewhere = ["screen", "screen-compare", "gaming", "top-app", "net-recap", "crash", "app-crashes", "memory"];
     private List<Insight> _shownInsights = [];
-    public List<Insight> ShownInsights => _shownInsights = Kept.Or(_shownInsights, [.. Insights.Where(i => i.Key != "screen")]);
+    public List<Insight> ShownInsights => _shownInsights = Kept.Or(_shownInsights, [.. Insights.Where(i => !SaidElsewhere.Contains(i.Key))]);
 
     // ── What changed on the PC in the period ──
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasChanges))]
+    [NotifyPropertyChangedFor(nameof(HasChanges), nameof(HasChangeCard))]
     private IReadOnlyList<HomeLine> _changes = [];
     public bool HasChanges => Changes.Count > 0;
 
@@ -337,13 +343,30 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     {
         var all = changes.ToList();
         ChangeResult? ResultOf(Core.Stability.SystemChange c) => results.TryGetValue(c.Time.Date, out var r) && r.Main == c ? r : null;
-        var shown = all.Where(c => ResultOf(c) is not null).Concat(all.Where(c => ResultOf(c) is null).OrderByDescending(c => c.Time))
+        var shown = all.Where(c => ResultOf(c) is not null).Concat(all.Where(c => ResultOf(c) is null && !IsAppChange(c)).OrderByDescending(c => c.Time))
             .Take(ChangesShown).OrderByDescending(c => c.Time).ToList();
+        AppChanges = all.Count(c => IsAppChange(c) && ResultOf(c) is null);
         var lines = ChangeLines(shown);
         return [.. lines.Select((line, i) => ResultOf(shown[i]) is { Short.Length: > 0 } r
             ? line with { Result = char.ToUpperInvariant(r.Short[0]) + r.Short[1..], ResultBrush = r.Tone == EffectTone.Worse ? "WarmBrush" : "GoodBrush", ChangeDay = r.Day }
             : line)];
     }
+
+    /// <summary>
+    /// An app or game installed, removed or updated: many a week, and seldom what changed how the PC runs (audit,
+    /// 2026-11-06: they filled the card). Counted in one line under it; the Timeline lists them.
+    /// </summary>
+    internal static bool IsAppChange(Core.Stability.SystemChange c) =>
+        c.Kind is Core.Stability.ChangeKind.AppInstalled or Core.Stability.ChangeKind.AppRemoved or Core.Stability.ChangeKind.AppUpdated;
+
+    /// <summary>The period's app and game changes left out of the card (none made a difference).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AppChangesText), nameof(HasAppChanges), nameof(HasChangeCard))]
+    private int _appChanges;
+    public bool HasAppChanges => AppChanges > 0;
+    public bool HasChangeCard => HasChanges || HasAppChanges;
+    public string AppChangesText => AppChanges == 1 ? Lang.T("1 app or game updated, installed or removed, on the Timeline")
+        : Lang.T($"{AppChanges} apps and games updated, installed or removed, on the Timeline");
 
     /// <summary>Opens a change's before and after on the Timeline (set by the window).</summary>
     public Action<DateTime>? OpenChange { get; set; }
@@ -413,12 +436,25 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         OnPropertyChanged(nameof(MoreCrashesText));
     }
 
-    /// <summary>A day, or a custom range of up to two days: minute by minute (the timeline), not daily bars.</summary>
+    /// <summary>A day, or a custom range of up to two days: bars per hour, not per day.</summary>
     public bool IsDay => Range == ReportRange.Day || (Range == ReportRange.Custom && CustomTo - CustomFrom <= ReportBuilder.DayLikeLimit);
     public bool IsMultiDay => !IsDay;
     /// <summary>A year: bars per month (built from the daily totals; see ReportBuilder.BuildLong).</summary>
     public bool IsYear => ReportBuilder.IsLong(Range, CustomFrom, CustomTo);
-    public string BarsTitle => IsYear ? Lang.T("Active time per month") : Lang.T("Active time per day");
+    public string BarsTitle => ShownYear ? Lang.T("Active time per month") : ShownDay ? Lang.T("Active time per hour") : Lang.T("Active time per day");
+
+    // What the graphs show is the report on screen, which stays the period being left until the next one is read.
+    private bool ShownDay => Report is { } r ? ReportBuilder.IsDayLike(r.Range, r.From, r.To) : IsDay;
+    private bool ShownYear => Report is { } r ? ReportBuilder.IsLong(r.Range, r.From, r.To) : IsYear;
+
+    /// <summary>The Temperatures card's title, by what its points are.</summary>
+    public string TempsTitle => ShownYear ? Lang.T("Temperatures per month") : ShownDay ? Lang.T("Temperatures per hour") : Lang.T("Temperatures per day");
+
+    /// <summary>Any temperature recorded in the period: the card shows (none, and it says nothing).</summary>
+    public bool HasPeriodTemps => Report?.Days.Any(d => d.CpuTempAvg is not null || d.GpuTempAvg is not null || d.CpuTempMax is not null) ?? false;
+
+    /// <summary>What the day graph's dashed line is: "Usual Thursday".</summary>
+    public string? UsualHoursName => Report?.UsualDay is { } day ? Lang.T($"Usual {Core.Reports.PeriodWords.DayName(day)}") : null;
 
     /// <summary>A custom range's timeline ends with it; a day's is the whole day (null).</summary>
     public DateTime? TimelineEnd => Report is { Range: ReportRange.Custom } r ? r.To : null;
@@ -439,6 +475,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     public bool ShowEmpty => Ready && !HasData && !Switching;
 
+    /// <summary>The figures shown are under the dark cover with the big ring: another period is being read past a moment.</summary>
+    public bool Covered => Switching && HasData;
+
     /// <summary>The period shown as it reads after a statement: "today", "last week", "in August 2026" (see <see cref="Controls.PeriodPicker.Words"/>).</summary>
     private string When => Controls.PeriodPicker.Words(Range, Anchor);
 
@@ -453,14 +492,27 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     /// that it's loading instead of the period it is leaving.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowEmpty), nameof(ShowData), nameof(ShowLoading), nameof(Title), nameof(ReportAsk), nameof(ReportAskText), nameof(Subtitle))]
+    [NotifyPropertyChangedFor(nameof(ShowEmpty), nameof(ShowLoading), nameof(Covered))]
     private bool _switching;
 
-    public bool ShowData => HasData && !Switching;
-    public bool ShowLoading => !Ready || Switching;
+    // While another period is read the figures stay (issue #11: the page emptied and everything popped in at once).
+    public bool ShowData => HasData;
+    public bool ShowLoading => !Ready || (Switching && !HasData);
 
-    /// <summary>How long a newly picked period may take before the page says it's loading (one read at once never blanks it).</summary>
-    internal static TimeSpan SwitchDelay { get; set; } = TimeSpan.FromMilliseconds(150);
+    /// <summary>
+    /// How long a newly picked period may take before the page says it's loading: a read quicker than that changes the
+    /// figures in place with no loader at all (one under a third of a second reads as instant).
+    /// </summary>
+    internal static TimeSpan SwitchDelay { get; set; } = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>Once the loader shows, it stays at least this long: a ring that flashes for a frame reads as a flicker.</summary>
+    internal static TimeSpan LeastShown { get; set; } = TimeSpan.FromMilliseconds(400);
+
+    private DateTime _coveredAt;
+    partial void OnSwitchingChanged(bool value)
+    {
+        if (value) _coveredAt = DateTime.UtcNow;
+    }
 
     // The period the page shows now (not the one being read).
     private (ReportRange Range, DateTime Anchor, DateTime From, DateTime To)? _shown;
@@ -471,16 +523,18 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         if (id == _loadId && IsLoading) Switching = true;
     }
 
-    // While another period is read the heading is empty: the one it has is the period being left.
-    public string Title => Switching ? "" : Report?.Title ?? "";
+    // The heading changes with the figures, together (it stays the period shown until the next one is read).
+    public string Title => Report?.Title ?? "";
     /// <summary>The period's AI button: how it went, from the Reports page's records.</summary>
-    public Services.AiQuestion? ReportAsk => Switching || Report is null ? null
+    public Services.AiQuestion? ReportAsk => Report is null ? null
         : new(Lang.T($"How did my PC do over this period ({Report.Title}), and is anything worth a look?"), Core.Ai.AiPages.Reports);
     /// <summary>The button's words: the question by the period's own name ("What stood out today?").</summary>
-    public string ReportAskText => Switching || Report is null ? "" : Report.StoodOut;
+    public string ReportAskText => Report is null ? "" : Report.StoodOut;
 
-    public string Subtitle => Report is null || Switching ? "" : Range == ReportRange.Custom
-        ? $"{Controls.PeriodPicker.Duration(Report.To - Report.From)}" : Controls.PeriodPicker.Span(Range, Report.From);
+    // A period is named by its last day since 1.4.0 (the 7 days ending on it): its first day named the 7 days before
+    // ("24 Oct – 30 Oct 2026" under "30 Oct – 5 Nov", 2026-11-06).
+    public string Subtitle => Report is null ? "" : Report.Range == ReportRange.Custom
+        ? $"{Controls.PeriodPicker.Duration(Report.To - Report.From)}" : Controls.PeriodPicker.Span(Report.Range, Report.To.AddTicks(-1).Date);
 
     /// <summary>Explains short weeks/months while Rigsight is new.</summary>
     public string? CoverageNote
@@ -530,11 +584,14 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     // Windows' own parts and Rigsight itself aren't what anyone means by a session.
     private List<SessionInfo> _topSessions = [];
     public List<SessionInfo> TopSessions => _topSessions = Kept.Or(_topSessions,
-        Report?.Sessions.Where(s => s.Category != Core.Settings.AppCategory.System).OrderByDescending(s => s.ActiveSec).Take(10).ToList() ?? [], Kept.Values);
+        Report?.Sessions.Where(s => s.Category != Core.Settings.AppCategory.System).OrderByDescending(s => s.ActiveSec).Take(SessionsShown).ToList() ?? [], Kept.Values);
+
+    /// <summary>How many of the longest sessions the card lists (the rest of each app's time is in Apps you used, each game's plays on Games).</summary>
+    public const int SessionsShown = 5;
 
     private List<PeakRow> _peaks = [];
 
-    /// <summary>The period's highs: temperatures, the graphics card's power, memory, the fastest download, then core voltages and CPU power.</summary>
+    /// <summary>The period's highs: temperatures, the graphics card's power, memory and CPU power (voltages are All sensors', the fastest download Network's).</summary>
     public List<PeakRow> Peaks => _peaks = Kept.Or(_peaks, BuildPeaks());
 
     private List<PeakRow> BuildPeaks()
@@ -554,9 +611,6 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         if (r.GpuHotPeak is { } c) rows.Add(new(Lang.T("GPU hot spot"), Units.TempShort(c.Value), When(c), c.App, TempBrush(c.Value - 10)));
         if (r.GpuPowerPeak is { } g) rows.Add(new(Lang.T("GPU power (1-minute average)"), $"{g.Value:0} W", When(g), g.App, plain));
         if (r.RamPeak is { } m) rows.Add(new(Lang.T("Memory in use"), $"{m.Value:0.0} GB", When(m), m.App, plain));
-        if (r.Net is { TopSpeed: > 0, TopSpeedAt: { } at } net) rows.Add(new(Lang.T("Fastest download"), Units.Speed(net.TopSpeed.Value), At(at), net.TopSpeedApp, plain));
-        if (r.CpuVoltPeak is { } d) rows.Add(new(Lang.T("CPU core voltage"), $"{d.Value:0.000} V", When(d), d.App, plain));
-        if (r.GpuVoltPeak is { } e) rows.Add(new(Lang.T("GPU core voltage"), $"{e.Value:0.000} V", When(e), e.App, plain));
         if (r.CpuPowerPeak is { } f) rows.Add(new(Lang.T("CPU power (1-minute average)"), $"{f.Value:0} W", When(f), f.App, plain));
         return rows;
     }
@@ -630,6 +684,12 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
             why = await reports.EmptyWhyAsync(f, t, Controls.PeriodPicker.Words(range, anchor));
         }
         if (id != _loadId) return;
+        // The loader showed: it stays its least, then the new figures come in.
+        if (Switching && DateTime.UtcNow - _coveredAt is var shown && shown < LeastShown)
+        {
+            await Task.Delay(LeastShown - shown);
+            if (id != _loadId) return;
+        }
         _emptyWhy = why;
         OnPropertyChanged(nameof(EmptyTitle));
         // A different period starts with short lists again; the minute refresh of the same one keeps them open.

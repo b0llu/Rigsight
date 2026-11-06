@@ -121,7 +121,7 @@ public class AgentSettingsTests
     public void The_apps_settings_get_the_stores_repairs()
     {
         var app = App();
-        (app.LiveRefreshMs, app.Theme) = (1, "neon");
+        (app.LiveRefreshMs, app.Theme) = (1, "no-such-theme");
         app.Tracking.SensorIntervalMs = 5;
         app.Widgets = [new WidgetConfig { Style = WidgetStyle.Pill, Scale = 9 }, new WidgetConfig { Style = WidgetStyle.Pill }];
         var merged = Merge(app, Agents());

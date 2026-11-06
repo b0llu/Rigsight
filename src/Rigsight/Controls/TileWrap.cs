@@ -32,15 +32,24 @@ public sealed class TileWrap : Panel
         return (columns, Math.Max(1, (width - Gap * (columns - 1)) / columns));
     }
 
+    /// <summary>
+    /// The tiles shown: one collapsed (Reports' Energy where no power is read, a year read by days) takes no place,
+    /// rather than leave a gap in its row (2026-11-06).
+    /// </summary>
+    private List<UIElement> Shown() => [.. InternalChildren.Cast<UIElement>().Where(c => c.Visibility != Visibility.Collapsed)];
+
     protected override Size MeasureOverride(Size available)
     {
-        var (columns, tile) = Fit(available.Width, InternalChildren.Count);
+        var shown = Shown();
+        var (columns, tile) = Fit(available.Width, shown.Count);
         double height = 0, row = 0;
-        for (int i = 0; i < InternalChildren.Count; i++)
+        foreach (UIElement child in InternalChildren)
+            if (child.Visibility == Visibility.Collapsed) child.Measure(new Size(tile, double.PositiveInfinity));
+        for (int i = 0; i < shown.Count; i++)
         {
-            InternalChildren[i].Measure(new Size(tile, double.PositiveInfinity));
-            row = Math.Max(row, InternalChildren[i].DesiredSize.Height);
-            if (i % columns == columns - 1 || i == InternalChildren.Count - 1)
+            shown[i].Measure(new Size(tile, double.PositiveInfinity));
+            row = Math.Max(row, shown[i].DesiredSize.Height);
+            if (i % columns == columns - 1 || i == shown.Count - 1)
             {
                 height += row + (height > 0 ? Gap : 0);
                 row = 0;
@@ -51,14 +60,17 @@ public sealed class TileWrap : Panel
 
     protected override Size ArrangeOverride(Size final)
     {
-        var (columns, tile) = Fit(final.Width, InternalChildren.Count);
+        var shown = Shown();
+        var (columns, tile) = Fit(final.Width, shown.Count);
+        foreach (UIElement child in InternalChildren)
+            if (child.Visibility == Visibility.Collapsed) child.Arrange(new Rect());
         double y = 0;
-        for (int start = 0; start < InternalChildren.Count; start += columns)
+        for (int start = 0; start < shown.Count; start += columns)
         {
-            int end = Math.Min(start + columns, InternalChildren.Count);
+            int end = Math.Min(start + columns, shown.Count);
             double row = 0;
-            for (int i = start; i < end; i++) row = Math.Max(row, InternalChildren[i].DesiredSize.Height);
-            for (int i = start; i < end; i++) InternalChildren[i].Arrange(new Rect((i - start) * (tile + Gap), y, tile, row));
+            for (int i = start; i < end; i++) row = Math.Max(row, shown[i].DesiredSize.Height);
+            for (int i = start; i < end; i++) shown[i].Arrange(new Rect((i - start) * (tile + Gap), y, tile, row));
             y += row + Gap;
         }
         return final;

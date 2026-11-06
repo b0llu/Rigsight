@@ -687,7 +687,7 @@ public sealed class ServiceTests
         ];
         try
         {
-            foreach (var theme in new[] { ThemeManager.Dark, ThemeManager.Grey, ThemeManager.Midnight, ThemeManager.Forest, ThemeManager.Ember, ThemeManager.Light })
+            foreach (var theme in Rigsight.Core.Settings.ThemeCatalog.All.Select(t => t.Key))
             {
                 Ui.Run(() => ThemeManager.Apply(theme));
                 var missing = Ui.Run(() => keys.Where(k => Application.Current.TryFindResource(k) is null).ToList());

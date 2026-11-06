@@ -203,13 +203,14 @@ public sealed class ReportInvariantTests
     public void Day_buckets_cover_the_period_in_order_and_add_up(string c)
     {
         var (r, _) = Get(c);
+        Assert.Equal(r.Days.OrderBy(d => d.Day).Select(d => d.Day), r.Days.Select(d => d.Day));
+        // A day's bars are its hours (issue #9, 2026-11-06), a week's and a month's their days, a year's its months.
         if (r.Range == ReportRange.Day)
         {
-            Assert.Empty(r.Days);
-            return;
+            Assert.Equal(24, r.Days.Count);
+            Assert.All(r.Days, d => Assert.Equal(r.From.AddHours(r.Days.IndexOf(d)), d.Day));
         }
-        Assert.Equal(r.Days.OrderBy(d => d.Day).Select(d => d.Day), r.Days.Select(d => d.Day));
-        if (ReportBuilder.IsLong(r.Range))
+        else if (ReportBuilder.IsLong(r.Range))
             Assert.All(r.Days, d => Assert.Equal(1, d.Day.Day));
         else
             Assert.Equal((int)(r.To - r.From).TotalDays, r.Days.Count);

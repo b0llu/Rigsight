@@ -168,7 +168,8 @@ public sealed partial class ShellViewModel : ObservableObject
 
         Settings.Changed += () =>
         {
-            ThemeManager.Apply(Settings.Current.Theme, Settings.Current.Accent, Settings.Current.KeepStatusColors);
+            ThemeManager.Apply(Settings.Current.Theme, Settings.Current.Accent, Settings.Current.KeepStatusColors,
+                Settings.Current.DarkTheme, Settings.Current.LightTheme);
             Live.ApplySettings();
             Widgets.Refresh();
             Overlay.Refresh();
@@ -753,6 +754,15 @@ public sealed partial class ShellViewModel : ObservableObject
             ? await Reports.TempHoursAsync(Core.Data.TimeUtil.ToUnix(periodFrom), periodEnd, byDay: Live.ChartStepSeconds == 86400)
             : Live.IsChartFixed ? await Reports.MinutesAsync(Core.Data.TimeUtil.ToUnix(periodFrom), periodEnd)
             : await Reports.MinutesAsync(from, to);
+        // The apps by id, for the graph's hover to name what was in front (a few hundred rows, read with the minutes).
+        if (!Live.IsChartLong && minutes is { Count: > 0 })
+            Live.AppsById = await Reports.QueryAsync((db, settings) =>
+            {
+                var apps = db.LoadApps().ToDictionary(a => a.Id);
+                return (IReadOnlyDictionary<long, (string Name, string? Path, bool IsGame)>)apps.ToDictionary(kv => kv.Key, kv => (
+                    Core.Reports.ReportBuilder.NameOf(apps, settings, kv.Key), kv.Value.Path,
+                    Core.Reports.ReportBuilder.CategoryOf(apps, settings, kv.Key) == Core.Settings.AppCategory.Game));
+            }) ?? Live.AppsById;
         // Not if the range was changed again while this was read (the next load is on its way).
         if (id == _historyLoad && minutes is not null && window == Live.ChartWindowSeconds && day == Live.ChartDay
             && customFrom == Live.ChartCustomFrom && customTo == Live.ChartCustomTo) Live.LoadMinuteHistory(minutes, Live.ChartStepSeconds);

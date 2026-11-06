@@ -5,14 +5,14 @@
              xmlns:views="clr-namespace:Rigsight.Views">
     <UserControl.Resources>
         <Style x:Key="StatValue" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.FigureLarge}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Margin" Value="0,4,0,0" />
         </Style>
         <!-- The few words under a tile's figure: what it is set against. -->
         <Style x:Key="TileLine" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="Margin" Value="0,2,0,0" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
@@ -20,12 +20,12 @@
         <!-- A high of the period: what, when and with which app, and the figure. -->
         <DataTemplate x:Key="PeakLine">
             <DockPanel Margin="0,6">
-                <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="16" FontWeight="SemiBold"
+                <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Subtitle}" FontWeight="SemiBold"
                            Foreground="{Binding Brush}" VerticalAlignment="Center" />
                 <StackPanel>
                     <TextBlock Text="{Binding Label}" Style="{StaticResource Body}" />
-                    <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis">
-                        <Run Text="{Binding When, Mode=OneWay}" /><Run Text="{Binding App, Mode=OneWay, StringFormat='  ·  {0}'}" />
+                    <TextBlock FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis">
+                        <Run Text="{Binding When, Mode=OneWay}" /><Run Text="{Binding App, Mode=OneWay, StringFormat='  ·  {0}', TargetNullValue=''}" />
                     </TextBlock>
                 </StackPanel>
             </DockPanel>
@@ -36,20 +36,19 @@
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style x:Key="Cell" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Body}" />
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" ScrollChanged="PageScroll_ScrollChanged">
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <!-- Header -->
             <DockPanel>
                 <Button Style="{StaticResource PageExportButton}" VerticalAlignment="Center" />
-                <ctl:PeriodPicker DockPanel.Dock="Right" VerticalAlignment="Center" BusyOnLeft="True"
-                                  IsBusy="{Binding IsLoading}" Unit="{Binding Range}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
+                <ctl:PeriodPicker DockPanel.Dock="Right" VerticalAlignment="Center" Unit="{Binding Range}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
                 <!-- How the period went, asked of the AI (hidden while it's off, or with nothing to show). -->
                 <Border DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,12,0" Visibility="{Binding ShowData, Converter={StaticResource Vis}}">
@@ -60,21 +59,25 @@
                     <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
                 </StackPanel>
             </DockPanel>
-            <TextBlock Text="{Binding CoverageNote}" Foreground="{DynamicResource FaintBrush}" FontSize="12" Margin="0,8,0,0"
+            <TextBlock Text="{Binding CoverageNote}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,8,0,0"
                        Visibility="{Binding CoverageNote, Converter={StaticResource Vis}}" />
 
             <!-- Empty state -->
-            <ctl:Spinner Late="True" Width="22" Height="22" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,150,0,0"
+            <ctl:Spinner Late="True" Width="{x:Static ctl:Spinner.PageSize}" Height="{x:Static ctl:Spinner.PageSize}" StrokeThickness="{x:Static ctl:Spinner.PageStroke}" HorizontalAlignment="Center" Margin="0,150,0,0"
                          Visibility="{Binding ShowLoading, Converter={StaticResource Vis}}" />
             <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,20,0,0" Visibility="{Binding ShowEmpty, Converter={StaticResource Vis}}">
                 <StackPanel HorizontalAlignment="Center" Margin="0,30">
-                    <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="34" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="&#xE9F9;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S34}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="{Binding EmptyTitle}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,14,0,4" />
                     <TextBlock Text="{ctl:T 'Pick another period to see its report.'}"
                                Style="{StaticResource Muted}" HorizontalAlignment="Center" />
                 </StackPanel>
             </ctl:SmoothBorder>
 
+            <!-- The period's figures; while another period is read (past a moment), they stay under a dark cover with one
+                 big ring in the middle of what's in view (issue #11, 2026-11-06: the user, "just show a big loader in center
+                 while making background overlay blackish"). The title and the period picker stay clear above it. -->
+            <Grid x:Name="DataArea">
             <StackPanel Visibility="{Binding ShowData, Converter={StaticResource Vis}}">
                 <!-- The period's figures, each against something: its usual, the period before, what it is made of. -->
                 <ctl:TileWrap Margin="0,18,0,0" MinTileWidth="190" Gap="10">
@@ -137,14 +140,13 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding HasTimeSplit, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,10">
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding TimeSplitNote}" Style="{StaticResource Muted}" FontSize="12.5" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding TimeSplitNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" VerticalAlignment="Center" />
                             <TextBlock Text="{ctl:T 'Where the time went'}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding TimeRows}" Focusable="False" AutomationProperties.Name="Where the time went">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Style="{StaticResource FlatRowButton}" Margin="-8,0" Padding="8,5" Command="{Binding DataContext.PickKindCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
-                                            IsHitTestVisible="{Binding DataContext.IsMultiDay, RelativeSource={RelativeSource AncestorType=UserControl}}" AutomationProperties.Name="{Binding Part.Name}">
+                                    <Button Style="{StaticResource FlatRowButton}" Margin="-8,0" Padding="8,5" Command="{Binding DataContext.PickKindCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" AutomationProperties.Name="{Binding Part.Name}">
                                         <Grid Margin="0,6">
                                             <Grid.Style>
                                                 <Style TargetType="Grid">
@@ -165,14 +167,14 @@
                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Rectangle Width="9" Height="9" RadiusX="2.5" RadiusY="2.5" VerticalAlignment="Center" Margin="0,1,9,0"
                                                            Fill="{Binding Part.Brush, Converter={StaticResource ResourceBrush}}" />
-                                                <TextBlock Text="{Binding Part.Name}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Part.Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
                                             <ProgressBar Grid.Column="1" Style="{StaticResource Bar}" Height="10" Minimum="0" Maximum="1" Value="{Binding Part.OfLargest, Mode=OneWay}"
                                                          Foreground="{Binding Part.Brush, Converter={StaticResource ResourceBrush}}" VerticalAlignment="Center" Margin="0,0,14,0" />
-                                            <TextBlock Grid.Column="2" Text="{Binding Part.Text}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                            <TextBlock Grid.Column="2" Text="{Binding Part.Text}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
                                                        HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="3" Text="{Binding Part.ShareText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="4" Text="{Binding Part.Apps}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="18,0,0,0"
+                                            <TextBlock Grid.Column="3" Text="{Binding Part.ShareText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{Binding Part.Apps}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="18,0,0,0"
                                                        TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" VerticalAlignment="Center" />
                                         </Grid>
                                     </Button>
@@ -182,73 +184,49 @@
                     </StackPanel>
                 </ctl:SmoothBorder>
 
-                <!-- Timeline / daily bars -->
+                <!-- Active time: an hour a bar on a day (0 to 60 minutes, with the usual for that weekday), a day a bar on a
+                     week or a month, a month a bar on a year (issue #9, 2026-11-06). -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0">
                     <StackPanel>
+                        <TextBlock Text="{Binding BarsTitleShown}" Style="{StaticResource H2}" Margin="0,0,0,12" />
+                        <ctl:DailyBars ctl:Roomy.Height="220" Days="{Binding Report.Days}" Only="{Binding PickedKinds}" ShowTemps="False"
+                                       Usual="{Binding Report.UsualHours}" UsualName="{Binding UsualHoursName}" UsualDay="{Binding Report.UsualDay}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- Temperatures: its own card under the bars, on the same columns, so the heat lines up with what was being done
+                     (2026-11-06, mock-up ReK33EVbdKbsoarY7jwYXQ). Average, highest or lowest: the Temperatures page's choice. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding HasPeriodTemps, Converter={StaticResource Vis}}">
+                    <StackPanel>
                         <DockPanel Margin="0,0,0,12">
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
-                                        Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
-                                <!-- What the curves are, as on Temperatures (one remembered choice for both pages). -->
-                                <TextBlock Text="{ctl:T 'Each minute\'s'}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                 <Border Style="{StaticResource SegmentHost}">
                                     <StackPanel Orientation="Horizontal">
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Average'}"
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TempsPlot" Content="{ctl:T 'Average'}"
                                                      IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Avg}" />
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Highest'}"
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TempsPlot" Content="{ctl:T 'Highest'}"
                                                      IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=High}" />
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TimelinePlot" Content="{ctl:T 'Lowest'}"
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="TempsPlot" Content="{ctl:T 'Lowest'}"
                                                      IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Low}" />
                                     </StackPanel>
                                 </Border>
                                 <Ellipse Width="8" Height="8" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" Margin="18,0,0,0" />
-                                <TextBlock Text="CPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,16,0" VerticalAlignment="Center" />
+                                <TextBlock Text="CPU" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="6,0,16,0" VerticalAlignment="Center" />
                                 <Ellipse Width="8" Height="8" Fill="{DynamicResource GpuBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="GPU" Style="{StaticResource Muted}" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                <TextBlock Text="GPU" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="6,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{ctl:T 'Your day, minute by minute'}" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
-                                <TextBlock Text="{Binding BarsTitleShown}" Style="{StaticResource H2}" VerticalAlignment="Center" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding IsDay, Converter={StaticResource Vis}}">
-                                    <!-- Zoomed in (a drag across the graph): the stretch shown and the way back, beside the title (what is shown), apart
-                                         from the controls on the right. They come in the free space after the title, so nothing moves. -->
-                                    <TextBlock Text="{Binding ZoomText, ElementName=Timeline}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5"
-                                               VerticalAlignment="Center" Margin="16,0,10,0" />
-                                    <Button Command="{Binding ResetZoomCommand, ElementName=Timeline}" AutomationProperties.Name="{Binding ResetText, ElementName=Timeline}"
-                                            VerticalAlignment="Center" FontSize="12">
-                                        <Button.Style>
-                                            <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                                                <Setter Property="Visibility" Value="Hidden" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsZoomed, ElementName=Timeline}" Value="True">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE71F;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
-                                            <TextBlock Text="{Binding ResetText, ElementName=Timeline}" />
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
-                            </StackPanel>
+                            <TextBlock Text="{Binding TempsTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
-                        <ctl:DayTimeline x:Name="Timeline" ctl:Roomy.Height="220" Segments="{Binding Report.Timeline}" Temps="{Binding Report.Temps}" Day="{Binding Report.From}" End="{Binding TimelineEnd}" RecordedUntil="{Binding Report.BuiltAt}"
-                                         Plot="{Binding ChartPlot}" CanZoom="True" Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
-                        <ctl:DailyBars ctl:Roomy.Height="220" Days="{Binding Report.Days}" Only="{Binding PickedKinds}" Visibility="{Binding IsMultiDay, Converter={StaticResource Vis}}" />
-                        <TextBlock FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="40,10,0,0" TextWrapping="Wrap"
-                                   Text="{ctl:T 'The strip shows the app in front, colored by category (faded = you were away); the lines below are CPU and GPU temperature. Hover anywhere for details. Drag across it to look closer.'}"
-                                   Visibility="{Binding IsDay, Converter={StaticResource Vis}}" />
+                        <ctl:PeriodTemps ctl:Roomy.Height="200" Days="{Binding Report.Days}" Plot="{Binding ChartPlot}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
-
 
                 <!-- Against your usual: the period's temperatures, fans and problems beside what is normal for this PC. Only
                      what moved is coloured; the rest is said in grey. Not on a day (Home's PC health says that). -->
                 <ctl:SmoothBorder x:Name="UsualCard" Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding HasUsual, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,12">
-                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'This PC\'s own history'}" Style="{StaticResource Muted}" FontSize="12.5" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'This PC\'s own history'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" VerticalAlignment="Center" />
                             <TextBlock Text="{ctl:T 'Against your usual'}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <Grid Margin="0,0,0,2">
@@ -275,17 +253,17 @@
                                                 <ColumnDefinition Width="1.2*" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Margin="0,0,14,0">
-                                                <TextBlock Text="{Binding Label}" Style="{StaticResource Body}" FontSize="13" TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0" />
+                                                <TextBlock Text="{Binding Label}" Style="{StaticResource Body}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0" />
                                             </StackPanel>
-                                            <TextBlock x:Name="Now" Grid.Column="1" Text="{Binding Now}" Style="{StaticResource Body}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,14,0" />
+                                            <TextBlock x:Name="Now" Grid.Column="1" Text="{Binding Now}" Style="{StaticResource Body}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,14,0" />
                                             <StackPanel Grid.Column="2" Margin="0,0,14,0">
-                                                <TextBlock Text="{Binding Usual}" Style="{StaticResource Body}" FontSize="13" TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding UsualDetail}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0" />
+                                                <TextBlock Text="{Binding Usual}" Style="{StaticResource Body}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding UsualDetail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="3">
-                                                <TextBlock x:Name="Means" Text="{Binding Means}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding MeansDetail}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
+                                                <TextBlock x:Name="Means" Text="{Binding Means}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding MeansDetail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
                                                            Visibility="{Binding MeansDetail, Converter={StaticResource Vis}}" />
                                             </StackPanel>
                                         </Grid>
@@ -324,11 +302,11 @@
                                         <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,6" Padding="14,0,0,0" ToolTip="{Binding DetailOrNull}">
                                             <HeaderedContentControl.Header>
                                                 <Border Style="{StaticResource IconBox}">
-                                                    <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                                                    <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center"
                                                                Foreground="{Binding ., Converter={StaticResource InsightBrush}}" />
                                                 </Border>
                                             </HeaderedContentControl.Header>
-                                            <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
                                         </HeaderedContentControl>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -350,12 +328,10 @@
                             <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding ShowBackgroundApps}"
                                       Visibility="{Binding BackgroundOnlyCount, Converter={StaticResource Vis}}"
                                       ToolTip="{ctl:T 'Apps that were open in the background or minimized, but that you never actually switched to.'}">
-                                <TextBlock Text="{Binding BackgroundToggleText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock Text="{Binding BackgroundToggleText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" />
                             </CheckBox>
                             <StackPanel>
                                 <TextBlock Text="{ctl:T 'Apps you used'}" Style="{StaticResource H2}" />
-                                <TextBlock Text="{ctl:T 'Temperatures are averaged over the time each app was in front and in use.'}" FontSize="12"
-                                           Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
                             </StackPanel>
                         </DockPanel>
                         <Grid Margin="10,0,10,6">
@@ -394,7 +370,7 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border x:Name="Row" CornerRadius="8" Padding="10,6" Background="Transparent">
+                                    <Border x:Name="Row" CornerRadius="{x:Static ctl:Corner.Field}" Padding="10,6" Background="Transparent">
                                         <!-- What left the columns is still a pointer away. -->
                                         <Border.ToolTip>
                                             <TextBlock>
@@ -417,7 +393,7 @@
                                                     <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" FontWeight="SemiBold" />
                                                     <Border Style="{StaticResource Chip}" HorizontalAlignment="Left" Margin="0,4,0,0"
                                                             Background="{Binding Category, Converter={StaticResource CategoryBrush}, ConverterParameter=Soft}">
-                                                        <TextBlock Text="{Binding Category, Converter={StaticResource CategoryLabel}}" FontSize="10.5" FontWeight="SemiBold"
+                                                        <TextBlock Text="{Binding Category, Converter={StaticResource CategoryLabel}}" FontSize="{x:Static ctl:TextSize.MiniPlus}" FontWeight="SemiBold"
                                                                    Foreground="{Binding Category, Converter={StaticResource CategoryBrush}}" />
                                                     </Border>
                                                 </StackPanel>
@@ -445,7 +421,7 @@
                 </ctl:SmoothBorder>
 
                 <!-- What changed on the PC in the period (the Timeline has it all). -->
-                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding HasChanges, Converter={StaticResource Vis}}">
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding HasChangeCard, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,6">
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
@@ -453,7 +429,7 @@
                                     AutomationProperties.Name="Open the Timeline">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Timeline'}" />
-                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="11" Margin="8,0,0,0" />
+                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,0,0,0" />
                                 </StackPanel>
                             </Button>
                             <TextBlock Text="{ctl:T 'What changed on the PC'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
@@ -465,15 +441,15 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <DockPanel Margin="0,7,18,7">
-                                        <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
-                                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="14" HorizontalAlignment="Center"
+                                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center"
                                                        Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
                                         </Border>
                                         <StackPanel Margin="13,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Text}" Style="{StaticResource Body}" FontSize="13.5" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Text}" Style="{StaticResource Body}" FontSize="{x:Static ctl:TextSize.BodyPlus}" TextTrimming="CharacterEllipsis" />
                                             <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
-                                                <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                                <TextBlock FontSize="12" Visibility="{Binding Result, Converter={StaticResource Vis}}">
+                                                <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                                <TextBlock FontSize="{x:Static ctl:TextSize.Small}" Visibility="{Binding Result, Converter={StaticResource Vis}}">
                                                     <Run Text="  ·  " Foreground="{DynamicResource FaintBrush}" /><Hyperlink Focusable="False"
                                                         Foreground="{Binding ResultBrush, Converter={StaticResource ResourceBrush}}"
                                                         Command="{Binding DataContext.OpenLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"><Run
@@ -485,6 +461,8 @@
 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <TextBlock Text="{Binding AppChangesText}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,6,0,0"
+                                   Visibility="{Binding HasAppChanges, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
 
@@ -522,7 +500,7 @@
                                             <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" FontWeight="SemiBold" />
                                             <Border Style="{StaticResource Chip}" Margin="10,0,0,0" Background="{DynamicResource GoodSoftBrush}"
                                                     Visibility="{Binding IsGame, Converter={StaticResource Vis}}">
-                                                <TextBlock Text="{ctl:T 'GAME'}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource GoodBrush}" />
+                                                <TextBlock Text="{ctl:T 'GAME'}" FontSize="{x:Static ctl:TextSize.Mini}" FontWeight="Bold" Foreground="{DynamicResource GoodBrush}" />
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Style="{StaticResource Muted}" VerticalAlignment="Center">
@@ -541,6 +519,11 @@
                     </StackPanel>
                 </ctl:SmoothBorder>
             </StackPanel>
+            <Border x:Name="Cover" Background="{DynamicResource BgBrush}" Opacity="0" Visibility="Collapsed" Margin="-12,8,-12,0" />
+            <Canvas x:Name="RingLayer" IsHitTestVisible="False" Visibility="Collapsed">
+                <ctl:Spinner x:Name="PageRing" Width="{x:Static ctl:Spinner.PageSize}" Height="{x:Static ctl:Spinner.PageSize}" StrokeThickness="{x:Static ctl:Spinner.PageStroke}" />
+            </Canvas>
+            </Grid>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

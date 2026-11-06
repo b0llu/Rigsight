@@ -187,6 +187,21 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.6.0", 11, 6,
+            added: [Lang.T("Settings has 24 new themes, ten each in Dark, Light and Colorful, with Contrast and Bright for easier reading."),
+                Lang.T("Match Windows in Settings switches between a light theme and a dark one you pick, as Windows does."),
+                Lang.T("A day on Reports shows your active time for each hour, with a dashed line for your usual on that weekday."),
+                Lang.T("Reports has a Temperatures card under Active time, with the CPU and GPU for each hour, day or month."),
+                Lang.T("Hovering the temperatures on Reports, or a day on Temperatures, shows which app was in front at the time.")],
+            better: [Lang.T("Colored text is easier to read in every theme, on cards, on tiles and on a row under the pointer."),
+                Lang.T("Pressing Tab shows an outline around the button or choice you're on."),
+                Lang.T("Switching periods on Reports keeps the figures on screen and moves the bars and lines to the new ones."),
+                Lang.T("Hovering a bar of Active time on Reports shows its total against your usual, each kind's share and the apps longest in front."),
+                Lang.T("Loaders are larger, with a faint ring behind the turning arc, and a whole page that's loading shows one in the middle."),
+                Lang.T("Reports leaves out what another card or page already shows, and What changed on the PC counts app updates in one line.")],
+            fixedBugs: [Lang.T("A session summary for a game with a long name shows how long you played instead of cutting it off."),
+                Lang.T("The PC problems tile on Reports says None instead of a green 0 above a line of app crashes."),
+                Lang.T("Widgets stay where you put them after an update, even when the screens aren't ready as the PC starts.")]),
         V("1.5.0", 11, 5,
             better: [Lang.T("The Network summary now has four figures: what was used with its download and upload, downloaded compared with before, the background share and your connection."),
                 Lang.T("On the Network graph, the period's biggest apps get the colors, and each app keeps its color from one period to the next."),

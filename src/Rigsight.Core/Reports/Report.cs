@@ -133,7 +133,11 @@ public sealed record FanBin(int Minutes, double Rpm);
 public sealed record Throttling(int Minutes, double DropPercent, double FromTemp);
 
 /// <summary>Your usual on this weekday: the same weekday over the weeks before.</summary>
-public sealed record WeekdayUsual(DayOfWeek Day, int Days, double ActiveSec, double GamingSec);
+public sealed record WeekdayUsual(DayOfWeek Day, int Days, double ActiveSec, double GamingSec)
+{
+    /// <summary>The usual active seconds in each hour of that weekday (24 of them), for the Day graph's dashed line.</summary>
+    public double[] Hours { get; init; } = new double[24];
+}
 
 /// <summary>What the insights compare a period with beyond the week before it.</summary>
 public sealed record InsightContext(WeekdayUsual? Weekday = null, ThenHeat? Then = null, ThenFans? Fans = null);
@@ -228,6 +232,10 @@ public sealed record TempPoint(DateTime Time, double? Cpu, double? Gpu,
     public double? GpuFor(string plot) => plot == "High" ? GpuHigh : plot == "Low" ? GpuLow : Gpu;
 }
 
+/// <summary>
+/// One bar of the Reports graphs: an hour (a day's report), a day (a week, a month) or a month (a year). <see cref="Day"/>
+/// is its start.
+/// </summary>
 public sealed class DayBucket
 {
     public DateTime Day { get; init; }
@@ -235,11 +243,20 @@ public sealed class DayBucket
     public double ActiveSec { get; set; }
     public double? CpuTempAvg { get; set; }
     public double? CpuTempMax { get; set; }
+    /// <summary>The lowest of its minutes' lowest readings (null where only the daily or hourly totals are kept).</summary>
+    public double? CpuTempMin { get; set; }
     public double? GpuTempAvg { get; set; }
     public double? GpuTempMax { get; set; }
+    public double? GpuTempMin { get; set; }
     public Dictionary<AppCategory, double> ActiveByCategory { get; } = [];
     public string? TopApp { get; set; }
+
+    /// <summary>The apps longest in front, longest first (up to three): the Active time hover lists them, the temperature hover says the first two.</summary>
+    public List<FrontApp> Front { get; } = [];
 }
+
+/// <summary>An app in front for <see cref="Sec"/> seconds of a bar.</summary>
+public sealed record FrontApp(string Name, string? Path, double Sec, bool IsGame);
 
 public sealed class Report
 {
@@ -368,6 +385,12 @@ public sealed class Report
     public List<TimelineSegment> Timeline { get; set; } = [];
     public List<TempPoint> Temps { get; set; } = [];
     public List<DayBucket> Days { get; set; } = [];
+
+    /// <summary>A day's report: the usual active seconds in each of its hours on that weekday (null with too few such days).</summary>
+    public double[]? UsualHours { get; set; }
+
+    /// <summary>The weekday <see cref="UsualHours"/> is the usual of ("Usual Thursday").</summary>
+    public DayOfWeek? UsualDay { get; set; }
     public Dictionary<AppCategory, double> ActiveByCategory { get; } = [];
     public List<CrashEvent> Crashes { get; set; } = [];
     public List<Insight> Insights { get; set; } = [];

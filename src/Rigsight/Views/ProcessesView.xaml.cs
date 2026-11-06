@@ -147,12 +147,12 @@ public partial class ProcessesView : UserControl
                     menu.Items.Add(new MenuItem
                     {
                         IsEnabled = false,
-                        Header = new TextBlock { Text = entry.Text, FontSize = 11.5, TextWrapping = TextWrapping.Wrap, MaxWidth = 230 },
+                        Header = new TextBlock { Text = entry.Text, FontSize = Controls.TextSize.Label, TextWrapping = TextWrapping.Wrap, MaxWidth = 230 },
                     });
                     break;
                 default:
                     // Every item has an icon, so their words line up (see the Apps page's menu).
-                    var icon = new TextBlock { Text = entry.Glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = 14 };
+                    var icon = new TextBlock { Text = entry.Glyph, Style = (Style)Application.Current.FindResource("Icon"), FontSize = Controls.IconSize.S14 };
                     var item = new MenuItem { Header = entry.Text, Icon = icon, InputGestureText = entry.Hint ?? "", IsEnabled = entry.Enabled, FocusVisualStyle = null };
                     if (entry.Ai) item.Icon = AiIcon();
                     // Ending is set apart from the rest: after the line, and in the colour of a warning.

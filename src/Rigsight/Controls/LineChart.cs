@@ -58,6 +58,15 @@ public sealed class LineChart : FrameworkElement
 
     public Func<long, long, Core.Stability.GapReason>? GapReason { get => (Func<long, long, Core.Stability.GapReason>?)GetValue(GapReasonProperty); set => SetValue(GapReasonProperty, value); }
 
+    /// <summary>
+    /// What was working the PC over a stretch (its ends in Unix milliseconds): the hover says it under the temperatures
+    /// (see <see cref="HeatWho"/>). Null while it's being read, or unset (no such part).
+    /// </summary>
+    public static readonly DependencyProperty WhoProperty = DependencyProperty.Register(
+        nameof(Who), typeof(Func<long, long, HeatWho?>), typeof(LineChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public Func<long, long, HeatWho?>? Who { get => (Func<long, long, HeatWho?>?)GetValue(WhoProperty); set => SetValue(WhoProperty, value); }
+
     /// <summary>What a past period with nothing recorded says in place of the lines ("Your PC was off yesterday."): null, "Not recorded …".</summary>
     public static readonly DependencyProperty EmptyTextProperty = DependencyProperty.Register(
         nameof(EmptyText), typeof(string), typeof(LineChart), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -740,16 +749,34 @@ public sealed class LineChart : FrameworkElement
         var widths = Enumerable.Range(0, columns)
             .Select(c => Math.Max(stats ? heads[c].Width : 0, lines.Count == 0 ? 0 : lines.Max(l => l.Cells[c].Width))).ToArray();
         double headH = stats ? lineH : 0;
-        double w = Math.Max(title.Width, dot + nameW + widths.Sum(cw => gap + cw)) + pad * 2;
-        double h = pad * 2 + title.Height + 4 + headH + lines.Count * lineH;
 
-        // Beside the pointer, flipping to the other side near the right edge.
+        // What was working the PC then: the stretch the point stands for (an hour or a day on the long ranges, the few
+        // minutes a point of a day is, the minute of a live reading).
+        // Where the graph's points are minutes (not the week's hours or the year's days), the line is always there, saying
+        // "No app in use" when nothing was, and the box is as wide wherever the pointer is: it doesn't change size as the
+        // pointer moves along (2026-11-06, "the hover popup causes layout shift").
+        HeatWho? who = null;
+        bool frontRow = IsTemp && Who is not null && !Long;
+        if (frontRow)
+        {
+            long span = fromMinutes ? Math.Max(60_000L, (long)ChartGeometry.GroupMs(from, to, plot, 60_000)) : 60_000L;
+            long start = t - ((t % span) + span) % span;
+            who = Who!(start, start + span);
+            if (who is { IsEmpty: true }) who = null;
+        }
+        double w = Math.Max(title.Width, dot + nameW + widths.Sum(cw => gap + cw)) + pad * 2;
+        if (frontRow) w = Math.Max(w, HeatHover.BoxWidth);
+        double h = pad * 2 + title.Height + 4 + headH + lines.Count * lineH + (frontRow ? HeatHover.RowHeight + 4 : 0);
+
+        // Beside the pointer, flipping to the other side near the right edge; rising over the card's heading rather than
+        // running under the card below when it's taller than the graph.
         double x = hx + 14 + w > plot.Right ? hx - 14 - w : hx + 14;
-        double y0 = plot.Top + 4;
+        double y0 = Math.Min(plot.Top + 4, plot.Bottom - h);
         var box = new Rect(Math.Max(plot.Left, x), y0, w, h);
         dc.DrawRoundedRectangle(HoverBack, HoverBorder, box, 8, 8);
         dc.DrawText(title, new Point(box.Left + pad, box.Top + pad));
         double ly = box.Top + pad + title.Height + 4;
+        if (frontRow) ly += HeatHover.DrawFront(dc, this, who, box.Left + pad, ly, w - pad * 2) + 4;
         // Columns from the right edge, each as wide as its widest text and right-aligned.
         var rights = new double[columns];
         for (int c = columns - 1; c >= 0; c--) rights[c] = c == columns - 1 ? box.Right - pad : rights[c + 1] - widths[c + 1] - gap;

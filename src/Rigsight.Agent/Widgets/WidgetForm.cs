@@ -172,6 +172,7 @@ internal sealed class WidgetForm : Form
 
             case WM_EXITSIZEMOVE:
                 KeepOnTop();
+                _manager.Moved(Config.Id);
                 _manager.Mutate(Config.Id, c => { c.X = Left; c.Y = Top; });
                 break;
 

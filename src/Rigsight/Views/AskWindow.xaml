@@ -18,7 +18,7 @@
                 <!-- The glyph's line box is the glyph's size, so it sits in the middle of the button (as on Crashes). -->
                 <Style TargetType="TextBlock">
                     <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
-                    <Setter Property="FontSize" Value="13" />
+                    <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S13}" />
                     <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
                     <Setter Property="LineHeight" Value="14" />
                     <Setter Property="Height" Value="14" />
@@ -34,7 +34,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" CornerRadius="8" Background="Transparent">
+                        <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Field}" Background="Transparent">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -55,8 +55,8 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Width="38" Height="38" CornerRadius="10" Background="{DynamicResource AccentBrush}">
-                            <TextBlock Text="&#xE724;" FontFamily="{StaticResource IconFont}" FontSize="15" Foreground="{DynamicResource OnAccentBrush}"
+                        <Border x:Name="Bd" Width="38" Height="38" CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource AccentBrush}">
+                            <TextBlock Text="&#xE724;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S15}" Foreground="{DynamicResource OnAccentBrush}"
                                        LineStackingStrategy="BlockLineHeight" LineHeight="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -80,8 +80,8 @@
                         <Border x:Name="Bd" Height="26" CornerRadius="13" Padding="10,0" Background="{DynamicResource Surface2Brush}"
                                 BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock x:Name="Txt" Text="{Binding Text}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                <TextBlock x:Name="Arrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="8" Foreground="{DynamicResource FaintBrush}" Margin="6,1,0,0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="Txt" Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                <TextBlock x:Name="Arrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S8}" Foreground="{DynamicResource FaintBrush}" Margin="6,1,0,0" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -107,11 +107,11 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Height="32" CornerRadius="6" Padding="10,0" Background="Transparent">
+                        <Border x:Name="Bd" Height="32" CornerRadius="{x:Static ctl:Corner.Small}" Padding="10,0" Background="Transparent">
                             <DockPanel>
-                                <TextBlock DockPanel.Dock="Left" Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" FontSize="12" Foreground="{TemplateBinding Foreground}"
+                                <TextBlock DockPanel.Dock="Left" Text="{TemplateBinding Tag}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{TemplateBinding Foreground}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
-                                <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="12.5" TextElement.Foreground="{TemplateBinding Foreground}" />
+                                <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="{x:Static ctl:TextSize.Detail}" TextElement.Foreground="{TemplateBinding Foreground}" />
                             </DockPanel>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -129,9 +129,9 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Width="38" Height="38" CornerRadius="10" Background="{DynamicResource Surface2Brush}"
+                        <Border x:Name="Bd" Width="38" Height="38" CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}"
                                 BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
-                            <Border Width="11" Height="11" CornerRadius="2" Background="{DynamicResource TextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Border Width="11" Height="11" CornerRadius="{x:Static ctl:Corner.Bar}" Background="{DynamicResource TextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
@@ -147,11 +147,11 @@
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
             <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
-            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.BodyPlus}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
-                        <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="10" Padding="11,8">
+                        <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Control}" Padding="11,8">
                             <Grid>
                                 <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}" Foreground="{DynamicResource FaintBrush}" Margin="2,0" Visibility="Collapsed" />
                                 <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
@@ -178,7 +178,7 @@
         <!-- ── An answer's parts ───────────────────────────────────────────────── -->
         <!-- A card in an answer: tiles, bars, bands and tables sit in these. -->
         <Style x:Key="AnswerCard" TargetType="ctl:SmoothBorder">
-            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="CornerRadius" Value="{x:Static ctl:Corner.Control}" />
             <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -198,7 +198,7 @@
         </Style>
         <Style x:Key="ToneFill" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="CornerRadius" Value="{x:Static ctl:Corner.Tag}" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Tone}" Value="Cpu"><Setter Property="Background" Value="{DynamicResource CpuBrush}" /></DataTrigger>
                 <DataTrigger Binding="{Binding Tone}" Value="Gpu"><Setter Property="Background" Value="{DynamicResource GpuBrush}" /></DataTrigger>
@@ -209,7 +209,7 @@
         </Style>
         <Style x:Key="ToneSoft" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
-            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="CornerRadius" Value="{x:Static ctl:Corner.Chip}" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Tone}" Value="Cpu"><Setter Property="Background" Value="{DynamicResource CpuSoftBrush}" /></DataTrigger>
                 <DataTrigger Binding="{Binding Tone}" Value="Gpu"><Setter Property="Background" Value="{DynamicResource GpuSoftBrush}" /></DataTrigger>
@@ -224,7 +224,7 @@
                         AutomationProperties.Name="{Binding Name}">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="Bd" CornerRadius="9" Background="{DynamicResource HoverBrush}" Padding="3,1,8,1">
+                            <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Button}" Background="{DynamicResource HoverBrush}" Padding="3,1,8,1">
                                 <ContentPresenter />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -238,16 +238,16 @@
                              letter's box put E and the digits a pixel right and accents over a pixel high ("the N is not at center"). -->
                         <Grid Width="16" Height="16" UseLayoutRounding="True">
                             <Ellipse x:Name="Dot" Fill="{DynamicResource CpuBrush}" />
-                            <ctl:InkCentered x:Name="Letter" Text="{Binding Mark}" FontSize="9" Fill="{Binding Fill, ElementName=Dot, Converter={StaticResource InkOn}}" />
+                            <ctl:InkCentered x:Name="Letter" Text="{Binding Mark}" FontSize="{x:Static ctl:TextSize.Tiny}" Fill="{Binding Fill, ElementName=Dot, Converter={StaticResource InkOn}}" />
                             <Viewbox x:Name="AppMark" Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
                                 <ContentControl Content="{Binding Icon, Converter={StaticResource NavIcon}}" Focusable="False" IsTabStop="False"
-                                                FontFamily="{StaticResource IconFont}" FontSize="16" Foreground="{DynamicResource OnAccentBrush}" />
+                                                FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S16}" Foreground="{DynamicResource OnAccentBrush}" />
                             </Viewbox>
                         </Grid>
                         <!-- The words on the circle's own 16 px line, so they sit in the pill's middle as the mark does. -->
-                        <TextBlock x:Name="Words" Text="{Binding Label}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0"
+                        <TextBlock x:Name="Words" Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="5,0,0,0"
                                    LineStackingStrategy="BlockLineHeight" LineHeight="16" Height="16" />
-                        <TextBlock Text="{Binding More}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="4,0,0,0"
+                        <TextBlock Text="{Binding More}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" Margin="4,0,0,0"
                                    LineStackingStrategy="BlockLineHeight" LineHeight="16" Height="16"
                                    Visibility="{Binding HasMore, Converter={StaticResource Vis}}" />
                     </StackPanel>
@@ -259,7 +259,7 @@
                 <Popup IsOpen="{Binding IsOpen}" PlacementTarget="{Binding ElementName=Pill}" Placement="Custom" CustomPopupPlacementCallback="{x:Static v:AskWindow.RefsPlacement}"
                        VerticalOffset="6" HorizontalOffset="-12" AllowsTransparency="True" StaysOpen="True" PopupAnimation="Fade">
                     <Grid Background="#01000000" MouseEnter="RefList_Enter" MouseLeave="RefList_Leave">
-                    <Border Width="300" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="12"
+                    <Border Width="300" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Tile}"
                             Padding="4" Margin="0,0,10,12" Tag="{Binding}">
                         <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.5" Color="Black" /></Border.Effect>
                         <ItemsControl ItemsSource="{Binding List}" Focusable="False">
@@ -273,19 +273,19 @@
                                             <ControlTemplate TargetType="Button">
                                                 <!-- Inset 4 from the card with the card's radius less that, so the first and last lines' hover
                                                      follows its round corners (square ones stuck out of them); the words stay 14 in. -->
-                                                <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="10,10">
+                                                <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Field}" Padding="10,10">
                                                     <StackPanel>
                                                         <StackPanel Orientation="Horizontal">
-                                                            <TextBlock x:Name="Kind" Text="&#xE9D2;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource AccentBrush}" Margin="0,0,7,0"
+                                                            <TextBlock x:Name="Kind" Text="&#xE9D2;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{DynamicResource AccentBrush}" Margin="0,0,7,0"
                                                                        LineStackingStrategy="BlockLineHeight" LineHeight="12" Height="12" VerticalAlignment="Center" Visibility="Collapsed" />
-                                                            <TextBlock x:Name="Ours" Text="{ctl:T 'RigSight · '}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Visibility="Collapsed" />
-                                                            <TextBlock Text="{Binding Site}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                                            <TextBlock x:Name="Ours" Text="{ctl:T 'RigSight · '}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Visibility="Collapsed" />
+                                                            <TextBlock Text="{Binding Site}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                                                             <!-- A web page opens in the browser, out of RigSight: said with the arrow. -->
-                                                            <ctl:InkCentered x:Name="Out" Text="&#xE8A7;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="9" Fill="{DynamicResource FaintBrush}"
+                                                            <ctl:InkCentered x:Name="Out" Text="&#xE8A7;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S9}" Fill="{DynamicResource FaintBrush}"
                                                                              Width="9" Height="16" Margin="5,2,0,0" VerticalAlignment="Top" />
                                                         </StackPanel>
-                                                        <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
-                                                        <TextBlock x:Name="Date" Text="{Binding Date}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0" />
+                                                        <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                                        <TextBlock x:Name="Date" Text="{Binding Date}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,3,0,0" />
                                                     </StackPanel>
                                                 </Border>
                                                 <ControlTemplate.Triggers>
@@ -327,7 +327,7 @@
                 <!-- A point of a list: a dot on its first line. -->
                 <Ellipse DockPanel.Dock="Left" Width="4" Height="4" Fill="{DynamicResource MutedBrush}" Margin="5,9,11,0" VerticalAlignment="Top"
                          Visibility="{Binding IsPoint, Converter={StaticResource Vis}}" />
-                <TextBlock FontSize="13.5" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" LineHeight="21">
+                <TextBlock FontSize="{x:Static ctl:TextSize.BodyPlus}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" LineHeight="21">
                     <Run Text="{Binding Lead, Mode=OneWay}" FontWeight="SemiBold" /><Span ctl:Md.Text="{Binding Text}" /><InlineUIContainer BaselineAlignment="Center"><ContentControl Content="{Binding Refs}" ContentTemplate="{StaticResource RefPill}" Focusable="False" IsTabStop="False" Visibility="{Binding Refs, Converter={StaticResource Vis}}" /></InlineUIContainer>
                 </TextBlock>
             </DockPanel>
@@ -341,9 +341,9 @@
                     <DataTemplate>
                         <ctl:SmoothBorder Style="{StaticResource AnswerCard}" Margin="0,0,8,6" Padding="12,10">
                             <StackPanel>
-                                <TextBlock Text="{Binding Value}" FontSize="26" FontWeight="SemiBold" Style="{StaticResource ToneText}" />
-                                <TextBlock Text="{Binding Label}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
-                                <TextBlock Text="{Binding Sub}" FontSize="11" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.PageTitle}" FontWeight="SemiBold" Style="{StaticResource ToneText}" />
+                                <TextBlock Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding Sub}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
                             </StackPanel>
                         </ctl:SmoothBorder>
                     </DataTemplate>
@@ -366,7 +366,7 @@
                                         <ColumnDefinition Width="2*" />
                                         <ColumnDefinition Width="Auto" MinWidth="28" SharedSizeGroup="BarValue" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Label}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <Border Grid.Column="1" Height="8" CornerRadius="4" Background="{DynamicResource HoverBrush}" VerticalAlignment="Center">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -376,7 +376,7 @@
                                             <Border Style="{StaticResource ToneFill}" />
                                         </Grid>
                                     </Border>
-                                    <TextBlock Grid.Column="2" Text="{Binding Shown}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                    <TextBlock Grid.Column="2" Text="{Binding Shown}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="10,0,0,0" />
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -395,10 +395,10 @@
                             <DataTemplate>
                                 <StackPanel Margin="0,0,0,11">
                                     <DockPanel>
-                                        <TextBlock DockPanel.Dock="Right" FontSize="12.5" Foreground="{DynamicResource TextBrush}">
+                                        <TextBlock DockPanel.Dock="Right" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}">
                                             <Run Text="{Binding Now, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding Usual, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
                                         </TextBlock>
-                                        <TextBlock Text="{Binding Label}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                                        <TextBlock Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
                                     </DockPanel>
                                     <Grid Height="14" Margin="0,5,0,0">
                                         <Border Height="10" CornerRadius="5" Background="{DynamicResource HoverBrush}" />
@@ -416,18 +416,18 @@
                                                 <ColumnDefinition Width="4" />
                                                 <ColumnDefinition Width="{Binding AfterNow, Converter={StaticResource ShareStar}}" />
                                             </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="1" Style="{StaticResource ToneFill}" CornerRadius="2" Margin="-2,0,2,0" />
+                                            <Border Grid.Column="1" Style="{StaticResource ToneFill}" CornerRadius="{x:Static ctl:Corner.Bar}" Margin="-2,0,2,0" />
                                         </Grid>
                                     </Grid>
-                                    <TextBlock Text="{Binding Note}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0"
+                                    <TextBlock Text="{Binding Note}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0"
                                                Visibility="{Binding HasNote, Converter={StaticResource Vis}}" />
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Text="100°" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" />
-                        <TextBlock Text="0°" FontSize="10.5" Foreground="{DynamicResource FaintBrush}" />
+                        <TextBlock DockPanel.Dock="Right" Text="100°" FontSize="{x:Static ctl:TextSize.MiniPlus}" Foreground="{DynamicResource FaintBrush}" />
+                        <TextBlock Text="0°" FontSize="{x:Static ctl:TextSize.MiniPlus}" Foreground="{DynamicResource FaintBrush}" />
                     </DockPanel>
                 </StackPanel>
             </ctl:SmoothBorder>
@@ -457,18 +457,18 @@
                                         <ColumnDefinition Width="36" />
                                         <ColumnDefinition Width="66" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <Border Grid.Column="1" Height="8" CornerRadius="4" Background="{DynamicResource HoverBrush}" VerticalAlignment="Center">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="{Binding Share, Converter={StaticResource ShareStar}}" />
                                                 <ColumnDefinition Width="{Binding Share, Converter={StaticResource ShareStar}, ConverterParameter=rest}" />
                                             </Grid.ColumnDefinitions>
-                                            <Border x:Name="Fill" CornerRadius="4" Background="{DynamicResource GpuBrush}" Opacity="0.6" />
+                                            <Border x:Name="Fill" CornerRadius="{x:Static ctl:Corner.Tag}" Background="{DynamicResource GpuBrush}" Opacity="0.6" />
                                         </Grid>
                                     </Border>
-                                    <TextBlock Grid.Column="2" Text="{Binding Shown}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="3" Text="{Binding Extra}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{Binding Shown}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="3" Text="{Binding Extra}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
                                 <DataTemplate.Triggers>
                                     <DataTrigger Binding="{Binding First}" Value="True">
@@ -500,7 +500,7 @@
                                     <ItemsControl ItemsSource="{Binding}" Focusable="False">
                                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
-                                            <DataTemplate><TextBlock FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,10,0"><Span ctl:Md.Text="{Binding}" /></TextBlock></DataTemplate>
+                                            <DataTemplate><TextBlock FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,0,10,0"><Span ctl:Md.Text="{Binding}" /></TextBlock></DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </Border>
@@ -526,9 +526,9 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Width="28" Height="28" CornerRadius="6" Background="Transparent">
+                        <Border x:Name="Bd" Width="28" Height="28" CornerRadius="{x:Static ctl:Corner.Small}" Background="Transparent">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="13" />
+                                              TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S13}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -549,8 +549,8 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" CornerRadius="6" Background="Transparent" Padding="7,3" Margin="0,0,2,0">
-                            <ContentPresenter TextElement.FontSize="12" VerticalAlignment="Center" />
+                        <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Small}" Background="Transparent" Padding="7,3" Margin="0,0,2,0">
+                            <ContentPresenter TextElement.FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -571,7 +571,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
-                        <ContentPresenter Margin="0,0,4,0" TextElement.FontSize="12.5" />
+                        <ContentPresenter Margin="0,0,4,0" TextElement.FontSize="{x:Static ctl:TextSize.Detail}" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
                         </ControlTemplate.Triggers>
@@ -587,7 +587,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <ContentPresenter Margin="0,6,4,6" VerticalAlignment="Center" TextElement.FontSize="12.5" />
+                        <ContentPresenter Margin="0,6,4,6" VerticalAlignment="Center" TextElement.FontSize="{x:Static ctl:TextSize.Detail}" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
                         </ControlTemplate.Triggers>
@@ -603,8 +603,8 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <StackPanel Orientation="Horizontal" Background="Transparent" Margin="0,6,4,6">
-                            <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="12.5" />
-                            <TextBlock x:Name="Go" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="9" Margin="5,1,0,0" VerticalAlignment="Center" />
+                            <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="{x:Static ctl:TextSize.Detail}" />
+                            <TextBlock x:Name="Go" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S9}" Margin="5,1,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
@@ -625,29 +625,29 @@
                             <Button x:Name="Main" Style="{StaticResource AccentButton}" Padding="12,6" Visibility="Collapsed" AutomationProperties.Name="{Binding Label}"
                                     Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource OnAccentBrush}"
+                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource OnAccentBrush}"
                                                LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
-                                    <TextBlock Text="{Binding ButtonLabel}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ButtonLabel}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <!-- The next: quieter. -->
                             <Button x:Name="Second" Style="{StaticResource SecondAction}" Visibility="Collapsed" AutomationProperties.Name="{Binding Label}"
                                     Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
                                                LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
-                                    <TextBlock Text="{Binding Label}" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <!-- A third: a link. -->
                             <Button x:Name="Link" Style="{StaticResource LinkAction}" Content="{Binding Label}" Visibility="Collapsed" AutomationProperties.Name="{Binding Label}"
                                     Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
                             <!-- Close: the question in the button's place. -->
-                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" MaxWidth="400"
+                            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="12,10" MaxWidth="400"
                                               Visibility="{Binding IsConfirming, Converter={StaticResource Vis}}">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding ConfirmTitle}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding ConfirmText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                    <TextBlock Text="{Binding ConfirmTitle}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding ConfirmText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
                                     <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
                                         <Button Style="{StaticResource AccentButton}" Padding="12,6" Content="{ctl:T 'Close it'}" AutomationProperties.Name="{ctl:T 'Close it'}"
                                                 Command="{Binding DataContext.ConfirmActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
@@ -658,23 +658,23 @@
                             </ctl:SmoothBorder>
                             <StackPanel Margin="2,6,0,6" Width="320" HorizontalAlignment="Left" Visibility="{Binding IsWorking, Converter={StaticResource Vis}}">
                                 <StackPanel Orientation="Horizontal">
-                                    <ctl:Spinner Width="14" Height="14" StrokeThickness="1.6" VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding ClosingText}" FontSize="13" Foreground="{DynamicResource TextBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                    <ctl:Spinner Width="16" Height="16" StrokeThickness="2" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ClosingText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <!-- The seconds the app is given to close by itself, as a bar (the 2026-10-24 audit: a spinner alone gave no reason). -->
                                 <Grid Height="6" Margin="0,8,0,0" Visibility="{Binding ClosingWaits, Converter={StaticResource Vis}}">
-                                    <Border CornerRadius="3" Background="{DynamicResource HoverBrush}" />
-                                    <Border x:Name="CloseFill" CornerRadius="3" Background="{DynamicResource PurpleBrush}" RenderTransformOrigin="0,0.5">
+                                    <Border CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource HoverBrush}" />
+                                    <Border x:Name="CloseFill" CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource PurpleBrush}" RenderTransformOrigin="0,0.5">
                                         <Border.RenderTransform><ScaleTransform ScaleX="0" /></Border.RenderTransform>
                                     </Border>
                                 </Grid>
-                                <TextBlock Text="{Binding ClosingWhy}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                <TextBlock Text="{Binding ClosingWhy}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0"
                                            Visibility="{Binding ClosingWaits, Converter={StaticResource Vis}}" />
                             </StackPanel>
                             <DockPanel Margin="2,6,0,6" Visibility="{Binding IsSaid, Converter={StaticResource Vis}}">
-                                <ctl:InkCentered x:Name="Mark" DockPanel.Dock="Left" Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource GoodBrush}"
+                                <ctl:InkCentered x:Name="Mark" DockPanel.Dock="Left" Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S12}" Fill="{DynamicResource GoodBrush}"
                                            Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,7,-1" />
-                                <TextBlock Text="{Binding Said}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" MaxWidth="380" LineHeight="18" />
+                                <TextBlock Text="{Binding Said}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" MaxWidth="380" LineHeight="18" />
                             </DockPanel>
                         </Grid>
                         <DataTemplate.Triggers>
@@ -720,17 +720,17 @@
                         Visibility="{Binding IsReady, Converter={StaticResource Vis}}">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="Bd" CornerRadius="10" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1" Background="Transparent" Padding="12,9">
+                            <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Control}" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1" Background="Transparent" Padding="12,9">
                                 <DockPanel>
-                                    <TextBlock x:Name="Go" DockPanel.Dock="Right" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource FaintBrush}"
+                                    <TextBlock x:Name="Go" DockPanel.Dock="Right" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource FaintBrush}"
                                                LineStackingStrategy="BlockLineHeight" LineHeight="12" Height="12" VerticalAlignment="Center" Margin="10,0,0,0" />
                                     <Grid DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,11,0">
-                                        <TextBlock x:Name="Sign" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="14" Foreground="{DynamicResource PurpleBrush}"
+                                        <TextBlock x:Name="Sign" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource PurpleBrush}"
                                                    LineStackingStrategy="BlockLineHeight" LineHeight="16" Height="16" />
                                         <!-- An app's own icon, as the Start menu shows it (the approved artifact: "Open NVIDIA App" with its icon). -->
                                         <Image x:Name="AppIcon" Source="{Binding Icon}" Width="16" Height="16" Visibility="Collapsed" RenderOptions.BitmapScalingMode="HighQuality" />
                                     </Grid>
-                                    <TextBlock TextWrapping="Wrap" FontSize="13" LineHeight="18" VerticalAlignment="Center">
+                                    <TextBlock TextWrapping="Wrap" FontSize="{x:Static ctl:TextSize.Body}" LineHeight="18" VerticalAlignment="Center">
                                         <Run Text="{Binding Label, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run x:Name="Dot" Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run x:Name="WhyRun" Text="{Binding Why, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
                                     </TextBlock>
                                 </DockPanel>
@@ -759,13 +759,13 @@
                     </Button.Template>
                 </Button>
                 <DockPanel Margin="2,6,0,6" Visibility="{Binding IsSaid, Converter={StaticResource Vis}}">
-                    <ctl:InkCentered x:Name="Mark" DockPanel.Dock="Left" Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource GoodBrush}"
+                    <ctl:InkCentered x:Name="Mark" DockPanel.Dock="Left" Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S12}" Fill="{DynamicResource GoodBrush}"
                                Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,7,-1" />
                     <!-- It didn't work: Try again where trying again can help (a Windows screen or an app that didn't open). -->
                     <Button x:Name="Again" DockPanel.Dock="Right" Style="{StaticResource PlainLink}" Content="{ctl:T 'Try again'}" Visibility="Collapsed" Margin="10,-6,0,-6"
                             AutomationProperties.Name="{ctl:T 'Try again'}" VerticalAlignment="Top"
                             Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
-                    <TextBlock Text="{Binding Said}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
+                    <TextBlock Text="{Binding Said}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
                 </DockPanel>
             </Grid>
             <DataTemplate.Triggers>
@@ -785,7 +785,7 @@
              and the folder being read, with Stop; done, the biggest folders as one bar and Open on Storage; failed, why and
              Try again. It never goes away: the answer that reads the scan comes under it. -->
         <DataTemplate x:Key="ScanCard">
-            <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource Surface2Brush}" Padding="14,13" Margin="0,0,0,6" AutomationProperties.Name="{Binding Scan.Title}">
+            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Tile}" Background="{DynamicResource Surface2Brush}" Padding="14,13" Margin="0,0,0,6" AutomationProperties.Name="{Binding Scan.Title}">
                 <Grid>
                     <StackPanel Visibility="{Binding IsReady, Converter={StaticResource Vis}}">
                         <DockPanel>
@@ -793,26 +793,26 @@
                                     AutomationProperties.Name="{Binding Scan.Title}"
                                     Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource OnAccentBrush}"
+                                    <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource OnAccentBrush}"
                                                LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
-                                    <TextBlock Text="{ctl:T 'Scan'}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock Text="{ctl:T 'Scan'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <Grid Width="32" Height="32" VerticalAlignment="Top" Margin="0,0,11,0">
-                                    <Border CornerRadius="8" Background="{DynamicResource SkyBrush}" Opacity="0.15" />
-                                    <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource SkyBrush}"
+                                    <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource SkyBrush}" Opacity="0.15" />
+                                    <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S15}" Foreground="{DynamicResource SkyBrush}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="15" Height="15" />
                                 </Grid>
                             <StackPanel>
-                                <TextBlock Text="{Binding Scan.Title}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding Scan.ReadyText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding Scan.Title}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Scan.ReadyText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
                             </StackPanel>
                         </DockPanel>
                         <StackPanel Margin="0,11,0,0" Visibility="{Binding Scan.HasSize, Converter={StaticResource Vis}}">
                             <ctl:PartsBar Parts="{Binding Scan.UsedBar}" Height="6" />
                             <DockPanel Margin="0,6,0,0">
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Scan.FreeText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                    <TextBlock Text="{Binding Scan.UsedText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Scan.FreeText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                    <TextBlock Text="{Binding Scan.UsedText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                                 </DockPanel>
                         </StackPanel>
                     </StackPanel>
@@ -822,33 +822,33 @@
                                     AutomationProperties.Name="{ctl:T 'Stop scanning'}"
                                     Command="{Binding DataContext.StopScanCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
                             <Grid Width="32" Height="32" VerticalAlignment="Top" Margin="0,0,11,0">
-                                    <Border CornerRadius="8" Background="{DynamicResource SkyBrush}" Opacity="0.15" />
-                                    <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource SkyBrush}"
+                                    <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource SkyBrush}" Opacity="0.15" />
+                                    <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S15}" Foreground="{DynamicResource SkyBrush}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="15" Height="15" />
                                 </Grid>
                             <StackPanel>
-                                <TextBlock Text="{Binding Scan.ScanningTitle}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding Scan.Folder}" FontSize="12.5" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding Scan.ScanningTitle}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Scan.Folder}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                             </StackPanel>
                         </DockPanel>
                         <StackPanel Margin="0,11,0,0">
                             <ctl:PartsBar Parts="{Binding Scan.ProgressBar}" Height="6" />
                             <DockPanel Margin="0,6,0,0">
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Scan.FilesText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                                    <TextBlock Text="{Binding Scan.FoundText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Scan.FilesText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                    <TextBlock Text="{Binding Scan.FoundText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                                 </DockPanel>
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Visibility="{Binding IsDone, Converter={StaticResource Vis}}">
                         <DockPanel>
                             <Grid Width="32" Height="32" VerticalAlignment="Top" Margin="0,0,11,0">
-                                    <Border CornerRadius="8" Background="{DynamicResource GoodBrush}" Opacity="0.15" />
-                                    <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource GoodBrush}"
+                                    <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource GoodBrush}" Opacity="0.15" />
+                                    <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S15}" Foreground="{DynamicResource GoodBrush}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="15" Height="15" />
                                 </Grid>
                             <StackPanel>
-                                <TextBlock Text="{Binding Scan.DoneTitle}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding Scan.DoneText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding Scan.DoneTitle}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Scan.DoneText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
                             </StackPanel>
                         </DockPanel>
                         <StackPanel Margin="0,11,0,0" Visibility="{Binding Scan.HasFolders, Converter={StaticResource Vis}}">
@@ -858,8 +858,8 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,14,3">
-                                            <Border Width="8" Height="8" CornerRadius="2" Background="{Binding Brush, Converter={StaticResource ResourceBrush}}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                            <TextBlock FontSize="12" Foreground="{DynamicResource MutedBrush}"><Run Text="{Binding Name, Mode=OneWay}" /> <Run Text="{Binding Size, Mode=OneWay}" /></TextBlock>
+                                            <Border Width="8" Height="8" CornerRadius="{x:Static ctl:Corner.Bar}" Background="{Binding Brush, Converter={StaticResource ResourceBrush}}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBlock FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"><Run Text="{Binding Name, Mode=OneWay}" /> <Run Text="{Binding Size, Mode=OneWay}" /></TextBlock>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -868,7 +868,7 @@
                         <DockPanel Margin="0,4,0,-4">
                             <Button DockPanel.Dock="Right" Style="{StaticResource LinkAction}" Content="{ctl:T 'Open on Storage'}" AutomationProperties.Name="{ctl:T 'Open on Storage'}"
                                     Command="{Binding DataContext.OpenScanCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
-                            <TextBlock Text="{Binding Scan.Later}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center"
+                            <TextBlock Text="{Binding Scan.Later}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center"
                                        Visibility="{Binding Scan.HasLater, Converter={StaticResource Vis}}" />
                         </DockPanel>
                     </StackPanel>
@@ -876,19 +876,19 @@
                         <Button DockPanel.Dock="Right" Style="{StaticResource SecondAction}" Margin="12,0,0,0" VerticalAlignment="Top" AutomationProperties.Name="{ctl:T 'Try again'}"
                                 Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
                                            LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
-                                <TextBlock Text="{ctl:T 'Try again'}" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Try again'}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                         <Grid Width="32" Height="32" VerticalAlignment="Top" Margin="0,0,11,0">
-                                    <Border CornerRadius="8" Background="{DynamicResource WarmBrush}" Opacity="0.15" />
-                                    <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource WarmBrush}"
+                                    <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource WarmBrush}" Opacity="0.15" />
+                                    <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S15}" Foreground="{DynamicResource WarmBrush}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="15" Height="15" />
                                 </Grid>
                         <StackPanel>
-                            <TextBlock Text="{Binding Scan.FailedTitle}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding Scan.Failed}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding Scan.FailedTitle}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Scan.Failed}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
                         </StackPanel>
                     </DockPanel>
                 </Grid>
@@ -900,16 +900,16 @@
              readings as chips (ticked when already there), where they'd go, then the button; once pressed, what it did in green
              with Undo and the page. Nothing changes until it's pressed. -->
         <DataTemplate x:Key="SetupCard">
-            <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Tile}" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                               Padding="14,12" Margin="0,0,0,6" AutomationProperties.Name="{Binding Setup.Title}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <Grid Width="26" Height="26" VerticalAlignment="Center" Margin="0,0,9,0">
-                            <Border CornerRadius="7" Background="{DynamicResource AccentBrush}" Opacity="0.15" />
-                            <TextBlock Text="{Binding Setup.Glyph}" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource AccentBrush}"
+                            <Border CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource AccentBrush}" Opacity="0.15" />
+                            <TextBlock Text="{Binding Setup.Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource AccentBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="13" Height="13" />
                         </Grid>
-                        <TextBlock Text="{Binding Setup.Title}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Setup.Title}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
                     </StackPanel>
                     <ItemsControl ItemsSource="{Binding Setup.Chips}" Focusable="False" Margin="0,10,0,0">
                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -917,9 +917,9 @@
                             <DataTemplate>
                                 <Border x:Name="Chip" CornerRadius="11" Background="{DynamicResource HoverBrush}" Padding="10,3" Margin="0,0,6,6" AutomationProperties.Name="{Binding Spoken}">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock x:Name="Tick" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="10" Foreground="{DynamicResource GoodBrush}" Visibility="Collapsed"
+                                        <TextBlock x:Name="Tick" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource GoodBrush}" Visibility="Collapsed"
                                                    LineStackingStrategy="BlockLineHeight" LineHeight="12" Height="12" VerticalAlignment="Center" Margin="0,0,5,0" />
-                                        <TextBlock x:Name="Words" Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="Words" Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Border>
                                 <DataTemplate.Triggers>
@@ -934,28 +934,28 @@
                     </ItemsControl>
                     <!-- Only before the press: once done, "Adding turns the overlay on" or "Nothing is shown there yet" would no longer be
                          true; Undo brings the card back to ready with the note worked out again. -->
-                    <TextBlock x:Name="Where" Text="{Binding Setup.Where}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,0"
+                    <TextBlock x:Name="Where" Text="{Binding Setup.Where}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,0"
                                Visibility="{Binding IsDone, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     <Grid Margin="0,11,0,0">
                         <!-- Ready: the main button, and Customize or Open Taskbar. -->
                         <StackPanel x:Name="Ready" Orientation="Horizontal" Visibility="Collapsed">
                             <Button Style="{StaticResource AccentButton}" Padding="12,6" AutomationProperties.Name="{Binding Setup.MainLabel}"
                                     Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                <TextBlock Text="{Binding Setup.MainLabel}" FontSize="13" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Setup.MainLabel}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" />
                             </Button>
                             <Button Style="{StaticResource GhostButton}" Padding="12,6" Margin="8,0,0,0" AutomationProperties.Name="{Binding Setup.SecondLabel, TargetNullValue=''}"
                                     Visibility="{Binding Setup.HasSecond, Converter={StaticResource Vis}}"
                                     Command="{Binding DataContext.SetupSecondCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                <TextBlock Text="{Binding Setup.SecondLabel}" FontSize="13" />
+                                <TextBlock Text="{Binding Setup.SecondLabel}" FontSize="{x:Static ctl:TextSize.Body}" />
                             </Button>
                         </StackPanel>
                         <!-- Ready, with everything there already: said, and the page. -->
                         <DockPanel x:Name="AllOn" Visibility="Collapsed">
                             <Button DockPanel.Dock="Right" Style="{StaticResource LinkAction}" Content="{Binding Setup.OpenLabel}" AutomationProperties.Name="{Binding Setup.OpenLabel}" Margin="10,-6,0,-6"
                                     Command="{Binding DataContext.OpenSetupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
-                            <ctl:InkCentered Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource GoodBrush}"
+                            <ctl:InkCentered Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S12}" Fill="{DynamicResource GoodBrush}"
                                        Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,7,-1" />
-                            <TextBlock Text="{Binding Setup.AllOnText}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
+                            <TextBlock Text="{Binding Setup.AllOnText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
                         </DockPanel>
                         <!-- Done: what it did, Undo and the page. -->
                         <DockPanel Visibility="{Binding IsDone, Converter={StaticResource Vis}}">
@@ -963,15 +963,15 @@
                                     Command="{Binding DataContext.OpenSetupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
                             <Button DockPanel.Dock="Right" Style="{StaticResource PlainLink}" Content="{ctl:T 'Undo'}" AutomationProperties.Name="{ctl:T 'Undo'}" Margin="10,-6,0,-6"
                                     Command="{Binding DataContext.UndoSetupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
-                            <ctl:InkCentered Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource GoodBrush}"
+                            <ctl:InkCentered Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S12}" Fill="{DynamicResource GoodBrush}"
                                        Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,7,-1" />
-                            <TextBlock Text="{Binding Setup.DoneText}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" TextWrapping="Wrap" LineHeight="18" />
+                            <TextBlock Text="{Binding Setup.DoneText}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource GoodBrush}" TextWrapping="Wrap" LineHeight="18" />
                         </DockPanel>
                         <!-- Couldn't (a widget past the most there can be). -->
                         <DockPanel Visibility="{Binding IsFailed, Converter={StaticResource Vis}}">
-                            <ctl:InkCentered Text="&#xE7BA;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource WarmBrush}"
+                            <ctl:InkCentered Text="&#xE7BA;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S12}" Fill="{DynamicResource WarmBrush}"
                                        Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,7,-1" />
-                            <TextBlock Text="{Binding Said}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
+                            <TextBlock Text="{Binding Said}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
                         </DockPanel>
                     </Grid>
                 </StackPanel>
@@ -997,16 +997,16 @@
              sign); a step that only opens something, one line a button each; a step with no button, the words in the light card. -->
         <DataTemplate DataType="{x:Type vm:AskNext}">
             <StackPanel Margin="0,4,0,12">
-                <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource AccentSoftBrush}" Padding="14,12" Visibility="{Binding IsWords, Converter={StaticResource Vis}}">
+                <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Tile}" Background="{DynamicResource AccentSoftBrush}" Padding="14,12" Visibility="{Binding IsWords, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <TextBlock Text="{ctl:T 'NEXT STEP'}" Style="{StaticResource Caption}" />
-                        <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" LineHeight="20" Margin="0,5,0,0" />
+                        <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" LineHeight="20" Margin="0,5,0,0" />
                         <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Height="26" Padding="10,0" Margin="0,8,0,0"
                                 Content="{Binding OpensLabel}" AutomationProperties.Name="{Binding OpensLabel, TargetNullValue=''}" Visibility="{Binding CanOpen, Converter={StaticResource Vis}}"
                                 Command="{Binding DataContext.OpenNextCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
-                <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource AccentSoftBrush}" Padding="14,12" Visibility="{Binding IsCard, Converter={StaticResource Vis}}">
+                <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Tile}" Background="{DynamicResource AccentSoftBrush}" Padding="14,12" Visibility="{Binding IsCard, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <!-- The title and one measured line on the left, "Close it" on the right of the same row (nothing hangs
                              in empty space); its question and outcome, and the other buttons, in the row under it. -->
@@ -1015,14 +1015,14 @@
                                     DataContext="{Binding Main}" AutomationProperties.Name="{Binding Label}" Visibility="{Binding IsReady, Converter={StaticResource Vis}}"
                                     Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE711;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource OnAccentBrush}"
+                                    <TextBlock Text="&#xE711;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{DynamicResource OnAccentBrush}"
                                                LineStackingStrategy="BlockLineHeight" LineHeight="12" Height="12" VerticalAlignment="Center" Margin="0,0,7,0" />
-                                    <TextBlock Text="{Binding ButtonLabel}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ButtonLabel}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{Binding CardTitle}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="{Binding CardText}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding CardTitle}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="{Binding CardText}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" />
                             </StackPanel>
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding MainOnly}" ItemTemplate="{StaticResource ActionButton}" Focusable="False" Margin="0,10,0,-6">
@@ -1063,18 +1063,18 @@
                     <Border Grid.Column="2" Height="1" Background="{DynamicResource StrokeBrush}" VerticalAlignment="Center" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,4" Visibility="{Binding IsBusy, Converter={StaticResource Vis}}"
                                 AutomationProperties.Name="{ctl:T 'Summarizing earlier messages…'}">
-                        <ctl:Spinner Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Text="{ctl:T 'Summarizing earlier messages…'}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                        <ctl:Spinner Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="{ctl:T 'Summarizing earlier messages…'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                     </StackPanel>
-                    <Button Grid.Column="1" Margin="4,0" Cursor="Hand" FocusVisualStyle="{x:Null}" Visibility="{Binding IsDone, Converter={StaticResource Vis}}"
+                    <Button Grid.Column="1" Margin="4,0" Cursor="Hand" FocusVisualStyle="{StaticResource FocusRing}" Visibility="{Binding IsDone, Converter={StaticResource Vis}}"
                             AutomationProperties.Name="{ctl:T 'Earlier messages summarized to keep this conversation going'}"
                             Command="{Binding DataContext.ToggleSummaryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
-                                <Border x:Name="Bd" CornerRadius="6" Background="Transparent" Padding="6,4">
+                                <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Small}" Background="Transparent" Padding="6,4">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock x:Name="Words" Text="{ctl:T 'Earlier messages summarized to keep this conversation going'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                                        <ctl:InkCentered x:Name="Chevron" Text="&#xE70D;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="9" Fill="{DynamicResource FaintBrush}"
+                                        <TextBlock x:Name="Words" Text="{ctl:T 'Earlier messages summarized to keep this conversation going'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                        <ctl:InkCentered x:Name="Chevron" Text="&#xE70D;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S9}" Fill="{DynamicResource FaintBrush}"
                                                          Width="10" Height="16" Margin="6,0,0,0" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
                                             <ctl:InkCentered.RenderTransform><RotateTransform /></ctl:InkCentered.RenderTransform>
                                         </ctl:InkCentered>
@@ -1094,16 +1094,16 @@
                         </Button.Template>
                     </Button>
                 </Grid>
-                <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                                   Padding="12,10" Margin="0,8,0,0" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}">
                     <StackPanel>
-                        <TextBlock Text="{Binding Heading}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="19" />
+                        <TextBlock Text="{Binding Heading}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="19" />
                         <ItemsControl ItemsSource="{Binding Points}" Focusable="False" Margin="0,6,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <DockPanel Margin="0,0,0,4">
-                                        <TextBlock DockPanel.Dock="Left" Text="•" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" LineHeight="19" Margin="2,0,8,0" />
-                                        <TextBlock Text="{Binding}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="19" />
+                                        <TextBlock DockPanel.Dock="Left" Text="•" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" LineHeight="19" Margin="2,0,8,0" />
+                                        <TextBlock Text="{Binding}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="19" />
                                     </DockPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -1116,9 +1116,9 @@
         <!-- What a button did, kept in the conversation. -->
         <DataTemplate DataType="{x:Type vm:AskDone}">
             <DockPanel Margin="0,0,0,12" Visibility="{Binding Live, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                <ctl:InkCentered DockPanel.Dock="Left" Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Fill="{DynamicResource GoodBrush}"
+                <ctl:InkCentered DockPanel.Dock="Left" Text="&#xE73E;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S12}" Fill="{DynamicResource GoodBrush}"
                            Width="12" Height="19" VerticalAlignment="Top" Margin="0,0,8,-1" />
-                <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
+                <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
             </DockPanel>
         </DataTemplate>
 
@@ -1127,19 +1127,19 @@
             <ctl:SmoothBorder Style="{StaticResource AnswerCard}">
                 <StackPanel>
                     <DockPanel>
-                        <ctl:InkCentered DockPanel.Dock="Left" Text="&#xE916;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Fill="{DynamicResource AccentBrush}"
+                        <ctl:InkCentered DockPanel.Dock="Left" Text="&#xE916;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S14}" Fill="{DynamicResource AccentBrush}"
                                    Width="14" Height="19" VerticalAlignment="Top" Margin="0,0,10,-1" />
                         <StackPanel>
-                            <TextBlock Text="{Binding Heading}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" LineHeight="18" />
-                            <TextBlock Text="{Binding SubLine}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding Heading}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap" LineHeight="18" />
+                            <TextBlock Text="{Binding SubLine}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
                         </StackPanel>
                     </DockPanel>
                     <!-- Ten minutes is a known end: a bar and the time, not a spinner (the 2026-10-24 audit). -->
                     <StackPanel Margin="28,10,0,2" Visibility="{Binding IsWaiting, Converter={StaticResource Vis}}">
                         <ctl:PartsBar Parts="{Binding Progress}" Height="6" />
                         <DockPanel Margin="0,6,0,0">
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding Left}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
-                            <TextBlock Text="{Binding DueText}" FontSize="12" Foreground="{DynamicResource MutedBrush}" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding Left}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                            <TextBlock Text="{Binding DueText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                         </DockPanel>
                     </StackPanel>
                     <ItemsControl ItemsSource="{Binding Rows}" Focusable="False" Margin="28,10,0,0" Grid.IsSharedSizeScope="True"
@@ -1153,15 +1153,15 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="CheckAfter" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel>
-                                        <TextBlock Text="{Binding Label}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock x:Name="Change" Text="{Binding Change}" FontSize="11.5" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" />
+                                        <TextBlock Text="{Binding Label}" FontSize="{x:Static ctl:TextSize.Detail}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock x:Name="Change" Text="{Binding Change}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" />
                                     </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding Before}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="12,0,0,0" VerticalAlignment="Top" />
-                                    <TextBlock x:Name="AfterText" Grid.Column="2" FontSize="12.5" Margin="10,0,0,0" VerticalAlignment="Top">
+                                    <TextBlock Grid.Column="1" Text="{Binding Before}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="12,0,0,0" VerticalAlignment="Top" />
+                                    <TextBlock x:Name="AfterText" Grid.Column="2" FontSize="{x:Static ctl:TextSize.Detail}" Margin="10,0,0,0" VerticalAlignment="Top">
                                         <Run Text="→ " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding After, Mode=OneWay}" FontWeight="SemiBold" />
                                     </TextBlock>
                                     <!-- The after side still to come: its place kept, so nothing moves when it fills in. -->
-                                    <TextBlock x:Name="AfterWait" Grid.Column="2" Text="{ctl:T 'after…'}" FontSize="12.5" FontStyle="Italic" Foreground="{DynamicResource FaintBrush}"
+                                    <TextBlock x:Name="AfterWait" Grid.Column="2" Text="{ctl:T 'after…'}" FontSize="{x:Static ctl:TextSize.Detail}" FontStyle="Italic" Foreground="{DynamicResource FaintBrush}"
                                                Margin="10,0,0,0" VerticalAlignment="Top" Visibility="Collapsed" />
                                 </Grid>
                                 <DataTemplate.Triggers>
@@ -1176,9 +1176,9 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock Text="{Binding Note}" FontSize="12" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="28,6,0,0"
+                    <TextBlock Text="{Binding Note}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="28,6,0,0"
                                Visibility="{Binding HasNote, Converter={StaticResource Vis}}" />
-                    <TextBlock Text="{ctl:T 'You can keep asking meanwhile.'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="28,4,0,0"
+                    <TextBlock Text="{ctl:T 'You can keep asking meanwhile.'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="28,4,0,0"
                                Visibility="{Binding IsWaiting, Converter={StaticResource Vis}}" />
                     <Button Style="{StaticResource SecondAction}" HorizontalAlignment="Left" Margin="28,12,0,0"
                             Content="{ctl:T 'Ask what this means'}" AutomationProperties.Name="{ctl:T 'Ask what this means'}"
@@ -1192,7 +1192,7 @@
             <ctl:SmoothBorder HorizontalAlignment="Right" MaxWidth="340" CornerRadius="12,12,4,12" Background="{DynamicResource Surface2Brush}" Padding="12,9" Margin="40,0,0,10">
                 <!-- A long one shows its first ten lines or so, so the answer isn't pushed out of sight. -->
                 <StackPanel>
-                    <TextBlock x:Name="Words" Text="{Binding Text}" FontSize="13.5" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="Words" Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.BodyPlus}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
                     <ToggleButton x:Name="All" Style="{StaticResource LinkToggle}" Content="{ctl:T 'Show all'}" AutomationProperties.Name="{ctl:T 'Show all'}"
                                   HorizontalAlignment="Left" Margin="0,6,0,0" Visibility="Collapsed" />
                 </StackPanel>
@@ -1230,8 +1230,8 @@
                     <Ellipse x:Name="Dot3" />
                 </StackPanel>
                 <StackPanel x:Name="Words" Visibility="Collapsed">
-                    <TextBlock x:Name="StepText" Text="{Binding Step}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding Note}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
+                    <TextBlock x:Name="StepText" Text="{Binding Step}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Note}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
                                Visibility="{Binding HasNote, Converter={StaticResource Vis}}" />
                 </StackPanel>
             </Grid>
@@ -1275,26 +1275,26 @@
              goes where the words send them. -->
         <DataTemplate DataType="{x:Type vm:AskProblem}">
             <DockPanel Margin="0,0,0,14">
-                <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource WarmBrush}" Margin="0,2,10,0" VerticalAlignment="Top" />
+                <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource WarmBrush}" Margin="0,2,10,0" VerticalAlignment="Top" />
                 <StackPanel>
-                    <TextBlock Text="{Binding Text}" FontSize="13.5" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.BodyPlus}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
                     <WrapPanel Margin="0,8,0,0" Visibility="{Binding HasActions, Converter={StaticResource Vis}}">
                         <Button Style="{StaticResource SecondAction}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Try again'}"
                                 Visibility="{Binding CanRetry, Converter={StaticResource Vis}}"
                                 Command="{Binding DataContext.TryAgainCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
                                            LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
-                                <TextBlock Text="{ctl:T 'Try again'}" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Try again'}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource SecondAction}" AutomationProperties.Name="{ctl:T 'Open Settings'}"
                                 Visibility="{Binding CanOpenSettings, Converter={StaticResource Vis}}"
                                 Command="{Binding DataContext.SettingsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                <TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
                                            LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
-                                <TextBlock Text="{ctl:T 'Open Settings'}" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Open Settings'}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </WrapPanel>
@@ -1304,12 +1304,12 @@
 
         <!-- A limit or a page in the way (the plans mock-up): a card in the chat with the one step that fixes it. -->
         <DataTemplate DataType="{x:Type vm:AskWall}">
-            <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Tile}" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                               Padding="14,12" Margin="0,0,0,14" AutomationProperties.Name="{Binding Title}">
                 <Grid>
                 <StackPanel Visibility="{Binding Pay.Waiting, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                    <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding Text}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                     <WrapPanel Margin="0,12,0,0">
                         <Button Style="{StaticResource AccentButton}" Content="{Binding MainText}" Margin="0,0,8,0"
                                 Command="{Binding DataContext.UseWallCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
@@ -1322,17 +1322,17 @@
                     <StackPanel Visibility="{Binding Pay.Waiting, Converter={StaticResource Vis}}">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse x:Name="PayDot" Width="8" Height="8" Fill="{DynamicResource SkyBrush}" VerticalAlignment="Center" Margin="0,1,8,0" />
-                            <TextBlock Text="{ctl:T 'Finish paying in your browser'}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text="{ctl:T 'Finish paying in your browser'}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                         </StackPanel>
-                        <TextBlock Text="{ctl:T 'Your question is kept and goes as soon as the plan is on. This updates by itself.'}" FontSize="12.5"
+                        <TextBlock Text="{ctl:T 'Your question is kept and goes as soon as the plan is on. This updates by itself.'}" FontSize="{x:Static ctl:TextSize.Detail}"
                                    Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                         <WrapPanel Margin="0,12,0,0">
                             <Button Style="{StaticResource SecondAction}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Open the payment page again'}"
                                     Command="{Binding DataContext.ReopenCheckoutCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Plan}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
                                                LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
-                                    <TextBlock Text="{ctl:T 'Open the payment page again'}" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="{ctl:T 'Open the payment page again'}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <Button Style="{StaticResource PlainLink}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Stop waiting for the payment'}"
@@ -1359,18 +1359,18 @@
              scan button used to be, its title what this question would get, which plan reads the page, the plan's button
              and See plans. The page itself opens on every plan, so the answer's own "Open Storage" line stays under it. -->
         <DataTemplate DataType="{x:Type vm:AskLockedCard}">
-            <ctl:SmoothBorder CornerRadius="12" Background="{DynamicResource Surface2Brush}" Padding="14,13" Margin="0,4,0,8" AutomationProperties.Name="{Binding Title}">
+            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Tile}" Background="{DynamicResource Surface2Brush}" Padding="14,13" Margin="0,4,0,8" AutomationProperties.Name="{Binding Title}">
                 <Grid>
                     <StackPanel Visibility="{Binding Pay.Waiting, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                         <DockPanel>
                             <Grid Width="32" Height="32" VerticalAlignment="Top" Margin="0,0,11,0">
-                                <Border CornerRadius="8" Background="{DynamicResource CpuBrush}" Opacity="0.15" />
-                                <TextBlock Text="&#xE72E;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource CpuBrush}"
+                                <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource CpuBrush}" Opacity="0.15" />
+                                <TextBlock Text="&#xE72E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S15}" Foreground="{DynamicResource CpuBrush}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" LineStackingStrategy="BlockLineHeight" LineHeight="15" Height="15" />
                             </Grid>
                             <StackPanel>
-                                <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
                             </StackPanel>
                         </DockPanel>
                         <WrapPanel Margin="43,11,0,0">
@@ -1385,17 +1385,17 @@
                     <StackPanel Visibility="{Binding Pay.Waiting, Converter={StaticResource Vis}}">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse x:Name="PayDot" Width="8" Height="8" Fill="{DynamicResource SkyBrush}" VerticalAlignment="Center" Margin="0,1,8,0" />
-                            <TextBlock Text="{ctl:T 'Finish paying in your browser'}" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text="{ctl:T 'Finish paying in your browser'}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                         </StackPanel>
-                        <TextBlock Text="{ctl:T 'Your question is kept and goes as soon as the plan is on. This updates by itself.'}" FontSize="12.5"
+                        <TextBlock Text="{ctl:T 'Your question is kept and goes as soon as the plan is on. This updates by itself.'}" FontSize="{x:Static ctl:TextSize.Detail}"
                                    Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                         <WrapPanel Margin="0,12,0,0">
                             <Button Style="{StaticResource SecondAction}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Open the payment page again'}"
                                     Command="{Binding DataContext.ReopenCheckoutCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding PlanId}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
                                                LineStackingStrategy="BlockLineHeight" LineHeight="14" Height="14" VerticalAlignment="Center" Margin="0,0,7,0" />
-                                    <TextBlock Text="{ctl:T 'Open the payment page again'}" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="{ctl:T 'Open the payment page again'}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <Button Style="{StaticResource PlainLink}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Stop waiting for the payment'}"
@@ -1419,19 +1419,19 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:AskStopped}">
-            <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,14" />
+            <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,14" />
         </DataTemplate>
 
         <!-- Stopped (board 6, 2026-10-26): a faint line where the answer was, and Ask again for the same question in its place. -->
         <DataTemplate DataType="{x:Type vm:AskStoppedAnswer}">
             <WrapPanel Margin="0,0,0,14">
-                <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="0,0,12,0" />
                 <Button Style="{StaticResource SecondAction}" Padding="10,4" AutomationProperties.Name="{ctl:T 'Ask again'}" VerticalAlignment="Center"
                         Command="{Binding DataContext.AskStoppedAgainCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource MutedBrush}"
+                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{DynamicResource MutedBrush}"
                                    LineStackingStrategy="BlockLineHeight" LineHeight="13" Height="13" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="{ctl:T 'Ask again'}" FontSize="12.5" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Ask again'}" FontSize="{x:Static ctl:TextSize.Detail}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </WrapPanel>
@@ -1442,7 +1442,7 @@
             <StackPanel Margin="0,0,0,18">
                 <!-- Drawn exactly as the finished answer's opening (its size, weight and Markdown): it was the old bold 15 pt
                      headline here, which jumped to the plain paragraph once the answer finished (2026-10-24). -->
-                <TextBlock FontSize="13.5" LineHeight="21" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"
+                <TextBlock FontSize="{x:Static ctl:TextSize.BodyPlus}" LineHeight="21" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"
                            Visibility="{Binding Verdict, Converter={StaticResource Vis}}"><Span ctl:Md.Text="{Binding Verdict}" /></TextBlock>
                 <ItemsControl ItemsSource="{Binding Parts}" Focusable="False" />
             </StackPanel>
@@ -1455,8 +1455,8 @@
                 <StackPanel Margin="0,0,0,8" Visibility="{Binding HasLooked, Converter={StaticResource Vis}}">
                     <ToggleButton x:Name="LookedToggle" Style="{StaticResource LinkToggle}" HorizontalAlignment="Left" AutomationProperties.Name="{Binding LookedLine}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock x:Name="LookedArrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="8" Margin="0,1,7,0" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding LookedLine}" FontSize="12" TextWrapping="Wrap" />
+                            <TextBlock x:Name="LookedArrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S8}" Margin="0,1,7,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding LookedLine}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" />
                         </StackPanel>
                     </ToggleButton>
                     <ItemsControl x:Name="LookedList" ItemsSource="{Binding Looked}" Margin="15,4,0,0" Visibility="Collapsed" Focusable="False">
@@ -1468,14 +1468,14 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-                <TextBlock x:Name="Verdict" FontSize="13.5" LineHeight="21" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"
+                <TextBlock x:Name="Verdict" FontSize="{x:Static ctl:TextSize.BodyPlus}" LineHeight="21" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"
                            Visibility="{Binding Verdict, Converter={StaticResource Vis}}"><Span ctl:Md.Text="{Binding Verdict}" /><InlineUIContainer BaselineAlignment="Center"><ContentControl Content="{Binding VerdictRefs}" ContentTemplate="{StaticResource RefPill}" Focusable="False" IsTabStop="False" Visibility="{Binding VerdictRefs, Converter={StaticResource Vis}}" /></InlineUIContainer></TextBlock>
                 <!-- Its parts in order: paragraphs and points, RigSight's own numbers, tables, the next step. -->
                 <ItemsControl ItemsSource="{Binding Parts}" Focusable="False" />
 
                 <DockPanel Margin="0,2,0,8" Visibility="{Binding HasWeb, Converter={StaticResource Vis}}">
-                    <TextBlock DockPanel.Dock="Left" Text="&#xE721;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,2,8,0" VerticalAlignment="Top" />
-                    <TextBlock Text="{Binding FromWeb}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                    <TextBlock DockPanel.Dock="Left" Text="&#xE721;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{DynamicResource MutedBrush}" Margin="0,2,8,0" VerticalAlignment="Top" />
+                    <TextBlock Text="{Binding FromWeb}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
                 </DockPanel>
                 <!-- A page the plan doesn't open: its card is one of the parts above (AskLockedCard), where the scan button was. -->
                 <!-- Under every answer, tight under it like other chat apps' action bars: icons with their word as a tooltip,
@@ -1483,33 +1483,33 @@
                 <StackPanel Orientation="Horizontal" Margin="0,-6,0,0">
                     <Button x:Name="CopyButton" Style="{StaticResource IconAction}" ToolTip="{ctl:T 'Copy'}" AutomationProperties.Name="{ctl:T 'Copy'}"
                             Command="{Binding DataContext.CopyAnswerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                        <TextBlock x:Name="CopyIcon" Text="&#xE8C8;" Style="{StaticResource Icon}" FontSize="13" />
+                        <TextBlock x:Name="CopyIcon" Text="&#xE8C8;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" />
                     </Button>
                     <Button Style="{StaticResource IconAction}" ToolTip="{ctl:T 'Ask again'}" AutomationProperties.Name="{ctl:T 'Ask again'}"
                             Visibility="{Binding Asked, Converter={StaticResource Vis}}"
                             Command="{Binding DataContext.AskAgainCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="13" />
+                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" />
                     </Button>
                     <StackPanel Orientation="Horizontal" DataContext="{Binding Feedback}" Visibility="{Binding CanRate, Converter={StaticResource Vis}}">
                         <Button x:Name="Good" Style="{StaticResource IconAction}" ToolTip="{ctl:T 'Helpful'}" AutomationProperties.Name="{ctl:T 'Helpful'}" Command="{Binding HelpfulCommand}">
-                            <TextBlock x:Name="GoodIcon" Text="&#xE8E1;" Style="{StaticResource Icon}" FontSize="13" />
+                            <TextBlock x:Name="GoodIcon" Text="&#xE8E1;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" />
                         </Button>
                         <Button x:Name="Bad" Style="{StaticResource IconAction}" ToolTip="{ctl:T 'Not helpful'}" AutomationProperties.Name="{ctl:T 'Not helpful'}" Command="{Binding NotHelpfulCommand}">
-                            <TextBlock x:Name="BadIcon" Text="&#xE8E0;" Style="{StaticResource Icon}" FontSize="13" />
+                            <TextBlock x:Name="BadIcon" Text="&#xE8E0;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" />
                         </Button>
-                        <TextBlock Text="{Binding Said}" FontSize="12" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="6,0,0,0" Visibility="{Binding HasSaid, Converter={StaticResource Vis}}" />
+                        <TextBlock Text="{Binding Said}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="6,0,0,0" Visibility="{Binding HasSaid, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </StackPanel>
                 <!-- Not helpful: why, in four plain words and their own (both optional), then Send. -->
-                <ctl:SmoothBorder DataContext="{Binding Feedback}" CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0"
+                <ctl:SmoothBorder DataContext="{Binding Feedback}" CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0"
                                   Visibility="{Binding Asking, Converter={StaticResource Vis}}">
                     <StackPanel>
-                        <TextBlock Text="{ctl:T 'What was wrong?'}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" />
+                        <TextBlock Text="{ctl:T 'What was wrong?'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" />
                         <ItemsControl ItemsSource="{Binding ReasonButtons}" Margin="0,8,0,0" Focusable="False">
                             <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button x:Name="Reason" Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Padding="10,5" Margin="0,0,6,6" FontSize="12"
+                                    <Button x:Name="Reason" Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Padding="10,5" Margin="0,0,6,6" FontSize="{x:Static ctl:TextSize.Small}"
                                             Content="{Binding Label}" AutomationProperties.Name="{Binding Label}"
                                             Command="{Binding Owner.PickCommand}" CommandParameter="{Binding Id}" />
                                     <DataTemplate.Triggers>
@@ -1561,36 +1561,36 @@
                 <Button DockPanel.Dock="Top" Style="{StaticResource PickRow}" Command="{Binding NewCommand}"
                         AutomationProperties.Name="{ctl:T 'New conversation'}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
-                        <TextBlock Text="{ctl:T 'New conversation'}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'New conversation'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" />
                     </StackPanel>
                 </Button>
                 <Button DockPanel.Dock="Top" Style="{StaticResource PickRow}" Command="{Binding ToggleArchivedCommand}"
                         AutomationProperties.Name="{Binding ArchivedText}" Visibility="{Binding HasArchived, Converter={StaticResource Vis}}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding ArchivedCount}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding ArchivedCount}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}"
                                    Visibility="{Binding ShowingArchived, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                        <TextBlock DockPanel.Dock="Left" Text="&#xE7B8;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding ArchivedText}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock DockPanel.Dock="Left" Text="&#xE7B8;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ArchivedText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" />
                     </DockPanel>
                 </Button>
                 <TextBox x:Name="HistorySearchBox" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search conversations'}" Margin="0,12,0,0"
                          AutomationProperties.Name="{ctl:T 'Search conversations'}" Text="{Binding HistorySearch, UpdateSourceTrigger=PropertyChanged}" />
                 <!-- Just deleted: Undo for a few seconds, at the foot of the list (board 6, 2026-10-26). -->
-                <ctl:SmoothBorder DockPanel.Dock="Bottom" CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="10,2,6,2" Margin="0,8,0,0"
+                <ctl:SmoothBorder DockPanel.Dock="Bottom" CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" Padding="10,2,6,2" Margin="0,8,0,0"
                                   Visibility="{Binding Deleted, Converter={StaticResource Vis}}" AutomationProperties.LiveSetting="Polite"
                                   AutomationProperties.Name="{ctl:T 'Conversation deleted'}">
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Style="{StaticResource PlainLink}" AutomationProperties.Name="{ctl:T 'Undo'}" Command="{Binding UndoDeleteCommand}">
-                            <TextBlock Text="{ctl:T 'Undo'}" FontSize="12.5" FontWeight="SemiBold" />
+                            <TextBlock Text="{ctl:T 'Undo'}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" />
                         </Button>
-                        <TextBlock Text="{ctl:T 'Conversation deleted'}" FontSize="12.5" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{ctl:T 'Conversation deleted'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                     </DockPanel>
                 </ctl:SmoothBorder>
                 <!-- The bar in its own gutter beside the rows (drawn over them, it covered the titles and their ⋯). -->
                 <ScrollViewer Style="{StaticResource GutterScroll}" FocusVisualStyle="{x:Null}">
                     <StackPanel>
-                        <TextBlock Text="{Binding HistoryEmptyText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" Margin="6,8"
+                        <TextBlock Text="{Binding HistoryEmptyText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="6,8"
                                    Visibility="{Binding HasHistory, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <ItemsControl ItemsSource="{Binding Groups}">
                             <ItemsControl.ItemTemplate>
@@ -1611,13 +1611,13 @@
                                                                 </Style>
                                                             </Button.Style>
                                                             <DockPanel>
-                                                                <TextBlock DockPanel.Dock="Left" Text="&#xE718;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}"
+                                                                <TextBlock DockPanel.Dock="Left" Text="&#xE718;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{DynamicResource FaintBrush}"
                                                                            Margin="0,1,8,0" VerticalAlignment="Center" Visibility="{Binding IsPinned, Converter={StaticResource Vis}}" />
-                                                                <TextBlock Text="{Binding Title}" FontSize="12.5" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}" />
+                                                                <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Detail}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}" />
                                                             </DockPanel>
                                                         </Button>
                                                         <!-- Rename: the title typed over in place; Enter keeps it, Esc puts it back. -->
-                                                        <TextBox Style="{StaticResource FieldBox}" Padding="0" FontSize="12.5" Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}"
+                                                        <TextBox Style="{StaticResource FieldBox}" Padding="0" FontSize="{x:Static ctl:TextSize.Detail}" Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}"
                                                                  AutomationProperties.Name="{ctl:T 'Conversation name'}" MaxLength="80"
                                                                  Visibility="{Binding IsRenaming, Converter={StaticResource Vis}}"
                                                                  IsVisibleChanged="Rename_Shown" PreviewKeyDown="Rename_Key" LostKeyboardFocus="Rename_Lost" />
@@ -1635,12 +1635,12 @@
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </Button.Style>
-                                                            <TextBlock Text="&#xE712;" FontSize="12" />
+                                                            <TextBlock Text="&#xE712;" FontSize="{x:Static ctl:IconSize.S12}" />
                                                         </Button>
                                                         <Popup IsOpen="{Binding IsMenuOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=More}" Placement="Bottom" StaysOpen="False"
                                                                AllowsTransparency="True" HorizontalOffset="-140" VerticalOffset="4"
                                                                Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
-                                                            <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="5" Width="170">
+                                                            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="5" Width="170">
                                                                 <StackPanel>
                                                                     <Button Tag="&#xE718;" Command="{Binding Tag.TogglePinCommand, RelativeSource={RelativeSource AncestorType=Popup}}" CommandParameter="{Binding}">
                                                                         <Button.Style>
@@ -1695,7 +1695,7 @@
                                 <Border Width="1.3" HorizontalAlignment="Left" Margin="5.2,0,0,0" Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                             </Grid>
                         </Button>
-                        <TextBlock Text="{ctl:T 'Ask RigSight'}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Ask RigSight'}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                     </DockPanel>
                 </Border>
                 <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource HistoryList}" />
@@ -1705,14 +1705,14 @@
 
     <Grid x:Name="Layer">
         <!-- Where it will stick when let go near the corner while being dragged. -->
-        <Border x:Name="DropSpot" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="14" BorderThickness="2" BorderBrush="{DynamicResource FaintBrush}"
+        <Border x:Name="DropSpot" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="{x:Static ctl:Corner.Panel}" BorderThickness="2" BorderBrush="{DynamicResource FaintBrush}"
                 Visibility="Collapsed" IsHitTestVisible="False" />
 
         <!-- The panel's shadow on an empty box of its own behind it: an effect on the panel itself drew every word of the
              chat without ClearType (greyscale, thinner and softer than the rest of the app). -->
         <!-- Kept as a picture (BitmapCache): the 40 px blur was worked out again on every frame of a drag, the heaviest part of
              moving the window (2026-10-27, "the drag feels laggy"). It holds no text, so nothing loses ClearType. -->
-        <Border x:Name="Shade" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="14" Background="{DynamicResource SurfaceBrush}" IsHitTestVisible="False"
+        <Border x:Name="Shade" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="{x:Static ctl:Corner.Panel}" Background="{DynamicResource SurfaceBrush}" IsHitTestVisible="False"
                 Width="{Binding Width, ElementName=Panel}" Height="{Binding Height, ElementName=Panel}" Margin="{Binding Margin, ElementName=Panel}"
                 Visibility="{Binding Visibility, ElementName=Panel}">
             <Border.CacheMode><BitmapCache /></Border.CacheMode>
@@ -1720,7 +1720,7 @@
                 <DropShadowEffect BlurRadius="40" ShadowDepth="10" Opacity="0.55" Color="Black" />
             </Border.Effect>
         </Border>
-        <ctl:SmoothBorder x:Name="Panel" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="14" Background="{DynamicResource SurfaceBrush}"
+        <ctl:SmoothBorder x:Name="Panel" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="{x:Static ctl:Corner.Panel}" Background="{DynamicResource SurfaceBrush}"
                           BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1" AutomationProperties.Name="Ask RigSight">
             <Grid>
                 <Grid.RowDefinitions>
@@ -1745,7 +1745,7 @@
                     <ScrollViewer x:Name="Chat" VerticalScrollBarVisibility="Auto" Focusable="False" FocusVisualStyle="{x:Null}" Padding="16,0,16,4" Margin="0,46,0,0" Visibility="{Binding ShowChat, Converter={StaticResource Vis}}">
                         <StackPanel Margin="0,10,0,0">
                             <!-- Opened from an Explain button: what it is about. -->
-                            <TextBlock Text="{Binding LookingAt}" FontSize="12" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                            <TextBlock Text="{Binding LookingAt}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
                                        Margin="0,0,0,10" Visibility="{Binding HasLookingAt, Converter={StaticResource Vis}}" />
                             <ItemsControl ItemsSource="{Binding Current.Messages}" />
                             <!-- What they might ask next, under the latest answer (approved mock-up 2026-10-24): a short list under a small
@@ -1753,7 +1753,7 @@
                             <!-- Full width on every layer: the theme's buttons sit left by default, which made the rows and their line
                                  only as wide as their words (2026-10-24). -->
                             <StackPanel Margin="0,4,0,12" HorizontalAlignment="Stretch" Visibility="{Binding HasNextQuestions, Converter={StaticResource Vis}}">
-                                <TextBlock Text="{ctl:T 'Ask next'}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4" />
+                                <TextBlock Text="{ctl:T 'Ask next'}" FontSize="{x:Static ctl:TextSize.Label}" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4" />
                                 <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" HorizontalAlignment="Stretch">
                                     <ItemsControl ItemsSource="{Binding NextQuestions}" Focusable="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                         <ItemsControl.ItemTemplate>
@@ -1765,11 +1765,11 @@
                                                             <!-- The divider stays square; the hover shade inside it is rounded (the user, 2026-10-26: the sharp
                                                                  corners felt pointy). -->
                                                             <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Background="Transparent" Padding="0,3">
-                                                                <Border x:Name="Bd" CornerRadius="8" Background="Transparent" Padding="6,6">
+                                                                <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Field}" Background="Transparent" Padding="6,6">
                                                                     <DockPanel>
-                                                                        <TextBlock x:Name="Go" DockPanel.Dock="Right" Text="&#xE72A;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource FaintBrush}"
+                                                                        <TextBlock x:Name="Go" DockPanel.Dock="Right" Text="&#xE72A;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource FaintBrush}"
                                                                                    VerticalAlignment="Center" Margin="12,0,2,0" />
-                                                                        <TextBlock Text="{Binding}" FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                                        <TextBlock Text="{Binding}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
                                                                     </DockPanel>
                                                                 </Border>
                                                             </Border>
@@ -1795,8 +1795,8 @@
                     <ScrollViewer Style="{StaticResource GutterScroll}" Margin="0,46,0,0" Padding="18,0,18,8" Visibility="{Binding ShowStarters, Converter={StaticResource Vis}}">
                         <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
                         <StackPanel VerticalAlignment="Center" MaxWidth="720">
-                            <TextBlock Text="{ctl:T 'Ask about this PC'}" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding PcLine}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
+                            <TextBlock Text="{ctl:T 'Ask about this PC'}" FontSize="{x:Static ctl:TextSize.DialogTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding PcLine}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
                                        Visibility="{Binding HasPcLine, Converter={StaticResource Vis}}" />
                             <ItemsControl ItemsSource="{Binding Starters}" Margin="0,14,0,0" Focusable="False">
                                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><ctl:TileWrap MinTileWidth="300" Gap="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
@@ -1807,16 +1807,16 @@
                                                 Command="{Binding DataContext.StarterCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Text}">
                                             <StackPanel>
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource FaintBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding PageName}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{DynamicResource FaintBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding PageName}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
                                                 </StackPanel>
-                                                <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap" LineHeight="18" />
+                                                <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" LineHeight="18" />
                                             </StackPanel>
                                         </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <TextBlock Text="{ctl:T 'or type your own below'}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" />
+                            <TextBlock Text="{ctl:T 'or type your own below'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" />
                         </StackPanel>
                         </Grid>
                     </ScrollViewer>
@@ -1831,29 +1831,29 @@
                             <DockPanel>
                                 <Button DockPanel.Dock="Left" Style="{StaticResource AccentButton}" Content="{ctl:T 'Start asking'}" Command="{Binding StartAskingCommand}" />
                                 <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Background="{DynamicResource HoverBrush}" Content="{ctl:T 'Not now'}" Margin="8,0,0,0" Command="{Binding CloseCommand}" />
-                                <TextBlock Text="{Binding FirstExtra}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" TextAlignment="Right"
+                                <TextBlock Text="{Binding FirstExtra}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" TextAlignment="Right"
                                            VerticalAlignment="Center" Margin="12,0,0,0" Visibility="{Binding FirstExtra, Converter={StaticResource Vis}}" />
                             </DockPanel>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False" Padding="18,52,18,12">
                             <StackPanel>
-                                <TextBlock Text="{ctl:T 'Before your first question'}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding FirstIntro}" FontSize="13" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
-                                <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,12,0,0">
+                                <TextBlock Text="{ctl:T 'Before your first question'}" FontSize="{x:Static ctl:TextSize.Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding FirstIntro}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,12,0,0">
                                     <DockPanel>
                                         <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Margin="0,5,10,0" VerticalAlignment="Top" Style="{StaticResource FirstDot}" />
-                                        <TextBlock FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
+                                        <TextBlock FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
                                             <Run Text="{Binding FirstWhere, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding FirstWhereText, Mode=OneWay}" />
                                         </TextBlock>
                                     </DockPanel>
                                 </ctl:SmoothBorder>
                                 <!-- RigSight AI: what's kept, and by whom, plainly; the privacy page for the rest. -->
-                                <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0"
+                                <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0"
                                                   Visibility="{Binding FirstKept, Converter={StaticResource Vis}}">
                                     <DockPanel>
                                         <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Margin="0,5,10,0" VerticalAlignment="Top" Style="{StaticResource FirstDot}" />
                                         <StackPanel>
-                                            <TextBlock FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
+                                            <TextBlock FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
                                                 <Run Text="{ctl:T 'What is kept.'}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding FirstKept, Mode=OneWay}" />
                                             </TextBlock>
                                             <Button Style="{StaticResource LinkAction}" Content="{ctl:T 'Privacy page'}" AutomationProperties.Name="{ctl:T 'Privacy page'}" HorizontalAlignment="Left"
@@ -1861,27 +1861,27 @@
                                         </StackPanel>
                                     </DockPanel>
                                 </ctl:SmoothBorder>
-                                <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0">
+                                <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="12,10" Margin="0,8,0,0">
                                     <DockPanel>
                                         <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Margin="0,5,10,0" VerticalAlignment="Top" Style="{StaticResource FirstDot}" />
-                                        <TextBlock FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
+                                        <TextBlock FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
                                             <Run Text="{Binding FirstMore, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /> <Run Text="{Binding FirstMoreText, Mode=OneWay}" />
                                         </TextBlock>
                                     </DockPanel>
                                 </ctl:SmoothBorder>
                                 <!-- The heading right above the switches, bigger than their names, so it reads as one. -->
-                                <TextBlock Text="{ctl:T 'Pick what it may read'}" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,8" />
+                                <TextBlock Text="{ctl:T 'Pick what it may read'}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" Margin="0,18,0,8" />
                                 <TextBlock Text="{Binding Pages.OpenHeading}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="2,0,0,6"
                                            Visibility="{Binding Pages.HasOutside, Converter={StaticResource Vis}}" />
                                 <!-- One line a page, its own switch: the same pages as Settings › AI › What answers can read. -->
                                 <ItemsControl ItemsSource="{Binding Pages.Tiles}" Focusable="False">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="12,8" Margin="0,0,0,4" ToolTip="{Binding Tip}">
+                                            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" Padding="12,8" Margin="0,0,0,4" ToolTip="{Binding Tip}">
                                                 <DockPanel>
                                                     <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding On, Mode=OneWay}" AutomationProperties.Name="{Binding Name}" VerticalAlignment="Center"
                                                               Command="{Binding DataContext.Pages.ToggleCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
-                                                    <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
+                                                    <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
                                                 </DockPanel>
                                             </ctl:SmoothBorder>
                                         </DataTemplate>
@@ -1893,12 +1893,12 @@
                                 <ItemsControl ItemsSource="{Binding Pages.OutsideGroups}" Focusable="False">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <ctl:SmoothBorder CornerRadius="8" Background="{DynamicResource Surface2Brush}" Padding="12,8" Margin="0,0,0,4" ToolTip="{Binding All}">
+                                            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" Padding="12,8" Margin="0,0,0,4" ToolTip="{Binding All}">
                                                 <DockPanel>
-                                                    <Border DockPanel.Dock="Right" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="6" Padding="7,1" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Tag}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" />
+                                                    <Border DockPanel.Dock="Right" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Small}" Padding="7,1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Tag}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" />
                                                     </Border>
-                                                    <TextBlock Text="{Binding Names}" FontSize="13" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,10,0" />
+                                                    <TextBlock Text="{Binding Names}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,10,0" />
                                                 </DockPanel>
                                             </ctl:SmoothBorder>
                                         </DataTemplate>
@@ -1908,15 +1908,15 @@
                                 <ToggleButton x:Name="ExampleToggle" Style="{StaticResource LinkToggle}" HorizontalAlignment="Left" Margin="0,10,0,0"
                                               AutomationProperties.Name="{ctl:T 'See what one question sends'}" Visibility="{Binding FirstExample, Converter={StaticResource Vis}}">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock x:Name="ExampleArrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="8" Margin="0,1,7,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="{ctl:T 'See what one question sends'}" FontSize="12.5" />
+                                        <TextBlock x:Name="ExampleArrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S8}" Margin="0,1,7,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{ctl:T 'See what one question sends'}" FontSize="{x:Static ctl:TextSize.Detail}" />
                                     </StackPanel>
                                 </ToggleButton>
-                                <TextBlock Text="{Binding FirstExample}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="15,6,0,0"
+                                <TextBlock Text="{Binding FirstExample}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="15,6,0,0"
                                            Visibility="{Binding IsChecked, ElementName=ExampleToggle, Converter={StaticResource Vis}}" />
-                                <TextBlock Text="{Binding FirstNever}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
+                                <TextBlock Text="{Binding FirstNever}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
                                            Visibility="{Binding FirstNever, Converter={StaticResource Vis}}" />
-                                <TextBlock Text="{ctl:T 'You can change these any time in Settings › Ask RigSight.'}" FontSize="12" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                <TextBlock Text="{ctl:T 'You can change these any time in Settings › Ask RigSight.'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             </StackPanel>
                         </ScrollViewer>
                     </DockPanel>
@@ -1964,30 +1964,30 @@
                         <TextBlock x:Name="PopIcon" Text="&#xE8A7;" />
                     </Button>
                     <Button Style="{StaticResource FloatButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close'}">
-                        <TextBlock Text="&#xE711;" FontSize="12" />
+                        <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S12}" />
                     </Button>
                 </StackPanel>
 
                 <!-- Questions given from the admin site, told once: how many, on top of what, until when, and the message
                      written to them; "Got it" or a question closes it (approved mock-up, 2026-10-25). Out of questions,
                      it takes the place of that card, as the questions given end it. -->
-                <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="12" Margin="12,0,12,10" Padding="14,13" Background="{DynamicResource Surface2Brush}"
+                <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="{x:Static ctl:Corner.Tile}" Margin="12,0,12,10" Padding="14,13" Background="{DynamicResource Surface2Brush}"
                                   Visibility="{Binding Gift, Converter={StaticResource Vis}}" AutomationProperties.Name="{Binding Gift.Title}"
                                   AutomationProperties.LiveSetting="Polite">
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                        <Border Width="32" Height="32" CornerRadius="8" Background="{DynamicResource PurpleSoftBrush}" VerticalAlignment="Top" Margin="0,0,11,0">
-                            <TextBlock Text="&#xF133;" Style="{StaticResource Icon}" FontSize="15" Foreground="{DynamicResource PurpleBrush}"
+                        <Border Width="32" Height="32" CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource PurpleSoftBrush}" VerticalAlignment="Top" Margin="0,0,11,0">
+                            <TextBlock Text="&#xF133;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S15}" Foreground="{DynamicResource PurpleBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <StackPanel Grid.Column="1">
-                            <TextBlock Text="{Binding Gift.Title}" FontSize="13.5" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding Gift.Text}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding Gift.Title}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Gift.Text}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
                             <Border BorderBrush="{DynamicResource PurpleBrush}" BorderThickness="2,0,0,0" Padding="10,2,0,2" Margin="0,10,0,0"
                                     Visibility="{Binding Gift.Note, Converter={StaticResource Vis}}">
                                 <StackPanel>
-                                    <TextBlock FontSize="13" TextWrapping="Wrap"><Run Text="“" /><Run Text="{Binding Gift.Note, Mode=OneWay}" /><Run Text="”" /></TextBlock>
-                                    <TextBlock Text="{ctl:T 'From RigSight support'}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
+                                    <TextBlock FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap"><Run Text="“" /><Run Text="{Binding Gift.Note, Mode=OneWay}" /><Run Text="”" /></TextBlock>
+                                    <TextBlock Text="{ctl:T 'From RigSight support'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0" />
                                 </StackPanel>
                             </Border>
                             <!-- On the box's own colour a ghost button vanished into it: a shade lighter, so it's a button. -->
@@ -2001,20 +2001,20 @@
                     </Grid>
                 </ctl:SmoothBorder>
                 <!-- One question left: said before it's used. -->
-                <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="10" Margin="12,0,12,10" Padding="12,9" Background="{DynamicResource Surface2Brush}"
+                <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="{x:Static ctl:Corner.Control}" Margin="12,0,12,10" Padding="12,9" Background="{DynamicResource Surface2Brush}"
                                   Visibility="{Binding IsLastQuestion, Converter={StaticResource Vis}}">
                     <StackPanel>
-                        <TextBlock Text="{Binding LastQuestionTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
-                        <TextBlock Text="{Binding LastQuestionText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
+                        <TextBlock Text="{Binding LastQuestionTitle}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
+                        <TextBlock Text="{Binding LastQuestionText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
                                    Visibility="{Binding LastQuestionText, Converter={StaticResource Vis}}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
                 <!-- RigSight AI with nothing left: where to get more (not while the chat's own limit card offers it, board 6). -->
-                <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="10" Margin="12,0,12,10" Padding="12" Background="{DynamicResource Surface2Brush}"
+                <ctl:SmoothBorder Grid.Row="1" Grid.Column="1" CornerRadius="{x:Static ctl:Corner.Control}" Margin="12,0,12,10" Padding="12" Background="{DynamicResource Surface2Brush}"
                                   Visibility="{Binding ShowOutBox, Converter={StaticResource Vis}}">
                     <StackPanel>
-                        <TextBlock Text="{Binding OutTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
-                        <TextBlock Text="{Binding OutText}" FontSize="12.5" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding OutTitle}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource WarmBrush}" />
+                        <TextBlock Text="{Binding OutText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                         <WrapPanel Margin="0,10,0,0" Visibility="{Binding LicenceOff, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                             <Button Style="{StaticResource AccentButton}" Content="{Binding OutOffer.MainText}" Command="{Binding UseWallCommand}" CommandParameter="{Binding OutOffer}"
                                     Margin="0,0,8,0" Visibility="{Binding OutOffer, Converter={StaticResource Vis}}" />
@@ -2029,17 +2029,17 @@
                     <StackPanel>
                     <!-- Offline while the way of answering needs the internet (board 6, 2026-10-26): said before anything is sent,
                          Send off until the network is back. -->
-                    <ctl:SmoothBorder CornerRadius="10" Background="{DynamicResource Surface2Brush}" Padding="12,9" Margin="0,0,0,10"
+                    <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" Padding="12,9" Margin="0,0,0,10"
                                       Visibility="{Binding ShowOffline, Converter={StaticResource Vis}}" AutomationProperties.LiveSetting="Polite">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Left" Text="&#xF384;" Style="{StaticResource Icon}" FontSize="13" Foreground="{DynamicResource MutedBrush}" Margin="0,2,10,0" VerticalAlignment="Top" />
-                            <TextBlock Text="{ctl:T 'You\'re offline. Answers need the internet, so questions can\'t be sent until it\'s back.'}" FontSize="12.5"
+                            <TextBlock DockPanel.Dock="Left" Text="&#xF384;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" Margin="0,2,10,0" VerticalAlignment="Top" />
+                            <TextBlock Text="{ctl:T 'You\'re offline. Answers need the internet, so questions can\'t be sent until it\'s back.'}" FontSize="{x:Static ctl:TextSize.Detail}"
                                        Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
                         </DockPanel>
                     </ctl:SmoothBorder>
                     <!-- Past the most a question holds: said here, Send greyed out (the approved mock-up "Long chats and big pastes"). -->
                     <TextBlock Text="{ctl:T 'That\'s more than RigSight AI can read at once (100,000 characters). Remove some, or paste only the part about the problem.'}"
-                               FontSize="12" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" LineHeight="17" Margin="2,0,2,8"
+                               FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" LineHeight="17" Margin="2,0,2,8"
                                Visibility="{Binding IsTooLong, Converter={StaticResource Vis}}" AutomationProperties.LiveSetting="Polite" />
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Style="{StaticResource SendButton}" Margin="8,0,0,0" VerticalAlignment="Bottom"
@@ -2057,15 +2057,15 @@
                          are left), when they come back or See plans on the right. -->
                     <DockPanel Margin="2,7,2,0" Visibility="{Binding ShowUnderBox, Converter={StaticResource Vis}}">
                         <!-- Near the most a question holds, the count takes the right side (amber), where the questions' note goes. -->
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding DraftCount}" FontSize="11.5" Foreground="{DynamicResource WarmBrush}" Margin="12,0,0,0"
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding DraftCount}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource WarmBrush}" Margin="12,0,0,0"
                                    VerticalAlignment="Center" Visibility="{Binding ShowDraftCount, Converter={StaticResource Vis}}" />
                         <Button DockPanel.Dock="Right" Style="{StaticResource PlainLink}" Margin="12,-6,0,-6" AutomationProperties.Name="{ctl:T 'See plans'}"
                                 Command="{Binding SeePlansCommand}" Visibility="{Binding ShowSeePlansUnder, Converter={StaticResource Vis}}">
-                            <TextBlock Text="{ctl:T 'See plans'}" FontSize="11.5" TextDecorations="Underline" />
+                            <TextBlock Text="{ctl:T 'See plans'}" FontSize="{x:Static ctl:TextSize.Label}" TextDecorations="Underline" />
                         </Button>
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding QuestionsNote}" FontSize="11.5" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0"
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding QuestionsNote}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0"
                                    VerticalAlignment="Center" Visibility="{Binding ShowNoteUnder, Converter={StaticResource Vis}}" />
-                        <TextBlock x:Name="QuestionsLineText" Text="{Binding QuestionsLine}" FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                        <TextBlock x:Name="QuestionsLineText" Text="{Binding QuestionsLine}" FontSize="{x:Static ctl:TextSize.Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                    Visibility="{Binding ShowQuestionsLine, Converter={StaticResource Vis}}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
@@ -2082,7 +2082,7 @@
 
                 <!-- Narrow: the conversations open over the chat, which dims behind them (a click on it closes them). -->
                 <Grid Grid.RowSpan="3" Grid.ColumnSpan="2" Visibility="{Binding ShowHistoryOver, Converter={StaticResource Vis}}">
-                    <Border Background="#73000000" CornerRadius="14" MouseLeftButtonDown="Dim_MouseDown" />
+                    <Border Background="#73000000" CornerRadius="{x:Static ctl:Corner.Panel}" MouseLeftButtonDown="Dim_MouseDown" />
                     <!-- Its shadow on a box of its own, for the same reason as the panel's. -->
                     <Border Width="290" HorizontalAlignment="Left" Background="{DynamicResource SurfaceBrush}" CornerRadius="14,0,0,14" IsHitTestVisible="False">
                         <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="0" Opacity="0.45" Color="Black" /></Border.Effect>

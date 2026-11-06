@@ -63,7 +63,8 @@ public partial class App : Application
         };
         var shell = new ShellViewModel(_client);
         _settings = shell.Settings;
-        ThemeManager.Apply(shell.Settings.Current.Theme, shell.Settings.Current.Accent, shell.Settings.Current.KeepStatusColors);
+        ThemeManager.Apply(shell.Settings.Current.Theme, shell.Settings.Current.Accent, shell.Settings.Current.KeepStatusColors,
+            shell.Settings.Current.DarkTheme, shell.Settings.Current.LightTheme);
         Motion.ApplyDurations(Resources);
         // The agent is asked for its readings now, before the window is built: they are on their way while that
         // takes its few tenths of a second, not only once the window is up. (What it sends waits its turn on this thread.)

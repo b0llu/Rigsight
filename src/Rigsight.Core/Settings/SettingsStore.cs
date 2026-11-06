@@ -193,7 +193,13 @@ public static class SettingsStore
         bool graphsWereBehind = s.SettingsVersion is > 0 and < 12;
         s.SettingsVersion = CurrentVersion;
 
-        if (s.Theme is not ("dark" or "grey" or "midnight" or "forest" or "ember" or "light" or "system")) s.Theme = "dark";
+        if (!ThemeCatalog.IsKnown(s.Theme)) s.Theme = ThemeCatalog.DefaultDark;
+        // Same as Windows' two picks: a dark (or colorful) one and a light one. Settings from before them (or edited by
+        // hand) start from the theme in use, so the picked card stays the picked card.
+        if (!ThemeCatalog.IsDarkKind(s.DarkTheme)) s.DarkTheme = ThemeCatalog.IsDarkKind(s.Theme) ? s.Theme : ThemeCatalog.DefaultDark;
+        if (!ThemeCatalog.IsLight(s.LightTheme)) s.LightTheme = ThemeCatalog.IsLight(s.Theme) ? s.Theme : ThemeCatalog.DefaultLight;
+        if (ThemeCatalog.IsDarkKind(s.Theme) && s.DarkTheme == ThemeCatalog.DefaultDark) s.DarkTheme = s.Theme;
+        if (ThemeCatalog.IsLight(s.Theme) && s.LightTheme == ThemeCatalog.DefaultLight) s.LightTheme = s.Theme;
         if (string.IsNullOrWhiteSpace(s.Accent)) s.Accent = "mono";
         s.Sidebar ??= new();
         s.Sidebar.Order ??= [];

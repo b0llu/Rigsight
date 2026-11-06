@@ -7,10 +7,30 @@ using Rigsight.Tests.Support;
 
 namespace Rigsight.Tests.App;
 
-/// <summary>The turning arc: it turns only while it is on screen, and leaves nothing running when it goes.</summary>
+/// <summary>The turning ring: it turns only while it is on screen, and leaves nothing running when it goes.</summary>
 [Collection("UI")]
 public sealed class SpinnerTests
 {
+    /// <summary>Its turning is on WPF's timeline (with Windows' animations off it never is: there's nothing to check).</summary>
+    private static bool Turning(Spinner spinner) => spinner.HasAnimatedProperties;
+
+    [Fact]
+    public void The_arc_goes_round_with_no_jump_and_never_vanishes()
+    {
+        // A go ends where the next begins (its head and tail meet), and four of them end where the first began.
+        double last = 0;
+        for (double phase = 0; phase < 4; phase += 0.001)
+        {
+            var (from, to) = Spinner.ArcAt(phase);
+            Assert.InRange(to - from, 0.029, 0.76);
+            if (phase > 0) Assert.InRange(from - last, -0.02, 0.02);
+            last = from;
+        }
+        var (a, _) = Spinner.ArcAt(3.99999);
+        Assert.Equal(7.0, a, 2);
+        Assert.Equal((0.0, 0.75), Spinner.ArcAt(0, still: true));
+    }
+
     private static AnimationClock ClockOf(Spinner spinner) =>
         (AnimationClock)typeof(Spinner).GetField("_clock", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(spinner)!;
 
@@ -35,12 +55,11 @@ public sealed class SpinnerTests
                 };
                 window.Show();
                 window.UpdateLayout();
-                var turn = (RotateTransform)spinner.RenderTransform;
                 Assert.True(spinner.IsVisible);
-                Assert.True(turn.HasAnimatedProperties);
+                Assert.True(Turning(spinner));
                 var clock = ClockOf(spinner);
                 spinner.Visibility = Visibility.Collapsed;
-                Assert.False(turn.HasAnimatedProperties);
+                Assert.False(Turning(spinner));
                 return clock;
             });
             Ui.Pump(150); // a clock taken off the timeline says so at the timeline's next step
@@ -51,11 +70,10 @@ public sealed class SpinnerTests
             {
                 spinner.Visibility = Visibility.Visible;
                 window.UpdateLayout();
-                var turn = (RotateTransform)spinner.RenderTransform;
-                Assert.True(turn.HasAnimatedProperties);
+                Assert.True(Turning(spinner));
                 var clock = ClockOf(spinner);
                 window.Content = null;
-                Assert.False(turn.HasAnimatedProperties);
+                Assert.False(Turning(spinner));
                 return clock;
             });
             Ui.Pump(150);
