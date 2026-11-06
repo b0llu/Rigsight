@@ -99,8 +99,50 @@ public sealed class LineChart : FrameworkElement
     private double? _hoverX;
     private Pen? _gridPen;
 
+    /// <summary>
+    /// The lines, kept as a picture (BitmapCache) until what they show changes; the guide line, dots and box over them,
+    /// drawn on their own. Moving over the graph redraws only the box, and scrolling the page moves the picture
+    /// instead of drawing every line again (2026-11-06: on Last 24 hours both lagged, "the performance of that page
+    /// just plummets").
+    /// </summary>
+    private readonly ChartLayer _lines, _over;
+
+    /// <summary>What the last drawing of the lines left for the hover to be drawn against (null: nothing drawn).</summary>
+    private (Rect Plot, List<ChartSeries> Series, long From, long To, double Lo, double Hi, List<(double X, (long From, long To) Gap)> Marks, List<(long From, long To)> Gaps, double Dpi)? _drawn;
+
+    protected override int VisualChildrenCount => 2;
+    protected override Visual GetVisualChild(int index) => index == 0 ? _lines : _over;
+
+    protected override Size MeasureOverride(Size available)
+    {
+        _lines.Measure(available);
+        _over.Measure(available);
+        return new Size();
+    }
+
+    protected override Size ArrangeOverride(Size final)
+    {
+        _lines.Arrange(new Rect(final));
+        _over.Arrange(new Rect(final));
+        return final;
+    }
+
+    /// <summary>Something the lines show changed (a property, a tick, a zoom): both layers are drawn again.</summary>
+    protected override void OnRender(DrawingContext dc)
+    {
+        _lines.InvalidateVisual();
+        _over.InvalidateVisual();
+    }
+
+    /// <summary>Only the pointer moved: the box and guide line are drawn again, the lines stay as they are.</summary>
+    private void RedrawOver() => _over.InvalidateVisual();
+
     public LineChart()
     {
+        _lines = new ChartLayer(DrawChart) { CacheMode = new BitmapCache { SnapsToDevicePixels = true } };
+        _over = new ChartLayer(DrawOver);
+        AddVisualChild(_lines);
+        AddVisualChild(_over);
         // Theme colors unless a page sets its own.
         SetResourceReference(GridBrushProperty, "StrokeBrush");
         SetResourceReference(LabelBrushProperty, "FaintBrush");
@@ -292,13 +334,13 @@ public sealed class LineChart : FrameworkElement
     {
         _hoverX = e.GetPosition(this).X;
         _zoom.Move(_hoverX.Value, _plotRect.Left, _plotRect.Right);
-        InvalidateVisual();
+        RedrawOver();
     }
 
     protected override void OnMouseLeave(MouseEventArgs e)
     {
         _hoverX = null;
-        InvalidateVisual();
+        RedrawOver();
     }
 
     // Transparent background so the whole plot receives mouse moves, not just the lines.
@@ -345,10 +387,12 @@ public sealed class LineChart : FrameworkElement
 
     private double GroupMs => ByMinute ? 60_000 : 0;
 
-    protected override void OnRender(DrawingContext dc)
+    /// <summary>The lines layer: axes, gaps, marks and the lines.</summary>
+    private void DrawChart(DrawingContext dc)
     {
-        // Nothing to drag across until there's a plot with lines (set below).
+        // Nothing to drag across until there's a plot with lines (set below), nor any hover.
         _plotRect = default;
+        _drawn = null;
         if (ActualWidth < AxisWidth + 20 || ActualHeight < AxisHeight + 20) return;
 
         var plot = new Rect(AxisWidth, 6, ActualWidth - AxisWidth - 6, ActualHeight - AxisHeight - 6);
@@ -567,6 +611,20 @@ public sealed class LineChart : FrameworkElement
         }
         dc.Pop();
 
+        _drawn = (plot, series, from, to, lo, hi, marks, gaps, dpi);
+
+        void Draw(ChartSeries s, HistoryBuffer buffer, long until = long.MaxValue, (long, double)? joinTo = null, double groupMs = 0)
+        {
+            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Shown, until, joinTo, groupMs, Pick) is not { } g) return;
+            dc.DrawGeometry(s.Fill, null, g.Fill);
+            dc.DrawGeometry(null, s.LinePen, g.Line);
+        }
+    }
+
+    /// <summary>The layer over the lines: a drag's band, or the guide line, dots and box where the pointer is.</summary>
+    private void DrawOver(DrawingContext dc)
+    {
+        if (_drawn is not var (plot, series, from, to, lo, hi, marks, gaps, dpi)) return;
         // The band of a drag going on, in place of the hover.
         _zoom.DrawBand(dc, plot);
         if (_zoom.Dragging) return;
@@ -579,13 +637,6 @@ public sealed class LineChart : FrameworkElement
                 DrawGapHover(dc, plot, marked, hx, dpi);
             else if (gaps.FirstOrDefault(g => at >= g.From && at < g.To) is { To: > 0 } gap) DrawGapHover(dc, plot, gap, hx, dpi);
             else DrawHover(dc, plot, series, from, to, lo, hi, hx, dpi);
-        }
-
-        void Draw(ChartSeries s, HistoryBuffer buffer, long until = long.MaxValue, (long, double)? joinTo = null, double groupMs = 0)
-        {
-            if (ChartGeometry.Build(buffer, from, to, plot, lo, hi, Shown, until, joinTo, groupMs, Pick) is not { } g) return;
-            dc.DrawGeometry(s.Fill, null, g.Fill);
-            dc.DrawGeometry(null, s.LinePen, g.Line);
         }
     }
 
@@ -802,4 +853,11 @@ public sealed class LineChart : FrameworkElement
         double x = alignRight ? anchor.X - ft.Width : center ? anchor.X - ft.Width / 2 : anchor.X;
         dc.DrawText(ft, new Point(x, anchor.Y - ft.Height / 2));
     }
+}
+
+/// <summary>One layer of a drawn chart: draws with its owner's method, and lets the pointer through to the owner.</summary>
+internal sealed class ChartLayer(Action<DrawingContext> draw) : FrameworkElement
+{
+    protected override void OnRender(DrawingContext dc) => draw(dc);
+    protected override HitTestResult? HitTestCore(PointHitTestParameters p) => null;
 }

@@ -84,21 +84,21 @@
                     <Border Style="{StaticResource Tile}">
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'ACTIVE'}" Style="{StaticResource Caption}" />
-                            <TextBlock Text="{Binding Report.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
+                            <TextBlock ctl:CountUp.Text="{Binding Report.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource StatValue}" />
                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding ActiveLine}" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Tile}">
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'IN GAMES'}" Style="{StaticResource Caption}" />
-                            <TextBlock Text="{Binding GamesText}" Style="{StaticResource StatValue}" />
+                            <TextBlock ctl:CountUp.Text="{Binding GamesText}" Style="{StaticResource StatValue}" />
                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding GamesLine}" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Tile}">
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'INTERNET'}" Style="{StaticResource Caption}" />
-                            <TextBlock Text="{Binding InternetText}" Style="{StaticResource StatValue}" />
+                            <TextBlock ctl:CountUp.Text="{Binding InternetText}" Style="{StaticResource StatValue}" />
                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding InternetLine}" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
@@ -106,7 +106,7 @@
                             ToolTip="{ctl:T 'Worked out from the power the CPU and the GPU report each minute. The screen, the drives and the rest of the PC aren\'t measured.'}">
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'ENERGY'}" Style="{StaticResource Caption}" />
-                            <TextBlock Text="{Binding EnergyText}" Style="{StaticResource StatValue}" />
+                            <TextBlock ctl:CountUp.Text="{Binding EnergyText}" Style="{StaticResource StatValue}" />
                             <TextBlock Text="{Binding EnergyParts}" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
@@ -114,7 +114,7 @@
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'PC PROBLEMS'}" Style="{StaticResource Caption}" />
                             <!-- Amber when more than usual, green with none, plain as usual (in the style: a colour set on the element would win over the trigger). -->
-                            <TextBlock Text="{Binding ProblemsText}">
+                            <TextBlock ctl:CountUp.Text="{Binding ProblemsText}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource StatValue}">
                                         <Style.Triggers>
@@ -140,14 +140,15 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding HasTimeSplit, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,10">
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding TimeSplitNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right" ctl:CountUp.Text="{Binding TimeSplitNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" VerticalAlignment="Center" />
                             <TextBlock Text="{ctl:T 'Where the time went'}" Style="{StaticResource H2}" />
                         </DockPanel>
                         <ItemsControl ItemsSource="{Binding TimeRows}" Focusable="False" AutomationProperties.Name="Where the time went">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Style="{StaticResource FlatRowButton}" Margin="-8,0" Padding="8,5" Command="{Binding DataContext.PickKindCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" AutomationProperties.Name="{Binding Part.Name}">
-                                        <Grid Margin="0,6">
+                                    <Button Style="{StaticResource FlatRowButton}" Margin="-8,0" Command="{Binding DataContext.PickKindCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" AutomationProperties.Name="{Binding Part.Name}">
+                                        <!-- Its own room inside the hover's background (FlatRowButton draws no padding): the dot sat on its edge. -->
+                                        <Grid Margin="8,6">
                                             <Grid.Style>
                                                 <Style TargetType="Grid">
                                                     <Style.Triggers>
@@ -169,7 +170,7 @@
                                                            Fill="{Binding Part.Brush, Converter={StaticResource ResourceBrush}}" />
                                                 <TextBlock Text="{Binding Part.Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
-                                            <ProgressBar Grid.Column="1" Style="{StaticResource Bar}" Height="10" Minimum="0" Maximum="1" Value="{Binding Part.OfLargest, Mode=OneWay}"
+                                            <ProgressBar Grid.Column="1" Style="{StaticResource Bar}" Height="10" Minimum="0" Maximum="1" ctl:SmoothBar.Key="{Binding Part.Name}" ctl:SmoothBar.Value="{Binding Part.OfLargest, Mode=OneWay}"
                                                          Foreground="{Binding Part.Brush, Converter={StaticResource ResourceBrush}}" VerticalAlignment="Center" Margin="0,0,14,0" />
                                             <TextBlock Grid.Column="2" Text="{Binding Part.Text}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
                                                        HorizontalAlignment="Right" VerticalAlignment="Center" />

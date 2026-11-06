@@ -187,6 +187,12 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.6.1", 11, 6,
+            better: [Lang.T("Switching periods on Reports now shows the change, as bars move or fade across, figures count up and the Where the time went bars slide.")],
+            fixedBugs: [Lang.T("The Temperatures graph on Last 24 hours keeps up when you move the pointer over it or scroll the page."),
+                Lang.T("On a month of Reports, the totals over the bars no longer run into each other, and the Average day label no longer covers a bar."),
+                Lang.T("The rows in Where the time went have room around their colored dot when you point at them."),
+                Lang.T("The AI reads your latest history for each question, and says when recording has only just begun instead of asking you to restart the background agent.")]),
         V("1.6.0", 11, 6,
             added: [Lang.T("Settings has 24 new themes, ten each in Dark, Light and Colorful, with Contrast and Bright for easier reading."),
                 Lang.T("Match Windows in Settings switches between a light theme and a dark one you pick, as Windows does."),

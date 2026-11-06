@@ -33,6 +33,7 @@ public sealed class PeriodTemps : FrameworkElement
 
     private readonly ChartTween _tween;
     private (double? Cpu, double? Gpu)[]? _was;
+    private IReadOnlyList<DayBucket>? _old;
     private (double Lo, double Hi) _wasRange, _rangeDrawn;
     private int _hover = -1;
 
@@ -45,7 +46,9 @@ public sealed class PeriodTemps : FrameworkElement
             && (old.Count < 2 || old[1].Day - old[0].Day == now[1].Day - now[0].Day) && !ReferenceEquals(old, now);
         _was = same ? [.. old!.Select(Point)] : null;
         _wasRange = _rangeDrawn;
-        _tween.Start(same ? ChartTween.Kind.Move : old is { Count: > 0 } ? ChartTween.Kind.Fade : ChartTween.Kind.None);
+        _old = old;
+        // Another kind of period: the old lines fade out and the new ones in, with the bars above.
+        _tween.Start(same ? ChartTween.Kind.Move : old is { Count: > 0 } && now is { Count: > 0 } ? ChartTween.Kind.Swap : ChartTween.Kind.None);
     }
 
     private void PlotChanged()
@@ -89,7 +92,8 @@ public sealed class PeriodTemps : FrameworkElement
     {
         double w = ActualWidth, h = ActualHeight;
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, w, h));
-        if (Days is not { Count: > 0 } days || w < Left + Right + 40 || h < 60) return;
+        var days = _tween.ShowsOld && _old is { Count: > 0 } old ? old : Days;
+        if (days is not { Count: > 0 } || w < Left + Right + 40 || h < 60) return;
         var plot = new Rect(Left, Top, w - Left - Right, h - Top - AxisHeight);
         double slot = plot.Width / days.Count;
         bool hourly = days.Count >= 2 && days[1].Day == days[0].Day.AddHours(1);

@@ -22,6 +22,12 @@ public sealed class DailyBars : FrameworkElement
     public const double TotalsFrom = 44;
     public const double TotalsFromHourly = 28;
 
+    /// <summary>The least space between two bars' totals.</summary>
+    private const double TotalGap = 8;
+
+    /// <summary>A total in whole hours when the full one doesn't fit ("12h"); under an hour, in minutes.</summary>
+    internal static string WholeHours(double sec) => sec >= 3600 ? $"{Math.Round(sec / 3600):0}h" : Units.Duration(sec);
+
     public static readonly DependencyProperty DaysProperty = DependencyProperty.Register(
         nameof(Days), typeof(IReadOnlyList<DayBucket>), typeof(DailyBars), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender,
             (d, e) => ((DailyBars)d).DaysChanged(e.OldValue as IReadOnlyList<DayBucket>)));
@@ -60,6 +66,9 @@ public sealed class DailyBars : FrameworkElement
 
     /// <summary>What was drawn before the bars changed, each bar's seconds by kind, and the scale they were on.</summary>
     private List<Dictionary<AppCategory, double>>? _was;
+
+    /// <summary>The bars before the change, drawn while they fade out (a swap's first half).</summary>
+    private IReadOnlyList<DayBucket>? _old;
     private double _wasMaxHours;
     private double _maxHoursDrawn;
     private readonly ChartTween _tween;
@@ -68,16 +77,17 @@ public sealed class DailyBars : FrameworkElement
 
     /// <summary>
     /// New bars: as many as before, at the same spacing (another week, another day), each grows or shrinks from where
-    /// it was; otherwise (a day's hours to a week's days) the new ones fade in. At once when there were none, or with
-    /// Windows' animations off.
+    /// it was; otherwise (a day's hours to a week's days) the old ones fade out and the new ones in, as the mock-up does.
+    /// At once the first time, and with Windows' animations off.
     /// </summary>
     private void DaysChanged(IReadOnlyList<DayBucket>? old)
     {
         var now = Days;
         bool same = old is { Count: > 0 } && now is { Count: > 0 } && old.Count == now.Count && Spacing(old) == Spacing(now) && !ReferenceEquals(old, now);
         _was = same ? [.. old!.Select(d => new Dictionary<AppCategory, double>(d.ActiveByCategory))] : null;
+        _old = old;
         _wasMaxHours = _maxHoursDrawn;
-        _tween.Start(same ? ChartTween.Kind.Move : old is { Count: > 0 } ? ChartTween.Kind.Fade : ChartTween.Kind.None);
+        _tween.Start(same ? ChartTween.Kind.Move : old is { Count: > 0 } && now is { Count: > 0 } ? ChartTween.Kind.Swap : ChartTween.Kind.None);
     }
 
     /// <summary>Hours, days or months apart (0 with one bar).</summary>
@@ -130,7 +140,7 @@ public sealed class DailyBars : FrameworkElement
     {
         double w = ActualWidth, h = ActualHeight;
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, w, h));
-        var days = Days;
+        var days = _tween.ShowsOld && _old is { Count: > 0 } old ? old : Days;
         if (days is null || days.Count == 0 || w < Left + Right + 40 || h < 60) return;
 
         var plot = new Rect(Left, Top, w - Left - Right, h - Top - AxisHeight);
@@ -151,7 +161,6 @@ public sealed class DailyBars : FrameworkElement
         _maxHoursDrawn = maxHours;
         // The bars move on the scale they move from: it changes with them.
         if (_tween.Moving is double moving && _wasMaxHours > 0) maxHours = _wasMaxHours + (maxHours - _wasMaxHours) * moving;
-        dc.PushOpacity(_tween.Opacity);
 
         var gridPen = new Pen(ChartPaint.Grid, 1) { DashStyle = new DashStyle([3, 4], 0) };
         for (double u = 0; u <= maxUnits; u += step)
@@ -160,6 +169,8 @@ public sealed class DailyBars : FrameworkElement
             dc.DrawLine(gridPen, new Point(plot.Left, y), new Point(plot.Right, y));
             ChartPaint.Text(dc, this, minutes ? $"{u:0}m" : $"{u:0}h", new Point(plot.Left - 8, y), 11, ChartPaint.Label, ChartPaint.Align.Right);
         }
+        // The bars and what's said over them fade in a swap (the scale and its lines don't, as in the mock-up).
+        dc.PushOpacity(_tween.Opacity);
 
         double slot = plot.Width / days.Count;
         double barW = Math.Max(3, Math.Min(42, slot * 0.62));
@@ -170,6 +181,18 @@ public sealed class DailyBars : FrameworkElement
         var now = DateTime.Now;
         var current = monthly ? new DateTime(now.Year, now.Month, 1) : hourly ? now.Date.AddHours(now.Hour) : now.Date;
         int labelEvery = hourly ? 3 : days.Count <= (monthly ? 12 : 7) ? 1 : days.Count <= 16 ? 2 : 3;
+
+        // Each total as its bar's room allows (2026-11-06: a month's "11h 37m", "11h 42m" ran into each other at the
+        // user's width): in full where every one fits over its bar with a gap, else in whole hours ("12h"), else none
+        // (the hover says it). One way for all the bars, so they read alike.
+        Func<double, string>? totalText = null;
+        if (totals)
+        {
+            double room = slot - TotalGap;
+            double Widest(Func<double, string> text) => days.Where(d => d.ActiveSec >= 60).Select(d => ChartPaint.Format(this, text(d.ActiveSec), 11, ChartPaint.Muted).Width).DefaultIfEmpty(0).Max();
+            if (Widest(Units.Duration) <= room) totalText = Units.Duration;
+            else if (Widest(WholeHours) <= room) totalText = WholeHours;
+        }
 
         // What's drawn where (each bar, each total): the average day's label goes where it covers none of it.
         var taken = new List<Rect>();
@@ -204,9 +227,9 @@ public sealed class DailyBars : FrameworkElement
             if (y < plot.Bottom) taken.Add(new Rect(cx - barW / 2, y, barW, plot.Bottom - y));
             // Its total over it (the picked kind's alone, when one is).
             double shownSec = only is null ? (_tween.Moving is null ? d.ActiveSec : shown.Sum(kv => kv.Value)) : shown.Where(kv => only.Contains(kv.Key)).Sum(kv => kv.Value);
-            if (totals && shownSec >= (hourly ? 600 : 60))
+            if (totalText is not null && shownSec >= (hourly ? 600 : 60))
             {
-                string total = Units.Duration(shownSec);
+                string total = totalText(shownSec);
                 ChartPaint.Text(dc, this, total, new Point(cx, y - 9), 11, i == _hover || only is not null ? ChartPaint.TextBrush : ChartPaint.Muted, ChartPaint.Align.Center);
                 double tw = ChartPaint.Format(this, total, 11, ChartPaint.Muted).Width;
                 taken.Add(new Rect(cx - tw / 2 - 2, y - 17, tw + 4, 16));
@@ -239,12 +262,20 @@ public sealed class DailyBars : FrameworkElement
             // At the right over its line, unless a bar or a total is there (Thursday's "12h 45m" sat under it, 2026-11-06):
             // then at the left, then under the line at either end.
             double pw = ft.Width + 12, ph = ft.Height + 4;
-            var spots = new[]
+            // Then anywhere along the line, from the right, over it or under it: a run of days the PC was off leaves room
+            // (2026-11-06: with every end taken it sat on a bar's top).
+            var spots = new List<Rect>
             {
-                new Rect(plot.Right - pw - 4, y - ph - 2, pw, ph), new Rect(plot.Left + 4, y - ph - 2, pw, ph),
-                new Rect(plot.Right - pw - 4, y + 3, pw, ph), new Rect(plot.Left + 4, y + 3, pw, ph),
+                new(plot.Right - pw - 4, y - ph - 2, pw, ph), new(plot.Left + 4, y - ph - 2, pw, ph),
+                new(plot.Right - pw - 4, y + 3, pw, ph), new(plot.Left + 4, y + 3, pw, ph),
             };
-            var pill = spots.FirstOrDefault(r => !taken.Any(t => t.IntersectsWith(r)), spots[0]);
+            for (int i = days.Count - 1; i >= 0; i--)
+            {
+                double px = Math.Clamp(plot.Left + slot * (i + 0.5) - pw / 2, plot.Left + 4, plot.Right - pw - 4);
+                spots.Add(new Rect(px, y - ph - 2, pw, ph));
+                spots.Add(new Rect(px, y + 3, pw, ph));
+            }
+            var pill = spots.Where(r => r.Top >= 0 && r.Bottom <= plot.Bottom).FirstOrDefault(r => !taken.Any(t => t.IntersectsWith(r)), spots[0]);
             dc.DrawRoundedRectangle(ChartPaint.Track, null, pill, 5, 5);
             ChartPaint.Text(dc, this, text, new Point(pill.Left + 6, pill.Top + pill.Height / 2), 11, ChartPaint.TextBrush, ChartPaint.Align.Left);
         }
