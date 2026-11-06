@@ -78,7 +78,8 @@
                  big ring in the middle of what's in view (issue #11, 2026-11-06: the user, "just show a big loader in center
                  while making background overlay blackish"). The title and the period picker stay clear above it. -->
             <Grid x:Name="DataArea">
-            <StackPanel Visibility="{Binding ShowData, Converter={StaticResource Vis}}">
+            <!-- Figures count and bars slide only to another period's (see Motion). -->
+            <StackPanel Visibility="{Binding ShowData, Converter={StaticResource Vis}}" ctl:Motion.Moves="{Binding FiguresMove}">
                 <!-- The period's figures, each against something: its usual, the period before, what it is made of. -->
                 <ctl:TileWrap Margin="0,18,0,0" MinTileWidth="190" Gap="10">
                     <Border Style="{StaticResource Tile}">
@@ -189,36 +190,44 @@
                      week or a month, a month a bar on a year (issue #9, 2026-11-06). -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0">
                     <StackPanel>
-                        <TextBlock Text="{Binding BarsTitleShown}" Style="{StaticResource H2}" Margin="0,0,0,12" />
-                        <ctl:DailyBars ctl:Roomy.Height="220" Days="{Binding Report.Days}" Only="{Binding PickedKinds}" ShowTemps="False"
-                                       Usual="{Binding Report.UsualHours}" UsualName="{Binding UsualHoursName}" UsualDay="{Binding Report.UsualDay}" />
+                        <!-- The dashed line's name at the right, as the Temperatures card's key (2026-11-06, the user's pick: on
+                             the line it found no free spot when every day was near the average, and sat on a bar). -->
+                        <DockPanel Margin="0,0,0,12">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                                        Visibility="{Binding Key, ElementName=ActiveBars, Converter={StaticResource Vis}}">
+                                <Line X1="0" X2="17" Y1="0" Y2="0" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.2" StrokeDashArray="5 4" VerticalAlignment="Center" Margin="0,1,7,0" />
+                                <TextBlock Text="{Binding Key, ElementName=ActiveBars}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding BarsTitleShown}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <ctl:DailyBars x:Name="ActiveBars" ctl:Roomy.Height="220" Days="{Binding Report.Days}" Only="{Binding PickedKinds}" ShowTemps="False"
+                                       Usual="{Binding Report.UsualHours}" UsualName="{Binding UsualHoursName}" UsualDay="{Binding Report.UsualDay}"
+                                       Linked="{Binding Hovered, ElementName=TempBars}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
 
                 <!-- Temperatures: its own card under the bars, on the same columns, so the heat lines up with what was being done
-                     (2026-11-06, mock-up ReK33EVbdKbsoarY7jwYXQ). Average, highest or lowest: the Temperatures page's choice. -->
+                     (2026-11-06, mock-up ReK33EVbdKbsoarY7jwYXQ). Each bar a CPU and a GPU bar from lowest to highest with the
+                     average across (mock-up Gvq1nXbE8Ubq4W1Q2CHzQb, A): all three figures show, so no Average / Highest /
+                     Lowest switch. A column pointed at in either graph is lit in both. -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,13,0,0" Visibility="{Binding HasPeriodTemps, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,12">
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Border Style="{StaticResource SegmentHost}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TempsPlot" Content="{ctl:T 'Average'}"
-                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Avg}" />
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TempsPlot" Content="{ctl:T 'Highest'}"
-                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=High}" />
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TempsPlot" Content="{ctl:T 'Lowest'}"
-                                                     IsChecked="{Binding ChartPlot, Converter={StaticResource Equals}, ConverterParameter=Low}" />
-                                    </StackPanel>
-                                </Border>
-                                <Ellipse Width="8" Height="8" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" Margin="18,0,0,0" />
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource CpuBrush}" VerticalAlignment="Center" />
                                 <TextBlock Text="CPU" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="6,0,16,0" VerticalAlignment="Center" />
                                 <Ellipse Width="8" Height="8" Fill="{DynamicResource GpuBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="GPU" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                <TextBlock Text="GPU" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="6,0,16,0" VerticalAlignment="Center" />
+                                <!-- The mark, as drawn: a bar from lowest to highest with a line across at the average. -->
+                                <Grid Width="12" Height="16" VerticalAlignment="Center" Margin="0,0,6,0">
+                                    <Border Width="6" Height="14" CornerRadius="{x:Static ctl:Corner.Bar}" Background="{DynamicResource MutedBrush}" Opacity="0.4" />
+                                    <Border Width="10" Height="2.4" CornerRadius="{x:Static ctl:Corner.Hairline}" Background="{DynamicResource MutedBrush}" />
+                                </Grid>
+                                <TextBlock Text="{ctl:T 'Lowest to highest, line at the average'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" />
                             </StackPanel>
                             <TextBlock Text="{Binding TempsTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
-                        <ctl:PeriodTemps ctl:Roomy.Height="200" Days="{Binding Report.Days}" Plot="{Binding ChartPlot}" />
+                        <ctl:PeriodTemps x:Name="TempBars" ctl:Roomy.Height="200" Days="{Binding Report.Days}" Linked="{Binding Hovered, ElementName=ActiveBars}" />
                     </StackPanel>
                 </ctl:SmoothBorder>
 

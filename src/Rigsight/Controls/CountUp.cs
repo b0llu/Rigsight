@@ -85,8 +85,9 @@ public static partial class CountUp
     {
         string shown = block.Text;
         Runs.Remove(block);
-        // The first figure, a figure that reads differently, or no motion wanted: it just changes.
-        if (!SystemParameters.ClientAreaAnimation || !block.IsLoaded || string.IsNullOrEmpty(shown) || now is null || shown == now
+        // The first figure, a figure that reads differently, the same period read again (see Motion), or no motion
+        // wanted: it just changes.
+        if (!SystemParameters.ClientAreaAnimation || !Motion.GetMoves(block) || !block.IsLoaded || string.IsNullOrEmpty(shown) || now is null || shown == now
             || Between(shown, now, 0) is null)
         {
             block.Text = now ?? "";
@@ -155,7 +156,7 @@ public static class SmoothBar
         }
         double from = key is not null && Last.TryGetValue(key, out var was) ? was : bar.Value;
         if (key is not null) Last[key] = to;
-        if (!SystemParameters.ClientAreaAnimation || Math.Abs(from - to) < 1e-6)
+        if (!SystemParameters.ClientAreaAnimation || !Motion.GetMoves(bar) || Math.Abs(from - to) < 1e-6)
         {
             bar.BeginAnimation(ProgressBar.ValueProperty, null);
             bar.Value = to;

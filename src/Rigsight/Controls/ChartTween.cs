@@ -45,6 +45,19 @@ internal sealed class ChartTween(FrameworkElement owner)
 
     private double Progress => _kind == Kind.None ? 1 : _waitFrames > 0 ? 0 : Math.Min(1, _clock.Elapsed / Duration);
 
+    /// <summary>
+    /// The same bars as before, with new figures: the same period read again (coming back to the page, the minute's
+    /// refresh), not another one. Then nothing moves; the new figures just show (2026-11-06, the user: coming back to
+    /// Reports "should not animate").
+    /// </summary>
+    internal static bool SameDays(IReadOnlyList<Core.Reports.DayBucket>? old, IReadOnlyList<Core.Reports.DayBucket>? now)
+    {
+        if (old is not { Count: > 0 } || now is not { Count: > 0 } || old.Count != now.Count) return false;
+        for (int i = 0; i < old.Count; i++)
+            if (old[i].Day != now[i].Day) return false;
+        return true;
+    }
+
     /// <summary>The mock-up's easing: a quartic ease out (1 − (1 − t)⁴).</summary>
     internal static double Ease(double t) => 1 - Math.Pow(1 - t, 4);
 

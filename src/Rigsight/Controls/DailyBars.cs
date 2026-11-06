@@ -35,12 +35,12 @@ public sealed class DailyBars : FrameworkElement
     public IReadOnlyList<DayBucket>? Days { get => (IReadOnlyList<DayBucket>?)GetValue(DaysProperty); set => SetValue(DaysProperty, value); }
 
     public static readonly DependencyProperty OnlyProperty = DependencyProperty.Register(
-        nameof(Only), typeof(IReadOnlyList<AppCategory>), typeof(DailyBars), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+        nameof(Only), typeof(IReadOnlyList<AppCategory>), typeof(DailyBars), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, KeyInputChanged));
     /// <summary>The kinds picked in Where the time went (null: all): the rest step back, and each bar's total is theirs.</summary>
     public IReadOnlyList<AppCategory>? Only { get => (IReadOnlyList<AppCategory>?)GetValue(OnlyProperty); set => SetValue(OnlyProperty, value); }
 
     public static readonly DependencyProperty UsualProperty = DependencyProperty.Register(
-        nameof(Usual), typeof(IReadOnlyList<double>), typeof(DailyBars), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+        nameof(Usual), typeof(IReadOnlyList<double>), typeof(DailyBars), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, KeyInputChanged));
     /// <summary>
     /// Per hour: the usual active seconds in each hour on that weekday (a dashed line across the hours, as the average
     /// day's line on a week), named by <see cref="UsualName"/>. Null for none.
@@ -48,9 +48,35 @@ public sealed class DailyBars : FrameworkElement
     public IReadOnlyList<double>? Usual { get => (IReadOnlyList<double>?)GetValue(UsualProperty); set => SetValue(UsualProperty, value); }
 
     public static readonly DependencyProperty UsualNameProperty = DependencyProperty.Register(
-        nameof(UsualName), typeof(string), typeof(DailyBars), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+        nameof(UsualName), typeof(string), typeof(DailyBars), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, KeyInputChanged));
     /// <summary>What the usual hours are ("Usual Thursday").</summary>
     public string? UsualName { get => (string?)GetValue(UsualNameProperty); set => SetValue(UsualNameProperty, value); }
+
+    private static readonly DependencyPropertyKey KeyPropertyKey = DependencyProperty.RegisterReadOnly(
+        nameof(Key), typeof(string), typeof(DailyBars), new PropertyMetadata(null));
+    public static readonly DependencyProperty KeyProperty = KeyPropertyKey.DependencyProperty;
+
+    /// <summary>
+    /// What the dashed line is, for the card's heading to say beside its title ("Average day 12h 40m", "Usual Thursday");
+    /// null with no line. It was a label on the line, which found no free spot when every day was near the average
+    /// and sat on a bar and its total (2026-11-06; the user picked the heading, where nothing is ever under it).
+    /// </summary>
+    public string? Key => (string?)GetValue(KeyProperty);
+
+    private static void KeyInputChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((DailyBars)d).UpdateKey();
+
+    private void UpdateKey() => SetValue(KeyPropertyKey, KeyFor(Days, Only, Usual, UsualName, DateTime.Now));
+
+    /// <summary>The dashed line's name (see <see cref="Key"/>): the same conditions <see cref="OnRender"/> draws the line on.</summary>
+    internal static string? KeyFor(IReadOnlyList<DayBucket>? days, IReadOnlyList<AppCategory>? only, IReadOnlyList<double>? usual, string? usualName, DateTime now)
+    {
+        if (only is not null || days is not { Count: > 0 }) return null;
+        if (IsHourly(days)) return usual is { Count: > 0 } && usualName is { Length: > 0 } ? usualName : null;
+        return !IsMonthly(days) && AverageDay(days, now) is double avg ? Lang.T($"Average day {Units.Duration(avg)}") : null;
+    }
+
+    private static bool IsHourly(IReadOnlyList<DayBucket> days) => days.Count >= 2 && days[1].Day == days[0].Day.AddHours(1);
+    private static bool IsMonthly(IReadOnlyList<DayBucket> days) => days.Count >= 2 && days[1].Day == days[0].Day.AddMonths(1);
 
     public static readonly DependencyProperty UsualDayProperty = DependencyProperty.Register(
         nameof(UsualDay), typeof(DayOfWeek?), typeof(DailyBars), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -87,7 +113,9 @@ public sealed class DailyBars : FrameworkElement
         _was = same ? [.. old!.Select(d => new Dictionary<AppCategory, double>(d.ActiveByCategory))] : null;
         _old = old;
         _wasMaxHours = _maxHoursDrawn;
-        _tween.Start(same ? ChartTween.Kind.Move : old is { Count: > 0 } && now is { Count: > 0 } ? ChartTween.Kind.Swap : ChartTween.Kind.None);
+        _tween.Start(ChartTween.SameDays(old, now) ? ChartTween.Kind.None
+            : same ? ChartTween.Kind.Move : old is { Count: > 0 } && now is { Count: > 0 } ? ChartTween.Kind.Swap : ChartTween.Kind.None);
+        UpdateKey();
     }
 
     /// <summary>Hours, days or months apart (0 with one bar).</summary>
@@ -105,21 +133,40 @@ public sealed class DailyBars : FrameworkElement
     private int _hover = -1;
     private static readonly Dictionary<AppCategory, Brush> Fills = [];
 
+    public static readonly DependencyProperty LinkedProperty = DependencyProperty.Register(
+        nameof(Linked), typeof(int), typeof(DailyBars), new FrameworkPropertyMetadata(-1, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>
+    /// The column the pointer is on in the graph under this one, on the same columns (Reports' Temperatures card, its
+    /// <see cref="PeriodTemps.Hovered"/>): lit here too, without a box. -1 for none.
+    /// </summary>
+    public int Linked { get => (int)GetValue(LinkedProperty); set => SetValue(LinkedProperty, value); }
+
+    private static readonly DependencyPropertyKey HoveredPropertyKey = DependencyProperty.RegisterReadOnly(
+        nameof(Hovered), typeof(int), typeof(DailyBars), new PropertyMetadata(-1));
+    public static readonly DependencyProperty HoveredProperty = HoveredPropertyKey.DependencyProperty;
+
+    /// <summary>The column under the pointer here, for the graph under it to light (-1 for none).</summary>
+    public int Hovered => (int)GetValue(HoveredProperty);
+
+    private void SetHover(int next)
+    {
+        if (next == _hover) return;
+        _hover = next;
+        SetValue(HoveredPropertyKey, next);
+        InvalidateVisual();
+    }
+
     protected override void OnMouseMove(MouseEventArgs e)
     {
         var days = Days;
         if (days is null || days.Count == 0) return;
         double slot = (ActualWidth - Left - Right) / days.Count;
         int i = (int)Math.Floor((e.GetPosition(this).X - Left) / slot);
-        int next = i >= 0 && i < days.Count ? i : -1;
-        if (next != _hover) { _hover = next; InvalidateVisual(); }
+        SetHover(i >= 0 && i < days.Count ? i : -1);
     }
 
-    protected override void OnMouseLeave(MouseEventArgs e)
-    {
-        _hover = -1;
-        InvalidateVisual();
-    }
+    protected override void OnMouseLeave(MouseEventArgs e) => SetHover(-1);
 
     // The fills are the current theme's: a picked accent turns the categories into its shades.
     private static int _fillsTheme = -1;
@@ -145,7 +192,7 @@ public sealed class DailyBars : FrameworkElement
 
         var plot = new Rect(Left, Top, w - Left - Right, h - Top - AxisHeight);
         // Bars per hour (one day), per day, or per month (a year), told apart by their spacing.
-        bool hourly = days.Count >= 2 && days[1].Day == days[0].Day.AddHours(1);
+        bool hourly = IsHourly(days);
         double maxSec = days.Max(d => d.ActiveSec);
         // Per hour, always the whole hour: 0 to 60 minutes, so a full hour reaches the top and a quiet one looks it
         // (issue #9: scaled to the busiest hour, ten minutes looked like a full one). Up to an hour otherwise: minutes.
@@ -177,7 +224,7 @@ public sealed class DailyBars : FrameworkElement
         // An hour's total is short ("38m"): it fits over a narrower bar than a day's ("12h 45m").
         bool totals = slot >= (hourly ? TotalsFromHourly : TotalsFrom);
         // A year's report has one bar per month.
-        bool monthly = days.Count >= 2 && days[1].Day == days[0].Day.AddMonths(1);
+        bool monthly = IsMonthly(days);
         var now = DateTime.Now;
         var current = monthly ? new DateTime(now.Year, now.Month, 1) : hourly ? now.Date.AddHours(now.Hour) : now.Date;
         int labelEvery = hourly ? 3 : days.Count <= (monthly ? 12 : 7) ? 1 : days.Count <= 16 ? 2 : 3;
@@ -194,13 +241,13 @@ public sealed class DailyBars : FrameworkElement
             else if (Widest(WholeHours) <= room) totalText = WholeHours;
         }
 
-        // What's drawn where (each bar, each total): the average day's label goes where it covers none of it.
-        var taken = new List<Rect>();
+        // The column under the pointer, here or in the graph under this one.
+        int lit = _hover >= 0 ? _hover : Linked;
         for (int i = 0; i < days.Count; i++)
         {
             var d = days[i];
             double cx = plot.Left + slot * (i + 0.5);
-            if (i == _hover)
+            if (i == lit)
                 dc.DrawRoundedRectangle(ChartPaint.Track, null, new Rect(cx - slot / 2 + 2, plot.Top, Math.Max(0, slot - 4), plot.Height), 6, 6);
 
             // One plain bar, each kind's piece joined square to the next and only the top rounded (StackedBar).
@@ -224,15 +271,12 @@ public sealed class DailyBars : FrameworkElement
                 y -= bh;
             }
             StackedBar.Draw(dc, cx - barW / 2, barW, plot.Bottom, pieces);
-            if (y < plot.Bottom) taken.Add(new Rect(cx - barW / 2, y, barW, plot.Bottom - y));
             // Its total over it (the picked kind's alone, when one is).
             double shownSec = only is null ? (_tween.Moving is null ? d.ActiveSec : shown.Sum(kv => kv.Value)) : shown.Where(kv => only.Contains(kv.Key)).Sum(kv => kv.Value);
             if (totalText is not null && shownSec >= (hourly ? 600 : 60))
             {
                 string total = totalText(shownSec);
-                ChartPaint.Text(dc, this, total, new Point(cx, y - 9), 11, i == _hover || only is not null ? ChartPaint.TextBrush : ChartPaint.Muted, ChartPaint.Align.Center);
-                double tw = ChartPaint.Format(this, total, 11, ChartPaint.Muted).Width;
-                taken.Add(new Rect(cx - tw / 2 - 2, y - 17, tw + 4, 16));
+                ChartPaint.Text(dc, this, total, new Point(cx, y - 9), 11, i == lit || only is not null ? ChartPaint.TextBrush : ChartPaint.Muted, ChartPaint.Align.Center);
             }
 
             // Hours every three from midnight; more than a year of months at each quarter (January as its year);
@@ -250,34 +294,14 @@ public sealed class DailyBars : FrameworkElement
             }
         }
 
-        // The average day, as a dashed line with its figure at the right (not for a year's months: they aren't days).
-        if (Only is null && !hourly && !monthly && AverageDay(days, now) is double avg && avg / 3600 < maxHours)
+        // The average day, as a dashed line (not for a year's months: they aren't days). Its name and figure are in the
+        // card's heading (see Key), where nothing is ever under them.
+        if (Only is null && !hourly && !monthly && AverageDay(days, now) is double avg && avg / 3600 <= maxHours)
         {
             double y = Math.Round(plot.Bottom - plot.Height * avg / 3600 / maxHours) + 0.5;
             var avgPen = new Pen(ChartPaint.Muted, 1.2) { DashStyle = new DashStyle([5, 4], 0) };
             avgPen.Freeze();
             dc.DrawLine(avgPen, new Point(plot.Left, y), new Point(plot.Right, y));
-            var text = Lang.T($"Average day {Units.Duration(avg)}");
-            var ft = ChartPaint.Format(this, text, 11, ChartPaint.TextBrush);
-            // At the right over its line, unless a bar or a total is there (Thursday's "12h 45m" sat under it, 2026-11-06):
-            // then at the left, then under the line at either end.
-            double pw = ft.Width + 12, ph = ft.Height + 4;
-            // Then anywhere along the line, from the right, over it or under it: a run of days the PC was off leaves room
-            // (2026-11-06: with every end taken it sat on a bar's top).
-            var spots = new List<Rect>
-            {
-                new(plot.Right - pw - 4, y - ph - 2, pw, ph), new(plot.Left + 4, y - ph - 2, pw, ph),
-                new(plot.Right - pw - 4, y + 3, pw, ph), new(plot.Left + 4, y + 3, pw, ph),
-            };
-            for (int i = days.Count - 1; i >= 0; i--)
-            {
-                double px = Math.Clamp(plot.Left + slot * (i + 0.5) - pw / 2, plot.Left + 4, plot.Right - pw - 4);
-                spots.Add(new Rect(px, y - ph - 2, pw, ph));
-                spots.Add(new Rect(px, y + 3, pw, ph));
-            }
-            var pill = spots.Where(r => r.Top >= 0 && r.Bottom <= plot.Bottom).FirstOrDefault(r => !taken.Any(t => t.IntersectsWith(r)), spots[0]);
-            dc.DrawRoundedRectangle(ChartPaint.Track, null, pill, 5, 5);
-            ChartPaint.Text(dc, this, text, new Point(pill.Left + 6, pill.Top + pill.Height / 2), 11, ChartPaint.TextBrush, ChartPaint.Align.Left);
         }
 
         // Per hour: the usual for that weekday, hour by hour, as a dashed line stepping across the hours.
@@ -299,22 +323,7 @@ public sealed class DailyBars : FrameworkElement
             }
             line.Freeze();
             dc.DrawGeometry(null, usualPen, line);
-            if (UsualName is { Length: > 0 } name)
-            {
-                // Its name over the line where the line is highest and nothing is drawn.
-                var ft = ChartPaint.Format(this, name, 11, ChartPaint.TextBrush);
-                double pw = ft.Width + 12, ph = ft.Height + 4;
-                var spots = Enumerable.Range(0, days.Count)
-                    .Select(i => (i, y: plot.Bottom - plot.Height * Math.Min(3600, usual[days[i].Day.Hour % usual.Count]) / 3600 / maxHours))
-                    .Where(p => p.y < plot.Bottom - 4)
-                    .Select(p => new Rect(Math.Clamp(plot.Left + slot * p.i, plot.Left, plot.Right - pw), p.y - ph - 3, pw, ph))
-                    .Where(r => r.Top >= 0).ToList();
-                if (spots.FirstOrDefault(r => !taken.Any(t => t.IntersectsWith(r))) is { Width: > 0 } pill)
-                {
-                    dc.DrawRoundedRectangle(ChartPaint.Track, null, pill, 5, 5);
-                    ChartPaint.Text(dc, this, name, new Point(pill.Left + 6, pill.Top + pill.Height / 2), 11, ChartPaint.TextBrush, ChartPaint.Align.Left);
-                }
-            }
+            // Named in the card's heading (see Key).
         }
         dc.Pop();
 

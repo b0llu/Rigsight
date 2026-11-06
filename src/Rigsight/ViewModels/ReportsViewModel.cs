@@ -179,46 +179,6 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         }
     }
 
-    // ── Your day, minute by minute: what its curves are drawn from ──
-
-    private readonly LiveData? _live;
-    private string _localPlot = "Avg";
-
-    /// <summary>
-    /// The Temperatures page's data (set by the window): its graph's Average / Highest / Lowest choice is this page's too,
-    /// one remembered pick for both, so changing it on either page changes it on the other.
-    /// </summary>
-    public LiveData? Live
-    {
-        get => _live;
-        init
-        {
-            _live = value;
-            if (value is null) return;
-            value.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName != nameof(LiveData.ChartPlot)) return;
-                OnPropertyChanged(nameof(ChartPlot));
-            };
-        }
-    }
-
-    /// <summary>What the minute-by-minute curves are: each minute's average ("Avg"), highest ("High") or lowest ("Low").</summary>
-    public string ChartPlot
-    {
-        get => Live?.ChartPlot ?? _localPlot;
-        set
-        {
-            if (value == ChartPlot) return;
-            if (Live is { } live) live.ChartPlot = value; // says so back (above)
-            else
-            {
-                _localPlot = value;
-                OnPropertyChanged();
-            }
-        }
-    }
-
     // ── Where the time went ──
 
     private List<TimePart> _timeSplit = [];
@@ -517,6 +477,13 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     // The period the page shows now (not the one being read).
     private (ReportRange Range, DateTime Anchor, DateTime From, DateTime To)? _shown;
 
+    /// <summary>
+    /// The figures being shown are another period's (picked): they count and slide to their new values. False when the
+    /// same period was read again (coming back to the page, the minute's refresh): they just show. The view sets
+    /// <see cref="Controls.Motion"/> from it, before the report changes.
+    /// </summary>
+    [ObservableProperty] private bool _figuresMove = true;
+
     private async Task SwitchingAfterAsync(int id)
     {
         await Task.Delay(SwitchDelay);
@@ -695,6 +662,8 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
         // A different period starts with short lists again; the minute refresh of the same one keeps them open.
         if (report?.From != Report?.From || report?.To != Report?.To) _crashLimit = CrashesPage;
         FirstDay = first;
+        // Only another period moves (2026-11-06, the user: coming back to the page "should not animate").
+        FiguresMove = _shown != period;
         Report = report;
         Crashes = crashes;
         Changes = Kept.Or(Changes, ChangeLines(changed, changed.Any(ChangeEffects.IsMajor) ? await reports.ChangeResultsAsync() : new Dictionary<DateTime, ChangeResult>()));

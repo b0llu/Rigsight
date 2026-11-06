@@ -164,6 +164,23 @@ public sealed class HistoryPageTests
     }
 
     [Fact]
+    public void Reports_moves_its_figures_only_to_another_period()
+    {
+        // Coming back to the page and the minute's refresh read the same period again: its figures just show. Only a
+        // period picked counts them up (2026-11-06, the user: coming back "should not animate").
+        var (_, reports, _) = Setup();
+        var vm = Ui.Run(() => new ReportsViewModel(reports));
+        Kit.Wait(() => vm.LoadAsync());
+        Kit.Wait(() => vm.LoadAsync());
+        Ui.Run(() => Assert.False(vm.FiguresMove));
+        Ui.Run(() => vm.Range = ReportRange.Week);
+        Kit.Wait(() => vm.LoadAsync());
+        Ui.Run(() => Assert.True(vm.FiguresMove));
+        Kit.Wait(() => vm.LoadAsync());
+        Ui.Run(() => Assert.False(vm.FiguresMove));
+    }
+
+    [Fact]
     public void Reports_shows_the_period_against_something()
     {
         var (_, reports, _) = Setup();

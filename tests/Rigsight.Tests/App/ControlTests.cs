@@ -899,6 +899,61 @@ public sealed class ControlTests
         Ui.AssertNoProblems($"daily bars, {shape}");
     }
 
+    [Theory]
+    [MemberData(nameof(BarShapes))]
+    public void Period_temps_for_every_shape_of_period(string shape)
+    {
+        Ui.TakeProblems();
+        Ui.Run(() =>
+        {
+            var today = DateTime.Today;
+            List<DayBucket>? days = shape switch
+            {
+                "hourly" => Days(24, d => d.AddHours(1), today, i => i * 100),
+                "week" => Days(7, d => d.AddDays(1), today.AddDays(-6), i => i * 3000),
+                "month" => Days(31, d => d.AddDays(1), today.AddDays(-30), i => i * 1000),
+                "year" => Days(12, d => d.AddMonths(1), new DateTime(today.Year, 1, 1), i => i * 100_000),
+                "years" => Days(30, d => d.AddMonths(1), new DateTime(today.Year - 2, 1, 1), i => i * 100_000),
+                "one" => Days(1, d => d, today, _ => 1800),
+                "empty" => [],
+                "zero" => Days(7, d => d.AddDays(1), today.AddDays(-6), _ => 0),
+                "huge" => Days(3650, d => d.AddDays(1), today.AddDays(-3649), i => 86_400),
+                "nan" => Days(7, d => d.AddDays(1), today.AddDays(-6), i => i == 3 ? double.NaN : 3600),
+                "negative" => Days(7, d => d.AddDays(1), today.AddDays(-6), i => -3600),
+                _ => null,
+            };
+            // Each bar its own spread; some without a lowest kept (older totals), some with nothing recorded, one GPU-less.
+            for (int i = 0; i < (days?.Count ?? 0); i++)
+            {
+                var b = days![i];
+                bool nothing = i % 5 == 4 && days.Count > 1;
+                b.CpuTempAvg = nothing ? null : 50 + i % 7;
+                b.CpuTempMax = nothing ? null : 70 + i % 9;
+                b.CpuTempMin = nothing || i % 3 == 0 ? null : 38;
+                bool noGpu = nothing || shape == "zero";
+                b.GpuTempAvg = noGpu ? null : 48;
+                b.GpuTempMax = noGpu ? null : 66;
+                b.GpuTempMin = noGpu ? null : 36;
+            }
+            var temps = new PeriodTemps { Days = days };
+            var drawn = Draw.Inked(Draw.Render(temps, 800, 200));
+            if (shape is "hourly" or "week" or "month" or "year" or "one" or "zero") Assert.True(drawn > 0);
+            if (shape == "empty") Assert.Equal(0, drawn);
+            if (days is { Count: > 0 })
+            {
+                // Hovered here: its box; lit from the graph above: its column only.
+                Draw.Set(temps, "_hover", days.Count / 2);
+                temps.InvalidateVisual();
+                Assert.True(Draw.Inked(Draw.Again(temps)) >= drawn);
+                Draw.Set(temps, "_hover", -1);
+                temps.Linked = days.Count / 2;
+                Draw.Again(temps);
+            }
+            Assert.Equal(0, Draw.Inked(Draw.Render(temps, 40, 40))); // too small
+        });
+        Ui.AssertNoProblems($"period temperatures, {shape}");
+    }
+
     // ── Day timeline ─────────────────────────────────────────────────────
 
     [Theory]

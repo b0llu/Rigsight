@@ -292,8 +292,16 @@
 
                     <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
                         <StackPanel>
-                            <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" Margin="0,0,0,10" />
-                            <ctl:DailyBars ctl:Roomy.Height="170" Days="{Binding SelectedChart}" />
+                            <!-- The average day's dashed line named at the right, as on Reports. -->
+                            <DockPanel Margin="0,0,0,10">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                                            Visibility="{Binding Key, ElementName=AppBars, Converter={StaticResource Vis}}">
+                                    <Line X1="0" X2="17" Y1="0" Y2="0" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.2" StrokeDashArray="5 4" VerticalAlignment="Center" Margin="0,1,7,0" />
+                                    <TextBlock Text="{Binding Key, ElementName=AppBars}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <ctl:DailyBars x:Name="AppBars" ctl:Roomy.Height="170" Days="{Binding SelectedChart}" />
                         </StackPanel>
                     </ctl:SmoothBorder>
 

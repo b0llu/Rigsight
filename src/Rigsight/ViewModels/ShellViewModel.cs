@@ -64,7 +64,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
         Live.ChartDetailWanted += () => _ = LoadZoomHistoryAsync();
         Home = new HomeViewModel(Reports, Live) { OpenChange = OpenChange, Open = OpenPage };
-        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, OpenChange = OpenChange, Live = Live, OpenGame = OpenGame };
+        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, OpenChange = OpenChange, OpenGame = OpenGame };
         Apps = new AppsViewModel(Reports, Settings) { OpenGame = exe => OpenGame(exe) };
         Crashes = new CrashesViewModel(Reports, Settings) { OpenChange = OpenChange, GoBackTo = page => CurrentPage = page, OpenGame = OpenGame };
         Timeline = new TimelineViewModel(Reports, openCrashes: day =>

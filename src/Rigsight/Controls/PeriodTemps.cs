@@ -8,15 +8,21 @@ namespace Rigsight.Controls;
 
 /// <summary>
 /// The Reports page's Temperatures card (2026-11-06, the user: a temperature graph below Active time, "a different
-/// box"): a line each for the CPU and the GPU, a point per bar of the Active time graph above it and on the same
-/// columns (the same margins as <see cref="DailyBars"/>), so the heat lines up with what was being done. Each point is
-/// the bar's average, highest or lowest (<see cref="Plot"/>, the Temperatures page's remembered choice); hours with
-/// nothing recorded are left out. The hover says what was in front and the temperatures (see <see cref="HeatWho"/>).
+/// box"), on the same columns as the Active time graph above it (the same margins as <see cref="DailyBars"/>), so the
+/// heat lines up with what was being done. Each bar of the period (an hour, a day, a month) has a CPU bar and a GPU bar
+/// side by side, from its lowest to its highest, with a line across at its average: mock-up Gvq1nXbE8Ubq4W1Q2CHzQb,
+/// option A, picked by the user the same evening. Two lines of one figure each looked "very odd and empty": a day ran
+/// from 38° to 83° and the card showed one of the three. Bars with nothing recorded are left out. The hover says what
+/// was in front and all three figures (see <see cref="HeatWho"/>); the column under the pointer in the graph above is
+/// lit here too, and this one's there (<see cref="Linked"/>).
 /// </summary>
 public sealed class PeriodTemps : FrameworkElement
 {
     // As DailyBars, so the columns line up.
     private const double Left = 40, Right = 8, AxisHeight = 24, Top = 10;
+
+    /// <summary>The space between a column's CPU bar and its GPU bar.</summary>
+    private const double PairGap = 3;
 
     public static readonly DependencyProperty DaysProperty = DependencyProperty.Register(
         nameof(Days), typeof(IReadOnlyList<DayBucket>), typeof(PeriodTemps), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender,
@@ -24,15 +30,47 @@ public sealed class PeriodTemps : FrameworkElement
 
     public IReadOnlyList<DayBucket>? Days { get => (IReadOnlyList<DayBucket>?)GetValue(DaysProperty); set => SetValue(DaysProperty, value); }
 
-    public static readonly DependencyProperty PlotProperty = DependencyProperty.Register(
-        nameof(Plot), typeof(string), typeof(PeriodTemps), new FrameworkPropertyMetadata("Avg", FrameworkPropertyMetadataOptions.AffectsRender,
-            (d, _) => ((PeriodTemps)d).PlotChanged()));
+    public static readonly DependencyProperty LinkedProperty = DependencyProperty.Register(
+        nameof(Linked), typeof(int), typeof(PeriodTemps), new FrameworkPropertyMetadata(-1, FrameworkPropertyMetadataOptions.AffectsRender));
 
-    /// <summary>What each point is: the bar's average ("Avg"), its highest ("High") or its lowest ("Low").</summary>
-    public string Plot { get => (string)GetValue(PlotProperty); set => SetValue(PlotProperty, value); }
+    /// <summary>The column the pointer is on in the graph above (its <see cref="DailyBars.Hovered"/>): lit here too, without a box. -1 for none.</summary>
+    public int Linked { get => (int)GetValue(LinkedProperty); set => SetValue(LinkedProperty, value); }
+
+    private static readonly DependencyPropertyKey HoveredPropertyKey = DependencyProperty.RegisterReadOnly(
+        nameof(Hovered), typeof(int), typeof(PeriodTemps), new PropertyMetadata(-1));
+    public static readonly DependencyProperty HoveredProperty = HoveredPropertyKey.DependencyProperty;
+
+    /// <summary>The column under the pointer here, for the graph above to light (-1 for none).</summary>
+    public int Hovered => (int)GetValue(HoveredProperty);
+
+    /// <summary>A part's figures for one bar: its lowest, its average and its highest, in °C (null where not recorded).</summary>
+    internal readonly record struct Spread(double? Low, double? Avg, double? High)
+    {
+        public bool Any => Low is not null || Avg is not null || High is not null;
+    }
+
+    /// <summary>
+    /// A bar's spread: a bar without its lowest kept (read from older daily totals) runs from its average, one without
+    /// its highest to its average.
+    /// </summary>
+    internal static (Spread Cpu, Spread Gpu) SpreadOf(DayBucket d) =>
+        (new(d.CpuTempMin ?? d.CpuTempAvg, d.CpuTempAvg, d.CpuTempMax ?? d.CpuTempAvg),
+         new(d.GpuTempMin ?? d.GpuTempAvg, d.GpuTempAvg, d.GpuTempMax ?? d.GpuTempAvg));
+
+    /// <summary>
+    /// The scale for these figures (already in the person's unit): from the lowest to the highest in whole tens, at
+    /// least 30° tall so a quiet period doesn't look like a storm (a shorter one is widened around its middle).
+    /// </summary>
+    internal static (double Lo, double Hi) ScaleOf(IReadOnlyCollection<double> values)
+    {
+        if (values.Count == 0) return (30, 90);
+        double lo = Math.Floor(values.Min() / 10) * 10, hi = Math.Ceiling(values.Max() / 10) * 10;
+        if (hi - lo < 30) { double mid = (hi + lo) / 2; lo = Math.Floor((mid - 15) / 10) * 10; hi = lo + 30; }
+        return (lo, hi);
+    }
 
     private readonly ChartTween _tween;
-    private (double? Cpu, double? Gpu)[]? _was;
+    private (Spread Cpu, Spread Gpu)[]? _was;
     private IReadOnlyList<DayBucket>? _old;
     private (double Lo, double Hi) _wasRange, _rangeDrawn;
     private int _hover = -1;
@@ -44,49 +82,33 @@ public sealed class PeriodTemps : FrameworkElement
         var now = Days;
         bool same = old is { Count: > 0 } && now is { Count: > 0 } && old.Count == now.Count
             && (old.Count < 2 || old[1].Day - old[0].Day == now[1].Day - now[0].Day) && !ReferenceEquals(old, now);
-        _was = same ? [.. old!.Select(Point)] : null;
+        _was = same ? [.. old!.Select(SpreadOf)] : null;
         _wasRange = _rangeDrawn;
         _old = old;
-        // Another kind of period: the old lines fade out and the new ones in, with the bars above.
-        _tween.Start(same ? ChartTween.Kind.Move : old is { Count: > 0 } && now is { Count: > 0 } ? ChartTween.Kind.Swap : ChartTween.Kind.None);
+        // Another kind of period: the old bars fade out and the new ones in, with the bars above. The same days read
+        // again (coming back, the minute's refresh): the new figures just show.
+        _tween.Start(ChartTween.SameDays(old, now) ? ChartTween.Kind.None
+            : same ? ChartTween.Kind.Move : old is { Count: > 0 } && now is { Count: > 0 } ? ChartTween.Kind.Swap : ChartTween.Kind.None);
+        if (_hover >= (now?.Count ?? 0)) SetHover(-1);
     }
 
-    private void PlotChanged()
+    private void SetHover(int next)
     {
-        // Average to highest: the lines move to the other values.
-        if (Days is not { Count: > 0 } days) return;
-        _was = [.. days.Select(d => PointFor(d, _lastPlot))];
-        _wasRange = _rangeDrawn;
-        _lastPlot = Plot;
-        _tween.Start(ChartTween.Kind.Move);
+        if (next == _hover) return;
+        _hover = next;
+        SetValue(HoveredPropertyKey, next);
+        InvalidateVisual();
     }
-
-    private string _lastPlot = "Avg";
-
-    private (double? Cpu, double? Gpu) Point(DayBucket d) => PointFor(d, Plot);
-
-    private static (double? Cpu, double? Gpu) PointFor(DayBucket d, string plot) => plot switch
-    {
-        "High" => (d.CpuTempMax, d.GpuTempMax),
-        // A bar without its lowest kept (read from older daily totals) has its average there.
-        "Low" => (d.CpuTempMin ?? d.CpuTempAvg, d.GpuTempMin ?? d.GpuTempAvg),
-        _ => (d.CpuTempAvg, d.GpuTempAvg),
-    };
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
         if (Days is not { Count: > 0 } days) return;
         double slot = (ActualWidth - Left - Right) / days.Count;
         int i = (int)Math.Floor((e.GetPosition(this).X - Left) / slot);
-        int next = i >= 0 && i < days.Count ? i : -1;
-        if (next != _hover) { _hover = next; InvalidateVisual(); }
+        SetHover(i >= 0 && i < days.Count ? i : -1);
     }
 
-    protected override void OnMouseLeave(MouseEventArgs e)
-    {
-        _hover = -1;
-        InvalidateVisual();
-    }
+    protected override void OnMouseLeave(MouseEventArgs e) => SetHover(-1);
 
     protected override void OnRender(DrawingContext dc)
     {
@@ -99,16 +121,15 @@ public sealed class PeriodTemps : FrameworkElement
         bool hourly = days.Count >= 2 && days[1].Day == days[0].Day.AddHours(1);
         bool monthly = days.Count >= 2 && days[1].Day == days[0].Day.AddMonths(1);
 
-        // Each point as drawn now: on its way from the old one while the lines move.
-        var points = days.Select(Point).ToArray();
+        // Each bar's figures as drawn now: on their way from the old ones while the bars move.
+        var spreads = days.Select(SpreadOf).ToArray();
         double? e = _tween.Moving;
-        if (e is double k && _was is { } was && was.Length == points.Length)
-            points = [.. points.Select((p, i) => (Lerp(was[i].Cpu, p.Cpu, k), Lerp(was[i].Gpu, p.Gpu, k)))];
+        if (e is double k && _was is { } was && was.Length == spreads.Length)
+            spreads = [.. spreads.Select((s, i) => (Lerp(was[i].Cpu, s.Cpu, k), Lerp(was[i].Gpu, s.Gpu, k)))];
 
-        // The scale: the period's own values, in tens with room around them (at least 30° tall), in the user's unit.
-        var all = days.SelectMany(d => new[] { PointFor(d, Plot).Cpu, PointFor(d, Plot).Gpu }).OfType<double>().Select(Units.Temp).ToList();
-        double lo = all.Count == 0 ? 30 : Math.Floor((all.Min() - 4) / 10) * 10, hi = all.Count == 0 ? 90 : Math.Ceiling((all.Max() + 4) / 10) * 10;
-        if (hi - lo < 30) { double mid = (hi + lo) / 2; lo = Math.Floor((mid - 15) / 10) * 10; hi = lo + 30; }
+        // The scale: the period's lowest to its highest, in the person's unit.
+        var all = days.Select(SpreadOf).SelectMany(s => new[] { s.Cpu.Low, s.Cpu.High, s.Gpu.Low, s.Gpu.High }).OfType<double>().Select(Units.Temp).ToList();
+        var (lo, hi) = ScaleOf(all);
         _rangeDrawn = (lo, hi);
         if (e is double m && _wasRange.Hi > _wasRange.Lo) (lo, hi) = (_wasRange.Lo + (lo - _wasRange.Lo) * m, _wasRange.Hi + (hi - _wasRange.Hi) * m);
 
@@ -123,14 +144,40 @@ public sealed class PeriodTemps : FrameworkElement
         }
         double Y(double shown) => plot.Bottom - (shown - lo) / Math.Max(1, hi - lo) * plot.Height;
 
-        if (_hover >= 0 && _hover < days.Count)
-            dc.DrawRoundedRectangle(ChartPaint.Track, null, new Rect(plot.Left + slot * _hover + 2, plot.Top, Math.Max(0, slot - 4), plot.Height), 6, 6);
+        // The column under the pointer, here or in the graph above.
+        int lit = _hover >= 0 ? _hover : Linked;
+        if (lit >= 0 && lit < days.Count)
+            dc.DrawRoundedRectangle(ChartPaint.Track, null, new Rect(plot.Left + slot * lit + 2, plot.Top, Math.Max(0, slot - 4), plot.Height), 6, 6);
 
         dc.PushOpacity(_tween.Opacity);
-        var cpu = ChartPaint.Brush(ChartPaint.Cpu);
-        var gpu = ChartPaint.Brush(ChartPaint.Gpu);
-        DrawLine(points.Select(p => p.Item1).ToArray(), cpu);
-        DrawLine(points.Select(p => p.Item2).ToArray(), gpu);
+        // The CPU's bar left of the column's middle, the GPU's right of it; a part the PC never reported leaves the
+        // other in the middle.
+        bool hasCpu = days.Any(d => SpreadOf(d).Cpu.Any), hasGpu = days.Any(d => SpreadOf(d).Gpu.Any);
+        double bw = Math.Clamp(slot * 0.22, 5, 13);
+        var tickEdge = new Pen(ChartPaint.Brush(ChartPaint.Res("SurfaceColor", 0x1A)), 1);
+        tickEdge.Freeze();
+        var parts = new List<(Func<(Spread Cpu, Spread Gpu), Spread> Of, Color Color, double Dx)>();
+        if (hasCpu) parts.Add((s => s.Cpu, ChartPaint.Cpu, hasGpu ? -PairGap / 2 - bw : -bw / 2));
+        if (hasGpu) parts.Add((s => s.Gpu, ChartPaint.Gpu, hasCpu ? PairGap / 2 : -bw / 2));
+        foreach (var (of, color, dx) in parts)
+        {
+            var range = ChartPaint.Brush(color, 0.48);
+            var rangeLit = ChartPaint.Brush(color, 0.7);
+            var mark = ChartPaint.Brush(color);
+            for (int i = 0; i < spreads.Length; i++)
+            {
+                var s = of(spreads[i]);
+                double x = plot.Left + slot * (i + 0.5) + dx;
+                if (s.Low is double low && s.High is double high)
+                {
+                    double top = Y(Units.Temp(high)), bottom = Y(Units.Temp(low));
+                    double r = Math.Min(4, bw / 2);
+                    dc.DrawRoundedRectangle(i == lit ? rangeLit : range, null, new Rect(x, top, bw, Math.Max(2, bottom - top)), r, r);
+                }
+                if (s.Avg is double avg)
+                    dc.DrawRoundedRectangle(mark, tickEdge, new Rect(x - 2.5, Y(Units.Temp(avg)) - 2, bw + 5, 4), 2, 2);
+            }
+        }
         dc.Pop();
 
         // The bars' own labels, as on the graph above.
@@ -148,44 +195,21 @@ public sealed class PeriodTemps : FrameworkElement
             ChartPaint.Text(dc, this, label, new Point(plot.Left + slot * (i + 0.5), h - AxisHeight / 2), 11, d.Day == current ? ChartPaint.TextBrush : ChartPaint.Label, ChartPaint.Align.Center);
         }
 
-        if (_hover >= 0 && _hover < days.Count) DrawHover(dc, days, _hover, plot, slot, hourly, monthly, Y);
-
-        // A line through the bars' middles, broken where nothing was recorded; a point on its own is a dot.
-        void DrawLine(double?[] values, Brush brush)
-        {
-            var pen = new Pen(brush, 2) { LineJoin = PenLineJoin.Round };
-            pen.Freeze();
-            var g = new StreamGeometry();
-            using (var c = g.Open())
-            {
-                bool open = false;
-                for (int i = 0; i < values.Length; i++)
-                {
-                    if (values[i] is not double v) { open = false; continue; }
-                    var at = new Point(plot.Left + slot * (i + 0.5), Y(Units.Temp(v)));
-                    if (!open) { c.BeginFigure(at, false, false); open = true; } else c.LineTo(at, true, true);
-                }
-            }
-            g.Freeze();
-            dc.DrawGeometry(null, pen, g);
-            for (int i = 0; i < values.Length; i++)
-                if (values[i] is double v && (i == 0 || values[i - 1] is null) && (i == values.Length - 1 || values[i + 1] is null))
-                    dc.DrawEllipse(brush, null, new Point(plot.Left + slot * (i + 0.5), Y(Units.Temp(v))), 3, 3);
-        }
+        if (_hover >= 0 && _hover < days.Count) DrawHover(dc, days, _hover, plot, slot, hourly, monthly);
     }
 
     private static double? Lerp(double? a, double? b, double t) => a is double x && b is double y ? x + (y - x) * t : b;
+
+    private static Spread Lerp(Spread a, Spread b, double t) => new(Lerp(a.Low, b.Low, t), Lerp(a.Avg, b.Avg, t), Lerp(a.High, b.High, t));
 
     /// <summary>
     /// The bar's box: when, what was in front, and the CPU's and GPU's average, highest and lowest. Beside the bar, its bottom at the graph's bottom when it's taller than the graph (it rises over the card
     /// above rather than under the one below).
     /// </summary>
-    private void DrawHover(DrawingContext dc, IReadOnlyList<DayBucket> days, int i, Rect plot, double slot, bool hourly, bool monthly, Func<double, double> y)
+    private void DrawHover(DrawingContext dc, IReadOnlyList<DayBucket> days, int i, Rect plot, double slot, bool hourly, bool monthly)
     {
         var d = days[i];
         double cx = plot.Left + slot * (i + 0.5);
-        foreach (var (v, brush) in new[] { (PointFor(d, Plot).Cpu, ChartPaint.Brush(ChartPaint.Cpu)), (PointFor(d, Plot).Gpu, ChartPaint.Brush(ChartPaint.Gpu)) })
-            if (v is double t) dc.DrawEllipse(brush, new Pen(ChartPaint.TooltipBg, 2), new Point(cx, y(Units.Temp(t))), 4, 4);
 
         string title = hourly ? $"{TimeText.At(d.Day, "h tt")} – {TimeText.At(d.Day.AddHours(1), "h tt")}"
             : monthly ? d.Day.ToString("MMMM yyyy") : d.Day.ToString("dddd, d MMMM");

@@ -222,25 +222,6 @@ public sealed class ChartZoomUiTests
         Ui.AssertNoProblems("timeline plot switch");
     }
 
-    [Fact]
-    public void The_reports_pick_is_the_temperatures_pick()
-    {
-        var settings = Kit.OfflineSettings();
-        var live = Kit.Live(settings);
-        Ui.Run(() =>
-        {
-            var vm = new ReportsViewModel(new ReportService(settings)) { Live = live };
-            Assert.Equal("Avg", vm.ChartPlot);
-            vm.ChartPlot = "High";
-            Assert.Equal(("High", "High"), (live.ChartPlot, settings.Current.ChartPlot));
-            // Picked on Temperatures: Reports hears of it.
-            var changed = Kit.Changes(vm, () => live.ChartPlot = "Low");
-            Assert.Contains(nameof(ReportsViewModel.ChartPlot), changed);
-            Assert.Equal("Low", vm.ChartPlot);
-            live.ChartPlot = "Avg";
-        });
-    }
-
     /// <summary>A drag from <paramref name="x0"/> to <paramref name="x1"/> on a chart, as the pointer would make it.</summary>
     private static void Drag(FrameworkElement chart, double x0, double x1)
     {
@@ -294,12 +275,11 @@ public sealed class ChartZoomUiTests
     }
 
     [Fact]
-    public void On_reports_the_temperatures_switch_is_the_temperature_pages_and_moves_nothing()
+    public void On_reports_the_temperatures_card_shows_every_figure_and_lights_the_hour_above()
     {
-        // The minute-by-minute card left Reports (2026-11-06): its Temperatures card has the same switch, the same pick
-        // as the Temperatures page, and picking moves nothing on the page.
+        // Mock-up Gvq1nXbE8Ubq4W1Q2CHzQb, A (2026-11-06): each hour's lowest to highest with its average across, so no
+        // Average / Highest / Lowest switch; the column pointed at in either graph is lit in both.
         var settings = Kit.OfflineSettings();
-        var live = Kit.Live(settings);
         Ui.TakeProblems();
         Ui.Run(() =>
         {
@@ -308,7 +288,7 @@ public sealed class ChartZoomUiTests
             {
                 Day = day.AddHours(h), OnSec = 3600, ActiveSec = 1800, CpuTempAvg = 50 + h % 5, CpuTempMax = 70, CpuTempMin = 40, GpuTempAvg = 45, GpuTempMax = 60, GpuTempMin = 38,
             }).ToList();
-            var vm = new ReportsViewModel(new ReportService(settings)) { Live = live };
+            var vm = new ReportsViewModel(new ReportService(settings));
             vm.Report = new Report { Range = ReportRange.Day, From = day, To = day.AddDays(1), HasData = true, Temps = Temps(day), Days = hours };
             vm.Ready = true;
             var view = new Views.ReportsView { DataContext = vm };
@@ -318,17 +298,22 @@ public sealed class ChartZoomUiTests
             {
                 Ui.Pump(150);
                 var temps = Visuals.Descendants<PeriodTemps>(view).Single();
+                var bars = Visuals.Descendants<DailyBars>(view).Single();
                 Assert.True(temps.ActualWidth > 500, "the Temperatures card isn't shown");
-                Assert.True(Visuals.Descendants<DailyBars>(view).Single().ActualWidth > 500, "the hours aren't shown");
-                Point Where() => temps.TranslatePoint(new Point(0, 0), view);
-                var before = (Where(), temps.ActualWidth);
-                vm.ChartPlot = "High";
-                Ui.Pump(150);
-                Assert.Equal(("High", "High"), (temps.Plot, live.ChartPlot));
-                Assert.Equal(before, (Where(), temps.ActualWidth));
-                live.ChartPlot = "Low";
-                Assert.Equal("Low", temps.Plot);
-                live.ChartPlot = "Avg";
+                Assert.True(bars.ActualWidth > 500, "the hours aren't shown");
+                Assert.Equal(temps.ActualWidth, bars.ActualWidth); // the same columns
+                Assert.DoesNotContain(Visuals.Descendants<System.Windows.Controls.RadioButton>(view), r => r.GroupName == "TempsPlot");
+                Assert.Contains(Visuals.Descendants<System.Windows.Controls.TextBlock>(view), t => t.Text == "Lowest to highest, line at the average");
+
+                void Point(FrameworkElement chart, int column) =>
+                    chart.GetType().GetMethod("SetHover", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(chart, [column]);
+                Point(temps, 5);
+                Assert.Equal((5, 5), (temps.Hovered, bars.Linked));
+                Point(temps, -1);
+                Point(bars, 9);
+                Assert.Equal((9, 9, -1), (bars.Hovered, temps.Linked, bars.Linked));
+                Point(bars, -1);
+                Assert.Equal(-1, temps.Linked);
             }
             finally { window.Close(); }
         });
