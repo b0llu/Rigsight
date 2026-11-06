@@ -27,10 +27,11 @@
   "free-pc-monitoring-software": "2026-11-04",
   "check-gpu-temperature-history": "2026-11-04",
   "blue-screen-of-death-causes": "2026-11-05",
-  "how-sure-is-it": "2026-11-05"
+  "how-sure-is-it": "2026-11-05",
+  "ping-spikes-while-gaming": "2026-11-06",
+  "pc-restarts-randomly-while-gaming": "2026-11-06"
  },
  "queue": [
-  "pc-restarts-randomly-while-gaming",
   "bringing-ai-back",
   "one-percent-low-fps",
   "rigsight-in-spanish",
@@ -58,7 +59,6 @@
   "how-to-show-fps-overlay",
   "one-percent-low-fps",
   "pc-fans-loud-while-gaming",
-  "pc-restarts-randomly-while-gaming",
   "power-plan-keeps-changing",
   "screen-time-on-pc",
   "ssd-health-check",

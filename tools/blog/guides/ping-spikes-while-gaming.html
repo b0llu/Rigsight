@@ -1,0 +1,66 @@
+<!--meta
+{"slug": "ping-spikes-while-gaming", "series": "guide", "published": "2026-11-06", "updated": "2026-11-06",
+ "topic": "Network",
+ "keyword": "ping spikes while gaming",
+ "also": ["lag spikes while gaming", "lag spikes while gaming pc", "random ping spikes while gaming", "high ping in games but good internet", "ping spikes on wifi", "ping spikes on ethernet", "packet loss meaning", "internet drops while gaming"],
+ "title": "Ping spikes while gaming, and the download behind mine",
+ "summary": "My ping to my internet provider jumped to 155 ms in the minute Steam pulled 175 MB, while my own router stayed under a millisecond. How RigSight shows where ping spikes while gaming start, why they happen, and how to fix them.",
+ "description": "Ping spikes while gaming usually mean a download, an upload or Wi-Fi is getting in the way. Ping your router and the internet at once to find which side.",
+ "short": "Ping spikes while gaming usually come from something else filling your connection, like a launcher or Windows downloading in the background, or from Wi-Fi. Ping your router and something on the internet at the same time. If only the internet side spikes, pause downloads and uploads first. If your router spikes too, it's your Wi-Fi or cable.",
+ "faq": [
+  ["Why do I get ping spikes while gaming?", "Often something else on your connection is downloading or uploading at the same moment, like a launcher update, Windows Update or a cloud backup, and the game's packets wait behind it. Wi-Fi trouble and a busy route to the game server are the other usual reasons. Pinging your router and the internet at once tells you which side it's on."],
+  ["Why is my ping high in games but my internet is good?", "A speed test measures how much data your connection can move each second. Ping is how long one small packet takes to get there and back. A fast connection can still have high ping when the game server is far away, the route to it is busy, or something else is filling the line while you play."],
+  ["Are ping spikes worse on Wi-Fi than on Ethernet?", "They can be. Wi-Fi shares the air with other networks and devices, and walls and distance make it resend packets. If pings to your own router jump around, try a cable. If the spikes happen on a cable too, look past your home network."],
+  ["What does packet loss mean?", "Packet loss means some packets never arrive. In a game it shows as rubber-banding or actions that don't register. A lost ping now and then is normal. RigSight only mentions it once 1% or more of its pings get no reply."]
+ ],
+ "cover_tiles": [["Ping to my router", "<1 ms", "the same minute"], ["Ping to my provider", "155 ms", "during a Steam download"]],
+ "app": ["Line check every 5 seconds to this PC's router and the provider's first router, found like a traceroute with no outside server asked; pings leave from the network card so a VPN doesn't hide the line; a ping not back in 1 second counts as lost (LineCheck, 1.4.0)", "Network page Right now: speeds, whether the connection is working well, ping and packet loss, every app using it (1.4.0)", "Each hour graph with Usage and Ping views, drag to zoom, click an hour for its apps (1.4.0)", "Hours past 80 ms are marked, or past twice the usual on a slow line (NetLinePing.HighFor)", "Ping sentence: the usual ping, the hours past 80 ms, the app when the same one uploaded 500 MB or more in most of them, lost pings from 1% (NetLine.Sentence)", "What happened names what Steam downloaded (1.4.0)", "Internet drop alerts and the strip under the Network graph (1.4.0)", "Pause the checks under the graph or in Settings (1.4.0)", "Per-app internet use needs admin rights"],
+ "sources": ["https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ping",
+             "https://support.microsoft.com/en-us/windows/deployment/updates-lifecycle/delivery-optimization-in-windows",
+             "https://learn.microsoft.com/en-us/windows/deployment/do/waas-delivery-optimization-faq",
+             "https://arxiv.org/pdf/2107.13968",
+             "https://arxiv.org/pdf/1703.00064",
+             "https://www.pcgamer.com/uk/steam-update-allows-background-downloading-while-playing-a-game"]}
+-->
+<p>On 5 November at 10:32 PM, RigSight's ping check to my internet provider's first router came back in 155 ms. A minute before it was 1 ms, and a minute after it was 1 ms again. My own router answered in under a millisecond the whole time. In that minute Steam pulled 175 MB, more than thirty times what it pulled the minute before. I wasn't in a game, but it's a common story behind ping spikes while gaming. Something else fills the connection, and the game's packets wait in line behind it.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>Since version 1.4.0, RigSight checks the line every 5 seconds in two places. One ping goes to your router, which is the home side of the line, your cable or Wi-Fi. The other goes to your internet provider's first router after it, which is the provider's side. RigSight finds that router the way a traceroute does, without asking any outside server. The pings leave from the network card itself, so a VPN in between doesn't hide the real line. A ping that isn't back within a second counts as lost.</p>
+
+<p>Two pings at once tell you where a spike starts. If the router is slow, the problem is inside your home. If the router is quick and the provider's side is slow, the problem is on the line, at the provider, or in whatever is filling the line. On my PC the router never went past 3 ms in the 484 minutes of checks so far, and 4 of 5,767 pings to the provider got no reply.</p>
+
+<p>The Network page shows it in a few places. Right now has your speeds, whether the connection is working well, its ping and packet loss, and every app using it. The graph of each hour has a Ping view, and any hour that went past 80 ms is marked, because that's where online games start to feel it. On a line that's never that fast, the mark starts at twice its usual. A sentence above the graph gives the usual ping and how many hours went past the mark. When the same app was uploading a lot in most of them, it names that app.</p>
+
+<p>Mine was a download, so the sentence doesn't name it, but the hour does. Click the marked hour and Steam is at the top of its apps, with 334 MB downloaded. The second spike in my history was the same kind. At 7:16 AM on 6 November the provider's side hit 105 ms. In that hour Epic's installer pulled 292 MB and Ubisoft Connect 216 MB, and those two were the top of the list. Drag across the graph to zoom into a busy evening.</p>
+
+<p>If the internet drops altogether, RigSight tells you when it went and when it's back, and a strip under the graph shows each drop. You can pause the ping checks under the graph or in Settings. Seeing each app's internet use needs RigSight running with admin rights. RigSight is free and open source.</p>
+
+<h2>Why ping spikes happen</h2>
+
+<p>Ping is how long one small packet takes to reach a place and come back. A game sends small updates many times a second, so when one waits, you see players jump or your shots land late. A speed test doesn't show this. It measures how much your connection can move, not how quickly one packet comes back.</p>
+
+<p>These are the usual reasons for spikes.</p>
+
+<ul>
+  <li>Something else fills the connection. A launcher updating a game, Windows Update, a cloud backup uploading photos, or someone streaming in another room can fill the line. Routers and modems can hold the extra traffic in a queue, and the game's packets wait in that queue too. Network researchers call this bufferbloat, and a ping during a big download is the classic way to see it.</li>
+  <li>Wi-Fi is struggling. It shares the air with other networks and devices, and walls and distance make it resend packets. That shows as spikes on the home side, in pings to your own router.</li>
+  <li>The route to the game server is busy or long. Busy hours on the networks in between can add delay, and a server in another region adds distance you can't remove.</li>
+  <li>The provider's line has trouble. Spikes on the provider's side with nothing downloading, at any hour, point there.</li>
+</ul>
+
+<h2>How to find and fix ping spikes while gaming</h2>
+
+<ol>
+  <li>Find which side the spike is on. Open <strong>Command Prompt</strong>, type <code>ipconfig</code> and note the <strong>Default Gateway</strong>, which is your router. Run <code>ping 192.168.1.1 -t</code> with your router's address in one window, and <code>ping 1.1.1.1 -t</code> in a second window. The <code>-t</code> keeps it going until you press Ctrl + C. Play for a while and watch both. If both jump together, it's your Wi-Fi or cable. If only the second one jumps, it's the line or something filling it.</li>
+  <li>Stop background downloads while you play. In Steam, the setting for downloads during gameplay is under <strong>Settings</strong> &gt; <strong>Downloads</strong>, and each game's <strong>Properties</strong> &gt; <strong>Updates</strong> can override it. Check your other launchers for the same kind of setting.</li>
+  <li>Cap Windows' own update downloads. Go to <strong>Settings</strong> &gt; <strong>Windows Update</strong> &gt; <strong>Advanced options</strong> &gt; <strong>Delivery Optimization</strong> &gt; <strong>Advanced options</strong> and set a limit for background downloads. Microsoft notes the limit only covers automatic update downloads, not ones you start yourself.</li>
+  <li>Pause cloud backups and sync, like OneDrive or Google Drive, during a match. Uploads fill the line just as downloads do, and on many connections upload is much smaller.</li>
+  <li>Try a cable. If pings to your router jump around, plug the PC into the router with Ethernet and test again. If you have to stay on Wi-Fi, move closer to the router or use its 5 GHz network.</li>
+  <li>Look for a queue setting on your router. Some routers have a setting for this, often called QoS or Smart Queue Management. It keeps the queue short while something downloads, so game packets don't wait as long. Your router's manual says whether it has one.</li>
+  <li>Restart the router, and update your network card's driver from the PC or motherboard maker.</li>
+  <li>If the spikes happen in only one game, check which server region it puts you on. A closer region usually means lower ping.</li>
+  <li>If the provider's side spikes with nothing else using the internet, write down the times and call your provider. A record of when it happened helps more than "my internet is bad".</li>
+</ol>
+
+<p>Your next step is the two ping windows from the first step, left running during your next match. One look at which one jumps tells you whether to fix your Wi-Fi or your downloads.</p>
