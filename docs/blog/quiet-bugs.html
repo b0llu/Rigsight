@@ -55,7 +55,7 @@ a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
 /* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: each part inside has its own max-width and starts at the same left edge as the top bar. */
+   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -132,14 +132,15 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post */
-.post { padding-block: 40px 40px; }
+/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
+.post { --col: 728px; padding-block: 40px 40px; }
+.post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
 .crumbs a:hover { color: var(--fg); }
-.dek { font-size: 19px; line-height: 1.55; color: var(--muted); margin: 0 0 18px; max-width: 680px; }
+.dek { font-size: 19px; line-height: 1.55; color: var(--muted); margin: 0 0 18px; }
 .byline b { color: var(--fg); font-weight: 600; }
-.cover { margin: 0 0 32px; max-width: 728px; }
+.cover { margin: 0 0 32px; }
 .cover img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); }
 .post h1 { font: 600 clamp(34px, 5.6vw, 52px)/1.06 var(--display); letter-spacing: -0.04em; margin: 0 0 14px; text-wrap: balance; }
 .byline { color: var(--faint); font-size: 14.5px; margin: 0 0 30px; font-variant-numeric: tabular-nums; }
@@ -147,7 +148,7 @@ img { max-width: 100%; height: auto; }
 .short p { margin: 0; color: var(--fg); font-size: 17.5px; line-height: 1.6; }
 .short .short-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
 .body, .post h1, .dek, .short p, .qa summary { overflow-wrap: anywhere; }
-.body { font-size: 18px; line-height: 1.75; color: var(--text); max-width: 680px; }
+.body { font-size: 18px; line-height: 1.75; color: var(--text); }
 .body > p { margin: 0 0 1.15em; }
 .body h2 { font: 600 25px/1.25 var(--display); letter-spacing: -0.025em; color: var(--fg); margin: 1.9em 0 .55em; text-wrap: balance; }
 .body strong { color: var(--fg); font-weight: 600; }
@@ -158,7 +159,7 @@ img { max-width: 100%; height: auto; }
 .body blockquote { margin: 1.5em 0; padding: 2px 0 2px 20px; border-left: 2px solid var(--hot); color: var(--fg); font-size: 19px; }
 .body blockquote p { margin: 0; }
 .body blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size: 14px; color: var(--faint); }
-.shot { margin: 2em 0; max-width: 728px; }
+.shot { margin: 2em 0; }
 .shot img { display: block; width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,.06); }
 figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top: 10px; }
 .stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin: 1.8em 0; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
@@ -166,7 +167,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .stat span { color: var(--muted); font-size: 16px; line-height: 1.5; flex: 1 1 260px; min-width: 0; }
 .stat.hot b { color: var(--hot); }
 .stat.cpu b { color: var(--cpu); }
-.fig { margin: 2em 0; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; max-width: 728px; overflow-x: auto; }
+.fig { margin: 2em 0; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
 .fig svg { display: block; width: 100%; height: auto; min-width: 520px; font-family: var(--body); }
 .fig figcaption { margin-top: 14px; }
 .fig .t { fill: var(--muted); font-size: 13px; }
@@ -181,12 +182,12 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .pair .k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px; color: var(--faint); }
 .pair .bad .k { color: #f0a35e; }
 .pair .good .k { color: #34d399; }
-.next { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 56px 0 28px; max-width: 728px; }
+.next { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 56px 0 28px; }
 .more { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 14px; text-decoration: none; min-width: 0; }
 .more span { font-size: 13px; color: var(--faint); }
 .more b { color: var(--fg); font-weight: 600; font-size: 16.5px; line-height: 1.35; }
 .more:hover { border-color: var(--line-2); background: var(--surface); }
-.get { display: flex; align-items: center; gap: 18px; padding: 20px 22px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 728px; }
+.get { display: flex; align-items: center; gap: 18px; padding: 20px 22px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
 .get img { border-radius: 10px; flex: none; }
 .get p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; min-width: 0; }
 .get p b { color: var(--fg); }
