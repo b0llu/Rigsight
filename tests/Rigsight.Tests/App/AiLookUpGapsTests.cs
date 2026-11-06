@@ -1,4 +1,4 @@
-using Rigsight.Core;
+﻿using Rigsight.Core;
 using Rigsight.Core.Ai;
 using Rigsight.Core.Data;
 using Rigsight.Core.Settings;
@@ -135,5 +135,74 @@ public sealed class AiLookUpGapsTests : IDisposable
         string first = tools.Run("get_sensors_now", "{}");
         Assert.StartsWith("Error: RigSight couldn't read this just now (InvalidOperationException)", first);
         Assert.Contains("Core 64 °C", tools.Run("get_sensors_now", "{}"));
+    }
+
+    [Fact]
+    public void A_new_install_with_no_history_yet_says_recording_just_began_not_restart()
+    {
+        // Asked 3 seconds after a new install (2026-11-06): every look-up said "couldn't be opened" and the answer said to
+        // restart the agent.
+        var tools = Tools();
+        tools.Recording = () => true;
+
+        foreach (string name in new[] { "get_today", "get_sensors_now" })
+        {
+            string said = tools.Run(name, "{}");
+            Assert.Contains("only just started recording", said);
+            Assert.Contains("nothing needs restarting", said);
+            Assert.DoesNotContain("couldn't be opened", said);
+        }
+    }
+
+    [Fact]
+    public void No_history_and_no_agent_says_to_start_the_agent()
+    {
+        var tools = Tools();
+        tools.Recording = () => false;
+
+        string said = tools.Run("get_today", "{}");
+
+        Assert.Contains("isn't running", said);
+        Assert.Contains("Start agent", said);
+    }
+
+    [Fact]
+    public void A_history_there_but_unreadable_still_says_it_couldnt_be_opened()
+    {
+        Assert.Contains("couldn't be opened just now", AiTools.NoHistory(fileThere: true, recording: true));
+        Assert.DoesNotContain("Start agent", AiTools.NoHistory(fileThere: true, recording: false));
+    }
+
+    [Fact]
+    public void No_history_isnt_kept_so_the_history_is_read_once_it_is_there()
+    {
+        var tools = Tools();
+        string date = DateTime.Today.ToString("yyyy-MM-dd");
+        string args = $$"""{"from":"{{date}}","to":"{{date}}"}""";
+        Assert.Contains("no history on this PC yet", tools.Run("get_report", args));
+
+        using (RigsightDb.OpenWriter(_db)) { }
+
+        Assert.DoesNotContain("no history on this PC yet", tools.Run("get_report", args));
+    }
+
+    [Fact]
+    public void A_new_question_reads_the_history_again()
+    {
+        // One set of look-ups lasts the app's whole run: the morning's "today" was answered again in the afternoon.
+        var now = DateTime.Now;
+        var tools = Tools();
+        using (var w = RigsightDb.OpenWriter(_db))
+            w.WriteMinute(new SystemMinute { Ts = TimeUtil.ToUnix(now.AddMinutes(-2)), CpuTempMax = 51, CpuLoad = 20, ActiveSec = 60 });
+        string first = tools.Run("get_crashes", $$"""{"from":"{{now:yyyy-MM-dd}}","to":"{{now:yyyy-MM-dd}}"}""");
+
+        using (var w = RigsightDb.OpenWriter(_db))
+            w.InsertCrashes([new Rigsight.Core.Stability.CrashEvent { Ts = TimeUtil.ToUnix(now.AddMinutes(-1)), Kind = Rigsight.Core.Stability.CrashKind.AppCrash, AppExe = "game.exe", Code = "c0000005" }]);
+        string args = $$"""{"from":"{{now:yyyy-MM-dd}}","to":"{{now:yyyy-MM-dd}}"}""";
+
+        Assert.Equal(first, tools.Run("get_crashes", args));
+        tools.NewQuestion();
+        Assert.DoesNotContain("1 problems in all", first);
+        Assert.Contains("1 problems in all", tools.Run("get_crashes", args));
     }
 }

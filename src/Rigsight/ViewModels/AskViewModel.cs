@@ -1860,7 +1860,7 @@ public sealed partial class AskViewModel : ObservableObject
             return new AiReply(null, Lang.T($"Ollama isn't answering at {Ollama.Normalise(Ai.OllamaAddress)}. Check that it's running, then ask again."), []);
         var model = _ollamaModels.FirstOrDefault(m => m.Name == Ai.OllamaModel) ?? _ollamaModels.FirstOrDefault(m => m.CanLookUp) ?? _ollamaModels.FirstOrDefault();
         if (model is null) return new AiReply(null, Lang.T("Ollama has no models yet. Download one in Ollama, then pick it in Settings › Ask RigSight."), []);
-        Tools();
+        Tools().NewQuestion();
         return Used(await Ollama.AskAsync(Ai.OllamaAddress, model.Name, model.CanLookUp, [.. talk.Sent], question, _tools,
             step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), ct));
     }
@@ -1880,7 +1880,7 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>RigSight AI: the relay counts the question; afterwards the pill shows what's left.</summary>
     private async Task<AiReply> AskRelay(AskConversation talk, string question, CancellationToken ct)
     {
-        Tools();
+        Tools().NewQuestion();
         try
         {
             return await Relay.AskAsync([.. AiMemory.History(talk.Sent, talk.SummaryCovers, talk.Summary)], question, _tools!,
@@ -2028,7 +2028,7 @@ public sealed partial class AskViewModel : ObservableObject
             return new AiReply(null, Lang.T("Add your API key in Settings › Ask RigSight and press Connect."), []);
         if (Ai.Model.Length == 0)
             return new AiReply(null, Lang.T("Pick a model in Settings › Ask RigSight."), []);
-        Tools();
+        Tools().NewQuestion();
         return Used(await OwnKey.AskAsync(Ai.Service, OwnKey.Root(Ai.Service, Ai.CustomAddress), key, Ai.Model, [.. talk.Sent], question, _tools,
             step => talk.Messages.OfType<AskThinking>().LastOrDefault()?.Show(step.Text, step.Note, step.Loading), Writer(talk), ct));
     }

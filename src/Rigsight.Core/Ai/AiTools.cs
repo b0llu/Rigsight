@@ -133,6 +133,8 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
             };
         }
         catch (FormatException ex) { result = "Error: " + ex.Message; }
+        // Not kept: the history is there a moment later (a new install's recorder making it), and asking again reads it.
+        catch (NoHistoryException ex) { return "Error: " + ex.Message; }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // RigSight's own fault, not the model's: a line it can answer around, and not kept, so asking again tries again.
@@ -146,9 +148,39 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
 
     private T WithDb<T>(Func<RigsightDb, T> read)
     {
-        using var db = (dbPath is null ? RigsightDb.OpenReader() : RigsightDb.OpenReader(dbPath)) ?? throw new FormatException("RigSight's history couldn't be opened.");
+        string path = dbPath ?? RigsightPaths.Database;
+        using var db = RigsightDb.OpenReader(path) ?? throw new NoHistoryException(NoHistory(File.Exists(path), Recording?.Invoke()));
         return read(db);
     }
+
+    /// <summary>
+    /// Whether RigSight's agent, which records the history, is running, from the app. Null: not known here (tests, the eval).
+    /// </summary>
+    public Func<bool>? Recording { get; set; }
+
+    /// <summary>
+    /// Forgets the look-ups' answers for a new question. The Ask page keeps one set of look-ups for the whole run, so
+    /// without this a question in the afternoon read the morning's "today", and a history that couldn't be read once
+    /// stayed unread until RigSight was restarted.
+    /// </summary>
+    public void NewQuestion() => _cache.Clear();
+
+    /// <summary>
+    /// Why there is no history to read, in words the model can pass on. All the same "RigSight's history couldn't be
+    /// opened" before: a question asked 3 seconds after a new install was told to "restart RigSight's agent" (2026-11-06).
+    /// </summary>
+    internal static string NoHistory(bool fileThere, bool? recording) => (fileThere, recording) switch
+    {
+        (true, _) => "RigSight's history couldn't be opened just now. Answer from the other look-ups, say this part couldn't be read, and that asking again in a minute may work.",
+        (false, false) => "RigSight has no history on this PC yet, and its background agent, which records it, isn't running, so nothing is being recorded. "
+            + "Answer from the look-ups that worked (the parts and their makers' ratings), say plainly there's no history to compare yet, and as the next step say "
+            + "to press Start agent in RigSight's window and accept the admin prompt, then ask again once the PC has been used for a while.",
+        _ => "RigSight has no history on this PC yet: it has only just started recording, so there are no peaks, usual readings or past records. "
+            + "This isn't a fault, and nothing needs restarting. Answer from the look-ups that worked (the parts and their makers' ratings), say plainly that "
+            + "recording has just begun, and say to ask again once the PC has been used for a while, gaming or under load if the question is about that.",
+    };
+
+    private sealed class NoHistoryException(string message) : Exception(message);
 
     private static DateTime Day(JsonObject args, string name) =>
         DateTime.TryParseExact(AiArgs.Text(args[name]), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)

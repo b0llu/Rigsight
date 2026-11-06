@@ -129,7 +129,7 @@ public sealed partial class ShellViewModel : ObservableObject
         SettingsPage.Ai.Plans = Plans;
         Ask.Plans = Plans;
         // The look-ups that read what is on screen now: every reading, and the drives' health.
-        Ask.ConfigureTools = tools => { tools.SensorsNow = AiLiveReadings.Sensors(Live); tools.DrivesNow = AiLiveReadings.Drives(Live); tools.DriveScan = DriveScans.Text; tools.RivaTuner = () => Overlay.RtssState; tools.SensorName = id => Live.Resolve(id)?.DisplayName; };
+        Ask.ConfigureTools = tools => { tools.SensorsNow = AiLiveReadings.Sensors(Live); tools.DrivesNow = AiLiveReadings.Drives(Live); tools.DriveScan = DriveScans.Text; tools.RivaTuner = () => Overlay.RtssState; tools.SensorName = id => Live.Resolve(id)?.DisplayName; tools.Recording = () => IsConnected; };
         Ask.PerQuestion = () => SettingsPage.Ai?.ModelPerQuestion;
         // The newest pack after an update, if it didn't come with it: tried once more where updates may reach GitHub.
         _ = Language.CheckAtStartAsync(mayCheck: Settings.Current.AutoUpdate && !RigsightPaths.IsTestInstance);
