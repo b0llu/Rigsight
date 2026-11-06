@@ -79,7 +79,7 @@ def figure(img_prefix, src, alt, cap, eager=False):
     full = f"{img_prefix}{src}.webp"
     from PIL import Image  # noqa: only to read the size so the page doesn't jump
     w, h = Image.open(DOCS / "img" / f"{src}.webp").size
-    srcset = f' srcset="{img_prefix}{src}-720.webp 720w, {full} {w}w" sizes="(max-width: 760px) 92vw, 720px"' if small.exists() else ""
+    srcset = f' srcset="{img_prefix}{src}-720.webp 720w, {full} {w}w" sizes="(max-width: 760px) 92vw, 1152px"' if small.exists() else ""
     load = "" if eager else ' loading="lazy"'
     return (f'<figure class="shot"><img src="{full}"{srcset} width="{w}" height="{h}" alt="{html.escape(alt)}"{load} decoding="async">'
             f'<figcaption>{cap}</figcaption></figure>')
@@ -202,7 +202,7 @@ def article_html(p, posts, mode, img_prefix, keep_review):
   <h1>{p['title']}</h1>
   <p class="dek">{p['summary']}</p>
   <p class="byline"><b>{AUTHOR}</b> · {nice_date(p['happened'])}{(' · Version ' + p['version']) if p.get('version') else ''} · {p['minutes']} min read</p>
-  <figure class="cover">{cover_img(p, img_prefix, "", eager=True, sizes="(max-width: 760px) 92vw, 728px")}{('<figcaption>' + p['cover_cap'] + '</figcaption>') if p['cover_cap'] else ''}</figure>
+  <figure class="cover">{cover_img(p, img_prefix, "", eager=True, sizes="(max-width: 760px) 92vw, 1152px")}{('<figcaption>' + p['cover_cap'] + '</figcaption>') if p['cover_cap'] else ''}</figure>
   <div class="short"><p class="short-k">The short version</p><p>{p['short']}</p></div>
   <div class="body">
 {expand(p['body'], img_prefix, keep_review, [q['slug'] for q in posts], mode)}

@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Game crashes to desktop with no error? How RigSight finds why</h1>
   <p class="dek">When a game crashes to desktop with no error, Windows still logs the crash. How RigSight reads that record and names the cause, why games crash with no message, and how to find and fix it yourself.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 27 October 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/game-crashes-to-desktop-no-error.webp" srcset="../img/blog/game-crashes-to-desktop-no-error-600.webp 600w, ../img/blog/game-crashes-to-desktop-no-error.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="An opened game crash in RigSight marked Confirmed. The NVIDIA graphics driver failed while running the game, with what to try, what it wasn&#x27;t and the minutes around the crash" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/game-crashes-to-desktop-no-error.webp" srcset="../img/blog/game-crashes-to-desktop-no-error-600.webp 600w, ../img/blog/game-crashes-to-desktop-no-error.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="An opened game crash in RigSight marked Confirmed. The NVIDIA graphics driver failed while running the game, with what to try, what it wasn&#x27;t and the minutes around the crash" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A game that crashes to desktop with no error still leaves an entry in Windows. Open Event Viewer, Windows Logs, Application, and find Application Error 1000 at that time. The faulting module names the file it crashed in, which can be the game, the graphics driver, an overlay or Windows. That tells you what to fix first.</p></div>
   <div class="body">
 <p>You're mid-match, the screen flicks, and you're looking at your desktop. There's no message and no report. The game is just gone. A game that crashes to desktop with no error feels like it left nothing behind, but Windows almost always wrote down what happened. RigSight reads that record for you, and you can read it yourself too.</p>
@@ -255,7 +255,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>RigSight also looks for patterns across crashes. A game that crashes within a minute of starting reads "crashed as it was starting", which points at its files, an add-on or its anti-cheat, not at heat. Three crashes at the same place in the same file read "crashes at the same spot every time". That's a fault in the game, not your hardware. A crash while a graphics driver was being installed is put down to the install.</p>
 
-<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="The minutes around a game crash in RigSight, with lanes for temperature, load, power, memory, fans and network on one time axis, the crash marked, and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around the crash on the demo PC. Every lane shares one time axis, and the panel shows every reading at the minute you point at.</figcaption></figure>
+<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="The minutes around a game crash in RigSight, with lanes for temperature, load, power, memory, fans and network on one time axis, the crash marked, and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around the crash on the demo PC. Every lane shares one time axis, and the panel shows every reading at the minute you point at.</figcaption></figure>
 
 <p>Open a crash and you see the 45 minutes before it and the 10 after. You see temperatures, load, power, memory, fans and network, and which app was using the CPU and GPU. For a game, RigSight also keeps the last five minutes before the crash at a reading every 2 to 3 seconds. In the example, What it wasn't says "It wasn't overheating" and "Memory wasn't full", so you can stop worrying about those two. RigSight also says when graphics memory was well above that game's usual. You get a notification with the game's name the moment it happens, and the play on the Games page says it ended in a crash. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>
 

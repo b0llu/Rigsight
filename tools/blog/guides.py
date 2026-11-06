@@ -125,7 +125,7 @@ def guide_html(g, guides, mode, img):
   <h1>{g['title']}</h1>
   <p class="dek">{g['summary']}</p>
   <p class="byline"><b>{B().AUTHOR}</b> · Updated {upd} · {g['minutes']} min read</p>
-  <figure class="cover">{B().cover_img(g, img, "", eager=True, sizes="(max-width: 760px) 92vw, 728px")}{cap}</figure>
+  <figure class="cover">{B().cover_img(g, img, "", eager=True, sizes="(max-width: 760px) 92vw, 1152px")}{cap}</figure>
   <div class="short"><p class="short-k">The short answer</p><p>{g['short']}</p></div>
   <div class="body">
 {B().expand(g['body'], img, mode == "artifact", [x['slug'] for x in guides], mode)}

@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Why GPU hotspot temperature runs high, and when the gap is bad</h1>
   <p class="dek">Why the GPU hotspot temperature always reads higher than the GPU, what gap is normal, when 100°C is a problem, and how RigSight watches the gap for you over weeks of play.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 26 October 2026 · 6 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/gpu-hotspot-temperature.webp" srcset="../img/blog/gpu-hotspot-temperature-600.webp 600w, ../img/blog/gpu-hotspot-temperature.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="HOT SPOT: 78°, hottest sensor on the chip. GPU: 68°, the main reading. GAP: 10°, a normal spread in a game" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/gpu-hotspot-temperature.webp" srcset="../img/blog/gpu-hotspot-temperature-600.webp 600w, ../img/blog/gpu-hotspot-temperature.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="HOT SPOT: 78°, hottest sensor on the chip. GPU: 68°, the main reading. GAP: 10°, a normal spread in a game" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>The GPU hotspot temperature is the hottest of many sensors on the graphics chip, so it always reads above the main GPU temp. As a rule of thumb, a gap of about 10 to 20°C under load is common. AMD says up to 110°C on Radeon cards is within spec. A gap past about 30°C often points to paste or cooler contact.</p></div>
   <div class="body">
 <p>Your monitoring app shows two GPU temperatures. One says 72°C and the other, labelled hot spot, says 94°C. The GPU hotspot temperature always reads higher, and that's by design. What tells you whether something is wrong is how far apart the two are, and whether that gap has grown. A gap that grows does it slowly, over weeks, which is exactly what nobody notices by glancing at a number.</p>
@@ -245,7 +245,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. When your card reports a hotspot, the GPU card on the Temperatures page shows it as its own tile, next to the memory junction, with today's lowest and highest under it. The history graph draws GPU hot spot as a line beside the main GPU line, so you can see the gap across a whole evening of play.</p>
 
-<figure class="shot"><img src="../img/pages/temperatures.webp" srcset="../img/pages/temperatures-720.webp 720w, ../img/pages/temperatures.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="RigSight&#x27;s Temperatures page with the GPU at 68° and its hot spot at 78°, above a history graph with CPU, GPU, GPU hot spot and GPU memory lines" loading="lazy" decoding="async"><figcaption>RigSight's Temperatures page. The hot spot tile sits next to the GPU gauge, and the graph below draws it as its own line.</figcaption></figure>
+<figure class="shot"><img src="../img/pages/temperatures.webp" srcset="../img/pages/temperatures-720.webp 720w, ../img/pages/temperatures.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Temperatures page with the GPU at 68° and its hot spot at 78°, above a history graph with CPU, GPU, GPU hot spot and GPU memory lines" loading="lazy" decoding="async"><figcaption>RigSight's Temperatures page. The hot spot tile sits next to the GPU gauge, and the graph below draws it as its own line.</figcaption></figure>
 
 <p>RigSight also watches the gap for you. When the hotspot runs 30° or more above the core over 20 minutes or more of steady heavy load, Reports says so and adds that the thermal paste or cooler contact may have worn. Reports' Peaks list includes the day's highest GPU hot spot reading and the app that was running.</p>
 

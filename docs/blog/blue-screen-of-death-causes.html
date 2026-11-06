@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Blue screen of death causes on Windows 11, and the three on my PC</h1>
   <p class="dek">My PC had three blue screens in four weeks, each with a different stop code. Two were the graphics driver and one a USB audio driver. The common blue screen of death causes on Windows 11, how to find the stop code and the driver Windows names, and the fixes.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 5 November 2026 · 8 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/blue-screen-of-death-causes.webp" srcset="../img/blog/blue-screen-of-death-causes-600.webp 600w, ../img/blog/blue-screen-of-death-causes.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="Blue screens on my PC: 3, two in the graphics driver, one in a USB audio driver" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/blue-screen-of-death-causes.webp" srcset="../img/blog/blue-screen-of-death-causes-600.webp 600w, ../img/blog/blue-screen-of-death-causes.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Blue screens on my PC: 3, two in the graphics driver, one in a USB audio driver" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A blue screen means Windows found a fault it couldn't safely recover from and stopped. Microsoft puts about three quarters down to drivers. Hardware, such as unstable memory or CPU tuning, a failing drive or heat, makes up a smaller share. Find the stop code in Reliability Monitor or Event Viewer, look up what it names, and undo whatever changed last.</p></div>
   <div class="body">
 <p>Between 11 August and 9 September my PC hit three blue screens, and each one had a different stop code. The usual advice says that different codes every time point at hardware. The real answer was in the drivers Windows named. Two of the three were the graphics driver, and the third was a USB audio driver. The blue screen of death causes on Windows 11 are fewer than they seem, and Windows writes down which one it was if you know where to look.</p>
@@ -250,7 +250,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>So two of my three codes were the same driver, and the codes themselves are from the same family. <code>0x116</code> and <code>0x119</code> are both graphics stop codes. There hasn't been a blue screen since 9 September, as of 5 November in Windows' own log.</p>
 
-<figure class="shot"><img src="../img/pages/crash-open.webp" srcset="../img/pages/crash-open-720.webp 720w, ../img/pages/crash-open.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="An opened crash on RigSight&#x27;s demo PC with its cause marked Confirmed, What to try, What points to this, and What it wasn&#x27;t with the temperatures, memory and installs ruled out" loading="lazy" decoding="async"><figcaption>An opened crash on RigSight's demo PC. A blue screen opens the same way, with its code and the driver Windows named.</figcaption></figure>
+<figure class="shot"><img src="../img/pages/crash-open.webp" srcset="../img/pages/crash-open-720.webp 720w, ../img/pages/crash-open.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="An opened crash on RigSight&#x27;s demo PC with its cause marked Confirmed, What to try, What points to this, and What it wasn&#x27;t with the temperatures, memory and installs ruled out" loading="lazy" decoding="async"><figcaption>An opened crash on RigSight's demo PC. A blue screen opens the same way, with its code and the driver Windows named.</figcaption></figure>
 
 <p>Each opened crash also checks the things you would otherwise check by hand. It looks for a driver or Windows update installed in the 7 days before. It names that update, or rules it out when the same blue screen had already happened before it. It also shows any hardware errors handed over at the next start, says whether the CPU or GPU was over your alert limit, and counts how many times the same blue screen has happened before. A 0x124 or 0x101 with no driver named reads Likely a hardware fault. Open a crash for the 45 minutes before it, minute by minute, and use <strong>Copy report</strong> to paste the whole thing into a forum post. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
 

@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Why my display driver stopped responding and has recovered</h1>
   <p class="dek">"Display driver stopped responding and has recovered" means the graphics card took too long to answer and Windows reset its driver. How RigSight caught the resets on my own PC, what LiveKernelEvent 141 and nvlddmkm events mean, and how to fix it.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 28 October 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/display-driver-stopped-responding.webp" srcset="../img/blog/display-driver-stopped-responding-600.webp 600w, ../img/blog/display-driver-stopped-responding.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Crashes page for a month: tiles for app and game crashes, graphics driver resets, and blue screens and sudden shut-offs, a timeline of problems and a list of what went wrong" fetchpriority="high" decoding="async"><figcaption>RigSight's Crashes page on the demo PC. Graphics driver resets get their own count, apart from app crashes and blue screens.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/display-driver-stopped-responding.webp" srcset="../img/blog/display-driver-stopped-responding-600.webp 600w, ../img/blog/display-driver-stopped-responding.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Crashes page for a month: tiles for app and game crashes, graphics driver resets, and blue screens and sudden shut-offs, a timeline of problems and a list of what went wrong" fetchpriority="high" decoding="async"><figcaption>RigSight's Crashes page on the demo PC. Graphics driver resets get their own count, apart from app crashes and blue screens.</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Windows waits about two seconds for the graphics card. If it doesn't answer, Windows resets the driver and shows "display driver stopped responding and has recovered". Update or clean install the driver first, then set the GPU back to stock clocks and check its temperature and power. Several in a row can end in a blue screen.</p></div>
   <div class="body">
 <p>The screen goes black for a second, the game freezes or closes, and a note in the corner says "display driver stopped responding and has recovered". You may not see the note at all, only the flicker. Either way, Windows just reset your graphics driver. It happened on my own PC more often than I knew, and finding out how often changed what RigSight reads.</p>

@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Why did my PC crash? How RigSight caught one on mine</h1>
   <p class="dek">How to find out why your PC crashed on Windows 11 or 10, from a crash RigSight caught on my own PC. It covers what Windows records, why PCs crash, and where to look.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 26 October 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/find-out-why-pc-crashed.webp" srcset="../img/blog/find-out-why-pc-crashed-600.webp 600w, ../img/blog/find-out-why-pc-crashed.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Crashes page for a month: tiles for app crashes, graphics driver resets and blue screens with sudden shut-offs, a timeline, and a list of crashes each with a cause and how sure it is" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/find-out-why-pc-crashed.webp" srcset="../img/blog/find-out-why-pc-crashed-600.webp 600w, ../img/blog/find-out-why-pc-crashed.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Crashes page for a month: tiles for app crashes, graphics driver resets and blue screens with sudden shut-offs, a timeline, and a list of crashes each with a cause and how sure it is" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>To find out why your PC crashed, open Reliability Monitor. Type reliability into Start and pick View reliability history, then click the red X on that day. Then check Event Viewer, Windows Logs, System for Kernel-Power 41 and BugCheck 1001. A blue screen names a stop code, a sudden power loss names nothing.</p></div>
   <div class="body">
 <p>On 7 October I updated my NVIDIA graphics driver. Ten seconds after the new driver started, a program on my PC crashed. It happened to be RigSight's own recorder, caught asking the graphics card for its temperature at the exact moment the old driver disappeared. Windows wrote it down like any other crash, as one line in a log I'd never have opened. That's the problem when you try to find out why a PC crashed on Windows 11. The record is there, but nobody shows it to you.</p>
@@ -246,7 +246,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>Every crash gets a plain sentence for the most likely cause and one word for how sure that is. The words are Confirmed when Windows' own record says so, Likely, Possibly, and Not enough to say. A blue screen whose driver Windows named reads as Confirmed. A shut-off that neither Windows nor RigSight has anything on says Not enough to say, rather than guessing.</p>
 
-<figure class="shot"><img src="../img/pages/crash-open.webp" srcset="../img/pages/crash-open-720.webp 720w, ../img/pages/crash-open.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="An opened crash in RigSight: the cause marked Confirmed, What to try, What points to this, What it wasn&#x27;t with temperatures and memory, and the minutes around the crash" loading="lazy" decoding="async"><figcaption>An opened crash on RigSight's Crashes page. What it wasn't rules things out with the readings from those minutes.</figcaption></figure>
+<figure class="shot"><img src="../img/pages/crash-open.webp" srcset="../img/pages/crash-open-720.webp 720w, ../img/pages/crash-open.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="An opened crash in RigSight: the cause marked Confirmed, What to try, What points to this, What it wasn&#x27;t with temperatures and memory, and the minutes around the crash" loading="lazy" decoding="async"><figcaption>An opened crash on RigSight's Crashes page. What it wasn't rules things out with the readings from those minutes.</figcaption></figure>
 
 <p>Open one and you get what Windows can't give you. RigSight shows the 45 minutes before the crash and the 10 after. You see temperatures, load, power, memory, fans and the network, with the apps doing the work. It lists what it ruled out, such as "It wasn't overheating", and any driver, Windows update, BIOS or hardware change from the week before. <strong>Copy report</strong> puts it all in a block of text for a forum post, and the <strong>Event Viewer</strong> button opens Windows' own log. CPU temperature and power need RigSight running with admin rights. The readings only exist from when RigSight started recording, so older crashes from Windows' logs show without them.</p>
 

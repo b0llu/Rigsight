@@ -54,8 +54,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -132,8 +132,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -231,7 +231,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Teaching crashes to say how sure they are</h1>
   <p class="dek">Every crash now says what most likely caused it and how sure that is. Getting there meant one big feature, and cutting most of the next one.</p>
   <p class="byline"><b>Dhruv Samant</b> · 14 October 2026 · Version 0.24.0 and 0.25.0 · 3 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/how-sure-is-it.webp" srcset="../img/blog/how-sure-is-it-600.webp 600w, ../img/blog/how-sure-is-it.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Crashes page: three crashes, each with a word for how sure the cause is: Possibly a fault in the app, Confirmed, Not enough to say" fetchpriority="high" decoding="async"><figcaption>The Crashes page. Three crashes of the same game, three different levels of certainty.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/how-sure-is-it.webp" srcset="../img/blog/how-sure-is-it-600.webp 600w, ../img/blog/how-sure-is-it.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Crashes page: three crashes, each with a word for how sure the cause is: Possibly a fault in the app, Confirmed, Not enough to say" fetchpriority="high" decoding="async"><figcaption>The Crashes page. Three crashes of the same game, three different levels of certainty.</figcaption></figure>
   <div class="short"><p class="short-k">The short version</p><p>Every crash now gets a cause and one of four words for how sure that is. The follow-up feature started far too big, and the best decision was cutting most of it.</p></div>
   <div class="body">
 <p>When a game crashes, you want to know why. Windows does keep a record, but it reads like faulting module <code>nvwgf2umx.dll</code>, exception code 0xc0000005. If you know that file belongs to the NVIDIA driver, it's a clue. If you don't, it's noise.</p>
@@ -273,7 +273,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>Graphics driver resets, the black screen that comes back after a few seconds, became their own kind of problem.</li>
 </ul>
 
-<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="The minutes around a crash in RigSight: lanes for temperature, load, power, memory, fans and network on one time axis, with the crash marked and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around the crash. Every lane shares one time axis, and the panel on the right shows every reading at the minute you point at.</figcaption></figure>
+<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="The minutes around a crash in RigSight: lanes for temperature, load, power, memory, fans and network on one time axis, with the crash marked and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around the crash. Every lane shares one time axis, and the panel on the right shows every reading at the minute you point at.</figcaption></figure>
 
 <p>Even the confidence word changed. My first name for the top level was "Named by Windows". It was accurate, but it read oddly and nobody could tell what it meant. It became "Confirmed", and hovering it says that Windows' own record says so.</p>
 

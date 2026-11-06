@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>How to check GPU temperature history without being misled</h1>
   <p class="dek">RigSight's own chart once showed a GPU topping out at 68° on a day that hit 74°. How to check GPU temperature history on Windows with HWiNFO, GPU-Z or Afterburner logs, or a temperature monitor with history, and how to read it.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 4 November 2026 · 6 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/check-gpu-temperature-history.webp" srcset="../img/blog/check-gpu-temperature-history-600.webp 600w, ../img/blog/check-gpu-temperature-history.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Temperatures page on the demo PC with CPU and GPU gauges and a 24 hour temperature history graph with Average, Highest and Lowest switches" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/check-gpu-temperature-history.webp" srcset="../img/blog/check-gpu-temperature-history-600.webp 600w, ../img/blog/check-gpu-temperature-history.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Temperatures page on the demo PC with CPU and GPU gauges and a 24 hour temperature history graph with Average, Highest and Lowest switches" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Windows keeps no temperature history. Task Manager shows only the GPU temperature right now. To check GPU temperature history, record it with a sensor app. HWiNFO, GPU-Z and MSI Afterburner can each log readings to a file while you play. For a history of every day without starting a log, use a monitor that records in the background.</p></div>
   <div class="body">
 <p>In the first week of October, RigSight's own temperature chart showed a GPU topping out at 68° on a day whose highest reading was 74°. Both numbers were right, and the chart still told the wrong story. If you want to check GPU temperature history in Windows, that's the trap to know about. First you need a history at all, because Windows doesn't keep one. Then you need to read it in a way that doesn't hide the moment the card got hot.</p>
@@ -248,7 +248,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>Today RigSight records CPU, GPU, GPU hot spot and GPU memory temperatures all day, with no log to start, and the Temperatures page shows them. Its range menu goes from the last 5 minutes to the last 12 months, plus a custom range. Week, Month and Year are the last 7 days, 30 days and 12 months. Drag across any stretch to zoom in. The same page shows the warmest hours of the past week and the CPU's and GPU's resting temperature over the last 30 days. Motherboard and drive temperatures show live on the page but aren't kept. CPU temperature, motherboard and drive readings need RigSight to run with admin rights. RigSight keeps the history as long as you choose, and it's free and open source.</p>
 
-<figure class="shot"><img src="../img/pages/reports-day.webp" srcset="../img/pages/reports-day-720.webp 720w, ../img/pages/reports-day.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="RigSight&#x27;s Reports for one day on the demo PC, with a minute by minute graph of CPU and GPU temperature under a strip showing the app in front, and the day&#x27;s peaks with the game behind each" loading="lazy" decoding="async"><figcaption>RigSight's Reports for one day on the demo PC. The temperature lines sit under the app that was in front, and Peaks names the game behind each high.</figcaption></figure>
+<figure class="shot"><img src="../img/pages/reports-day.webp" srcset="../img/pages/reports-day-720.webp 720w, ../img/pages/reports-day.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Reports for one day on the demo PC, with a minute by minute graph of CPU and GPU temperature under a strip showing the app in front, and the day&#x27;s peaks with the game behind each" loading="lazy" decoding="async"><figcaption>RigSight's Reports for one day on the demo PC. The temperature lines sit under the app that was in front, and Peaks names the game behind each high.</figcaption></figure>
 
 <p>Reports covers any day, week, month, year or custom range. For a single day, its minute by minute graph lines temperatures up with the app in front. For any period, Peaks lists the highest CPU, GPU and GPU hot spot readings with the app that was running. If you want the raw numbers, the Export button on the page saves what it shows, and the Export in Settings can save temperatures as CSV files for a spreadsheet.</p>
 

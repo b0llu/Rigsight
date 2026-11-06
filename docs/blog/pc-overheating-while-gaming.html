@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>PC overheating while gaming, or just warm? How RigSight tells</h1>
   <p class="dek">How RigSight tells a PC overheating while gaming from one that is only warm, by setting each game against its own usual. Why PCs get hot in games, and how to stop it, from dust and airflow to frame caps, fan curves and thermal paste.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 4 November 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/pc-overheating-while-gaming.webp" srcset="../img/blog/pc-overheating-while-gaming-600.webp 600w, ../img/blog/pc-overheating-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Reports for October on the demo PC with an Against your usual table. GPU and CPU in Counter-Strike 2 are 3° cooler, too little to count, and fans and PC problems are as usual" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/pc-overheating-while-gaming.webp" srcset="../img/blog/pc-overheating-while-gaming-600.webp 600w, ../img/blog/pc-overheating-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Reports for October on the demo PC with an Against your usual table. GPU and CPU in Counter-Strike 2 are 3° cooler, too little to count, and fans and PC problems are as usual" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A PC overheating while gaming is usually dust, poor airflow, or a game running far more frames than your screen shows. Clean the filters and coolers, give the case room to breathe, and cap the frame rate. Check fan curves and paste after that. Compare the same game before and after each change.</p></div>
   <div class="body">
 <p>Your fans roar, the case is warm to the touch, and the frame rate sags after twenty minutes of play. That feels like a PC overheating while gaming, but a hot PC and an overheating PC are different things. A PC is meant to get warm in games. The question is whether yours runs hotter than it used to in the same game, and RigSight answers that from your PC's own history.</p>
@@ -255,7 +255,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>When a game does run hotter, RigSight says so in a few places. The PC health card on Home gets one line naming the game, the part, how many degrees hotter at the same power, and the usual range. With no change it says "Temperatures as usual". On the Games page every play keeps its GPU temperature and power, and a play at the usual power says how far it was from that game's usual. So you can see which evening it started.</p>
 
-<figure class="shot"><img src="../img/pages/home.webp" srcset="../img/pages/home-720.webp 720w, ../img/pages/home.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="RigSight&#x27;s Home page on the demo PC with today&#x27;s activity, CPU and GPU peaks with the app in use, and a PC health card that says temperatures are as usual" loading="lazy" decoding="async"><figcaption>Home on RigSight's demo PC. The PC health card says whether temperatures are as usual for this PC.</figcaption></figure>
+<figure class="shot"><img src="../img/pages/home.webp" srcset="../img/pages/home-720.webp 720w, ../img/pages/home.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Home page on the demo PC with today&#x27;s activity, CPU and GPU peaks with the app in use, and a PC health card that says temperatures are as usual" loading="lazy" decoding="async"><figcaption>Home on RigSight's demo PC. The PC health card says whether temperatures are as usual for this PC.</figcaption></figure>
 
 <p>If the PC shut off in a game, the crash's close-up says whether it was running hot just before. It also points out that a power cut at the same moment would look the same. You can turn on <strong>Temperature alerts</strong> under <strong>Notifications</strong> in Settings to get a warning that names the game when a part stays over your limit. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>
 

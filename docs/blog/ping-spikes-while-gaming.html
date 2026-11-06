@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Ping spikes while gaming, and the download behind mine</h1>
   <p class="dek">My ping to my internet provider jumped to 155 ms in the minute Steam pulled 175 MB, while my own router stayed under a millisecond. How RigSight shows where ping spikes while gaming start, why they happen, and how to fix them.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 6 November 2026 · 5 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/ping-spikes-while-gaming.webp" srcset="../img/blog/ping-spikes-while-gaming-600.webp 600w, ../img/blog/ping-spikes-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="Ping to my router: &lt;1 ms, the same minute. Ping to my provider: 155 ms, during a Steam download" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/ping-spikes-while-gaming.webp" srcset="../img/blog/ping-spikes-while-gaming-600.webp 600w, ../img/blog/ping-spikes-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Ping to my router: &lt;1 ms, the same minute. Ping to my provider: 155 ms, during a Steam download" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Ping spikes while gaming usually come from something else filling your connection, like a launcher or Windows downloading in the background, or from Wi-Fi. Ping your router and something on the internet at the same time. If only the internet side spikes, pause downloads and uploads first. If your router spikes too, it's your Wi-Fi or cable.</p></div>
   <div class="body">
 <p>On 5 November at 10:32 PM, RigSight's ping check to my internet provider's first router came back in 155 ms. A minute before it was 1 ms, and a minute after it was 1 ms again. My own router answered in under a millisecond the whole time. In that minute Steam pulled 175 MB, more than thirty times what it pulled the minute before. I wasn't in a game, but it's a common story behind ping spikes while gaming. Something else fills the connection, and the game's packets wait in line behind it.</p>

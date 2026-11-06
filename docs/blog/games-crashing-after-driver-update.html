@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Games crashing after a graphics driver update, and how to tell why</h1>
   <p class="dek">Two apps crashed on my PC within ten seconds of a new NVIDIA driver going in. How RigSight tells a crash during the install from a bad driver, why games crash after a graphics driver update, and how to roll back or clean install.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 3 November 2026 · 8 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/games-crashing-after-driver-update.webp" srcset="../img/blog/games-crashing-after-driver-update-600.webp 600w, ../img/blog/games-crashing-after-driver-update.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Crashes page with an opened crash on the demo PC. The NVIDIA graphics driver failed while running Crimson Desert, marked Confirmed, with what to try and what it wasn&#x27;t" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/games-crashing-after-driver-update.webp" srcset="../img/blog/games-crashing-after-driver-update-600.webp 600w, ../img/blog/games-crashing-after-driver-update.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Crashes page with an opened crash on the demo PC. The NVIDIA graphics driver failed while running Crimson Desert, marked Confirmed, with what to try and what it wasn&#x27;t" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>If games started crashing right after a graphics driver update, roll the driver back first. Open Device Manager, Display adapters, your card, the Driver tab, and press Roll Back Driver. If the crashes stop, wait for the next driver. If they don't, do a clean install, set the GPU back to stock clocks and check your overlays.</p></div>
   <div class="body">
 <p>On 7 October at 5:40 PM I installed a new NVIDIA driver. Within ten seconds, two programs on my PC had crashed. Cloudflare WARP went down seven seconds after Windows put the new driver in, and RigSight's own recorder went down three seconds after that. Neither crash meant the new driver was bad. Games crashing after a graphics driver update can mean two different things, and each one has its own fix.</p>
@@ -256,7 +256,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>On the Games page, each game lists every play and how it ended, newest first. The graphics driver, Windows and game updates that came between plays sit in the same list. The How it runs chart marks every driver and game update against the frame rate. Frame rates need RivaTuner Statistics Server running.</p>
 
-<figure class="shot"><img src="../img/pages/game.webp" srcset="../img/pages/game-720.webp 720w, ../img/pages/game.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="RigSight&#x27;s page for Dota 2 on the demo PC, with a How it runs chart of average FPS and 1% lows over a year and a mark for driver 617.42" loading="lazy" decoding="async"><figcaption>A game's page on RigSight's demo PC. The How it runs chart marks driver and game updates, so a change in frame rate lines up with the update that came before it.</figcaption></figure>
+<figure class="shot"><img src="../img/pages/game.webp" srcset="../img/pages/game-720.webp 720w, ../img/pages/game.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s page for Dota 2 on the demo PC, with a How it runs chart of average FPS and 1% lows over a year and a mark for driver 617.42" loading="lazy" decoding="async"><figcaption>A game's page on RigSight's demo PC. The How it runs chart marks driver and game updates, so a change in frame rate lines up with the update that came before it.</figcaption></figure>
 
 <p>The Timeline lists every graphics driver install with its time, the new version and the one it replaced. Its "This PC now" panel shows the driver you're on and since when. When a driver made a measurable difference, the <b>Before and after</b> filter shows it. That filter counts graphics driver resets, blue screens inside a graphics driver and shut-offs after the GPU hung. It doesn't count game crashes, so for those the Games and Crashes pages are where to look. RigSight is free and open source.</p>
 

@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>GPU not at 100% usage but low FPS? Find what your card waits for</h1>
   <p class="dek">How RigSight tells whether a frame cap, VSync or the CPU keeps your GPU under 100% usage, why the card waits, and how to check a CPU bottleneck yourself.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 30 October 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/gpu-not-at-100-usage-low-fps.webp" srcset="../img/blog/gpu-not-at-100-usage-low-fps-600.webp 600w, ../img/blog/gpu-not-at-100-usage-low-fps.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Can it run better? card for Dota 2 on the example PC, saying the frame rate is flat at 236 fps and the graphics card averaged 68% busy and never hit full load" fetchpriority="high" decoding="async"><figcaption>Dota 2 on the site's example PC. Low GPU load with a flat frame rate means a cap, not a weak card.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/gpu-not-at-100-usage-low-fps.webp" srcset="../img/blog/gpu-not-at-100-usage-low-fps-600.webp 600w, ../img/blog/gpu-not-at-100-usage-low-fps.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Can it run better? card for Dota 2 on the example PC, saying the frame rate is flat at 236 fps and the graphics card averaged 68% busy and never hit full load" fetchpriority="high" decoding="async"><figcaption>Dota 2 on the site's example PC. Low GPU load with a flat frame rate means a cap, not a weak card.</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A graphics card under 95% load means it is waiting. If the frame rate sits flat at a round number, a cap or VSync is holding it. If it moves around and drops in busy scenes, the CPU or the game engine is the limit. Lowering the resolution tells you which. If FPS barely rises, it's the CPU.</p></div>
   <div class="body">
 <p>Your GPU is not at 100% usage but your FPS is low, and that feels wrong. Why would the graphics card rest while the game struggles? The card is waiting. Something else decides how many frames get made, and the GPU finishes its share early. RigSight works out what it waits for from every play you've recorded, and below is how it does that and how you can check it yourself.</p>

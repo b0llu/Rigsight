@@ -54,8 +54,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -132,8 +132,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -231,7 +231,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Day one, and 25 versions before midnight</h1>
   <p class="dek">The first public day of RigSight, what it set out to do, and the first mistake it shipped, which counted the page file as RAM.</p>
   <p class="byline"><b>Dhruv Samant</b> · 23 September 2026 · Version 0.2.0 to 0.4.8 · 3 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/day-one.webp" srcset="../img/blog/day-one-600.webp 600w, ../img/blog/day-one.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Home card for today: time active, PC on and away, CPU and GPU peaks with the app in use, and the most used apps" fetchpriority="high" decoding="async"><figcaption>Home today. The peaks still say what was in front of you when they happened, an idea from that first day.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/day-one.webp" srcset="../img/blog/day-one-600.webp 600w, ../img/blog/day-one.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Home card for today: time active, PC on and away, CPU and GPU peaks with the app in use, and the most used apps" fetchpriority="high" decoding="async"><figcaption>Home today. The peaks still say what was in front of you when they happened, an idea from that first day.</figcaption></figure>
   <div class="short"><p class="short-k">The short version</p><p>On 23 September RigSight went from 0.2.0 to 0.4.8 in one day. The idea was a PC monitor that keeps what it sees. The first mistake shipped that day too. It counted the page file as RAM.</p></div>
   <div class="body">
 <p>Every PC monitor I had used works the same way. You open it, it shows what your PC is doing right now, and when you close it, all of that is gone. If your GPU hit 85 degrees at 2 AM in the middle of a game, you will never know, unless the window happened to be open and you happened to be looking.</p>

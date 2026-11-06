@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Free PC monitoring software, and why I built an HWiNFO alternative</h1>
   <p class="dek">HWiNFO showed me every sensor but not what my PC did yesterday, so I built RigSight. Free PC monitoring software compared, from Task Manager and HWiNFO to MSI Afterburner, LibreHardwareMonitor and RigSight, and which one answers your question.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 4 November 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/free-pc-monitoring-software.webp" srcset="../img/blog/free-pc-monitoring-software-600.webp 600w, ../img/blog/free-pc-monitoring-software.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight&#x27;s Home page on the demo PC with today&#x27;s time on the PC, CPU and GPU peaks with the app in use, yesterday&#x27;s summary and PC health" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/free-pc-monitoring-software.webp" srcset="../img/blog/free-pc-monitoring-software-600.webp 600w, ../img/blog/free-pc-monitoring-software.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Home page on the demo PC with today&#x27;s time on the PC, CPU and GPU peaks with the app in use, yesterday&#x27;s summary and PC health" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>For the most sensors, use HWiNFO. For GPU overclocking, fan curves and an FPS overlay, use MSI Afterburner with RivaTuner Statistics Server. For an open source sensor reader, LibreHardwareMonitor. For history, meaning what your PC did yesterday or last month, RigSight. Task Manager covers the basics.</p></div>
   <div class="body">
 <p>Before RigSight existed, I used HWiNFO. It's a great tool, and it shows almost every sensor in a PC. What it didn't give me was the history I wanted. I could see what my PC was doing right now. I couldn't easily see what it did yesterday, or last week, or how this month compared with the one before. That gap is why I built RigSight. Search for free PC monitoring software, or an HWiNFO alternative, and you get the same few names every time. They aren't really rivals. Each one answers a different question about your PC.</p>
@@ -246,7 +246,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>What you get from that is history in plain words. Home says each day's CPU and GPU peak with the app that was in front at the time. The Temperatures page shows the CPU and GPU from the last 5 minutes up to the last 12 months, or any custom range. The Crashes page lists app crashes, blue screens, driver resets and sudden shut-offs with what most likely caused each one. The Timeline lists what changed on the PC, such as drivers and Windows updates, and whether things ran hotter or less stable afterwards. RigSight keeps the history as long as you choose in Settings, from 3 months up to forever.</p>
 
-<figure class="shot"><img src="../img/pages/temperatures.webp" srcset="../img/pages/temperatures-720.webp 720w, ../img/pages/temperatures.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="RigSight&#x27;s Temperatures page on the demo PC with live CPU and GPU temperature, load, power and clocks, and a 24 hour history chart of CPU, GPU, hot spot and memory temperatures" loading="lazy" decoding="async"><figcaption>RigSight's Temperatures page on the demo PC. The history chart keeps every minute, so you can look back at a game you played hours or months ago.</figcaption></figure>
+<figure class="shot"><img src="../img/pages/temperatures.webp" srcset="../img/pages/temperatures-720.webp 720w, ../img/pages/temperatures.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Temperatures page on the demo PC with live CPU and GPU temperature, load, power and clocks, and a 24 hour history chart of CPU, GPU, hot spot and memory temperatures" loading="lazy" decoding="async"><figcaption>RigSight's Temperatures page on the demo PC. The history chart keeps every minute, so you can look back at a game you played hours or months ago.</figcaption></figure>
 
 <p>It also keeps time per app, internet use per app, fan speeds over months, and each game's frame rate and 1% low for every play. Live readings can go in the taskbar on tiles, where a click shows that reading's last ten minutes. They can also go in desktop widgets and an in-game overlay. Everything can be exported as CSV. RigSight is free and open source.</p>
 

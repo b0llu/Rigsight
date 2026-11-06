@@ -54,8 +54,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -132,8 +132,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -231,7 +231,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>The day RigSight told me my healthy fan was clogged</h1>
   <p class="dek">A warning that compared a resting PC with a gaming one, and the rule it left behind. Compare like with like, or say nothing.</p>
   <p class="byline"><b>Dhruv Samant</b> · 29 September 2026 · Version 0.11.0 · 3 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/like-for-like.webp" srcset="../img/blog/like-for-like-600.webp 600w, ../img/blog/like-for-like.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="RigSight Reports for a Saturday: where the time went, the day minute by minute, what stood out and the peaks" fetchpriority="high" decoding="async"><figcaption>A day on Reports. "What stood out" at the bottom is where insights live, and each one has to pass the like-for-like test.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/like-for-like.webp" srcset="../img/blog/like-for-like-600.webp 600w, ../img/blog/like-for-like.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight Reports for a Saturday: where the time went, the day minute by minute, what stood out and the peaks" fetchpriority="high" decoding="async"><figcaption>A day on Reports. "What stood out" at the bottom is where insights live, and each one has to pass the like-for-like test.</figcaption></figure>
   <div class="short"><p class="short-k">The short version</p><p>RigSight warned my healthy GPU fan might be clogged. It had compared a stopped fan at rest with a spinning one in a game. Since then, every comparison is like for like, or not shown.</p></div>
   <div class="body">
 <p>A big part of RigSight is the short lines it writes about your PC. "You gamed 25 minutes less than your usual Saturday." "Your GPU was hotter than usual in this game." I call them insights, and they are the reason the app exists. Anyone can draw a chart. Telling you which part of the chart matters is harder.</p>

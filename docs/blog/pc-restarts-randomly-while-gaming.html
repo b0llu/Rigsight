@@ -56,8 +56,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--gpu); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
 img { max-width: 100%; height: auto; }
-/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. A post keeps its
-   reading width: all its parts share one column (--col) that starts at the same left edge as the top bar. */
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
 .wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
 
 /* top bar: the home page's, size for size */
@@ -134,8 +134,8 @@ img { max-width: 100%; height: auto; }
 .guide .short { border-color: rgba(34,211,238,.35); }
 .next.rel { grid-template-columns: 1fr 1fr; }
 
-/* a post: every part on one column, as wide as the cover, so all their edges line up under the top bar's left edge */
-.post { --col: 728px; padding-block: 40px 40px; }
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
 .post > * { max-width: var(--col); }
 .crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
 .crumbs a { color: var(--muted); text-decoration: none; }
@@ -233,7 +233,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>PC restarts randomly while gaming? Rule things out first</h1>
   <p class="dek">My PC went off eleven times in two weeks with no blue screen, and the minutes before each one ruled out heat and the power supply. How to check why a PC randomly restarts while gaming, and how to tell heat, the power supply, tuning and Windows apart.</p>
   <p class="byline"><b>Dhruv Samant</b> · Updated 6 November 2026 · 6 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/pc-restarts-randomly-while-gaming.webp" srcset="../img/blog/pc-restarts-randomly-while-gaming-600.webp 600w, ../img/blog/pc-restarts-randomly-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 728px" width="1200" height="800" alt="Sudden shut-offs on my PC: 11, in 13 days, with no blue screen and no button pressed" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/pc-restarts-randomly-while-gaming.webp" srcset="../img/blog/pc-restarts-randomly-while-gaming-600.webp 600w, ../img/blog/pc-restarts-randomly-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Sudden shut-offs on my PC: 11, in 13 days, with no blue screen and no button pressed" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A PC that restarts randomly while gaming is most often the power supply, an unstable overclock or memory profile, or heat. Check why first. Event Viewer's System log shows Kernel-Power 41 for a sudden stop and User32 1074 for a planned restart. Turn off automatic restart to catch any hidden blue screen.</p></div>
   <div class="body">
 <p>Between 17 and 29 September my PC went off eleven times without shutting down properly, five of them on 29 September alone. There was no blue screen and nobody touched the power button. When your PC restarts randomly while gaming, the first job is the one I had. Before you replace anything, use what happened in the minutes before to rule causes out.</p>
@@ -255,7 +255,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>A PC running again within two minutes reads as a power dip or a reset.</li>
 </ul>
 
-<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 720px" width="1424" height="924" alt="The minutes around a problem on RigSight&#x27;s demo PC: lanes for temperature, load, power, memory, fans and network on one time axis, with the moment marked and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around a crash on RigSight's demo PC. A sudden shut-off opens the same way, with the minutes before it on one time axis.</figcaption></figure>
+<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="The minutes around a problem on RigSight&#x27;s demo PC: lanes for temperature, load, power, memory, fans and network on one time axis, with the moment marked and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around a crash on RigSight's demo PC. A sudden shut-off opens the same way, with the minutes before it on one time axis.</figcaption></figure>
 
 <p>Open a shut-off to see the 45 minutes before it, minute by minute. It shows CPU and GPU temperatures, load, how many watts the GPU was drawing, memory and fans, with the game in front. A shut-off at 300 W and normal temperatures points at power, and one at 90° points at heat. The Temperatures graph leaves a gap where nothing was recorded and says whether the PC was off, shut off suddenly, crashed or was asleep. On the Games page, the play itself says it ended in a shut-off or a power cut. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
 
