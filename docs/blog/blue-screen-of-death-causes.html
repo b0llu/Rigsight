@@ -292,7 +292,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <ul>
   <li><code>0x124</code> WHEA_UNCORRECTABLE_ERROR means the hardware reported an error it couldn't recover from. It's usually CPU or memory tuning, so undo overclocks, undervolts, Curve Optimizer and XMP or EXPO, and update the BIOS.</li>
-  <li><code>0x101</code> CLOCK_WATCHDOG_TIMEOUT means a CPU core stopped responding. It's usually unstable CPU tuning.</li>
+  <li><code>0x101</code> CLOCK_WATCHDOG_TIMEOUT means a CPU core stopped answering. It's usually unstable CPU tuning.</li>
   <li><code>0x1A</code> MEMORY_MANAGEMENT, <code>0x50</code> PAGE_FAULT_IN_NONPAGED_AREA, <code>0x4E</code> PFN_LIST_CORRUPT point to memory. Test with XMP or EXPO turned off and run Windows Memory Diagnostic.</li>
   <li><code>0x116</code> VIDEO_TDR_FAILURE and <code>0x119</code> VIDEO_SCHEDULER_INTERNAL_ERROR point to the graphics driver. Clean-reinstall it and undo any GPU overclock.</li>
   <li><code>0xD1</code> DRIVER_IRQL_NOT_LESS_OR_EQUAL and <code>0xA</code> IRQL_NOT_LESS_OR_EQUAL mean a driver touched memory it shouldn't. Network, audio and graphics drivers are frequent culprits.</li>

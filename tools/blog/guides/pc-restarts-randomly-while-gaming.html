@@ -67,7 +67,7 @@
   <li>Event 1074 from User32 is a planned restart. It names the program that asked for it, often Windows Update. It is not a crash.</li>
   <li>Event 1001 from BugCheck is a blue screen, with its stop code. Read <a href="blue-screen-of-death-causes">blue screen of death causes</a> next.</li>
   <li>Event 41 from Kernel-Power means Windows started again after not shutting down cleanly. Open its <strong>Details</strong> tab. A <code>BugcheckCode</code> of 0 with no 1001 means the PC lost power or was reset. <a href="kernel-power-41">Kernel-Power 41</a> explains every field.</li>
-  <li>Event 6008 from EventLog gives the time Windows last noted it was running before the unexpected shutdown. Treat it as roughly right, since it can be some minutes early.</li>
+  <li>Event 6008 from EventLog gives the time Windows last noted it was running before the sudden shut-off. Treat it as roughly right, since it can be some minutes early.</li>
 </ul>
 
 <p>Reliability Monitor shows the same thing on a calendar. Type <strong>reliability</strong> into Start and open <strong>View reliability history</strong>.</p>
