@@ -29,11 +29,11 @@
   "blue-screen-of-death-causes": "2026-11-05",
   "how-sure-is-it": "2026-11-05",
   "ping-spikes-while-gaming": "2026-11-06",
-  "pc-restarts-randomly-while-gaming": "2026-11-06"
+  "pc-restarts-randomly-while-gaming": "2026-11-06",
+  "one-percent-low-fps": "2026-11-07",
+  "bringing-ai-back": "2026-11-07"
  },
  "queue": [
-  "bringing-ai-back",
-  "one-percent-low-fps",
   "rigsight-in-spanish",
   "gpu-fan-not-spinning",
   "three-ways-to-ask",
@@ -57,7 +57,6 @@
   "did-windows-update-cause-crashes",
   "gpu-fan-not-spinning",
   "how-to-show-fps-overlay",
-  "one-percent-low-fps",
   "pc-fans-loud-while-gaming",
   "power-plan-keeps-changing",
   "screen-time-on-pc",

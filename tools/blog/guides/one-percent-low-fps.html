@@ -1,70 +1,38 @@
 <!--meta
-{
- "slug": "one-percent-low-fps",
- "series": "guide",
- "published": "2026-10-26",
- "updated": "2026-10-26",
+{"slug": "one-percent-low-fps", "series": "guide", "published": "2026-10-26", "updated": "2026-11-07",
  "topic": "FPS and games",
  "keyword": "1 low fps meaning",
- "also": [
-  "what is 1 low fps",
-  "1 low fps explained",
-  "1 low fps drops",
-  "1 low fps fix",
-  "1 low fps msi afterburner",
-  "does low fps cause lag"
- ],
- "title": "1% low FPS meaning, and what a good gap to the average looks like",
- "summary": "The 1% low FPS meaning in plain words. It is the frame rate of your slowest frames and shows the stutter an average hides. Here is what a healthy gap to the average looks like, and how to see and fix it.",
+ "also": ["what is 1 low fps", "1 low fps explained", "1 low fps drops", "1 low fps fix", "1 low fps msi afterburner", "does low fps cause lag"],
+ "title": "1% low FPS meaning, and why my 116 was really 69",
+ "summary": "Four hours of Risk of Rain 2 at 187 FPS. Each minute's 1% low, averaged, said 116. Counting every frame together, it was 69. The 1% low FPS meaning in plain words, what a good gap to the average looks like, and how to see and fix it.",
+ "description": "1% low FPS is the frame rate of your slowest 1% of frames, and it shows the stutter an average hides. Under half the average feels rough. How to fix it.",
  "short": "1% low FPS is the frame rate of the slowest 1% of frames. The average tells you how fast a game runs. The 1% low tells you how smooth it feels. When the 1% low stays close to the average, play feels even. When it falls far below, you feel hitches.",
  "faq": [
-  [
-   "What is 1% low FPS?",
-   "It is the frame rate your game stays above for 99% of its frames. Take every frame time you measured, find the slowest 1%, and turn that time into a frame rate. A 1% low of 40 means one frame in a hundred took 25 ms or longer."
-  ],
-  [
-   "What is a good 1% low FPS?",
-   "There is no official number. RigSight's own rule of thumb compares it with your average. A 1% low at 70% of the average or more usually feels smooth, and below half of it you will feel stutter. It also helps if the 1% low stays above your monitor's lower G-Sync or FreeSync limit."
-  ],
-  [
-   "Why are my 1% low FPS drops so big?",
-   "Big gaps usually come from the CPU being the limit in busy scenes, graphics memory running out, shaders compiling during play, or background apps grabbing CPU or disk time. A first session after a driver or game update often has worse lows than later ones."
-  ],
-  [
-   "Does low FPS cause lag?",
-   "Low FPS makes the picture update less often, so the game feels slower to respond, but it isn't network lag. Ping and packet loss cause network lag. A low 1% low feels like a short freeze or hitch, which people often call lag too."
-  ],
-  [
-   "How do I see 1% low FPS in MSI Afterburner?",
-   "In Afterburner's settings, open the Monitoring tab, tick the Framerate 1% Low entry and turn on Show in On-Screen Display for it. RivaTuner Statistics Server must be running, since it draws the overlay. MSI notes the 1% low may only update while benchmark recording runs, so set a benchmark hotkey on the Benchmark tab and press it in game."
-  ]
+  ["What is 1% low FPS?", "It is the frame rate your game stays above for 99% of its frames. Take every frame time you measured, find the slowest 1%, and turn that time into a frame rate. A 1% low of 40 means one frame in a hundred took 25 ms or longer."],
+  ["What is a good 1% low FPS?", "There is no official number. RigSight's own rule of thumb compares it with your average. A 1% low at 70% of the average or more usually feels smooth, and below half of it you will feel stutter. It also helps if the 1% low stays above your monitor's lower G-Sync or FreeSync limit."],
+  ["Why are my 1% low FPS drops so big?", "Big gaps usually come from the CPU being the limit in busy scenes, graphics memory running out, shaders compiling during play, or background apps grabbing CPU or disk time. A first session after a driver or game update often has worse lows than later ones."],
+  ["Does low FPS cause lag?", "Low FPS makes the picture update less often, so the game feels slower to respond, but it isn't network lag. Ping and packet loss cause network lag. A low 1% low feels like a short freeze or hitch, which people often call lag too."],
+  ["How do I see 1% low FPS in MSI Afterburner?", "In Afterburner's settings, open the Monitoring tab, tick the Framerate 1% Low entry and turn on Show in On-Screen Display for it. RivaTuner Statistics Server must be running, since it draws the overlay. MSI notes the 1% low may only update while benchmark recording runs, so set a benchmark hotkey on the Benchmark tab and press it in game."]
  ],
- "cover_img": "pages/game",
- "cover_crop": [
-  252,
-  354,
-  560,
-  320
- ],
- "cover_alt": "RigSight's How it runs card for Dota 2: AVERAGE 235 fps and 1% LOW 170 fps beside the frame rate chart",
- "app": [
-  "Games page, How it runs: average FPS and 1% low per play, hover shows each (0.29.0, hover boxes 0.29.1)",
-  "Every play list with FPS and 1% low (0.29.0)",
-  "Can it run better? smoothness line comparing 1% low with the average (0.32.0)",
-  "Overlay and widgets: 1% low reading (overlay 0.4.0; the GAME group lists Frame rate, Frame time and 1% low)"
- ],
- "sources": [
-  "https://www.capframex.com/blog/post/Explanation%20of%20different%20performance%20metrics",
-  "https://developer.android.com/games/optimize/framerate",
-  "https://www.digitalcitizen.life/how-to-tell-whether-your-cpu-or-gpu-is-limiting-gaming-performance/",
-  "https://www.blurbusters.com/gsync/gsync101-input-lag-tests-and-settings/14/",
-  "https://www.msi.com/blog/msi-afterburner-on-screen-display"
- ]
-}
+ "cover_tiles": [["Minute lows averaged", "116", "4 hours of Risk of Rain 2"], ["Every frame counted", "69", "the true 1% low"]],
+ "app": ["Every frame's time kept since 0.35.0 in narrow bands each minute (about 60 bytes a minute), so any stretch's true 1% and 0.1% lows can be worked out (Frames.cs FrameSpread)", "Before 0.35.0 the 1% low was an average of RivaTuner's own lows over the last 1,024 frames (FrameSpread doc)", "Stutter: a frame at least 2.5 times as long as the middle of the 30 before it and at least 20 ms; none counted while the game runs under 20 fps (StutterFinder)", "Five or more stutters within 15 minutes are named with what else was busy then (StutterCauses)", "Games page: Smooth, Mostly smooth or It stutters from stutters an hour, with the 0.1% low (GamesViewModel.SmoothOf)", "Can it run better? 1% low against the average at 70% and 50% (GamesViewModel.BetterLines)", "How it runs chart with each play's average and 1% low, driver and game updates marked (0.29.0)", "Every play with its stutters (GamesViewModel)", "Overlay and widgets: 1% low reading", "FPS needs RivaTuner Statistics Server running before the game"],
+ "sources": ["https://www.capframex.com/blog/post/Explanation%20of%20different%20performance%20metrics", "https://developer.android.com/games/optimize/framerate", "https://www.digitalcitizen.life/how-to-tell-whether-your-cpu-or-gpu-is-limiting-gaming-performance/", "https://www.blurbusters.com/gsync/gsync101-input-lag-tests-and-settings/14/", "https://www.msi.com/blog/msi-afterburner-on-screen-display"]}
 -->
-<p>You see two numbers in a benchmark, average FPS and 1% low. Most people look at the first one. The second one is the reason a game at 120 FPS can still feel choppy. Here is the 1% low FPS meaning in plain words, what a good gap to the average is, and what to do when yours is bad.</p>
+<p>On 28 October I played Risk of Rain 2 for about four hours, at an average of 187 FPS. If you take the 1% low of each minute and average them, you get 116, which looks fine. Counting every frame of those four hours together, the real 1% low was 69, and RigSight found 3,281 stutters. Two numbers from the same hours of play told different stories. Here is the 1% low FPS meaning in plain words, why the way it's measured matters, and what to do when yours is bad.</p>
 
-<h2>What 1% low FPS means</h2>
+<h2>How RigSight caught it</h2>
+
+<p>Before version 0.35.0, RigSight's 1% low was an average of RivaTuner's own 1% lows, each worked out over the last 1,024 frames. Averaging lows from short windows smooths the worst moments away, the same way my minutes averaged out to 116. On 25 October I asked for something better, a record of every frame instead of an average. Since 0.35.0, RigSight keeps every frame's time from RivaTuner, sorted into narrow bands each minute. That takes about 60 bytes a minute, and it lets RigSight work out the true 1% and 0.1% lows for any stretch of play, from a single minute to a whole month.</p>
+
+<p>It also counts stutters. A stutter is one frame that took at least 2.5 times as long as the frames just before it, and at least 20 ms. A game running at 144 FPS that jumps from 7 ms frames to 20 ms is a hitch you feel, while 8 to 12 ms isn't. Nothing is counted while a game runs under 20 FPS overall, so loading screens don't count. When five or more stutters bunch up within 15 minutes, RigSight names what else was busy at that time, like another app reading the disk hard.</p>
+
+<p>On the Games page, each game says how smooth it plays, as Smooth, Mostly smooth or It stutters, from how many stutters an hour it had, with the 0.1% low beside it. My Risk of Rain 2 day had about 780 stutters an hour, so it stutters. The Can it run better? card compares the 1% low with the average. At 70% of the average or above, it says the game plays smoothly. Between 50 and 70% it says you may feel the odd stutter, and below 50% it says it stutters. My 69 against 187 is 37%.</p>
+
+<p>The How it runs chart draws each play's average as a line with a dot for each play, and the 1% low dashed under it. Graphics driver installs and game updates are marked between plays, so a gap that grew after one of them stands out. Every play below lists its stutters. While you play, the overlay and widgets can show the 1% low live next to the frame rate. Frame times come from RivaTuner Statistics Server, which has to be running before the game starts, and the Games page has a button to install or start it. RigSight is free and open source.</p>
+
+{{fig pages/game | RigSight's page for Dota 2 on the demo PC: How it runs with average 235 fps and 1% low 170 fps, with a chart of both for each play | A game on RigSight's demo PC. The solid line is each play's average FPS, and the dashed line under it is the 1% low.}}
+
+<h2>Why the 1% low tells you more than the average</h2>
 
 <p>A game doesn't make frames at an even pace. Some frames take 7 ms, some take 9 ms, and now and then one takes 30 ms. Average FPS hides that. It adds all the frames up and divides by the time.</p>
 
@@ -78,13 +46,9 @@
 
 <p>So a 1% low of 40 means that one frame in every hundred took 25 ms or longer. In a game running at an average of 100 FPS, that is about one slow frame every second.</p>
 
-<p>Tools work it out in slightly different ways. Some take the frame time at the 99th percentile, the point that 99% of frames are faster than. Others average all the frames in the slowest 1%. The second way gives a lower number. Compare 1% lows only between runs measured with the same tool. The 0.1% low is the same idea for the slowest one frame in a thousand. It catches rare big hitches.</p>
+<p>Your eyes notice changes in pace more than the pace itself. A steady 60 FPS feels smooth. A game that runs at 140 FPS but drops a few frames to 30 every second feels worse, even though its average is more than double. Each slow frame is a tiny freeze, and you feel it as a hitch when you turn the camera. That is why reviewers show the 1% low next to the average.</p>
 
-<h2>Why the 1% low matters more than the average for smoothness</h2>
-
-<p>Your eyes notice changes in pace more than the pace itself. A steady 60 FPS feels smooth. A game that runs at 140 FPS but drops a few frames to 30 every second feels worse, even though its average is more than double. Each slow frame is a tiny freeze, and you feel it as a hitch when you turn the camera.</p>
-
-<p>That is why reviewers show the 1% low next to the average. Two graphics cards with the same average can feel different, and the 1% low is where that shows.</p>
+<p>Tools work it out in slightly different ways. Some take the frame time at the 99th percentile, the point that 99% of frames are faster than. Others average all the frames in the slowest 1%. The second way gives a lower number. An average of several short windows' lows, the way RigSight used to do it, gives a higher one. Compare 1% lows only between runs measured with the same tool. The 0.1% low is the same idea for the slowest one frame in a thousand, and it catches rare big hitches.</p>
 
 <h2>What is a good 1% low?</h2>
 
@@ -98,7 +62,7 @@
 
 <p>Two more checks help. If you have a G-Sync or FreeSync monitor, try to keep the 1% low above the bottom of its variable refresh range, which is in the monitor's specs. And for fast shooters, a higher 1% low is usually worth more than a higher average.</p>
 
-<h2>How to see your 1% low</h2>
+<h2>How to see your 1% low and fix 1% low FPS drops</h2>
 
 <p>These are the common ways to see it.</p>
 
@@ -109,8 +73,6 @@
 </ul>
 
 <p>Measure the same stretch of play each time, and play it for a minute or more. A 1% low from ten seconds of play swings a lot from run to run.</p>
-
-<h2>How to fix 1% low FPS drops</h2>
 
 <p>When the 1% low is far below the average, look for something that interrupts the game now and then. Try these in order.</p>
 
@@ -124,14 +86,4 @@
 <li>Set Windows to <b>Best performance</b> in <b>Settings > System > Power & battery > Power mode</b>, and play laptops on the charger.</li>
 </ol>
 
-<h2>See every play's 1% low in RigSight</h2>
-
-<p>A benchmark gives you one run. RigSight is free and open source, and it records the average FPS and the 1% low for every play of every game, so you can see whether your lows got worse and when.</p>
-
-{{fig pages/game | RigSight's How it runs card for a game: average 235 fps and 1% low 170 fps, with a chart of both for each play | RigSight's How it runs card. The solid line is each play's average FPS, the dashed line under it is the 1% low.}}
-
-<p>On the Games page, open a game. How it runs shows the average and the 1% low for all your plays, and a chart with the average as a line with a dot for each play and the 1% low dashed under it. Hover a play to see both numbers. Graphics driver installs and game updates are marked on the chart between plays, so a gap that grew after one of them stands out. The Every play list below has an FPS and 1% low column for each session.</p>
-
-<p>The Can it run better? card turns the gap into a sentence, using the same rule of thumb. When the 1% low is at 70% of the average or above, it says the game plays smoothly. Between 50 and 70% it says you may feel the odd stutter, and below 50% it says the game stutters. While you play, RigSight's overlay and widgets can show the 1% low live next to the frame rate. RigSight works out the 1% low each second from the last 1,024 frames, with frame times measured by RivaTuner Statistics Server. RivaTuner has to be running before the game starts, and the Games page has a button to install or start it.</p>
-
-<p>Next time a game feels off, look at the 1% low before the average. If the 1% low is under half the average, work through the fixes above in order.</p>
+<p>Next time a game feels off, look at the 1% low before the average, and check how your tool works it out. If the 1% low is under half the average, work through the fixes above in order.</p>
