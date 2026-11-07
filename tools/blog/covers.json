@@ -212,5 +212,25 @@
     "of a core, was 2.2%"
    ]
   ]
+ },
+ "ping-without-a-server": {
+  "colour": "gpu",
+  "tiles": [
+   [
+    "Ping checked every",
+    "5 s",
+    "router and provider, no outside server"
+   ]
+  ]
+ },
+ "plain-words": {
+  "colour": "hot",
+  "tiles": [
+   [
+    "Texts checked",
+    "5,445",
+    "every line RigSight shows"
+   ]
+  ]
  }
 }

@@ -1,0 +1,45 @@
+<!--meta
+{"slug": "plain-words", "series": "build", "happened": "2026-11-05", "published": "2026-11-07", "version": "1.5.0",
+ "title": "Rewriting all 5,445 sentences RigSight shows",
+ "summary": "On 5 November I wrote down how RigSight should talk, then checked every one of the 5,445 texts the app shows against it. The rule that mattered most was to say what happened and never guess at why.",
+ "short": "I wrote down how RigSight should talk and checked all 5,445 of its texts against it. 55 sets of changes came out of it, and the biggest rule was to say what happened without guessing why.",
+ "mark": "5,445"}
+-->
+<p>RigSight had grown fast. In six weeks it picked up crash findings, a Games page, an AI helper, a rebuilt Network page and dozens of notifications. Each was written on its own day. Read together, the app didn't always sound like one person, and a few lines guessed at things the records couldn't show.</p>
+
+<p>On 5 November I wrote down how RigSight should talk. It's the voice of someone who knows PCs, explaining something about yours, then stopping.</p>
+
+<h2>The rules</h2>
+
+<ul>
+  <li>Write in plain, everyday English, the way a person would say it.</li>
+  <li>Keep it short by cutting words, not the useful part. Never repeat the title in the line under it.</li>
+  <li>Lead with what happened, then what it means, then what to do, if there's anything to do.</li>
+  <li>Say what was seen. An observation is not a diagnosis, and two things at the same time are not cause and effect.</li>
+  <li>Stay calm. Save urgent words for when the evidence earns them.</li>
+  <li>No marketing or AI phrases.</li>
+  <li>Every notification has to teach something you can't already see.</li>
+</ul>
+
+<h2>Say what happened, not why you think it happened</h2>
+
+<p>The rule I care about most is the fourth one. The example I wrote down uses RigSight's own notification for when the internet drops.</p>
+
+<div class="pair">
+  <div class="bad"><p class="k">With a guess added</p><p>Your internet is down. Your router is reachable, but there's no internet connection. This is usually your internet provider.</p></div>
+  <div class="good"><p class="k">Saying what was seen</p><p>Your internet is down. Your router is reachable, but there's no internet connection.</p></div>
+</div>
+
+<p>The last sentence on the left sounds helpful. But RigSight doesn't know it's the provider. It knows the router answered and the internet didn't. You can work out the rest yourself, and if the guess would have been wrong, the app hasn't told you something false.</p>
+
+<h2>Every text, one by one</h2>
+
+<p>Then I checked everything the app shows against the rules. Every page title, button, tooltip, notification, error and line of What's new came to 5,445 texts. Most were fine. The rest came out as 55 sets of changes, and all of them went out in version 1.5.0.</p>
+
+<div class="stat"><b>55</b><span>Sets of changes from checking 5,445 texts, all in 1.5.0. Most were small, and a few removed a guess about a cause the records can't show.</span></div>
+
+<p>Precision matters as much as tone. An SSD reporting 4% available spare is not a drive almost out of space, so RigSight says what the drive reports. Notifications now give durations in words, like "for about 3 minutes", instead of figures to decode. The update screen gives one time for the restart, about 15 seconds, because that's what the real updates took. The app also moved to US spelling, so it says color and license everywhere.</p>
+
+<p>The Spanish translation was redone for every changed line too, and the app's tests now fail if a retired phrase comes back.</p>
+
+<p>Writing rules down sounds like busywork. In practice it changed how I build. Every new feature's mock-up now shows its real final words, already checked against the rules, so the words get reviewed with the design instead of after it. The blog follows the same idea. The posts say what RigSight recorded, and when the records don't say why, the posts don't either.</p>

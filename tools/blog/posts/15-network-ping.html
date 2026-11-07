@@ -1,0 +1,32 @@
+<!--meta
+{"slug": "ping-without-a-server", "series": "build", "happened": "2026-11-04", "published": "2026-11-07", "version": "1.4.0",
+ "title": "Checking ping without asking anyone's server",
+ "summary": "The rebuilt Network page checks your ping every 5 seconds, and it doesn't ask any outside server to do it. How RigSight finds your provider's first router, the router that ignored empty pings, and the colour rule the page follows.",
+ "short": "RigSight 1.4.0 checks ping every 5 seconds to your router and your provider's first router, found the way a traceroute does, so no outside server is ever asked. My router ignored empty pings, and usage is never shown as a warning.",
+ "mark": "5 s"}
+-->
+<p>Until November, RigSight's Network page only counted data. How much each app downloaded and uploaded, what moved while you were away, when the connection dropped. I had left ping out on purpose. On 4 November I rebuilt the page, and this time ping went in, because ping is what you actually feel in a game.</p>
+
+<h2>Whose server?</h2>
+
+<p>Measuring ping means sending something somewhere and timing the answer. Many tools ping a big public server, such as one run by Google or Cloudflare. My first plan did the same. Then I asked why RigSight should talk to anyone's server at all, when the internet you use already starts at your provider's own equipment.</p>
+
+<p>So RigSight pings two places, and neither is a public server. The first is your router, the home side of the line. The second is your internet provider's first router after it, where your provider's side starts. Between the two, a spike tells you whether the trouble is in your home or past it.</p>
+
+<p>Finding the provider's router takes a small trick. RigSight sends pings that may only travel a few hops before they expire, the way a traceroute does. Each one dies at a router along the way, and that router sends back a note saying so. The first note that comes from outside your home is your provider's router. The pings are aimed at an internet address only to pick the way out, and they never get there.</p>
+
+<div class="stat"><b>5 s</b><span>How often RigSight pings your router and your provider's first router. It looks for the provider's router again every half hour, in case it moved.</span></div>
+
+<h2>The router that ignored empty pings</h2>
+
+<p>The first build didn't work on my own router. The pings to it went unanswered every time, while Windows' own <code>ping</code> command got answers straight away. The difference turned out to be what was inside the ping. RigSight's were empty, filled with zeros, and Windows fills its pings with letters. My router simply ignored the empty ones. Now RigSight fills its pings the way Windows does.</p>
+
+<p>There was one more catch on my PC. I use a VPN, Cloudflare WARP, which routes traffic through its own tunnel. Pings sent the normal way would go into the tunnel and measure the VPN instead of my line. RigSight sends its pings from the network card's own address, so a VPN can't hide the real line.</p>
+
+<h2>Usage is never a warning</h2>
+
+<p>In the first mock-up of the new page, a line said that OBS sent 4.1 GB in an hour, coloured amber. It was wrong. Using the internet isn't bad, and on RigSight amber already means stutters on the Games page. So the page has a rule. Usage is never shown in warning colours. Ping peaks are marked in the ping line's own blue. Amber is kept for drops and for data that got lost.</p>
+
+<p>Two more things changed after trying the mock-ups. The live view went to the top of the page and stayed open, because hiding what's using your internet right now behind a click made it worse. And usage and ping became one graph with a switch, instead of two graphs stacked on top of each other.</p>
+
+<p>The rebuilt page went out in version 1.4.0, along with alerts when the internet drops. The ping checks have already caught real spikes on my own line. There's more on reading them in <a href="ping-spikes-while-gaming">ping spikes while gaming</a>, and on drops in <a href="internet-keeps-disconnecting">internet keeps disconnecting on PC</a>.</p>
