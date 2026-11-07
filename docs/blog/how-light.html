@@ -247,9 +247,9 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <figure class="fig">
 <svg viewBox="0 0 640 210" role="img" aria-labelledby="hl-t">
-  <title id="hl-t">Time each device took to answer one full sensor read. Graphics card 89 ms, hard drive 73 ms, Ryzen processor 24 ms, NVMe drive 20 ms, SATA SSD 6.5 ms, motherboard chips about 1 ms each</title>
+  <title id="hl-t">Time each device took to answer one full sensor read. GPU 89 ms, hard drive 73 ms, Ryzen processor 24 ms, NVMe drive 20 ms, SATA SSD 6.5 ms, motherboard chips about 1 ms each</title>
   <g class="t">
-    <text x="0" y="30">Graphics card</text><text x="0" y="62">Hard drive</text><text x="0" y="94">Processor</text>
+    <text x="0" y="30">GPU</text><text x="0" y="62">Hard drive</text><text x="0" y="94">Processor</text>
     <text x="0" y="126">NVMe drive</text><text x="0" y="158">SATA SSD</text><text x="0" y="190">Motherboard chips</text>
   </g>
   <g>
@@ -265,7 +265,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
     <text x="250" y="126">20 ms</text><text x="189" y="158">6.5 ms</text><text x="165" y="190">~1 ms</text>
   </g>
 </svg>
-<figcaption>One full read of every sensor on my PC, by device. The graphics card and the spinning hard drive are slow to answer, whatever language asks.</figcaption>
+<figcaption>One full read of every sensor on my PC, by device. The GPU and the spinning hard drive are slow to answer, whatever language asks.</figcaption>
 </figure>
 
 <p>The C# part of that read was about 6% of its processor time. And the real recorder never does a full read. It asks only for what it needs, which costs about 6 milliseconds of processor time every two seconds.</p>

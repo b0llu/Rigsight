@@ -242,7 +242,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>Since version 0.35.0, RigSight reads every frame's time from RivaTuner Statistics Server while you play. It counts a stutter when one frame takes at least 2.5 times as long as the frames just before it, and at least 20 ms. A game at 144 FPS jumping from 7 ms frames to 20 ms is a hitch you feel, while 8 to 12 ms isn't. Nothing counts while a game runs under 20 FPS overall, so loading screens stay out.</p>
 
-<p>When you open a play frame by frame and five or more stutters bunched up within 15 minutes, RigSight looks at what else was going on in those minutes, against the rest of the play. It names another app reading or writing the disk heavily, the graphics card's memory nearly full, another app busy on the CPU, or Windows nearly out of memory. If none of those stood out, it says so. That last answer is useful too, because it tells you to look at the game.</p>
+<p>When you open a play frame by frame and five or more stutters bunched up within 15 minutes, RigSight looks at what else was going on in those minutes, against the rest of the play. It names another app reading or writing the disk heavily, the GPU's memory nearly full, another app busy on the CPU, or Windows nearly out of memory. If none of those stood out, it says so. That last answer is useful too, because it tells you to look at the game.</p>
 
 <p>On the Games page, each game says how smooth it plays, as Smooth, Mostly smooth or It stutters, from how many stutters an hour it had, with the 0.1% low beside it. Every play lists its stutters. My Phantom Blade Zero days have run at between about 160 and 270 stutters an hour, so that game reads as It stutters too. RivaTuner has to be running before the game starts, and the Games page has a button to install or start it. RigSight is free and open source.</p>
 
@@ -254,7 +254,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <ul>
   <li>The game itself can be busy. Many games build shaders the first time they need them, especially after a graphics driver or game update. Open-world games load new areas as you move, and busy scenes can make the CPU the limit for a moment.</li>
-  <li>Something else on the PC can grab a resource at the wrong moment. A launcher updating, an antivirus scan, cloud sync or a browser tab can take the disk or CPU. A game that fills the graphics card's memory has to swap data in and out.</li>
+  <li>Something else on the PC can grab a resource at the wrong moment. A launcher updating, an antivirus scan, cloud sync or a browser tab can take the disk or CPU. A game that fills the GPU's memory has to swap data in and out.</li>
   <li>Overlays and capture tools hook into the game and add their own work every frame.</li>
   <li>Heat makes a CPU or GPU slow down in bursts once it reaches its limit.</li>
 </ul>
@@ -266,7 +266,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 <ol>
   <li>Give it a second session after any driver or game update. If the stutter is shaders being built, the second session is smoother.</li>
   <li>Close background work. Pause launcher downloads, cloud sync and browser video while you play.</li>
-  <li>Lower <b>Texture quality</b> one step if the graphics card's memory is nearly full.</li>
+  <li>Lower <b>Texture quality</b> one step if the GPU's memory is nearly full.</li>
   <li>Turn overlays off one at a time, including Discord's, Steam's and the NVIDIA or AMD overlay, and see whether the stutters drop.</li>
   <li>Set a frame cap a little below what your PC holds in busy scenes. A steadier pace hides small hitches, and with G-Sync or FreeSync cap a few frames below the refresh rate.</li>
   <li>Use your launcher's verify or repair option for the game's files.</li>

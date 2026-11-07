@@ -7,7 +7,7 @@
  "summary": "RigSight's own chart once showed a GPU topping out at 68° on a day that hit 74°. How to check GPU temperature history on Windows with HWiNFO, GPU-Z or Afterburner logs, or a temperature monitor with history, and how to read it.",
  "description": "To check GPU temperature history, log it with HWiNFO, GPU-Z or Afterburner, or use a monitor that records all day. Windows keeps none. Read the highs.",
  "short": "Windows keeps no temperature history. Task Manager shows only the GPU temperature right now. To check GPU temperature history, record it with a sensor app. HWiNFO, GPU-Z and MSI Afterburner can each log readings to a file while you play. For a history of every day without starting a log, use a monitor that records in the background.",
- "faq": [["Does Windows keep a history of GPU or CPU temperature?", "No. Task Manager shows the graphics card's temperature at this moment, and Windows has no CPU temperature reading of its own. Neither is saved. To look back, you need an app that was recording at the time."],
+ "faq": [["Does Windows keep a history of GPU or CPU temperature?", "No. Task Manager shows the GPU's temperature at this moment, and Windows has no CPU temperature reading of its own. Neither is saved. To look back, you need an app that was recording at the time."],
          ["How do I check my CPU temperature history?", "Use a sensor app that logs to a file, such as HWiNFO, and start the log before you play. Open the file afterwards in a spreadsheet and look at the highest values. Apps that record all day, like RigSight, keep it without you starting anything, though CPU temperature needs admin rights."],
          ["How do I check my GPU temps while gaming?", "Task Manager's Performance tab shows the GPU temperature, but you have to tab out of the game. An on-screen overlay from MSI Afterburner with RivaTuner Statistics Server, or your graphics driver's own overlay, shows it during play. A log shows how hot it got afterwards."],
          ["When should I worry about GPU temp?", "Worry when the card sits at its maker's listed maximum, which is 85 to 93°C on recent NVIDIA cards depending on the model, when the frame rate drops as it gets there, or when the same game runs clearly hotter than it did a few weeks ago. A history is what shows you that last one."]],
@@ -42,7 +42,7 @@
 
 <h2>Why Windows keeps no temperature history</h2>
 
-<p>Windows records crashes, updates and errors in its logs, but not temperatures. Task Manager can show the temperature of a dedicated graphics card, and that's the only temperature Windows itself shows. It has no CPU temperature reading at all, and it saves neither.</p>
+<p>Windows records crashes, updates and errors in its logs, but not temperatures. Task Manager can show the temperature of a dedicated GPU, and that's the only temperature Windows itself shows. It has no CPU temperature reading at all, and it saves neither.</p>
 
 <p>That means you can only look back at times when some app was already recording. If nothing was running last night, last night's temperatures are gone. The useful habit is to set up recording before you need it.</p>
 
@@ -55,7 +55,7 @@
 <ol>
   <li>Press <strong>Ctrl + Shift + Esc</strong> to open Task Manager.</li>
   <li>Open the <strong>Performance</strong> tab.</li>
-  <li>Click your graphics card, usually <strong>GPU 0</strong> or <strong>GPU 1</strong>.</li>
+  <li>Click your GPU, usually <strong>GPU 0</strong> or <strong>GPU 1</strong>.</li>
   <li>Read <strong>GPU Temperature</strong> under the graphs.</li>
 </ol>
 
@@ -79,7 +79,7 @@
 <h3>Other GPU temperature loggers</h3>
 
 <ul>
-  <li>GPU-Z has a <strong>Log to file</strong> box on its <strong>Sensors</strong> tab. It records the graphics card only.</li>
+  <li>GPU-Z has a <strong>Log to file</strong> box on its <strong>Sensors</strong> tab. It records the GPU only.</li>
   <li>MSI Afterburner draws a monitoring graph of the last few minutes, and its <strong>Settings</strong> > <strong>Monitoring</strong> tab has a <strong>Log history to file</strong> box that saves it. With RivaTuner Statistics Server it can also show the temperature on screen while you play.</li>
 </ul>
 

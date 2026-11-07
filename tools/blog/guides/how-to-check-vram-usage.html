@@ -16,17 +16,17 @@
  "app": ["Games page Graphics memory: 'up to X of Y GB' for the game's own memory, or the whole GPU and all apps when the game's own isn't known (GamesViewModel.GraphicsMemory)", "Opened crash: GPU memory nearly full (90%+) and at least 1 GB and 15% above that app's own usual on this PC, said as possible (GpuMemoryRule)", "Stutters bunched while the GPU's memory was 95%+ full are named with it (StutterCauses)", "Overlay, widgets and taskbar can show GPU memory used (sensor)"],
  "sources": ["https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/", "https://www.digitalcitizen.life/how-to-tell-whether-your-cpu-or-gpu-is-limiting-gaming-performance/"]}
 -->
-<p>My graphics card has 12 GB of memory. Playing Phantom Blade Zero, the game itself used up to 7.2 GB of it, usually about 6. Playing Risk of Rain 2 on the same PC, it used about 2 GB. Same card, about three times the difference. That's why a list of how much VRAM games use only goes so far. Here's how to check VRAM usage for your own games on Windows 11, and how to tell when it's really too high.</p>
+<p>My GPU has 12 GB of memory. Playing Phantom Blade Zero, the game itself used up to 7.2 GB of it, usually about 6. Playing Risk of Rain 2 on the same PC, it used about 2 GB. Same card, about three times the difference. That's why a list of how much VRAM games use only goes so far. Here's how to check VRAM usage for your own games on Windows 11, and how to tell when it's really too high.</p>
 
 <h2>How RigSight caught it</h2>
 
-<p>RigSight records the graphics card's memory every minute, both the whole card and the game in front. On the Games page, each game shows its graphics memory as "up to" its highest of the card's total, for the game's own use when Windows reports it, or for the whole card and all apps when it doesn't. That's where my two numbers came from.</p>
+<p>RigSight records the GPU's memory every minute, both the whole card and the game in front. On the Games page, each game shows its graphics memory as "up to" its highest of the card's total, for the game's own use when Windows reports it, or for the whole card and all apps when it doesn't. That's where my two numbers came from.</p>
 
 <p>RigSight doesn't treat nearly full as a problem by itself, because many games fill the card on purpose. It only speaks up when memory ties in with something that went wrong. When a game crashes with the card's memory nearly full, at least 90%, and at least 1 GB and 15% above what that game usually uses on your PC, the opened crash says so. It's careful about it, because running out of memory can crash a game, but a game that simply loaded more looks the same. And when stutters bunch up while the card's memory is 95% full or more, the play's frame-by-frame view names that as what was going on. You can also put GPU memory used in the overlay, a widget or the taskbar. RigSight is free and open source.</p>
 
 <h2>VRAM usage in games, and when it's too high</h2>
 
-<p>VRAM is the graphics card's own memory. Games keep textures, models and the frames being drawn there, because the card can reach it much faster than the PC's main memory. Higher texture settings, higher resolutions and ray tracing all take more of it.</p>
+<p>VRAM is the GPU's own memory. Games keep textures, models and the frames being drawn there, because the card can reach it much faster than the PC's main memory. Higher texture settings, higher resolutions and ray tracing all take more of it.</p>
 
 <p>When it runs out, the card can have to fetch data from the PC's main memory instead, which is far slower. That shows as stutters when you turn into a new area, textures that appear blurry and sharpen late, and in bad cases crashes. Nearly full without any of that is fine. A game that keeps 10 GB of a 12 GB card filled may just be using the room it has.</p>
 
@@ -34,7 +34,7 @@
 
 <ol>
   <li>Press <strong>Ctrl + Shift + Esc</strong> to open Task Manager.</li>
-  <li>Open <strong>Performance</strong> and click your graphics card, usually <strong>GPU 0</strong>. <strong>Dedicated GPU memory</strong> is the card's own memory in use, out of its total.</li>
+  <li>Open <strong>Performance</strong> and click your GPU, usually <strong>GPU 0</strong>. <strong>Dedicated GPU memory</strong> is the card's own memory in use, out of its total.</li>
   <li>To see one game's use, open <strong>Details</strong>, right-click a column heading, choose <strong>Select columns</strong> and tick <strong>Dedicated GPU memory</strong>. Sort by it while the game runs.</li>
 </ol>
 
@@ -48,7 +48,7 @@
   <li>Lower <strong>Texture quality</strong> one step first. It usually saves the most memory for the least visible change.</li>
   <li>Turn down ray tracing, or turn it off. It needs extra memory on top of everything else.</li>
   <li>Lower the resolution, or use your card's upscaling, such as DLSS, FSR or XeSS, which draws at a lower resolution and scales it up.</li>
-  <li>Close other apps that use the graphics card, like browsers with video or capture tools, before you play.</li>
+  <li>Close other apps that use the GPU, like browsers with video or capture tools, before you play.</li>
   <li>Update the game and the graphics driver, since games sometimes fix memory use in patches.</li>
 </ol>
 

@@ -2,12 +2,12 @@
 {"slug": "driver-update-crash", "series": "build", "happened": "2026-10-07", "published": "2026-10-26", "version": "0.17.1", "order": 1,
  "title": "The driver update that knocked RigSight out",
  "summary": "An NVIDIA driver update crashed RigSight's recorder ten seconds after the new driver started, and nothing brought it back.",
- "short": "An NVIDIA driver update crashed the recorder, and nothing restarted it. Now RigSight steps back from the graphics card while its driver changes, and Windows brings the recorder back if it ever goes down.",
+ "short": "An NVIDIA driver update crashed the recorder, and nothing restarted it. Now RigSight steps back from the GPU while its driver changes, and Windows brings the recorder back if it ever goes down.",
  "cover": "pages/crash-open", "mark": "10 s"}
 -->
 <p>On 7 October I updated my NVIDIA driver, like you do. Ten seconds after the new driver started, RigSight's recorder crashed.</p>
 
-<p>It had been in the middle of asking the graphics card for its temperature through NVIDIA's own library. The old driver was gone, the new one had just arrived, and the call landed on memory that wasn't there any more. That's an access violation, and it took the whole recorder down.</p>
+<p>It had been in the middle of asking the GPU for its temperature through NVIDIA's own library. The old driver was gone, the new one had just arrived, and the call landed on memory that wasn't there any more. That's an access violation, and it took the whole recorder down.</p>
 
 <p>The worse part came after. Nothing started it again. RigSight starts with Windows, so it would come back at the next restart, but until then there was simply no recording. I had to start it by hand.</p>
 
@@ -19,9 +19,9 @@
 
 <h2>Step back while the driver changes</h2>
 
-<p>Windows can tell a program when a graphics card's driver goes away or arrives. RigSight now listens for that, only for real graphics cards, so virtual screens from remote desktop tools don't set it off.</p>
+<p>Windows can tell a program when a GPU's driver goes away or arrives. RigSight now listens for that, only for real GPUs, so virtual screens from remote desktop tools don't set it off.</p>
 
-<p>When it hears a driver change, it stops reading the graphics cards at once. Then it waits until things have been quiet for half a minute and restarts itself cleanly, picking up the new driver from scratch.</p>
+<p>When it hears a driver change, it stops reading the GPUs at once. Then it waits until things have been quiet for half a minute and restarts itself cleanly, picking up the new driver from scratch.</p>
 
 <h2>And if it crashes anyway</h2>
 

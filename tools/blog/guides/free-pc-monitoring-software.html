@@ -49,7 +49,7 @@
 
 <ul>
 <li>Is my CPU or GPU too hot right now, and what is every sensor saying? Use HWiNFO.</li>
-<li>Can I overclock or undervolt my graphics card, set a fan curve and see FPS in game? Use MSI Afterburner with RivaTuner Statistics Server.</li>
+<li>Can I overclock or undervolt my GPU, set a fan curve and see FPS in game? Use MSI Afterburner with RivaTuner Statistics Server.</li>
 <li>Do I want a small open source sensor reader? Use LibreHardwareMonitor.</li>
 <li>What did my PC do last night, last week or before it crashed? Use RigSight.</li>
 <li>Which app is eating CPU or memory right now? Task Manager is already on your PC.</li>
@@ -58,20 +58,20 @@
 <h2>Free PC monitoring software, tool by tool</h2>
 
 <h3>Task Manager</h3>
-<p>It's built into Windows, so there's nothing to install. Press Ctrl + Shift + Esc and open <b>Performance</b> for graphs of CPU, memory, disk, network and GPU use. On many PCs with a dedicated graphics card it also shows the GPU temperature, as long as the driver supports it. It doesn't show CPU temperature, fan speeds or voltages, and its graphs only cover the last minute. It's good for finding which app is busy, not for checking temperatures.</p>
+<p>It's built into Windows, so there's nothing to install. Press Ctrl + Shift + Esc and open <b>Performance</b> for graphs of CPU, memory, disk, network and GPU use. On many PCs with a dedicated GPU it also shows the GPU temperature, as long as the driver supports it. It doesn't show CPU temperature, fan speeds or voltages, and its graphs only cover the last minute. It's good for finding which app is busy, not for checking temperatures.</p>
 
 <h3>HWiNFO</h3>
-<p>HWiNFO reads more sensors than any other tool here. It reads nearly every sensor on the CPU, graphics card, motherboard and drives, down to individual voltages, power limits and memory timings, and it is updated often for new hardware. It can log every sensor to a CSV file, raise alerts on any reading, show readings in the tray and on screen, and share its sensor data with other apps.</p>
+<p>HWiNFO reads more sensors than any other tool here. It reads nearly every sensor on the CPU, GPU, motherboard and drives, down to individual voltages, power limits and memory timings, and it is updated often for new hardware. It can log every sensor to a CSV file, raise alerts on any reading, show readings in the tray and on screen, and share its sensor data with other apps.</p>
 <p>It is free for personal and non-commercial use. Commercial use needs the paid Pro licence. In the free version, the shared memory feature that lets other apps such as overlays read HWiNFO's sensors switches itself off after 12 hours, and you turn it on again by hand. It isn't open source.</p>
 <p>Where it falls short is the sensor window, which is a long list of numbers that doesn't tell you which ones matter or what is normal for your PC. It only logs while you have logging switched on, and you read the CSV files yourself. If you are diagnosing a fault and know what you are looking for, nothing beats it.</p>
 
 <h3>MSI Afterburner and RivaTuner Statistics Server</h3>
-<p>MSI Afterburner is a free graphics card tool that works with cards from other makers too, not only MSI. It is the usual choice for overclocking and undervolting a GPU, setting your own fan curve and watching GPU readings on a graph. Its in-game overlay comes from RivaTuner Statistics Server, a separate free tool that installs alongside it. RivaTuner also has a frame rate limiter that many players use on its own.</p>
-<p>Its weak spot is that it is built around the graphics card. CPU and motherboard readings are thinner than HWiNFO's, and the graphs show the recent past while the app is open. Unless you turn on its log file, it keeps no record of how a game ran last week, and it doesn't tell you what the numbers mean. MSI recommends downloading it only from msi.com or Guru3D, because fake copies exist.</p>
+<p>MSI Afterburner is a free GPU tool that works with cards from other makers too, not only MSI. It is the usual choice for overclocking and undervolting a GPU, setting your own fan curve and watching GPU readings on a graph. Its in-game overlay comes from RivaTuner Statistics Server, a separate free tool that installs alongside it. RivaTuner also has a frame rate limiter that many players use on its own.</p>
+<p>Its weak spot is that it is built around the GPU. CPU and motherboard readings are thinner than HWiNFO's, and the graphs show the recent past while the app is open. Unless you turn on its log file, it keeps no record of how a game ran last week, and it doesn't tell you what the numbers mean. MSI recommends downloading it only from msi.com or Guru3D, because fake copies exist.</p>
 <p>If you only want an MSI Afterburner alternative to show FPS, you may not need Afterburner at all. RivaTuner can show a frame rate counter by itself. NVIDIA's and AMD's own apps have performance overlays, and the Xbox Game Bar, opened with Win + G, has a Performance widget with FPS.</p>
 
 <h3>LibreHardwareMonitor</h3>
-<p>LibreHardwareMonitor is free and open source, under the MPL 2.0 licence. It reads temperatures, fan speeds, voltages, load and clocks from motherboards, Intel and AMD processors, NVIDIA, AMD and Intel graphics cards, drives and network cards. Some sensors need it to run as administrator. Its library is also used inside other apps, RigSight among them, which makes it the usual pick when someone wants an open source HWiNFO alternative.</p>
+<p>LibreHardwareMonitor is free and open source, under the MPL 2.0 licence. It reads temperatures, fan speeds, voltages, load and clocks from motherboards, Intel and AMD processors, NVIDIA, AMD and Intel GPUs, drives and network cards. Some sensors need it to run as administrator. Its library is also used inside other apps, RigSight among them, which makes it the usual pick when someone wants an open source HWiNFO alternative.</p>
 <p>Its weak spots are that it reads fewer sensors than HWiNFO, and it shows what is happening now unless you turn on <b>Log Sensors</b>, which saves the readings to a file. Get it from the project's GitHub page. The project warns that librehardwaremonitor.com is not its site.</p>
 
 <h3>Side by side</h3>

@@ -32,7 +32,7 @@
   ],
   [
    "Why does FPS drop in game while streaming?",
-   "Streaming adds a video encoder and often a browser or chat app on top of the game. Use the hardware encoder on your graphics card in your streaming app, lower the stream resolution, and close anything else that plays video."
+   "Streaming adds a video encoder and often a browser or chat app on top of the game. Use the hardware encoder on your GPU in your streaming app, lower the stream resolution, and close anything else that plays video."
   ]
  ],
  "cover_img": "pages/game",
@@ -93,7 +93,7 @@
 
 <ul>
 <li>FPS is fine at first and gets worse after 10 or 20 minutes. That is usually heat. The GPU or CPU warms up and slows itself down.</li>
-<li>FPS dips in busy scenes while GPU load is well under 95%. Something other than the graphics card sets the pace, usually the CPU. See <a href="gpu-not-at-100-usage-low-fps">GPU not at 100% usage but low FPS</a>.</li>
+<li>FPS dips in busy scenes while GPU load is well under 95%. Something other than the GPU sets the pace, usually the CPU. See <a href="gpu-not-at-100-usage-low-fps">GPU not at 100% usage but low FPS</a>.</li>
 <li>FPS sits on a flat line, such as exactly 60 or 30. That is a cap, often VSync. See <a href="vsync-fps-cap">VSync and FPS caps</a>.</li>
 <li>FPS dropped all of a sudden, from one day to the next. Something changed that day. Start with updates and drivers below.</li>
 <li>The average looks fine but the game hitches. Watch the 1% low, not the average. See <a href="one-percent-low-fps">what 1% low FPS means</a>.</li>
@@ -101,7 +101,7 @@
 
 <h2>Check for heat throttling</h2>
 
-<p>Graphics cards and processors protect themselves. When they reach their temperature limit, they lower their clock speed, and you lose frames. The limit depends on the model, so look up your card or CPU on the maker's site. A drop that comes back every session after the same amount of play is the classic sign.</p>
+<p>GPUs and processors protect themselves. When they reach their temperature limit, they lower their clock speed, and you lose frames. The limit depends on the model, so look up your card or CPU on the maker's site. A drop that comes back every session after the same amount of play is the classic sign.</p>
 
 <p>Watch the GPU temperature, the GPU hot spot if your card reports one, and the GPU clock speed together. If the clock falls as the temperature reaches its peak, heat is the cause. Clean the dust out of the case and the card, make sure the case fans pull air through, and give a laptop a hard flat surface. <a href="normal-gpu-temperature-while-gaming">Normal GPU temperature while gaming</a> has the numbers, and <a href="pc-overheating-while-gaming">PC overheating while gaming</a> has the fixes.</p>
 
@@ -115,7 +115,7 @@
 <li>Close anything heavy you don't need while you play. Pause downloads in other launchers.</li>
 </ol>
 
-<p>Several overlays at once can also cost frames and cause conflicts. Keep one FPS counter, not three. If you stream, your streaming app should use the hardware encoder on your graphics card, which costs far less than encoding on the CPU.</p>
+<p>Several overlays at once can also cost frames and cause conflicts. Keep one FPS counter, not three. If you stream, your streaming app should use the hardware encoder on your GPU, which costs far less than encoding on the CPU.</p>
 
 <h2>Set Windows to its best performance mode</h2>
 
@@ -124,7 +124,7 @@
 <ol>
 <li>Open <b>Settings > System > Power & battery</b>. On Windows 10, select the battery icon on the taskbar and move the slider instead.</li>
 <li>Under <b>Power mode</b>, pick <b>Best performance</b>. On a laptop, set it for when it is plugged in.</li>
-<li>Play on a laptop with the charger connected. Most laptops lower the graphics card's power on battery.</li>
+<li>Play on a laptop with the charger connected. Most laptops lower the GPU's power on battery.</li>
 </ol>
 
 <p>Microsoft notes that if you can't change the power mode, a custom power plan may be active, and picking <b>Balanced</b> in <b>Control Panel > Power Options</b> brings the slider back. If your plan keeps changing by itself, see <a href="power-plan-keeps-changing">power plan keeps changing</a>. While you're in Settings, check that <b>Settings > Gaming > Game Mode</b> is on. It is on by default, and Microsoft says it holds off driver installs and restart prompts while you play.</p>
@@ -153,7 +153,7 @@
 <h2>What the readings mean</h2>
 
 <ul>
-<li>GPU load at 95 to 100% means the graphics card is the limit. Lower graphics settings give more frames.</li>
+<li>GPU load at 95 to 100% means the GPU is the limit. Lower graphics settings give more frames.</li>
 <li>GPU load well under 95% with no cap means the CPU or the game engine is the limit. Graphics settings won't help much.</li>
 <li>A GPU clock that falls while the temperature climbs means heat throttling.</li>
 <li>Video memory at the card's full size means the settings ask for too much memory.</li>

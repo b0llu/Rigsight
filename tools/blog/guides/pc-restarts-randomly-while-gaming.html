@@ -9,7 +9,7 @@
  "short": "A PC that restarts randomly while gaming is most often the power supply, an unstable overclock or memory profile, or heat. Check why first. Event Viewer's System log shows Kernel-Power 41 for a sudden stop and User32 1074 for a planned restart. Turn off automatic restart to catch any hidden blue screen.",
  "faq": [
   ["Why does my PC restart randomly with no blue screen?", "Either Windows had no time to show one, because power was lost, or it showed one and restarted straight away. Turn off Automatically restart under Startup and Recovery to catch the second kind. If Kernel-Power 41 has a BugcheckCode of 0, it was a real loss of power or a reset, not a blue screen."],
-  ["My PC randomly shuts off while gaming but it's not overheating. Why?", "Then the power supply and tuning are the main suspects. A supply that can't handle the graphics card's short power spikes switches off to protect itself, and an unstable overclock, undervolt or XMP or EXPO profile can reset the PC with no blue screen. Reset tuning to defaults first, since it costs nothing."],
+  ["My PC randomly shuts off while gaming but it's not overheating. Why?", "Then the power supply and tuning are the main suspects. A supply that can't handle the GPU's short power spikes switches off to protect itself, and an unstable overclock, undervolt or XMP or EXPO profile can reset the PC with no blue screen. Reset tuning to defaults first, since it costs nothing."],
   ["Why does my PC restart randomly after a Windows update?", "Look for event 1074 from User32 in the System log at that time. If it's there, Windows restarted on purpose to finish an update. Set your Active hours in Windows Update so it doesn't happen while you play. If it's a Kernel-Power 41 instead, a new driver from the update is worth suspecting."],
   ["Why does my PC restart randomly when idle?", "Restarts at idle point away from heat and the power supply's limit and toward the mains, sleep and wake problems, or memory and CPU tuning that is unstable at low load. Check whether other devices flickered, turn off Fast Startup for a test, and try with XMP or EXPO off."]
  ],
@@ -23,7 +23,7 @@
 
 <p>RigSight's Crashes page lists every sudden shut-off and blue screen, read from Windows' own records, and on its first run it reads them from up to 90 days back. Each shut-off is timed by the last minute RigSight recorded, not by Windows' own guess, which can be some minutes early.</p>
 
-<p>For six of my eleven, RigSight had already been recording the minutes before. In every one the graphics card was between 1 and 18% busy, drawing 33 to 55 W. The CPU was under 65° and the GPU around 50°. So whatever switched my PC off, it wasn't heat, and it wasn't a power supply struggling under a game. Windows' record of all eleven shows no blue screen code and no power button press. That's as far as the records go, and RigSight doesn't claim more than that.</p>
+<p>For six of my eleven, RigSight had already been recording the minutes before. In every one the GPU was between 1 and 18% busy, drawing 33 to 55 W. The CPU was under 65° and the GPU around 50°. So whatever switched my PC off, it wasn't heat, and it wasn't a power supply struggling under a game. Windows' record of all eleven shows no blue screen code and no power button press. That's as far as the records go, and RigSight doesn't claim more than that.</p>
 
 <p>Each shut-off gets a cause with one word for how sure RigSight is.</p>
 
@@ -46,7 +46,7 @@
 
 <ul>
   <li>Heat. CPUs and GPUs protect themselves by slowing down, and if that isn't enough the PC switches off. A part close to its maker's limit in the minute before is your answer. Recent desktop CPUs list limits around 89 to 100°C. Intel gives 100°C for the Core i9-14900K, and AMD 95°C for most Ryzen 7000 chips and 89°C for the X3D ones. Check the page for your model. Dust in the filters, a dead fan or a pump that stopped are the common reasons.</li>
-  <li>The power supply. If temperatures were fine, this is the top suspect for a PC that randomly shuts off while gaming. Games push the graphics card and CPU to full power at once, and modern cards can draw short spikes above their rated power. A supply that is too small or worn out trips its protection and the PC goes off, exactly like a power cut. The signs are that it only happens under heavy load, often in the same demanding games or scenes, never at the desktop.</li>
+  <li>The power supply. If temperatures were fine, this is the top suspect for a PC that randomly shuts off while gaming. Games push the GPU and CPU to full power at once, and modern cards can draw short spikes above their rated power. A supply that is too small or worn out trips its protection and the PC goes off, exactly like a power cut. The signs are that it only happens under heavy load, often in the same demanding games or scenes, never at the desktop.</li>
   <li>Tuning. An overclock, an undervolt, Curve Optimizer or an XMP or EXPO memory profile can be stable for months and then not, after a BIOS update or on a warm day. Unstable tuning can reset the PC with no blue screen at all. This is the cheapest thing to rule out.</li>
   <li>Windows itself. Restarts after an update come from Windows Update, and you'll see an event 1074. Restarts at shutdown, sleep or wake point to Fast Startup, sleep settings, the BIOS or chipset drivers rather than to your game.</li>
   <li>The mains. A power cut or dip switches everything off at once. If the lights flickered or other devices lost power too, it wasn't the PC.</li>
@@ -85,8 +85,8 @@
 <ol>
   <li>Reset all tuning. Load the BIOS defaults, turn off XMP or EXPO for a test, and reset any GPU tool such as MSI Afterburner to default. Play the game that restarts most.</li>
   <li>Watch temperatures in that same game. If they're high, clean the dust filters and check that every fan and the pump are running.</li>
-  <li>Plug the PC straight into a wall socket. Reseat both ends of the power supply's cables, and the graphics card's power plugs. If the card takes several 8-pin plugs, check the manuals for the card and the power supply. Some ask for a separate cable for each plug.</li>
-  <li>Compare your power supply's wattage with what your graphics card maker recommends for the card. If it's close, or the supply is old, test with another one.</li>
+  <li>Plug the PC straight into a wall socket. Reseat both ends of the power supply's cables, and the GPU's power plugs. If the card takes several 8-pin plugs, check the manuals for the card and the power supply. Some ask for a separate cable for each plug.</li>
+  <li>Compare your power supply's wattage with what your GPU maker recommends for the card. If it's close, or the supply is old, test with another one.</li>
   <li>Set <strong>Active hours</strong> in <strong>Settings &gt; Windows Update &gt; Advanced options</strong> so update restarts don't land on your evenings.</li>
   <li>If the restarts are at idle or overnight, turn off Fast Startup in <strong>Control Panel &gt; Hardware and Sound &gt; Power Options &gt; Choose what the power buttons do &gt; Change settings that are currently unavailable</strong> and see whether they stop.</li>
   <li>Check for hardware errors. Filter the System log by the event source <code>WHEA-Logger</code>. Errors the hardware couldn't correct point at the CPU, memory or motherboard, or at tuning that's too tight.</li>

@@ -4,11 +4,11 @@
  "keyword": "how to check fan speed on pc windows 11",
  "also": ["check fan speed pc", "check fan rpm pc", "how to check fan speed on pc windows 10", "how to check fan speed on pc nvidia", "why are my pc fans spinning so fast"],
  "title": "How to check fan speed on PC in Windows 11 and 10",
- "summary": "Windows doesn't show fan speeds by itself. Here is how to check fan speed on PC in Windows 11 and 10 in the BIOS, in your graphics card's software, and with a free monitoring app.",
- "short": "Windows 11 has no built-in fan speed reading. To check fan RPM, open the BIOS hardware monitor page as the PC starts, use your GPU's software for graphics card fans, or install a free monitoring app that reads every fan sensor while Windows runs. Most motherboard fans need the app to run as administrator.",
+ "summary": "Windows doesn't show fan speeds by itself. Here is how to check fan speed on PC in Windows 11 and 10 in the BIOS, in your GPU's software, and with a free monitoring app.",
+ "short": "Windows 11 has no built-in fan speed reading. To check fan RPM, open the BIOS hardware monitor page as the PC starts, use your GPU's software for GPU fans, or install a free monitoring app that reads every fan sensor while Windows runs. Most motherboard fans need the app to run as administrator.",
  "faq": [["Can I check fan speed in Task Manager?", "Not on most desktop PCs. Task Manager shows CPU and GPU load and the GPU temperature, but not fan speeds. You need the BIOS, your GPU's software or a monitoring app."],
          ["How do I check fan speed on PC with an NVIDIA card?", "NVIDIA's own app doesn't focus on fan speeds, so most people use MSI Afterburner, which works with any brand of card, or the card maker's tool, such as ASUS GPU Tweak. Free monitors like HWiNFO and RigSight also read NVIDIA fan speeds."],
-         ["Why does my fan show 0 RPM?", "On a graphics card, 0 RPM at idle usually means its fan stop mode is keeping the fans off while the card is cool. On a motherboard header, 0 RPM usually means nothing is plugged in there, or the fan is plugged into a hub that doesn't report speed."],
+         ["Why does my fan show 0 RPM?", "On a GPU, 0 RPM at idle usually means its fan stop mode is keeping the fans off while the card is cool. On a motherboard header, 0 RPM usually means nothing is plugged in there, or the fan is plugged into a hub that doesn't report speed."],
          ["Why are my PC fans spinning so fast?", "Something is making heat or the fan curve is set high. Check the temperatures and Task Manager for background work first, then the curve in the BIOS."],
          ["What is a normal fan speed for a PC?", "There's no one number. It depends on the fan's size and design. Many 120 mm case fans top out somewhere between about 1,200 and 2,000 RPM, smaller fans spin faster, and the maker lists the range on the fan's spec sheet. What matters more is whether the fan speeds up with heat."]],
  "cover_img": "pages/fans", "cover_crop": [263, 118, 1131, 754], "cover_alt": "RigSight's Fans page listing GPU fans and four motherboard fans with their speed in RPM",
@@ -20,11 +20,11 @@
              "https://mundobytes.com/en/How-to-measure-and-adjust-fan-speed-in-Windows-11-10/",
              "https://www.tweaktown.com/news/113475/nvidia-app-overlay-finally-adds-cpu-temperature-and-clock-speed-monitoring/index.html"]}
 -->
-<p>You want to know how fast your fans are spinning, maybe because the PC got loud, a fan looks still, or you just put a new cooler in. Windows 11 has no page that shows fan speeds, and neither did Windows 10. So how to check fan speed on PC in Windows 11 comes down to the BIOS, your graphics card's software, and a monitoring app.</p>
+<p>You want to know how fast your fans are spinning, maybe because the PC got loud, a fan looks still, or you just put a new cooler in. Windows 11 has no page that shows fan speeds, and neither did Windows 10. So how to check fan speed on PC in Windows 11 comes down to the BIOS, your GPU's software, and a monitoring app.</p>
 
 <h2>Why Windows doesn't show fan speeds</h2>
 
-<p>Fan speeds come from sensor chips on the motherboard and the graphics card. Each maker wires them up differently, and Windows has no standard way to read them on desktop PCs. Task Manager shows CPU and GPU load and the GPU's temperature, but no fan speeds. Every method below reads the chips directly, which is also why some of them need admin rights.</p>
+<p>Fan speeds come from sensor chips on the motherboard and the GPU. Each maker wires them up differently, and Windows has no standard way to read them on desktop PCs. Task Manager shows CPU and GPU load and the GPU's temperature, but no fan speeds. Every method below reads the chips directly, which is also why some of them need admin rights.</p>
 
 <h2>Check fan speed in the BIOS</h2>
 
@@ -44,7 +44,7 @@
 
 <h2>Check GPU fan speed</h2>
 
-<p>Graphics card fans connect to the card, not the motherboard, so the BIOS doesn't show them. Use the card's software instead.</p>
+<p>GPU fans connect to the card, not the motherboard, so the BIOS doesn't show them. Use the card's software instead.</p>
 
 <ul>
   <li>On AMD cards, open <b>AMD Software</b>, go to <b>Performance</b> &gt; <b>Metrics</b>, and you'll see the GPU fan speed in RPM. You can also add it to the in-game overlay.</li>
@@ -55,7 +55,7 @@
 
 <h2>Check every fan with a monitoring app</h2>
 
-<p>A monitoring app reads the motherboard, the graphics card and any fan hub at once, while you use the PC. That's the only way to see fan speeds in a game. HWiNFO is the best known free one, and these are the steps to use it.</p>
+<p>A monitoring app reads the motherboard, the GPU and any fan hub at once, while you use the PC. That's the only way to see fan speeds in a game. HWiNFO is the best known free one, and these are the steps to use it.</p>
 
 <ol>
   <li>Install it from the maker's site and start it with <b>Sensors-only</b> ticked.</li>
