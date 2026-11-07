@@ -54,6 +54,50 @@ public sealed class AppWindowTests(AppHost host) : IClassFixture<AppHost>
     }
 
     [Fact]
+    public void The_welcome_and_the_plan_questions_are_made_when_they_open_and_cover_the_window()
+    {
+        // Both are made the first time they open (opening the app, 2026-11-06): none of them before, all of it after, over
+        // the whole window as before.
+        static FrameworkElement? Layer(DependencyObject root, string name)
+        {
+            if (root is FrameworkElement { Name: var n } e && n == name) return e;
+            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+                if (Layer(System.Windows.Media.VisualTreeHelper.GetChild(root, i), name) is { } found) return found;
+            return null;
+        }
+        Ui.TakeProblems();
+        host.Show("home", 300);
+        Ui.Run(() => Assert.Equal((null, null), (Layer(host.Window, "PagesLayer"), Layer(host.Window, "PlanDialogLayer"))));
+
+        Ui.Run(() => host.Shell.Settings.Update(s => s.Sidebar.AskPages = true));
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            var welcome = Layer(host.Window, "PagesLayer");
+            Assert.NotNull(welcome);
+            Assert.True(welcome.IsVisible);
+            Assert.Equal(((FrameworkElement)host.Window.FindName("Body")).ActualWidth, welcome.ActualWidth, 1);
+        });
+        Ui.Run(() => host.Shell.Settings.Update(s => s.Sidebar.AskPages = false));
+        Ui.Pump(200);
+        Ui.Run(() => Assert.False(Layer(host.Window, "PagesLayer")!.IsVisible));
+
+        Ui.Run(() => host.Shell.Plans.CancelOpen = true);
+        Ui.Pump(300);
+        Ui.Run(() =>
+        {
+            var plans = Layer(host.Window, "PlanDialogLayer");
+            Assert.NotNull(plans);
+            Assert.True(plans.IsVisible);
+            Assert.Equal(((FrameworkElement)host.Window.FindName("Body")).ActualHeight, plans.ActualHeight, 1);
+        });
+        Ui.Run(() => host.Shell.Plans.CancelOpen = false);
+        Ui.Pump(200);
+        Ui.Run(() => Assert.False(Layer(host.Window, "PlanDialogLayer")!.IsVisible));
+        Ui.AssertNoProblems("the welcome and the plan questions");
+    }
+
+    [Fact]
     public void The_question_before_ending_a_part_of_Windows_shows_over_the_window()
     {
         Ui.TakeProblems();

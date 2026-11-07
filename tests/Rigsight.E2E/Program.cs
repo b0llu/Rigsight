@@ -168,6 +168,18 @@ internal static class Program
             Record("app.home.filled_ms", opened.FilledMs, "ms", "The very first open (no icons kept yet) until Home has its history", budget: 10_000);
             Console.WriteLine($"  Home on screen after {opened.ShownMs} ms, with its history after {opened.FilledMs} ms");
             foreach (var line in opened.FalseEmpties) Fail($"Home said \"{line}\" while it was still loading (a loader belongs there)");
+            // The app's own account of opening (OpeningTime), without UI Automation in the way: how much .NET compiled while
+            // it opened. About 1,700 methods with the precompiled image (PublishReadyToRunComposite), near 5,000 without it:
+            // published in the wrong order (the agent after the app), the image goes unused and opening is 0.8 s slower.
+            string? openedLine = null;
+            WaitFor(() => (openedLine = LogLines("[app] Opened on").LastOrDefault()) is not null, 10_000);
+            if (openedLine is not null && System.Text.RegularExpressions.Regex.Match(openedLine, @"after (\d+) ms, the page with its history after (\d+) ms \((\d+) methods compiled") is { Success: true } own)
+            {
+                Record("app.opening.filled_ms", double.Parse(own.Groups[2].Value), "ms", "The app's own time until its first page was drawn with its history", budget: 10_000);
+                Record("app.opening.jit_methods", double.Parse(own.Groups[3].Value), "methods", "Methods compiled while opening (the rest comes precompiled)", budget: 3000);
+                Console.WriteLine($"  By the app's own log: window drawn after {own.Groups[1].Value} ms, Home with its history after {own.Groups[2].Value} ms, {own.Groups[3].Value} methods compiled");
+            }
+            else Fail("The app didn't log how long opening took (\"Opened on\")");
             if (!WaitFor(() => ui.HasLiveReadings(), 20_000)) Fail("Home never showed a live reading (no data from the agent?)");
 
             // The page on screen is read again once a minute. Left to its own clock that work fell inside a 20 s look at

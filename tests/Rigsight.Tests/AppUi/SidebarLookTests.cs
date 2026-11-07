@@ -135,11 +135,16 @@ public sealed class SidebarLookTests(AppHost host) : IClassFixture<AppHost>
         {
             Ui.Run(() => { host.Shell.Settings.Update(s => s.Sidebar.AskPages = true); host.Shell.Sidebar.Refresh(); });
             Ui.Pump(300);
-            Assert.Equal(Visibility.Visible, Ui.Run(() => Part("PagesLayer").Visibility));
+            // Built the first time it opens (see MainWindow.xaml), so found among what's on screen, not by the window's names.
+            FrameworkElement Welcome() => Visuals.Descendants<FrameworkElement>(host.Window).First(e => e.Name == "PagesLayer");
+            Assert.True(Ui.Run(() => Welcome().IsVisible));
+            // The tiles are on its second step, and a step is built when it shows: on to it.
+            Ui.Run(() => host.Shell.Welcome.NextCommand.Execute(null));
+            Ui.Pump(300);
             Ui.Run(() =>
             {
                 // The same 16 tiles in both pictures: the basics light 6.
-                var card = Part("PagesLayer");
+                var card = Welcome();
                 var tiles = Visuals.Descendants<ItemsControl>(card).Where(i => i.ItemsSource is IReadOnlyList<SidebarTile>).ToList();
                 Assert.Equal(2, tiles.Count);
                 Assert.Equal(6, ((IReadOnlyList<SidebarTile>)tiles[0].ItemsSource).Count(t => t.Lit));
@@ -152,7 +157,7 @@ public sealed class SidebarLookTests(AppHost host) : IClassFixture<AppHost>
 
             Ui.Run(() => host.Shell.Sidebar.PickPagesCommand.Execute("basic"));
             Ui.Pump(300);
-            Assert.Equal(Visibility.Collapsed, Ui.Run(() => Part("PagesLayer").Visibility));
+            Assert.False(Ui.Run(() => Welcome().IsVisible));
             // The test PC's own dashboard stays: the basics never hide what the person made.
             var dashboards = Ui.Run(() => host.Shell.Sidebar.DashboardsGroup.Pages.Select(p => p.Title).ToHashSet());
             var shown = Ui.Run(() => Items().Where(r => r.IsVisible).Select(NameOf).ToList());

@@ -17,7 +17,7 @@ public sealed class SettingsModel
     public SettingsModel(AgentClient client)
     {
         _client = client;
-        Current = SettingsStore.Load();
+        Current = Program.TakeEarlySettings() ?? SettingsStore.Load();
         Units.Fahrenheit = Current.UseFahrenheit;
         TimeText.Style = Current.ClockStyle;
         _debounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };

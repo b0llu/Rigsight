@@ -17,6 +17,13 @@
     <StartupObject>Rigsight.Program</StartupObject>
     <!-- WPF0001: Fluent ThemeMode is experimental. WFO0003: WinForms DPI advice (not applicable to WPF). -->
     <NoWarn>$(NoWarn);WPF0001;WFO0003</NoWarn>
+    <!-- Opening (measured 2026-11-06): published, the app and .NET's own libraries are compiled ahead together as one image
+         (Rigsight.r2r.dll), so code that joins the two (System.Text.Json's for RigSight's own settings) is ready as well,
+         instead of being compiled while the window waits (about a third of a second). It's published after the agent into
+         the same folder (build-installer.ps1, test.ps1): the shared .NET files are then this image's, and the agent runs
+         on them as they are. Published the other way round, the image no longer matches and everything is compiled while
+         opening again: the log's "Opened on" line says how much was. -->
+    <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
   </PropertyGroup>
 
   <ItemGroup>

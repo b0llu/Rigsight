@@ -3,17 +3,43 @@ using System.Text.Json.Serialization;
 
 namespace Rigsight.Core.Settings;
 
+/// <summary>
+/// The settings file's reading and writing, made when RigSight is built (System.Text.Json's source generator) instead of
+/// worked out by reflection at the first read: built ahead with the rest of the program, opening doesn't wait for it to be
+/// compiled (measured 2026-11-06: about half a second on the window's thread before the window showed).
+/// </summary>
+/// <remarks>The same options as the reflection reading before it: indented, NaN and infinity kept, enums as their names.</remarks>
+[JsonSourceGenerationOptions(WriteIndented = true, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals, UseStringEnumConverter = true)]
+[JsonSerializable(typeof(RigsightSettings))]
+internal sealed partial class SettingsJson : JsonSerializerContext;
+
 public static class SettingsStore
 {
-    public static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        // A NaN or infinity in a setting is written and read back, not thrown on (copying the settings goes through JSON).
-        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals,
-        Converters = { new JsonStringEnumConverter() },
-    };
+    // A NaN or infinity in a setting is written and read back, not thrown on (copying the settings goes through JSON).
+    public static JsonSerializerOptions JsonOptions => SettingsJson.Default.Options;
 
     public static RigsightSettings Load() => Load(RigsightPaths.SettingsFile);
+
+    /// <summary>
+    /// The language in the settings file, read on its own: what the app needs before anything else as it opens, while
+    /// <see cref="Load()"/> reads the rest on another thread. English when the file has none (as <see cref="Load()"/> would
+    /// give); null when there's no file or it can't be read, and then <see cref="Load()"/> decides.
+    /// </summary>
+    public static string? LanguageIn(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+            if (!doc.RootElement.TryGetProperty(nameof(RigsightSettings.Language), out var language)) return LanguagePack.English;
+            return language.ValueKind == JsonValueKind.String ? language.GetString() : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>Reads the settings file at <paramref name="path"/>: <see cref="RigsightPaths.SettingsFile"/>, or a test's.</summary>
     /// <remarks>
@@ -92,7 +118,7 @@ public static class SettingsStore
         }
     }
 
-    public static string Serialize(RigsightSettings s) => JsonSerializer.Serialize(s, JsonOptions);
+    public static string Serialize(RigsightSettings s) => JsonSerializer.Serialize(s, SettingsJson.Default.RigsightSettings);
 
     /// <summary>Colours made with the picker: readable codes, each once, the newest kept when there are too many.</summary>
     private static List<string> CustomColors(List<string>? list)
@@ -102,7 +128,7 @@ public static class SettingsStore
     }
 
     public static RigsightSettings Deserialize(string json) =>
-        Normalize(JsonSerializer.Deserialize<RigsightSettings>(json, JsonOptions) ?? new RigsightSettings());
+        Normalize(JsonSerializer.Deserialize(json, SettingsJson.Default.RigsightSettings) ?? new RigsightSettings());
 
     private const int CurrentVersion = 12;
 

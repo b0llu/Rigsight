@@ -45,14 +45,27 @@ public static partial class Program
             if (args[i] == "--language") language = args[i + 1];
         }
 
+        // The settings are read on a thread of their own while this one starts WPF and reads the window's styles (both
+        // about a tenth of a second, measured 2026-11-06); the shell takes them from here (TakeEarlySettings). After the
+        // wait above: a window closing for another language may still be saving them.
+        _earlySettings = Task.Run(Core.Settings.SettingsStore.Load);
+
         // The language first: every page reads its text once as it's built, and picking another language starts the
-        // app again (see LanguageStore).
-        Core.LanguageStore.Apply(language ?? Core.Settings.SettingsStore.Load().Language);
+        // app again (see LanguageStore). It's read from the file on its own, so it doesn't wait for the rest.
+        Core.LanguageStore.Apply(language ?? Core.Settings.SettingsStore.LanguageIn(Core.RigsightPaths.SettingsFile) ?? _earlySettings.Result.Language);
 
         var app = new App();
         app.InitializeComponent();
         return app.Run();
     }
+
+    private static Task<Core.Settings.RigsightSettings>? _earlySettings;
+
+    /// <summary>
+    /// The settings read as the app started (see Main), the first time they're asked for; null after that, or when Main
+    /// didn't run (the tests build the shell themselves), and the file is read then.
+    /// </summary>
+    public static Core.Settings.RigsightSettings? TakeEarlySettings() => Interlocked.Exchange(ref _earlySettings, null)?.Result;
 
     private static void WaitForExit(int pid)
     {

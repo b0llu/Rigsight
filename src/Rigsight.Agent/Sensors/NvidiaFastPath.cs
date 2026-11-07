@@ -28,6 +28,20 @@ internal sealed class NvidiaFastPath
         _thermal = thermal;
     }
 
+    /// <summary>Whether <see cref="Read"/> gives the hot spot and memory junction (the card's NVAPI thermal call was found).</summary>
+    public bool ReadsThermals => _thermal is not null;
+
+    /// <summary>
+    /// The key readings <see cref="Read"/> gives every time (fans aside: <see cref="FanRpm"/>, every 10 s): a taskbar,
+    /// widget or overlay reading among them is served from here, without the full update (see SensorHost.Watch).
+    /// </summary>
+    public static IEnumerable<string> Covers(bool thermals) =>
+        thermals
+            ? [KeySensors.GpuTemp, KeySensors.GpuLoad, KeySensors.GpuPower, KeySensors.GpuClock, KeySensors.GpuVramUsed, KeySensors.GpuVramTotal,
+                KeySensors.GpuVramLoad, KeySensors.GpuHotSpot, KeySensors.GpuMemJunction]
+            : [KeySensors.GpuTemp, KeySensors.GpuLoad, KeySensors.GpuPower, KeySensors.GpuClock, KeySensors.GpuVramUsed, KeySensors.GpuVramTotal,
+                KeySensors.GpuVramLoad];
+
     /// <summary>Sets up the fast path for a single NVIDIA GPU, or returns null (then the normal update is used).</summary>
     public static NvidiaFastPath? TryCreate(IHardware gpu)
     {

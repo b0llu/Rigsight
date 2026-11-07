@@ -10,9 +10,13 @@ namespace Rigsight.Core.Rewind;
 /// which are due. Both programs make them: the agent when one finishes (to announce it while RigSight is closed),
 /// the app when it opens. The same period gives the same file, so whichever is first, the other finds it made.
 /// </summary>
+/// <summary>A rewind file's reading and writing, made when RigSight is built (see SettingsJson): opening reads them at once.</summary>
+[JsonSourceGenerationOptions(WriteIndented = true, UseStringEnumConverter = true)]
+[JsonSerializable(typeof(RewindFacts))]
+internal sealed partial class RewindJson : JsonSerializerContext;
+
 public static class RewindStore
 {
-    private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
     private static readonly object Gate = new();
 
     public static string Folder => Path.Combine(RigsightPaths.DataDir, "rewinds");
@@ -23,7 +27,7 @@ public static class RewindStore
         if (!Directory.Exists(Folder)) return list;
         foreach (var file in Directory.GetFiles(Folder, "*.json"))
         {
-            try { if (JsonSerializer.Deserialize<RewindFacts>(File.ReadAllText(file), Json) is { Id.Length: > 0 } f) list.Add(f); }
+            try { if (JsonSerializer.Deserialize(File.ReadAllText(file), RewindJson.Default.RewindFacts) is { Id.Length: > 0 } f) list.Add(f); }
             catch (Exception ex) { Log.Write("rewind", $"Couldn't read {Path.GetFileName(file)}: {ex.Message}"); }
         }
         // Newest first; on one day the longest first (a year above its last quarter and month).
@@ -38,7 +42,7 @@ public static class RewindStore
         {
             Directory.CreateDirectory(Folder);
             string path = Path.Combine(Folder, f.Id + ".json"), temp = path + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(f, Json));
+            File.WriteAllText(temp, JsonSerializer.Serialize(f, RewindJson.Default.RewindFacts));
             File.Move(temp, path, overwrite: true);
         }
     }

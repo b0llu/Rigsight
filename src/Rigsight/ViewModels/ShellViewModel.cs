@@ -199,7 +199,7 @@ public sealed partial class ShellViewModel : ObservableObject
         // The end-to-end check asks a test copy for this refresh itself, so that it falls where it is measured.
         if (RigsightPaths.IsTestInstance && Environment.GetEnvironmentVariable("RIGSIGHT_REFRESH_ON_SIGNAL") == "1") RefreshOnSignal();
         else _refresh.Start();
-        _ = RefreshCurrentPageAsync();
+        _ = FirstPageAsync();
 
         // An update already found or downloaded shows at once; GitHub is asked once the window has settled (at most once a day).
         _ = Update.ShowKnownAsync();
@@ -596,6 +596,16 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>For the copied logs: a reading's figure, "none" for a sensor that gives nothing, "no sensor" where there isn't one.</summary>
     internal static string Reading(Models.SensorItem? sensor) => sensor is null ? "no sensor" : sensor.Value is null ? "none" : sensor.FormattedValue;
+
+    /// <summary>The page the window opens on, read for the first time; how long opening took goes into the log.</summary>
+    private async Task FirstPageAsync()
+    {
+        string page = CurrentPage;
+        await RefreshCurrentPageAsync();
+        // Drawn with what it read: everything queued above idle, layout and rendering included, has run by then.
+        await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+        OpeningTime.PageFilled(page);
+    }
 
     public async Task RefreshCurrentPageAsync()
     {

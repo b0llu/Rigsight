@@ -187,6 +187,12 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.6.2", 11, 7,
+            better: [Lang.T("RigSight opens faster, and Home shows today's history sooner."),
+                Lang.T("The background agent uses less CPU when a GPU reading is in the taskbar, a widget or the overlay."),
+                Lang.T("Going back to Reports shows its figures and bars at once, and they only move when you pick another period."),
+                Lang.T("On Reports, the Temperatures card shows each hour, day or month as a bar from its lowest to its highest, with a mark at the average.")],
+            fixedBugs: [Lang.T("The Average day label on Reports and Apps sits in the card's heading now, so it can't cover a bar or its total.")]),
         V("1.6.1", 11, 6,
             better: [Lang.T("Switching periods on Reports now shows the change, as bars move or fade across, figures count up and the Where the time went bars slide.")],
             fixedBugs: [Lang.T("The Temperatures graph on Last 24 hours keeps up when you move the pointer over it or scroll the page."),

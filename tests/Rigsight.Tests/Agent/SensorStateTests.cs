@@ -480,6 +480,45 @@ public class SensorHostTests
     }
 
     [Fact]
+    public void A_watched_reading_the_quick_nvidia_readings_give_keeps_them_and_anything_else_on_the_card_gets_the_full_update()
+    {
+        // Places in the sensor list: the CPU's temperature (0), then the card's temperature, hot spot, load, fan, voltage.
+        var keys = new Dictionary<string, int>
+        {
+            [KeySensors.CpuTemp] = 0, [KeySensors.GpuTemp] = 1, [KeySensors.GpuHotSpot] = 2,
+            [KeySensors.GpuLoad] = 3, [KeySensors.GpuFan] = 4, [KeySensors.GpuVoltage] = 5,
+        };
+        static bool OnTheCard(int i) => i is >= 1 and <= 5;
+        var covered = SensorHost.FastCovered(keys, OnTheCard, thermals: true);
+        Assert.Equal(new Dictionary<int, string> { [1] = KeySensors.GpuTemp, [2] = KeySensors.GpuHotSpot, [3] = KeySensors.GpuLoad }, covered);
+
+        Assert.False(SensorHost.NeedsFullGpuRead([0, 1], OnTheCard, covered)); // the CPU and GPU temperatures in the taskbar
+        Assert.False(SensorHost.NeedsFullGpuRead([2, 3], OnTheCard, covered));
+        Assert.False(SensorHost.NeedsFullGpuRead([], OnTheCard, covered));
+        Assert.True(SensorHost.NeedsFullGpuRead([1, 4], OnTheCard, covered)); // a fan: NVML's every 10 s is too slow for a reading shown each second
+        Assert.True(SensorHost.NeedsFullGpuRead([5], OnTheCard, covered)); // the voltage isn't among the quick readings
+
+        // Without the card's thermal call the hot spot isn't among them either.
+        var plain = SensorHost.FastCovered(keys, OnTheCard, thermals: false);
+        Assert.False(plain.ContainsKey(2));
+        Assert.True(SensorHost.NeedsFullGpuRead([2], OnTheCard, plain));
+        // A key sensor on another card (an older one beside the main one) isn't the quick readings' to answer for.
+        Assert.Empty(SensorHost.FastCovered(new Dictionary<string, int> { [KeySensors.GpuTemp] = 7 }, OnTheCard, thermals: true));
+    }
+
+    [Fact]
+    public void A_card_reading_in_the_quick_mode_is_its_quick_reading_a_fan_its_last_speed_and_anything_else_none()
+    {
+        var covered = new Dictionary<int, string> { [1] = KeySensors.GpuTemp, [3] = KeySensors.GpuLoad };
+        var values = new Dictionary<string, double?> { [KeySensors.GpuTemp] = 61, [KeySensors.GpuLoad] = null };
+        var fans = new Dictionary<int, double?> { [4] = 1450 };
+        Assert.Equal(61, SensorHost.FastReading(1, covered, values, fans));
+        Assert.Null(SensorHost.FastReading(3, covered, values, fans)); // NVML didn't answer: nothing, not an old value
+        Assert.Equal(1450, SensorHost.FastReading(4, covered, values, fans));
+        Assert.Null(SensorHost.FastReading(5, covered, values, fans)); // never read quickly: its last full reading may be hours old
+    }
+
+    [Fact]
     public void Drives_are_read_every_5_minutes_with_the_app_closed_and_every_10_seconds_with_it_open()
     {
         var host = new SensorHost();

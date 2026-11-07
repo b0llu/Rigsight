@@ -519,9 +519,34 @@ public sealed partial class WidgetCard : ObservableObject
     [RelayCommand]
     private void Delete() => _page.Delete(this);
 
-    [ObservableProperty] private ImageSource? _preview;
+    // Read from the data folder the first time the card is shown, not as the app opens (nine pictures decoded on the
+    // window's thread before it showed: about 50 ms, measured 2026-11-06).
+    private ImageSource? _preview;
+    private bool _previewRead;
 
-    public void LoadPreview() => Preview = PreviewImages.Load(Id) ?? Preview;
+    public ImageSource? Preview
+    {
+        get
+        {
+            if (!_previewRead)
+            {
+                _previewRead = true;
+                _preview = PreviewImages.Load(Id);
+            }
+            return _preview;
+        }
+        set
+        {
+            _previewRead = true;
+            SetProperty(ref _preview, value);
+        }
+    }
+
+    /// <summary>A newer picture from the agent: read now if the card has been shown, else when it first is.</summary>
+    public void LoadPreview()
+    {
+        if (_previewRead) Preview = PreviewImages.Load(Id) ?? Preview;
+    }
 
     public void Refresh()
     {

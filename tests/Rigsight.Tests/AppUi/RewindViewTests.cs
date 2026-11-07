@@ -97,6 +97,15 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         var f = October();
         (f.Id, f.Announced, f.Seen) = ("2026-10-month~turn", false, false);
         RewindStore.Save(f);
+        // October's own rewind is made as the window opens once October is over, and it would wait first (it ends later):
+        // seen here, so this one is the only new one, and put back as it was after. Without it the test passed only
+        // when an earlier test in the same run had made and seen it (the gate of 2026-11-07 ran in another order).
+        string own = RewindBuilder.IdOf(RewindKind.Month, new DateTime(2026, 10, 1));
+        string ownFile = Path.Combine(RewindStore.Folder, own + ".json");
+        string? ownBefore = File.Exists(ownFile) ? File.ReadAllText(ownFile) : null;
+        var seen = RewindStore.Get(own) ?? October();
+        (seen.Id, seen.Announced, seen.Seen) = (own, true, true);
+        RewindStore.Save(seen);
         // The window tests start with it off (see SharedData.ResetSettings): on, as people have it.
         Ui.Run(() => host.Shell.Settings.Update(s => s.Rewind.FullScreen = true));
         try
@@ -116,6 +125,8 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
             Ui.Run(() => { if (vm.IsOpen) vm.LaterCommand.Execute(null); });
             Ui.Run(() => host.Shell.Settings.Update(s => s.Rewind.FullScreen = false));
             File.Delete(Path.Combine(RewindStore.Folder, f.Id + ".json"));
+            if (ownBefore is null) File.Delete(ownFile);
+            else File.WriteAllText(ownFile, ownBefore);
             Ui.Run(vm.Reload);
         }
     }

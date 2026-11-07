@@ -49,6 +49,7 @@ public partial class MainWindow : Window
         // an update, then a finished rewind full screen; the support card only on a start where none of them showed.
         ContentRendered += (_, _) =>
         {
+            OpeningTime.WindowDrawn();
             if (_vm.Welcome.IsOpen) _vm.MarkBig("The welcome");
             else
             {

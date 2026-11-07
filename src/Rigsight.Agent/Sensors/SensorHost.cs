@@ -60,6 +60,10 @@ internal sealed class SensorHost
     private IHardware? _fastGpuHardware;
     private readonly Dictionary<string, double?> _fastValues = [];
     private bool _usingFastValues;
+    // The card's sensors those readings cover (their place in the list, with the reading's key), and its fans' last
+    // speeds from NVML: a taskbar, widget or overlay reading among them is served from these (see Watch).
+    private Dictionary<int, string> _fastCovered = [];
+    private readonly Dictionary<int, double?> _lastFastFans = [];
 
     // A graphics card's driver is going or coming (see DisplayDriverWatch): no card is asked anything from here on.
     private bool _gpusPaused;
@@ -261,7 +265,38 @@ internal sealed class SensorHost
         var gpuFans = _fans.Where(i => _sensorHardware[i] == _fastGpuHardware)
             .OrderBy(i => _sensors[i].Identifier.ToString(), StringComparer.Ordinal).ToArray();
         _fastFans = _fastGpu is { FanCount: > 0 } fast && gpuFans.Length == fast.FanCount ? gpuFans : [];
+        _lastFastFans.Clear();
+        _fastCovered = _fastGpu is { } quick
+            ? FastCovered(Keys, i => i < _sensorHardware.Count && _sensorHardware[i] == _fastGpuHardware, quick.ReadsThermals)
+            : [];
     }
+
+    /// <summary>
+    /// The sensors (their place in the list) the quick NVIDIA readings cover, with the key each is read by: the card's
+    /// own key sensors among those <see cref="NvidiaFastPath.Covers"/> lists.
+    /// </summary>
+    internal static Dictionary<int, string> FastCovered(IReadOnlyDictionary<string, int> keys, Func<int, bool> onTheCard, bool thermals)
+    {
+        var covered = new Dictionary<int, string>();
+        foreach (var key in NvidiaFastPath.Covers(thermals))
+            if (keys.TryGetValue(key, out int i) && onTheCard(i)) covered[i] = key;
+        return covered;
+    }
+
+    /// <summary>
+    /// Whether the sensors watched (their places in the list) need the card's full update: one of them is on it and the
+    /// quick readings don't give it (a fan's every 10 s isn't enough for a reading shown each second).
+    /// </summary>
+    internal static bool NeedsFullGpuRead(IEnumerable<int> watched, Func<int, bool> onTheCard, IReadOnlyDictionary<int, string> covered) =>
+        watched.Any(i => onTheCard(i) && !covered.ContainsKey(i));
+
+    /// <summary>
+    /// A sensor of the card while the quick readings are in use: a covered one's quick reading, a fan's last speed from
+    /// NVML, else nothing (its last full reading may be hours old).
+    /// </summary>
+    internal static double? FastReading(int index, IReadOnlyDictionary<int, string> covered, IReadOnlyDictionary<string, double?> values,
+        IReadOnlyDictionary<int, double?> fans) =>
+        covered.TryGetValue(index, out var key) ? values.GetValueOrDefault(key) : fans.GetValueOrDefault(index);
 
     /// <summary>Whether sensor <paramref name="index"/> was read by the last <see cref="Update"/> (not an old value).</summary>
     public bool IsFresh(int index) => index < _fresh.Length && _fresh[index];
@@ -392,7 +427,7 @@ internal sealed class SensorHost
         if (_usingFastValues && fansDue && _fanHardware.Contains(_fastGpuHardware!))
         {
             if (_fastFans.Length > 0)
-                for (int k = 0; k < _fastFans.Length; k++) _fanValues[_fastFans[k]] = _fastGpu!.FanRpm(k);
+                for (int k = 0; k < _fastFans.Length; k++) _fanValues[_fastFans[k]] = _lastFastFans[_fastFans[k]] = _fastGpu!.FanRpm(k);
             else if (nowMs - _lastGpuFansMs >= FullGpuFanIntervalMs)
             {
                 _lastGpuFansMs = nowMs;
@@ -411,18 +446,29 @@ internal sealed class SensorHost
     }
 
     /// <summary>
-    /// Keeps the hardware behind these sensors (the overlay's) up to date on every <see cref="Update"/>, even with
-    /// the app closed. An empty list goes back to the usual light reading.
+    /// Keeps the hardware behind these sensors (the taskbar's, the widgets', the overlay's) up to date on every
+    /// <see cref="Update"/>, even with the app closed. An empty list goes back to the usual light reading.
     /// </summary>
+    /// <remarks>
+    /// An NVIDIA card's readings the quick ones cover (its temperature, load, power, clock, memory) stay quick: watching
+    /// any sensor of the card used to mean its full update every pass, about 1.4% of a core for a GPU temperature in
+    /// the taskbar (measured 2026-11-07, 2.4% of a core against 1.0% for one CPU reading). Anything else on the card
+    /// (a fan, a voltage) still gets the full update.
+    /// </remarks>
     public void Watch(IReadOnlyList<string> ids)
     {
         string key = string.Join('|', ids);
         if (key == _watchedKey) return;
         _watchedKey = key;
         _watched.Clear();
+        var places = new List<int>();
         foreach (var id in ids)
-            if (_indexById.TryGetValue(id, out int i)) _watched.Add(_sensorHardware[i]);
-        _watchesFastGpu = _fastGpuHardware is not null && _watched.Contains(_fastGpuHardware);
+            if (_indexById.TryGetValue(id, out int i))
+            {
+                _watched.Add(_sensorHardware[i]);
+                places.Add(i);
+            }
+        _watchesFastGpu = _fastGpuHardware is not null && NeedsFullGpuRead(places, i => _sensorHardware[i] == _fastGpuHardware, _fastCovered);
     }
 
     /// <summary>One sensor's current reading, kind and name, by identifier (null if this PC doesn't have it).</summary>
@@ -432,6 +478,8 @@ internal sealed class SensorHost
         var s = _sensors[i];
         var kind = Enum.TryParse<SensorKind>(s.SensorType.ToString(), out var k) ? k : SensorKind.Factor;
         double? value = s.Value is float f && float.IsFinite(f) && !(_gpusPaused && IsGpu(_sensorHardware[i])) ? f : null;
+        // The card isn't given its full update while the quick readings are in use (see Watch): those answer for it.
+        if (_usingFastValues && _sensorHardware[i] == _fastGpuHardware) value = FastReading(i, _fastCovered, _fastValues, _lastFastFans);
         // Without driver access some temperature sensors report 0 instead of nothing.
         if (kind == SensorKind.Temperature && value <= 0) value = null;
         return (value, kind, s.Name, s.Hardware.HardwareType.ToString(), s.Hardware.Name);

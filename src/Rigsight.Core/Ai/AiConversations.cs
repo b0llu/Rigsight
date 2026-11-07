@@ -32,11 +32,15 @@ public sealed record SavedConversation(string Id, string Title, DateTime When, s
 /// (nothing here is sent anywhere). Written whole each time, through a temporary file, so a power cut leaves the old
 /// file or the new one, never half of one.
 /// </summary>
-public static class AiConversations
+public static partial class AiConversations
 {
     private sealed record FileShape(int V, IReadOnlyList<SavedConversation> Conversations);
 
-    private static readonly JsonSerializerOptions Options = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false };
+    /// <summary>The file's reading and writing, made when RigSight is built (see SettingsJson): opening reads it at once.</summary>
+    [System.Text.Json.Serialization.JsonSourceGenerationOptions(PropertyNamingPolicy = System.Text.Json.Serialization.JsonKnownNamingPolicy.CamelCase, WriteIndented = false)]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(FileShape))]
+    private sealed partial class ConversationsJson : System.Text.Json.Serialization.JsonSerializerContext;
+
     private static readonly object WriteLock = new();
 
     public static string File => Path.Combine(RigsightPaths.DataDir, "conversations.json");
@@ -47,7 +51,7 @@ public static class AiConversations
         try
         {
             if (!System.IO.File.Exists(path)) return [];
-            var shape = JsonSerializer.Deserialize<FileShape>(System.IO.File.ReadAllText(path), Options);
+            var shape = JsonSerializer.Deserialize(System.IO.File.ReadAllText(path), ConversationsJson.Default.FileShape);
             return [.. shape?.Conversations ?? []];
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException or NotSupportedException)
@@ -62,7 +66,7 @@ public static class AiConversations
     public static void Save(IReadOnlyList<SavedConversation> conversations, string? path = null)
     {
         path ??= File;
-        string json = JsonSerializer.Serialize(new FileShape(1, conversations), Options);
+        string json = JsonSerializer.Serialize(new FileShape(1, conversations), ConversationsJson.Default.FileShape);
         lock (WriteLock)
         {
             try
