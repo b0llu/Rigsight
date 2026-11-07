@@ -1,0 +1,50 @@
+<!--meta
+{"slug": "rewrite-in-rust", "series": "build", "happened": "2026-11-07", "published": "2026-11-07", "version": "1.6.2",
+ "title": "Should RigSight be rewritten in Rust? I measured first",
+ "summary": "RigSight felt slow to open, and I wondered whether parts of it should be rewritten in Rust. Measuring every part said no. The slow parts were drivers, Windows and the way the window started, and fixing those made it open in about 1.1 seconds instead of 1.9.",
+ "short": "RigSight felt slow to open, so I asked whether to rewrite parts in Rust. Measured, its own code was a sliver of the cost. Fixing how the window starts and one sensor bug made it open in about 1.1 seconds and use half the CPU.",
+ "mark": "1.1 s"}
+-->
+<p>In early November RigSight started to feel slow to open. I click it in the tray, and there's a pause before the window shows. So I asked a big question. Should parts of RigSight be rewritten in Rust, a language known for fast programs?</p>
+
+<p>Before rewriting anything, I wanted to know where the time actually went.</p>
+
+<h2>Where the 1.9 seconds went</h2>
+
+<p>On my PC, with my real history, the window took about 1.9 seconds to show. I traced every part of that time. Reading the settings file took about half a second. Setting up the pages took nearly another half second, including pages I hadn't opened yet. Building the window itself took about 0.4 seconds.</p>
+
+<p>The app had grown a lot in a month. The main window's layout file went from about 800 lines in mid October to over 2,100, and the settings had more than doubled. None of that was slow code. It was just more to load before the window showed, and all of it was loaded up front.</p>
+
+<p>The fixes were about doing less at the start, not about a faster language.</p>
+
+<ul>
+  <li>Each page is now built the first time you open it, not when the app starts.</li>
+  <li>The settings are read while the window is still loading, instead of before it.</li>
+  <li>More of the app is compiled ahead of time, so less of it has to be compiled while it starts.</li>
+  <li>Things you only see later, like the welcome screen and the plans, wait until they're needed.</li>
+</ul>
+
+<div class="stat"><b>1.1 s</b><span>How long RigSight's window now takes to show on my PC, down from about 1.9 seconds. Home shows today's history in about 1.3 seconds instead of 2.2.</span></div>
+
+<h2>Checking everything else</h2>
+
+<p>The next morning I measured the rest of the app the same way, page by page and thread by thread, to see whether anything else would gain from Rust.</p>
+
+<p>Nothing would. When you switch pages, most of the time goes to laying out and drawing text, which is the window framework's own work, not RigSight's. RigSight's own code was about 25 ms of each visit. The history is stored in SQLite, which is already written in C. The Storage page's cleanup scan is slow because reading a whole drive's folders is slow, whatever language asks for them.</p>
+
+<p>The recorder that runs all day was the most interesting part. On my PC it used about 2.2% of one CPU core, while the test copy used under half a percent. Of the recorder's busiest thread, about 90% of the time was spent inside Windows' kernel and drivers, reading sensors. All of RigSight's own code together came to about 0.4% of a core. A faster language can't make a driver answer faster.</p>
+
+<h2>The bug the numbers found</h2>
+
+<p>So why did my recorder use five times more than the test copy? I tried one taskbar reading at a time. With the CPU temperature in the taskbar, the recorder used about 1.1% of a core. With the GPU temperature, it used 2.4%.</p>
+
+<p>RigSight has a fast way to read an NVIDIA card's temperature, load and power, straight from NVIDIA's own library. But when any reading on the NVIDIA card was being watched live, for the taskbar, a widget or the overlay, a rule switched that fast way off and read everything the slow way instead. Version 1.6.2 keeps the fast way on.</p>
+
+<div class="pair">
+  <div class="bad"><p class="k">Before 1.6.2</p><p>With a GPU reading in the taskbar, the recorder used about 2.2% of a CPU core.</p></div>
+  <div class="good"><p class="k">Since 1.6.2</p><p>The same settings use about 1.1%, half as much, all day.</p></div>
+</div>
+
+<p>If I had rewritten the recorder in Rust, it would have called the same drivers the same slow way, and nothing would have changed. The numbers said where to look, and it was one rule, not the language.</p>
+
+<p>The lesson I'm keeping is boring, and that's fine. When something feels slow, measure where the time goes before deciding what to rewrite. Most of the time, the answer is doing less, not doing it in another language.</p>

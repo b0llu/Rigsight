@@ -31,7 +31,10 @@
   "ping-spikes-while-gaming": "2026-11-06",
   "pc-restarts-randomly-while-gaming": "2026-11-06",
   "one-percent-low-fps": "2026-11-07",
-  "bringing-ai-back": "2026-11-07"
+  "bringing-ai-back": "2026-11-07",
+  "internet-keeps-disconnecting": "2026-11-07",
+  "games-stuttering-on-pc": "2026-11-07",
+  "rewrite-in-rust": "2026-11-07"
  },
  "queue": [
   "rigsight-in-spanish",

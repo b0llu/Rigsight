@@ -1,0 +1,59 @@
+<!--meta
+{"slug": "games-stuttering-on-pc", "series": "guide", "published": "2026-11-07", "updated": "2026-11-07",
+ "topic": "FPS and games",
+ "keyword": "games stuttering on pc",
+ "also": ["game stuttering but high fps", "games stuttering on pc all of a sudden", "why do my games stutter on pc", "micro stutters in games", "stuttering in games fix", "games stuttering on pc windows 11"],
+ "title": "Games stuttering on PC? Find out if it's the game or the PC",
+ "summary": "My worst stutter burst was 369 hitches in 15 minutes of Risk of Rain 2, and nothing else on the PC was busy. How RigSight counts every stutter and names what else was running, why games stutter on PC, and how to fix it.",
+ "description": "Games stuttering on PC come from the game itself, or from another app grabbing the disk or CPU. Count the stutters, check what ran, then fix it.",
+ "short": "Games stuttering on PC means some frames take far longer than the ones around them. Either the game itself is busy, compiling shaders or loading, or something else on the PC grabs the disk, the CPU or graphics memory at that moment. Check what else was running when the stutters bunched up, then fix that side first.",
+ "faq": [
+  ["Why do my games stutter even with high FPS?", "Average FPS hides slow frames. A game can average 180 FPS and still have one frame in a hundred take 15 ms or more, which you feel as a hitch. Look at the 1% low and the frame times, not the average."],
+  ["Why are my games stuttering all of a sudden?", "Look at what changed. A new graphics driver or game patch makes many games rebuild their shaders during the first session. A new background app, a Windows update installing, or a launcher downloading can also start it. If it stays after a second session, work through the fixes in order."],
+  ["What are micro stutters in games?", "Micro stutters are single frames that take several times longer than the ones around them, often only tens of milliseconds. They're too short to show in an FPS counter, but you feel them as small hitches when you move the camera."]
+ ],
+ "cover_tiles": [["Stutters in 15 minutes", "369", "Risk of Rain 2, nothing else busy"]],
+ "app": ["Stutter: a frame at least 2.5 times as long as the middle of the 30 before it, and at least 20 ms; none counted under 20 fps overall (StutterFinder, 0.35.0)", "Five or more stutters within 15 minutes named with what else was busy: another app on the disk (50 MB/s+ and three times its usual in the play), the graphics card's memory 95%+ full, another app on the CPU (20%+ and twice its usual), Windows nearly out of memory; otherwise 'nothing else stood out then' (StutterCauses)", "Games page: Smooth, Mostly smooth or It stutters from stutters an hour, with the 0.1% low (GamesViewModel.SmoothOf)", "Every play lists its stutters; a play's frames open frame by frame (0.35.0)", "True 1% and 0.1% lows from every frame (0.35.0)", "FPS and frames need RivaTuner Statistics Server running before the game"],
+ "sources": ["https://www.capframex.com/blog/post/Explanation%20of%20different%20performance%20metrics", "https://www.digitalcitizen.life/how-to-tell-whether-your-cpu-or-gpu-is-limiting-gaming-performance/", "https://www.blurbusters.com/gsync/gsync101-input-lag-tests-and-settings/14/", "https://developer.android.com/games/optimize/framerate"]}
+-->
+<p>On 28 October, in one stretch of Risk of Rain 2 starting at 10:35 PM, RigSight counted 369 stutters in 15 minutes. That's more than one hitch every three seconds. My first guess was something in the background. But in those 15 minutes nothing else on the PC was busy. Steam used about 3 MB a second of disk, and no other app used more than about 1% of the CPU. The stutter was coming from the game itself. When games keep stuttering on PC, that's the question to answer first, because the fixes for each side have nothing in common.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>Since version 0.35.0, RigSight reads every frame's time from RivaTuner Statistics Server while you play. It counts a stutter when one frame takes at least 2.5 times as long as the frames just before it, and at least 20 ms. A game at 144 FPS jumping from 7 ms frames to 20 ms is a hitch you feel, while 8 to 12 ms isn't. Nothing counts while a game runs under 20 FPS overall, so loading screens stay out.</p>
+
+<p>When you open a play frame by frame and five or more stutters bunched up within 15 minutes, RigSight looks at what else was going on in those minutes, against the rest of the play. It names another app reading or writing the disk heavily, the graphics card's memory nearly full, another app busy on the CPU, or Windows nearly out of memory. If none of those stood out, it says so. That last answer is useful too, because it tells you to look at the game.</p>
+
+<p>On the Games page, each game says how smooth it plays, as Smooth, Mostly smooth or It stutters, from how many stutters an hour it had, with the 0.1% low beside it. Every play lists its stutters. My Phantom Blade Zero days have run at between about 160 and 270 stutters an hour, so that game reads as It stutters too. RivaTuner has to be running before the game starts, and the Games page has a button to install or start it. RigSight is free and open source.</p>
+
+<h2>Why games stutter on PC</h2>
+
+<p>A stutter is one frame, or a few, that take far longer than the ones around them. The average frame rate barely moves, which is why a game can show 180 FPS and still feel rough. The <a href="one-percent-low-fps">1% low FPS</a> post explains the numbers.</p>
+
+<p>The causes split into two sides.</p>
+
+<ul>
+  <li>The game itself can be busy. Many games build shaders the first time they need them, especially after a graphics driver or game update. Open-world games load new areas as you move, and busy scenes can make the CPU the limit for a moment.</li>
+  <li>Something else on the PC can grab a resource at the wrong moment. A launcher updating, an antivirus scan, cloud sync or a browser tab can take the disk or CPU. A game that fills the graphics card's memory has to swap data in and out.</li>
+  <li>Overlays and capture tools hook into the game and add their own work every frame.</li>
+  <li>Heat makes a CPU or GPU slow down in bursts once it reaches its limit.</li>
+</ul>
+
+<h2>How to fix games stuttering on PC</h2>
+
+<p>First find the side. In RigSight, open the game on the Games page, open the play frame by frame, and read the line about when its stutters bunched up. Without RigSight, run the game with Task Manager open on a second screen, or play a while, then check <b>Processes</b> sorted by <b>Disk</b> and <b>CPU</b> while it stutters. Then work through these in order.</p>
+
+<ol>
+  <li>Give it a second session after any driver or game update. If the stutter is shaders being built, the second session is smoother.</li>
+  <li>Close background work. Pause launcher downloads, cloud sync and browser video while you play.</li>
+  <li>Lower <b>Texture quality</b> one step if the graphics card's memory is nearly full.</li>
+  <li>Turn overlays off one at a time, including Discord's, Steam's and the NVIDIA or AMD overlay, and see whether the stutters drop.</li>
+  <li>Set a frame cap a little below what your PC holds in busy scenes. A steadier pace hides small hitches, and with G-Sync or FreeSync cap a few frames below the refresh rate.</li>
+  <li>Use your launcher's verify or repair option for the game's files.</li>
+  <li>Check temperatures while you play. <a href="normal-gpu-temperature-while-gaming">Normal GPU temperature while gaming</a> has the limits.</li>
+  <li>Set Windows to <b>Best performance</b> in <b>Settings</b> &gt; <b>System</b> &gt; <b>Power &amp; battery</b> &gt; <b>Power mode</b>, and play laptops on the charger.</li>
+</ol>
+
+<p>If nothing else on the PC was busy and the stutter survives all of that, it's likely the game's own. Look for a patch, or check the game's forums for others with the same hardware.</p>
+
+<p>Your next step is to catch the next bad session and see what was running when the stutters bunched up. If it's another app, close it. If it's nothing, the game is the place to look.</p>

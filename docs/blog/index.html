@@ -230,18 +230,48 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 </section>
 <section class="wrap">
   <div class="filter" role="group" aria-label="Show posts from">
-    <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>31</span></button><button class="chip" type="button" data-series="build" aria-pressed="false">Building RigSight <span>12</span></button><button class="chip" type="button" data-series="ai" aria-pressed="false">The AI journey <span>2</span></button><button class="chip" type="button" data-series="fix" aria-pressed="false">PC problems <span>17</span></button>
+    <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>34</span></button><button class="chip" type="button" data-series="build" aria-pressed="false">Building RigSight <span>13</span></button><button class="chip" type="button" data-series="ai" aria-pressed="false">The AI journey <span>2</span></button><button class="chip" type="button" data-series="fix" aria-pressed="false">PC problems <span>19</span></button>
     <a class="rss" href="feed.xml">RSS</a>
   </div>
   <ol class="rows" id="rows">
-    <li class="row" data-series="fix">
+    <li class="row" data-series="build">
+  <a href="rewrite-in-rust">
+    <div class="thumb"><img class="" src="../img/blog/rewrite-in-rust.webp" srcset="../img/blog/rewrite-in-rust-600.webp 600w, ../img/blog/rewrite-in-rust.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Window opens: 1.1 s, was about 1.9 s. Recorder CPU: 1.1%, of a core, was 2.2%" fetchpriority="high" decoding="async"></div>
+    <div class="row-text">
+      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
+      <h2>Should RigSight be rewritten in Rust? I measured first</h2>
+      <p class="sum">RigSight felt slow to open, and I wondered whether parts of it should be rewritten in Rust. Measuring every part said no. The slow parts were drivers, Windows and the way the window started, and fixing those made it open in about 1.1 seconds instead of 1.9.</p>
+      <p class="meta">7 November 2026 · 3 min read</p>
+    </div>
+  </a>
+</li><li class="row" data-series="fix">
   <a href="one-percent-low-fps">
-    <div class="thumb"><img class="" src="../img/blog/one-percent-low-fps.webp" srcset="../img/blog/one-percent-low-fps-600.webp 600w, ../img/blog/one-percent-low-fps.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Minute lows averaged: 116, 4 hours of Risk of Rain 2. Every frame counted: 69, the true 1% low" fetchpriority="high" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/one-percent-low-fps.webp" srcset="../img/blog/one-percent-low-fps-600.webp 600w, ../img/blog/one-percent-low-fps.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Minute lows averaged: 116, 4 hours of Risk of Rain 2. Every frame counted: 69, the true 1% low" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
       <h2>1% low FPS meaning, and why my 116 was really 69</h2>
       <p class="sum">Four hours of Risk of Rain 2 at 187 FPS. Each minute's 1% low, averaged, said 116. Counting every frame together, it was 69. The 1% low FPS meaning in plain words, what a good gap to the average looks like, and how to see and fix it.</p>
       <p class="meta">7 November 2026 · 7 min read</p>
+    </div>
+  </a>
+</li><li class="row" data-series="fix">
+  <a href="games-stuttering-on-pc">
+    <div class="thumb"><img class="" src="../img/blog/games-stuttering-on-pc.webp" srcset="../img/blog/games-stuttering-on-pc-600.webp 600w, ../img/blog/games-stuttering-on-pc.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Stutters in 15 minutes: 369, Risk of Rain 2, nothing else busy" loading="lazy" decoding="async"></div>
+    <div class="row-text">
+      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
+      <h2>Games stuttering on PC? Find out if it's the game or the PC</h2>
+      <p class="sum">My worst stutter burst was 369 hitches in 15 minutes of Risk of Rain 2, and nothing else on the PC was busy. How RigSight counts every stutter and names what else was running, why games stutter on PC, and how to fix it.</p>
+      <p class="meta">7 November 2026 · 4 min read</p>
+    </div>
+  </a>
+</li><li class="row" data-series="fix">
+  <a href="internet-keeps-disconnecting">
+    <div class="thumb"><img class="" src="../img/blog/internet-keeps-disconnecting.webp" srcset="../img/blog/internet-keeps-disconnecting-600.webp 600w, ../img/blog/internet-keeps-disconnecting.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Internet drops on my PC: 6, since 2 October, the longest 44 minutes" loading="lazy" decoding="async"></div>
+    <div class="row-text">
+      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Internet and screen time</p>
+      <h2>Internet keeps disconnecting on PC? Find which side drops</h2>
+      <p class="sum">My PC lost the internet six times since October, once for 44 minutes, and every time the PC's own connection was fine. How RigSight tells you when the internet drops and which side it was, why it happens, and how to fix it on Windows 11.</p>
+      <p class="meta">7 November 2026 · 4 min read</p>
     </div>
   </a>
 </li><li class="row" data-series="fix">

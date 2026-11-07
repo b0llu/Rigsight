@@ -197,5 +197,20 @@
     "three looks showed only the number"
    ]
   ]
+ },
+ "rewrite-in-rust": {
+  "colour": "cpu",
+  "tiles": [
+   [
+    "Window opens",
+    "1.1 s",
+    "was about 1.9 s"
+   ],
+   [
+    "Recorder CPU",
+    "1.1%",
+    "of a core, was 2.2%"
+   ]
+  ]
  }
 }
