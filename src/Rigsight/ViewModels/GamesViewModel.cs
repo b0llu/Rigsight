@@ -19,7 +19,8 @@ namespace Rigsight.ViewModels;
 /// <summary>A cover in the library: the launcher's picture, else the game's own icon in a tile with its name.</summary>
 public sealed partial class GameCard : ObservableObject
 {
-    public required GameEntry Entry { get; init; }
+    /// <summary>The game, as last read: a card kept from the visit before gets the fresh reading (see <see cref="Looks"/>).</summary>
+    public required GameEntry Entry { get; set; }
     public string Name => Entry.Name;
     public ImageSource? Cover { get; init; }
     public ImageSource? Icon { get; init; }
@@ -31,12 +32,17 @@ public sealed partial class GameCard : ObservableObject
     /// <summary>Not installed any more: drawn faded, its history kept.</summary>
     public bool Faded => !Entry.IsInstalled;
     [ObservableProperty] private bool _isPlaying;
+
+    /// <summary>Whether a card built again for the same game would show just what this one shows: then this one stays.</summary>
+    internal bool Looks(GameCard o) => Entry.Key == o.Entry.Key && Name == o.Name && Sub == o.Sub && Badge == o.Badge && Faded == o.Faded
+        && ReferenceEquals(Cover, o.Cover) && ReferenceEquals(Icon, o.Icon) && IsPlaying == o.IsPlaying;
 }
 
 /// <summary>An installed game not played lately, on the shelf under the library.</summary>
 public sealed partial class ShelfRow(GameEntry entry, string name, string sub, string size, string drive, ImageSource? thumb, ImageSource? icon, string uninstallTip) : ObservableObject
 {
-    public GameEntry Entry { get; } = entry;
+    /// <summary>The game, as last read: a row kept from the visit before gets the fresh reading (see <see cref="Looks"/>).</summary>
+    public GameEntry Entry { get; set; } = entry;
     public string Name { get; } = name;
     public string Sub { get; } = sub;
     public string Size { get; } = size;
@@ -49,6 +55,10 @@ public sealed partial class ShelfRow(GameEntry entry, string name, string sub, s
     /// <summary>Running now: its uninstall button is off.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanUninstall))] private bool _isRunning;
     public bool CanUninstall => !IsRunning;
+
+    /// <summary>Whether a row built again for the same game would show just what this one shows: then this one stays.</summary>
+    internal bool Looks(ShelfRow o) => Entry.Key == o.Entry.Key && Name == o.Name && Sub == o.Sub && Size == o.Size && Drive == o.Drive
+        && ReferenceEquals(Thumb, o.Thumb) && ReferenceEquals(Icon, o.Icon) && UninstallTip == o.UninstallTip && HasFolder == o.HasFolder && IsRunning == o.IsRunning;
 }
 
 /// <summary>A small rounded label over the banner ("Played 24h 31m").</summary>
@@ -209,10 +219,21 @@ public sealed partial class GamesViewModel : ObservableObject
         var library = await _reports.QueryAsync((db, s) => GameHistory.Library(db, installed, s)) ?? [];
         _all = library;
         var last = library.Where(g => g.LastPlayed is not null).OrderByDescending(g => g.LastPlayed).FirstOrDefault();
-        SetRunning(FindRunning());
+        SetRunning(await FindRunningAsync());
         var hero = HeroPick() ?? _running ?? last;
         _heroStory = hero is null ? null : await _reports.QueryAsync((db, s) => GameHistory.Story(db, hero, s, DateTime.Now));
-        await Task.Run(() => { foreach (var g in library) Prewarm(g); });
+        // Every picture the page shows, read before it's built: the banner, its logo and the shelf's thumbnails were read
+        // on the window's thread, about 64 ms of a first visit (2026-11-08).
+        var banners = new[] { hero, HeroPick() ?? last }.OfType<GameEntry>().Distinct().ToList();
+        await Task.Run(() =>
+        {
+            foreach (var g in library) Prewarm(g);
+            foreach (var g in banners)
+            {
+                GamePictures.Picture(g.Installed?.Art.Banner, 1600);
+                GamePictures.Picture(g.Installed?.Art.Logo, 720);
+            }
+        });
         BuildCards();
         BuildShelf();
         BuildHero(HeroPick() ?? last);
@@ -239,6 +260,9 @@ public sealed partial class GamesViewModel : ObservableObject
     {
         if (g.Installed?.Art.Cover is { } c) GamePictures.Picture(c, 300);
         else GamePictures.Icon(g.ExePath ?? GamePictures.ProgramIn(g.Installed?.InstallDir));
+        // The shelf's thumbnail (an installed game not played lately), or its icon when there's none.
+        if (g.Installed is { } installed && GamePictures.Picture(installed.Art.Banner, 240) is null)
+            GamePictures.Icon(g.ExePath ?? GamePictures.ProgramIn(installed.InstallDir));
     }
 
     /// <summary>The library as the filter and order pick it (and the search, when asked), the game running now first.</summary>
@@ -269,10 +293,25 @@ public sealed partial class GamesViewModel : ObservableObject
     {
         var playing = PlayingEntry();
         var ordered = Ordered(searched: true);
-        Cards.Clear();
-        foreach (var g in ordered) Cards.Add(CardOf(g, playing));
+        Keep(Cards, [.. ordered.Select(g => CardOf(g, playing))], (shown, fresh) => shown.Looks(fresh), (shown, fresh) => shown.Entry = fresh.Entry);
         CountText = Cards.Count == 1 ? Lang.T("1 game") : Lang.T($"{Cards.Count} games");
         OnPropertyChanged(nameof(NoMatch));
+    }
+
+    /// <summary>
+    /// The list as <paramref name="fresh"/>, keeping each row already shown at its place that would look the same (it
+    /// takes the fresh reading of its game): every visit cleared the library and built all its covers again, each one
+    /// laid out again (the covers' layout was 70-82 ms of the window's thread per visit, 2026-11-08).
+    /// </summary>
+    private static void Keep<T>(ObservableCollection<T> shown, List<T> fresh, Func<T, T, bool> looks, Action<T, T> update)
+    {
+        for (int i = 0; i < fresh.Count; i++)
+        {
+            if (i >= shown.Count) shown.Add(fresh[i]);
+            else if (looks(shown[i], fresh[i])) update(shown[i], fresh[i]);
+            else shown[i] = fresh[i];
+        }
+        while (shown.Count > fresh.Count) shown.RemoveAt(shown.Count - 1);
     }
 
     private static GameCard CardOf(GameEntry g, GameEntry? playing)
@@ -298,15 +337,16 @@ public sealed partial class GamesViewModel : ObservableObject
         // Launcher games only: their size is known. A game found from its own program (OnDisk) has none to show.
         var idle = _all.Where(g => g.Installed is not null && (g.HasHistory ? g.LastPlayed < cutoff : !(g.Installed.LastPlayed >= cutoff)))
             .OrderByDescending(g => g.Installed!.SizeBytes ?? 0).ToList();
-        Shelf.Clear();
+        var rows = new List<ShelfRow>();
         foreach (var g in idle)
         {
             var thumb = GamePictures.Picture(g.Installed!.Art.Banner, 240);
             string when = g.HasHistory ? LastPlayed(g.LastPlayed!.Value) : g.Installed.LastPlayed is { } lp ? LastPlayed(lp) : NotPlayedYet;
-            Shelf.Add(new ShelfRow(g, g.Name, $"{when} · {LauncherName(g.Launcher)}", Size(g.Installed.SizeBytes),
+            rows.Add(new ShelfRow(g, g.Name, $"{when} · {LauncherName(g.Launcher)}", Size(g.Installed.SizeBytes),
                 OnDrive(DriveOf(g.Installed.InstallDir)), thumb, thumb is null ? GamePictures.Icon(g.ExePath ?? GamePictures.ProgramIn(g.Installed.InstallDir)) : null,
                 UninstallThrough(g.Launcher)) { IsRunning = IsRunning(g) });
         }
+        Keep(Shelf, rows, (shown, fresh) => shown.Looks(fresh), (shown, fresh) => shown.Entry = fresh.Entry);
         double gb = idle.Sum(g => (g.Installed!.SizeBytes ?? 0) / 1e9);
         ShelfSummary = idle.Count == 1 ? Lang.T($"1 game · {gb:0} GB") : Lang.T($"{idle.Count} games · {gb:0} GB");
         OnPropertyChanged(nameof(HasShelf));
@@ -366,7 +406,7 @@ public sealed partial class GamesViewModel : ObservableObject
     /// The game in front, else one still running behind another window. The agent names only the app in front, so a
     /// game tabbed out of (to RigSight itself, a browser, Discord) is found by its programs among the running ones.
     /// </summary>
-    private GameEntry? FindRunning()
+    private async Task<GameEntry?> FindRunningAsync()
     {
         _runningChecked = DateTime.Now;
         if (_live.Activity is { Category: AppCategory.Game, Path: { } path } && Match(path) is { } front) return front;
@@ -378,10 +418,18 @@ public sealed partial class GamesViewModel : ObservableObject
                 games.Add(g);
             }
         if (names.Count == 0) return null;
+        // The running programs, listed away from the window's thread: listing them there took 16-21 ms, on every visit
+        // and every few seconds while the page is open (2026-11-08).
+        var running = await Task.Run(() =>
+        {
+            var list = new List<string>();
+            foreach (var p in Process.GetProcesses())
+                using (p) list.Add(p.ProcessName);
+            return list;
+        });
         var found = new List<GameEntry>();
-        foreach (var p in Process.GetProcesses())
-            using (p)
-                if (names.TryGetValue(p.ProcessName, out var games)) found.AddRange(games);
+        foreach (var name in running)
+            if (names.TryGetValue(name, out var games)) found.AddRange(games);
         // The one already running stays; else the one played most lately.
         return found.FirstOrDefault(IsRunning) ?? found.OrderByDescending(g => g.LastPlayed ?? DateTime.MinValue).FirstOrDefault();
     }
@@ -406,13 +454,29 @@ public sealed partial class GamesViewModel : ObservableObject
         if (!Ready || !IsShown) return;
         // The app in front changing is checked at once; a game closed behind another window within a few seconds.
         if (e.PropertyName == nameof(LiveData.Activity) || (e.PropertyName == nameof(LiveData.Tick) && DateTime.Now - _runningChecked > TimeSpan.FromSeconds(3)))
+            _ = CheckRunningAsync();
+    }
+
+    private bool _checkingRunning;
+
+    private async Task CheckRunningAsync()
+    {
+        if (_checkingRunning) return;
+        _checkingRunning = true;
+        try
         {
             var was = _running?.Key;
-            SetRunning(FindRunning());
+            var running = await FindRunningAsync();
+            if (!Ready) return;
+            SetRunning(running);
             if (was == _running?.Key) return;
             // The game started or closed: its cover moves to the front (or back to its place) and the banner follows.
             BuildCards();
             _ = RefreshHeroAsync();
+        }
+        finally
+        {
+            _checkingRunning = false;
         }
     }
 
