@@ -105,12 +105,13 @@ public partial class TaskbarView : UserControl
 
     /// <summary>
     /// The wheel over a floating list scrolls that list alone: a list is a window of its own whose events still reach the
-    /// page, which scrolled too once the list reached its end.
+    /// page, which scrolled too once the list reached its end. It glides as every other list does (SmoothWheel).
     /// </summary>
     private void List_Wheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is not DependencyObject d || FindScroll(d) is not { } scroll) return;
-        scroll.ScrollToVerticalOffset(scroll.VerticalOffset - (scroll.CanContentScroll ? Math.Sign(e.Delta) * 3 : e.Delta / 3.0));
+        if (!Controls.SmoothWheel.TryGlide(scroll, e.Delta))
+            scroll.ScrollToVerticalOffset(scroll.VerticalOffset - (Controls.SmoothWheel.ByItem(scroll) ? Math.Sign(e.Delta) * 3 : e.Delta / 3.0));
         e.Handled = true;
     }
 

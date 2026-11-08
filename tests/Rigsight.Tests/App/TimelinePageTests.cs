@@ -1,4 +1,5 @@
 using System.Windows;
+using Rigsight.Controls;
 using Rigsight.Core.Stability;
 using Rigsight.Services;
 using Rigsight.Tests.Support;
@@ -520,6 +521,73 @@ public sealed class TimelinePageTests
 
     private static List<SystemChange> Long(int days = 200) =>
         [.. Enumerable.Range(0, days).Select(i => Update(Today.AddDays(-i * 2).AddHours(12), $"App {i}"))];
+
+    /// <summary>
+    /// The wheel glides down the days (SmoothWheel), and older days are still built only as the list nears its end, a
+    /// screen ahead: gliding somewhere builds exactly as many as WPF's wheel jumping there did (the user, 2026-11-08: "the
+    /// timeline has lazy loading so we dont load all, keep that in mind").
+    /// </summary>
+    [Fact]
+    public void The_wheel_glides_down_the_days_and_builds_no_more_of_them_than_before()
+    {
+        var glided = Wheel(glide: true);
+        var jumped = Wheel(glide: false);
+        TestContext.Current.TestOutputHelper?.WriteLine($"Days built: {jumped.Days} as before, {glided.Days} gliding, at {glided.Offset:0} px. " +
+            $"First notch, ms:px: {string.Join("  ", glided.Frames.Select(f => $"{f.Ms}:{f.Px:0}"))}");
+        Assert.Equal(jumped.Offset, glided.Offset, 1);
+        Assert.Equal(jumped.Days, glided.Days);
+        Assert.True(glided.Days < 200);
+        if (!Rigsight.Services.Motion.Enabled) return;
+        // Over several frames, easing out: fast at first, settling at a notch's 48 px.
+        var moving = glided.Frames.Where(f => f.Px > 0.5).ToList();
+        Assert.True(moving.Count >= 3, $"{moving.Count} frames");
+        Assert.True(moving[0].Px < 40);
+        Assert.Equal(SmoothWheel.Step(-120, SystemParameters.WheelScrollLines, 1000), moving[^1].Px, 1);
+        Assert.Equal(moving.Select(f => f.Px).Order(), moving.Select(f => f.Px));
+    }
+
+    /// <summary>The real page in a window: a notch of the wheel, then a spin of thirty, then waits for the days built behind it.</summary>
+    private static (double Offset, int Days, List<(long Ms, double Px)> Frames) Wheel(bool glide)
+    {
+        // Waited for from here, so the window draws its frames at its own pace meanwhile.
+        var (vm, _) = Page(Long());
+        var view = Ui.Run(() => new Views.TimelineView { DataContext = vm });
+        var window = Ui.Run(() => new Window { Content = view, Left = -32000, Top = -32000, Width = 1400, Height = 1000, ShowActivated = false, ShowInTaskbar = false });
+        Ui.Run(window.Show);
+        try
+        {
+            Ui.Pump(500);
+            var scroller = Ui.Run(() => (System.Windows.Controls.ScrollViewer)view.FindName("Scroller"));
+            var list = Ui.Run(() => (UIElement)view.FindName("List"));
+            Ui.Run(() => SmoothWheel.SetEnabled(scroller, glide));
+            void Turn() => Ui.Run(() =>
+            {
+                var wheel = new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, -120)
+                    { RoutedEvent = UIElement.PreviewMouseWheelEvent };
+                list.RaiseEvent(wheel);
+                if (wheel.Handled) return;
+                wheel.RoutedEvent = UIElement.MouseWheelEvent;
+                list.RaiseEvent(wheel);
+            });
+
+            var frames = new List<(long, double)>();
+            var clock = new System.Diagnostics.Stopwatch();
+            EventHandler log = (_, _) => frames.Add((clock.ElapsedMilliseconds, scroller.VerticalOffset));
+            Ui.Run(() => { System.Windows.Media.CompositionTarget.Rendering += log; clock.Start(); });
+            Turn();
+            Ui.Pump(250);
+            Ui.Run(() => System.Windows.Media.CompositionTarget.Rendering -= log);
+
+            for (int i = 0; i < 30; i++)
+            {
+                Turn();
+                Ui.Pump(40);
+            }
+            Ui.Pump(1500);
+            return Ui.Run(() => (scroller.VerticalOffset, vm.Days.Count, frames.ToList()));
+        }
+        finally { Ui.Run(window.Close); }
+    }
 
     [Fact]
     public void A_page_of_days_first_then_older_ones_one_at_a_time()

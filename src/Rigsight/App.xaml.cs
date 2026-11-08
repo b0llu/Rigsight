@@ -26,6 +26,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
         Controls.Select.Start();
+        Controls.SmoothWheel.Everywhere();
         // In another language, the pages' bindings write dates with that language's day and month names (WPF's
         // bindings use US English otherwise); see LanguageStore.BindingLanguage. In English they stay exactly as they were.
         if (Lang.Pack is { } pack)

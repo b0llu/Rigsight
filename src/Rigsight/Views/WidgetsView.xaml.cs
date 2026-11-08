@@ -96,7 +96,7 @@ public partial class WidgetsView : UserControl
 
     /// <summary>
     /// The wheel over the built-in row moves it sideways, smoothly; once it can't go further that way (or everything
-    /// fits), the wheel scrolls the page as it does anywhere else.
+    /// fits), the wheel scrolls the page as it does anywhere else (gliding, see SmoothWheel).
     /// </summary>
     private void BuiltInRow_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
@@ -105,7 +105,8 @@ public partial class WidgetsView : UserControl
         double to = Math.Clamp(from - e.Delta * 1.4, 0, BuiltInRow.ScrollableWidth);
         if (Math.Abs(to - from) < 0.5)
         {
-            PageScroll.ScrollToVerticalOffset(PageScroll.VerticalOffset - e.Delta / 120.0 * 48);
+            if (!Controls.SmoothWheel.TryGlide(PageScroll, e.Delta))
+                PageScroll.ScrollToVerticalOffset(PageScroll.VerticalOffset - e.Delta / 120.0 * 48);
             return;
         }
         _rowTarget = to;

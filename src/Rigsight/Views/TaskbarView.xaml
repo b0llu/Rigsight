@@ -651,7 +651,7 @@
                                 <TextBlock Text="{ctl:T 'No sensor matches that. Try a part, like GPU, or a kind, like temp.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}"
                                            Margin="8" TextWrapping="Wrap" Visibility="{Binding AddListEmpty, Converter={StaticResource Vis}}" />
                                 <ItemsControl ItemsSource="{Binding AddList}" Focusable="False" MaxHeight="360" VirtualizingPanel.IsVirtualizing="True"
-                                              ScrollViewer.CanContentScroll="True" PreviewMouseWheel="List_Wheel">
+                                              VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True" PreviewMouseWheel="List_Wheel">
                                     <ItemsControl.Template>
                                         <ControlTemplate TargetType="ItemsControl">
                                             <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" CanContentScroll="True">
@@ -894,7 +894,7 @@
                         <TextBlock x:Name="PartnerEmpty" Text="{ctl:T 'No sensor matches that. Try a part, like GPU, or a kind, like temp.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}"
                                    Margin="8" TextWrapping="Wrap" Visibility="Collapsed" />
                         <ItemsControl x:Name="PartnerList" Focusable="False" MaxHeight="360" VirtualizingPanel.IsVirtualizing="True" ScrollViewer.CanContentScroll="True"
-                                      PreviewMouseWheel="List_Wheel">
+                                      VirtualizingPanel.ScrollUnit="Pixel" PreviewMouseWheel="List_Wheel">
                             <ItemsControl.Template>
                                 <ControlTemplate TargetType="ItemsControl">
                                     <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" CanContentScroll="True">
