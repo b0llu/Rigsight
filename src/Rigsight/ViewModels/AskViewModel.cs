@@ -858,8 +858,9 @@ public sealed partial class AskViewModel : ObservableObject
     /// <summary>Windows' word that the network came or went (any thread): checked again on the window's thread.</summary>
     private void WatchNetwork()
     {
-        IsOffline = Internet.IsOff();
+        // Asked of Windows off the window's thread: 13-20 ms of it while the app opened (2026-11-08). Online until it says.
         var ui = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+        _ = Task.Run(Internet.IsOff).ContinueWith(t => ui.BeginInvoke(() => NetworkChanged(t.Result)), TaskContinuationOptions.OnlyOnRanToCompletion);
         System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += (_, _) =>
             ui.BeginInvoke(() => NetworkChanged(Internet.IsOff()));
     }

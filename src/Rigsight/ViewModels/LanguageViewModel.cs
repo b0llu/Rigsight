@@ -34,13 +34,14 @@ public sealed partial class LanguageViewModel : ObservableObject
     private readonly SettingsModel _settings;
     private string _target = Lang.Code;
 
-    public LanguageViewModel(SettingsModel settings)
-    {
-        _settings = settings;
-        Options = Build();
-    }
+    public LanguageViewModel(SettingsModel settings) => _settings = settings;
 
-    public IReadOnlyList<LanguageOption> Options { get; }
+    /// <summary>
+    /// The languages, built when Settings › Language first shows them: building them reads which packs are downloaded,
+    /// 17 ms of the window's thread before it first showed (2026-11-08).
+    /// </summary>
+    public IReadOnlyList<LanguageOption> Options => _options ??= Build();
+    private List<LanguageOption>? _options;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowStatus), nameof(IsDownloading), nameof(IsWarning), nameof(IsReady), nameof(StatusText),

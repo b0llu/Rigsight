@@ -4,13 +4,15 @@
              xmlns:ctl="clr-namespace:Rigsight.Controls"
         xmlns:views="clr-namespace:Rigsight.Views"
         xmlns:rw="clr-namespace:Rigsight.Rewind"
-        Title="RigSight" Icon="Assets/Rigsight.ico"
+        Title="RigSight"
         Width="1400" Height="920" MinWidth="1140" MinHeight="680"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource BgBrush}" Foreground="{DynamicResource TextBrush}"
         UseLayoutRounding="True"
         ctl:Select.Text="True"
         FontFamily="Segoe UI">
+    <!-- No Icon set: WPF gives the window the program's own (assets\Rigsight.ico, the same file), where reading it here
+         took 18 ms of the opening (2026-11-08). -->
     <!-- The window draws its own title bar: Windows' own one was made shorter when maximized, squeezing its buttons
          (see TitleBar below and MainWindow.TitleBar.cs). The frame, shadow, rounded corners and resizing stay Windows'. -->
     <WindowChrome.WindowChrome>
