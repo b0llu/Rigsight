@@ -597,6 +597,9 @@ public sealed partial class CrashesViewModel(ReportService reports, SettingsMode
         var changesFrom = (rows.Count > 0 ? rows.Min(c => c.Time) : from).Date.AddDays(-7);
         if (changesFrom > from.AddDays(-7)) changesFrom = from.AddDays(-7);
         var changes = await ReportService.ChangesAsync(changesFrom, to);
+        // The apps' icons, read before the list is built: read from disk as each row was made, 17 ms of the window's
+        // thread on a first visit (2026-11-08).
+        await Task.Run(() => { foreach (var path in rows.Select(r => r.Event.AppPath).Distinct()) Services.IconCache.Get(path); });
         if (id != _loadId) return;
 
         Since = since;

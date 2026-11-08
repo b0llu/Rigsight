@@ -21,7 +21,7 @@
              nothing moves when it shows. -->
         <ctl:Spinner x:Name="Busy" Margin="10,0,-22,0" Visibility="Collapsed" />
 
-        <!-- Custom: from a date and hour to another (whole hours: history per app is kept by the hour). -->
-        <ctl:RangeEditor x:Name="Editor" />
+        <!-- Custom: from a date and hour to another (whole hours: history per app is kept by the hour). Its editor
+             (RangeEditor) is added here the first time it's needed: see PeriodPicker.Editor. -->
     </StackPanel>
 </UserControl>

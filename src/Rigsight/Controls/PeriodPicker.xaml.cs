@@ -21,17 +21,34 @@ public partial class PeriodPicker : UserControl
         InitializeComponent();
         Pager.PreviousCommand = new RelayCommand(() => Step(-1));
         Pager.NextCommand = new RelayCommand(() => Step(1));
-        Editor.Applied += (from, to) =>
-        {
-            SetCurrentValue(CustomFromProperty, from);
-            SetCurrentValue(CustomToProperty, to);
-        };
         Loaded += (_, _) =>
         {
             DayChanged += Refresh;
             Refresh();
         };
         Unloaded += (_, _) => DayChanged -= Refresh;
+    }
+
+    private RangeEditor? _editor;
+
+    /// <summary>
+    /// The custom range's editor (a pop-up), made and put at the end of the bar the first time it's needed: built with
+    /// every picker, it was 8 ms of the first visit of each page that has one (2026-11-08).
+    /// </summary>
+    private RangeEditor Editor
+    {
+        get
+        {
+            if (_editor is not null) return _editor;
+            _editor = new RangeEditor();
+            _editor.Applied += (from, to) =>
+            {
+                SetCurrentValue(CustomFromProperty, from);
+                SetCurrentValue(CustomToProperty, to);
+            };
+            Bar.Children.Add(_editor);
+            return _editor;
+        }
     }
 
     /// <summary>Midnight passed with the window open: "Today" on a picker is now yesterday, and there's a day to step to.</summary>
