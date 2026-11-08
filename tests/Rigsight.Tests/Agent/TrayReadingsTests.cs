@@ -55,6 +55,36 @@ public class TrayReadingsTests
         Assert.Equal([[GpuLoad], [CpuTemp], [Ram]], icons);
     }
 
+    // 2026-11-08: a person's readings came back on tiles after updating to 1.7.0. While the taskbar refuses the strip
+    // after sign-in these icons stand in for it, and they looked only at the taskbar's Background, not each reading's own.
+
+    [Fact]
+    public void A_reading_set_to_no_background_has_no_tile_even_with_the_taskbar_on_tiles()
+    {
+        Assert.Null(TrayReadings.Tile([CpuTemp with { Tiles = false }], light: false, gray: false, tiles: true));
+        Assert.NotNull(TrayReadings.Tile([CpuTemp with { Tiles = null }], light: false, gray: false, tiles: true));
+    }
+
+    [Fact]
+    public void A_reading_set_to_tiles_has_one_even_with_the_taskbar_on_none()
+    {
+        Assert.NotNull(TrayReadings.Tile([CpuTemp with { Tiles = true }], light: false, gray: false, tiles: false));
+        Assert.Null(TrayReadings.Tile([CpuTemp], light: false, gray: false, tiles: false));
+    }
+
+    [Fact]
+    public void An_icon_keeps_each_readings_own_grayscale()
+    {
+        var picked = GpuLoad with { NumberColor = "#3B82F6" };
+        Assert.NotEqual(picked.NumberOn(false, gray: false), picked.NumberOn(false, gray: true));
+        var colour = TrayReadings.Lines([picked with { Gray = false }], light: false, gray: true)[0].Color;
+        var grey = TrayReadings.Lines([picked with { Gray = true }], light: false, gray: false)[0].Color;
+        Assert.Equal(picked.NumberOn(false, gray: false), colour);
+        Assert.Equal(picked.NumberOn(false, gray: true), grey);
+        Assert.Equal(CpuTemp.TileOn(false, gray: true, icon: true),
+            TrayReadings.Tile([CpuTemp with { Tiles = true, Gray = true }], light: false, gray: false, tiles: false));
+    }
+
     [Fact]
     public void Grouped_each_part_gets_an_icon_with_its_temperature_on_top()
     {
@@ -338,7 +368,7 @@ public class TrayReadingsTests
             for (int y = 0; y < bmp.Height / 2; y++)
                 if (bmp.GetPixel(x, y).A > 128) return x;
         return -1;
-    }
+    }
 
     [Theory]
     [InlineData(SensorKind.Load, "CPU Total", TrayPart.Cpu, "Load")]

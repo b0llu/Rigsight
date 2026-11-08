@@ -47,7 +47,7 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
 
     /// <summary>
     /// Shows <paramref name="readings"/> (none: no icons at all), in grayscale when <paramref name="gray"/>, each icon on
-    /// a tile when <paramref name="tiles"/>. An icon that stays is kept as it is, so adding or removing one leaves the
+    /// a tile when <paramref name="tiles"/>, unless a reading has its own (see <see cref="Tile"/>). An icon that stays is kept as it is, so adding or removing one leaves the
     /// others where the user put them.
     /// </summary>
     public void Update(IReadOnlyList<TrayReading> readings, bool grouped, bool gray = false, bool tiles = false)
@@ -86,14 +86,18 @@ internal sealed class TrayReadings(Action open, Action<IReadOnlyList<string>> re
 
     /// <summary>
     /// The icon's tile with tiles on: its first reading's (see <see cref="TrayReading.TileOn"/>); none while no reading is
-    /// found, as the part isn't known, or with tiles off (the numbers alone).
+    /// found, as the part isn't known, or with tiles off (the numbers alone). Tiles and grayscale are the first reading's
+    /// own where it has them (<see cref="TrayReading.Tiles"/>, <see cref="TrayReading.Gray"/>), as on the strip; else the
+    /// taskbar's. 2026-11-08: since 1.7.0 these icons stand in for the strip while the taskbar refuses it after sign-in,
+    /// and readings set to no background came back on tiles, as only the taskbar's setting was looked at.
     /// </summary>
     internal static Color? Tile(IReadOnlyList<TrayReading> icon, bool light, bool gray, bool tiles) =>
-        !tiles || icon.All(r => r.Hardware.Length == 0) ? null : icon[0].TileOn(light, gray, icon: true);
+        icon.Count == 0 || !(icon[0].Tiles ?? tiles) || icon.All(r => r.Hardware.Length == 0) ? null
+            : icon[0].TileOn(light, icon[0].Gray ?? gray, icon: true);
 
-    /// <summary>The icon's numbers, each in its colour.</summary>
+    /// <summary>The icon's numbers, each in its colour (grayscale its own where it has it, else the taskbar's).</summary>
     internal static List<(string Text, Color Color)> Lines(IReadOnlyList<TrayReading> icon, bool light, bool gray) =>
-        [.. icon.Take(TrayParts.PerIcon).Select(r => Line(r, light, gray))];
+        [.. icon.Take(TrayParts.PerIcon).Select(r => Line(r, light, r.Gray ?? gray))];
 
     /// <summary>
     /// Right-click: remove this icon's readings, switch between an icon each and grouped by part, or open the Taskbar
