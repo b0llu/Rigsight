@@ -66,8 +66,9 @@ public partial class TimelineView : UserControl
     private bool _morePending;
 
     /// <summary>
-    /// Builds older days while the list ends within a screen of what's in view (or doesn't fill it yet): a few at a time
-    /// and only once the window has nothing else to do, so scrolling, a click or a new filter never waits for them.
+    /// Builds older days while the list ends within a screen of what's in view (or doesn't fill it yet): one day at a time
+    /// and only once the window has nothing else to do, so scrolling, a click or a new filter never waits for them (the
+    /// day is laid out and drawn before the next is asked for: input and drawing come before Background).
     /// Asked for whenever that can have changed: the page shown, the list scrolled, days added or replaced.
     /// </summary>
     private void FillAhead()

@@ -302,7 +302,7 @@ public sealed class TimelinePageTests
             // Back to days: everything is on its own day again.
             vm.Grouping = "Day";
             Assert.DoesNotContain(vm.Days, d => d.IsSummary);
-            vm.ShowMoreCommand.Execute(null);
+            while (vm.HasMore) vm.ShowMoreCommand.Execute(null);
             Assert.Equal(9, vm.Days.Count); // nine days hold the nine changes and two problems
         });
     }
@@ -522,8 +522,9 @@ public sealed class TimelinePageTests
         [.. Enumerable.Range(0, days).Select(i => Update(Today.AddDays(-i * 2).AddHours(12), $"App {i}"))];
 
     [Fact]
-    public void Days_are_built_a_page_at_a_time()
+    public void A_page_of_days_first_then_older_ones_one_at_a_time()
     {
+        // One at a time so scrolling never waits for a batch: six at once paused it 30-130 ms (2026-11-08).
         var (vm, _) = Page(Long());
         Ui.Run(() =>
         {
@@ -531,9 +532,9 @@ public sealed class TimelinePageTests
             Assert.True(vm.HasMore);
             var first = vm.Days[0];
             vm.ShowMoreCommand.Execute(null);
-            Assert.Equal(2 * TimelineViewModel.PageSize, vm.Days.Count);
+            Assert.Equal(TimelineViewModel.PageSize + 1, vm.Days.Count);
             Assert.Same(first, vm.Days[0]); // what was there stays (the list doesn't jump)
-            for (int i = 0; i < 60; i++) vm.ShowMoreCommand.Execute(null);
+            while (vm.HasMore) vm.ShowMoreCommand.Execute(null);
             Assert.Equal(200, vm.Days.Count);
             Assert.False(vm.HasMore);
             Assert.Equal(vm.Days.Select(d => d.Day).OrderByDescending(d => d), vm.Days.Select(d => d.Day));
@@ -575,7 +576,7 @@ public sealed class TimelinePageTests
         var (vm, _) = Page(changes);
         Ui.Run(() =>
         {
-            vm.ShowMoreCommand.Execute(null);
+            for (int i = 0; i < TimelineViewModel.PageSize; i++) vm.ShowMoreCommand.Execute(null); // scrolled a page further
             var before = vm.Days.ToList();
             vm.Apply(new TimelineData([.. changes], [], []), onlyIfChanged: true);
             Assert.Equal(before, vm.Days);
@@ -619,6 +620,32 @@ public sealed class TimelinePageTests
             }
             Assert.All(days.Where(c => !c.HasAny), c => Assert.Null(c.Tip));
             Assert.Equal(Today.Month == month.Month ? 1 : 0, days.Count(c => c.IsToday));
+        });
+    }
+
+    [Fact]
+    public void Another_month_moves_the_same_calendar_cells_to_its_days()
+    {
+        // New cells (and buttons) for every month paused scrolling 33-51 ms each time the list crossed into another
+        // month (2026-11-08): the cells are kept and moved, and each says its new day and what's on it.
+        var (vm, _) = Page(Long());
+        Ui.Run(() =>
+        {
+            var before = vm.CalendarCells.ToList();
+            for (int step = 0; step < 3; step++)
+            {
+                vm.GoBackCommand.Execute(null);
+                var month = vm.CalendarMonth;
+                int blanks = ((int)month.DayOfWeek - (int)System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.FirstDayOfWeek + 7) % 7;
+                Assert.Equal(blanks, vm.CalendarCells.TakeWhile(c => c.Day is null).Count());
+                var days = vm.CalendarCells.Skip(blanks).ToList();
+                Assert.Equal(Enumerable.Range(0, DateTime.DaysInMonth(month.Year, month.Month)).Select(i => (DateTime?)month.AddDays(i)), days.Select(c => c.Day));
+                Assert.All(days, c => Assert.Equal((c.Day!.Value.Day.ToString(), c.Day.Value.ToString("D")), (c.Text, c.Label)));
+                // An update every other day at noon: those days are marked, the ones between aren't.
+                Assert.All(days, c => Assert.Equal((Today - c.Day!.Value).Days % 2 == 0, c.HasAny));
+                Assert.All(days.Where(c => !c.HasAny), c => Assert.Null(c.Tip));
+                Assert.All(vm.CalendarCells.Zip(before), p => Assert.Same(p.Second, p.First));
+            }
         });
     }
 

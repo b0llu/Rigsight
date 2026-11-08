@@ -102,12 +102,16 @@ public sealed class TimelineDay
 }
 
 /// <summary>
-/// A day in the calendar (or a blank before the 1st). What's on it can change while the month stays (another filter):
-/// the cell is kept and told, so the calendar isn't built again.
+/// A day in the calendar (or a blank before the 1st). What's on it can change while the month stays (another filter),
+/// and another month moves it to another day: the cell is kept and told, so the calendar's buttons aren't built again.
 /// </summary>
 public sealed partial class CalendarCell(DateTime? day) : ObservableObject
 {
-    public DateTime? Day { get; } = day;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Text))]
+    [NotifyPropertyChangedFor(nameof(Label))]
+    private DateTime? _day = day;
+
     public string Text => Day?.Day.ToString() ?? "";
     /// <summary>For screen readers: the whole date.</summary>
     public string Label => Day?.ToString("D") ?? "";
@@ -154,8 +158,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     Action<DateTime, DateTime>? openProblems = null) : ObservableObject
 {
     /// <summary>
-    /// Days built at a time: the newest first (about a screenful, so opening the page or changing the filter is quick),
-    /// older ones as the list is scrolled.
+    /// Days built at first: the newest (about a screenful, so opening the page or changing the filter is quick); older
+    /// ones are added one at a time as the list is scrolled (see ShowMore).
     /// </summary>
     internal const int PageSize = 6;
 
@@ -361,9 +365,13 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     public bool HasMore => Days.Count < _dayOrder.Count;
 
-    /// <summary>Called by the list's infinite scroll near the bottom.</summary>
+    /// <summary>
+    /// Called by the list's infinite scroll near the bottom: one older day. The list asks again after each until it's a
+    /// screen ahead, so the window lays out a day at a time and draws and scrolls in between. Six at once paused scrolling
+    /// for 30-130 ms at a time (measured 2026-11-08, a fresh visit on the real history).
+    /// </summary>
     [RelayCommand]
-    private void ShowMore() => AddDays(PageSize);
+    private void ShowMore() => AddDays(1);
 
     /// <summary>Back to the newest days, when more were built by scrolling (leaving the page).</summary>
     /// <param name="keep">The days to keep when a page of them isn't enough to fill the window: what it would only ask for again.</param>
@@ -622,7 +630,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     [ObservableProperty] private string _calendarTitle = "";
     [ObservableProperty] private List<string> _weekdays = [];
-    [ObservableProperty] private List<CalendarCell> _calendarCells = [];
+    /// <summary>The month's days (after a blank for each weekday before its 1st): the same cells from month to month.</summary>
+    public ObservableCollection<CalendarCell> CalendarCells { get; } = [];
     [ObservableProperty] private List<CalendarMonthCell> _calendarMonths = [];
     [ObservableProperty] private bool _canGoBack;
     [ObservableProperty] private bool _canGoForward;
@@ -650,13 +659,21 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         var format = CultureInfo.CurrentCulture.DateTimeFormat;
         int firstDay = (int)format.FirstDayOfWeek;
         if (Weekdays.Count == 0) Weekdays = [.. Enumerable.Range(0, 7).Select(i => format.ShortestDayNames[(firstDay + i) % 7][..1].ToUpper(CultureInfo.CurrentCulture))];
-        // The month already shown keeps its cells (they're told what changed); another month gets new ones.
+        // The month already shown keeps its cells (they're told what changed). Another month moves the same cells to its
+        // days, adding or dropping only at the end, so the buttons stay and only what they say changes: new ones for
+        // every month paused the window 33-51 ms each time the list was scrolled into another month (2026-11-08).
         var cells = CalendarCells;
         if (cells.FirstOrDefault(c => c.Day is not null)?.Day != m)
         {
-            cells = [];
-            for (int i = ((int)m.DayOfWeek - firstDay + 7) % 7; i > 0; i--) cells.Add(new CalendarCell(null));
-            for (var d = m; d.Month == m.Month; d = d.AddDays(1)) cells.Add(new CalendarCell(d));
+            var days = new List<DateTime?>();
+            for (int i = ((int)m.DayOfWeek - firstDay + 7) % 7; i > 0; i--) days.Add(null);
+            for (var d = m; d.Month == m.Month; d = d.AddDays(1)) days.Add(d);
+            while (cells.Count > days.Count) cells.RemoveAt(cells.Count - 1);
+            for (int i = 0; i < days.Count; i++)
+            {
+                if (i < cells.Count) cells[i].Day = days[i];
+                else cells.Add(new CalendarCell(days[i]));
+            }
         }
         foreach (var cell in cells)
         {
@@ -677,7 +694,6 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             cell.Tip = string.Join("\n", lines);
         }
         CalendarTitle = m.ToString("MMMM yyyy");
-        if (!ReferenceEquals(cells, CalendarCells)) CalendarCells = cells;
         CanGoBack = m > FirstMonth;
         CanGoForward = m < ThisMonth;
     }
