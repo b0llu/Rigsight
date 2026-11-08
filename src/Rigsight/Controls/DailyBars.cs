@@ -236,7 +236,7 @@ public sealed class DailyBars : FrameworkElement
         if (totals)
         {
             double room = slot - TotalGap;
-            double Widest(Func<double, string> text) => days.Where(d => d.ActiveSec >= 60).Select(d => ChartPaint.Format(this, text(d.ActiveSec), 11, ChartPaint.Muted).Width).DefaultIfEmpty(0).Max();
+            double Widest(Func<double, string> text) => days.Where(d => d.ActiveSec >= 60).Select(d => ChartPaint.Width(this, text(d.ActiveSec), 11, ChartPaint.Muted)).DefaultIfEmpty(0).Max();
             if (Widest(Units.Duration) <= room) totalText = Units.Duration;
             else if (Widest(WholeHours) <= room) totalText = WholeHours;
         }
@@ -357,8 +357,8 @@ public sealed class DailyBars : FrameworkElement
         var noteFt = note is null ? null : ChartPaint.Format(this, note, 12, ChartPaint.Muted);
         string heading = Lang.T("LONGEST IN FRONT");
         double inner = Math.Max(260, Math.Max(head.Width + 16 + (sum?.Width ?? 0), noteFt?.Width ?? 0));
-        foreach (var (name, _, _) in kinds) inner = Math.Max(inner, 14 + ChartPaint.Format(this, name, 12, ChartPaint.TextBrush).Width + 8 + timeW + shareW);
-        foreach (var f in front) inner = Math.Max(inner, icon + 8 + ChartPaint.Format(this, f.Name, 12, ChartPaint.TextBrush).Width + 8 + timeW);
+        foreach (var (name, _, _) in kinds) inner = Math.Max(inner, 14 + ChartPaint.Width(this, name, 12, ChartPaint.TextBrush) + 8 + timeW + shareW);
+        foreach (var f in front) inner = Math.Max(inner, icon + 8 + ChartPaint.Width(this, f.Name, 12, ChartPaint.TextBrush) + 8 + timeW);
         inner = Math.Min(inner, 360);
         double hBox = pad * 2 + Math.Max(head.Height, sum?.Height ?? 0) + (noteFt is null ? 0 : noteFt.Height + 3)
             + (kinds.Count == 0 ? 0 : 16 + kinds.Count * rowH) + (front.Count == 0 ? 0 : 10 + rowH + front.Count * appH) + (temps.Count == 0 ? 0 : 6 + temps.Count * rowH);

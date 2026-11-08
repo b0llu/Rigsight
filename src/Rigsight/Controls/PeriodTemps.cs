@@ -228,11 +228,11 @@ public sealed class PeriodTemps : FrameworkElement
         // A bar with nothing says why in the line of what was in front, where the app would be.
         string? empty = any ? null : d.Day > DateTime.Now ? Lang.T("Still to come") : Core.Wording.NotRecorded;
 
-        var colW = heads.Select(t => Math.Max(ChartPaint.Format(this, t, 11, ChartPaint.Muted).Width, ChartPaint.Format(this, "100.0 °F", 12, ChartPaint.TextBrush, true).Width)).ToArray();
-        double nameW = rows.Count == 0 ? 0 : rows.Max(r => ChartPaint.Format(this, r.Name, 12, ChartPaint.TextBrush).Width) + 14;
+        var colW = heads.Select(t => Math.Max(ChartPaint.Width(this, t, 11, ChartPaint.Muted), ChartPaint.Width(this, "100.0 °F", 12, ChartPaint.TextBrush, true))).ToArray();
+        double nameW = rows.Count == 0 ? 0 : rows.Max(r => ChartPaint.Width(this, r.Name, 12, ChartPaint.TextBrush)) + 14;
         double tableW = rows.Count == 0 ? 0 : nameW + colW.Sum(c => c + gap);
         // The longest title the graph has (a day's name, a month's), not this bar's own.
-        double titleW = ChartPaint.Format(this, monthly ? "September 2026" : hourly ? "12 PM – 12 AM" : "Wednesday, 30 September", 13, ChartPaint.TextBrush, bold: true).Width;
+        double titleW = ChartPaint.Width(this, monthly ? "September 2026" : hourly ? "12 PM – 12 AM" : "Wednesday, 30 September", 13, ChartPaint.TextBrush, bold: true);
         double inner = Math.Max(HeatHover.BoxWidth, Math.Max(titleW, tableW));
         double hBox = pad * 2 + head.Height + 4 + HeatHover.RowHeight + (rows.Count == 0 ? 0 : 8 + lineH + rows.Count * lineH);
         double wBox = inner + pad * 2;

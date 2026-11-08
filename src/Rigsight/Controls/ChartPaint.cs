@@ -47,6 +47,7 @@ internal static class ChartPaint
     /// <summary>Reads the colors from the application's resources (the palette of the current theme).</summary>
     public static void Load()
     {
+        Forget();
         Grid = Brush(Res("StrokeColor", 0x1F));
         Label = Brush(Res("FaintColor", 0x6B));
         TextBrush = Brush(Res("TextColor", 0xFF));
@@ -102,6 +103,7 @@ internal static class ChartPaint
         return brush;
     }
 
+    /// <summary>A new piece of text, for a chart that sets its width or trimming itself (see <see cref="Text"/> to just draw one).</summary>
     public static FormattedText Format(Visual v, string text, double size, Brush brush, bool bold = false) =>
         new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, bold ? Bold : Font, size, brush,
             VisualTreeHelper.GetDpi(v).PixelsPerDip);
@@ -111,9 +113,58 @@ internal static class ChartPaint
     public static void Text(DrawingContext dc, Visual v, string text, Point anchor, double size, Brush brush,
         Align align = Align.Left, bool bold = false, bool middle = true)
     {
-        var ft = Format(v, text, size, brush, bold);
+        var key = Key(v, text, size, brush, bold);
+        var ft = Lay(key);
         double x = align switch { Align.Center => anchor.X - ft.Width / 2, Align.Right => anchor.X - ft.Width, _ => anchor.X };
-        dc.DrawText(ft, new Point(x, middle ? anchor.Y - ft.Height / 2 : anchor.Y));
+        var at = new Point(x, middle ? anchor.Y - ft.Height / 2 : anchor.Y);
+        // Drawn again where it was drawn before: the same drawing. A drawing is only ever shown at its own place: one
+        // shown at two places in a frame is drawn by WPF as moving text, softer (2026-11-08, a bar total that two bars
+        // had, "59m", came out dimmer than the others).
+        var placed = (key, at.X, at.Y);
+        var drawn = _drawn ??= [];
+        if (!drawn.TryGetValue(placed, out var drawing))
+        {
+            if (drawn.Count >= LaidMost) drawn.Clear();
+            var group = new DrawingGroup();
+            using (var gc = group.Open()) gc.DrawText(ft, at);
+            // Frozen only when its brush already is: freezing the drawing would freeze a chart's own brush with it.
+            if (brush.IsFrozen && group.CanFreeze) group.Freeze();
+            drawn[placed] = drawing = group;
+        }
+        dc.DrawDrawing(drawing);
+    }
+
+    /// <summary>How wide a piece of text is, as <see cref="Text"/> would draw it.</summary>
+    public static double Width(Visual v, string text, double size, Brush brush, bool bold = false) => Lay(Key(v, text, size, brush, bold)).Width;
+
+    // A chart's text, laid out once (and drawn again as it was where it stays put). The charts draw every label on every
+    // frame of a switch's motion, and laying each one out again every time (and the garbage that left) was most of what
+    // changing a Reports period cost (2026-11-08: ChartPaint.Text 266 ms of the window's 1,364 over four switches,
+    // garbage collection 226). The laid-out text is only ever drawn here, never handed out, so nothing changes it.
+    private sealed record TextKey(string Text, double Size, Brush Brush, bool Bold, double PixelsPerDip);
+    [ThreadStatic] private static Dictionary<TextKey, FormattedText>? _laid;
+    [ThreadStatic] private static Dictionary<(TextKey, double, double), Drawing>? _drawn;
+    // Labels, totals and the numbers a count passes through, and where they stood: the most a busy page has, with room.
+    private const int LaidMost = 4000;
+
+    private static TextKey Key(Visual v, string text, double size, Brush brush, bool bold) =>
+        new(text, size, brush, bold, VisualTreeHelper.GetDpi(v).PixelsPerDip);
+
+    private static FormattedText Lay(TextKey key)
+    {
+        var laid = _laid ??= [];
+        if (laid.TryGetValue(key, out var ft)) return ft;
+        if (laid.Count >= LaidMost) laid.Clear();
+        ft = new FormattedText(key.Text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, key.Bold ? Bold : Font, key.Size, key.Brush, key.PixelsPerDip);
+        _ = ft.Width; // laid out now, once
+        return laid[key] = ft;
+    }
+
+    /// <summary>Text laid out for one theme isn't the next one's (its brushes are new).</summary>
+    public static void Forget()
+    {
+        _laid?.Clear();
+        _drawn?.Clear();
     }
 
     /// <summary>Draws a multi-line info box near <paramref name="at"/>, kept inside <paramref name="bounds"/>.</summary>
