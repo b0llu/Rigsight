@@ -228,14 +228,9 @@
                                                                 <ctl:AspectBox Ratio="1.5">
                                                                     <Border x:Name="Frame" CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" ClipToBounds="True">
                                                                         <!-- Rounded to the inside of the frame's line, so the picture never covers the line's corners (the hover outline). -->
-                                                                        <Grid x:Name="Art">
-                                                                            <Grid.OpacityMask>
-                                                                                <VisualBrush Stretch="None">
-                                                                                    <VisualBrush.Visual>
-                                                                                        <Border Background="Black" CornerRadius="{x:Static ctl:Corner.Button}" Width="{Binding ActualWidth, ElementName=Art}" Height="{Binding ActualHeight, ElementName=Art}" />
-                                                                                    </VisualBrush.Visual>
-                                                                                </VisualBrush>
-                                                                            </Grid.OpacityMask>
+                                                                        <!-- A clip its own size, not a mask bound by name: a name inside a mask's picture isn't always
+                                                                             found when the library's filter rebuilds the cards (binding errors, 2026-11-08). -->
+                                                                        <Grid ctl:RoundClip.Radius="{Binding TopLeft, Source={x:Static ctl:Corner.Button}}">
                                                                             <Image Source="{Binding Cover}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"
                                                                                    Visibility="{Binding HasCover, Converter={StaticResource Vis}}" />
                                                                             <!-- No picture: the game's own icon in its tile, then its name. -->

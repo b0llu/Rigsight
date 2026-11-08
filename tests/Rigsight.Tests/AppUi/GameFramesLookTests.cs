@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using Rigsight.Core;
 using Rigsight.Core.Data;
@@ -138,5 +138,29 @@ public sealed class GameFramesLookTests(AppHost host) : IClassFixture<AppHost>
         Ui.Run(() => scroller.ScrollToTop());
         Ui.AssertNoProblems("game page with frames");
         Ui.Run(() => games.SettingsPlaces = GameSettings.Places.ThisPc());
+    }
+
+    [Fact]
+    public void Switching_the_librarys_filter_draws_its_cards_without_binding_errors()
+    {
+        host.Show("games", 1500);
+        Assert.True(Ui.WaitFor(() => host.Shell.Games.Ready));
+        Ui.TakeProblems();
+        try
+        {
+            foreach (string filter in new[] { "all", "installed", "all" })
+            {
+                Ui.Run(() => host.Shell.Games.Filter = filter);
+                Ui.Pump(600);
+            }
+            // The covers keep their round corners (a clip since 2026-11-08, a mask before).
+            Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "games-library-all.png")));
+            host.Show("home", 600);
+            Ui.AssertNoProblems("the Games library switched between All and Installed");
+        }
+        finally
+        {
+            Ui.Run(() => host.Shell.Games.Filter = "installed");
+        }
     }
 }

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -221,8 +221,10 @@ public sealed class PageExportWindowTests(AppHost host) : IClassFixture<AppHost>
             Assert.True(File.Exists(Path.Combine(folder, "Sessions.csv")));
             Assert.False(File.Exists(Path.Combine(folder, "Internet.csv")));
 
-            // Games: the library and its plays, files of their own.
+            // Games: the library and its plays, files of their own. The page opens on Installed (2026-11-08) and the
+            // export follows what it shows, so All first: the test history's played games aren't installed here.
             host.Show("games", 1500);
+            Ui.Run(() => host.Shell.Games.Filter = "all");
             Ui.Run(() => host.Shell.ExportPageCommand.Execute(null));
             Ui.Run(() => host.Shell.PageExport.ExportCommand.ExecuteAsync(null));
             Assert.True(Ui.WaitFor(() => !host.Shell.PageExport.IsOpen, 30_000), host.Shell.PageExport.Error);
@@ -234,6 +236,7 @@ public sealed class PageExportWindowTests(AppHost host) : IClassFixture<AppHost>
             Ui.Run(() =>
             {
                 host.Shell.PageExport.CloseCommand.Execute(null);
+                host.Shell.Games.Filter = "installed";
                 host.Shell.Settings.Update(s => { s.ExportFolder = null; s.ExportAsCsv = false; });
             });
         }
