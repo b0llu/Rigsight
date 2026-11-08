@@ -265,6 +265,12 @@ public sealed class RigsightSettings
     /// </summary>
     public string? LastBigDay { get; set; }
 
+    /// <summary>Every notification up to this id is read ("Mark all as read"); the bell counts the unread ones after it.</summary>
+    public long NoticesSeen { get; set; }
+
+    /// <summary>Notifications after <see cref="NoticesSeen"/> opened one by one from the list, so they're read too.</summary>
+    public List<long> NoticesRead { get; set; } = [];
+
     /// <summary>
     /// What happens after an update (Settings › General › Updates): the card opened by itself (the default), a What's new
     /// button in the title bar, or nothing. What's new stays in the ⋯ menu whichever is picked.
@@ -421,6 +427,34 @@ public sealed class AlertSettings
 
     /// <summary>Seconds a notification card stays on screen.</summary>
     public int CardSeconds { get; set; } = 8;
+
+    // ── The notifications round (2026-11-07, mock-up LWycKU9ZC8jzeVH8bVjPWm): each from a check RigSight already makes ──
+
+    /// <summary>Problems: a fan reading 0 rpm where it always turns (the Fans page's "stopped" finding).</summary>
+    public bool FanStops { get; set; } = true;
+    /// <summary>Problems: a drive's own health check (SMART) reporting a failure; bad sectors and wear wait like "worth knowing".</summary>
+    public bool DriveHealth { get; set; } = true;
+    /// <summary>Worth knowing: a game ran hotter than its usual at the same power (Reports' "Against your usual"), said when it ends.</summary>
+    public bool HotterThanUsual { get; set; } = true;
+    /// <summary>Worth knowing: the GPU slowed itself to stay cool (Reports' throttle finding), said when the game ends.</summary>
+    public bool GpuSlowing { get; set; } = true;
+    /// <summary>Worth knowing: a fan turning slower than usual at the same heat, or than months ago.</summary>
+    public bool FansSlower { get; set; } = true;
+    /// <summary>Worth knowing: the PC's own problems past their usual for this much use (Home's PC health).</summary>
+    public bool MoreProblems { get; set; } = true;
+    /// <summary>Worth knowing: a driver or Windows update after which a game runs worse (Timeline's "What changed?").</summary>
+    public bool WorseChanges { get; set; } = true;
+    /// <summary>Worth knowing: a drive with under 5% and under 20 GB left.</summary>
+    public bool DriveFull { get; set; } = true;
+    /// <summary>Recaps: the last 7 days, the first use each Monday. Off at first (the daily recap covers each day).</summary>
+    public bool WeeklyRecap { get; set; }
+    /// <summary>Recaps: an app whose memory keeps growing for hours without coming back down. Off at first.</summary>
+    public bool MemoryGrowth { get; set; }
+    /// <summary>Recaps: a new app added to the ones that start with Windows. Off at first.</summary>
+    public bool NewStartupApps { get; set; }
+
+    /// <summary>Cards a day besides problems (0: no limit); the rest are kept in the recent list only.</summary>
+    public int CardsPerDay { get; set; } = 5;
 }
 
 /// <summary>

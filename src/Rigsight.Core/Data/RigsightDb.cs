@@ -227,6 +227,7 @@ public sealed partial class RigsightDb : IDisposable
         EnsureNetworkSchema();
         EnsureChangesSchema();
         EnsureSteamDownloadSchema();
+        EnsureNoticeSchema();
     }
 
     private const string FansFreshKey = "fans_fresh";

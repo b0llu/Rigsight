@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Runtime.InteropServices;
 using Rigsight.Agent.Widgets;
 using Rigsight.Core;
@@ -39,6 +39,23 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
 
     private StripWindow? _window;
     private IntPtr _taskbar;
+    /// <summary>Failed tries at putting the strip in the taskbar since it last worked, and when to try again.</summary>
+    private int _attachFailures;
+    private long _attachRetryAt;
+    /// <summary>Times the strip was found out of the taskbar and put back.</summary>
+    private int _looseCount;
+
+    private static string Hex(IntPtr h) => $"0x{h.ToInt64():X}";
+
+    /// <summary>A window as the log says it: "the desktop", or its class and handle.</summary>
+    private static string WindowName(IntPtr h)
+    {
+        if (h == IntPtr.Zero) return "no window";
+        if (h == GetDesktopWindow()) return "the desktop";
+        var name = new System.Text.StringBuilder(128);
+        GetClassName(h, name, name.Capacity);
+        return $"{name} {Hex(h)}";
+    }
     private string _drawn = "";
     private Rectangle _placed;
     private Size _size; // the strip as last drawn
@@ -121,13 +138,42 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             int barHeight = bar.B - bar.T;
             if (barHeight <= 0 || bar.R - bar.L < barHeight * 4) { Hide(); return false; } // on its side: no room for text
 
-            // A new taskbar (Explorer restarted): a new strip on it.
+            // A strip found loose (in its window, but no longer inside the taskbar): put back in place, on the same window.
+            // 2026-11-08: after sign-in, and again after a restart at 8:13 AM, the strip's parent was the desktop with the
+            // taskbar untouched, so the readings sat at the top of the screen, out of sight, until the agent ended. Checked
+            // every update (a cheap call), logged with what it was in (the first time, then every 60th).
+            if (_window is not null && _taskbar == taskbar && IsWindow(_window.Handle) && GetParent(_window.Handle) is var parent && parent != taskbar)
+            {
+                _looseCount++;
+                bool back = MakeChild(_window.Handle, taskbar, out int looseError);
+                if (_looseCount == 1 || _looseCount % 60 == 0)
+                    Log.Write("taskbar", $"Expected the readings' strip inside the taskbar {Hex(taskbar)}, found it in {WindowName(parent)} (time {_looseCount}): "
+                        + (back ? "put back" : $"couldn't put it back (error {looseError}), making it again"));
+                if (back) _drawn = ""; // drawn again where it now is
+                else Hide();
+            }
+
+            // A new taskbar (Explorer restarted), or no strip yet: a new strip on it. Right after signing in the taskbar can
+            // refuse it: tried again every 5 seconds until it holds; meanwhile the readings show as tray icons.
             if (_window is null || _taskbar != taskbar || !IsWindow(_window.Handle))
             {
+                if (_attachFailures > 0 && now < _attachRetryAt) { Hide(); return false; }
                 Hide();
                 _window = new StripWindow(this);
                 _window.CreateControl();
-                MakeChild(_window.Handle, taskbar);
+                if (!MakeChild(_window.Handle, taskbar, out int error))
+                {
+                    _attachFailures++;
+                    _attachRetryAt = now + 5_000;
+                    if (_attachFailures == 1 || _attachFailures % 60 == 0)
+                        Log.Write("taskbar", $"Expected the readings' strip inside the taskbar, but Windows refused it (error {error}, try {_attachFailures}); "
+                            + "trying again every 5 s, the readings show as tray icons meanwhile");
+                    Hide();
+                    return false;
+                }
+                Log.Write("taskbar", _attachFailures > 0 ? $"The readings' strip is in the taskbar {Hex(taskbar)} now, after {_attachFailures} failed tries"
+                    : $"The readings' strip is in the taskbar {Hex(taskbar)}");
+                _attachFailures = 0;
                 _taskbar = taskbar;
                 _follow.Start();
                 _taskList = FindWindowEx(taskbar, IntPtr.Zero, "ReBarWindow32", null);
@@ -540,13 +586,18 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         protected override bool ShowWithoutActivation => true;
     }
 
-    /// <summary>Makes the window a child of the taskbar: it lives inside it from now on.</summary>
-    private static void MakeChild(IntPtr window, IntPtr taskbar)
+    /// <summary>
+    /// Makes the window a child of the taskbar: it lives inside it from now on. False, with Windows' error, when it didn't
+    /// take: the window would otherwise stay a loose one at the top of the screen.
+    /// </summary>
+    internal static bool MakeChild(IntPtr window, IntPtr taskbar, out int error)
     {
         long style = (long)GetWindowLongPtr(window, GWL_STYLE);
         style = (style & ~(WS_POPUP | WS_CAPTION)) | WS_CHILD;
         SetWindowLongPtr(window, GWL_STYLE, (IntPtr)style);
         SetParent(window, taskbar);
+        error = Marshal.GetLastWin32Error();
+        return GetParent(window) == taskbar;
     }
 
     /// <summary>The drawn strip onto its window, keeping where it is (a child's place is in its parent's terms).</summary>
@@ -593,7 +644,10 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string? cls, string? name);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hwnd);
-    [DllImport("user32.dll")] private static extern IntPtr SetParent(IntPtr child, IntPtr parent);
+    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetParent(IntPtr child, IntPtr parent);
+    [DllImport("user32.dll")] private static extern IntPtr GetParent(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern IntPtr GetDesktopWindow();
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hwnd, System.Text.StringBuilder name, int max);
     [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")] private static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);

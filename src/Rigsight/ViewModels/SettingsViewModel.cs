@@ -719,6 +719,35 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public int CardSeconds { get => S.Alerts.CardSeconds; set => Set(s => s.Alerts.CardSeconds = value); }
     public string NotificationStyle { get => S.Alerts.Style.ToString(); set => Set(s => s.Alerts.Style = Enum.Parse<NotificationStyle>(value)); }
 
+    // The notifications round (2026-11-07).
+    public bool FanStops { get => S.Alerts.FanStops; set => Set(s => s.Alerts.FanStops = value); }
+    public bool DriveHealth { get => S.Alerts.DriveHealth; set => Set(s => s.Alerts.DriveHealth = value); }
+    public bool HotterThanUsual { get => S.Alerts.HotterThanUsual; set => Set(s => s.Alerts.HotterThanUsual = value); }
+    public bool GpuSlowing { get => S.Alerts.GpuSlowing; set => Set(s => s.Alerts.GpuSlowing = value); }
+    public bool FansSlower { get => S.Alerts.FansSlower; set => Set(s => s.Alerts.FansSlower = value); }
+    public bool MoreProblems { get => S.Alerts.MoreProblems; set => Set(s => s.Alerts.MoreProblems = value); }
+    public bool WorseChanges { get => S.Alerts.WorseChanges; set => Set(s => s.Alerts.WorseChanges = value); }
+    public bool DriveFull { get => S.Alerts.DriveFull; set => Set(s => s.Alerts.DriveFull = value); }
+    public bool WeeklyRecap { get => S.Alerts.WeeklyRecap; set => Set(s => s.Alerts.WeeklyRecap = value); }
+    public bool MemoryGrowth { get => S.Alerts.MemoryGrowth; set => Set(s => s.Alerts.MemoryGrowth = value); }
+    public bool NewStartupApps { get => S.Alerts.NewStartupApps; set => Set(s => s.Alerts.NewStartupApps = value); }
+    public int CardsPerDay { get => S.Alerts.CardsPerDay; set => Set(s => s.Alerts.CardsPerDay = value); }
+    /// <summary>Rewind's notification, with the others since 2026-11-07 (it was on the Rewind tab).</summary>
+    public bool RewindNotify { get => S.Rewind.Notify; set => Set(s => s.Rewind.Notify = value); }
+
+    /// <summary>Every notification Preview can show, by its group's order.</summary>
+    public static List<PageOption> PreviewOptions =>
+    [
+        new("alert", Lang.T("Temperature alert")), new("crash", Lang.T("Crash")), new("fan-stopped", Lang.T("A fan stopped")),
+        new("drive-bad", Lang.T("A drive reports a failure")), new("hotter", Lang.T("Hotter than usual")), new("slowed", Lang.T("GPU slowing itself")),
+        new("fan-slower", Lang.T("Fans slower than usual")), new("drive-sectors", Lang.T("Bad sectors")), new("problems", Lang.T("More PC problems than usual")),
+        new("drive-full", Lang.T("Drive almost full")), new("recap", Lang.T("Daily recap")), new("weekly", Lang.T("Weekly recap")),
+        new("session", Lang.T("Game session")), new("memory", Lang.T("App growing in memory")), new("startup", Lang.T("New app at startup")),
+    ];
+
+    /// <summary>The notification Preview shows.</summary>
+    [ObservableProperty] private string _previewKind = "alert";
+
     /// <summary>Shows an example notification so you can see exactly what it looks like.</summary>
     [RelayCommand]
     private void Preview(string kind) => client.SendCommand("preview-notification", kind);

@@ -85,7 +85,12 @@ public class NotificationTests
     public void Each_kind_has_its_own_label_and_colour()
     {
         var kinds = Enum.GetValues<NoticeKind>();
-        Assert.Equal(kinds.Length, kinds.Select(ToastRenderer.KindLabel).Distinct().Count());
+        // One label a kind, except a subject said at two levels (2026-11-07): a fan that stopped (red) and fans slower
+        // than usual (amber) are both FANS; a failing drive and bad sectors both DRIVE HEALTH. The colour tells them apart.
+        Assert.Equal(kinds.Length - 2, kinds.Select(ToastRenderer.KindLabel).Distinct().Count());
+        Assert.Equal(ToastRenderer.KindLabel(NoticeKind.FanStopped), ToastRenderer.KindLabel(NoticeKind.Fans));
+        Assert.Equal(ToastRenderer.KindLabel(NoticeKind.DriveFailing), ToastRenderer.KindLabel(NoticeKind.Drive));
+        Assert.NotEqual(ToastRenderer.Accent(NoticeKind.FanStopped), ToastRenderer.Accent(NoticeKind.Fans));
         Assert.All(kinds, k => Assert.Equal(ToastRenderer.KindLabel(k).ToUpperInvariant(), ToastRenderer.KindLabel(k)));
         Assert.Equal("TEMPERATURE ALERT", ToastRenderer.KindLabel(NoticeKind.Alert));
         // Overlay and update share one; a drop shares the crash's warning colour and its "back" the session's green.

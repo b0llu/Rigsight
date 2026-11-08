@@ -92,7 +92,8 @@ public static class InsightEngine
         if (r.GpuThrottle is { } gt)
             list.Add(new Insight(IconGpu, Lang.T($"Your GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool. Clocks fell about {gt.DropPercent:0}% once it reached {Units.TempShort(gt.FromTemp)}."),
                 InsightTone.Hot, "throttle", 80, Lang.T($"Clocks {gt.DropPercent:0}% under where they were earlier in the same session, while cooler, at no more power"))
-                { Short = Lang.T($"GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool"), Ask = Lang.T("Why did my GPU slow itself down to stay cool?"), AskPage = Ai.AiPages.Temperatures });
+                { Short = Lang.T($"GPU slowed itself for {Wording.Minutes(gt.Minutes)} to stay cool"), Ask = Lang.T("Why did my GPU slow itself down to stay cool?"), AskPage = Ai.AiPages.Temperatures,
+                  Notice = NoticeWords.Slowed(gt) });
 
         // Peaks are shown elsewhere (tiles, hot moments); they're only news when a chip held the heat (a moment's spike on
         // a light load isn't that), and aren't already a limit warning. A record peak says so here, rather than twice.
@@ -196,11 +197,13 @@ public static class InsightEngine
                     ? new Insight(IconWarn, oneDay
                         ? Lang.T($"Your GPU fan stopped for {mins} from {from:h:mm tt} with the GPU at {temp}, when it always turns at that heat. Check it isn't blocked or unplugged.")
                         : Lang.T($"Your GPU fan stopped for {mins} from {from:ddd d MMM, h:mm tt} with the GPU at {temp}, when it always turns at that heat. Check it isn't blocked or unplugged."),
-                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name} stopped for {fan.StoppedMinutes} of the {fan.SpinMinutes} minutes the GPU was at 70° or more")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did my GPU fan stop for {mins}?"), AskPage = Ai.AiPages.Fans }
+                        InsightTone.Hot, "fan-stopped", 88, Lang.T($"{fan.Name} stopped for {fan.StoppedMinutes} of the {fan.SpinMinutes} minutes the GPU was at 70° or more")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"Your GPU fan stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did my GPU fan stop for {mins}?"), AskPage = Ai.AiPages.Fans,
+                          Notice = NoticeWords.FanStopped(fan.Name, true, fan.LongestStop, from, fan.StopTemp) }
                     : new Insight(IconWarn, oneDay
                         ? Lang.T($"{fan.Name} on your motherboard stopped for {mins} from {from:h:mm tt}, when it always turns. Check it isn't blocked or unplugged.")
                         : Lang.T($"{fan.Name} on your motherboard stopped for {mins} from {from:ddd d MMM, h:mm tt}, when it always turns. Check it isn't blocked or unplugged."),
-                        InsightTone.Warn, "fan-stopped", 86, (was.StoppedMinutes == 0 ? Lang.T($"Stopped for {fan.StoppedMinutes} of the {fan.SpinMinutes} minutes the PC was on, and never {usualLabel}") : Lang.T($"Stopped for {fan.StoppedMinutes} of the {fan.SpinMinutes} minutes the PC was on, and for {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}"))) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did {fan.Name} stop for {mins}?"), AskPage = Ai.AiPages.Fans });
+                        InsightTone.Warn, "fan-stopped", 86, (was.StoppedMinutes == 0 ? Lang.T($"Stopped for {fan.StoppedMinutes} of the {fan.SpinMinutes} minutes the PC was on, and never {usualLabel}") : Lang.T($"Stopped for {fan.StoppedMinutes} of the {fan.SpinMinutes} minutes the PC was on, and for {was.StoppedMinutes} of {was.SpinMinutes} {usualLabel}"))) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} on your motherboard stopped for {Wording.Minutes(fan.LongestStop)}"), Ask = Lang.T($"Why did {fan.Name} stop for {mins}?"), AskPage = Ai.AiPages.Fans,
+                          Notice = NoticeWords.FanStopped(fan.Name, false, fan.LongestStop, from, fan.StopTemp) });
                 gpuSaid |= fan.Gpu;
                 fanSaid.Add((fan.Name, fan.Hardware));
             }
@@ -242,7 +245,8 @@ public static class InsightEngine
                         slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-slower", 84,
                         Lang.T($"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {usualLabel}"))
                         { FanName = fan.Name, FanGpu = fan.Gpu, Short = fan.Gpu ? Lang.T($"Your GPU fans spun {slow.Percent:0}% slower than usual") : Lang.T($"{name} on your motherboard spun {slow.Percent:0}% slower than usual"),
-                          Ask = fan.Gpu ? Lang.T("Why are my GPU fans spinning slower than usual?") : Lang.T($"Why is {name} spinning slower than usual?"), AskPage = Ai.AiPages.Fans });
+                          Ask = fan.Gpu ? Lang.T("Why are my GPU fans spinning slower than usual?") : Lang.T($"Why is {name} spinning slower than usual?"), AskPage = Ai.AiPages.Fans,
+                          Notice = NoticeWords.FanSlower(name, fan.Gpu, slow.Percent, slow.Now, slow.Was, part, slow.Temp, usualLabel, Check(true, fan.Gpu)) });
                     fanSaid.Add((fan.Name, fan.Hardware));
                     gpuSaid |= fan.Gpu;
                 }
@@ -254,7 +258,8 @@ public static class InsightEngine
                 {
                     list.Add(new Insight(IconWarn,
                         Lang.T($"{fan.Name} on your motherboard slowed from {drop.From:N0} to {drop.To:N0} rpm while your PC was on.") + " " + Check(false, false),
-                        InsightTone.Warn, "fan-slower", 83, Lang.T($"At a set {usualRpm:N0} rpm {usualLabel}")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} slowed to {drop.To:N0} rpm while the PC was on"), Ask = Lang.T($"Why did {fan.Name} slow down while my PC was on?"), AskPage = Ai.AiPages.Fans });
+                        InsightTone.Warn, "fan-slower", 83, Lang.T($"At a set {usualRpm:N0} rpm {usualLabel}")) { FanName = fan.Name, FanGpu = fan.Gpu, Short = Lang.T($"{fan.Name} slowed to {drop.To:N0} rpm while the PC was on"), Ask = Lang.T($"Why did {fan.Name} slow down while my PC was on?"), AskPage = Ai.AiPages.Fans,
+                        Notice = NoticeWords.FanSlowed(fan.Name, (int)drop.From, (int)drop.To, Check(false, false)) });
                     fanSaid.Add((fan.Name, fan.Hardware));
                 }
             }
@@ -288,7 +293,10 @@ public static class InsightEngine
                         slow.Temp >= (part == "GPU" ? GpuWarm : CpuWarm) ? InsightTone.Hot : InsightTone.Warn, "fan-older", 82,
                         Lang.T($"{slow.NowMinutes} minutes of steady load at the same {part} temperatures now, {slow.WasMinutes} {when}"))
                         { FanName = fan.Name, FanGpu = fan.Gpu, Short = fan.Gpu ? Lang.T($"Your GPU fans now spin {slow.Percent:0}% slower than {when}") : Lang.T($"{name} on your motherboard now spins {slow.Percent:0}% slower than {when}"),
-                          Ask = fan.Gpu ? Lang.T($"Why do my GPU fans spin slower than {when}?") : Lang.T($"Why does {name} spin slower than {when}?"), AskPage = Ai.AiPages.Fans });
+                          Ask = fan.Gpu ? Lang.T($"Why do my GPU fans spin slower than {when}?") : Lang.T($"Why does {name} spin slower than {when}?"), AskPage = Ai.AiPages.Fans,
+                          Notice = NoticeWords.FanOlder(name, fan.Gpu, slow.Percent, slow.Now, slow.Was, part, slow.Temp, when,
+                              fan.Gpu ? Lang.T($"If you changed the fan curve {where}, that's why; if not, check they're clean and turning freely.")
+                                  : Lang.T($"If you changed the fan curve {where}, that's why; if not, check it's clean and turning freely.")) });
                     fanSaid.Add((fan.Name, fan.Hardware));
                     gpuSaid |= fan.Gpu;
                 }

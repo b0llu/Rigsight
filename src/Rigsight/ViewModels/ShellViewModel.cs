@@ -94,6 +94,9 @@ public sealed partial class ShellViewModel : ObservableObject
         Games = new GamesViewModel(Reports, Settings, Live, Overlay) { GoBackTo = page => CurrentPage = page };
         WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current, go: OpenFeature, factFor: FeatureFactAsync);
         SettingsPage = new SettingsViewModel(Settings, client, Reports) { SeeAllUpdatesCommand = WhatsNew.SeeAllCommand };
+        Notices = new NoticesViewModel(Reports, Settings) { OpenSettings = () => { SettingsPage.Tab = "notifications"; CurrentPage = "settings"; } };
+        Notices.Open = Navigate;
+        _ = Notices.LoadAsync();
         Rewind = new global::Rigsight.Rewind.RewindViewModel(Reports, Settings) { OpenSettings = () => { SettingsPage.Tab = "rewind"; CurrentPage = "settings"; } };
         SettingsPage.Rewind = Rewind;
         Support = new SupportViewModel(Settings, Reports);
@@ -364,6 +367,8 @@ public sealed partial class ShellViewModel : ObservableObject
     public OverlayViewModel Overlay { get; }
     public TaskbarViewModel Taskbar { get; }
     public WhatsNewViewModel WhatsNew { get; }
+    /// <summary>The bell in the title bar and its list of the last 30 days' notifications.</summary>
+    public NoticesViewModel Notices { get; }
     public SupportViewModel Support { get; }
 
     /// <summary>Rewind: the full screen when one is ready, watching, Share, and Settings → Rewind's list.</summary>
@@ -576,6 +581,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     partial void OnCurrentPageChanged(string value)
     {
+        Notices.IsOpen = false;
         Tips?.Visit(value);
         OnPropertyChanged(nameof(PageUnreadable));
         Games.IsShown = value == "games";
@@ -942,6 +948,13 @@ public sealed partial class ShellViewModel : ObservableObject
                 ActivateRequested?.Invoke();
                 return;
             }
+            // A notification about a drive (its letter) or an app (its program): the page, on it (as an answer's button does).
+            if (page is "storage" or "processes" && arg is not null)
+            {
+                OpenPageFromAnswer(page, arg);
+                ActivateRequested?.Invoke();
+                return;
+            }
             if (page == "apps" && arg is not null) Apps.ShowToday(arg);
             // The after-game notification: that game's page (by its program).
             if (page == "games" && arg is not null) _ = Games.OpenKeyAsync(arg);
@@ -1171,6 +1184,10 @@ public sealed partial class ShellViewModel : ObservableObject
                 break;
             case "navigate":
                 Navigate(msg.Page, msg.Arg);
+                break;
+            case "notice":
+                // A notification was sent or kept: the bell counts it, and an open list shows it.
+                _ = Notices.LoadAsync();
                 break;
             case "update":
                 Update.OnAgentMessage(msg);

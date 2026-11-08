@@ -148,7 +148,8 @@ public sealed class PcUsual
     /// The usual for the period [<paramref name="from"/>, <paramref name="to"/>), read from the database: the daily heat
     /// totals, the days' use, the crashes (with what each most likely was) and the fans.
     /// </summary>
-    public static PcUsual Read(RigsightDb db, RigsightSettings s, DateTime from, DateTime to, int usualDays, DateTime now, Func<long, string>? nameOf = null)
+    /// <param name="game">A game to compare (the one that just ended, for its notification) instead of the one played most.</param>
+    public static PcUsual Read(RigsightDb db, RigsightSettings s, DateTime from, DateTime to, int usualDays, DateTime now, Func<long, string>? nameOf = null, long? game = null)
     {
         var usualFrom = from.Date.AddDays(-usualDays);
         long f = TimeUtil.ToUnix(usualFrom), t = TimeUtil.ToUnix(to);
@@ -180,7 +181,7 @@ public sealed class PcUsual
         var fanDays = fans.Count > 0 ? db.GetFanDays(f, t) : [];
         // Every fan setting change up to the period's end: the fan warnings look further back than the usual (months).
         var fanChanges = db.GetChanges(0, t).Where(c => c.Kind == ChangeKind.Fans).ToList();
-        return Of(from, to, usualFrom, now, heat, use, crashes, found, fans, fanDays, fanChanges, nameOf);
+        return Of(from, to, usualFrom, now, heat, use, crashes, found, fans, fanDays, fanChanges, nameOf, game);
     }
 
     /// <summary>Each past problem's cause, by database and crash (see <see cref="ShutOffOf"/>).</summary>
@@ -215,7 +216,7 @@ public sealed class PcUsual
 
     public static PcUsual Of(DateTime from, DateTime to, DateTime usualFrom, DateTime now, IReadOnlyList<HeatDay> heat, IReadOnlyList<SystemDay> use,
         IReadOnlyList<CrashEvent> crashes, IReadOnlyDictionary<long, CrashFinding> found, IReadOnlyList<FanRow> fans, IReadOnlyList<FanDay> fanDays,
-        IReadOnlyList<SystemChange> fanChanges, Func<long, string> nameOf)
+        IReadOnlyList<SystemChange> fanChanges, Func<long, string> nameOf, long? game = null)
     {
         if (to > now) to = now;
         long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to), u = TimeUtil.ToUnix(usualFrom);
@@ -233,10 +234,10 @@ public sealed class PcUsual
         HeatDay? lastPlay = null;
         if (restOk)
         {
-            var game = nowSteady.Select(n => (Now: n, Was: usualSteady.FirstOrDefault(w => w.AppId == n.AppId)))
+            var picked = nowSteady.Where(n => game is null || n.AppId == game).Select(n => (Now: n, Was: usualSteady.FirstOrDefault(w => w.AppId == n.AppId)))
                 .Where(p => p.Was is not null && p.Now.Minutes >= MinNowMinutes && p.Was.Minutes >= MinUsualMinutes && p.Was.Days >= MinUsualDays && SamePower(p.Now.GpuPower, p.Was.GpuPower))
                 .OrderByDescending(p => Math.Min(p.Now.Minutes, p.Was!.Minutes)).FirstOrDefault();
-            if (game.Now is { } n && game.Was is { } w)
+            if (picked.Now is { } n && picked.Was is { } w)
             {
                 var days = usualRows.Where(h => h.App == n.AppId && h.N >= RangeDayMinutes).ToList();
                 // The last day it was played (with enough steady play to read): a game hot on Monday and fine again on
@@ -436,6 +437,17 @@ public sealed class PcUsual
     private static double? Cpu(HeatDay d) => d.CpuN > 0 ? d.CpuSum / d.CpuN : null;
 
     /// <summary>The lowest and highest of the days' averages; null with none.</summary>
+    /// <summary>
+    /// A part's usual steady temperature in one app (the lowest and highest of its days in <paramref name="heat"/> with
+    /// enough steady play to read), for the temperature alert's "In this game it usually sits at…"; null with fewer than
+    /// <see cref="MinUsualDays"/> such days.
+    /// </summary>
+    public static (double Low, double High)? UsualIn(IReadOnlyList<HeatDay> heat, long app, bool gpu)
+    {
+        var days = heat.Where(h => h.App == app && h.N >= RangeDayMinutes).ToList();
+        return days.Count < MinUsualDays ? null : Range(days, gpu ? Gpu : Cpu);
+    }
+
     private static (double Low, double High)? Range(List<HeatDay> days, Func<HeatDay, double?> of)
     {
         var values = days.Select(of).OfType<double>().ToList();

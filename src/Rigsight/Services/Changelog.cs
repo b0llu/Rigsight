@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Rigsight.Core;
 
 namespace Rigsight.Services;
@@ -187,6 +187,15 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.7.0", 11, 8,
+            added: [Lang.T("A bell in the title bar keeps every notification from the last 30 days, so one you missed is still there."),
+                Lang.T("RigSight tells you when a fan stops, a drive reports a failure or bad sectors, or a drive is almost full."),
+                Lang.T("After a game, RigSight tells you when it ran hotter than usual at the same power, or when the GPU slowed itself to stay cool."),
+                Lang.T("New notifications for fans slower than usual, more PC problems than usual, and a driver or Windows update that made a game worse."),
+                Lang.T("A weekly recap, apps that keep growing in memory and new apps that start with Windows can be turned on in Settings.")],
+            better: [Lang.T("The temperature alert says where that game usually sits, so you can tell whether the heat is new."),
+                Lang.T("Settings groups notifications by when they show, with a limit on cards a day besides problems.")],
+            fixedBugs: [Lang.T("Taskbar readings that went missing after signing in to Windows now go back into the taskbar by themselves.")]),
         V("1.6.2", 11, 7,
             better: [Lang.T("RigSight opens faster, and Home shows today's history sooner."),
                 Lang.T("The background agent uses less CPU when a GPU reading is in the taskbar, a widget or the overlay."),

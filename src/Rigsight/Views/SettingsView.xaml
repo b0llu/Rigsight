@@ -7,6 +7,17 @@
         <Style x:Key="Row" TargetType="DockPanel">
             <Setter Property="Margin" Value="0,10" />
             <Setter Property="LastChildFill" Value="True" />
+            <!-- A row that follows a switch that's off can't be changed: it says so by fading (2026-11-07: "Only for
+                 sessions longer than" looked ready to click with Game session summaries off, and did nothing). -->
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- The same for a group of rows under one switch (the temperature limits). -->
+        <Style x:Key="FollowsSwitch" TargetType="StackPanel">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="Title" TargetType="TextBlock">
             <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Lead}" />
@@ -822,39 +833,20 @@
             </StackPanel>
             </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
 
-            <!-- Notifications -->
+            <!-- Notifications: grouped by when they show (the notifications round, approved mock-up LWycKU9ZC8jzeVH8bVjPWm,
+                 2026-11-07). Problems at once, even in games; worth knowing when no game is in front; recaps; then how they show. -->
             <ctl:LazyTab Shown="{Binding IsNotifications}"><ctl:LazyTab.Body><DataTemplate>
             <StackPanel>
+            <DockPanel Margin="0,0,0,0">
+                <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Shown at once, even while you play'}" Style="{StaticResource Hint}" VerticalAlignment="Bottom" Margin="0,0,2,10" />
+                <TextBlock Text="{ctl:T 'Problems'}" Style="{StaticResource SubHead}" />
+            </DockPanel>
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
                 <StackPanel>
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DailyRecap}" Margin="0,10">
-                        <TextBlock Text="{ctl:T 'Daily recap'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </CheckBox>
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding SessionSummaries}" Margin="0,10">
-                        <TextBlock Text="{ctl:T 'Game session summaries'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </CheckBox>
-                    <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding SessionSummaries}">
-                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '5m'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '15m'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=15}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '30m'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=30}" />
-                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '1 hour'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=60}" />
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Text="{ctl:T 'Only for sessions longer than'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </DockPanel>
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding CrashNotifications}" Margin="0,10">
-                        <TextBlock Text="{ctl:T 'Crash alerts'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </CheckBox>
-                    <!-- When the internet drops and when it's back (1.4.0). -->
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding InternetDrops}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Internet drop alerts'}">
-                        <TextBlock Text="{ctl:T 'Internet drop alerts'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
-                    </CheckBox>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AlertsEnabled}" Margin="0,10">
                         <TextBlock Text="{ctl:T 'Temperature alerts'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
-                    <StackPanel IsEnabled="{Binding AlertsEnabled}">
+                    <StackPanel IsEnabled="{Binding AlertsEnabled}" Margin="22,0,0,0" Style="{StaticResource FollowsSwitch}">
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock DockPanel.Dock="Right" Text="{Binding CpuLimitText}" Width="56" TextAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                             <Slider DockPanel.Dock="Right" Width="280" Minimum="60" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding CpuLimit}" VerticalAlignment="Center" />
@@ -893,7 +885,99 @@
                             <TextBlock Text="{ctl:T 'At most one alert every'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                         </DockPanel>
                     </StackPanel>
-                    <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,8" />
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding CrashNotifications}" Margin="0,10">
+                        <TextBlock Text="{ctl:T 'Crash alerts'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding InternetDrops}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Internet drop alerts'}">
+                        <TextBlock Text="{ctl:T 'Internet drop alerts'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding FanStops}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Fans that stop'}">
+                        <TextBlock Text="{ctl:T 'Fans that stop'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DriveHealth}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Drive health'}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Drive health'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'A failure at once; bad sectors and wear when you\'re not playing.'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <DockPanel Margin="0,16,0,0">
+                <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Shown when you\'re not playing'}" Style="{StaticResource Hint}" VerticalAlignment="Bottom" Margin="0,0,2,10" />
+                <TextBlock Text="{ctl:T 'Worth knowing'}" Style="{StaticResource SubHead}" />
+            </DockPanel>
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
+                <StackPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding HotterThanUsual}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Hotter than usual'}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Hotter than usual'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'A game runs hotter than its usual at the same power.'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding GpuSlowing}" Margin="0,10" AutomationProperties.Name="{ctl:T 'GPU slowing itself to stay cool'}">
+                        <TextBlock Text="{ctl:T 'GPU slowing itself to stay cool'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding FansSlower}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Fans slower than usual'}">
+                        <TextBlock Text="{ctl:T 'Fans slower than usual'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding MoreProblems}" Margin="0,10" AutomationProperties.Name="{ctl:T 'More PC problems than usual'}">
+                        <TextBlock Text="{ctl:T 'More PC problems than usual'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding WorseChanges}" Margin="0,10" AutomationProperties.Name="{ctl:T 'A change made a game worse'}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'A change made a game worse'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'A driver or Windows update, as Timeline finds it.'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DriveFull}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Drive almost full'}">
+                        <TextBlock Text="{ctl:T 'Drive almost full'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <TextBlock Text="{ctl:T 'Recaps'}" Style="{StaticResource SubHead}" Margin="0,16,0,10" />
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
+                <StackPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DailyRecap}" Margin="0,10">
+                        <TextBlock Text="{ctl:T 'Daily recap'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding WeeklyRecap}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Weekly recap'}">
+                        <TextBlock Text="{ctl:T 'Weekly recap'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding SessionSummaries}" Margin="0,10">
+                        <TextBlock Text="{ctl:T 'Game session summaries'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <DockPanel Style="{StaticResource Row}" IsEnabled="{Binding SessionSummaries}" Margin="22,0,0,0">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '5m'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '15m'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=15}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '30m'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=30}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="SessMin" Content="{ctl:T '1 hour'}" IsChecked="{Binding SessionSummaryMinMinutes, Converter={StaticResource Equals}, ConverterParameter=60}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="{ctl:T 'Only for sessions longer than'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <!-- Moved here from the Rewind tab, with the others (2026-11-07). -->
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding RewindNotify}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Rewind ready'}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Rewind ready'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'While RigSight is closed.'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding MemoryGrowth}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Apps that keep growing in memory'}">
+                        <TextBlock Text="{ctl:T 'Apps that keep growing in memory'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NewStartupApps}" Margin="0,10" AutomationProperties.Name="{ctl:T 'New apps that start with Windows'}">
+                        <TextBlock Text="{ctl:T 'New apps that start with Windows'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <TextBlock Text="{ctl:T 'How they show'}" Style="{StaticResource SubHead}" Margin="0,16,0,10" />
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,8">
+                <StackPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
                             <StackPanel Orientation="Horizontal">
@@ -916,19 +1000,30 @@
                         </Border>
                         <TextBlock Text="{ctl:T 'Cards stay on screen for'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
+                    <DockPanel Style="{StaticResource Row}">
+                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="PerDay" Content="3" IsChecked="{Binding CardsPerDay, Converter={StaticResource Equals}, ConverterParameter=3}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="PerDay" Content="5" IsChecked="{Binding CardsPerDay, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="PerDay" Content="10" IsChecked="{Binding CardsPerDay, Converter={StaticResource Equals}, ConverterParameter=10}" />
+                                <RadioButton Style="{StaticResource Segment}" GroupName="PerDay" Content="{ctl:T 'No limit'}" IsChecked="{Binding CardsPerDay, Converter={StaticResource Equals}, ConverterParameter=0}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Cards a day, besides problems'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'The rest wait in the list under the bell.'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </DockPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding QuietDuringFullscreen}" Margin="0,10">
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'Stay quiet while I\'m gaming'}" Style="{StaticResource Title}" />
-                            <TextBlock Text="{ctl:T 'Temperature alerts still come through.'}" Style="{StaticResource Hint}" />
+                            <TextBlock Text="{ctl:T 'Problems still come through.'}" Style="{StaticResource Hint}" />
                         </StackPanel>
                     </CheckBox>
                     <DockPanel Style="{StaticResource Row}">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Daily recap'}" Command="{Binding PreviewCommand}" CommandParameter="recap" Margin="0,0,6,0" />
-                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Game session'}" Command="{Binding PreviewCommand}" CommandParameter="session" Margin="0,0,6,0" />
-                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Temperature alert'}" Command="{Binding PreviewCommand}" CommandParameter="alert" Margin="0,0,6,0" />
-                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Crash'}" Command="{Binding PreviewCommand}" CommandParameter="crash" />
-                        </StackPanel>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Show'}" Command="{Binding PreviewCommand}" CommandParameter="{Binding PreviewKind}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        <ComboBox DockPanel.Dock="Right" Width="290" VerticalAlignment="Center" ItemsSource="{Binding PreviewOptions}"
+                                  DisplayMemberPath="Name" SelectedValuePath="Key" SelectedValue="{Binding PreviewKind}" AutomationProperties.Name="{ctl:T 'Notification to preview'}" />
                         <TextBlock Text="{ctl:T 'Preview'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                 </StackPanel>
@@ -2490,10 +2585,6 @@
                 <StackPanel>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding FullScreen}" Margin="0,10">
                         <TextBlock Text="{ctl:T 'Show it full screen when RigSight opens'}" Style="{StaticResource Title}" />
-                    </CheckBox>
-                    <Border Height="1" Background="{DynamicResource StrokeBrush}" />
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Notify}" Margin="0,10">
-                        <TextBlock Text="{ctl:T 'Notification while RigSight is closed'}" Style="{StaticResource Title}" />
                     </CheckBox>
                 </StackPanel>
             </ctl:SmoothBorder>

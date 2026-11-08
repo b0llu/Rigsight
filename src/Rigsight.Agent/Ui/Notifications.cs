@@ -10,7 +10,12 @@ using Rigsight.Core.Settings;
 
 namespace Rigsight.Agent.Ui;
 
-internal enum NoticeKind { Alert, Recap, Session, Crash, Overlay, Update, Rewind, Internet, InternetBack }
+internal enum NoticeKind
+{
+    Alert, Recap, Session, Crash, Overlay, Update, Rewind, Internet, InternetBack,
+    // The notifications round (2026-11-07): problems in red, worth knowing in amber, recaps in blue.
+    FanStopped, DriveFailing, Fans, Drive, Usual, Slowed, Change, Space, Memory, Startup, Weekly,
+}
 
 /// <summary>Something worth telling the user. <see cref="Urgent"/> notices are shown even during fullscreen games.</summary>
 /// <summary>
@@ -73,7 +78,46 @@ internal static class CrashNotices
 }
 
 internal sealed record Notice(NoticeKind Kind, string Title, string Body, string? IconPath = null,
-    string? Page = null, string? Arg = null, bool Urgent = false);
+    string? Page = null, string? Arg = null, bool Urgent = false)
+{
+    /// <summary>What it's about, so it isn't said twice (see Core's NoticeChecks); null for the ones that can't repeat.</summary>
+    public string? Key { get; init; }
+    /// <summary>Kept with the key (a drive's bad sector count).</summary>
+    public string? Value { get; init; }
+    /// <summary>Other keys this one says too (a game's summary that took in "hotter than usual").</summary>
+    public IReadOnlyList<string> AlsoSays { get; init; } = [];
+
+    /// <summary>When it may interrupt (see <see cref="NoticeLevels.Of"/>).</summary>
+    public Core.Notices.NoticeLevel Level => NoticeLevels.Of(Kind);
+}
+
+/// <summary>Each kind's group: problems at once, worth knowing after a game, recaps, and RigSight's own.</summary>
+internal static class NoticeLevels
+{
+    public static Core.Notices.NoticeLevel Of(NoticeKind kind) => kind switch
+    {
+        NoticeKind.Alert or NoticeKind.Crash or NoticeKind.Internet or NoticeKind.InternetBack or NoticeKind.FanStopped or NoticeKind.DriveFailing => Core.Notices.NoticeLevel.Problem,
+        NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space => Core.Notices.NoticeLevel.Worth,
+        NoticeKind.Recap or NoticeKind.Session or NoticeKind.Rewind or NoticeKind.Memory or NoticeKind.Startup or NoticeKind.Weekly => Core.Notices.NoticeLevel.Recap,
+        _ => Core.Notices.NoticeLevel.App,
+    };
+
+    /// <summary>A check's candidate as a notice: its kind from what it's about and its group.</summary>
+    public static NoticeKind KindOf(Core.Notices.NoticeCandidate c) => (c.Kind, c.Level) switch
+    {
+        ("fan", Core.Notices.NoticeLevel.Problem) => NoticeKind.FanStopped,
+        ("fan", _) => NoticeKind.Fans,
+        ("drive", Core.Notices.NoticeLevel.Problem) => NoticeKind.DriveFailing,
+        ("drive", _) => NoticeKind.Drive,
+        ("hotter" or "problems", _) => NoticeKind.Usual,
+        ("slowed", _) => NoticeKind.Slowed,
+        ("change", _) => NoticeKind.Change,
+        ("storage", _) => NoticeKind.Space,
+        ("memory", _) => NoticeKind.Memory,
+        ("startup", _) => NoticeKind.Startup,
+        _ => NoticeKind.Weekly,
+    };
+}
 
 /// <summary>
 /// Decides when and how notices appear: Rigsight cards or Windows notifications, held back while
@@ -341,14 +385,16 @@ internal static class ToastRenderer
     /// <summary>Each kind's colour: the bright one on dark, a deeper one that reads on white (at least 4.5:1, as the app's Light theme).</summary>
     public static Color Accent(NoticeKind kind, bool light = false) => (kind, light) switch
     {
-        (NoticeKind.Alert, false) => Color.FromArgb(248, 113, 113),
-        (NoticeKind.Recap or NoticeKind.Rewind, false) => Color.FromArgb(91, 140, 255),
+        (NoticeKind.Alert or NoticeKind.FanStopped or NoticeKind.DriveFailing, false) => Color.FromArgb(248, 113, 113),
+        (NoticeKind.Recap or NoticeKind.Rewind or NoticeKind.Memory or NoticeKind.Startup or NoticeKind.Weekly, false) => Color.FromArgb(91, 140, 255),
+        (NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space, false) => Color.FromArgb(251, 191, 36),
         (NoticeKind.Session, false) => Color.FromArgb(61, 220, 151),
         (NoticeKind.Crash or NoticeKind.Internet, false) => Color.FromArgb(251, 191, 36),
         (NoticeKind.InternetBack, false) => Color.FromArgb(61, 220, 151),
         (_, false) => Color.FromArgb(177, 140, 255),
-        (NoticeKind.Alert, true) => Color.FromArgb(185, 28, 28),
-        (NoticeKind.Recap or NoticeKind.Rewind, true) => Color.FromArgb(37, 99, 235),
+        (NoticeKind.Alert or NoticeKind.FanStopped or NoticeKind.DriveFailing, true) => Color.FromArgb(185, 28, 28),
+        (NoticeKind.Recap or NoticeKind.Rewind or NoticeKind.Memory or NoticeKind.Startup or NoticeKind.Weekly, true) => Color.FromArgb(37, 99, 235),
+        (NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space, true) => Color.FromArgb(180, 83, 9),
         (NoticeKind.Session, true) => Color.FromArgb(4, 120, 87),
         (NoticeKind.Crash or NoticeKind.Internet, true) => Color.FromArgb(180, 83, 9),
         (NoticeKind.InternetBack, true) => Color.FromArgb(4, 120, 87),
@@ -365,6 +411,15 @@ internal static class ToastRenderer
         NoticeKind.Rewind => Lang.T("REWIND"),
         NoticeKind.Internet => Lang.T("INTERNET DROP"),
         NoticeKind.InternetBack => Lang.T("INTERNET BACK"),
+        NoticeKind.FanStopped or NoticeKind.Fans => Lang.T("FANS"),
+        NoticeKind.DriveFailing or NoticeKind.Drive => Lang.T("DRIVE HEALTH"),
+        NoticeKind.Usual => Lang.T("AGAINST YOUR USUAL"),
+        NoticeKind.Slowed => Lang.T("TEMPERATURES"),
+        NoticeKind.Change => Lang.T("WHAT CHANGED"),
+        NoticeKind.Space => Lang.T("STORAGE"),
+        NoticeKind.Memory => Lang.T("MEMORY"),
+        NoticeKind.Startup => Lang.T("STARTS WITH WINDOWS"),
+        NoticeKind.Weekly => Lang.T("WEEKLY RECAP"),
         _ => Lang.T("UPDATE"),
     };
 

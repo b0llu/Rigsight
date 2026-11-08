@@ -50,7 +50,17 @@ public sealed record Insight(string Icon, string Text, InsightTone Tone = Insigh
 
     /// <summary>Whether that fan is the GPU's.</summary>
     public bool FanGpu { get; init; }
+
+    /// <summary>
+    /// What a notification about this line says (title and sentence, temperatures with their unit), written where the
+    /// line's figures are at hand, as <see cref="Ask"/> is; null for a line that never becomes a notification. The agent
+    /// sends it (Notices.NoticeChecks), so a notification and the line it comes from always agree.
+    /// </summary>
+    public NoticeText? Notice { get; init; }
 }
+
+/// <summary>A notification's words: its title (what happened) and the sentence under it (the most useful fact).</summary>
+public sealed record NoticeText(string Title, string Body);
 
 /// <summary>A page a line opens: the proof of something that moved, or an event to look at.</summary>
 public enum InsightOpens { None, Usual, Crashes, Temperatures, Fans, Network, Storage, Game }

@@ -741,11 +741,132 @@
                     </ControlTemplate>
                 </Button.Template>
             </Button>
+            <!-- The bell (the notifications round, approved mock-up LWycKU9ZC8jzeVH8bVjPWm, 2026-11-07): beside the window's
+                 buttons, not the ask box, so it stays in one place with AI on, off, or Ask in the sidebar. The number counts
+                 notifications newer than the list was last opened on. -->
+            <Button x:Name="BellButton" WindowChrome.IsHitTestVisibleInChrome="True" Command="{Binding Notices.ToggleCommand}" Cursor="Hand"
+                    Focusable="False" FocusVisualStyle="{x:Null}" VerticalAlignment="Center" Width="30" Height="30" Margin="0,0,8,0"
+                    ToolTip="{ctl:T 'Notifications'}" AutomationProperties.Name="{ctl:T 'Notifications'}">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
+                                <ctl:InkCentered x:Name="Glyph" Text="&#xEA8F;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S14}" Width="16" Height="16" Fill="{DynamicResource MutedBrush}" />
+                            </Border>
+                            <Border x:Name="Badge" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-5,-5,0" MinWidth="16" Height="16" Padding="4,0"
+                                    CornerRadius="8" Background="{DynamicResource TextBrush}" IsHitTestVisible="False"
+                                    Visibility="{Binding Notices.HasUnseen, Converter={StaticResource Vis}}">
+                                <TextBlock Text="{Binding Notices.UnseenText}" FontSize="{x:Static ctl:TextSize.Mini}" FontWeight="Bold" Foreground="{DynamicResource BgBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                <Setter TargetName="Glyph" Property="Fill" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding Notices.IsOpen}" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                <Setter TargetName="Glyph" Property="Fill" Value="{DynamicResource TextBrush}" />
+                                <!-- While the list is open a click on the bell is a click outside it: the list closes, and doesn't open again. -->
+                                <Setter Property="IsHitTestVisible" Value="False" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
             <Button x:Name="MinButton" Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="Minimize_Click" AutomationProperties.Name="Minimize" />
             <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" Click="Maximize_Click" AutomationProperties.Name="Maximize" />
             <Button x:Name="CloseButton" Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" Click="Close_Click" AutomationProperties.Name="Close" />
         </StackPanel>
     </Grid>
+    <!-- The recent notifications, under the bell, its right edge on the bell's: the last 30 days by day, newest first; a row
+         opens what it's about, as its card would have. Closed by a click elsewhere or a page change. -->
+    <Popup x:Name="NoticesDrop" PlacementTarget="{Binding ElementName=BellButton}" Placement="Bottom" HorizontalOffset="-424" VerticalOffset="4"
+           AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade" IsOpen="{Binding Notices.IsOpen, Mode=TwoWay}">
+        <Border Width="440" Margin="14,0,14,20" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                CornerRadius="{x:Static ctl:Corner.Tile}" AutomationProperties.Name="{ctl:T 'Notifications'}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="8" Opacity="0.5" Color="Black" />
+            </Border.Effect>
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="18,10,10,6">
+                    <!-- Hidden, not collapsed, once everything is read: the heading doesn't move. -->
+                    <Button DockPanel.Dock="Right" Content="{ctl:T 'Mark all as read'}" Command="{Binding Notices.MarkAllReadCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource ActionButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Notices.HasUnseen}" Value="False"><Setter Property="Visibility" Value="Hidden" /></DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <TextBlock Text="{ctl:T 'Notifications'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                </DockPanel>
+                <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="10,6,18,6">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Last 30 days'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                        <Button Style="{StaticResource ActionButton}" Content="{ctl:T 'Notification settings'}" Command="{Binding Notices.GoToSettingsCommand}" HorizontalAlignment="Left" />
+                    </DockPanel>
+                </Border>
+                <Grid>
+                    <ctl:Spinner Width="20" Height="20" StrokeThickness="2" Margin="0,40" HorizontalAlignment="Center"
+                                 Visibility="{Binding Notices.Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                    <TextBlock Text="{ctl:T 'No notifications in the last 30 days'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
+                               HorizontalAlignment="Center" Margin="0,36" Visibility="{Binding Notices.IsEmpty, Converter={StaticResource Vis}}" />
+                    <ScrollViewer MaxHeight="560" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" Padding="0,0,0,6">
+                        <ItemsControl ItemsSource="{Binding Notices.Days}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Mini}" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="18,10,18,4" />
+                                        <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Command="{Binding DataContext.Notices.OpenRowCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                                            Cursor="Hand" AutomationProperties.Name="{Binding Title}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                                        <Button.Template>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border x:Name="Bd" Background="Transparent" Padding="18,8">
+                                                                    <DockPanel>
+                                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Time}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="12,2,0,0" VerticalAlignment="Top" />
+                                                                        <Ellipse DockPanel.Dock="Left" Width="6" Height="6" Margin="-11,12,5,0" VerticalAlignment="Top" Fill="{DynamicResource TextBrush}"
+                                                                                 Visibility="{Binding Unseen, Converter={StaticResource Vis}}" />
+                                                                        <HeaderedContentControl Style="{StaticResource IconRow}">
+                                                                            <HeaderedContentControl.Header>
+                                                                                <Border Style="{StaticResource IconBox}">
+                                                                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                               Foreground="{Binding BrushKey, Converter={StaticResource ResourceBrush}}" />
+                                                                                </Border>
+                                                                            </HeaderedContentControl.Header>
+                                                                            <StackPanel>
+                                                                                <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                                                <TextBlock Text="{Binding Body}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                                                <TextBlock Text="{ctl:T 'Kept here, not shown as a card'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,3,0,0"
+                                                                                           Visibility="{Binding HeldBack, Converter={StaticResource Vis}}" />
+                                                                            </StackPanel>
+                                                                        </HeaderedContentControl>
+                                                                    </DockPanel>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </DockPanel>
+        </Border>
+    </Popup>
+
     <!-- Everything under the title bar, zoomed with Ctrl + wheel (MainWindow.xaml.cs, ApplyZoom) -->
     <Grid x:Name="Body">
         <Grid.ColumnDefinitions>

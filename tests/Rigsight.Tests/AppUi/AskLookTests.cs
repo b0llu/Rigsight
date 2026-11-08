@@ -606,6 +606,10 @@ public sealed class AskLookTests(AppHost host) : IClassFixture<AppHost>
             }
             return (a, t);
         });
+        // The panel is built a moment after Ask opens, as every other test here waits for: looked for at once, a full run
+        // found none ("Sequence contains no elements", the 1.7.0 gates, 2026-11-08, and once on 2026-11-06).
+        Ui.Pump(400);
+        Assert.True(Ui.WaitFor(() => Visuals.Descendants<AskWindow>(host.Window).Any(), 5_000), "The Ask panel wasn't built");
         // While it's made: the line with the spinner, above the last two questions and their answers.
         var line = new AskSummary { Replaced = 6 };
         Ui.Run(() => talk.Messages.Insert(6, line));

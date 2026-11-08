@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using Rigsight.Core.Data;
 using Rigsight.Core.Settings;
 using Rigsight.Tests.Support;
@@ -54,6 +54,9 @@ public sealed class SchemaTests
         ["changes"] = ["id", "ts", "kind", "subject", "title", "was", "now", "from_ts"],
         ["inventory"] = ["kind", "key", "name", "value"],
         ["steam_download"] = ["app", "started", "ended", "bytes", "new_install", "how", "name"],
+        // The recent notifications and what each was about (2026-11-07, the bell).
+        ["notice"] = ["id", "ts", "kind", "level", "title", "body", "page", "arg", "icon", "key", "shown"],
+        ["notice_said"] = ["key", "ts", "value"],
     };
 
     public static readonly Dictionary<string, string> Indexes = new()
@@ -63,6 +66,8 @@ public sealed class SchemaTests
         ["ix_crashes_ts"] = "crashes(ts)",
         ["ix_changes_ts"] = "changes(ts)",
         ["ix_steam_download_ended"] = "steam_download(ended)",
+        ["ix_notice_ts"] = "notice(ts)",
+        ["ix_notice_key"] = "notice(key)",
     };
 
     public static TheoryData<string> TableNames => [.. Tables.Keys];

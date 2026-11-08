@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
@@ -27,7 +27,7 @@ namespace Rigsight.Agent;
 ///  • the sampler thread reads sensors, tracks activity and writes the database.
 /// The sampler wakes once a second and does very little each time, so the agent stays near 0% CPU.
 /// </summary>
-internal sealed class AgentContext : ApplicationContext
+internal sealed partial class AgentContext : ApplicationContext
 {
     private readonly SynchronizationContext _ui;
     private readonly bool _isAdmin;
@@ -366,7 +366,7 @@ internal sealed class AgentContext : ApplicationContext
             : _settings.AutoUpdate && _isAdmin ? Lang.T("It installs the next time you start your PC, or click to update now.")
             : Lang.T("It's downloaded. Click to finish updating.");
         // Clicked, the app opens asking to restart (or downloading), not on its usual page with no word of the update.
-        _notices.Show(new Notice(NoticeKind.Update, downloaded ? Lang.T($"RigSight {version} is ready") : Lang.T($"RigSight {version} is out"), body, Page: "update"));
+        Notify(new Notice(NoticeKind.Update, downloaded ? Lang.T($"RigSight {version} is ready") : Lang.T($"RigSight {version} is out"), body, Page: "update"));
     }
 
     // ── Sampler thread ────────────────────────────────────────────────────
@@ -496,6 +496,8 @@ internal sealed class AgentContext : ApplicationContext
                     if (_sensors.DrivesUpdated) _driveHistory.Add(unixMs, _sensors);
 
                     var alert = _alerts.Check(keys, _tracker.Activity.Name, settings.Alerts, now);
+                    // A fixed limit says it's hot, not whether that's new: the game's usual says that (from the research, 2026-11-07).
+                    if (alert is { } a && UsualForAlert(_tracker.Activity.Exe, _alerts.LastParts) is { } usual) alert = (a.Title, $"{a.Body} {usual}");
                     PublishToUi(keys, sample.Fullscreen, alert);
                     Measure("track+publish", t0);
 
@@ -558,6 +560,7 @@ internal sealed class AgentContext : ApplicationContext
                     nextMinuteCheck = now + 60_000;
                     MaybeShowDailyRecap();
                     MaybeMakeRewinds();
+                    MaybeCheckNotices();
                     SaveExtremes();
                     RetryWaitingRepair();
                 }
@@ -1349,7 +1352,7 @@ internal sealed class AgentContext : ApplicationContext
             _notices.SetFullscreen(otherFullscreen);
             if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
             if (alert is { } hot)
-                _notices.Show(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true));
+                Notify(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true));
         }, null);
     }
 
@@ -1589,7 +1592,7 @@ internal sealed class AgentContext : ApplicationContext
         Log.Write("network", $"Notice: {said.Title} ({said.Body})" + (_settings.Alerts.InternetDrops ? "" : ", not shown: drop alerts are off"));
         if (!_settings.Alerts.InternetDrops) return;
         string day = TimeUtil.FromUnix(said.At).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
-        _ui.Post(_ => _notices.Show(new Notice(said.Good ? NoticeKind.InternetBack : NoticeKind.Internet, said.Title, said.Body, Page: "network", Arg: day, Urgent: true)), null);
+        Notify(new Notice(said.Good ? NoticeKind.InternetBack : NoticeKind.Internet, said.Title, said.Body, Page: "network", Arg: day, Urgent: true));
     }
 
     /// <summary>
@@ -1604,6 +1607,7 @@ internal sealed class AgentContext : ApplicationContext
         var today = DateTime.Today;
         var over = DailyRecap.OverBefore(DateTime.Now);
         var lastUsed = _db.LastUsedDayBefore(TimeUtil.ToUnix(over)) is long d ? TimeUtil.FromUnix(d).Date : (DateTime?)null;
+        MaybeShowWeeklyRecap(today);
         if (DailyRecap.DayToRecap(over, lastUsed, DailyRecap.Recapped(settings)) is not { } day) return;
         // Built before the day is marked as recapped: if building fails, the next turn-on tries again.
         var report = settings.Alerts.DailyRecap ? ReportBuilder.Build(_db, ReportRange.Day, day, settings) : null;
@@ -1616,7 +1620,7 @@ internal sealed class AgentContext : ApplicationContext
 
         var top = report.Apps.FirstOrDefault(a => a.ActiveSec > 0 && a.Category != AppCategory.System);
         var (title, text) = NoticeWords.Recap(day, today, report.ActiveSec, top?.Name, top?.ActiveSec ?? 0, report.CpuTempPeak?.Value, report.GpuTempPeak?.Value);
-        _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Recap, title, text, Page: "reports", Arg: DailyRecap.Key(day))), null);
+        Notify(new Notice(NoticeKind.Recap, title, text, Page: "reports", Arg: DailyRecap.Key(day)));
     }
 
     private DateTime _rewindsChecked;
@@ -1648,7 +1652,7 @@ internal sealed class AgentContext : ApplicationContext
         // would have come twice, as this notification and then full screen at RigSight's next start).
         foreach (var m in made) { m.Announced = true; Core.Rewind.RewindStore.Save(m); }
         Log.Write("rewind", $"Announcing {f.Id} with a notification");
-        _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Rewind, Core.Rewind.RewindCards.Ready(f), Core.Rewind.RewindCards.Teaser(f), Page: "rewind", Arg: f.Id)), null);
+        Notify(new Notice(NoticeKind.Rewind, Core.Rewind.RewindCards.Ready(f), Core.Rewind.RewindCards.Teaser(f), Page: "rewind", Arg: f.Id));
     }
 
     private void OnSessionEnded(SessionRow row, AppInfo app)
@@ -1688,13 +1692,21 @@ internal sealed class AgentContext : ApplicationContext
                     }
                     string body = NoticeWords.AppDown(finding, row.IsGame, row.ActiveSec);
                     // The title says what Windows recorded, which is never in doubt: "Dota 2 crashed", "Chrome froze".
-                    _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, Wording.Title(crash.Kind, NoticeWords.Name(name)), body,
-                        app.Path, "crashes", crash.Time.Ticks.ToString())), null);
+                    Notify(new Notice(NoticeKind.Crash, Wording.Title(crash.Kind, NoticeWords.Name(name)), body,
+                        app.Path, "crashes", crash.Time.Ticks.ToString()));
                     return;
                 }
-                if (!summaryWanted) return;
+                // What's worth knowing about the game (hotter than usual, the GPU slowing itself): the summary's last
+                // sentences when there is one, so the game gets one card; its own cards when there isn't.
+                var (more, cards) = row.IsGame ? await OnSampler(() => AfterGame(row, name, app.Exe)) : ([], []);
+                if (!summaryWanted)
+                {
+                    foreach (var c in cards) Notify(c, app.Path);
+                    return;
+                }
                 var (title, text) = NoticeWords.Session(name, row.ActiveSec, row.CpuTempMax, row.GpuTempMax);
-                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Session, title, text, app.Path, "games", app.Exe)), null);
+                if (more.Count > 0) text = string.Join(" ", new[] { text }.Concat(more).Where(x => x.Length > 0));
+                Notify(new Notice(NoticeKind.Session, title, text, app.Path, "games", app.Exe) { AlsoSays = [.. cards.Select(c => c.Key)] });
             }
             catch (Exception ex)
             {
@@ -1873,8 +1885,7 @@ internal sealed class AgentContext : ApplicationContext
                 var ex = CrashExplainer.Explain(e);
                 // The title says what happened ("Your PC shut off suddenly"); when and why under it, not the event again.
                 string said = NoticeWords.PcDownBody(e.Time, DateTime.Now, findings.GetValueOrDefault(e.Id), ex.Reason);
-                _ui.Post(_ => _notices.Show(new Notice(NoticeKind.Crash, NoticeWords.PcDownTitle(e.Kind), said,
-                    Page: "crashes", Arg: e.Time.Ticks.ToString())), null);
+                Notify(new Notice(NoticeKind.Crash, NoticeWords.PcDownTitle(e.Kind), said, Page: "crashes", Arg: e.Time.Ticks.ToString()));
             }
         }
         catch (Exception ex)
@@ -2052,6 +2063,8 @@ internal sealed class AgentContext : ApplicationContext
             "session" => NoticeWords.Session("Dota 2", 2 * 3600 + 14 * 60, 71, 68) is var (sTitle, sBody)
                 ? new(NoticeKind.Session, sTitle, sBody, activity.Path, "games") : null!,
             "crash" => new(NoticeKind.Crash, Wording.Title(CrashKind.AppCrash, "Dota 2"), CrashNotices.Sample, activity.Path, "crashes"),
+            // The notifications round's kinds, each through its real words with made-up figures.
+            _ when NoticePreviews.Of(kind) is { } p => new(p.Kind, p.Text.Title, p.Text.Body, Page: p.Page, Urgent: p.Kind is NoticeKind.FanStopped or NoticeKind.DriveFailing),
             _ => NoticeWords.Recap(DateTime.Today.AddDays(-1), DateTime.Today, 6 * 3600 + 12 * 60, "Dota 2", 3 * 3600 + 5 * 60, 78, 72) is var (rTitle, rBody)
                 ? new(NoticeKind.Recap, rTitle, rBody, Page: "reports", Arg: "yesterday") : null!,
         };
