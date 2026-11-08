@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.NetworkView"
+﻿<UserControl x:Class="Rigsight.Views.NetworkView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
@@ -382,12 +382,6 @@
                                     </Border>
                                     <TextBlock Text="{Binding PingNoteTitle}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,12,0,0" />
                                     <TextBlock Text="{Binding PingNoteBody}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,0" />
-                                    <StackPanel Visibility="{Binding PingNoteCollecting, Converter={StaticResource Vis}}" Margin="0,14,0,0" Width="280">
-                                        <ProgressBar Height="6" Minimum="0" Maximum="1" Value="{Binding PingNoteProgress, Mode=OneWay}" Foreground="{DynamicResource CpuBrush}"
-                                                     Background="{DynamicResource Surface2Brush}" BorderThickness="0" />
-                                        <TextBlock Text="{Binding PingNoteSoFar}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
-                                        <TextBlock Text="{Binding PingNoteNow}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
-                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                             <!-- The hover box: the bar's hour and game, its total, the ping, Steam, then each part of the bar. -->

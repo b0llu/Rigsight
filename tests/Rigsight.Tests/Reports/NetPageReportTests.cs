@@ -1,4 +1,4 @@
-using Rigsight.Core.Data;
+﻿using Rigsight.Core.Data;
 using Rigsight.Core.Games;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
@@ -197,17 +197,17 @@ public sealed class NetPageReportTests : IDisposable
     }
 
     [Fact]
-    public void The_graph_waits_for_enough_checked_hours()
+    public void The_graph_shows_with_the_first_checked_hour()
     {
         Hour(Day.AddHours(9), (App("chrome.exe", "Google Chrome"), 100 * MB, 0, 0));
-        for (int h = 9; h < 14; h++) Pings(Day.AddHours(h), 5, 8);
-        var few = Build();
-        Assert.Equal((5, 6), (few.PingBars, few.PingBarsNeeded));
-        Assert.False(few.PingEnough);
-        Pings(Day.AddHours(14), 5, 8);
-        Assert.True(Build().PingEnough);
-        Assert.Equal(3, NetLine.BarsToDraw(false, ReportRange.Month));
-        Assert.Equal(2, NetLine.BarsToDraw(false, ReportRange.Year));
+        Assert.False(Build().PingEnough); // nothing checked: the note in its place
+        Pings(Day.AddHours(9), 5, 8);
+        var first = Build();
+        Assert.Equal((1, 1), (first.PingBars, first.PingBarsNeeded));
+        Assert.True(first.PingEnough);
+        // No wait for any period (2026-11-08: it waited six hours, three days or two months).
+        Assert.All(new[] { ReportRange.Day, ReportRange.Week, ReportRange.Month, ReportRange.Year },
+            range => Assert.Equal(1, NetLine.BarsToDraw(range is ReportRange.Day or ReportRange.Week, range)));
     }
 
     [Fact]

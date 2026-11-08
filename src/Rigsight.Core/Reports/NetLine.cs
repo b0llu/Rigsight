@@ -1,4 +1,4 @@
-using Rigsight.Core.Data;
+﻿using Rigsight.Core.Data;
 
 namespace Rigsight.Core.Reports;
 
@@ -30,11 +30,11 @@ public static class NetLine
     public const double LostWorthSaying = 1;
 
     /// <summary>
-    /// How many bars with ping checked a period needs before its graph is drawn: six hours (a day, a week), three days
-    /// (a month), two months (a year). Fewer is a scatter of dots on an empty graph (the user, 2026-11-04: "why does
-    /// the ping chart look so empty"); the page says it's being checked instead.
+    /// How many bars with ping checked a period needs before its graph is drawn: one, whatever the period. It waited for
+    /// six hours (a day), three days (a month) or two months (a year) from 2026-11-04, so the first hours showed a note in
+    /// place of the graph; the user, 2026-11-08: "just start showing ping normally, no need to show the wait".
     /// </summary>
-    public static int BarsToDraw(bool hourly, ReportRange range) => hourly ? 6 : range == ReportRange.Year ? 2 : 3;
+    public static int BarsToDraw(bool hourly, ReportRange range) => 1;
 
     /// <summary>The upload an app needs in an hour to be named as what the ping rose with.</summary>
     public const long BusyUploadBytes = 500L << 20;

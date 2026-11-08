@@ -547,10 +547,6 @@ public sealed partial class NetworkViewModel : ObservableObject
     [ObservableProperty] private string _pingNoteBody = "";
     [ObservableProperty] private string _pingNoteIcon = "\uE916";
     /// <summary>Still collecting: how far along (0 to 1), in words, and the ping now beside the usual so far.</summary>
-    [ObservableProperty] private bool _pingNoteCollecting;
-    [ObservableProperty] private double _pingNoteProgress;
-    [ObservableProperty] private string _pingNoteSoFar = "";
-    [ObservableProperty] private string _pingNoteNow = "";
 
     /// <summary>The internet strip under the graph (see <see cref="NetReport.Link"/>).</summary>
     [ObservableProperty] private IReadOnlyList<NetLinkCell> _link = [];
@@ -562,46 +558,28 @@ public sealed partial class NetworkViewModel : ObservableObject
     private void FillPingNote()
     {
         if (_report is not { } r) return;
-        string Count(int n) => Hourly ? (n == 1 ? Lang.T("1 hour") : Lang.T($"{n} hours"))
-            : Unit == ReportRange.Year ? (n == 1 ? Lang.T("1 month") : Lang.T($"{n} months"))
-            : n == 1 ? Lang.T("1 day") : Lang.T($"{n} days");
-        int have = r.PingBars, need = r.PingBarsNeeded;
-        PingNoteCollecting = false;
+        // Only shown with nothing checked in the period: any check draws the graph (NetLine.BarsToDraw).
         if (!PingChecksOn)
         {
             PingNoteIcon = "\uE769";
             PingNoteTitle = Lang.T("Ping checks are paused");
-            PingNoteBody = have > 0
-                ? Lang.T($"Too little ping was checked {PeriodWord} for a graph. Once you resume, your connection is checked every 5 seconds and it fills in as you use your PC.")
-                : Lang.T("Your connection's ping isn't being checked. Once you resume, it's checked every 5 seconds and shows here.");
+            PingNoteBody = Lang.T("Your connection's ping isn't being checked. Once you resume, it's checked every 5 seconds and shows here.");
         }
         else if (IncludesToday)
         {
+            // Nothing checked yet in a period that's still going: the graph shows with the first checks (no waiting for
+            // hours of them since 2026-11-08).
             PingNoteIcon = "\uE916";
             PingNoteTitle = Lang.T("Ping is being checked");
-            PingNoteBody = Lang.T($"Your connection is checked every 5 seconds. The graph shows here once there are {Count(need)} of checks {PeriodWord}.");
-            PingNoteCollecting = true;
-            PingNoteProgress = need > 0 ? Math.Clamp((double)have / need, 0, 1) : 0;
-            PingNoteSoFar = Lang.T($"{have} of {Count(need)} so far");
-            PingNoteNow = string.Join(" · ", new[]
-            {
-                PingNow != "—" ? Lang.T($"Right now {PingNow}") : null,
-                r.Line is { } line ? Lang.T($"Usual so far {line.Usual} ms") : null,
-            }.OfType<string>());
+            PingNoteBody = Lang.T("Your connection is checked every 5 seconds. The graph shows here with the first checks.");
         }
-        else if (have == 0)
+        else
         {
             PingNoteIcon = "\uE916";
             PingNoteTitle = Lang.T($"Ping wasn't checked {PeriodWord}");
             PingNoteBody = r.PingSince is { } since && since >= Period.To
                 ? Lang.T($"It was first checked on {since:d MMM yyyy}.")
                 : r.PingSince is null ? Lang.T("Ping hasn't been checked on this PC yet.") : Lang.T("Your PC was off, or RigSight wasn't running.");
-        }
-        else
-        {
-            PingNoteIcon = "\uE916";
-            PingNoteTitle = Lang.T($"Too little ping checked {PeriodWord}");
-            PingNoteBody = Lang.T($"Ping was checked in {Count(have)} of it; the graph needs {Count(need)}.");
         }
     }
 

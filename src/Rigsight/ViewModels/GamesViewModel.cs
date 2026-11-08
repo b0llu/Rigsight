@@ -158,7 +158,9 @@ public sealed partial class GamesViewModel : ObservableObject
     /// <summary>recent · most · hard · size</summary>
     [ObservableProperty] private string _sort = "recent";
     /// <summary>all · installed · before</summary>
-    [ObservableProperty] private string _filter = "all";
+    // Installed first (the user, 2026-11-08): the games you can play now; All and the ones played before are a click away.
+    // Not a setting, so no one's choice is changed: each visit starts here.
+    [ObservableProperty] private string _filter = "installed";
 
     /// <summary>Words typed in the library's search: a game shows when its name or launcher has every one.</summary>
     [ObservableProperty] private string _search = "";

@@ -1,4 +1,4 @@
-using Rigsight.Core.Protocol;
+﻿using Rigsight.Core.Protocol;
 using Rigsight.Core.Reports;
 using Rigsight.Services;
 using Rigsight.Tests.Support;
@@ -63,7 +63,6 @@ public sealed class NetworkPageTests
             Assert.Empty(vm.Legend);
             Assert.StartsWith("Ping wasn't checked", vm.PingNoteTitle);
             Assert.Equal("Ping hasn't been checked on this PC yet.", vm.PingNoteBody);
-            Assert.False(vm.PingNoteCollecting);
             // The status line under it: what's being done, and Pause (asking first).
             Assert.Equal("Checking your internet provider's first router every 5 seconds", vm.PingStatusText);
             Assert.Equal("Pause", vm.PingStatusAction);
