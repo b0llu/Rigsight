@@ -230,13 +230,33 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 </section>
 <section class="wrap">
   <div class="filter" role="group" aria-label="Show posts from">
-    <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>37</span></button><button class="chip" type="button" data-series="build" aria-pressed="false">Building RigSight <span>15</span></button><button class="chip" type="button" data-series="ai" aria-pressed="false">The AI journey <span>2</span></button><button class="chip" type="button" data-series="fix" aria-pressed="false">PC problems <span>20</span></button>
+    <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>39</span></button><button class="chip" type="button" data-series="build" aria-pressed="false">Building RigSight <span>15</span></button><button class="chip" type="button" data-series="ai" aria-pressed="false">The AI journey <span>2</span></button><button class="chip" type="button" data-series="fix" aria-pressed="false">PC problems <span>22</span></button>
     <a class="rss" href="feed.xml">RSS</a>
   </div>
   <ol class="rows" id="rows">
-    <li class="row" data-series="build">
+    <li class="row" data-series="fix">
+  <a href="gpu-thermal-throttling">
+    <div class="thumb"><img class="" src="../img/blog/gpu-thermal-throttling.webp" srcset="../img/blog/gpu-thermal-throttling-600.webp 600w, ../img/blog/gpu-thermal-throttling.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Hottest heavy minute on my GPU: 73°C, in 5,128 minutes at 80% load or more" fetchpriority="high" decoding="async"></div>
+    <div class="row-text">
+      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
+      <h2>GPU thermal throttling, and how to tell if yours is</h2>
+      <p class="sum">In 5,128 minutes of heavy load my GPU never passed 73°C, so it never had a reason to slow down. What GPU thermal throttling is, how RigSight tells it apart from normal boost and power limits, and how to check and fix it.</p>
+      <p class="meta">9 November 2026 · 3 min read</p>
+    </div>
+  </a>
+</li><li class="row" data-series="fix">
+  <a href="gpu-fan-not-spinning">
+    <div class="thumb"><img class="" src="../img/blog/gpu-fan-not-spinning.webp" srcset="../img/blog/gpu-fan-not-spinning-600.webp 600w, ../img/blog/gpu-fan-not-spinning.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Fans page on the demo PC showing GPU fans that start spinning around 51 degrees and stood still for 16 hours while the GPU was cool" loading="lazy" decoding="async"></div>
+    <div class="row-text">
+      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Fans</p>
+      <h2>GPU fan not spinning? When it's normal and when it's a fault</h2>
+      <p class="sum">My GPU's fans stood still 42% of the time since late September, and never once above 52°C. When a GPU fan not spinning is normal, how RigSight tells it apart from a stuck fan, and what to check when it really is a fault.</p>
+      <p class="meta">9 November 2026 · 7 min read</p>
+    </div>
+  </a>
+</li><li class="row" data-series="build">
   <a href="rewrite-in-rust">
-    <div class="thumb"><img class="" src="../img/blog/rewrite-in-rust.webp" srcset="../img/blog/rewrite-in-rust-600.webp 600w, ../img/blog/rewrite-in-rust.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Window opens: 1.1 s, was about 1.9 s. Recorder CPU: 1.1%, of a core, was 2.2%" fetchpriority="high" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/rewrite-in-rust.webp" srcset="../img/blog/rewrite-in-rust-600.webp 600w, ../img/blog/rewrite-in-rust.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Window opens: 1.1 s, was about 1.9 s. Recorder CPU: 1.1%, of a core, was 2.2%" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
       <h2>Should RigSight be rewritten in Rust? I measured first</h2>

@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>GPU fan not spinning? When it&#x27;s normal and when it&#x27;s a fault · RigSight</title>
+  <meta name="description" content="A GPU fan not spinning at idle is usually fan stop, a normal mode. It&#x27;s a fault when the fan stays at 0 rpm while the GPU is hot. How to tell and fix it." />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="canonical" href="https://rigsight.app/blog/gpu-fan-not-spinning" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
+  <meta property="og:site_name" content="RigSight" />
+  <meta property="og:title" content="GPU fan not spinning? When it&#x27;s normal and when it&#x27;s a fault · RigSight" />
+  <meta property="og:description" content="A GPU fan not spinning at idle is usually fan stop, a normal mode. It&#x27;s a fault when the fan stays at 0 rpm while the GPU is hot. How to tell and fix it." />
+  <meta property="og:url" content="https://rigsight.app/blog/gpu-fan-not-spinning" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
+  <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <meta property="og:image" content="https://rigsight.app/img/blog/gpu-fan-not-spinning.webp" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="800" />
+  <meta property="og:type" content="article" />
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "GPU fan not spinning? When it's normal and when it's a fault", "description": "A GPU fan not spinning at idle is usually fan stop, a normal mode. It's a fault when the fan stays at 0 rpm while the GPU is hot. How to tell and fix it.", "datePublished": "2026-11-09", "dateModified": "2026-11-09", "image": "https://rigsight.app/img/blog/gpu-fan-not-spinning.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/gpu-fan-not-spinning", "keywords": "gpu fan not spinning, gpu fan not spinning while gaming, gpu fan not spinning on startup, gpu fan not spinning when idle, why is one gpu fan not spinning, gpu fan not spinning under load"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "GPU fan not spinning? When it's normal and when it's a fault", "item": "https://rigsight.app/blog/gpu-fan-not-spinning"}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is it normal for GPU fans to not spin?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, at idle. Most current NVIDIA and AMD cards have a zero RPM or fan stop mode that keeps the fans still while the GPU is cool, often below somewhere around 50 to 60\u00b0C. The exact point depends on the card. The fans start once the card warms past that point."}}, {"@type": "Question", "name": "Why are my GPU fans not spinning on startup?", "acceptedAnswer": {"@type": "Answer", "text": "When the PC first starts, the GPU is cold, so a card with fan stop has no reason to spin. Some cards give the fans a short spin at power on and some don't. As long as they start once you game, nothing is wrong."}}, {"@type": "Question", "name": "Why is one GPU fan not spinning?", "acceptedAnswer": {"@type": "Answer", "text": "Some cards stop one fan before the others at light load, and some run only part of their fans until the card is warm. If one fan stays still while the others spin hard in a game, it may be stuck, unplugged at its small connector on the card, or worn out."}}, {"@type": "Question", "name": "What should I do if my GPU fan is not spinning while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "Watch the GPU temperature. If it climbs past about 70\u00b0C and the fan still reads 0 rpm, close the game. Reset any custom fan curve to default, update the graphics driver, and check the fan isn't blocked by a cable or dust. If it still won't spin, contact the card maker about the warranty."}}, {"@type": "Question", "name": "Can a GPU fan not spinning and no display be the same problem?", "acceptedAnswer": {"@type": "Answer", "text": "Often, yes. If the fans don't move and there's no picture, the card may not be getting power. Check that the PCIe power cables are pushed fully into the card and the power supply, and that the card sits firmly in its slot."}}]}</script>
+  <style>
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
+/* Layout: the site's dark look. The list is picture-left rows like a magazine contents page; a post is a 680px column
+   under a cover that matches its row, with pictures a little wider than the text. */
+:root {
+  --bg: #000;
+  --surface: #0a0b0d;
+  --surface-2: #111317;
+  --line: rgba(255,255,255,.08);
+  --line-2: rgba(255,255,255,.14);
+  --fg: #f3f4f6;
+  --text: #c5cad2;
+  --muted: #a0a6b0;
+  --faint: #767c87;
+  --cpu: #5b8def;
+  --gpu: #22d3ee;
+  --hot: #a78bfa;
+  --ram: #c084fc;
+  --coffee: #facc15;
+  --display: "Geist", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 80px; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+a { color: var(--gpu); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
+img { max-width: 100%; height: auto; }
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
+.wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+
+/* top bar: the home page's, size for size */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(0,0,0,.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top-in { display: flex; align-items: center; gap: 48px; height: 68px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+.brand img { border-radius: 6px; }
+.top .brand { gap: 11px; font: 700 19px/1 var(--display); }
+.top .brand img { width: 30px; height: 30px; border-radius: 8px; }
+.top nav { display: flex; gap: 30px; }
+.top nav a { color: #b9bec7; text-decoration: none; font: 500 15.5px/1 var(--body); }
+.top nav a:hover, .top nav a.on { color: var(--fg); }
+.top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.top nav a.coffee { font-weight: 700; }
+.top .btn-sm { height: 40px; padding: 0 20px; font-size: 15px; }
+.top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.coffee-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; color: var(--coffee); font-weight: 600; font-size: 14.5px; text-decoration: none; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3); white-space: nowrap; }
+.coffee-pill:hover { color: #fde047; background: rgba(250,204,21,.14); }
+.icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; color: #c9cdd4; }
+.icon-btn:hover { color: var(--fg); background: rgba(255,255,255,.09); }
+.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--fg); color: #000; font-weight: 600; text-decoration: none; border-radius: 999px; padding: 11px 20px; font-size: 15px; white-space: nowrap; }
+.btn:hover { background: #fff; }
+.btn-sm { padding: 7px 14px; font-size: 13.5px; }
+.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.progress i { display: block; height: 100%; background: var(--gpu); transform-origin: 0 50%; transform: scaleX(0); }
+
+/* blog index */
+.blog-head { padding-block: 64px 36px; }
+.kicker { font: 500 13px/1 var(--mono); color: var(--gpu); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; }
+.blog-head h1 { font: 600 clamp(40px, 7vw, 72px)/1.02 var(--display); letter-spacing: -0.045em; margin: 0 0 18px; text-wrap: balance; }
+.intro { color: var(--muted); font-size: 18.5px; line-height: 1.6; max-width: 640px; margin: 0 0 14px; }
+.starts { color: var(--faint); font-size: 14.5px; margin: 0; }
+.starts a { color: var(--muted); }
+.starts a:hover { color: var(--fg); }
+.eyebrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--faint); margin: 0 0 10px; font-weight: 500; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.s-build { background: var(--cpu); }
+.s-ai { background: var(--hot); }
+.s-guide, .s-fix { background: var(--gpu); }
+.meta { font-size: 13.5px; color: var(--faint); margin: 0; font-variant-numeric: tabular-nums; }
+.filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.chip { font: 600 14px/1 var(--body); color: var(--muted); background: transparent; border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.chip span { color: var(--faint); font-weight: 500; margin-left: 4px; }
+.rss { margin-left: auto; align-self: center; font-size: 14px; color: var(--faint); text-decoration: none; }
+.rss:hover { color: var(--fg); }
+.chip:hover { color: var(--fg); }
+.chip[aria-pressed="true"] { color: #000; background: var(--fg); border-color: var(--fg); }
+.chip[aria-pressed="true"] span { color: #444; }
+.rows { list-style: none; margin: 8px 0 80px; padding: 0; }
+.row a { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 40px; align-items: center; padding: 30px 0; text-decoration: none; color: inherit; }
+.row + .row { border-top: 1px solid var(--line); }
+.row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
+.row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
+.row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
+.row a:hover .thumb img { transform: scale(1.015); }
+
+/* guides */
+.body h3 { font: 600 19px/1.3 var(--display); color: var(--fg); margin: 1.6em 0 .4em; }
+.body pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0 0 1.2em; max-width: 100%; }
+.body pre code { background: none; border: 0; padding: 0; font-size: 14.5px; line-height: 1.6; white-space: pre; }
+.body table { border-collapse: collapse; width: 100%; font-size: 16px; margin: 0 0 1.2em; display: block; overflow-x: auto; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.body th { color: var(--fg); font-weight: 600; }
+.faq { margin-top: 2.4em; }
+.qa { border-top: 1px solid var(--line); }
+.qa:last-child { border-bottom: 1px solid var(--line); }
+.qa summary { cursor: pointer; list-style: none; padding: 16px 32px 16px 0; position: relative; color: var(--fg); font-weight: 600; font-size: 17.5px; line-height: 1.45; }
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary::after { content: "+"; position: absolute; right: 4px; top: 14px; font: 400 22px/1 var(--mono); color: var(--faint); }
+.qa[open] summary::after { content: "\2212"; }
+.qa p { margin: 0 0 18px; color: var(--text); font-size: 17px; }
+.guide .short { border-color: rgba(34,211,238,.35); }
+.next.rel { grid-template-columns: 1fr 1fr; }
+
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
+.post > * { max-width: var(--col); }
+.crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--fg); }
+.dek { font-size: 19px; line-height: 1.55; color: var(--muted); margin: 0 0 18px; }
+.byline b { color: var(--fg); font-weight: 600; }
+.cover { margin: 0 0 32px; }
+.cover img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); }
+.post h1 { font: 600 clamp(34px, 5.6vw, 52px)/1.06 var(--display); letter-spacing: -0.04em; margin: 0 0 14px; text-wrap: balance; }
+.byline { color: var(--faint); font-size: 14.5px; margin: 0 0 30px; font-variant-numeric: tabular-nums; }
+.short { background: var(--surface); border: 1px solid var(--line-2); border-radius: 16px; padding: 20px 24px; margin-bottom: 40px; }
+.short p { margin: 0; color: var(--fg); font-size: 17.5px; line-height: 1.6; }
+.short .short-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+.body, .post h1, .dek, .short p, .qa summary { overflow-wrap: anywhere; }
+.body { font-size: 18px; line-height: 1.75; color: var(--text); }
+.body > p { margin: 0 0 1.15em; }
+.body h2 { font: 600 25px/1.25 var(--display); letter-spacing: -0.025em; color: var(--fg); margin: 1.9em 0 .55em; text-wrap: balance; }
+.body strong { color: var(--fg); font-weight: 600; }
+.body ul, .body ol { padding-left: 1.2em; margin: 0 0 1.2em; }
+.body li { margin: .35em 0; }
+.body li::marker { color: var(--faint); }
+.body code { font: 500 .86em var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--fg); }
+.body blockquote { margin: 1.5em 0; padding: 2px 0 2px 20px; border-left: 2px solid var(--hot); color: var(--fg); font-size: 19px; }
+.body blockquote p { margin: 0; }
+.body blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size: 14px; color: var(--faint); }
+.shot { margin: 2em 0; }
+.shot img { display: block; width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,.06); }
+figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top: 10px; }
+.stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin: 1.8em 0; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat b { font: 500 clamp(40px, 7vw, 60px)/1 var(--mono); letter-spacing: -0.04em; color: var(--gpu); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 16px; line-height: 1.5; flex: 1 1 260px; min-width: 0; }
+.stat.hot b { color: var(--hot); }
+.stat.cpu b { color: var(--cpu); }
+.fig { margin: 2em 0; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+.fig svg { display: block; width: 100%; height: auto; min-width: 520px; font-family: var(--body); }
+.fig figcaption { margin-top: 14px; }
+.fig .t { fill: var(--muted); font-size: 13px; }
+.fig .tf { fill: var(--faint); font-size: 12px; }
+.fig .tb { fill: var(--fg); font-size: 14px; font-weight: 600; }
+.fig .tm { fill: var(--fg); font-family: var(--mono); font-size: 13px; }
+.fig .box { fill: var(--surface-2); stroke: var(--line-2); }
+.fig .grid { stroke: var(--line); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 2em 0; }
+.pair > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; min-width: 0; }
+.pair p { margin: 0; font-size: 16px; line-height: 1.6; }
+.pair .k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px; color: var(--faint); }
+.pair .bad .k { color: #f0a35e; }
+.pair .good .k { color: #34d399; }
+.next { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 56px 0 28px; }
+.more { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 14px; text-decoration: none; min-width: 0; }
+.more span { font-size: 13px; color: var(--faint); }
+.more b { color: var(--fg); font-weight: 600; font-size: 16.5px; line-height: 1.35; }
+.more:hover { border-color: var(--line-2); background: var(--surface); }
+.get { display: flex; align-items: center; gap: 18px; padding: 20px 22px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.get img { border-radius: 10px; flex: none; }
+.get p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; min-width: 0; }
+.get p b { color: var(--fg); }
+
+.foot { border-top: 1px solid var(--line); margin-top: 72px; }
+.foot-in { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; padding-block: 28px 40px; }
+.foot nav { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.foot nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+.foot nav a:hover { color: var(--fg); }
+
+@media (max-width: 760px) {
+  .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .top nav a:not(.on) { display: none; }
+  /* as on the home page: Blog sits with GitHub and Download on the right */
+  .top nav { margin-left: auto; }
+  .top nav a.on { font: 600 15px/1 var(--body); padding: 8px 4px; }
+  .top-end { gap: 14px; margin-left: 0; }
+  .top-in { gap: 14px; }
+  .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
+  .row h2 { font-size: 21px; }
+  .row .sum { font-size: 15px; }
+  .dek { font-size: 17px; }
+  .body { font-size: 17px; }
+  .pair, .next { grid-template-columns: 1fr; }
+  .get { flex-wrap: wrap; }
+  .blog-head { padding-block: 40px 28px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+
+  </style>
+</head>
+<body>
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="24" height="24"><span>RigSight</span></a>
+  <nav aria-label="Site"><a href="./" class="on">Blog</a><a href="../#faq">FAQ</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+  <div class="top-end"><a class="icon-btn" href="https://github.com/b0llu/Rigsight" aria-label="RigSight on GitHub"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5"/></svg></a><a class="btn btn-sm" href="https://github.com/b0llu/Rigsight/releases/latest">Download</a></div>
+</div><div class="progress" aria-hidden="true"><i></i></div></header><main><article class="post wrap-narrow guide">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Blog</a></nav>
+  <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Fans</p>
+  <h1>GPU fan not spinning? When it's normal and when it's a fault</h1>
+  <p class="dek">My GPU's fans stood still 42% of the time since late September, and never once above 52°C. When a GPU fan not spinning is normal, how RigSight tells it apart from a stuck fan, and what to check when it really is a fault.</p>
+  <p class="byline"><b>Dhruv Samant</b> · Updated 9 November 2026 · 7 min read</p>
+  <figure class="cover"><img class="" src="../img/blog/gpu-fan-not-spinning.webp" srcset="../img/blog/gpu-fan-not-spinning-600.webp 600w, ../img/blog/gpu-fan-not-spinning.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Fans page on the demo PC showing GPU fans that start spinning around 51 degrees and stood still for 16 hours while the GPU was cool" fetchpriority="high" decoding="async"><figcaption>RigSight's Fans page on the demo PC. The shaded band on the speed at each GPU temperature chart is where the card keeps its fans off on purpose.</figcaption></figure>
+  <div class="short"><p class="short-k">The short answer</p><p>A GPU fan not spinning at idle is usually normal. Most modern cards stop their fans while cool to stay silent, often until somewhere around 50 to 60°C. It's a fault when the fan stays at 0 rpm while the GPU is hot in a game. Then check the fan software, cables and dust, and stop gaming until it spins.</p></div>
+  <div class="body">
+<p>Since 29 September, RigSight has recorded about 29,700 minutes of my GPU's two fans. They stood still for 42% of that time. They were never still with the GPU above 52°C, and from 52°C up they spun every single minute. A GPU fan not spinning is usually the card doing what it was built to do. What matters is whether the fan stays still when the GPU is hot, and here's how to tell the two apart.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records every fan's speed each minute next to the temperature of the part it cools. On the Fans page, a GPU fan at 0 rpm with a cool GPU shows as "Resting while cool". The same fan at 0 rpm with the GPU at 70°C or more shows as "Stopped while hot" and counts as needing a look. For a card with fan stop, the page also works out where the fans start, and says it as "Silent below that, faster as it warms". It shows how long they stood still and how many times they started up, for a day, a week, a month or a year.</p>
+
+<p>My fans also stop between about 42 and 50°C some of the time and spin the rest. That's the gap cards keep on purpose. Once spinning, they keep going until the GPU has cooled a few degrees, so they don't flick on and off. RigSight once read a stopped fan as a clogged one, and that story is in <a href="like-for-like">The day RigSight told me my healthy fan was clogged</a>. Since then it compares a fan only with itself at the same heat.</p>
+
+<p>Since version 1.7.0 you don't have to be watching. If a GPU fan shows 0 rpm for 3 minutes or more with the GPU at 70°C or more, and it always turns at that heat, you get a notification titled "Your GPU fan stopped". It says how long, from when and how hot the GPU was, and ends with "Check it isn't blocked or unplugged." RigSight also tells you when fans spin slower than usual at the same heat. The bell in the title bar keeps every notification from the last 30 days, so one you missed while gaming is still there. GPU fans show without admin rights. RigSight is free and open source.</p>
+
+<h2>Why most GPU fans stop on purpose</h2>
+
+<p>Most GPUs made in the last several years have a fan stop mode. NVIDIA card makers call it things like zero RPM, 0dB or fan stop. AMD calls it Zero RPM and says it is on by default. The idea is simple. When you're on the desktop or watching a video, the heatsink alone can keep the GPU cool, so the fans stay off and the card is silent.</p>
+
+<p>The fans start once the GPU warms past a set point. On many cards that's somewhere around 50 to 60°C, but the exact number is set by the card maker, so it differs between models. Once started, cards often keep spinning until the GPU drops a few degrees below that point. That gap stops the fans from flicking on and off every few seconds.</p>
+
+<p>So these are all normal.</p>
+
+<ul>
+  <li>A GPU fan not spinning when idle, with the GPU at 30 to 50°C.</li>
+  <li>A GPU fan not spinning on startup, because the card is cold.</li>
+  <li>Fans that start and stop a few times while you browse, as the GPU drifts around its start point.</li>
+  <li>One fan of three stopping before the others at light load, on cards that do that.</li>
+</ul>
+
+<h2>How to tell if it's a fault</h2>
+
+<p>The test is heat. A healthy fan with fan stop spins once the GPU is warm. A broken one doesn't. Here's how to check.</p>
+
+<ol>
+  <li>Open a tool that shows both GPU temperature and fan speed. For AMD cards, <b>AMD Software</b> has this under <b>Performance</b> &gt; <b>Metrics</b>. For any card, MSI Afterburner or HWiNFO show both.</li>
+  <li>Start a demanding game or a benchmark, windowed so you can watch the numbers.</li>
+  <li>Watch the fan speed as the temperature climbs past 60°C.</li>
+  <li>If the temperature reaches about 70°C or more and the fan still reads 0 rpm, close the game. That's a GPU fan not spinning under load, and it needs fixing before you play again.</li>
+</ol>
+
+<p>If the fans spin up and the GPU settles at a normal gaming temperature, the card is fine. The post on <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a> has the ranges.</p>
+
+<p>A GPU that runs hot with no fan won't usually break at once. It will throttle, which means it slows itself down to stay under its limit. You'll see lower frame rates and the clock speed dropping. If it gets too hot it can shut the PC off. Either way, don't keep gaming on it.</p>
+
+<h2>What to check when the GPU fan is not spinning while gaming</h2>
+
+<p>Try these in order. The first ones are the most common causes and the safest to fix.</p>
+
+<h3>1. A fan curve or tool that holds the fans back</h3>
+
+<p>Fan tools like MSI Afterburner, EVGA Precision X1, ASUS GPU Tweak and AMD Software can all set their own fan curve. A curve copied from another card, a profile that loads at startup, or a fixed speed of 0% can keep the fans still at any heat. Two of these tools running at once can also fight over the fans.</p>
+
+<ol>
+  <li>Open the fan tool you use and choose its default or auto fan setting.</li>
+  <li>In AMD Software, open <b>Performance</b> &gt; <b>Tuning</b> and reset the tuning to default. The fan tuning there also has the <b>Zero RPM</b> switch.</li>
+  <li>Close any second fan tool, then test again in a game.</li>
+</ol>
+
+<p>Turning fan stop off is a fair test. If the fans spin with it off and never with it on, the card's fan stop isn't waking up. A driver can cause that, which is the next step.</p>
+
+<h3>2. The graphics driver</h3>
+
+<p>Fan control on modern cards goes through the driver. A bad install, or a driver release with a fan bug, can leave the fans still. Restart the PC first, since that clears a stuck state. If it keeps happening, install the latest driver from NVIDIA or AMD, or go back one version if the trouble started right after an update.</p>
+
+<h3>3. Something blocking the fan</h3>
+
+<p>Shut the PC down and switch the power supply off at its switch. Then look closely for these.</p>
+
+<ul>
+  <li>A cable resting against the blades. Cables tied near the card can drift into them.</li>
+  <li>Thick dust or pet hair around the hub, which can stall a weak fan.</li>
+  <li>A blade that rubs the shroud, often after a card was dropped or the shroud bent.</li>
+</ul>
+
+<p>Turn each fan gently with a finger. It should spin freely and coast for a moment. If it feels gritty, stiff or stops at once, the bearing is worn. When you clean it with compressed air, hold the blades still so the air doesn't spin them too fast.</p>
+
+<h3>4. Power and the fan's own cable</h3>
+
+<p>Each fan connects to the card's board through a small cable under the shroud. If the card was opened, repasted or cleaned, one may have come loose. That's the usual reason one GPU fan isn't spinning when the others are. If you're not comfortable opening the shroud, leave it to the maker's support, since opening it can affect the warranty on some cards.</p>
+
+<p>If no fan spins and you get no display, the card likely has no power at all. Check that the PCIe power cables are pushed fully into the card and the power supply, with no gap at the latch, and that the card is seated in its slot.</p>
+
+<h3>5. Laptops</h3>
+
+<p>Laptop GPUs usually share fans and heat pipes with the CPU, and the laptop's maker sets how they behave. Silent or quiet modes in the maker's app can hold the fans low. Switch to its balanced or performance mode and test again. If the fans never come on and the laptop gets hot, contact the maker.</p>
+
+<h3>6. When it's the fan itself</h3>
+
+<p>If the fan stays still in a game after all of the above, it has failed. Contact the card maker about a repair or replacement under the warranty. Until it's fixed, don't game on the card.</p>
+
+
+<p>If your GPU fan isn't spinning right now, start with the heat test above. Five minutes in a game with the temperature and fan speed on screen tells you whether you have a quiet card or a broken fan.</p>
+  <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Is it normal for GPU fans to not spin?</summary><p>Yes, at idle. Most current NVIDIA and AMD cards have a zero RPM or fan stop mode that keeps the fans still while the GPU is cool, often below somewhere around 50 to 60°C. The exact point depends on the card. The fans start once the card warms past that point.</p></details><details class="qa"><summary>Why are my GPU fans not spinning on startup?</summary><p>When the PC first starts, the GPU is cold, so a card with fan stop has no reason to spin. Some cards give the fans a short spin at power on and some don't. As long as they start once you game, nothing is wrong.</p></details><details class="qa"><summary>Why is one GPU fan not spinning?</summary><p>Some cards stop one fan before the others at light load, and some run only part of their fans until the card is warm. If one fan stays still while the others spin hard in a game, it may be stuck, unplugged at its small connector on the card, or worn out.</p></details><details class="qa"><summary>What should I do if my GPU fan is not spinning while gaming?</summary><p>Watch the GPU temperature. If it climbs past about 70°C and the fan still reads 0 rpm, close the game. Reset any custom fan curve to default, update the graphics driver, and check the fan isn't blocked by a cable or dust. If it still won't spin, contact the card maker about the warranty.</p></details><details class="qa"><summary>Can a GPU fan not spinning and no display be the same problem?</summary><p>Often, yes. If the fans don't move and there's no picture, the card may not be getting power. Check that the PCIe power cables are pushed fully into the card and the power supply, and that the card sits firmly in its slot.</p></details></section>
+  </div>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="blue-screen-of-death-causes"><span>Crashes</span><b>Blue screen of death causes on Windows 11, and the three on my PC</b></a><a class="more" href="game-crashes-to-desktop-no-error"><span>Crashes</span><b>Game crashes to desktop with no error? How RigSight finds why</b></a><a class="more" href="pc-restarts-randomly-while-gaming"><span>Crashes</span><b>PC restarts randomly while gaming? Rule things out first</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>Why did my PC crash? How RigSight caught one on mine</b></a></nav>
+  <aside class="get">
+    <img src="../img/logo-144.webp" alt="" width="40" height="40">
+    <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>
+    <a class="btn" href="https://github.com/b0llu/Rigsight/releases/latest">Download for Windows</a>
+  </aside>
+</article></main><footer class="foot"><div class="wrap foot-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="20" height="20"><span>RigSight</span></a>
+  <nav aria-label="Links"><a href="../">Home</a><a href="./">Blog</a><a href="https://github.com/b0llu/Rigsight">GitHub</a><a href="https://github.com/b0llu/Rigsight/releases">Releases</a><a href="../privacy.html">Privacy policy</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+</div></footer><script>
+(function () {
+  var bar = document.querySelector('.progress i');
+  if (!bar) return;
+  function tick() {
+    var post = [].find.call(document.querySelectorAll('.post'), function (a) { return a.offsetParent !== null; });
+    if (!post) { bar.style.transform = 'scaleX(0)'; return; }
+    var r = post.getBoundingClientRect(), h = r.height - innerHeight;
+    var f = h > 0 ? Math.min(1, Math.max(0, -r.top / h)) : 1;
+    bar.style.transform = 'scaleX(' + f.toFixed(3) + ')';
+  }
+  addEventListener('scroll', tick, { passive: true });
+  addEventListener('resize', tick);
+  window.__tick = tick; tick();
+})();
+(function () {
+  var chips = document.querySelectorAll('.chip[data-series]');
+  if (!chips.length) return;
+  function show(s) {
+    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
+    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
+  }
+  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
+})();
+</script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
+</body>
+</html>

@@ -37,11 +37,12 @@
   "rewrite-in-rust": "2026-11-07",
   "how-to-check-vram-usage": "2026-11-07",
   "ping-without-a-server": "2026-11-07",
-  "plain-words": "2026-11-07"
+  "plain-words": "2026-11-07",
+  "gpu-fan-not-spinning": "2026-11-09",
+  "gpu-thermal-throttling": "2026-11-09"
  },
  "queue": [
   "rigsight-in-spanish",
-  "gpu-fan-not-spinning",
   "three-ways-to-ask",
   "what-is-using-my-ram",
   "choosing-a-model-blind",
@@ -61,7 +62,6 @@
  "rework": [
   "check-fan-speed-pc",
   "did-windows-update-cause-crashes",
-  "gpu-fan-not-spinning",
   "how-to-show-fps-overlay",
   "pc-fans-loud-while-gaming",
   "power-plan-keeps-changing",
