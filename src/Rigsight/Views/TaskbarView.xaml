@@ -536,13 +536,18 @@
              under the other in a narrow window (TaskbarView.xaml.cs). -->
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <DockPanel>
-                <!-- On or off as a whole (the tray menu has it too): off hides them and keeps the readings below. -->
-                <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Shown}" AutomationProperties.Name="{ctl:T 'Taskbar readings'}" />
                 <!-- The page's own question for the AI (mock-up board 5). -->
                 <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'What should it show?'}" CommandParameter="{x:Static svc:PageAsks.Taskbar}" AutomationProperties.Name="{ctl:T 'What should it show?'}" />
                 <TextBlock Text="{ctl:T 'Taskbar'}" Style="{StaticResource H1}" />
             </DockPanel>
             <TextBlock Text="{ctl:T 'Readings next to the clock, always in view.'}" Style="{StaticResource Muted}" Margin="0,4,0,20" TextWrapping="Wrap" />
+            <!-- On or off as a whole, the first card (approved mock-up BrxrxUeSZAHcqXGrxtt4LC, 2026-11-09; the tray menu has the
+                 same switch, by the same name). -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Margin="0,0,0,16">
+                <ctl:SettingRow Icon="&#xE7C4;" Title="{ctl:T 'Taskbar readings'}" Line="{ctl:T 'Off hides them and keeps your readings below.'}">
+                    <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Shown}" AutomationProperties.Name="{ctl:T 'Taskbar readings'}" />
+                </ctl:SettingRow>
+            </ctl:SmoothBorder>
 
             <!-- Preview: the corner of the taskbar, as the taskbar will draw it (the agent's own drawing, at its real height) -->
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="12">

@@ -1296,6 +1296,18 @@ internal sealed partial class AgentContext : ApplicationContext
         return [.. ids.Select(c => _sensors.ReadSensor(c)?.Value is double v ? (float)Math.Clamp(v / 100, 0, 1) : 0f)];
     }
 
+    private string? _gameScreenNoted;
+
+    /// <summary>Saves the screen the game in front is on, when it's another than the one saved (sampler thread).</summary>
+    private void NoteGameScreen(RigsightSettings settings)
+    {
+        string device = Screen.FromHandle(Win32.GetForegroundWindow()).DeviceName;
+        if (device == settings.Overlay.GameScreen || device == _gameScreenNoted) return;
+        _gameScreenNoted = device;
+        Log.Write("overlay", $"A game is on screen {device} (was {settings.Overlay.GameScreen ?? "none noted"})");
+        _ui.Post(_ => MutateSettings(s => s.Overlay.GameScreen = device), null);
+    }
+
     private void PublishToUi(KeyValues k, bool fullscreen, (string Title, string Body)? alert)
     {
         var settings = _settings;
@@ -1337,6 +1349,8 @@ internal sealed partial class AgentContext : ApplicationContext
             !activity.Exe.StartsWith("Rigsight", StringComparison.OrdinalIgnoreCase);
         // Widgets step aside only for a game in exclusive fullscreen, or borderless on a screen without overlay planes (see WidgetsOverGames).
         bool gameInFront = activity.Category == AppCategory.Game && activity.Exe is not null && !activity.Paused;
+        // The screen a game is played on, for the Overlay page's picture with two screens or more (noted when it changes).
+        if (gameInFront && SystemInformation.MonitorCount > 1) NoteGameScreen(settings);
 
         // Tray health dot: amber within 12° of a limit, red at or over it.
         var a = settings.Alerts;

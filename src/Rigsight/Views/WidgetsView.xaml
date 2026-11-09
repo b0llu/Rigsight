@@ -61,9 +61,6 @@
         <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
                 <DockPanel>
-                    <!-- On or off as a whole (the tray menu has it too): off hides them all and keeps which ones are on. -->
-                    <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Shown}" VerticalAlignment="Top" Margin="16,9,0,0"
-                              AutomationProperties.Name="{ctl:T 'Desktop widgets'}" />
                     <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Command="{Binding CreateCommand}" VerticalAlignment="Top"
                             Margin="16,4,0,0" AutomationProperties.Name="Create widget">
                         <StackPanel Orientation="Horizontal">
@@ -80,6 +77,13 @@
                     </StackPanel>
                 </DockPanel>
 
+            <!-- On or off as a whole, the first card (approved mock-up BrxrxUeSZAHcqXGrxtt4LC, 2026-11-09; the tray menu has the
+                 same switch, by the same name). -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Margin="0,20,0,0">
+                <ctl:SettingRow Icon="&#xF0E2;" Title="{ctl:T 'Desktop widgets'}" Line="{ctl:T 'Off hides them all and keeps which ones are on.'}">
+                    <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Shown}" AutomationProperties.Name="{ctl:T 'Desktop widgets'}" />
+                </ctl:SettingRow>
+            </ctl:SmoothBorder>
                 <TextBlock Text="{ctl:T 'BUILT IN'}" Style="{StaticResource Section}" Margin="0,22,0,10" />
                 <ScrollViewer x:Name="BuiltInRow" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled"
                               PreviewMouseWheel="BuiltInRow_PreviewMouseWheel">

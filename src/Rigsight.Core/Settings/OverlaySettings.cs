@@ -51,6 +51,12 @@ public sealed class OverlaySettings
     /// </summary>
     public TrayGap Gap { get; set; }
 
+    /// <summary>
+    /// The screen a game was last played on (Windows' name for it, "\\.\DISPLAY2"), noted by the agent while a game is in
+    /// front, for the Overlay page's picture with two screens or more (2026-11-09). Null until a game has been seen.
+    /// </summary>
+    public string? GameScreen { get; set; }
+
     public string Hotkey { get; set; } = DefaultHotkey;
 
     /// <summary>Before 0.8: one of four corners. Read once for <see cref="Anchor"/>, which replaced it.</summary>

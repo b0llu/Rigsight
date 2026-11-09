@@ -68,8 +68,13 @@ public sealed partial class OverlayViewModel : ObservableObject
         _settings = settings;
         _client = client;
         _live = live;
-        // The tray menu can switch the overlay on or off while the page is open.
-        settings.Changed += () => { OnPropertyChanged(nameof(Enabled)); OnPropertyChanged(nameof(Intro)); };
+        // The tray menu can switch the overlay on or off while the page is open; the agent notes the screen a game is on.
+        settings.Changed += () =>
+        {
+            OnPropertyChanged(nameof(Enabled));
+            OnPropertyChanged(nameof(Intro));
+            if (Config.GameScreen != _gameScreen) { _gameScreen = Config.GameScreen; if (HasScreens) LoadScreens(); }
+        };
         OverlayMetricOption O(OverlayMetric m, string label) => new(m, label, settings);
         Groups =
         [
@@ -433,8 +438,69 @@ public sealed partial class OverlayViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HangsOffLeftOrTop), nameof(IsOffScreen))]
     private ImageSource? _preview;
 
-    /// <summary>Asks the agent to draw fresh previews (the overlay's included).</summary>
-    public void RequestPreview() => _client.SendCommand("render-previews");
+    /// <summary>Asks the agent to draw fresh previews (the overlay's included), and looks at the screens again (one may have come or gone).</summary>
+    public void RequestPreview()
+    {
+        _client.SendCommand("render-previews");
+        LoadScreens();
+    }
+
+    // ── Screens: with two or more, the picture is of the one picked (approved mock-up BrxrxUeSZAHcqXGrxtt4LC) ──
+
+    /// <summary>This PC's screens as Windows numbers them, where they sit (none with only one screen).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasScreens))]
+    private IReadOnlyList<ScreenChoice> _screens = [];
+
+    public bool HasScreens => Screens.Count > 1;
+
+    /// <summary>How big the screens' little map is.</summary>
+    [ObservableProperty] private double _screensWidth;
+    [ObservableProperty] private double _screensHeight;
+
+    /// <summary>The screen the picture shows (device-independent pixels); empty with one screen (the main one).</summary>
+    [ObservableProperty] private System.Windows.Size _pickedScreenSize = System.Windows.Size.Empty;
+
+    private ScreenChoice? _picked;
+    private string? _gameScreen;
+    internal ScreenChoice? Picked
+    {
+        get => _picked;
+        set
+        {
+            if (value is null || ReferenceEquals(value, _picked)) return;
+            var was = _picked;
+            _picked = value;
+            was?.Changed();
+            value.Changed();
+            PickedScreenSize = new System.Windows.Size(value.DipWidth, value.DipHeight);
+        }
+    }
+
+    /// <summary>The screens now, the one games were last on picked (else the main one).</summary>
+    internal void LoadScreens() => SetScreens(ScreenChoice.ReadAll(Config.GameScreen));
+
+    internal void SetScreens(IReadOnlyList<ScreenChoice.Monitor> monitors)
+    {
+        if (monitors.Count < 2)
+        {
+            Screens = [];
+            _picked = null;
+            PickedScreenSize = System.Windows.Size.Empty;
+            return;
+        }
+        const double MaxW = 220, MaxH = 64;
+        int left = monitors.Min(m => m.Left), top = monitors.Min(m => m.Top);
+        double spanW = monitors.Max(m => m.Left + m.Width) - left, spanH = monitors.Max(m => m.Top + m.Height) - top;
+        double s = Math.Min(MaxW / spanW, MaxH / spanH);
+        var list = monitors.Select(m => new ScreenChoice(this, m, (m.Left - left) * s, (m.Top - top) * s, m.Width * s, m.Height * s)).ToList();
+        ScreensWidth = Math.Ceiling(spanW * s);
+        ScreensHeight = Math.Ceiling(spanH * s);
+        string? pickedName = _picked?.Device;
+        _picked = null;
+        Screens = list;
+        Picked = list.FirstOrDefault(c => c.Device == pickedName) ?? list.FirstOrDefault(c => c.IsGames) ?? list.FirstOrDefault(c => c.IsMain) ?? list[0];
+    }
 
     public void OnPreviewsReady() => Preview = PreviewImages.Load("Overlay") ?? Preview;
 

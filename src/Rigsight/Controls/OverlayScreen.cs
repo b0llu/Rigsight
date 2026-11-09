@@ -72,8 +72,16 @@ public sealed class OverlayScreen : FrameworkElement
         ? Lang.T("Drag the overlay anywhere, even partly off the screen. It snaps to the corners, edges and center; arrow keys nudge it.")
         : Lang.T("Drag the overlay anywhere, off the screen too. Arrow keys move it a pixel at a time (10 with Shift).");
 
-    private static double ScreenWidth => SystemParameters.PrimaryScreenWidth;
-    private static double ScreenHeight => SystemParameters.PrimaryScreenHeight;
+    /// <summary>
+    /// The screen shown (device-independent pixels): the one picked on the Overlay page when there are two or more
+    /// (OverlayViewModel.Screens), else the main screen.
+    /// </summary>
+    public static readonly DependencyProperty ScreenSizeProperty = DependencyProperty.Register(
+        nameof(ScreenSize), typeof(Size), typeof(OverlayScreen), new FrameworkPropertyMetadata(Size.Empty, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
+    public Size ScreenSize { get => (Size)GetValue(ScreenSizeProperty); set => SetValue(ScreenSizeProperty, value); }
+
+    private double ScreenWidth => ScreenSize is { IsEmpty: false, Width: > 0 } s ? s.Width : SystemParameters.PrimaryScreenWidth;
+    private double ScreenHeight => ScreenSize is { IsEmpty: false, Height: > 0 } s ? s.Height : SystemParameters.PrimaryScreenHeight;
     private double Factor => ActualWidth / ScreenWidth;
 
     /// <summary>The overlay's size on the real screen (device-independent pixels).</summary>

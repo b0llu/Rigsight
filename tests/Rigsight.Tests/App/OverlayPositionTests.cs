@@ -28,6 +28,41 @@ public sealed class OverlayPositionTests
     }
 
     [Fact]
+    public void With_two_screens_the_games_screen_is_picked_and_the_picture_takes_its_shape()
+    {
+        // 2026-11-09, the user: "how do we show when the user has 2 screens?" A 16:9 main screen with an ultrawide beside it
+        // where games were last played (stand-ins: this PC has one screen).
+        var (settings, live) = Kit.Greeted();
+        var vm = Ui.Run(() => new OverlayViewModel(settings, new AgentClient(Ui.Dispatcher), live));
+        Ui.Run(() =>
+        {
+            vm.SetScreens([
+                new ScreenChoice.Monitor(@"\\.\DISPLAY1", 0, 0, 2560, 1440, 1, IsMain: true, IsGames: false),
+                new ScreenChoice.Monitor(@"\\.\DISPLAY2", 2560, 0, 3440, 1440, 1, IsMain: false, IsGames: true),
+            ]);
+            Assert.True(vm.HasScreens);
+            Assert.Equal([1, 2], vm.Screens.Select(s => s.Number));
+            Assert.True(vm.Screens[1].IsPicked && !vm.Screens[0].IsPicked);
+            Assert.Equal(new Size(3440, 1440), vm.PickedScreenSize);
+            Assert.Equal("2560 × 1440  ·  main", vm.Screens[0].Detail);
+            // Side by side on the little map, the ultrawide wider.
+            Assert.True(vm.Screens[1].X >= vm.Screens[0].X + vm.Screens[0].W - 0.5 && vm.Screens[1].W > vm.Screens[0].W);
+
+            vm.Screens[0].IsPicked = true;
+            Assert.Equal(new Size(2560, 1440), vm.PickedScreenSize);
+            Assert.False(vm.Screens[1].IsPicked);
+
+            var screen = new OverlayScreen { Width = 440, Snap = true, Spot = new OverlaySpot(0, 0, 0), ScreenSize = new Size(3440, 1440) };
+            screen.Measure(new Size(440, double.PositiveInfinity));
+            Assert.Equal(440 * 1440 / 3440.0, screen.DesiredSize.Height, 1); // the ultrawide's shape
+
+            vm.SetScreens([new ScreenChoice.Monitor(@"\\.\DISPLAY1", 0, 0, 2560, 1440, 1, IsMain: true, IsGames: false)]);
+            Assert.False(vm.HasScreens); // one screen: no picker, the main screen's shape
+            Assert.True(vm.PickedScreenSize.IsEmpty);
+        });
+    }
+
+    [Fact]
     public void Each_size_shows_its_own_size_on_the_picture_even_for_one_line()
     {
         // 2026-11-09, the user: "I don't see the size changing". A one-line overlay is a few pixels tall on the picture,

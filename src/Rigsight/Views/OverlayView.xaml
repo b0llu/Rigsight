@@ -18,13 +18,18 @@
              follows the scroll so the preview stays in view; one column in a narrow window (OverlayView.xaml.cs). -->
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <DockPanel>
-                <!-- On or off as a whole (the tray menu has it too): off hides it, and its shortcut does nothing. -->
-                <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Enabled}" AutomationProperties.Name="{ctl:T 'Game overlay'}" />
                 <!-- The page's own question for the AI (mock-up board 5). -->
                 <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'What should it show?'}" CommandParameter="{x:Static svc:PageAsks.Overlay}" AutomationProperties.Name="{ctl:T 'What should it show?'}" />
                 <TextBlock Text="{ctl:T 'Game overlay'}" Style="{StaticResource H1}" />
             </DockPanel>
             <TextBlock Text="{Binding Intro}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,18" />
+            <!-- On or off as a whole, the first card (approved mock-up BrxrxUeSZAHcqXGrxtt4LC, 2026-11-09; the tray menu has the
+                 same switch, by the same name). -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Margin="0,0,0,18">
+                <ctl:SettingRow Icon="&#xE7F4;" Title="{ctl:T 'Game overlay'}" Line="{ctl:T 'Off hides it, and its shortcut does nothing.'}">
+                    <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Enabled}" AutomationProperties.Name="{ctl:T 'Game overlay'}" />
+                </ctl:SettingRow>
+            </ctl:SmoothBorder>
 
             <!-- Only when fullscreen games can't show the overlay -->
             <Border Background="{DynamicResource WarmSoftBrush}" CornerRadius="{x:Static ctl:Corner.Tile}" Padding="18,14" Margin="0,0,0,18"
@@ -61,7 +66,7 @@
                 </Grid.RowDefinitions>
             <StackPanel x:Name="LeftColumn">
             <!-- Shortcut and preview (the preview only in one column: with two, the Look card beside it shows it) -->
-            <ctl:SmoothBorder Style="{StaticResource Card}">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="280" />
@@ -69,11 +74,10 @@
                         <ColumnDefinition x:Name="ShortcutPreviewColumn" Width="1.2*" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Setting rows, the name on the left and its control on the right (approved mock-up 3KGDQNQW4oGnMB2FjB54X9,
-                         2026-11-09): the shortcut as keys, changed by clicking it; Reset only once it's changed; a shortcut
-                         another program holds marked on the shortcut, with the line under it. The overlay's on/off is the switch
-                         by the page's title (it was this card's: it turned the shortcut off); while it's off these rows fade, as
-                         rows under a switch that's off do in Settings. -->
+                    <!-- Its settings as rows, each with its icon, a line, and its control on the right (approved mock-up
+                         BrxrxUeSZAHcqXGrxtt4LC): the shortcut as keys, changed by clicking it, Reset only once it's changed and a
+                         shortcut another program holds marked on it (mock-up 3KGDQNQW4oGnMB2FjB54X9); Only over games; Show it
+                         now. While the overlay is off they fade, as rows under a switch that's off do in Settings. -->
                     <StackPanel IsEnabled="{Binding Enabled}">
                         <StackPanel.Style>
                             <Style TargetType="StackPanel">
@@ -82,8 +86,8 @@
                                 </Style.Triggers>
                             </Style>
                         </StackPanel.Style>
-                        <DockPanel>
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0" IsEnabled="{Binding Enabled}">
+                        <ctl:SettingRow Icon="&#xE765;" Title="{ctl:T 'Keyboard shortcut'}" Line="{ctl:T 'Shows and hides the overlay, even while a game has focus.'}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset'}" Margin="0,0,8,0" Command="{Binding ResetHotkeyCommand}"
                                         ToolTip="{ctl:T 'Go back to Alt+Shift+O'}" VerticalAlignment="Center"
                                         Visibility="{Binding HotkeyChanged, Converter={StaticResource Vis}}" />
@@ -140,38 +144,27 @@
                                     </Button.Template>
                                 </Button>
                             </StackPanel>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Keyboard shortcut'}" Style="{StaticResource H2}" />
-                                <TextBlock Text="{ctl:T 'Shows and hides the overlay, even while a game has focus.'}" Style="{StaticResource Muted}"
-                                           FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0" />
-                            </StackPanel>
-                        </DockPanel>
-                        <TextBlock Text="{Binding RecordHint}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,10,0,0"
+                        </ctl:SettingRow>
+                        <!-- Under the shortcut's name, lined up with it: while recording, how; a shortcut another program holds. -->
+                        <TextBlock Text="{Binding RecordHint}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="59,-6,16,14"
                                    Visibility="{Binding RecordHint, Converter={StaticResource Vis}}" />
-                        <DockPanel Margin="0,10,0,0" Visibility="{Binding HotkeyTaken, Converter={StaticResource Vis}}">
+                        <DockPanel Margin="59,-6,16,14" Visibility="{Binding HotkeyTaken, Converter={StaticResource Vis}}">
                             <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource WarmBrush}"
                                        Margin="0,2,8,0" VerticalAlignment="Top" />
                             <TextBlock TextWrapping="Wrap" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource WarmBrush}"
                                        Text="{ctl:T 'Another program already uses this shortcut, so RigSight can\'t hear it. Pick a different one.'}" />
                         </DockPanel>
-
-                        <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,16" />
-
                         <!-- Over the desktop and other apps it stays hidden, back as soon as a game is in front (the user, 2026-11-09). -->
-                        <DockPanel>
-                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding OnlyOverGames}" IsEnabled="{Binding Enabled}"
-                                      VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Only over games'}" />
-                            <TextBlock Text="{ctl:T 'Only over games'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
-                                       VerticalAlignment="Center" />
-                        </DockPanel>
-
-                        <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,16" />
-
-                        <Button Style="{StaticResource AccentButton}" Content="{Binding ToggleText}" Command="{Binding ToggleCommand}"
-                                HorizontalAlignment="Left" IsEnabled="{Binding Enabled}" />
+                        <ctl:SettingRow Divider="True" Icon="&#xE7FC;" Title="{ctl:T 'Only over games'}"
+                                        Line="{ctl:T 'Hidden over the desktop and other apps, back as soon as a game is in front.'}">
+                            <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding OnlyOverGames}" AutomationProperties.Name="{ctl:T 'Only over games'}" />
+                        </ctl:SettingRow>
+                        <ctl:SettingRow Divider="True" Icon="&#xE890;" Title="{ctl:T 'Show it now'}" Line="{ctl:T 'It stays until you press the shortcut or hide it here.'}">
+                            <Button Style="{StaticResource GhostButton}" Content="{Binding ToggleText}" Command="{Binding ToggleCommand}" />
+                        </ctl:SettingRow>
                     </StackPanel>
 
-                    <Border x:Name="ShortcutPreview" Grid.Column="2" CornerRadius="{x:Static ctl:Corner.Tile}" MinHeight="170" ClipToBounds="True">
+                    <Border x:Name="ShortcutPreview" Grid.Column="2" CornerRadius="{x:Static ctl:Corner.Tile}" MinHeight="170" ClipToBounds="True" Margin="0,16,16,16">
                         <Border.Background>
                             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                                 <GradientStop Color="#3A2F4F" Offset="0" />
@@ -334,6 +327,63 @@
             <ctl:SmoothBorder x:Name="LookCard" Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Text="{ctl:T 'Look'}" Style="{StaticResource H2}" Margin="0,0,0,12" />
+                    <!-- With two screens or more: each as Windows numbers it, where it sits, the one games were last played on
+                         marked and picked at first; the picture below takes the picked one's shape (approved mock-up
+                         BrxrxUeSZAHcqXGrxtt4LC). With one, nothing here. -->
+                    <DockPanel Margin="0,0,0,14" Visibility="{Binding HasScreens, Converter={StaticResource Vis}}">
+                        <TextBlock DockPanel.Dock="Left" Text="{ctl:T 'SCREEN'}" Style="{StaticResource OptionLabel}" VerticalAlignment="Top" Margin="0,4,0,0" />
+                        <StackPanel>
+                        <WrapPanel>
+                            <ItemsControl ItemsSource="{Binding Screens}" Width="{Binding ScreensWidth}" Height="{Binding ScreensHeight}" Margin="0,0,20,8" Focusable="False">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemContainerStyle>
+                                    <Style TargetType="ContentPresenter">
+                                        <Setter Property="Canvas.Left" Value="{Binding X}" />
+                                        <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                                    </Style>
+                                </ItemsControl.ItemContainerStyle>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <RadioButton GroupName="overlayscreen" IsChecked="{Binding IsPicked}" Width="{Binding W}" Height="{Binding H}" Cursor="Hand"
+                                                     AutomationProperties.Name="{Binding Name}">
+                                            <RadioButton.Template>
+                                                <ControlTemplate TargetType="RadioButton">
+                                                    <Border x:Name="Mon" Margin="2" CornerRadius="5" BorderThickness="1.5" BorderBrush="{DynamicResource StrokeBrush}" Background="{DynamicResource Surface2Brush}">
+                                                        <TextBlock x:Name="Num" Text="{Binding Number}" FontWeight="Bold" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Mon" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="Mon" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                            <Setter TargetName="Num" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </RadioButton.Template>
+                                        </RadioButton>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <ItemsControl ItemsSource="{Binding Screens}" VerticalAlignment="Center" Focusable="False" Margin="0,0,0,8">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                                            <TextBlock Text="{Binding Number}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" FontSize="{x:Static ctl:TextSize.Detail}" />
+                                            <TextBlock Text="{Binding Detail, StringFormat='  ·  {0}'}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" />
+                                            <Border CornerRadius="9" Background="{DynamicResource AccentSoftBrush}" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center"
+                                                    Visibility="{Binding IsGames, Converter={StaticResource Vis}}">
+                                                <TextBlock Text="{ctl:T 'Games last played here'}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </WrapPanel>
+                        <TextBlock Text="{ctl:T 'The overlay shows on the screen your game is on, in the same place on each.'}" Style="{StaticResource Muted}"
+                                   FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DockPanel>
                     <Grid x:Name="PositionArea" Margin="0,4,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition x:Name="PositionLabelColumn" Width="Auto" />
@@ -346,7 +396,8 @@
                         </Grid.RowDefinitions>
                         <TextBlock x:Name="PositionLabel" Text="{ctl:T 'POSITION'}" Style="{StaticResource OptionLabel}" VerticalAlignment="Top" Margin="0,4,0,0" />
                         <ctl:OverlayScreen x:Name="PositionScreen" Grid.Column="1" Width="440" VerticalAlignment="Top" AutomationProperties.Name="Overlay position"
-                                           Preview="{Binding Preview}" OverlayScale="{Binding ScaleValue}" Spot="{Binding Spot}" Snap="{Binding SnapPosition}" />
+                                           Preview="{Binding Preview}" OverlayScale="{Binding ScaleValue}" Spot="{Binding Spot}" Snap="{Binding SnapPosition}"
+                                           ScreenSize="{Binding PickedScreenSize}" />
                         <StackPanel x:Name="PositionSide" Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Top">
                             <DockPanel Margin="0,0,0,10">
                                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset position'}" Command="{Binding ResetPositionCommand}"
