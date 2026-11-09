@@ -145,15 +145,18 @@ public sealed class OverlayScreen : FrameworkElement
 
     /// <summary>
     /// The overlay on the picture. A small one is drawn larger, grown from the point it hangs from (its corner, edge
-    /// middle or centre, as the real one grows), so that point, and so where it goes, stays exact.
+    /// middle or centre, as the real one grows), so that point, and so where it goes, stays exact. How much it grows is
+    /// worked out at size M, so S to 3XL keep their sizes against each other (worked out at its own size, every size of
+    /// one line came out the same 22 px: the user, 2026-11-09, "I don't see the size changing").
     /// </summary>
-    private Rect Box()
+    internal Rect Box()
     {
         double f = Factor;
         var at = _dragAt ?? TopLeft(Spot);
         var size = OverlaySize;
         var real = new Rect(at.X * f, at.Y * f, size.Width * f, size.Height * f);
-        double grow = Math.Clamp(MinBoxHeight / Math.Max(real.Height, 1), 1, 4);
+        double atM = real.Height / Math.Max(OverlayScale, 0.1);
+        double grow = Math.Clamp(MinBoxHeight / Math.Max(atM, 1), 1, 4);
         if (grow <= 1) return real;
         int anchor = _dragAt is { } p
             ? OverlayPlacement.FromPosition(p.X, p.Y, ScreenWidth, ScreenHeight, size.Width, size.Height, Gap).Anchor

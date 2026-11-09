@@ -28,6 +28,29 @@ public sealed class OverlayPositionTests
     }
 
     [Fact]
+    public void Each_size_shows_its_own_size_on_the_picture_even_for_one_line()
+    {
+        // 2026-11-09, the user: "I don't see the size changing". A one-line overlay is a few pixels tall on the picture,
+        // so it's drawn larger, and that growth was worked out at each size: S to 3XL all came out 22 px tall.
+        Ui.Run(() =>
+        {
+            // One line at size M as the agent draws it (twice size): 400 × 78 pixels, so 200 × 39.
+            var oneLine = System.Windows.Media.Imaging.BitmapSource.Create(400, 78, 96, 96, System.Windows.Media.PixelFormats.Pbgra32, null, new byte[400 * 78 * 4], 400 * 4);
+            double Height(double scale)
+            {
+                var screen = new OverlayScreen { Width = 440, Snap = true, Spot = new OverlaySpot(2, 0, 0), Preview = oneLine, OverlayScale = scale };
+                screen.Measure(new Size(440, double.PositiveInfinity));
+                screen.Arrange(new Rect(screen.DesiredSize));
+                return screen.Box().Height;
+            }
+            double s = Height(0.8), m = Height(1), xxxl = Height(2.5);
+            Assert.True(m >= 22 - 0.01, $"M drawn {m:0.0} px tall"); // still big enough to see and grab
+            Assert.Equal(0.8, s / m, 2);
+            Assert.Equal(2.5, xxxl / m, 2);
+        });
+    }
+
+    [Fact]
     public void Snapping_pulls_a_drag_that_ends_near_an_edge_onto_it()
     {
         Ui.Run(() =>
