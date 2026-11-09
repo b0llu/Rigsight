@@ -2224,7 +2224,7 @@ internal sealed partial class AgentContext : ApplicationContext
                 _ui.Post(_ => PreviewNotification(msg.Arg), null);
                 break;
             case "overlay-toggle":
-                _ui.Post(_ => _overlay.Toggle(), null);
+                _ui.Post(_ => _overlay.Toggle("its page"), null);
                 break;
             case "start-rtss" when !RigsightPaths.IsTestInstance:
                 _ui.Post(_ => _overlay.StartRtss(), null);

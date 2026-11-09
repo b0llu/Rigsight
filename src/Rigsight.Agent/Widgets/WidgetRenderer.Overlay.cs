@@ -294,9 +294,14 @@ internal static partial class WidgetRenderer
         double s = o.Scale;
         var (left, top) = OverlayPlacement.Place(OverlayPlacement.AnchorOf(o), o.OffsetX, o.OffsetY, size.Width, size.Height, w * s, h * s, RtssGapPx,
             keepOnScreen: o.SnapPosition);
-        left = Math.Max(0, left);
-        top = Math.Max(0, top);
-        string At(double x, double y) => $"<P={(int)Math.Round((left + x * s) / RtssZoom)},{(int)Math.Round((top + y * s) / RtssZoom)}>";
+        // In a game none of it may run past the right or bottom edge (RivaTuner cuts it there, and its text comes out a
+        // few pixels wider than the window's), so it moves in (the user, 2026-11-09: placed near the right edge, in game it
+        // went a bit outside). Hanging off the left or top edge, the readings stay where the window shows them: only
+        // the window's empty border is off the screen, and RivaTuner draws nothing past those edges anyway.
+        left = Math.Max(Math.Min(left, size.Width - w * s), -OverlayPad * s);
+        top = Math.Max(Math.Min(top, size.Height - h * s), -OverlayPad * s);
+        string At(double x, double y) =>
+            $"<P={Math.Max(0, (int)Math.Round((left + x * s) / RtssZoom))},{Math.Max(0, (int)Math.Round((top + y * s) / RtssZoom))}>";
 
         int fontHeight = -(int)Math.Round(8 * s);
         int alpha = (int)Math.Round(OverlayPanelAlpha * o.BackgroundOpacity);

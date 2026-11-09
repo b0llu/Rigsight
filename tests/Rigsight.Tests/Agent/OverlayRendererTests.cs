@@ -132,6 +132,41 @@ public partial class OverlayRendererTests
     }
 
     [Fact]
+    public void In_games_it_stays_on_the_screen_and_follows_the_window_off_the_top()
+    {
+        // The user, 2026-11-09: placed near the right edge, in a game it went a bit outside; hanging off the top it sat
+        // lower than the window. Their own placement: top right, a little past the edges, size 1.5, on 2560 x 1440.
+        var d = Full();
+        d.Sensors = [];
+        var o = Only(OverlayMetric.Fps, OverlayMetric.CpuTemp, OverlayMetric.GpuTemp);
+        o.Layout = OverlayLayout.Line;
+        o.Anchor = 2;
+        o.OffsetY = -0.020376;
+        o.Scale = 1.5;
+        o.SnapPosition = false;
+        var screen = new Size(2560, 1440);
+        const int Zoom = 2, MarkWidth = 19; // RivaTuner's pixels are zoomed; the bottom-right mark's width (WidgetRenderer)
+        static List<(int X, int Y)> Places(string text) =>
+            [.. Regex.Matches(text, @"<P=(-?\d+),(-?\d+)>").Select(m => (int.Parse(m.Groups[1].Value) * Zoom, int.Parse(m.Groups[2].Value) * Zoom))];
+
+        foreach (double offsetX in new[] { 0.006198, 0.05 })
+        {
+            o.OffsetX = offsetX;
+            var at = Places(WidgetRenderer.RtssTextPlaced(o, d, screen));
+            Assert.All(at, p => Assert.InRange(p.X, 0, screen.Width - MarkWidth * o.Scale + 1));
+            Assert.All(at, p => Assert.InRange(p.Y, 0, screen.Height));
+        }
+
+        // Off the top, the names sit where the window draws them (the window's own top hangs off the screen).
+        o.OffsetX = 0.006198;
+        using var bmp = WidgetRenderer.RenderOverlay(o, d, (float)o.Scale);
+        var (_, windowTop) = OverlayPlacement.Place(2, o.OffsetX, o.OffsetY, screen.Width, screen.Height, bmp.Width, bmp.Height, 16, keepOnScreen: false);
+        Assert.True(windowTop < 0);
+        var label = Places(WidgetRenderer.RtssTextPlaced(o, d, screen))[2]; // after the panel's corner and the panel: FPS
+        Assert.InRange(label.Y, windowTop + (Pad + 3) * o.Scale - 2, windowTop + (Pad + 3) * o.Scale + 2);
+    }
+
+    [Fact]
     public void In_games_each_label_and_number_goes_where_our_window_draws_it()
     {
         // The user, 2026-11-09: the overlay looked different in fullscreen (RivaTuner's text spaced by symbols). Checked

@@ -20,6 +20,10 @@ internal sealed class OverlayManager : IDisposable
     private WidgetData? _data;
     private string? _registered;
     private bool _rtssWritten, _rtssStartTried, _installing;
+    // Showing when it was switched off: back as soon as it's switched on again.
+    private bool _backWhenOn;
+    // Where the readings are drawn while shown, logged when it changes (own window, RivaTuner, or waiting for a game).
+    private string? _route;
     private string? _installResult;
     private readonly HashSet<string> _warnedApps = new(StringComparer.OrdinalIgnoreCase);
     private readonly InGameNotice _notice = new();
@@ -29,8 +33,8 @@ internal sealed class OverlayManager : IDisposable
         _isAdmin = isAdmin;
         // Text left in RivaTuner by a previous run that didn't exit cleanly would stay frozen in every game.
         Rtss.Clear();
-        _hotkey.Pressed += Toggle;
-        _trayItem.Click += (_, _) => Toggle();
+        _hotkey.Pressed += () => Toggle("the shortcut");
+        _trayItem.Click += (_, _) => Toggle("the tray menu");
         // Its name in the language in use each time the tray menu opens (the language can change while it runs).
         _trayItem.OwnerChanged += (_, _) => { if (_trayItem.Owner is ToolStripDropDown owner) owner.Opening += (_, _) => _trayItem.Text = Lang.T("Show overlay"); };
     }
@@ -78,17 +82,29 @@ internal sealed class OverlayManager : IDisposable
         _trayItem.ShortcutKeyDisplayString = settings.Enabled ? settings.Hotkey : null;
         // Switched off (its page, the tray menu): gone now, and nothing shows it until it's on again.
         _trayItem.Enabled = settings.Enabled;
-        if (!settings.Enabled && Visible) SetVisible(false);
+        if (!settings.Enabled && Visible)
+        {
+            _backWhenOn = true;
+            SetVisible(false, "switched off");
+        }
+        else if (settings.Enabled && _backWhenOn)
+        {
+            _backWhenOn = false;
+            SetVisible(true, "switched back on");
+        }
 
         if (Visible) Refresh();
     }
 
-    public void Toggle() => SetVisible(!Visible);
+    public void Toggle(string from) => SetVisible(!Visible, from);
 
-    public void SetVisible(bool visible)
+    public void SetVisible(bool visible, string from)
     {
         if (visible == Visible) return;
         Visible = visible;
+        if (!visible && from != "switched off") _backWhenOn = false;
+        Log.Write("overlay", $"{(visible ? "Shown" : "Hidden")} ({from})");
+        _route = null;
         _trayItem.Checked = visible;
         if (visible)
         {
@@ -125,6 +141,7 @@ internal sealed class OverlayManager : IDisposable
         {
             ClearRtss();
             if (_form is { Visible: true }) _form.Hide();
+            NoteRoute("waiting for a game in front (only over games)");
             return;
         }
 
@@ -134,6 +151,7 @@ internal sealed class OverlayManager : IDisposable
             // Each label and number where our own window draws it (the user, 2026-11-09: it looked different in fullscreen).
             _rtssWritten = Rtss.Show(WidgetRenderer.RtssTextPlaced(_settings, _data, Rtss.Resolution(pid) ?? ForegroundScreen().Size));
             if (_form is { Visible: true }) _form.Hide();
+            NoteRoute($"drawn by RivaTuner inside {_data?.Activity.Name ?? "the app in front"}");
             return;
         }
 
@@ -141,6 +159,16 @@ internal sealed class OverlayManager : IDisposable
         _form ??= new OverlayForm();
         if (!_form.Visible) _form.Show();
         _form.Redraw(_settings, _data);
+        NoteRoute($"drawn in its own window at {_form.Left},{_form.Top}, {_form.Width}x{_form.Height}");
+    }
+
+    private void NoteRoute(string route)
+    {
+        // Only where it goes, not where exactly: moving with the readings' width isn't news.
+        string where = route.Split(" at ")[0];
+        if (where == _route) return;
+        _route = where;
+        Log.Write("overlay", $"Overlay {route}");
     }
 
     private void ClearRtss()
