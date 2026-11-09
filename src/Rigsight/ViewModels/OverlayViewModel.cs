@@ -171,6 +171,11 @@ public sealed partial class OverlayViewModel : ObservableObject
     {
         _settings.Update(s => change(s.Overlay));
         OnPropertyChanged(property);
+        if (property == nameof(Hotkey))
+        {
+            OnPropertyChanged(nameof(HotkeyParts));
+            OnPropertyChanged(nameof(HotkeyChanged));
+        }
     }
 
     public IReadOnlyList<OverlayMetricGroup> Groups { get; }
@@ -182,6 +187,17 @@ public sealed partial class OverlayViewModel : ObservableObject
     }
 
     public string Hotkey => Config.Hotkey;
+
+    /// <summary>A piece of the shortcut as the card draws it: a key (in a key cap) or the "+" between two.</summary>
+    public sealed record HotkeyPart(string Text, bool IsKey);
+
+    /// <summary>The shortcut's keys with "+" between them ("Alt", "+", "Shift", "+", "O"), each key in a key cap on the card.</summary>
+    public IReadOnlyList<HotkeyPart> HotkeyParts =>
+        [.. Hotkey.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .SelectMany((key, i) => i == 0 ? new[] { new HotkeyPart(key, true) } : [new HotkeyPart("+", false), new HotkeyPart(key, true)])];
+
+    /// <summary>Changed from Alt+Shift+O: only then is Reset offered.</summary>
+    public bool HotkeyChanged => !string.Equals(Hotkey, OverlaySettings.DefaultHotkey, StringComparison.OrdinalIgnoreCase);
 
     // Off (the switch by the title) is the overlay off, hidden and its shortcut doing nothing, so this says what it does when on.
     public string Intro => Lang.T($"Press {Hotkey} in any game to show or hide a small readout on the screen. It never takes focus, and clicks pass straight through it.");

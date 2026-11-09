@@ -69,54 +69,106 @@
                         <ColumnDefinition x:Name="ShortcutPreviewColumn" Width="1.2*" />
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel>
-                        <!-- The overlay's on/off is the switch by the page's title (it was this one's: it turned the shortcut off). -->
-                        <StackPanel>
-                            <TextBlock Text="{ctl:T 'Keyboard shortcut'}" Style="{StaticResource H2}" />
-                            <TextBlock Text="{ctl:T 'Shows and hides the overlay, even while a game has focus.'}" Style="{StaticResource Muted}"
-                                       FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0" />
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0" IsEnabled="{Binding Enabled}">
-                            <Button Focusable="False" Command="{Binding StartRecordingCommand}" Click="OnRecordClick"
-                                    AutomationProperties.Name="Change shortcut" ToolTip="{ctl:T 'Click, then press the new shortcut'}">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <ctl:SmoothBorder x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}"
-                                                BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Button}" Padding="14,8" MinWidth="170" Cursor="Hand">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="&#xE765;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" />
-                                                <TextBlock Text="{Binding RecordText}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                                            </StackPanel>
-                                        </ctl:SmoothBorder>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                                            </Trigger>
-                                            <DataTrigger Binding="{Binding IsRecording}" Value="True">
-                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                            </DataTrigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                            </Button>
-                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset'}" Margin="8,0,0,0" Command="{Binding ResetHotkeyCommand}"
-                                    ToolTip="{ctl:T 'Go back to Alt+Shift+O'}" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding RecordHint}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,8,0,0"
+                    <!-- Setting rows, the name on the left and its control on the right (approved mock-up 3KGDQNQW4oGnMB2FjB54X9,
+                         2026-11-09): the shortcut as keys, changed by clicking it; Reset only once it's changed; a shortcut
+                         another program holds marked on the shortcut, with the line under it. The overlay's on/off is the switch
+                         by the page's title (it was this card's: it turned the shortcut off); while it's off these rows fade, as
+                         rows under a switch that's off do in Settings. -->
+                    <StackPanel IsEnabled="{Binding Enabled}">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4" /></Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0" IsEnabled="{Binding Enabled}">
+                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset'}" Margin="0,0,8,0" Command="{Binding ResetHotkeyCommand}"
+                                        ToolTip="{ctl:T 'Go back to Alt+Shift+O'}" VerticalAlignment="Center"
+                                        Visibility="{Binding HotkeyChanged, Converter={StaticResource Vis}}" />
+                                <Button Focusable="False" Command="{Binding StartRecordingCommand}" Click="OnRecordClick"
+                                        AutomationProperties.Name="Change shortcut" ToolTip="{ctl:T 'Click, then press the new shortcut'}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <ctl:SmoothBorder x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                                    BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Button}" Padding="10,5,9,5" MinHeight="38" Cursor="Hand">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <!-- Its keys, each a key cap, "+" between them -->
+                                                    <ItemsControl ItemsSource="{Binding HotkeyParts}" Focusable="False" VerticalAlignment="Center"
+                                                                  Visibility="{Binding IsRecording, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Grid VerticalAlignment="Center">
+                                                                    <Border x:Name="Cap" CornerRadius="5" Background="{DynamicResource HoverBrush}" BorderBrush="{DynamicResource StrokeBrush}"
+                                                                            BorderThickness="1,1,1,2" Padding="8,2" MinWidth="26"
+                                                                            Visibility="{Binding IsKey, Converter={StaticResource Vis}}">
+                                                                        <TextBlock x:Name="CapText" Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold"
+                                                                                   Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
+                                                                    </Border>
+                                                                    <TextBlock Text="+" Margin="6,0" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center"
+                                                                               Visibility="{Binding IsKey, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                                                </Grid>
+                                                                <DataTemplate.Triggers>
+                                                                    <DataTrigger Binding="{Binding DataContext.HotkeyTaken, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                        <Setter TargetName="CapText" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                                                    </DataTrigger>
+                                                                </DataTemplate.Triggers>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <TextBlock Text="{Binding RecordText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" Margin="2,0,4,0"
+                                                               VerticalAlignment="Center" Visibility="{Binding IsRecording, Converter={StaticResource Vis}}" />
+                                                    <TextBlock Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
+                                                               Margin="8,0,0,0" VerticalAlignment="Center"
+                                                               Visibility="{Binding IsRecording, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                                </StackPanel>
+                                            </ctl:SmoothBorder>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                </Trigger>
+                                                <DataTrigger Binding="{Binding HotkeyTaken}" Value="True">
+                                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource WarmBrush}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </StackPanel>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{ctl:T 'Keyboard shortcut'}" Style="{StaticResource H2}" />
+                                <TextBlock Text="{ctl:T 'Shows and hides the overlay, even while a game has focus.'}" Style="{StaticResource Muted}"
+                                           FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                        <TextBlock Text="{Binding RecordHint}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,10,0,0"
                                    Visibility="{Binding RecordHint, Converter={StaticResource Vis}}" />
-                        <!-- Over the desktop and other apps it stays hidden, back as soon as a game is in front (the user, 2026-11-09). -->
-                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding OnlyOverGames}" IsEnabled="{Binding Enabled}" Margin="0,16,0,0"
-                                  HorizontalAlignment="Left" Content="{ctl:T 'Only over games'}" />
-
-                        <Border Background="{DynamicResource WarmSoftBrush}" CornerRadius="{x:Static ctl:Corner.Button}" Padding="12,8" Margin="0,12,0,0"
-                                Visibility="{Binding HotkeyTaken, Converter={StaticResource Vis}}">
+                        <DockPanel Margin="0,10,0,0" Visibility="{Binding HotkeyTaken, Converter={StaticResource Vis}}">
+                            <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource WarmBrush}"
+                                       Margin="0,2,8,0" VerticalAlignment="Top" />
                             <TextBlock TextWrapping="Wrap" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource WarmBrush}"
                                        Text="{ctl:T 'Another program already uses this shortcut, so RigSight can\'t hear it. Pick a different one.'}" />
-                        </Border>
+                        </DockPanel>
+
+                        <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,16" />
+
+                        <!-- Over the desktop and other apps it stays hidden, back as soon as a game is in front (the user, 2026-11-09). -->
+                        <DockPanel>
+                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding OnlyOverGames}" IsEnabled="{Binding Enabled}"
+                                      VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Only over games'}" />
+                            <TextBlock Text="{ctl:T 'Only over games'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
+                                       VerticalAlignment="Center" />
+                        </DockPanel>
+
+                        <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,16" />
 
                         <Button Style="{StaticResource AccentButton}" Content="{Binding ToggleText}" Command="{Binding ToggleCommand}"
-                                HorizontalAlignment="Left" Margin="0,18,0,0" IsEnabled="{Binding Enabled}" />
+                                HorizontalAlignment="Left" IsEnabled="{Binding Enabled}" />
                     </StackPanel>
 
                     <Border x:Name="ShortcutPreview" Grid.Column="2" CornerRadius="{x:Static ctl:Corner.Tile}" MinHeight="170" ClipToBounds="True">
