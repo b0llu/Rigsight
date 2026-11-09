@@ -28,6 +28,35 @@ public sealed class OverlayPositionTests
     }
 
     [Fact]
+    public void In_one_column_the_Look_card_comes_right_under_the_shortcut_card()
+    {
+        // 2026-11-09, the user: on a smaller screen Look went to the very end, though it's one of the most important cards.
+        var (settings, live) = Kit.Greeted();
+        Ui.Run(() =>
+        {
+            var view = new Rigsight.Views.OverlayView { DataContext = new OverlayViewModel(settings, new AgentClient(Ui.Dispatcher), live) };
+            var window = new Window { Content = view, Left = -32000, Top = -32000, Width = 1000, Height = 900, ShowActivated = false, ShowInTaskbar = false };
+            window.Show();
+            try
+            {
+                Ui.Pump(300);
+                var left = (System.Windows.Controls.StackPanel)view.FindName("LeftColumn");
+                var right = (System.Windows.Controls.StackPanel)view.FindName("RightColumn");
+                var look = (FrameworkElement)view.FindName("LookCard");
+                Assert.Equal(1, left.Children.IndexOf(look)); // one column: second, under the shortcut card
+                Assert.Equal(Visibility.Collapsed, right.Visibility);
+
+                window.Width = 1900; // two columns: beside them again
+                Ui.Pump(300);
+                Assert.Same(right, look.Parent);
+                Assert.Equal(Visibility.Visible, right.Visibility);
+                Assert.Equal(Visibility.Collapsed, ((FrameworkElement)view.FindName("ShortcutPreview")).Visibility);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
     public void With_two_screens_the_games_screen_is_picked_and_the_picture_takes_its_shape()
     {
         // 2026-11-09, the user: "how do we show when the user has 2 screens?" A 16:9 main screen with an ultrawide beside it

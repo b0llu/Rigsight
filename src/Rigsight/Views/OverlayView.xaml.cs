@@ -30,11 +30,13 @@ public partial class OverlayView : UserControl
         if (wide != _wide || e.PreviousSize.Width == 0)
         {
             _wide = wide;
-            // Two columns: the Look card beside shows the overlay, so the shortcut card doesn't, and the position
-            // preview takes the Look card's width with its settings under it. One column: as before.
-            ShortcutPreview.Visibility = wide ? Visibility.Collapsed : Visibility.Visible;
-            ShortcutGap.Width = new GridLength(wide ? 0 : 24);
-            ShortcutPreviewColumn.Width = wide ? new GridLength(0) : new GridLength(1.2, GridUnitType.Star);
+            PlaceLook(wide);
+            // The Look card shows the overlay beside the shortcut card (two columns) or right under it (one), so the
+            // shortcut card has no preview of its own; the position preview takes the Look card's width with its settings
+            // under it in two columns.
+            ShortcutPreview.Visibility = Visibility.Collapsed;
+            ShortcutGap.Width = new GridLength(0);
+            ShortcutPreviewColumn.Width = new GridLength(0);
             PositionLabel.Visibility = wide ? Visibility.Collapsed : Visibility.Visible;
             PositionScreen.Width = wide ? double.NaN : 440;
             Grid.SetColumn(PositionScreen, wide ? 0 : 1);
@@ -45,6 +47,24 @@ public partial class OverlayView : UserControl
             PositionSide.Margin = wide ? new Thickness(0, 16, 0, 0) : new Thickness(16, 0, 0, 0);
         }
         Controls.PageColumns.Follow(PageScroll, Columns, LeftColumn, RightColumn, RightShift, _wide);
+    }
+
+    /// <summary>
+    /// The Look card beside the others in two columns; in one, right under the shortcut card, not at the very end, since
+    /// it's where the overlay is placed and sized (the user, 2026-11-09: "it's one of the most important ones").
+    /// </summary>
+    private void PlaceLook(bool wide)
+    {
+        var target = wide ? RightColumn : LeftColumn;
+        if (LookCard.Parent is Panel parent && parent != target)
+        {
+            parent.Children.Remove(LookCard);
+            if (wide) RightColumn.Children.Add(LookCard);
+            else LeftColumn.Children.Insert(Math.Min(1, LeftColumn.Children.Count), LookCard);
+        }
+        LookCard.Margin = new Thickness(0, wide ? 0 : Controls.PageColumns.Gap, 0, 0);
+        // Nothing left in the right column under one column: no empty space at the end.
+        RightColumn.Visibility = wide ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void PageScroll_ScrollChanged(object sender, ScrollChangedEventArgs e) =>
