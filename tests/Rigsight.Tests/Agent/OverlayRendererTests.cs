@@ -115,6 +115,20 @@ public partial class OverlayRendererTests
         Assert.Equal(Rtss(TrayGap.Normal) - 3, Rtss(TrayGap.None));
         Assert.Equal(Rtss(TrayGap.Normal) - 2, Rtss(TrayGap.Small));
         Assert.Equal(Rtss(TrayGap.Normal) + 2, Rtss(TrayGap.Large));
+
+        // Custom (the user, 2026-11-09: "None also leaves some space"): any room from none at all to 40 px.
+        int CustomWidth(int px)
+        {
+            var o = Line(TrayGap.Normal, OverlayMetric.CpuTemp, OverlayMetric.CpuLoad, OverlayMetric.GpuTemp, OverlayMetric.GpuLoad);
+            o.GapPx = px;
+            using var bmp = WidgetRenderer.RenderOverlay(o, d, 1);
+            return bmp.Width;
+        }
+        Assert.True(CustomWidth(0) < Width(TrayGap.None));
+        Assert.True(CustomWidth(40) > Width(TrayGap.Large));
+        var tight = Line(TrayGap.Normal, OverlayMetric.CpuTemp, OverlayMetric.GpuTemp);
+        tight.GapPx = 0;
+        Assert.Equal(Rtss(TrayGap.None), WidgetRenderer.RtssText(tight, d).Length); // in RivaTuner one space at least
     }
 
     [Fact]

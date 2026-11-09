@@ -284,9 +284,30 @@ public sealed partial class OverlayViewModel : ObservableObject
     /// <summary>"None", "Small", "Normal" or "Large": the room between its readings (see <see cref="OverlaySettings.Gap"/>).</summary>
     public string GapText
     {
-        get => Config.Gap.ToString();
-        set { if (Enum.TryParse<TrayGap>(value, out var gap) && gap != Config.Gap) Change(c => c.Gap = gap, nameof(GapText)); }
+        get => Config.GapPx is null ? Config.Gap.ToString() : "Custom";
+        set
+        {
+            if (value == GapText) return;
+            if (value == "Custom")
+            {
+                // Starts where the preset was, then the slider moves it.
+                int from = Config.Gap switch { TrayGap.None => 4, TrayGap.Small => 13, TrayGap.Large => 30, _ => 20 };
+                Change(c => c.GapPx = from, nameof(GapText));
+            }
+            else if (Enum.TryParse<TrayGap>(value, out var gap)) Change(c => { c.Gap = gap; c.GapPx = null; }, nameof(GapText));
+            OnPropertyChanged(nameof(GapPx));
+            OnPropertyChanged(nameof(IsCustomGap));
+        }
     }
+
+    /// <summary>Space between set by hand (Custom): the slider's pixels.</summary>
+    public double GapPx
+    {
+        get => Config.GapPx ?? 0;
+        set => Change(c => c.GapPx = (int)Math.Clamp(Math.Round(value), 0, OverlaySettings.MaxGapPx), nameof(GapPx));
+    }
+
+    public bool IsCustomGap => Config.GapPx is not null;
     /// <summary>The top preview's side, as the overlay's anchor: left, centre or right; top, middle or bottom.</summary>
     public string PreviewHorizontal => OverlayPlacement.Column(Spot.Anchor) switch { 0 => "Left", 1 => "Center", _ => "Right" };
     public string PreviewVertical => OverlayPlacement.Row(Spot.Anchor) switch { 0 => "Top", 1 => "Center", _ => "Bottom" };

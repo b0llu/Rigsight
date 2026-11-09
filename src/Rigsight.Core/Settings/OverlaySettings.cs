@@ -52,6 +52,14 @@ public sealed class OverlaySettings
     public TrayGap Gap { get; set; }
 
     /// <summary>
+    /// Space between set by hand (the user, 2026-11-09: "None also leaves some space, can we do presets and custom"): the
+    /// room between readings in pixels at size M, 0 to <see cref="MaxGapPx"/>; null while a preset (<see cref="Gap"/>) is used.
+    /// </summary>
+    public int? GapPx { get; set; }
+
+    public const int MaxGapPx = 40;
+
+    /// <summary>
     /// The screen a game was last played on (Windows' name for it, "\\.\DISPLAY2"), noted by the agent while a game is in
     /// front, for the Overlay page's picture with two screens or more (2026-11-09). Null until a game has been seen.
     /// </summary>

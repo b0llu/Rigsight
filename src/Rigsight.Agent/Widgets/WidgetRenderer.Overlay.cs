@@ -41,16 +41,21 @@ internal static partial class WidgetRenderer
     /// The room between a row's readings and between the groups on one line, by its Space between (Normal: as before):
     /// in our own window, in pixels at size M.
     /// </summary>
-    internal static (float Cell, float Group) OverlayGaps(TrayGap gap) => gap switch
+    internal static (float Cell, float Group) OverlayGaps(TrayGap gap, int? px = null) => px is int p
+        ? (Math.Clamp(p, 0, OverlaySettings.MaxGapPx), Math.Clamp(p, 0, OverlaySettings.MaxGapPx))
+        : gap switch
     {
-        TrayGap.None => (5, 8),
+        TrayGap.None => (3, 4),
         TrayGap.Small => (8, 13),
         TrayGap.Large => (18, 30),
         _ => (OverlayCellGap, OverlayGroupGap),
     };
 
     /// <summary>The same room in RivaTuner's text, in spaces (Normal: two between readings, four between groups, as before).</summary>
-    internal static (string Cell, string Group) RtssGaps(TrayGap gap) => gap switch
+    internal static (string Cell, string Group) RtssGaps(TrayGap gap, int? px = null) => px is int p
+        // A space is about 5 pixels at size M; at least one, so a value never runs into the next label.
+        ? (new string(' ', Math.Clamp((int)Math.Round(p / 5.0), 1, 8)), new string(' ', Math.Clamp((int)Math.Round(p / 5.0), 1, 8)))
+        : gap switch
     {
         TrayGap.None => (" ", " "),
         TrayGap.Small => (" ", "  "),
@@ -231,14 +236,14 @@ internal static partial class WidgetRenderer
                     ? $"<A={slot}><C={Hex(cell.Color)}>{value}<C>{unitText}<A>"
                     : $"<C={Hex(cell.Color)}>{(cell.Px < OverlayValuePx ? $"<S=-85>{value}<S>" : value)}<C>{unitText}");
             }
-            string values = string.Join(RtssGaps(o.Gap).Cell, parts);
+            string values = string.Join(RtssGaps(o.Gap, o.GapPx).Cell, parts);
             return RtssLeftSpacer + (label.Length == 0 ? values : parts.Count == 0 ? label : label + RtssGaps(TrayGap.Normal).Cell + values);
         }
 
         int fontHeight = -(int)Math.Round(8 * o.Scale);
         int alpha = (int)Math.Round(OverlayPanelAlpha * o.BackgroundOpacity);
         var lines = OverlayLines(rows, o.Layout == OverlayLayout.Line);
-        string body = RtssTopSpacer + string.Join("\n", lines.Select(l => string.Join(RtssGaps(o.Gap).Group, l.Select(Row))));
+        string body = RtssTopSpacer + string.Join("\n", lines.Select(l => string.Join(RtssGaps(o.Gap, o.GapPx).Group, l.Select(Row))));
         var (anchor, dx, dy) = RtssPlace(o, screen ?? new Size(1920, 1080));
         var (left, top, rightM, bottomM) = RtssMargins(anchor, dx, dy, o.Scale);
         string header =
@@ -387,7 +392,7 @@ internal static partial class WidgetRenderer
         float CellWidth(Cell c) =>
             Math.Max(Measure(mg, c.Template, c.Px, FontStyle.Bold, semibold: true), Measure(mg, c.Value, c.Px, FontStyle.Bold, semibold: true))
             + (c.Unit.Length > 0 ? 2 + Measure(mg, UnitText(c), OverlayUnitPx, FontStyle.Regular) : 0);
-        var (cellGap, groupGap) = OverlayGaps(o.Gap);
+        var (cellGap, groupGap) = OverlayGaps(o.Gap, o.GapPx);
         float RowWidth(OverlayRow r) => LabelWidth(r) + r.Cells.Sum(CellWidth) + cellGap * (r.Cells.Count - 1);
 
         // In rows, labels share one column so the numbers line up. The unlabelled last row starts at the edge.

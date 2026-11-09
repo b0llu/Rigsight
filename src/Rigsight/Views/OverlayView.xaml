@@ -444,9 +444,19 @@
                                              IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=Normal}" />
                                 <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Large'}" GroupName="overlaygap"
                                              IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=Large}" />
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Custom'}" GroupName="overlaygap"
+                                             IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=Custom}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
+                    <!-- Custom: any room from none at all to 40 pixels (the user, 2026-11-09: "so user can set according to how he likes it"). -->
+                    <DockPanel Margin="0,4" MaxWidth="520" HorizontalAlignment="Left" Width="520" Visibility="{Binding IsCustomGap, Converter={StaticResource Vis}}">
+                        <TextBlock Style="{StaticResource OptionLabel}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding GapPx, StringFormat='{}{0:0} px'}" Width="44" TextAlignment="Right"
+                                   Style="{StaticResource Body}" VerticalAlignment="Center" />
+                        <Slider Minimum="0" Maximum="40" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                Value="{Binding GapPx}" AutomationProperties.Name="{ctl:T 'Space between'}" />
+                    </DockPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,4">
                         <TextBlock Text="{ctl:T 'COLORS'}" Style="{StaticResource OptionLabel}" />
                         <Border Style="{StaticResource SegmentHost}">
