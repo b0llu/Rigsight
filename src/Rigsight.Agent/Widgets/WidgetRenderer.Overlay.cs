@@ -37,6 +37,27 @@ internal static partial class WidgetRenderer
     private const float OverlayValuePx = 15, OverlayUnitPx = 11, OverlayLabelPx = 11;
     private const float OverlayPad = 8, OverlayRowHeight = 23, OverlayCellGap = 12, OverlayGroupGap = 20, OverlayLabelWidth = 34;
 
+    /// <summary>
+    /// The room between a row's readings and between the groups on one line, by its Space between (Normal: as before):
+    /// in our own window, in pixels at size M.
+    /// </summary>
+    internal static (float Cell, float Group) OverlayGaps(TrayGap gap) => gap switch
+    {
+        TrayGap.None => (5, 8),
+        TrayGap.Small => (8, 13),
+        TrayGap.Large => (18, 30),
+        _ => (OverlayCellGap, OverlayGroupGap),
+    };
+
+    /// <summary>The same room in RivaTuner's text, in spaces (Normal: two between readings, four between groups, as before).</summary>
+    internal static (string Cell, string Group) RtssGaps(TrayGap gap) => gap switch
+    {
+        TrayGap.None => (" ", " "),
+        TrayGap.Small => (" ", "  "),
+        TrayGap.Large => ("   ", "      "),
+        _ => ("  ", "    "),
+    };
+
     /// <summary>Distance from the top of a line of text to its baseline, as GDI+ draws it.</summary>
     private static float Ascent(float px, FontStyle style, bool semibold)
     {
@@ -185,8 +206,10 @@ internal static partial class WidgetRenderer
         string Row(OverlayRow row)
         {
             var parts = new List<string>();
-            if (row.Label.Length > 0)
-                parts.Add(o.Layout == OverlayLayout.Line
+            // The label and its first value keep the room they had whatever Space between says (in the window the
+            // label's width is fixed too): only the room between readings and between groups changes.
+            string label = row.Label.Length == 0 ? ""
+                : (o.Layout == OverlayLayout.Line
                     ? $"<S=-73><C={Hex(row.LabelColor)}>{Clean(row.Label)}<C><S> "
                     : $"<A={labelColumn}><S=-73><C={Hex(row.LabelColor)}>{Clean(row.Label)}<C><S><A>");
             for (int i = 0; i < row.Cells.Count; i++)
@@ -208,13 +231,14 @@ internal static partial class WidgetRenderer
                     ? $"<A={slot}><C={Hex(cell.Color)}>{value}<C>{unitText}<A>"
                     : $"<C={Hex(cell.Color)}>{(cell.Px < OverlayValuePx ? $"<S=-85>{value}<S>" : value)}<C>{unitText}");
             }
-            return RtssLeftSpacer + string.Join("  ", parts);
+            string values = string.Join(RtssGaps(o.Gap).Cell, parts);
+            return RtssLeftSpacer + (label.Length == 0 ? values : parts.Count == 0 ? label : label + RtssGaps(TrayGap.Normal).Cell + values);
         }
 
         int fontHeight = -(int)Math.Round(8 * o.Scale);
         int alpha = (int)Math.Round(OverlayPanelAlpha * o.BackgroundOpacity);
         var lines = OverlayLines(rows, o.Layout == OverlayLayout.Line);
-        string body = RtssTopSpacer + string.Join("\n", lines.Select(l => string.Join("    ", l.Select(Row))));
+        string body = RtssTopSpacer + string.Join("\n", lines.Select(l => string.Join(RtssGaps(o.Gap).Group, l.Select(Row))));
         var (anchor, dx, dy) = RtssPlace(o, screen ?? new Size(1920, 1080));
         var (left, top, rightM, bottomM) = RtssMargins(anchor, dx, dy, o.Scale);
         string header =
@@ -363,7 +387,8 @@ internal static partial class WidgetRenderer
         float CellWidth(Cell c) =>
             Math.Max(Measure(mg, c.Template, c.Px, FontStyle.Bold, semibold: true), Measure(mg, c.Value, c.Px, FontStyle.Bold, semibold: true))
             + (c.Unit.Length > 0 ? 2 + Measure(mg, UnitText(c), OverlayUnitPx, FontStyle.Regular) : 0);
-        float RowWidth(OverlayRow r) => LabelWidth(r) + r.Cells.Sum(CellWidth) + OverlayCellGap * (r.Cells.Count - 1);
+        var (cellGap, groupGap) = OverlayGaps(o.Gap);
+        float RowWidth(OverlayRow r) => LabelWidth(r) + r.Cells.Sum(CellWidth) + cellGap * (r.Cells.Count - 1);
 
         // In rows, labels share one column so the numbers line up. The unlabelled last row starts at the edge.
         float labelColumn = rows.Count > 0 ? rows.Max(LabelWidth) : 0;
@@ -373,7 +398,7 @@ internal static partial class WidgetRenderer
         if (rows.Count == 0) { w = 1; h = 1; }
         else if (line)
         {
-            w = OverlayPad * 2 + lines.Max(l => l.Sum(RowWidth) + OverlayGroupGap * (l.Count - 1));
+            w = OverlayPad * 2 + lines.Max(l => l.Sum(RowWidth) + groupGap * (l.Count - 1));
             h = OverlayPad * 2 + OverlayRowHeight * lines.Count;
         }
         else
@@ -415,9 +440,9 @@ internal static partial class WidgetRenderer
                     float vw = Measure(g, cell.Value, cell.Px, FontStyle.Bold, semibold: true);
                     if (cell.Unit.Length > 0)
                         Text(g, UnitText(cell), OverlayUnitPx, FontStyle.Regular, OverlayPalette.Muted, cx + vw + 2, baseline - unitAscent);
-                    cx += CellWidth(cell) + OverlayCellGap;
+                    cx += CellWidth(cell) + cellGap;
                 }
-                x = cx - OverlayCellGap + OverlayGroupGap;
+                x = cx - cellGap + groupGap;
             }
             y += OverlayRowHeight;
         }

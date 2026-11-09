@@ -930,6 +930,21 @@
         </Setter>
     </Style>
 
+    <!-- A page's own on/off, beside its title (Taskbar, Widgets, Overlay; the tray menu has the same three; the user,
+         2026-11-09): "On" or "Off" by the switch, as Windows' own Settings say it. -->
+    <Style x:Key="PageSwitch" TargetType="CheckBox" BasedOn="{StaticResource Switch}">
+        <Setter Property="Content" Value="{ctl:T Off}" />
+        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="DockPanel.Dock" Value="Right" />
+        <Setter Property="Margin" Value="16,0,0,0" />
+        <Style.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Content" Value="{ctl:T On}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- ── Progress bar ────────────────────────────────────────────────── -->
     <Style x:Key="Bar" TargetType="ProgressBar">
         <Setter Property="Height" Value="6" />

@@ -484,8 +484,16 @@ public sealed partial class TaskbarViewModel : ObservableObject
 
     private void OnSettingsChanged()
     {
+        OnPropertyChanged(nameof(Shown));
         OnStyleChanged();
         LoadSensors();
+    }
+
+    /// <summary>Whether the readings show in the taskbar (the switch by the title; the tray menu has it too). Off keeps the list.</summary>
+    public bool Shown
+    {
+        get => _settings.Current.TrayShown;
+        set { if (value != Shown) _settings.Update(s => s.TrayShown = value); }
     }
 
     /// <summary>Every sensor on this PC, for the picker, and RigSight's own network speeds.</summary>
@@ -1372,6 +1380,8 @@ public sealed partial class TaskbarViewModel : ObservableObject
         var byId = new Dictionary<string, SensorItem>();
         foreach (var item in _live.AllSensors) byId.TryAdd(item.Id, item);
         foreach (var item in _live.NetSensors) byId.TryAdd(item.Id, item);
+        // The game's frame rate (it was "not found" here: its spot drew a bare "–" with no name).
+        foreach (var item in _live.FpsSensors) byId.TryAdd(item.Id, item);
         bool same = wanted.Count == Sensors.Count && wanted.SequenceEqual(Sensors.Select(r => r.Id))
                     && Sensors.All(r => r.Sensor is { } s ? byId.GetValueOrDefault(r.Id) == s : !byId.ContainsKey(r.Id));
         if (!same)

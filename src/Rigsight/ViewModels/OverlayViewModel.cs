@@ -68,6 +68,8 @@ public sealed partial class OverlayViewModel : ObservableObject
         _settings = settings;
         _client = client;
         _live = live;
+        // The tray menu can switch the overlay on or off while the page is open.
+        settings.Changed += () => { OnPropertyChanged(nameof(Enabled)); OnPropertyChanged(nameof(Intro)); };
         OverlayMetricOption O(OverlayMetric m, string label) => new(m, label, settings);
         Groups =
         [
@@ -181,9 +183,8 @@ public sealed partial class OverlayViewModel : ObservableObject
 
     public string Hotkey => Config.Hotkey;
 
-    public string Intro => Enabled
-        ? Lang.T($"Press {Hotkey} in any game to show or hide a small readout on the screen. It never takes focus, and clicks pass straight through it.")
-        : Lang.T("The shortcut is off. You can still show the overlay from here or from the tray icon's menu.");
+    // Off (the switch by the title) is the overlay off, hidden and its shortcut doing nothing, so this says what it does when on.
+    public string Intro => Lang.T($"Press {Hotkey} in any game to show or hide a small readout on the screen. It never takes focus, and clicks pass straight through it.");
 
     /// <summary>Where the overlay goes (see <see cref="OverlayPlacement"/>): set by dragging it on the Overlay page's picture of the screen.</summary>
     public Controls.OverlaySpot Spot
@@ -255,6 +256,16 @@ public sealed partial class OverlayViewModel : ObservableObject
     public double BackgroundPercent { get => Math.Round(Config.BackgroundOpacity * 100); set => Change(c => c.BackgroundOpacity = value / 100, nameof(BackgroundPercent)); }
     public double ContentPercent { get => Math.Round(Config.ContentOpacity * 100); set => Change(c => c.ContentOpacity = value / 100, nameof(ContentPercent)); }
     public string Colors { get => Config.Grayscale ? "Grayscale" : "Color"; set => Change(c => c.Grayscale = value == "Grayscale", nameof(Colors)); }
+
+    /// <summary>Shown only while a game is in front (see <see cref="OverlaySettings.OnlyOverGames"/>).</summary>
+    public bool OnlyOverGames { get => Config.OnlyOverGames; set => Change(c => c.OnlyOverGames = value, nameof(OnlyOverGames)); }
+
+    /// <summary>"None", "Small", "Normal" or "Large": the room between its readings (see <see cref="OverlaySettings.Gap"/>).</summary>
+    public string GapText
+    {
+        get => Config.Gap.ToString();
+        set { if (Enum.TryParse<TrayGap>(value, out var gap) && gap != Config.Gap) Change(c => c.Gap = gap, nameof(GapText)); }
+    }
     /// <summary>The top preview's side, as the overlay's anchor: left, centre or right; top, middle or bottom.</summary>
     public string PreviewHorizontal => OverlayPlacement.Column(Spot.Anchor) switch { 0 => "Left", 1 => "Center", _ => "Right" };
     public string PreviewVertical => OverlayPlacement.Row(Spot.Anchor) switch { 0 => "Top", 1 => "Center", _ => "Bottom" };

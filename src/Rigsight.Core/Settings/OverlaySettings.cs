@@ -33,8 +33,23 @@ public sealed class OverlaySensor
 /// <summary>The in-game overlay: a click-through readout shown and hidden with a keyboard shortcut.</summary>
 public sealed class OverlaySettings
 {
-    /// <summary>Whether the keyboard shortcut is active.</summary>
+    /// <summary>
+    /// The overlay on or off (its page's switch by the title, the tray menu; it was the shortcut's switch): off, it's
+    /// hidden and its shortcut does nothing.
+    /// </summary>
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Shown only while a game is in front (the user, 2026-11-09): over the desktop and other apps it stays hidden, and
+    /// it's back as soon as a game is in front again. Off as before.
+    /// </summary>
+    public bool OnlyOverGames { get; set; }
+
+    /// <summary>
+    /// The room between its readings (the user, 2026-11-09: "reduce the space between 2 readings"): Normal as before,
+    /// None very close, Small closer, Large further apart; the same four as the taskbar's Space between.
+    /// </summary>
+    public TrayGap Gap { get; set; }
 
     public string Hotkey { get; set; } = DefaultHotkey;
 

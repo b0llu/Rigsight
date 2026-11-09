@@ -76,6 +76,9 @@ internal sealed class OverlayManager : IDisposable
             }
         }
         _trayItem.ShortcutKeyDisplayString = settings.Enabled ? settings.Hotkey : null;
+        // Switched off (its page, the tray menu): gone now, and nothing shows it until it's on again.
+        _trayItem.Enabled = settings.Enabled;
+        if (!settings.Enabled && Visible) SetVisible(false);
 
         if (Visible) Refresh();
     }
@@ -117,6 +120,14 @@ internal sealed class OverlayManager : IDisposable
             _data.Frame = _settings.Metrics.Any(m => m is OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow)
                 ? Rtss.ReadFrameStats(ForegroundPid()) : null;
 
+        // Only over games (its page's option): nothing over the desktop or other apps, back as soon as a game is in front.
+        if (_settings.OnlyOverGames && !GameInFront())
+        {
+            ClearRtss();
+            if (_form is { Visible: true }) _form.Hide();
+            return;
+        }
+
         if (InGameRtssReaches())
         {
             int pid = ForegroundPid();
@@ -150,6 +161,9 @@ internal sealed class OverlayManager : IDisposable
         if (!Rtss.IsHooked(ForegroundPid())) return false;
         return _data?.Activity.Category == AppCategory.Game || Tracking.ActivityMonitor.IsFullscreen(Win32.GetForegroundWindow());
     }
+
+    /// <summary>A game in front: one in exclusive fullscreen, or an app in the Games category that isn't paused.</summary>
+    private bool GameInFront() => IsExclusiveFullscreen() || _data?.Activity is { Category: AppCategory.Game, Paused: false };
 
     /// <summary>A Direct3D game is running in exclusive fullscreen in front (not borderless, not minimised).</summary>
     internal static bool IsExclusiveFullscreen() =>

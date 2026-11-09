@@ -99,6 +99,41 @@ public sealed class SmoothWheelTests
     }
 
     [Fact]
+    public void Every_frame_moves_the_page_on_a_143_Hz_screen()
+    {
+        // 2026-11-09, the user: "stuttery, laggy" on every page. The glide read the system's tick count, which moves every
+        // 15.6 ms: on a 143 Hz screen (a frame every 7 ms) two or three frames in a row got the same place, then a jump.
+        // Each frame now goes by its own time; stepped here 7 ms apart, as WPF's frames are on that screen.
+        Ui.Run(() =>
+        {
+            var (window, page, _) = Window();
+            try
+            {
+                double step = SmoothWheel.Step(-120, SystemParameters.WheelScrollLines, page.ViewportHeight);
+                if (!SmoothWheel.TryGlide(page, -120)) return; // Windows' animation effects off: no glide to step
+                var at = new List<double>();
+                var t0 = TimeSpan.FromSeconds(1000);
+                for (int f = 0; f < 20 && SmoothWheel.IsGliding(page); f++)
+                {
+                    SmoothWheel.Frame(t0 + TimeSpan.FromMilliseconds(7 * f));
+                    page.UpdateLayout();
+                    at.Add(page.VerticalOffset);
+                }
+                string all = string.Join(", ", at.Select(a => a.ToString("0.0")));
+                Assert.InRange(at.Count, 13, 16); // about 100 ms of frames
+                Assert.True(at[0] > 0, "the first frame already moves");
+                for (int i = 1; i < at.Count; i++)
+                    Assert.True(at[i] > at[i - 1], $"frame {i} stood still ({all})");
+                Assert.Equal(step, at[^1], 1);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
     public void A_list_glides_and_at_its_end_hands_the_wheel_to_the_page_which_glides()
     {
         Ui.Run(() =>

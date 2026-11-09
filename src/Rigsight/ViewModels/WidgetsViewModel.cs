@@ -597,6 +597,15 @@ public sealed partial class WidgetsViewModel : ObservableObject
         _client = client;
         _live = live;
         Sync();
+        // The tray menu can switch them all on or off while the page is open.
+        settings.Changed += () => OnPropertyChanged(nameof(Shown));
+    }
+
+    /// <summary>Whether the widgets show on the desktop (the switch by the title; the tray menu has it too). Off keeps each one's own.</summary>
+    public bool Shown
+    {
+        get => _settings.Current.WidgetsShown;
+        set { if (value != Shown) _settings.Update(s => s.WidgetsShown = value); }
     }
 
     /// <summary>The built-in widgets, FPS first.</summary>

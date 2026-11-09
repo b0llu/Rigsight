@@ -17,15 +17,17 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
 
     public void Apply(RigsightSettings settings)
     {
-        // Gone from settings (a widget of the user's own deleted) or turned off: its window goes.
-        var shown = settings.Widgets.Where(w => w.Enabled).Select(w => w.Id).ToHashSet();
+        // Gone from settings (a widget of the user's own deleted) or turned off, or every widget switched off
+        // (WidgetsShown, each keeping its own Enabled): its window goes.
+        var on = settings.WidgetsShown ? settings.Widgets.Where(w => w.Enabled).ToList() : [];
+        var shown = on.Select(w => w.Id).ToHashSet();
         foreach (var id in _forms.Keys.Where(id => !shown.Contains(id)).ToList())
         {
             _forms[id].Close();
             _forms[id].Dispose();
             _forms.Remove(id);
         }
-        foreach (var cfg in settings.Widgets.Where(w => w.Enabled))
+        foreach (var cfg in on)
         {
             _forms.TryGetValue(cfg.Id, out var form);
             if (form is null)

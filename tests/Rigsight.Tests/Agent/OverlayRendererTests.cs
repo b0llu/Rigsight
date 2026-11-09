@@ -87,6 +87,37 @@ public partial class OverlayRendererTests
     }
 
     [Fact]
+    public void Space_between_brings_the_readings_closer_or_further_apart_in_both_drawings()
+    {
+        // The user, 2026-11-09: "can I reduce the space between 2 readings". Normal is as before.
+        var d = Full();
+        d.Sensors = [];
+        OverlaySettings Line(TrayGap gap, params OverlayMetric[] metrics)
+        {
+            var o = Only(metrics);
+            o.Layout = OverlayLayout.Line;
+            o.Gap = gap;
+            return o;
+        }
+        int Width(TrayGap gap)
+        {
+            using var bmp = WidgetRenderer.RenderOverlay(Line(gap, OverlayMetric.CpuTemp, OverlayMetric.CpuLoad, OverlayMetric.GpuTemp, OverlayMetric.GpuLoad), d, 1);
+            return bmp.Width;
+        }
+        Assert.True(Width(TrayGap.None) < Width(TrayGap.Small));
+        Assert.True(Width(TrayGap.Small) < Width(TrayGap.Normal));
+        Assert.True(Width(TrayGap.Normal) < Width(TrayGap.Large));
+        Assert.Equal(TrayGap.Normal, new OverlaySettings().Gap); // nobody's overlay changes
+
+        // RivaTuner: two groups on one line, one reading each, so one gap between them: 4 spaces as before, 1, 2 or 6.
+        // The room after a label stays as it was, as the window's label width does.
+        int Rtss(TrayGap gap) => WidgetRenderer.RtssText(Line(gap, OverlayMetric.CpuTemp, OverlayMetric.GpuTemp), d).Length;
+        Assert.Equal(Rtss(TrayGap.Normal) - 3, Rtss(TrayGap.None));
+        Assert.Equal(Rtss(TrayGap.Normal) - 2, Rtss(TrayGap.Small));
+        Assert.Equal(Rtss(TrayGap.Normal) + 2, Rtss(TrayGap.Large));
+    }
+
+    [Fact]
     public void The_size_follows_the_scale()
     {
         using var one = WidgetRenderer.RenderOverlay(AllMetrics(), Full(), 1);

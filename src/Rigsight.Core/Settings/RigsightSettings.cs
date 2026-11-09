@@ -97,6 +97,18 @@ public sealed class RigsightSettings
     public List<string> TraySensors { get; set; } = [];
 
     /// <summary>
+    /// Whether the taskbar readings show (the Taskbar page's switch, the tray menu; the user, 2026-11-09): off hides them
+    /// and keeps <see cref="TraySensors"/> and every choice for them as they are, for when they're on again.
+    /// </summary>
+    public bool TrayShown { get; set; } = true;
+
+    /// <summary>
+    /// Whether the desktop widgets show (the Widgets page's switch, the tray menu): off hides them all and keeps each
+    /// widget's own <see cref="WidgetConfig.Enabled"/>, so the same ones come back.
+    /// </summary>
+    public bool WidgetsShown { get; set; } = true;
+
+    /// <summary>
     /// How <see cref="TraySensors"/> show: a strip in the taskbar (Windows 11), or notification-area icons. Since 1.3 the
     /// style of every reading not in <see cref="TrayStyles"/>, and what "Set all to" sets.
     /// </summary>

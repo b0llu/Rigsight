@@ -18,6 +18,8 @@
              follows the scroll so the preview stays in view; one column in a narrow window (OverlayView.xaml.cs). -->
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <DockPanel>
+                <!-- On or off as a whole (the tray menu has it too): off hides it, and its shortcut does nothing. -->
+                <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Enabled}" AutomationProperties.Name="{ctl:T 'Game overlay'}" />
                 <!-- The page's own question for the AI (mock-up board 5). -->
                 <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'What should it show?'}" CommandParameter="{x:Static svc:PageAsks.Overlay}" AutomationProperties.Name="{ctl:T 'What should it show?'}" />
                 <TextBlock Text="{ctl:T 'Game overlay'}" Style="{StaticResource H1}" />
@@ -68,13 +70,12 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel>
-                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Enabled}">
-                            <StackPanel>
-                                <TextBlock Text="{ctl:T 'Keyboard shortcut'}" Style="{StaticResource H2}" />
-                                <TextBlock Text="{ctl:T 'Shows and hides the overlay, even while a game has focus.'}" Style="{StaticResource Muted}"
-                                           FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0" />
-                            </StackPanel>
-                        </CheckBox>
+                        <!-- The overlay's on/off is the switch by the page's title (it was this one's: it turned the shortcut off). -->
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Keyboard shortcut'}" Style="{StaticResource H2}" />
+                            <TextBlock Text="{ctl:T 'Shows and hides the overlay, even while a game has focus.'}" Style="{StaticResource Muted}"
+                                       FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                        </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,16,0,0" IsEnabled="{Binding Enabled}">
                             <Button Focusable="False" Command="{Binding StartRecordingCommand}" Click="OnRecordClick"
@@ -104,6 +105,9 @@
                         </StackPanel>
                         <TextBlock Text="{Binding RecordHint}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,8,0,0"
                                    Visibility="{Binding RecordHint, Converter={StaticResource Vis}}" />
+                        <!-- Over the desktop and other apps it stays hidden, back as soon as a game is in front (the user, 2026-11-09). -->
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding OnlyOverGames}" IsEnabled="{Binding Enabled}" Margin="0,16,0,0"
+                                  HorizontalAlignment="Left" Content="{ctl:T 'Only over games'}" />
 
                         <Border Background="{DynamicResource WarmSoftBrush}" CornerRadius="{x:Static ctl:Corner.Button}" Padding="12,8" Margin="0,12,0,0"
                                 Visibility="{Binding HotkeyTaken, Converter={StaticResource Vis}}">
@@ -112,7 +116,7 @@
                         </Border>
 
                         <Button Style="{StaticResource AccentButton}" Content="{Binding ToggleText}" Command="{Binding ToggleCommand}"
-                                HorizontalAlignment="Left" Margin="0,18,0,0" />
+                                HorizontalAlignment="Left" Margin="0,18,0,0" IsEnabled="{Binding Enabled}" />
                     </StackPanel>
 
                     <Border x:Name="ShortcutPreview" Grid.Column="2" CornerRadius="{x:Static ctl:Corner.Tile}" MinHeight="170" ClipToBounds="True">
@@ -321,6 +325,22 @@
                                              IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Rows}" />
                                 <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'One line'}" GroupName="layout"
                                              IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Line}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <!-- The room between its readings: very close, closer, as it was, further apart (as the taskbar's). -->
+                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                        <TextBlock Text="{ctl:T 'SPACE BETWEEN'}" Style="{StaticResource OptionLabel}" />
+                        <Border Style="{StaticResource SegmentHost}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'None'}" GroupName="overlaygap"
+                                             IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=None}" />
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Small'}" GroupName="overlaygap"
+                                             IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=Small}" />
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Normal'}" GroupName="overlaygap"
+                                             IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=Normal}" />
+                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Large'}" GroupName="overlaygap"
+                                             IsChecked="{Binding GapText, Converter={StaticResource Equals}, ConverterParameter=Large}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

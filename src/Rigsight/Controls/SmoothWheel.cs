@@ -78,17 +78,37 @@ public static class SmoothWheel
         // Up to the end there is now; a list that adds rows as it nears its end (Timeline) has them a screen ahead.
         double to = Math.Clamp(from + Step(delta, SystemParameters.WheelScrollLines, sv.ViewportHeight), 0, sv.ScrollableHeight);
         if (!going && Math.Abs(to - sv.VerticalOffset) < 0.5) return false;
-        Glides[sv] = new Going(sv.VerticalOffset, to, Environment.TickCount64, sv.VerticalOffset);
+        // Its clock starts at the next frame (see OnFrame).
+        Glides[sv] = new Going(sv.VerticalOffset, to, null, sv.VerticalOffset);
         if (!going && Glides.Count == 1) CompositionTarget.Rendering += OnFrame;
         return true;
     }
 
-    private sealed record Going(double From, double Target, long Start, double Set);
+    /// <summary>A glide: from where, to where, the frame time it began on (null until its first frame), where it was last put.</summary>
+    private sealed record Going(double From, double Target, TimeSpan? Start, double Set);
     private static readonly Dictionary<ScrollViewer, Going> Glides = [];
+    private static TimeSpan _lastFrame = TimeSpan.MinValue;
 
-    private static void OnFrame(object? sender, EventArgs e)
+    /// <summary>
+    /// How far a glide is at its first frame: one frame in already, so the box moves on the very next frame. A 143 Hz
+    /// screen's frame (7 ms); a slower one only starts a little further along.
+    /// </summary>
+    private static readonly TimeSpan FirstStep = TimeSpan.FromMilliseconds(7);
+
+    /// <summary>
+    /// Each frame, every glide put where its curve is at that frame's own time (WPF's RenderingTime: one step per frame,
+    /// evenly spaced). Not the system's tick count: it moves every 15.6 ms, so on a 143 Hz screen two or three frames in a
+    /// row got the same place and then a jump (2026-11-09, the user: "stuttery, laggy" on every page).
+    /// </summary>
+    private static void OnFrame(object? sender, EventArgs e) =>
+        Frame(e is RenderingEventArgs r ? r.RenderingTime : TimeSpan.FromTicks(System.Diagnostics.Stopwatch.GetTimestamp() * TimeSpan.TicksPerSecond / System.Diagnostics.Stopwatch.Frequency));
+
+    /// <summary>One frame at <paramref name="now"/> (its RenderingTime): every glide to where its curve is then (the tests step it).</summary>
+    internal static void Frame(TimeSpan now)
     {
-        long now = Environment.TickCount64;
+        // Told more than once for one frame: once is enough.
+        if (now == _lastFrame) return;
+        _lastFrame = now;
         foreach (var (sv, g) in Glides.ToList())
         {
             // Moved by something else meanwhile (its scroll bar dragged, a key, a jump to a day, another page): that wins.
@@ -97,11 +117,12 @@ public static class SmoothWheel
                 Glides.Remove(sv);
                 continue;
             }
-            double t = (now - g.Start) / Duration.TotalMilliseconds;
+            var start = g.Start ?? now - FirstStep;
+            double t = (now - start).TotalMilliseconds / Duration.TotalMilliseconds;
             double at = g.From + (g.Target - g.From) * Ease(t);
             sv.ScrollToVerticalOffset(at);
             if (t >= 1) Glides.Remove(sv);
-            else Glides[sv] = g with { Set = at };
+            else Glides[sv] = g with { Start = start, Set = at };
         }
         if (Glides.Count == 0) CompositionTarget.Rendering -= OnFrame;
     }

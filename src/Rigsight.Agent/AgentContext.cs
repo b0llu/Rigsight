@@ -223,7 +223,14 @@ internal sealed partial class AgentContext : ApplicationContext
                     if (style != s.TrayStyle) s.TrayStyles[id] = style;
                 }
             }));
-        _tray = new TrayController(() => OpenApp(null), _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
+        // The three on/off switches, as on their pages (the user, 2026-11-09: quick ways to turn them off).
+        TrayController.Switch[] switches =
+        [
+            new(Lang.Key("Taskbar readings"), () => _settings.TrayShown, () => MutateSettings(s => s.TrayShown = !s.TrayShown)),
+            new(Lang.Key("Desktop widgets"), () => _settings.WidgetsShown, () => MutateSettings(s => s.WidgetsShown = !s.WidgetsShown)),
+            new(Lang.Key("Game overlay"), () => _settings.Overlay.Enabled, () => MutateSettings(s => s.Overlay.Enabled = !s.Overlay.Enabled)),
+        ];
+        _tray = new TrayController(() => OpenApp(null), switches, _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
 
@@ -1292,7 +1299,8 @@ internal sealed partial class AgentContext : ApplicationContext
     private void PublishToUi(KeyValues k, bool fullscreen, (string Title, string Body)? alert)
     {
         var settings = _settings;
-        var trayReadings = TrayReadingsFor(settings);
+        // Switched off (the Taskbar page, the tray menu): none shown, the list kept.
+        var trayReadings = settings.TrayShown ? TrayReadingsFor(settings) : [];
         RememberTray(trayReadings);
         // A reading card that's open: its readings again, a tick later.
         string? cardKey = _card.Key;
@@ -2340,6 +2348,9 @@ internal sealed partial class AgentContext : ApplicationContext
     {
         void Note(string what, int a, int b) { if (a != b) Log.Write("settings", $"{what}: {a} -> {b} (from the {from})"); }
         Note("taskbar readings", before.TraySensors.Count, after.TraySensors.Count);
+        if (before.TrayShown != after.TrayShown) Log.Write("settings", $"taskbar readings shown: {before.TrayShown} -> {after.TrayShown} (from the {from})");
+        if (before.WidgetsShown != after.WidgetsShown) Log.Write("settings", $"desktop widgets shown: {before.WidgetsShown} -> {after.WidgetsShown} (from the {from})");
+        if (before.Overlay.Enabled != after.Overlay.Enabled) Log.Write("settings", $"game overlay on: {before.Overlay.Enabled} -> {after.Overlay.Enabled} (from the {from})");
         if (before.TrayStyle != after.TrayStyle) Log.Write("settings", $"taskbar style: {before.TrayStyle} -> {after.TrayStyle} (from the {from})");
         if (before.TraySide != after.TraySide) Log.Write("settings", $"taskbar side: {before.TraySide} -> {after.TraySide} (from the {from})");
         if (TrayLooksText(before) != TrayLooksText(after)) Log.Write("settings", $"taskbar looks: {TrayLooksText(before)} -> {TrayLooksText(after)} (from the {from})");
@@ -2379,7 +2390,7 @@ internal sealed partial class AgentContext : ApplicationContext
                           || updated.TrayTiles != current.TrayTiles || updated.TrayWidth != current.TrayWidth
                           || updated.TrayLetterNames != current.TrayLetterNames || !updated.TrayAlone.SequenceEqual(current.TrayAlone)
                           || !updated.TraySensors.SequenceEqual(current.TraySensors) || TrayColorsText(updated) != TrayColorsText(current)
-                          || TrayOwnText(updated) != TrayOwnText(current);
+                          || TrayOwnText(updated) != TrayOwnText(current) || updated.TrayShown != current.TrayShown;
             LogSettingsChanges(current, updated, replaceWith is null ? "agent" : "app");
             _settings = updated;
             SettingsStore.Save(updated);
@@ -2424,7 +2435,7 @@ internal sealed partial class AgentContext : ApplicationContext
     /// </summary>
     /// <summary>The overlay draws in games through RivaTuner, and the FPS widget and the taskbar's FPS read the frame rate from it.</summary>
     private static bool NeedsRtss(RigsightSettings s) =>
-        s.Overlay.Enabled || s.Widgets.Any(w => w.Enabled && WidgetManager.ShowsFrameRate(w)) || s.TraySensors.Contains(TrayParts.Fps);
+        s.Overlay.Enabled || s.WidgetsShown && s.Widgets.Any(w => w.Enabled && WidgetManager.ShowsFrameRate(w)) || s.TrayShown && s.TraySensors.Contains(TrayParts.Fps);
 
     private void RenderPreviews(RigsightSettings settings) =>
         RunOnSampler(() =>

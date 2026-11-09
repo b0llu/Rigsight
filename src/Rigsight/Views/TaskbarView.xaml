@@ -536,6 +536,8 @@
              under the other in a narrow window (TaskbarView.xaml.cs). -->
         <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
             <DockPanel>
+                <!-- On or off as a whole (the tray menu has it too): off hides them and keeps the readings below. -->
+                <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Shown}" AutomationProperties.Name="{ctl:T 'Taskbar readings'}" />
                 <!-- The page's own question for the AI (mock-up board 5). -->
                 <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'What should it show?'}" CommandParameter="{x:Static svc:PageAsks.Taskbar}" AutomationProperties.Name="{ctl:T 'What should it show?'}" />
                 <TextBlock Text="{ctl:T 'Taskbar'}" Style="{StaticResource H1}" />

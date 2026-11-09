@@ -966,17 +966,18 @@ public sealed class OverlayPageTests
     }
 
     [Fact]
-    public void Turning_the_shortcut_off_changes_the_intro()
+    public void Switching_the_overlay_off_keeps_saying_what_it_does()
     {
+        // The switch by the title is the overlay's on/off (2026-11-09): off, it's hidden and its shortcut does nothing,
+        // so the page still says what it does when on (it said "You can still show the overlay from here").
         using var page = new Page();
         var (link, vm, _) = page;
         Ui.Run(() =>
         {
             vm.Enabled = true;
             Assert.StartsWith("Press Alt+Shift+O in any game", vm.Intro);
-            var changed = Kit.Changes(vm, () => vm.Enabled = false);
-            Assert.Contains(nameof(vm.Intro), changed);
-            Assert.StartsWith("The shortcut is off.", vm.Intro);
+            vm.Enabled = false;
+            Assert.StartsWith("Press Alt+Shift+O in any game", vm.Intro);
             Assert.False(link.Settings.Current.Overlay.Enabled);
         });
     }

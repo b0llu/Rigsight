@@ -14,6 +14,9 @@ public class TrayMenuTests
     {
         public List<string> Log { get; } = [];
         public bool Paused { get; set; }
+        public bool Readings { get; set; } = true;
+        public bool Widgets { get; set; } = true;
+        public bool Overlay { get; set; }
     }
 
     private static (ContextMenuStrip Menu, Calls Calls) Build(ToolStripMenuItem? widgets = null)
@@ -21,7 +24,13 @@ public class TrayMenuTests
         var calls = new Calls();
         var overlay = new ToolStripMenuItem("Show overlay");
         overlay.Click += (_, _) => calls.Log.Add("overlay");
-        var menu = TrayController.BuildMenu(() => calls.Log.Add("open"), widgets ?? new ToolStripMenuItem("Widgets"), overlay,
+        TrayController.Switch[] switches =
+        [
+            new("Taskbar readings", () => calls.Readings, () => calls.Readings = !calls.Readings),
+            new("Desktop widgets", () => calls.Widgets, () => calls.Widgets = !calls.Widgets),
+            new("Game overlay", () => calls.Overlay, () => calls.Overlay = !calls.Overlay),
+        ];
+        var menu = TrayController.BuildMenu(() => calls.Log.Add("open"), switches, widgets ?? new ToolStripMenuItem("Widgets"), overlay,
             m => calls.Log.Add($"pause {m}"), () => calls.Log.Add("resume"), () => calls.Paused, () => calls.Log.Add("quit"));
         return (menu, calls);
     }
@@ -45,11 +54,33 @@ public class TrayMenuTests
         using (menu)
         {
             Opening(menu);
-            Assert.Equal(["Open RigSight", "Widgets", "Show overlay", "Pause tracking", "-", "Quit RigSight"], Shown(menu));
+            Assert.Equal(["Open RigSight", "-", "Taskbar readings", "Desktop widgets", "Game overlay", "-", "Widgets", "Show overlay", "Pause tracking", "-", "Quit RigSight"], Shown(menu));
             Find(menu.Items, "Open RigSight").PerformClick();
             Find(menu.Items, "Show overlay").PerformClick();
             Find(menu.Items, "Quit RigSight").PerformClick();
             Assert.Equal(["open", "overlay", "quit"], calls.Log);
+        }
+    }
+
+    [Fact]
+    public void The_three_switches_are_ticked_while_on_and_a_click_turns_one_off_or_on()
+    {
+        // The user, 2026-11-09: quick ways to turn the taskbar readings, the widgets and the overlay off.
+        var (menu, calls) = Build();
+        using (menu)
+        {
+            Opening(menu);
+            Assert.True(Find(menu.Items, "Taskbar readings").Checked);
+            Assert.True(Find(menu.Items, "Desktop widgets").Checked);
+            Assert.False(Find(menu.Items, "Game overlay").Checked);
+
+            Find(menu.Items, "Taskbar readings").PerformClick();
+            Find(menu.Items, "Game overlay").PerformClick();
+            Opening(menu);
+            Assert.False(calls.Readings);
+            Assert.True(calls.Overlay);
+            Assert.False(Find(menu.Items, "Taskbar readings").Checked);
+            Assert.True(Find(menu.Items, "Game overlay").Checked);
         }
     }
 
@@ -74,7 +105,7 @@ public class TrayMenuTests
         {
             calls.Paused = true;
             Opening(menu);
-            Assert.Equal(["Open RigSight", "Widgets", "Show overlay", "Resume tracking", "-", "Quit RigSight"], Shown(menu));
+            Assert.Equal(["Open RigSight", "-", "Taskbar readings", "Desktop widgets", "Game overlay", "-", "Widgets", "Show overlay", "Resume tracking", "-", "Quit RigSight"], Shown(menu));
             Find(menu.Items, "Resume tracking").PerformClick();
             Assert.Equal(["resume"], calls.Log);
 

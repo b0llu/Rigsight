@@ -117,12 +117,13 @@ internal sealed class StripComposer
         }
 
         // The parts' names, numbered across the whole taskbar where one comes twice ("GPU 1", "GPU 2").
-        var groups = readings.Select(r => r.Group).Distinct().ToList();
+        // The game's frame rate is "FPS", never a second GPU ("GPU 1", "GPU 2" for one card).
+        var groups = readings.Where(r => r.Id != TrayParts.Fps).Select(r => r.Group).Distinct().ToList();
         var partNames = TrayParts.Names([.. groups.Select(g => readings.First(r => r.Group == g).Part)]);
         var nameOf = groups.Select((g, i) => (g, partNames[i])).ToDictionary(x => x.g, x => x.Item2);
         // Each reading's word across the whole taskbar: a part's name once, never one word twice (see TrayParts.Words).
         var words = TrayParts.Words([.. runs.SelectMany(run => run.Cells).Select(c => (IReadOnlyList<TrayReading>)c)],
-            r => (r.Id, r.Group, nameOf.GetValueOrDefault(r.Group, TrayParts.Label(r.Part)), r.Part == TrayPart.Network, r.OwnShort, r.Short, r.Name));
+            r => (r.Id, r.Group, nameOf.GetValueOrDefault(r.Group, TrayParts.Label(r.Part)), r.Part == TrayPart.Network || r.Id == TrayParts.Fps, r.OwnShort, r.Short, r.Name));
 
         var segments = runs.Select((run, k) =>
         {

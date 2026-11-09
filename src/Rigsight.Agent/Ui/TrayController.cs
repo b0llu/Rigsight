@@ -14,14 +14,17 @@ internal sealed class TrayController : IDisposable
     private string _lastKey = "";
     private Action? _balloonAction;
 
-    public TrayController(Action open, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
+    /// <summary>An on/off item of the menu: its English name, whether it's on (a tick), and what a click does.</summary>
+    internal sealed record Switch(string English, Func<bool> IsOn, Action Toggle);
+
+    public TrayController(Action open, IReadOnlyList<Switch> switches, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
     {
         // When Explorer restarts it tells every window there's a new, empty taskbar, and the icon puts itself back. But
         // Rigsight runs as admin and Explorer doesn't: Windows drops that message on the way unless it's let through
         // (the icon, its menu and every notification from it were gone until the agent restarted).
         ChangeWindowMessageFilter(RegisterWindowMessage("TaskbarCreated"), 1 /* MSGFLT_ADD */);
         _logo = new Icon(Path.Combine(AppContext.BaseDirectory, "Rigsight.ico"), SystemInformation.SmallIconSize);
-        _icon.ContextMenuStrip = BuildMenu(open, widgetsMenu, overlayItem, pause, resume, isPaused, quit);
+        _icon.ContextMenuStrip = BuildMenu(open, switches, widgetsMenu, overlayItem, pause, resume, isPaused, quit);
         _icon.Icon = _logo;
         _icon.Text = "RigSight";
         _icon.Visible = true;
@@ -29,13 +32,29 @@ internal sealed class TrayController : IDisposable
         _icon.BalloonTipClicked += (_, _) => _balloonAction?.Invoke();
     }
 
-    /// <summary>The tray menu. Pausing shows as "Pause tracking" (a choice of how long) or "Resume tracking", never both.</summary>
-    internal static ContextMenuStrip BuildMenu(Action open, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
+    /// <summary>
+    /// The tray menu: the on/off <paramref name="switches"/> (taskbar readings, widgets, overlay) ticked while on, then the
+    /// widgets one by one and the overlay shown now. Pausing shows as "Pause tracking" (a choice of how long) or "Resume
+    /// tracking", never both.
+    /// </summary>
+    internal static ContextMenuStrip BuildMenu(Action open, IReadOnlyList<Switch> switches, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
     {
         var menu = DarkMenuRenderer.Create();
         // Each item with its English, put in the language in use as the menu opens (the language can change while it runs).
         var words = new List<(ToolStripMenuItem Item, string English)>();
         menu.Items.Add(Item(Lang.Key("Open RigSight"), open));
+        var ticks = new List<(ToolStripMenuItem Item, Switch Of)>();
+        if (switches.Count > 0)
+        {
+            menu.Items.Add(new ToolStripSeparator());
+            foreach (var sw in switches)
+            {
+                var item = Item(sw.English, sw.Toggle);
+                ticks.Add((item, sw));
+                menu.Items.Add(item);
+            }
+            menu.Items.Add(new ToolStripSeparator());
+        }
         menu.Items.Add(widgetsMenu);
         menu.Items.Add(overlayItem);
 
@@ -49,6 +68,7 @@ internal sealed class TrayController : IDisposable
         menu.Opening += (_, _) =>
         {
             foreach (var (item, english) in words) item.Text = Lang.T(english);
+            foreach (var (item, of) in ticks) item.Checked = of.IsOn();
             bool paused = isPaused();
             pauseItem.Visible = !paused;
             resumeItem.Visible = paused;
