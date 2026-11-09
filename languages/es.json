@@ -3798,6 +3798,7 @@
     "CONTINUE · LAST PLAYED {0:ddd d MMM}": "CONTINUAR · ÚLTIMA PARTIDA {0:ddd d MMM}",
     "CONTINUE": "CONTINUAR",
     " last time · {0} in all": " la última vez · {0} en total",
+    " last time · {0:ddd d MMM}": " la última vez · {0:ddd d MMM}",
     "GPU ": "GPU ",
     " · 1% low {0:0}": " · 1% mínimo {0:0}",
     "Back to library": "Volver a la biblioteca",

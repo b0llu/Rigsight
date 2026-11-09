@@ -210,8 +210,8 @@ public sealed partial class TaskbarSensorRow(string id, string name, string hard
     public TrayPart Part { get; } = TrayParts.PartOf(sensor?.HardwareType);
     public string PartLabel => TrayParts.Label(Part);
 
-    /// <summary>What it is, in words: "CPU temperature", "GPU load"; a speed by its own name ("Download speed").</summary>
-    public string KindPhrase => Sensor is null || TrayParts.IsNet(Id) ? Name : TaskbarViewModel.KindPhrase(PartLabel, Sensor.Kind);
+    /// <summary>What it is, in words: "CPU temperature", "GPU load"; RigSight's own by its name ("Download speed", "Frame rate (FPS)").</summary>
+    public string KindPhrase => Sensor is null || TrayParts.IsOwn(Id) ? Name : TaskbarViewModel.KindPhrase(PartLabel, Sensor.Kind);
 
     /// <summary>The word under it on the strip (after its part's first, see <see cref="TrayParts.ShortLabel"/>).</summary>
     public string Short => Sensor is null ? ""
@@ -298,14 +298,14 @@ public sealed partial class TaskbarSpot : ObservableObject
             if (!IsPair) return First.Name;
             var a = First;
             if (Rows.Skip(1).Any(b => b.KindPhrase == a.KindPhrase)) return Lang.T($"{a.Name} and {string.Join(", ", Rows.Skip(1).Select(b => b.Name))}");
-            var rest = Rows.Skip(1).Select(b => b.Found && a.Found && b.Part == a.Part && !TrayParts.IsNet(b.Id) && !TrayParts.IsNet(a.Id)
+            var rest = Rows.Skip(1).Select(b => b.Found && a.Found && b.Part == a.Part && !TrayParts.IsOwn(b.Id) && !TrayParts.IsOwn(a.Id)
                 ? TaskbarViewModel.KindWord(b.Sensor!.Kind) : b.KindPhrase);
             return Lang.T($"{a.KindPhrase} and {string.Join(", ", rest)}");
         }
     }
 
-    /// <summary>Under one reading's name: what it is (a speed: where it's counted).</summary>
-    public string What => TrayParts.IsNet(First.Id) || !First.Found ? First.Hardware : First.KindPhrase;
+    /// <summary>Under one reading's name: what it is (RigSight's own: where it's counted, or where the frame rate comes from).</summary>
+    public string What => TrayParts.IsOwn(First.Id) || !First.Found ? First.Hardware : First.KindPhrase;
 
     /// <summary>Its stripe: its first reading's colour on top, its second's under it.</summary>
     public Brush StripeTop => First.Mark;
@@ -489,7 +489,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
     }
 
     /// <summary>Every sensor on this PC, for the picker, and RigSight's own network speeds.</summary>
-    public IReadOnlyList<SensorItem> AllSensors => [.. _live.PickableSensors, .. _live.NetSensors];
+    public IReadOnlyList<SensorItem> AllSensors => [.. _live.PickableSensors, .. _live.NetSensors, .. _live.FpsSensors];
 
     /// <summary>Every reading in the taskbar, in its order.</summary>
     public ObservableCollection<TaskbarSensorRow> Sensors { get; } = [];
@@ -525,6 +525,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
             One(Lang.T("Download speed"), _live.NetSensors[0]);
             One(Lang.T("Upload speed"), _live.NetSensors[1]);
             One(Lang.T("Download and upload"), _live.NetSensors[2]);
+            One(Lang.T("FPS"), _live.FpsSensors[0]);
             return picks;
         }
     }
@@ -565,7 +566,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
 
     /// <summary>What's typed in the "Add a reading" box.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AddList), nameof(ShowCommon))]
+    [NotifyPropertyChangedFor(nameof(AddList), nameof(AddListEmpty), nameof(ShowCommon))]
     private string _addSearch = "";
 
     /// <summary>The common readings first, as pickers pin the most used (only while nothing is typed).</summary>

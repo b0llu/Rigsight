@@ -970,6 +970,9 @@ public sealed partial class GamesViewModel : ObservableObject
         var pills = new List<GamePill>();
         if (st.Plays.Count > 0)
         {
+            // The last play first, as the library's banner says it (the user, 2026-11-09: the game's page didn't say it).
+            var last = st.Plays[^1];
+            pills.Add(new("", Units.Duration(last.ActiveSec), Lang.T($" last time · {last.StartTime:ddd d MMM}")));
             pills.Add(new(Lang.T("Played "), Units.Duration(e.ActiveSec)));
             var since = st.Plays[0].StartTime;
             pills.Add(new("", $"{st.Plays.Count}", st.Plays.Count == 1 ? Lang.T($" play since {since:ddd d MMM}") : Lang.T($" plays since {since:ddd d MMM}")));

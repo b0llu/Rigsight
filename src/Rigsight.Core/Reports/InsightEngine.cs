@@ -649,6 +649,19 @@ public static class InsightEngine
             : r.LastActive >= r.To ? Lang.T($"On from {start:h:mm tt} until past midnight") : Lang.T($"On from {start:h:mm tt} to {(r.LastActive ?? start):h:mm tt}");
     }
 
+    /// <summary>
+    /// When a day's use began, for the top of Reports (the user, 2026-11-09: "we dont show quickly when our day started"):
+    /// "Day started at 9:12 AM" while it's today, "On from 9:12 AM to 11:40 PM" once it's over; null for longer periods
+    /// or a day with no use from 5 AM on. The words <see cref="ShortSpan"/> has, without the late night first.
+    /// </summary>
+    public static string? DayStartLine(Report r)
+    {
+        if (r.Range != ReportRange.Day || r.DayStart is not { } start) return null;
+        bool inProgress = r.From <= DateTime.Now && DateTime.Now < r.To;
+        return inProgress ? Lang.T($"Day started at {start:h:mm tt}")
+            : r.LastActive >= r.To ? Lang.T($"On from {start:h:mm tt} until past midnight") : Lang.T($"On from {start:h:mm tt} to {(r.LastActive ?? start):h:mm tt}");
+    }
+
     /// <summary>When something ended: its time, or "past midnight" when it ran to the end of the day and on.</summary>
     private static string Until(Report r, DateTime end) => end >= r.To && r.Range == ReportRange.Day ? Lang.T("past midnight") : end.ToString(TimeText.Fit("h:mm tt"));
 

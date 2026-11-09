@@ -5,6 +5,8 @@ public enum SensorKind
 {
     Voltage, Current, Power, Clock, Temperature, Load, Frequency, Fan, Flow, Control, Level,
     Factor, Data, SmallData, Throughput, TimeSpan, Timing, Energy, Noise, Conductivity, Humidity,
+    /// <summary>A game's frames a second (RigSight's own taskbar reading, see TrayParts.Fps); last, so stored kinds keep their numbers.</summary>
+    FrameRate,
 }
 
 /// <summary>Formatting of raw values. Temperatures are always stored in °C and converted for display.</summary>
@@ -35,6 +37,7 @@ public static class Units
             SensorKind.SmallData => $"{v:0} MB",
             SensorKind.Throughput => Rate(v),
             SensorKind.Frequency => $"{v:0} Hz",
+            SensorKind.FrameRate => $"{v:0} " + Lang.T("FPS"),
             SensorKind.Energy => $"{v:0} mWh",
             SensorKind.Noise => $"{v:0} dBA",
             SensorKind.Timing => $"{v:0.00} ns",
@@ -98,6 +101,7 @@ public static class Units
             SensorKind.Voltage => v.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
             SensorKind.SmallData => Short(v >= 1024 ? v / 1024 : v),             // MB; GB from 1024
             SensorKind.Throughput => Short(v / (1024 * 1024)),                   // bytes/s as MB/s
+            SensorKind.FrameRate => Whole(v),
             _ => Short(v),
         };
     }
@@ -166,6 +170,7 @@ public static class Units
         SensorKind.Noise => Lang.T("NOISE"),
         SensorKind.Humidity => Lang.T("HUMIDITY"),
         SensorKind.Timing => Lang.T("TIMING"),
+        SensorKind.FrameRate => Lang.T("FPS"),
         _ => kind.ToString().ToUpperInvariant(),
     };
 

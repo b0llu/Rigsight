@@ -150,7 +150,8 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     public static bool ShowsFrameRate(WidgetConfig cfg) =>
         WidgetCatalog.ShownItems(cfg).Any(i => WidgetCatalog.Metric(i.Id) is OverlayMetric.Fps or OverlayMetric.FrameTime or OverlayMetric.OnePercentLow);
 
-    private static int ForegroundPid()
+    /// <summary>The process of the window in front (0: none).</summary>
+    internal static int ForegroundPid()
     {
         Native.Win32.GetWindowThreadProcessId(Native.Win32.GetForegroundWindow(), out int pid);
         return pid;

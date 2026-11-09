@@ -1217,7 +1217,8 @@ internal sealed partial class AgentContext : ApplicationContext
     /// <summary>
     /// The taskbar's sensors (sampler thread): the name given on All sensors, else the sensor's own; each one's own style
     /// and size (else the taskbar's style, fitted to it); the reading its look is drawn from (Together) with its value; a
-    /// CPU's cores for Each core. The network's speeds are RigSight's own count for the whole PC, as on the Network page.
+    /// CPU's cores for Each core. The network's speeds are RigSight's own count for the whole PC, as on the Network page;
+    /// the frame rate is RivaTuner's for the game in front, none (shown "–") while no game draws frames.
     /// </summary>
     private List<TrayReading> TrayReadingsFor(RigsightSettings settings)
     {
@@ -1240,6 +1241,14 @@ internal sealed partial class AgentContext : ApplicationContext
                     TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
                     OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
                     Second: id == TrayParts.NetBoth ? up : null);
+            }
+            else if (id == TrayParts.Fps)
+            {
+                double? fps = Rtss.ReadFrameStats(WidgetManager.ForegroundPid()) is { Fps: > 0 } f ? f.Fps : null;
+                reading = new TrayReading(id, own ?? Lang.T("Frame rate (FPS)"), SensorKind.FrameRate, fps, TrayPart.Gpu, Lang.T("From RivaTuner, in the game you're playing"),
+                    TrayParts.ShortLabel(SensorKind.FrameRate, "", TrayPart.Gpu, own),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id));
             }
             else if (_sensors.ReadSensor(id) is { } r)
             {
@@ -2413,9 +2422,9 @@ internal sealed partial class AgentContext : ApplicationContext
     /// Writes widget and overlay preview images and tells the app they're ready. The overlay's sensors are read
     /// on the sampler thread for these settings (so one just added shows straight away), then drawn on the UI thread.
     /// </summary>
-    /// <summary>The overlay draws in games through RivaTuner, and the FPS widget reads the frame rate from it.</summary>
+    /// <summary>The overlay draws in games through RivaTuner, and the FPS widget and the taskbar's FPS read the frame rate from it.</summary>
     private static bool NeedsRtss(RigsightSettings s) =>
-        s.Overlay.Enabled || s.Widgets.Any(w => w.Enabled && WidgetManager.ShowsFrameRate(w));
+        s.Overlay.Enabled || s.Widgets.Any(w => w.Enabled && WidgetManager.ShowsFrameRate(w)) || s.TraySensors.Contains(TrayParts.Fps);
 
     private void RenderPreviews(RigsightSettings settings) =>
         RunOnSampler(() =>

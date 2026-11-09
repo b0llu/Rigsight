@@ -13,7 +13,8 @@ namespace Rigsight.Agent.Ui;
 /// the notification area would draw them. It's a see-through window made a child of the
 /// taskbar (as TrafficMonitor does), so it moves, hides and shows with it, full-screen games included. Checked on every
 /// update: a restarted Explorer (a new taskbar) gets a new window, a tray that grew or shrank moves it.
-/// By the clock (<see cref="TraySide.Right"/>) it sits just left of the tray, and never over the apps' buttons: with too
+/// By the clock (<see cref="TraySide.Right"/>) it sits just left of the tray (left of Widgets when the taskbar's icons are
+/// aligned left and Windows put the weather there), and never over the apps' buttons: with too
 /// little room the strip's graphs get narrower (down to their words' width), then the last readings wait in a "+N" place
 /// at the end, which names them when hovered. On the left (<see cref="TraySide.Left"/>) it sits at the taskbar's left
 /// end, after Widgets and clear of Start, wherever the centred icons have moved Start to; with no room there (icons
@@ -99,6 +100,9 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
 
     /// <summary>Why the readings aren't on the left as asked ("" when they are, or weren't asked): logged when it changes.</summary>
     private string? _sideNote;
+
+    /// <summary>How far before the tray the readings by the clock last kept clear of Widgets (0: they didn't need to); logged when it changes.</summary>
+    private int _widgetsGap;
 
     /// <summary>The readings waiting for room in "+N" right now (by sensor id; none when all fit), for the Taskbar page.</summary>
     public IReadOnlyList<string> Waiting => [.. _waiting.Select(r => r.Id)];
@@ -195,7 +199,7 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
             int gap = (int)Math.Round(6 * scale);
             int full = _composer.Build(readings, options, graphWide, 0, barHeight, scale, now).Width;
             bool onLeft = side == TraySide.Left && places is not null && LeftRoom(bar, places, gap) is { } left && left.From + full <= left.Until;
-            int room = onLeft || places is not { AppsRight: > 0 } ? int.MaxValue : notify.L - gap - (places.AppsRight + gap * 2);
+            int room = onLeft || places is not { AppsRight: > 0 } ? int.MaxValue : notify.L - places.WidgetsToTray - gap - (places.AppsRight + gap * 2);
             var (fitWide, wait) = _composer.Fit(readings, options, graphWide, barHeight, scale, room, now);
             var layout = _composer.Build(readings, options, fitWide, wait, barHeight, scale, now);
             _cells = layout.Cells;
@@ -299,14 +303,23 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     }
 
     /// <summary>
-    /// Just left of the tray, a little apart from it, the full height of the bar; on the left, at the bar's left end
-    /// (after Widgets) when it fits before Start, else beside the tray after all.
+    /// Just left of the tray (and of Widgets, when Windows put it beside the tray), a little apart from it, the full
+    /// height of the bar; on the left, at the bar's left end (after Widgets) when it fits before Start, else beside the
+    /// tray after all.
     /// </summary>
     private void Place(RECT bar, RECT notify, Size size, float scale)
     {
         if (_window is null) return;
         int gap = (int)Math.Round(6 * scale);
-        int x = notify.L - bar.L - size.Width - gap;
+        int widgets = _buttons?.Latest?.WidgetsToTray ?? 0;
+        if (widgets != _widgetsGap)
+        {
+            Log.Write("taskbar", widgets > 0
+                ? $"Widgets is beside the tray (the taskbar's icons look aligned left): the readings by the clock keep {widgets} px clear of it"
+                : "Widgets isn't beside the tray any more: the readings by the clock sit next to the tray");
+            _widgetsGap = widgets;
+        }
+        int x = notify.L - bar.L - widgets - size.Width - gap;
         string note = "";
         if (_side == TraySide.Left)
         {

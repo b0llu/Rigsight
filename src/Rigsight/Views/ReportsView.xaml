@@ -54,11 +54,11 @@
                 <Border DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,12,0" Visibility="{Binding ShowData, Converter={StaticResource Vis}}">
                     <Button Style="{StaticResource AiButton}" Content="{Binding ReportAskText}" CommandParameter="{Binding ReportAsk}" AutomationProperties.Name="{Binding ReportAskText}" />
                 </Border>
-                <StackPanel>
-                    <TextBlock Text="{Binding Title}" Style="{StaticResource H1}" />
-                    <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
-                </StackPanel>
+                <TextBlock Text="{Binding Title}" Style="{StaticResource H1}" VerticalAlignment="Center" />
             </DockPanel>
+            <!-- The period's dates (a day's also when its use began): the page's whole width, so the buttons beside the title
+                 never cut it short (2026-11-09: "On from 8:31 AM…" under the AI button). -->
+            <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
             <TextBlock Text="{Binding CoverageNote}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,8,0,0"
                        Visibility="{Binding CoverageNote, Converter={StaticResource Vis}}" />
 

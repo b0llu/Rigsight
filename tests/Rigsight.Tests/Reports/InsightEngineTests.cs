@@ -396,6 +396,26 @@ public sealed class InsightEngineTests : IDisposable
     }
 
     [Fact]
+    public void A_day_says_when_it_started_under_its_date()
+    {
+        // The top of Reports (the user, 2026-11-09: "we dont show quickly when our day started").
+        var r = Past();
+        r.DayStart = Wed.AddHours(8).AddMinutes(5);
+        r.LastActive = Wed.AddHours(23).AddMinutes(10);
+        Assert.Equal("On from 8:05 AM to 11:10 PM", InsightEngine.DayStartLine(r));
+        r.LateUntil = Wed.AddHours(1).AddMinutes(30); // the late night stays news for the list; the top says the day
+        Assert.Equal("On from 8:05 AM to 11:10 PM", InsightEngine.DayStartLine(r));
+        r.DayStart = null;
+        Assert.Null(InsightEngine.DayStartLine(r));
+        Assert.Null(InsightEngine.DayStartLine(Past(ReportRange.Week)));
+
+        var today = DateTime.Today;
+        var (from, to) = ReportBuilder.Bounds(ReportRange.Day, today);
+        var now = new Report { Range = ReportRange.Day, From = from, To = to, HasData = true, DayStart = today.AddHours(9).AddMinutes(12) };
+        Assert.Equal("Day started at 9:12 AM", InsightEngine.DayStartLine(now));
+    }
+
+    [Fact]
     public void A_late_night_before_is_mentioned_first()
     {
         var r = Past();

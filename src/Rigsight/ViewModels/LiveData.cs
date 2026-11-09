@@ -701,6 +701,13 @@ public sealed partial class LiveData : ObservableObject
     /// </summary>
     public IReadOnlyList<SensorItem> NetSensors { get; } = [NetItem(TrayParts.NetDown), NetItem(TrayParts.NetUp), NetItem(TrayParts.NetBoth)];
 
+    /// <summary>
+    /// The game's frame rate, a taskbar reading of RigSight's own (see <see cref="TrayParts.Fps"/>): listed to add, with no
+    /// value here; the agent reads it from RivaTuner while a game draws frames.
+    /// </summary>
+    public IReadOnlyList<SensorItem> FpsSensors { get; } =
+        [new(new SensorMeta { Id = TrayParts.Fps, Name = Lang.T("Frame rate (FPS)"), Kind = SensorKind.FrameRate }, Lang.T("From RivaTuner, in the game you're playing"), TrayParts.FpsHardwareType)];
+
     private static SensorItem NetItem(string id) =>
         new(new SensorMeta { Id = id, Name = TrayParts.NetName(id), Kind = SensorKind.Throughput }, TrayParts.NetHardware, "Network");
 

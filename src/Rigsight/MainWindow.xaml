@@ -755,7 +755,9 @@
                             <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
                                 <ctl:InkCentered x:Name="Glyph" Text="&#xEA8F;" Font="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S14}" Width="16" Height="16" Fill="{DynamicResource MutedBrush}" />
                             </Border>
-                            <Border x:Name="Badge" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-5,-5,0" MinWidth="16" Height="16" Padding="4,0"
+                            <!-- Its top 4 px inside the title bar: on the bar's very top edge the screen's edge cut it flat, maximized
+                                 or not (2026-11-09). -->
+                            <Border x:Name="Badge" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,-5,0" MinWidth="16" Height="16" Padding="4,0"
                                     CornerRadius="8" Background="{DynamicResource TextBrush}" IsHitTestVisible="False"
                                     Visibility="{Binding Notices.HasUnseen, Converter={StaticResource Vis}}">
                                 <TextBlock Text="{Binding Notices.UnseenText}" FontSize="{x:Static ctl:TextSize.Mini}" FontWeight="Bold" Foreground="{DynamicResource BgBrush}"

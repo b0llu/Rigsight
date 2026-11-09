@@ -283,7 +283,9 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     // (the Apps table's Memory peak).
     internal static readonly HashSet<string> SaidElsewhere = ["screen", "screen-compare", "gaming", "top-app", "net-recap", "crash", "app-crashes", "memory"];
     private List<Insight> _shownInsights = [];
-    public List<Insight> ShownInsights => _shownInsights = Kept.Or(_shownInsights, [.. Insights.Where(i => !SaidElsewhere.Contains(i.Key))]);
+    // A day's span is under its date (Subtitle), so the list leaves it out, unless the night before ran late: that's news.
+    public List<Insight> ShownInsights => _shownInsights = Kept.Or(_shownInsights, [.. Insights.Where(i => !SaidElsewhere.Contains(i.Key)
+        && !(i.Key == "span" && Report is { LateUntil: null } r && Core.Reports.InsightEngine.DayStartLine(r) is not null))]);
 
     // ── What changed on the PC in the period ──
 
@@ -500,8 +502,10 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
 
     // A period is named by its last day since 1.4.0 (the 7 days ending on it): its first day named the 7 days before
     // ("24 Oct – 30 Oct 2026" under "30 Oct – 5 Nov", 2026-11-06).
+    // A day says when its use began, there under its date (InsightEngine.DayStartLine).
     public string Subtitle => Report is null ? "" : Report.Range == ReportRange.Custom
-        ? $"{Controls.PeriodPicker.Duration(Report.To - Report.From)}" : Controls.PeriodPicker.Span(Report.Range, Report.To.AddTicks(-1).Date);
+        ? $"{Controls.PeriodPicker.Duration(Report.To - Report.From)}"
+        : Controls.PeriodPicker.Span(Report.Range, Report.To.AddTicks(-1).Date) + (Core.Reports.InsightEngine.DayStartLine(Report) is { } started ? "  ·  " + started : "");
 
     /// <summary>Explains short weeks/months while Rigsight is new.</summary>
     public string? CoverageNote

@@ -25,9 +25,25 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
 
     /// <summary>
     /// What was last found: Start (empty when not found), Widgets (empty when not shown) and the right edge of the last
-    /// app button, in screen pixels (0 when none was found).
+    /// app button, in screen pixels (0 when none was found); and how far before the tray Widgets begins when Windows put it
+    /// beside the tray (<see cref="WidgetsBeforeTray"/>; 0 when it didn't), which the readings by the clock keep clear of.
     /// </summary>
-    public sealed record Places(Rectangle Start, Rectangle Widgets, int AppsRight = 0);
+    public sealed record Places(Rectangle Start, Rectangle Widgets, int AppsRight = 0, int WidgetsToTray = 0);
+
+    /// <summary>
+    /// How far <paramref name="widgets"/> begins before the tray (whose left edge is <paramref name="trayLeft"/>), when
+    /// Windows put it beside the tray: with the taskbar's icons aligned left, Widgets (the weather) moves from the bar's
+    /// left end to just before the tray's icons, where the readings by the clock go (2026-11-08: a person's readings
+    /// were drawn over "Mostly cloudy"). Measured from the tray, it stays right as the tray grows and shrinks between
+    /// looks. 0 when Widgets isn't shown, or is at the bar's left end (icons centred: it's before Start).
+    /// </summary>
+    internal static int WidgetsBeforeTray(Rectangle start, Rectangle widgets, int? trayLeft)
+    {
+        if (widgets.IsEmpty || trayLeft is not { } tray || widgets.Left >= tray) return 0;
+        // Centred icons: Widgets is at the bar's left end, before Start. Without Start, by how near the tray it ends.
+        bool byTray = start.IsEmpty ? tray - widgets.Right <= widgets.Height : widgets.Left > start.Left;
+        return byTray ? tray - widgets.Left : 0;
+    }
 
     private readonly AutoResetEvent _wake = new(false);
     private Thread? _thread;
@@ -89,8 +105,9 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
                     widgets = bar.FindFirst(TreeScope_Descendants, uia.CreatePropertyCondition(UIA_AutomationIdPropertyId, "WidgetsButton"));
                     appsCondition = uia.CreatePropertyCondition(UIA_ClassNamePropertyId, AppButtonClass);
                 }
-                var now = new Places(start is null ? Rectangle.Empty : Bounds(start), widgets is null ? Rectangle.Empty : Bounds(widgets),
-                    AppsRight(uia.ElementFromHandle(taskbar), appsCondition));
+                var (startAt, widgetsAt) = (start is null ? Rectangle.Empty : Bounds(start), widgets is null ? Rectangle.Empty : Bounds(widgets));
+                var now = new Places(startAt, widgetsAt, AppsRight(uia.ElementFromHandle(taskbar), appsCondition),
+                    WidgetsBeforeTray(startAt, widgetsAt, TrayLeft(taskbar)));
                 lastError = null;
                 if (!Stopped() && taskbar == _taskbar && now != _latest)
                 {
@@ -125,6 +142,17 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
             if (Bounds(buttons.GetElement(i)) is { IsEmpty: false } b) right = Math.Max(right, b.Right);
         return right;
     }
+
+    /// <summary>The tray's left edge in screen pixels (its window: the notification icons and the clock); null when not found.</summary>
+    private static int? TrayLeft(IntPtr taskbar)
+    {
+        IntPtr tray = FindWindowEx(taskbar, IntPtr.Zero, "TrayNotifyWnd", null);
+        return tray != IntPtr.Zero && GetWindowRect(tray, out var r) ? r.L : null;
+    }
+
+    [StructLayout(LayoutKind.Sequential)] private struct RECT { public int L, T, R, B; }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string? cls, string? name);
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
 
     private static Rectangle Bounds(IUIAutomationElement element)
     {

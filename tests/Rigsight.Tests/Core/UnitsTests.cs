@@ -16,6 +16,19 @@ public sealed class UnitsTests : IDisposable
         _culture.Dispose();
     }
 
+    [Fact]
+    public void A_frame_rate_reads_as_fps_and_a_dash_with_no_game()
+    {
+        // The taskbar's FPS (TrayParts.Fps): a whole number over "FPS", and "–" while no game draws frames.
+        Assert.Equal("66 FPS", Units.Format(SensorKind.FrameRate, 66.4));
+        Assert.Equal("66", Units.StripText(SensorKind.FrameRate, 66.4));
+        Assert.Equal("7", Units.StripText(SensorKind.FrameRate, 7.4));
+        Assert.Equal("–", Units.StripText(SensorKind.FrameRate, null));
+        Assert.Equal("FPS", TrayParts.ShortLabel(SensorKind.FrameRate, "", TrayPart.Gpu));
+        Assert.Equal(TrayPart.Gpu, TrayParts.PartOf(TrayParts.FpsHardwareType));
+        Assert.True(TrayParts.IsOwn(TrayParts.Fps) && TrayParts.IsOwn(TrayParts.NetDown) && !TrayParts.IsNet(TrayParts.Fps));
+    }
+
     [Theory]
     [InlineData(SensorKind.Temperature, 46.54, "46.5 °C")]
     [InlineData(SensorKind.Temperature, -5, "-5.0 °C")]

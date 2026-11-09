@@ -15,6 +15,30 @@ namespace Rigsight.Tests.AppUi;
 public sealed class TaskbarAddBoxTests(AppHost host) : IClassFixture<AppHost>
 {
     [Fact]
+    public void Typing_what_nothing_matches_says_so_and_FPS_is_there_to_add()
+    {
+        // 2026-11-09: "asd" showed a bare empty box (the list's "nothing matches" line was never told the list emptied);
+        // and FPS couldn't be added at all.
+        host.Show("taskbar", 600);
+        var vm = Ui.Run(() => (Rigsight.ViewModels.TaskbarViewModel)Visuals.Descendants<Rigsight.Views.TaskbarView>(host.Window).Single().DataContext);
+        Ui.Run(() =>
+        {
+            var told = new List<string?>();
+            vm.PropertyChanged += (_, e) => told.Add(e.PropertyName);
+            vm.AddSearch = "asd qqq";
+            Assert.Contains(nameof(vm.AddListEmpty), told);
+            Assert.True(vm.AddListEmpty);
+
+            vm.AddSearch = "fps";
+            Assert.False(vm.AddListEmpty);
+            Assert.Contains(vm.AddList, i => i.Sensor?.Id == Rigsight.Core.TrayParts.Fps);
+            vm.AddSearch = "";
+            if (!vm.Sensors.Any(r => r.Id == Rigsight.Core.TrayParts.Fps))
+                Assert.Contains(vm.QuickPicks, p => p.Label == "FPS");
+        });
+    }
+
+    [Fact]
     public void The_add_list_opens_from_the_box_and_closes_on_esc_a_click_elsewhere_or_the_page_scrolling()
     {
         host.Show("taskbar", 600);

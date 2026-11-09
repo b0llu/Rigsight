@@ -34,7 +34,8 @@ public static class TrayParts
     public static TrayPart PartOf(string? hardwareType) => hardwareType switch
     {
         "Cpu" => TrayPart.Cpu,
-        "GpuNvidia" or "GpuAmd" or "GpuIntel" => TrayPart.Gpu,
+        // The game's frame rate (Fps) goes with the GPU, which draws the frames.
+        "GpuNvidia" or "GpuAmd" or "GpuIntel" or FpsHardwareType => TrayPart.Gpu,
         "Memory" => TrayPart.Ram,
         "Storage" => TrayPart.Drive,
         "Motherboard" or "SuperIO" or "EmbeddedController" => TrayPart.Board,
@@ -109,6 +110,20 @@ public static class TrayParts
 
     /// <summary>What the speeds are of: the whole PC.</summary>
     public const string NetHardware = "This PC";
+
+    // ── The game's frame rate, a reading of RigSight's own (RivaTuner's, as the overlay and the FPS widget read it) ──
+
+    /// <summary>
+    /// The frame rate of the game in front while RivaTuner measures it; no value otherwise, so the taskbar shows "–" by
+    /// "FPS" until a game draws frames (the user, 2026-11-09: people couldn't add FPS to the taskbar at all).
+    /// </summary>
+    public const string Fps = "rigsight/game/fps";
+
+    /// <summary>The kind of hardware it's listed under (<see cref="PartOf"/>: with the GPU).</summary>
+    public const string FpsHardwareType = "Game";
+
+    /// <summary>A reading of RigSight's own, not a sensor of the hardware library: the network's speeds and the game's frame rate.</summary>
+    public static bool IsOwn(string id) => IsNet(id) || id == Fps;
 
     // ── Sizes ──
 
@@ -463,6 +478,7 @@ public static class TrayParts
             case SensorKind.Data or SensorKind.SmallData: return Has("available") || Has("free") ? Lang.T("Free") : Lang.T("Used");
             case SensorKind.Throughput: return Has("upload") ? Lang.T("Up") : Has("download") ? Lang.T("Down") : Lang.T("Rate");
             case SensorKind.Flow: return Lang.T("Flow");
+            case SensorKind.FrameRate: return Lang.T("FPS");
         }
         string first = sensorName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
         return first.Length <= 6 ? first : first[..6];
