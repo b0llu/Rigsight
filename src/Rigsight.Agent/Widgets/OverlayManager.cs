@@ -131,7 +131,8 @@ internal sealed class OverlayManager : IDisposable
         if (InGameRtssReaches())
         {
             int pid = ForegroundPid();
-            _rtssWritten = Rtss.Show(WidgetRenderer.RtssText(_settings, _data, Rtss.Resolution(pid) ?? ForegroundScreen().Size));
+            // Each label and number where our own window draws it (the user, 2026-11-09: it looked different in fullscreen).
+            _rtssWritten = Rtss.Show(WidgetRenderer.RtssTextPlaced(_settings, _data, Rtss.Resolution(pid) ?? ForegroundScreen().Size));
             if (_form is { Visible: true }) _form.Hide();
             return;
         }

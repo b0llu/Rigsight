@@ -132,6 +132,36 @@ public partial class OverlayRendererTests
     }
 
     [Fact]
+    public void In_games_each_label_and_number_goes_where_our_window_draws_it()
+    {
+        // The user, 2026-11-09: the overlay looked different in fullscreen (RivaTuner's text spaced by symbols). Checked
+        // side by side in RivaTuner's DesktopOverlayHost: each piece starts within 2 px of the window's, same panel width.
+        var d = Full();
+        d.Sensors = [];
+        var o = Only(OverlayMetric.Fps, OverlayMetric.CpuTemp, OverlayMetric.GpuTemp);
+        o.Layout = OverlayLayout.Line;
+        static List<(int X, int Y)> Places(string text) =>
+            [.. Regex.Matches(text, @"<P=(-?\d+),(-?\d+)>").Select(m => (int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value)))];
+        var at = Places(WidgetRenderer.RtssTextPlaced(o, d, new Size(1920, 1080)));
+        var pieces = at.Skip(2).Take(6).ToList(); // after the panel's corner and the panel: FPS, 144, CPU, 62°, GPU, 71°
+        Assert.Equal(pieces.OrderBy(p => p.X).Select(p => p.X), pieces.Select(p => p.X)); // left to right, as drawn
+        Assert.True(pieces.Select(p => p.X).Distinct().Count() == 6);
+
+        // Space between moves them as in the window; a bigger size moves them further.
+        o.GapPx = 40;
+        var wide = Places(WidgetRenderer.RtssTextPlaced(o, d, new Size(1920, 1080))).Skip(2).Take(6).ToList();
+        Assert.True(wide[^1].X > pieces[^1].X);
+        o.GapPx = null;
+        o.Scale = 2;
+        var big = Places(WidgetRenderer.RtssTextPlaced(o, d, new Size(1920, 1080))).Skip(2).Take(6).ToList();
+        Assert.True(big[^1].X - big[0].X > 1.8 * (pieces[^1].X - pieces[0].X));
+
+        // Every reading and ten sensors still fit RivaTuner's 4096 symbols.
+        var all = new OverlaySettings();
+        Assert.True(WidgetRenderer.RtssTextPlaced(all, Full(), new Size(1920, 1080)).Length < 4096);
+    }
+
+    [Fact]
     public void The_size_follows_the_scale()
     {
         using var one = WidgetRenderer.RenderOverlay(AllMetrics(), Full(), 1);

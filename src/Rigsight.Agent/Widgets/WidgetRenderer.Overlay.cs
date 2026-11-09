@@ -255,6 +255,87 @@ internal static partial class WidgetRenderer
     }
 
     /// <summary>
+    /// The same readout in RivaTuner's hypertext with every label and number put where our own window draws it
+    /// (&lt;P=x,y&gt;, in RivaTuner's zoomed pixels: the window's pixels at size M, times the size, over the zoom), instead of
+    /// spaces and slots counted in RivaTuner's symbols (the user, 2026-11-09: the overlay looked different in fullscreen).
+    /// The text itself is still RivaTuner's (it can't show our picture: shared memory only embeds graphs).
+    /// </summary>
+    /// <summary>A "." of RivaTuner's text at size M, in the window's pixels: the panel's corner marks end there.</summary>
+    private const float MarkWidth = 19, MarkHeight = 21, PanelLift = 3;
+
+    internal static string RtssTextPlaced(OverlaySettings o, WidgetData? data, Size? screen = null)
+    {
+        var rows = OverlayRows(o, data ?? new WidgetData());
+        if (rows.Count == 0) return "";
+        int textAlpha = Math.Max(1, (int)Math.Round(255 * o.ContentOpacity));
+        string Hex(Color c) => textAlpha >= 255 ? $"{c.R:X2}{c.G:X2}{c.B:X2}" : $"{textAlpha:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
+        static string Clean(string text) => text.Replace("<", "").Replace(">", "");
+        bool line = o.Layout == OverlayLayout.Line;
+
+        // The window's own measures and size (see RenderOverlay), at size M.
+        using var probe = new Bitmap(1, 1);
+        using var mg = Graphics.FromImage(probe);
+        float LabelWidth(OverlayRow r) => r.Label.Length == 0 ? 0 : Math.Max(OverlayLabelWidth, Measure(mg, r.Label, OverlayLabelPx, FontStyle.Bold) + 8);
+        float CellWidth(Cell c) =>
+            Math.Max(Measure(mg, c.Template, c.Px, FontStyle.Bold, semibold: true), Measure(mg, c.Value, c.Px, FontStyle.Bold, semibold: true))
+            + (c.Unit.Length > 0 ? 2 + Measure(mg, UnitText(c), OverlayUnitPx, FontStyle.Regular) : 0);
+        var (cellGap, groupGap) = OverlayGaps(o.Gap, o.GapPx);
+        float RowWidth(OverlayRow r) => LabelWidth(r) + r.Cells.Sum(CellWidth) + cellGap * (r.Cells.Count - 1);
+        float labelColumn = rows.Max(LabelWidth);
+        float Indent(OverlayRow r) => r.Label.Length == 0 ? 0 : labelColumn;
+        var lines = OverlayLines(rows, line);
+        float w = line ? OverlayPad * 2 + lines.Max(l => l.Sum(RowWidth) + groupGap * (l.Count - 1))
+                       : OverlayPad * 2 + rows.Max(r => Indent(r) + RowWidth(r) - LabelWidth(r));
+        float h = OverlayPad * 2 + OverlayRowHeight * (line ? lines.Count : rows.Count);
+
+        // Where the window would be on the game's screen, in its pixels; RivaTuner's positions are from the screen's
+        // corner, in zoomed pixels.
+        var size = screen ?? new Size(1920, 1080);
+        double s = o.Scale;
+        var (left, top) = OverlayPlacement.Place(OverlayPlacement.AnchorOf(o), o.OffsetX, o.OffsetY, size.Width, size.Height, w * s, h * s, RtssGapPx,
+            keepOnScreen: o.SnapPosition);
+        left = Math.Max(0, left);
+        top = Math.Max(0, top);
+        string At(double x, double y) => $"<P={(int)Math.Round((left + x * s) / RtssZoom)},{(int)Math.Round((top + y * s) / RtssZoom)}>";
+
+        int fontHeight = -(int)Math.Round(8 * s);
+        int alpha = (int)Math.Round(OverlayPanelAlpha * o.BackgroundOpacity);
+        // The panel is RivaTuner's own, as big as what's on its layer: an invisible mark at the window's top-left and one
+        // ending at its bottom-right make that the window's size (a size given to the bar itself is ignored).
+        const string Mark = "<C=01000000>.<C>";
+        var text = new System.Text.StringBuilder($"<FNT=Segoe UI Semibold,{fontHeight},600,{RtssZoom}><L0>");
+        // RivaTuner keeps room under each line of text, so its panel ends a few pixels lower than the window's; it starts
+        // half that higher, so the readings sit in its middle as in the window (measured in DesktopOverlayHost).
+        text.Append(At(0, -PanelLift)).Append(Mark);
+        if (alpha > 0) text.Append(At(0, -PanelLift)).Append($"<C={alpha:X2}080A0E><B=0,0,R8>\b<C>");
+        // Each row's names and numbers on one line as in the window: the numbers' tops a little above the names', as
+        // RivaTuner puts a piece's top at its position, and the names are smaller (measured in DesktopOverlayHost).
+        const float LabelTop = 3, ValueTop = -1;
+        float y = OverlayPad;
+        foreach (var l in lines)
+        {
+            float x = OverlayPad;
+            foreach (var row in l)
+            {
+                float cx = x;
+                if (row.Label.Length > 0) text.Append(At(cx, y + LabelTop)).Append($"<S=-73><C={Hex(row.LabelColor)}>{Clean(row.Label)}<C><S>");
+                cx += line ? LabelWidth(row) : Indent(row);
+                foreach (var cell in row.Cells)
+                {
+                    string unit = cell.Unit.Length == 0 ? "" : (char.IsLetterOrDigit(cell.Unit[0]) || cell.Unit[0] == '/' ? " " : "") + Clean(cell.Unit);
+                    text.Append(At(cx, y + ValueTop)).Append($"<C={Hex(cell.Color)}>{(cell.Px < OverlayValuePx ? $"<S=-85>{Clean(cell.Value)}<S>" : Clean(cell.Value))}<C>");
+                    if (unit.Length > 0) text.Append($"<S=-72><C={Hex(OverlayPalette.Muted)}>{unit}<C><S>");
+                    cx += CellWidth(cell) + cellGap;
+                }
+                x = cx - cellGap + groupGap;
+            }
+            y += OverlayRowHeight;
+        }
+        // The bottom-right mark last, then a backspace: RivaTuner adds a line after the text unless it ends on one.
+        return text.Append(At(w - MarkWidth, h - MarkHeight)).Append(Mark).Append('\b').ToString();
+    }
+
+    /// <summary>
     /// Where RivaTuner puts the overlay: on the same one of its nine anchors as our window (see <see cref="OverlayPlacement"/>)
     /// and, per axis, how far from it in the game's pixels: in from a near edge, in from a far edge (negative: hanging
     /// off it), or away from the middle. RivaTuner lays the text out from there, so the overlay grows away from its
