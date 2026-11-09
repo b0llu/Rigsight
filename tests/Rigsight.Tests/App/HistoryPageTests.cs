@@ -214,9 +214,10 @@ public sealed class HistoryPageTests
                     Assert.Null(vm.PickedKind);
                 }
             }
-            // What another card or tile says isn't said again in the list (audit, 2026-11-06); every other line shows.
+            // What another card or tile says isn't said again in the list (audit, 2026-11-06), nor a day's start that's
+            // under its date (2026-11-09); every other line shows.
             Assert.DoesNotContain(vm.ShownInsights, i => ReportsViewModel.SaidElsewhere.Contains(i.Key));
-            Assert.Equal(vm.Insights.Count(i => !ReportsViewModel.SaidElsewhere.Contains(i.Key)), vm.ShownInsights.Count);
+            Assert.Equal(vm.Insights.Count(i => !vm.SaidOnThePage(i)), vm.ShownInsights.Count);
             // One list of highs, the page's own: no voltages (All sensors) and no fastest download (Network).
             var r = vm.Report!;
             Assert.DoesNotContain(vm.Peaks, p => p.Label.Contains("voltage") || p.Label == "Fastest download");
@@ -446,7 +447,9 @@ public sealed class HistoryPageTests
             Assert.True(vm.HasData);
             Assert.Equal(DateTime.Today, vm.Report!.From);
             Assert.Equal("Today", vm.Title);
-            Assert.Equal(DateTime.Today.ToString("dddd, d MMMM yyyy"), vm.Subtitle);
+            // The date, then when the day's use began once there is any (2026-11-09: "Day started at 9:12 AM").
+            string date = DateTime.Today.ToString("dddd, d MMMM yyyy");
+            Assert.Equal(InsightEngine.DayStartLine(vm.Report) is { } started ? date + "  ·  " + started : date, vm.Subtitle);
             Assert.True(vm.IncludesNow);
             Assert.Equal("What stands out so far", vm.InsightsTitle);
             Assert.Null(vm.CoverageNote); // never for a day

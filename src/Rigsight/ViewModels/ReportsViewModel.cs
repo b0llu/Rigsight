@@ -283,9 +283,14 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     // (the Apps table's Memory peak).
     internal static readonly HashSet<string> SaidElsewhere = ["screen", "screen-compare", "gaming", "top-app", "net-recap", "crash", "app-crashes", "memory"];
     private List<Insight> _shownInsights = [];
-    // A day's span is under its date (Subtitle), so the list leaves it out, unless the night before ran late: that's news.
-    public List<Insight> ShownInsights => _shownInsights = Kept.Or(_shownInsights, [.. Insights.Where(i => !SaidElsewhere.Contains(i.Key)
-        && !(i.Key == "span" && Report is { LateUntil: null } r && Core.Reports.InsightEngine.DayStartLine(r) is not null))]);
+    public List<Insight> ShownInsights => _shownInsights = Kept.Or(_shownInsights, [.. Insights.Where(i => !SaidOnThePage(i))]);
+
+    /// <summary>
+    /// Said by another card or tile, or, for a day's span, under its date (Subtitle): left out of the list. The span
+    /// stays when the night before ran late, since that's news.
+    /// </summary>
+    internal bool SaidOnThePage(Insight i) => SaidElsewhere.Contains(i.Key)
+        || (i.Key == "span" && Report is { LateUntil: null } r && Core.Reports.InsightEngine.DayStartLine(r) is not null);
 
     // ── What changed on the PC in the period ──
 
