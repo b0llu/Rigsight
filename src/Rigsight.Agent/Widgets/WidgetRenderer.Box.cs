@@ -490,6 +490,9 @@ internal static partial class WidgetRenderer
     private static Color PartColor(Reading r, Palette p) =>
         Gray ? p.Muted : r.Accent == Cpu ? p.CpuColor ?? Cpu : r.Accent == Gpu ? p.GpuColor ?? Gpu : r.Accent;
 
+    /// <summary>The room under a big ring for its load line.</summary>
+    private const float LoadRoom = 20;
+
     private static void ReadingTile(Graphics g, WidgetTile t, RectangleF r, WidgetData d, Palette p, TileAlign align)
     {
         var item = new WidgetItem { Id = t.Item ?? nameof(OverlayMetric.CpuTemp), Label = t.Label };
@@ -513,8 +516,21 @@ internal static partial class WidgetRenderer
         {
             if (r.Height >= 72)
             {
-                // A big ring with the value and name inside it.
-                float s = Math.Min(r.Width, r.Height), sw = Math.Max(5, MathF.Round(s / 12));
+                // A big ring with the value and name inside it; a CPU's or GPU's temperature with its load under it, as
+                // the ready-made Gauges widget drew it (the user, 2026-11-10: the load went once the widget became tiles).
+                string? load = reading.Metric switch
+                {
+                    OverlayMetric.CpuTemp => Lang.T($"load {Units.Short(SensorKind.Load, d.CpuLoad)}"),
+                    OverlayMetric.GpuTemp => Lang.T($"load {Units.Short(SensorKind.Load, d.GpuLoad)}"),
+                    _ => null,
+                };
+                if (load is not null && r.Height < 72 + LoadRoom) load = null;
+                float s = Math.Min(r.Width, r.Height - (load is null ? 0 : LoadRoom)), sw = Math.Max(5, MathF.Round(s / 12));
+                if (load is not null)
+                {
+                    var loadInk = InkOf(g, load, 10.5f, FontStyle.Regular, false);
+                    ink.Text(load, 10.5f, FontStyle.Regular, p.Muted, (s - loadInk.Width) / 2 - loadInk.Left, s + 6);
+                }
                 ink.Shape(new RectangleF(0, 0, s, s), (gg, dx, dy) =>
                 {
                     Ring(gg, new RectangleF(dx, dy, s, s), sw, frac, full, p);

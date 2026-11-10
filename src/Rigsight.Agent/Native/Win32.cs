@@ -242,6 +242,20 @@ internal static partial class Win32
         }
     }
 
+    [DllImport("user32.dll", EntryPoint = "UpdateLayeredWindow")]
+    private static extern bool UpdateLayeredBlend(IntPtr hwnd, IntPtr hdcDst, IntPtr pptDst, IntPtr psize,
+        IntPtr hdcSrc, IntPtr pptSrc, int crKey, ref BLENDFUNCTION pblend, int flags);
+
+    /// <summary>
+    /// Changes only how solid a layered window is, keeping the picture it has: cheap enough for every step of a fade
+    /// (nothing is drawn again).
+    /// </summary>
+    public static bool SetLayeredAlpha(IntPtr hwnd, byte opacity)
+    {
+        var blend = new BLENDFUNCTION { BlendOp = 0, BlendFlags = 0, SourceConstantAlpha = opacity, AlphaFormat = 1 };
+        return UpdateLayeredBlend(hwnd, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 0, ref blend, ULW_ALPHA);
+    }
+
     [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; public POINT(int x, int y) { X = x; Y = y; } }
     [StructLayout(LayoutKind.Sequential)] public struct SIZE { public int Cx, Cy; public SIZE(int cx, int cy) { Cx = cx; Cy = cy; } }
 

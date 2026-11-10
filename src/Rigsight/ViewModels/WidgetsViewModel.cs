@@ -398,7 +398,8 @@ public sealed partial class WidgetsViewModel : ObservableObject
     {
         if (id is null || _settings.Current.Widgets.All(w => w.Id != id)) return;
         foreach (var c in Cards) c.IsEditing = c.Id == id;
-        Editor = new WidgetEditorViewModel(id, _settings, _live, CloseEditor);
+        Editor = new WidgetEditorViewModel(id, _settings, _live, CloseEditor,
+            (wid, x, y) => _client.SendCommand(WidgetCatalog.MoveCommand, WidgetCatalog.MoveArg(wid, x, y)));
     }
 
     [RelayCommand]
@@ -557,10 +558,14 @@ public sealed partial class WidgetsViewModel : ObservableObject
         Spots = spots;
     }
 
-    /// <summary>A widget dragged on the map to a new spot (its panel's top left, in screen pixels).</summary>
+    /// <summary>
+    /// A widget dragged on the map, or placed from its editor, to a new spot (its panel's top left, in screen pixels):
+    /// saved here, and sent to the agent as its own command, the one way the app moves a widget on the desktop.
+    /// </summary>
     public void MoveWidget(string id, int x, int y)
     {
         _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == id) is { } c) (c.X, c.Y) = (x, y); });
+        _client.SendCommand(WidgetCatalog.MoveCommand, WidgetCatalog.MoveArg(id, x, y));
         LoadMap();
         foreach (var c in Cards.Where(c => c.Id == id)) c.Refresh();
     }

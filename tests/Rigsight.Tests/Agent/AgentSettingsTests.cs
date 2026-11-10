@@ -85,6 +85,16 @@ public class AgentSettingsTests
         Assert.Equal(100 + (int)WidgetStyle.Pill * 10, merged.X);
     }
 
+    // So the app moves a widget with its own command (the map, the editor's Place): what it sends reads back the same.
+    [Fact]
+    public void A_move_from_the_app_reads_back_as_sent()
+    {
+        Assert.Equal(("custom-ab12", -1920, 44), WidgetCatalog.ParseMove(WidgetCatalog.MoveArg("custom-ab12", -1920, 44)));
+        Assert.Null(WidgetCatalog.ParseMove("custom-ab12|x|44"));
+        Assert.Null(WidgetCatalog.ParseMove("|1|2"));
+        Assert.Null(WidgetCatalog.ParseMove(null));
+    }
+
     [Fact]
     public void A_widget_the_agent_never_placed_keeps_the_apps_position()
     {
@@ -128,7 +138,8 @@ public class AgentSettingsTests
         Assert.Equal(250, merged.LiveRefreshMs);
         Assert.Equal("dark", merged.Theme);
         Assert.Equal(500, merged.Tracking.SensorIntervalMs);
-        Assert.Equal(WidgetCatalog.BuiltIn.Count, merged.Widgets.Count);
+        // The same built-in widget twice is kept once; since v13 the ones the person removed stay removed.
+        Assert.Equal([WidgetStyle.Pill], merged.Widgets.Select(w => w.Style));
         Assert.Equal(2.5, merged.Widgets.Single(w => w.Style == WidgetStyle.Pill).Scale);
     }
 

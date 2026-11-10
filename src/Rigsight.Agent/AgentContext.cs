@@ -2199,6 +2199,14 @@ internal sealed partial class AgentContext : ApplicationContext
                 _startupEnabled = StartupTask.IsEnabled();
                 _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
                 break;
+            case WidgetCatalog.MoveCommand:
+                // A widget moved in the app (its map, its editor): the one way the app moves a widget (see KeepAgentFields).
+                if (WidgetCatalog.ParseMove(msg.Arg) is { } move)
+                    _ui.Post(_ => MutateSettings(s =>
+                    {
+                        if (s.Widgets.FirstOrDefault(w => w.Id == move.Id) is { } w) (w.X, w.Y) = (move.X, move.Y);
+                    }), null);
+                break;
             case "pause":
                 _ui.Post(_ => PauseFor(int.TryParse(msg.Arg, out var m) ? m : 60), null);
                 break;

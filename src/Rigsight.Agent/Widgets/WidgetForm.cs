@@ -140,12 +140,43 @@ internal sealed class WidgetForm : Form
     /// <summary>How solid the widget is: faded while the pointer is over a locked one, with that setting on.</summary>
     private byte _opacity = 255;
 
+    private byte _fadeTo = 255, _fadeFrom = 255;
+    private long _fadeStart;
+    private System.Windows.Forms.Timer? _fadeTimer;
+
+    /// <summary>The fade's length: quick, and still seen as a fade (the user, 2026-11-10: it lagged, then jumped).</summary>
+    internal const int FadeMs = 120;
+
+    /// <summary>
+    /// Fades the widget out while the pointer is over it, and back when it leaves: over <see cref="FadeMs"/>, eased,
+    /// only the window's opacity changing (the picture isn't drawn again).
+    /// </summary>
     public void SetFaded(bool faded)
     {
-        byte opacity = !faded ? (byte)255 : Config.Locked ? (byte)30 : (byte)128;
-        if (opacity == _opacity) return;
-        _opacity = opacity;
-        Redraw();
+        byte target = !faded ? (byte)255 : Config.Locked ? (byte)30 : (byte)128;
+        if (target == _fadeTo) return;
+        (_fadeFrom, _fadeTo, _fadeStart) = (_opacity, target, Environment.TickCount64);
+        if (!IsHandleCreated || !Visible)
+        {
+            _opacity = target;
+            return;
+        }
+        if (_fadeTimer is null)
+        {
+            _fadeTimer = new System.Windows.Forms.Timer { Interval = 15 };
+            _fadeTimer.Tick += (_, _) => FadeStep();
+        }
+        _fadeTimer.Start();
+        FadeStep();
+    }
+
+    private void FadeStep()
+    {
+        double t = Math.Clamp((Environment.TickCount64 - _fadeStart) / (double)FadeMs, 0, 1);
+        double eased = 1 - Math.Pow(1 - t, 3); // quick at first, settling at the end
+        _opacity = (byte)Math.Round(_fadeFrom + (_fadeTo - _fadeFrom) * eased);
+        if (IsHandleCreated) Win32.SetLayeredAlpha(Handle, _opacity);
+        if (t >= 1) _fadeTimer?.Stop();
     }
 
     public void Redraw()
@@ -340,7 +371,11 @@ internal sealed class WidgetForm : Form
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) _hoverTimer.Dispose();
+        if (disposing)
+        {
+            _hoverTimer.Dispose();
+            _fadeTimer?.Dispose();
+        }
         base.Dispose(disposing);
     }
 }

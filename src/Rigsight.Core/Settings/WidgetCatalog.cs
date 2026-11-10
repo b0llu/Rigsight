@@ -21,6 +21,21 @@ public static class WidgetCatalog
     public const int MaxCustom = 200;
     public const int MaxNameLength = 40;
 
+    /// <summary>
+    /// The app's command to the agent for a widget moved in the app (dragged on the Widgets page's map, or placed from
+    /// its editor). Settings from the app never move a widget, as the agent keeps its own spots so an app copy from
+    /// before a drag on the desktop can't undo it (the user, 2026-11-10: dragging on the map did nothing).
+    /// </summary>
+    public const string MoveCommand = "widget-move";
+
+    public static string MoveArg(string id, int x, int y) => FormattableString.Invariant($"{id}|{x}|{y}");
+
+    public static (string Id, int X, int Y)? ParseMove(string? arg) =>
+        arg?.Split('|') is [{ Length: > 0 } id, var xs, var ys]
+        && int.TryParse(xs, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int x)
+        && int.TryParse(ys, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int y)
+            ? (id, x, y) : null;
+
     public static string Title(WidgetStyle style) => style switch
     {
         WidgetStyle.Compact => Lang.T("Compact"),

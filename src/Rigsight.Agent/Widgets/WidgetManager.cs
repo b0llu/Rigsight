@@ -129,7 +129,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
 
     // ── Fading under the pointer ──────────────────────────────────────────
 
-    /// <summary>Locked widgets fade while the pointer is over them: where the pointer is, four times a second, only while one is locked.</summary>
+    /// <summary>Widgets fade while the pointer is over them: where the pointer is, 25 times a second, only with the setting on.</summary>
     private void ApplyFade(RigsightSettings settings)
     {
         bool wanted = settings.WidgetFade && _forms.Count > 0;
@@ -141,7 +141,9 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         }
         if (_fadeTimer is null)
         {
-            _fadeTimer = new System.Windows.Forms.Timer { Interval = 250 };
+            // 25 times a second, so the fade starts as the pointer arrives: a click-through widget gets no mouse
+            // messages, so where the pointer is gets looked at (a quick check, with nothing drawn unless it changed).
+            _fadeTimer = new System.Windows.Forms.Timer { Interval = 40 };
             _fadeTimer.Tick += (_, _) =>
             {
                 var at = Cursor.Position;

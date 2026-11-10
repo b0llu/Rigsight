@@ -100,6 +100,14 @@ public sealed class WidgetScreens : FrameworkElement
         }
     }
 
+    /// <summary>The middle of a widget on the map, in the map's own coordinates (for tests that drag it).</summary>
+    internal Point? CentreOf(string id)
+    {
+        if (Spots?.FirstOrDefault(s => s.Id == id) is not { } spot) return null;
+        var r = SpotRect(spot, Frame(ActualWidth));
+        return new Point(r.X + r.Width / 2, r.Y + r.Height / 2);
+    }
+
     private WidgetSpot? SpotAt(Point p)
     {
         var f = Frame(ActualWidth);
@@ -110,9 +118,14 @@ public sealed class WidgetScreens : FrameworkElement
     {
         base.OnMouseMove(e);
         Cursor = _dragging is not null ? Cursors.SizeAll : SpotAt(e.GetPosition(this)) is not null ? Cursors.Hand : null;
-        if (_dragging is null || e.LeftButton != MouseButtonState.Pressed || Spots?.FirstOrDefault(s => s.Id == _dragging) is not { } spot) return;
+        if (e.LeftButton == MouseButtonState.Pressed) DragTo(e.GetPosition(this));
+    }
+
+    /// <summary>The widget picked up follows the pointer, at <paramref name="p"/> on the map.</summary>
+    internal void DragTo(Point p)
+    {
+        if (_dragging is null || Spots?.FirstOrDefault(s => s.Id == _dragging) is not { } spot) return;
         var f = Frame(ActualWidth);
-        var p = e.GetPosition(this);
         int x = _x0 + (int)Math.Round((p.X - _from.X) / f.Scale), y = _y0 + (int)Math.Round((p.Y - _from.Y) / f.Scale);
         _guide = null;
         if (Snap && (Keyboard.Modifiers & ModifierKeys.Alt) == 0) (x, y) = SnapTo(spot, x, y, f);
@@ -143,25 +156,39 @@ public sealed class WidgetScreens : FrameworkElement
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
-        var p = e.GetPosition(this);
-        var spot = SpotAt(p);
-        _picked = spot?.Id;
-        if (spot is not null)
+        if (PickUp(e.GetPosition(this)))
         {
-            (_dragging, _from, _x0, _y0, _dx, _dy) = (spot.Id, p, spot.X, spot.Y, 0, 0);
             CaptureMouse();
             e.Handled = true;
         }
+    }
+
+    /// <summary>Picks up the widget at <paramref name="p"/> on the map, if there is one there.</summary>
+    internal bool PickUp(Point p)
+    {
+        var spot = SpotAt(p);
+        _picked = spot?.Id;
+        if (spot is not null) (_dragging, _from, _x0, _y0, _dx, _dy) = (spot.Id, p, spot.X, spot.Y, 0, 0);
         InvalidateVisual();
+        return spot is not null;
     }
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
+        if (_dragging is not null) ReleaseMouseCapture();
+        Drop();
+    }
+
+    /// <summary>Puts the widget picked up down where it was dragged to: its new spot, on the desktop too.</summary>
+    internal void Drop()
+    {
         if (_dragging is { } id)
         {
-            ReleaseMouseCapture();
             var spot = Spots?.FirstOrDefault(s => s.Id == id);
+            Rigsight.Core.Log.Write("widgets", spot is null ? $"A widget dragged on the map was no longer on it when dropped ({id})"
+                : _dx == 0 && _dy == 0 ? $"{spot.Title} picked on the map, not moved"
+                : $"{spot.Title} dragged on the map from {spot.X},{spot.Y} to {spot.X + _dx},{spot.Y + _dy}");
             if (spot is not null && (_dx != 0 || _dy != 0)) Moved?.Invoke(id, spot.X + _dx, spot.Y + _dy);
         }
         (_dragging, _guide, _dx, _dy) = (null, null, 0, 0);

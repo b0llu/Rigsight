@@ -49,9 +49,13 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     private WidgetConfig _w;
     private readonly Stack<string> _undo = new(), _redo = new();
 
-    public WidgetEditorViewModel(string id, SettingsModel settings, LiveData? live, Action close)
+    private readonly Action<string, int, int>? _moved;
+
+    /// <param name="moved">A spot picked here (Place), sent on to the desktop: settings from the app never move a widget there.</param>
+    public WidgetEditorViewModel(string id, SettingsModel settings, LiveData? live, Action close, Action<string, int, int>? moved = null)
     {
         Id = id;
+        _moved = moved;
         _settings = settings;
         _live = live;
         _close = close;
@@ -782,5 +786,6 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         int y = row == 0 ? area.Top + gap : row == 2 ? area.Bottom - gap - h : area.Top + (area.Height - h) / 2;
         (_w.X, _w.Y) = (x, y);
         Commit();
+        _moved?.Invoke(Id, x, y);
     }
 }
