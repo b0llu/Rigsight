@@ -108,10 +108,13 @@ public sealed class RigsightSettings
     /// </summary>
     public bool WidgetsShown { get; set; } = true;
 
-    /// <summary>A widget being dragged pulls onto screen edges and other widgets (Alt places it freely).</summary>
-    public bool WidgetSnap { get; set; } = true;
+    /// <summary>
+    /// A widget being dragged pulls onto screen edges and other widgets (Alt places it freely). Off by default: a widget
+    /// goes where it's dropped (the user, 2026-11-10: "the widget should be free by default").
+    /// </summary>
+    public bool WidgetSnap { get; set; }
 
-    /// <summary>A locked widget fades while the pointer is over it, so what's behind it can be read.</summary>
+    /// <summary>A widget fades while the pointer is over it: a click-through one almost away, so what's behind it can be read and clicked.</summary>
     public bool WidgetFade { get; set; }
 
     /// <summary>The shortcut that turns <see cref="WidgetsShown"/> off and on ("Ctrl+Alt+W"); null: none.</summary>

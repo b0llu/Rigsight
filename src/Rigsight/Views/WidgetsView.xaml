@@ -173,7 +173,7 @@
                 </DockPanel>
                 <Border Height="560" CornerRadius="{x:Static ctl:Corner.Card}" BorderThickness="1" BorderBrush="{DynamicResource StrokeBrush}" Background="{DynamicResource Surface2Brush}">
                     <Grid>
-                        <ScrollViewer x:Name="ChoiceScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="12">
+                        <ScrollViewer x:Name="ChoiceScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="12" ctl:WheelChain.Enabled="True">
                             <ItemsControl ItemsSource="{Binding ChoicesShown}" ItemTemplate="{StaticResource ChoiceTemplate}" Focusable="False">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -192,7 +192,7 @@
                         <ctl:SettingRow Icon="&#xE80A;" Title="{ctl:T 'Snap to edges and other widgets'}" Line="{ctl:T 'Hold Alt while you drag to place one freely.'}">
                             <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Snap}" AutomationProperties.Name="{ctl:T 'Snap to edges and other widgets'}" />
                         </ctl:SettingRow>
-                        <ctl:SettingRow Icon="&#xE7B3;" Title="{ctl:T 'Fade when the pointer is over them'}" Line="{ctl:T 'Locked widgets only. You can read what\'s behind them, and clicks still go through.'}">
+                        <ctl:SettingRow Icon="&#xE7B3;" Title="{ctl:T 'Fade when the pointer is over them'}" Line="{ctl:T 'Click-through widgets fade almost away, so you can click what\'s behind them. Others fade to half.'}">
                             <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Fade}" AutomationProperties.Name="{ctl:T 'Fade when the pointer is over them'}" />
                         </ctl:SettingRow>
                         <ctl:SettingRow Icon="&#xE765;" Title="{ctl:T 'Shortcut for Desktop widgets'}" Line="{ctl:T 'Turns them all off and on, from anywhere.'}">
@@ -412,7 +412,7 @@
                             <ListBox DockPanel.Dock="Top" Style="{StaticResource ChipList}" ItemsSource="{Binding TileChips}" SelectedItem="{Binding PickedTileChip}" ItemTemplate="{StaticResource ChipTemplate}"
                                      Margin="0,10,0,2" AutomationProperties.Name="{ctl:T 'Kinds of tile'}" />
                             <TextBlock DockPanel.Dock="Top" Text="{Binding NoTilesText}" Style="{StaticResource Muted}" Margin="4,8" Visibility="{Binding NoTiles, Converter={StaticResource Vis}}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,4,0,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,4,0,0" ctl:WheelChain.Enabled="True">
                                 <ItemsControl ItemsSource="{Binding TileChoicesShown}" Focusable="False">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>

@@ -5664,9 +5664,9 @@
     "Show it on the desktop": "Mostrarlo en el escritorio",
     "Add": "Añadir",
     "Added": "Añadido",
-    "Create widget": "Crear widget",
     "Make your own": "Crea el tuyo",
     "Put any tiles in one box and arrange them your way.": "Pon los mosaicos que quieras en una caja y colócalos a tu manera.",
+    "Create widget": "Crear widget",
     "Which widgets suit me?": "¿Qué widgets me convienen?",
     "Readings, clocks and more on your desktop. Drag one anywhere, or lock it so clicks pass straight through.": "Lecturas, relojes y más en tu escritorio. Arrastra uno a cualquier sitio o fíjalo para que los clics lo atraviesen.",
     "Off hides them all and keeps which ones are on.": "Desactivado los oculta todos y recuerda cuáles están activados.",
@@ -5680,7 +5680,7 @@
     "Snap to edges and other widgets": "Ajustar a los bordes y a otros widgets",
     "Hold Alt while you drag to place one freely.": "Mantén Alt mientras arrastras para colocarlo libremente.",
     "Fade when the pointer is over them": "Atenuar al pasar el puntero",
-    "Locked widgets only. You can read what's behind them, and clicks still go through.": "Solo los widgets fijados. Puedes leer lo que hay detrás y los clics siguen pasando.",
+    "Click-through widgets fade almost away, so you can click what's behind them. Others fade to half.": "Los widgets que dejan pasar los clics se atenúan casi del todo, así puedes hacer clic en lo que hay detrás. Los demás se atenúan a la mitad.",
     "Shortcut for Desktop widgets": "Atajo para Widgets de escritorio",
     "Turns them all off and on, from anywhere.": "Los desactiva y activa todos, desde cualquier sitio.",
     "Set the shortcut for Desktop widgets": "Definir el atajo para Widgets de escritorio",
@@ -7036,6 +7036,7 @@
     "THEME": "TEMA",
     "The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable.": "El panel detrás de las lecturas. Al 0% solo se ven las lecturas, con una sombra suave para que se lean bien.",
     "The readings themselves, with their numbers, labels, gauges and charts.": "Las propias lecturas, con sus números, etiquetas, indicadores y gráficos.",
-    "Delete widget": "Eliminar widget"
+    "Delete widget": "Eliminar widget",
+    "Locked widgets only. You can read what's behind them, and clicks still go through.": "Solo los widgets fijados. Puedes leer lo que hay detrás y los clics siguen pasando."
   }
 }

@@ -31,7 +31,9 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         WidgetRenderer.UseAppLook(settings.Theme, settings.DarkTheme, settings.LightTheme, settings.Accent);
         // Gone from settings (a widget of the user's own deleted) or turned off, or every widget switched off
         // (WidgetsShown, each keeping its own Enabled): its window goes.
-        var on = settings.WidgetsShown ? settings.Widgets.Where(w => w.Enabled).ToList() : [];
+        // A box with no tiles yet (a widget just made, still in the editor) has nothing to show: no window, and no spot
+        // saved for its few pixels (it then grew off the screen's edge, 2026-11-10).
+        var on = settings.WidgetsShown ? settings.Widgets.Where(w => w.Enabled && w.Tiles is not { Count: 0 }).ToList() : [];
         var shown = on.Select(w => w.Id).ToHashSet();
         foreach (var id in _forms.Keys.Where(id => !shown.Contains(id)).ToList())
         {
@@ -130,7 +132,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     /// <summary>Locked widgets fade while the pointer is over them: where the pointer is, four times a second, only while one is locked.</summary>
     private void ApplyFade(RigsightSettings settings)
     {
-        bool wanted = settings.WidgetFade && _forms.Values.Any(f => f.Config.Locked);
+        bool wanted = settings.WidgetFade && _forms.Count > 0;
         if (!wanted)
         {
             _fadeTimer?.Stop();
@@ -143,7 +145,9 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             _fadeTimer.Tick += (_, _) =>
             {
                 var at = Cursor.Position;
-                foreach (var f in _forms.Values) f.SetFaded(f.Visible && f.Config.Locked && f.PanelBounds.Contains(at));
+                // Every widget the pointer is over (the user, 2026-11-10: "widgets are not fading"): a click-through one
+                // almost away, so what's behind can be read and clicked; another to half, so it can still be grabbed.
+                foreach (var f in _forms.Values) f.SetFaded(f.Visible && f.PanelBounds.Contains(at));
             };
         }
         _fadeTimer.Start();

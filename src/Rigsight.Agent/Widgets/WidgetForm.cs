@@ -133,7 +133,7 @@ internal sealed class WidgetForm : Form
 
     public void SetFaded(bool faded)
     {
-        byte opacity = faded ? (byte)30 : (byte)255;
+        byte opacity = !faded ? (byte)255 : Config.Locked ? (byte)30 : (byte)128;
         if (opacity == _opacity) return;
         _opacity = opacity;
         Redraw();
@@ -145,6 +145,7 @@ internal sealed class WidgetForm : Form
         _drawn = WidgetRenderer.ChangeKey(Config, _data);
         float scale = DeviceDpi / 96f * (float)Config.Scale;
         var panelAt = PanelLocation;
+        var before = Size.Width > Room ? PanelBounds : Rectangle.Empty;
         Room = RoomFor(DeviceDpi);
         using var panel = WidgetRenderer.Render(Config, _data, scale, hover: false, out _);
         using var bmp = new Bitmap(panel.Width + Room, panel.Height + Room, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
@@ -159,9 +160,29 @@ internal sealed class WidgetForm : Form
                 DrawBadge(g, _closeRect, DeviceDpi / 96f);
             }
         }
+        var kept = StaysOnScreen(before, new Rectangle(panelAt, panel.Size), Screen.FromRectangle(before.IsEmpty ? new Rectangle(panelAt, panel.Size) : before).WorkingArea);
         if (Size != bmp.Size) Size = bmp.Size;
-        Location = new Point(panelAt.X, panelAt.Y - Room);
+        Location = new Point(kept.X, kept.Y - Room);
         Win32.SetLayeredBitmap(Handle, bmp, Location, _opacity); // opacity is in the bitmap (background and content apart)
+        if (kept != panelAt)
+        {
+            Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} grew from {before.Width}x{before.Height} to {panel.Width}x{panel.Height} at {panelAt.X},{panelAt.Y}: moved to {kept.X},{kept.Y} to stay on its screen");
+            // After this pass over the widgets, as saving goes round to the settings again.
+            BeginInvoke(() => _manager.Mutate(Config.Id, c => (c.X, c.Y) = (kept.X, kept.Y)));
+        }
+    }
+
+    /// <summary>
+    /// A widget that was wholly on its screen and grew past its edge (tiles added, a bigger size, a screen's scale picked
+    /// up after it was measured: widgets were placed partly off the screen, 2026-11-10) is moved back in, as little as it
+    /// takes. One the person left partly off an edge stays where it is.
+    /// </summary>
+    internal static Point StaysOnScreen(Rectangle before, Rectangle now, Rectangle area)
+    {
+        if (before.IsEmpty || before.Size == now.Size || !area.Contains(before) || area.Contains(now)) return now.Location;
+        int x = Math.Max(area.Left, Math.Min(now.X, area.Right - now.Width));
+        int y = Math.Max(area.Top, Math.Min(now.Y, area.Bottom - now.Height));
+        return new Point(x, y);
     }
 
     /// <summary>

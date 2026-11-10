@@ -11,6 +11,24 @@ public sealed class WidgetSpotTests
 {
     private static readonly Rectangle[] OneScreen = [new(0, 0, 2560, 1440)];
 
+    // A widget that grows past its screen's edge is moved back in (2026-11-10: widgets measured at 100% before landing on
+    // a 150% screen, and boxes that grew tile by tile, ended partly off the screen); one left partly off an edge stays.
+    [Fact]
+    public void A_widget_that_grows_past_the_edge_moves_back_onto_its_screen()
+    {
+        var area = new Rectangle(0, 0, 2560, 1392);
+        // Measured at 100% at the top right (128 wide), then drawn at 150% (192 wide): it ends at the edge, not past it.
+        Assert.Equal(new Point(2368, 44), WidgetForm.StaysOnScreen(new Rectangle(2420, 44, 128, 88), new Rectangle(2420, 44, 192, 132), area));
+        // Tiles added downward past the bottom.
+        Assert.Equal(new Point(100, 1392 - 500), WidgetForm.StaysOnScreen(new Rectangle(100, 1000, 300, 200), new Rectangle(100, 1000, 300, 500), area));
+        // Still fits: where it was.
+        Assert.Equal(new Point(100, 100), WidgetForm.StaysOnScreen(new Rectangle(100, 100, 300, 200), new Rectangle(100, 100, 400, 260), area));
+        // Left partly off the right edge by the person: where they left it.
+        Assert.Equal(new Point(2500, 100), WidgetForm.StaysOnScreen(new Rectangle(2500, 100, 300, 60), new Rectangle(2500, 100, 400, 60), area));
+        // Bigger than the screen: its top left on the screen.
+        Assert.Equal(new Point(0, 0), WidgetForm.StaysOnScreen(new Rectangle(10, 10, 2000, 1000), new Rectangle(10, 10, 3000, 1500), area));
+    }
+
     // The close badge sits over the widget's top right as a count sits on a bell (the user, 2026-11-10: it floated
     // outside a slim bar): its middle inside the panel's own shape, on the rounded corner's curve and a little in, and
     // the whole badge inside the window.
