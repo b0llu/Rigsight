@@ -39,12 +39,12 @@
   "ping-without-a-server": "2026-11-07",
   "plain-words": "2026-11-07",
   "gpu-fan-not-spinning": "2026-11-09",
-  "gpu-thermal-throttling": "2026-11-09"
+  "gpu-thermal-throttling": "2026-11-09",
+  "what-is-using-my-ram": "2026-11-10",
+  "rigsight-in-spanish": "2026-11-10"
  },
  "queue": [
-  "rigsight-in-spanish",
   "three-ways-to-ask",
-  "what-is-using-my-ram",
   "choosing-a-model-blind",
   "what-is-taking-up-space-on-c-drive",
   "testing-ai-on-fake-pcs",
@@ -69,7 +69,6 @@
   "ssd-health-check",
   "vsync-fps-cap",
   "what-is-taking-up-space-on-c-drive",
-  "what-is-using-my-ram",
   "which-app-is-using-my-internet"
  ]
 }
