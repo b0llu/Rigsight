@@ -145,6 +145,33 @@ public class WidgetBoxTests : IDisposable
         }
     }
 
+    // A row of readings is centred both ways, as a web page's flex row with its items centred (the user, 2026-11-10):
+    // the slim bar keeps the same room on the left as on the right, now that the close cross is outside the widget, and a
+    // line of readings sits in the middle of its tile however wide the tile is.
+    [Theory]
+    [InlineData("bar", 0)]
+    [InlineData("line", 7)]
+    [InlineData("line", 12)]
+    public void A_row_of_readings_is_in_the_middle_by_its_ink(string kind, int cells)
+    {
+        var cfg = kind == "bar"
+            ? new WidgetConfig { Style = WidgetStyle.Pill, Id = nameof(WidgetStyle.Pill), BackgroundOpacity = 1 }
+            : Box(Tile(WidgetTiles.Line, cells, 1, t => t.Items = WidgetCatalog.Items(OverlayMetric.CpuTemp, OverlayMetric.GpuTemp, OverlayMetric.Ram)));
+        foreach (float scale in new[] { 1f, 1.5f })
+        {
+            using var bmp = WidgetRenderer.Render(cfg, Full(), scale, hover: false, out _);
+            Keep(bmp, $"row-{kind}-{cells}-{scale}");
+            // Inside the panel's line, in the rows clear of a pill's rounded ends.
+            int edge = (int)Math.Ceiling(3 * scale) + 1;
+            var area = Rectangle.FromLTRB(edge, edge, bmp.Width - edge, bmp.Height - edge);
+            var panel = bmp.GetPixel(bmp.Width / 2, edge);
+            var (left, right, top, bottom) = InkGaps(bmp, area, panel);
+            int slack = scale > 1 ? 2 : 1;
+            Assert.True(Math.Abs(left - right) <= slack, $"{kind} {cells} at {scale}x: {left} px left of the ink, {right} right");
+            Assert.True(Math.Abs(top - bottom) <= slack, $"{kind} {cells} at {scale}x: {top} px above the ink, {bottom} below");
+        }
+    }
+
     [Fact]
     public void A_box_is_drawn_again_only_when_what_it_says_changes()
     {

@@ -176,6 +176,8 @@ public sealed partial class WidgetsViewModel : ObservableObject
         _settings = settings;
         _client = client;
         _live = live;
+        _mapTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        _mapTimer.Tick += (_, _) => RedrawMap();
         Choices = MakeChoices();
         Chips = [.. new[] { AllGroup, ReadyMade }.Concat(WidgetTiles.Kinds.Select(k => k.Group).Distinct())
             .Select(g => new WidgetGroupChip(g, g == AllGroup ? Choices.Count : Choices.Count(c => c.Group == g)))];
@@ -190,8 +192,11 @@ public sealed partial class WidgetsViewModel : ObservableObject
             OnPropertyChanged(nameof(Fade));
             OnPropertyChanged(nameof(ShownHotkey));
             OnPropertyChanged(nameof(FrontHotkey));
+            MapChanged();
         };
     }
+
+    private readonly System.Windows.Threading.DispatcherTimer _mapTimer;
 
     // ── On or off, and the settings for all widgets ─────────────────────
 
@@ -383,12 +388,39 @@ public sealed partial class WidgetsViewModel : ObservableObject
     /// <summary>The widgets that are on and have a spot, where they are on the screens.</summary>
     [ObservableProperty] private List<WidgetSpot> _spots = [];
 
-    /// <summary>Reads the screens and draws where each widget is (the page's first visit, and after a change).</summary>
+    /// <summary>Whether the page is on the screen (the view says): only then does the map follow every change.</summary>
+    public bool PageShown { get; set; }
+
+    /// <summary>
+    /// Any change to the settings (a widget switched on or off, added, removed, moved on the desktop, the tray's switch)
+    /// draws the map again, a moment later so a burst of changes draws it once (the user, 2026-11-10: it still showed
+    /// widgets that had been removed).
+    /// </summary>
+    private void MapChanged()
+    {
+        if (!_mapTimer.Dispatcher.CheckAccess())
+        {
+            _mapTimer.Dispatcher.BeginInvoke(MapChanged);
+            return;
+        }
+        if (!PageShown || IsEditing) return;
+        _mapTimer.Stop();
+        _mapTimer.Start();
+    }
+
+    /// <summary>Reads the screens and draws where each widget is (the page's visits, and after the editor).</summary>
     public void LoadMap()
     {
         try { Screens = ScreenChoice.ReadAll(null); }
         catch (Exception) { Screens = []; }
         OnPropertyChanged(nameof(Screens));
+        RedrawMap();
+    }
+
+    /// <summary>Where each widget that is on is now, on the screens already read.</summary>
+    internal void RedrawMap()
+    {
+        _mapTimer.Stop();
         var spots = new List<WidgetSpot>();
         if (_settings.Current.WidgetsShown)
             foreach (var w in _settings.Current.Widgets.Where(w => w is { Enabled: true, X: not null, Y: not null }))

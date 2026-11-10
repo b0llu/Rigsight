@@ -601,6 +601,44 @@ public sealed class SettingsPageTests
         });
     }
 
+    // The map of the screens follows every change while the page shows (the user, 2026-11-10: it still showed widgets
+    // that had been removed); a burst of changes draws it once, a moment later.
+    [Fact]
+    public void The_map_of_the_screens_follows_widgets_switched_off_removed_and_added()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        string[] Spots() { Thread.Sleep(450); return Ui.Run(() => vm.Spots.Select(s => s.Id).ToArray()); }
+        string first = "", second = "";
+        Ui.Run(() =>
+        {
+            link.Settings.Update(s =>
+            {
+                foreach (var w in s.Widgets) w.Enabled = false;
+                (s.Widgets[0].Enabled, s.Widgets[0].X, s.Widgets[0].Y) = (true, 100, 100);
+                (s.Widgets[1].Enabled, s.Widgets[1].X, s.Widgets[1].Y) = (true, 500, 100);
+                s.WidgetsShown = true;
+            });
+            (first, second) = (link.Settings.Current.Widgets[0].Id, link.Settings.Current.Widgets[1].Id);
+            vm.PageShown = true;
+            vm.LoadMap();
+            Assert.Equal([first, second], vm.Spots.Select(s => s.Id));
+            vm.Cards.Single(c => c.Id == first).Enabled = false; // switched off on its card
+        });
+        Assert.Equal([second], Spots());
+
+        Ui.Run(() => link.Settings.Update(s => s.Widgets.RemoveAll(w => w.Id == second))); // removed from its menu on the desktop
+        Assert.Empty(Spots());
+
+        Ui.Run(() => link.Settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == first) is { } w) (w.Enabled, w.X) = (true, 300); })); // on again, moved
+        Assert.Equal([first], Spots());
+        Assert.Equal(300, Ui.Run(() => vm.Spots[0].X));
+
+        // Away from the page, nothing is drawn for it.
+        Ui.Run(() => { vm.PageShown = false; link.Settings.Update(s => s.Widgets.First(w => w.Id == first).Enabled = false); });
+        Assert.Equal([first], Spots());
+    }
+
     [Fact]
     public void Widget_cards_refresh_when_settings_change_elsewhere()
     {

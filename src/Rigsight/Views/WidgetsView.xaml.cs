@@ -24,9 +24,15 @@ public partial class WidgetsView : UserControl
         Loaded += (_, _) =>
         {
             Watch(DataContext as WidgetsViewModel);
-            _vm?.LoadMap();
+            if (_vm is null) return;
+            _vm.PageShown = true;
+            _vm.LoadMap();
         };
-        Unloaded += (_, _) => Watch(null);
+        Unloaded += (_, _) =>
+        {
+            if (_vm is not null) _vm.PageShown = false;
+            Watch(null);
+        };
         Map.Moved += (id, x, y) => _vm?.MoveWidget(id, x, y);
         PreviewKeyDown += RecordShortcut;
     }

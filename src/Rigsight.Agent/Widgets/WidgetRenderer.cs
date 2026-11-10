@@ -107,8 +107,9 @@ internal static partial class WidgetRenderer
         : WidgetCatalog.LayoutOf(cfg) switch
     {
         WidgetLayout.Bar => new(BarWidth(readings, measure), 34),
-        WidgetLayout.Tiles => TilesSize(readings.Count),
-        WidgetLayout.Gauges => new(20 + Math.Max(1, readings.Count) * 114, 150),
+        WidgetLayout.Tiles => TilesSize(readings.Count, captioned: cfg.Style == WidgetStyle.Custom),
+        // Without a caption (the built-in one, since 2026-11-10) the gauges are as far from the top as from the bottom.
+        WidgetLayout.Gauges => new(20 + Math.Max(1, readings.Count) * 114, cfg.Style == WidgetStyle.Custom ? 150 : 130),
         WidgetLayout.Graph => new(Math.Max(300, 34 + LegendWidth(readings, measure) + 14), 138),
         WidgetLayout.NowPlaying => new(310, 88),
         _ => new(256, 140),
@@ -203,7 +204,7 @@ internal static partial class WidgetRenderer
             }
             switch (layout)
             {
-                case WidgetLayout.Bar: DrawBar(g, readings, pal); break;
+                case WidgetLayout.Bar: DrawBar(g, readings, pal, w, h); break;
                 case WidgetLayout.Tiles: DrawTiles(g, readings, d, pal, w, caption); break;
                 case WidgetLayout.Gauges: DrawGauges(g, readings, d, pal, caption); break;
                 case WidgetLayout.Graph: DrawGraph(g, readings, d, pal, w, h); break;
@@ -343,43 +344,33 @@ internal static partial class WidgetRenderer
 
     // ── Layouts ──────────────────────────────────────────────────────────
 
-    /// <summary>The slim bar's shape: dot, label, value, for each reading, on one line.</summary>
-    private static float BarWidth(List<Reading> readings, Graphics g)
-    {
-        float x = 16;
-        foreach (var r in readings)
-            x += 11 + Measure(g, r.Label, 11, FontStyle.Bold) + 5 + Measure(g, r.Text, 13, FontStyle.Bold, semibold: true) + 16;
-        return Math.Max(x + 18, 120);
-    }
+    /// <summary>
+    /// The slim bar: its row of readings with the same room on the left and the right (the close cross is a badge outside
+    /// the widget now, so no room is kept for it on the right).
+    /// </summary>
+    private static float BarWidth(List<Reading> readings, Graphics g) =>
+        Math.Max(ReadingRow(g, readings, p: null, dot: _ => Color.Empty).Box.Width + BarPad * 2, 120);
 
-    private static void DrawBar(Graphics g, List<Reading> readings, Palette p)
-    {
-        float x = 16;
-        foreach (var r in readings)
-        {
-            using (var dot = new SolidBrush(Accent(r.Accent, p))) g.FillEllipse(dot, x, 14, 6, 6);
-            x += 11;
-            Text(g, r.Label, 11, FontStyle.Bold, p.Muted, x, 9);
-            x += Measure(g, r.Label, 11, FontStyle.Bold) + 5;
-            Text(g, r.Text, 13, FontStyle.Bold, r.ValueColor, x, 7.5f, semibold: true);
-            x += Measure(g, r.Text, 13, FontStyle.Bold, semibold: true) + 16;
-        }
-    }
+    private const float BarPad = 14;
+
+    /// <summary>The row in the middle of the bar, both ways (see <see cref="ReadingRow"/>).</summary>
+    private static void DrawBar(Graphics g, List<Reading> readings, Palette p, float w, float h) =>
+        ReadingRow(g, readings, p, r => Accent(r.Accent, p)).Draw(g, new RectangleF(0, 0, w, h), TileAlign.Center);
 
     private const float TileHeight = 90, TileGap = 14;
 
     /// <summary>A grid of tiles, two across (one alone is a single tile); a caption on top when there are several.</summary>
-    private static SizeF TilesSize(int count)
+    private static SizeF TilesSize(int count, bool captioned = true)
     {
         int columns = count <= 1 ? 1 : 2, rows = Math.Max(1, (count + columns - 1) / columns);
-        return new SizeF(columns == 1 ? 184 : 276, (count > 1 ? 30 : 10) + rows * TileHeight + (count > 1 ? 2 : 0));
+        return new SizeF(columns == 1 ? 184 : 276, (count > 1 && captioned ? 30 : 10) + rows * TileHeight + (count > 1 ? 2 : 0));
     }
 
     private static void DrawTiles(Graphics g, List<Reading> readings, WidgetData d, Palette p, float w, string caption)
     {
         int columns = readings.Count <= 1 ? 1 : 2;
-        float top = readings.Count > 1 ? 30 : 10;
-        if (readings.Count > 1) Caption(g, caption, 14, 10, p.Faint);
+        float top = readings.Count > 1 && caption.Length > 0 ? 30 : 10;
+        if (readings.Count > 1 && caption.Length > 0) Caption(g, caption, 14, 10, p.Faint);
         float colW = (w - TileGap * (columns + 1)) / columns;
         using var div = new Pen(p.Track, 1);
         for (int i = 0; i < readings.Count; i++)
@@ -409,12 +400,13 @@ internal static partial class WidgetRenderer
 
     private static void DrawGauges(Graphics g, List<Reading> readings, WidgetData d, Palette p, string caption)
     {
-        Caption(g, caption, 14, 10, p.Faint);
+        if (caption.Length > 0) Caption(g, caption, 14, 10, p.Faint);
+        float cy = caption.Length > 0 ? 78 : 58;
         for (int i = 0; i < readings.Count; i++)
         {
             var r = readings[i];
             float cx = 10 + 57 + i * 114;
-            const float cy = 78, radius = 40, t = 8;
+            const float radius = 40, t = 8;
             var rect = new RectangleF(cx - radius, cy - radius, radius * 2, radius * 2);
             using (var track = new Pen(p.Track, t) { StartCap = LineCap.Round, EndCap = LineCap.Round })
                 g.DrawArc(track, rect, 135, 270);
@@ -458,7 +450,7 @@ internal static partial class WidgetRenderer
     private static void DrawGraph(Graphics g, List<Reading> readings, WidgetData d, Palette p, float w, float h)
     {
         Caption(g, Lang.T("LAST 5 MINUTES"), 14, 10, p.Faint);
-        float gx = w - 34;
+        float gx = w - 14;
         for (int i = readings.Count - 1; i >= 0; i--)
         {
             string text = $"{readings[i].Label} {readings[i].Text}";

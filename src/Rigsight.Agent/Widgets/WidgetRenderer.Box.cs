@@ -635,20 +635,46 @@ internal static partial class WidgetRenderer
     {
         var readings = (t.Items ?? []).Select(i => Read(i, d, p)).ToList();
         if (readings.Count == 0) return;
-        var widths = readings.Select(x => 11 + Measure(g, x.Label, 11, FontStyle.Bold) + 5 + Measure(g, x.Text, 13, FontStyle.Bold, semibold: true)).ToList();
-        float gap = Math.Max(10, (r.Width - widths.Sum()) / readings.Count), x = r.Left + gap / 2;
-        // The line sits in the middle of the tile by the ink of its tallest letters.
-        var ink = InkOf(g, "CPU 46°", 13, FontStyle.Bold, true);
-        float y = r.Top + (r.Height - ink.Height) / 2 - ink.Top;
+        ReadingRow(g, readings, p, rd => PartColor(rd, p)).Draw(g, r, TileAlign.Center);
+    }
+
+    /// <summary>
+    /// Readings in one row, laid out as a web page's flex row with its items centred both ways (the user, 2026-11-10:
+    /// "display flex align items center justify content center"): each reading's dot, name and value one after another
+    /// at fixed gaps, every part centred on the same middle line by its own ink (not its line box), and the whole row
+    /// then put in the middle of the space it's drawn in, with as much room on the left as on the right.
+    /// </summary>
+    private static Ink ReadingRow(Graphics g, List<Reading> readings, Palette? p, Func<Reading, Color> dot)
+    {
+        const float Dot = 6, DotGap = 6, NameGap = 5, Gap = 16;
+        var row = new Ink(g);
+        float x = 0;
         for (int i = 0; i < readings.Count; i++)
         {
             var rd = readings[i];
-            using (var dot = new SolidBrush(PartColor(rd, p))) g.FillEllipse(dot, x, y + ink.Top + ink.Height / 2 - 3, 6, 6);
-            float lx = x + 11;
-            Text(g, rd.Label, 11, FontStyle.Bold, p.Muted, lx, y + 1.5f);
-            Text(g, rd.Text, 13, FontStyle.Bold, rd.ValueColor, lx + Measure(g, rd.Label, 11, FontStyle.Bold) + 5, y, semibold: true);
-            x += widths[i] + gap;
+            if (i > 0) x += Gap;
+            float at = x;
+            var color = dot(rd);
+            row.Shape(new RectangleF(at, -Dot / 2, Dot, Dot), (gg, dx, dy) =>
+            {
+                using var b = new SolidBrush(color);
+                gg.FillEllipse(b, at + dx, -Dot / 2 + dy, Dot, Dot);
+            });
+            x += Dot + DotGap;
+            var name = InkOf(g, rd.Label, 11, FontStyle.Bold, false);
+            if (!name.IsEmpty)
+            {
+                row.Text(rd.Label, 11, FontStyle.Bold, p?.Muted ?? Color.Gray, x - name.Left, -(name.Top + name.Height / 2));
+                x += name.Width + NameGap;
+            }
+            var value = InkOf(g, rd.Text, 13, FontStyle.Bold, true);
+            if (!value.IsEmpty)
+            {
+                row.Text(rd.Text, 13, FontStyle.Bold, rd.ValueColor, x - value.Left, -(value.Top + value.Height / 2), semibold: true);
+                x += value.Width;
+            }
         }
+        return row;
     }
 
     // ── What a box shows, as text: the same text means the same picture ───
