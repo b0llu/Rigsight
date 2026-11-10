@@ -66,6 +66,21 @@ public partial class WidgetsView : UserControl
     private void CanvasFrame_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (_vm?.Editor is { } ed && e.NewSize.Width > 0) ed.CanvasWidth = e.NewSize.Width;
+        // Inside the card's rounded top corners: the backdrop, and a widget scrolled under them, stay in (the user,
+        // 2026-11-10: the preview's box went outside its card).
+        if (sender is Border frame && e.NewSize.Width > 0 && e.NewSize.Height > 0)
+        {
+            double r = frame.CornerRadius.TopLeft, w = e.NewSize.Width, h = e.NewSize.Height;
+            var figure = new PathFigure { StartPoint = new Point(0, h), IsClosed = true };
+            figure.Segments.Add(new LineSegment(new Point(0, r), false));
+            figure.Segments.Add(new ArcSegment(new Point(r, 0), new Size(r, r), 0, false, SweepDirection.Clockwise, false));
+            figure.Segments.Add(new LineSegment(new Point(w - r, 0), false));
+            figure.Segments.Add(new ArcSegment(new Point(w, r), new Size(r, r), 0, false, SweepDirection.Clockwise, false));
+            figure.Segments.Add(new LineSegment(new Point(w, h), false));
+            var clip = new PathGeometry([figure]);
+            clip.Freeze();
+            frame.Clip = clip;
+        }
     }
 
     // ── Shortcut keys ──

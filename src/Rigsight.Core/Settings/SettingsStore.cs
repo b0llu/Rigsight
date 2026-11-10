@@ -137,6 +137,8 @@ public static class SettingsStore
     {
         // v13 (the widget boxes): a built-in widget can be removed, so one missing is only put back in a file from before.
         bool builtInsFixed = s.SettingsVersion < 13;
+        // Also v13: where a widget sits came, and a file from before has no word of it (a new file isn't from before).
+        bool sitsNotThere = s.SettingsVersion is > 0 and < 13;
         // A hand edit can leave null where a section or list belongs: that part starts from its defaults, the rest is kept.
         s.Widgets = s.Widgets is null ? WidgetConfig.Defaults() : [.. s.Widgets.Where(w => w is not null)];
         s.Tracking ??= new TrackingSettings();
@@ -272,7 +274,10 @@ public static class SettingsStore
             WidgetCatalog.Clean(w);
             WidgetTiles.Clean(w);
             if (!Enum.IsDefined(w.Theme)) w.Theme = WidgetTheme.Dark;
-            if (!Enum.IsDefined(w.Sits)) w.Sits = WidgetSits.OverWindows;
+            if (!Enum.IsDefined(w.Sits)) w.Sits = WidgetSits.OnDesktop;
+            // v13: widgets start on the desktop; one that was on in a file from before stays over windows, as it worked
+            // (the setting didn't exist, so nobody picked it: settings people set survive updates).
+            if (sitsNotThere && w.Enabled) w.Sits = WidgetSits.OverWindows;
             if (!Enum.IsDefined(w.Corners)) w.Corners = WidgetCorners.Round;
             if (!Enum.IsDefined(w.Gap)) w.Gap = WidgetGap.None;
             if (w.Accent is { } accent && !System.Text.RegularExpressions.Regex.IsMatch(accent, "^#[0-9A-Fa-f]{6}$")) w.Accent = null;

@@ -29,7 +29,8 @@ internal sealed class WidgetForm : Form
     private readonly WidgetManager _manager;
     private readonly System.Windows.Forms.Timer _hoverTimer = new() { Interval = 250 };
     private WidgetData? _data;
-    private bool _hover;
+    private bool _hover, _dragging;
+    private Point _dragFrom;
     private RectangleF _closeRect;
 
     public WidgetForm(WidgetConfig config, WidgetManager manager)
@@ -91,6 +92,14 @@ internal sealed class WidgetForm : Form
     {
         bool sitsChanged = Config.Sits != config.Sits;
         Config = config;
+        // A spot set in the app (the widget dragged on the Widgets page's map, or placed from its editor): there on the
+        // desktop too (the user, 2026-11-10: it went back where it was). Not while it's being dragged here, nor while it
+        // waits in the corner for its screen to come back.
+        if (IsHandleCreated && !_dragging && config.X is int x && config.Y is int y && new Point(x, y) != PanelLocation && !_manager.WaitsForScreen(config.Id))
+        {
+            Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(config)} moved from {PanelLocation.X},{PanelLocation.Y} to {x},{y}, its spot as saved in the app");
+            PanelLocation = new Point(x, y);
+        }
         if (IsHandleCreated)
         {
             long ex = (long)Win32.GetWindowLongPtr(Handle, Win32.GWL_EXSTYLE);
@@ -291,6 +300,8 @@ internal sealed class WidgetForm : Form
                 return;
 
             case WM_ENTERSIZEMOVE:
+                _dragging = true;
+                _dragFrom = PanelLocation;
                 KeepOnTop(); // picked up: over everything while it's dragged, the taskbar included
                 break;
 
@@ -311,9 +322,11 @@ internal sealed class WidgetForm : Form
                 break;
 
             case WM_EXITSIZEMOVE:
+                _dragging = false;
                 KeepOnTop();
                 _manager.Moved(Config.Id);
                 var at = PanelLocation;
+                if (at != _dragFrom) Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} dragged from {_dragFrom.X},{_dragFrom.Y} to {at.X},{at.Y}");
                 _manager.Mutate(Config.Id, c => { c.X = at.X; c.Y = at.Y; });
                 break;
 

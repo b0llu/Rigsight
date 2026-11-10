@@ -4821,6 +4821,7 @@
     "{0} removed.": "{0} quitado.",
     "No widgets are on.": "Ningún widget está activado.",
     "No widgets are off.": "Ningún widget está desactivado.",
+    "No widgets yet.": "Aún no hay widgets.",
     "Ready-made": "Ya hechos",
     "Which apps cost the most?": "¿Qué aplicaciones gastan más?",
     "How long you use each app, how long it sits in the background, and how hard it pushes your hardware.": "Cuánto tiempo usas cada aplicación, cuánto pasa en segundo plano y cuánto exige a tu hardware.",
@@ -5668,9 +5669,6 @@
     "Show it on the desktop": "Mostrarlo en el escritorio",
     "Add": "Añadir",
     "Added": "Añadido",
-    "Make your own": "Crea el tuyo",
-    "Put any tiles in one box and arrange them your way.": "Pon los mosaicos que quieras en una caja y colócalos a tu manera.",
-    "Create widget": "Crear widget",
     "Which widgets suit me?": "¿Qué widgets me convienen?",
     "Readings, clocks and more on your desktop. Drag one anywhere, or lock it so clicks pass straight through.": "Lecturas, relojes y más en tu escritorio. Arrastra uno a cualquier sitio o fíjalo para que los clics lo atraviesen.",
     "Off hides them all and keeps which ones are on.": "Desactivado los oculta todos y recuerda cuáles están activados.",
@@ -5690,6 +5688,7 @@
     "ON YOUR SCREENS": "EN TUS PANTALLAS",
     "Your screens, with the widgets on them": "Tus pantallas, con sus widgets",
     "YOUR WIDGETS": "TUS WIDGETS",
+    "Create widget": "Crear widget",
     "Which widgets to show": "Qué widgets mostrar",
     "Search your widgets": "Buscar en tus widgets",
     "ADD A WIDGET": "AÑADIR UN WIDGET",
@@ -7043,6 +7042,8 @@
     "The readings themselves, with their numbers, labels, gauges and charts.": "Las propias lecturas, con sus números, etiquetas, indicadores y gráficos.",
     "Delete widget": "Eliminar widget",
     "Locked widgets only. You can read what's behind them, and clicks still go through.": "Solo los widgets fijados. Puedes leer lo que hay detrás y los clics siguen pasando.",
-    "ALL WIDGETS": "TODOS LOS WIDGETS"
+    "ALL WIDGETS": "TODOS LOS WIDGETS",
+    "Make your own": "Crea el tuyo",
+    "Put any tiles in one box and arrange them your way.": "Pon los mosaicos que quieras en una caja y colócalos a tu manera."
   }
 }

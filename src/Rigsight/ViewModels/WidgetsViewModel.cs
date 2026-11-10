@@ -188,9 +188,6 @@ public sealed partial class RemovedWidget(WidgetConfig config, int index, Widget
     private void Undo() => page.UndoRemove(this);
 }
 
-/// <summary>The last tile in the grid of widgets: make one of your own.</summary>
-public sealed class MakeYourOwnTile;
-
 /// <summary>A widget on the page's map of the screens: where it is and how big, in screen pixels, and its picture.</summary>
 public sealed record WidgetSpot(string Id, string Title, int X, int Y, int Width, int Height, ImageSource? Picture);
 
@@ -294,7 +291,7 @@ public sealed partial class WidgetsViewModel : ObservableObject
 
     /// <summary>
     /// The cards as the page lays them out: the widgets the chips and search let through, a widget just removed in its
-    /// card's place, then the "Make your own" tile at the end (not under Off, nor while searching).
+    /// card's place.
     /// </summary>
     public ObservableCollection<object> Grid { get; } = [];
 
@@ -341,14 +338,14 @@ public sealed partial class WidgetsViewModel : ObservableObject
         NoMineText = shown.Count > 0 ? ""
             : q.Length > 0 ? Lang.T($"Nothing matches “{q}”.")
             : chip == OnGroup ? Lang.T("No widgets are on.")
-            : chip == OffGroup ? Lang.T("No widgets are off.") : "";
+            : chip == OffGroup ? Lang.T("No widgets are off.")
+            : Lang.T("No widgets yet.");
         if (Removed is { } r)
         {
             // In its card's place: before the first card that came after it.
             int at = shown.FindIndex(o => o is WidgetCard c && Cards.IndexOf(c) >= r.Index);
             shown.Insert(at < 0 ? shown.Count : at, r);
         }
-        if (chip != OffGroup && q.Length == 0) shown.Add(MakeYourOwn);
         if (Grid.SequenceEqual(shown)) return;
         Grid.Clear();
         foreach (var o in shown) Grid.Add(o);
@@ -384,8 +381,6 @@ public sealed partial class WidgetsViewModel : ObservableObject
         Sync();
         FillGrid();
     }
-
-    public MakeYourOwnTile MakeYourOwn { get; } = new();
 
     public bool CanCreate => _settings.Current.Widgets.Count(w => w.Style == WidgetStyle.Custom) < WidgetCatalog.MaxCustom;
 

@@ -90,6 +90,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     /// </summary>
     private void Change(Action<WidgetConfig> change)
     {
+        TakeSaved();
         _undo.Push(Snapshot());
         _redo.Clear();
         if (_w.Tiles is null)
@@ -99,6 +100,31 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         }
         change(_w);
         Commit();
+    }
+
+    /// <summary>
+    /// The widget as it's saved now, before a change here: while the editor is open it can be dragged on the desktop or
+    /// on the map, or changed from its menu on the desktop, and a change here doesn't put any of that back (the user,
+    /// 2026-11-10: a calendar dragged away kept going back where it was when the editor opened).
+    /// </summary>
+    private void TakeSaved()
+    {
+        if (_settings.Current.Widgets.FirstOrDefault(w => w.Id == Id) is not { } now) return;
+        var tiles = _w.Tiles;
+        _w = Clone(now);
+        // Drawn as before the box came: the tiles it became here, until its first change saves them.
+        if (_w.Tiles is null)
+        {
+            _w.Tiles = tiles ?? WidgetTiles.FromLayout(_w);
+            _w.Layout = null;
+        }
+    }
+
+    /// <summary>Undo and Redo bring back the widget's look and tiles, not where it is nor its switches, which aren't undone here.</summary>
+    private void KeepSavedPlace()
+    {
+        if (_settings.Current.Widgets.FirstOrDefault(w => w.Id == Id) is not { } now) return;
+        (_w.X, _w.Y, _w.Enabled, _w.Locked, _w.Sits) = (now.X, now.Y, now.Enabled, now.Locked, now.Sits);
     }
 
     private void Commit()
@@ -121,8 +147,10 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     private void Undo()
     {
         if (_undo.Count == 0) return;
+        TakeSaved();
         _redo.Push(Snapshot());
         _w = JsonSerializer.Deserialize<WidgetConfig>(_undo.Pop(), SettingsStore.JsonOptions)!;
+        KeepSavedPlace();
         Commit();
     }
 
@@ -130,8 +158,10 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     private void Redo()
     {
         if (_redo.Count == 0) return;
+        TakeSaved();
         _undo.Push(Snapshot());
         _w = JsonSerializer.Deserialize<WidgetConfig>(_redo.Pop(), SettingsStore.JsonOptions)!;
+        KeepSavedPlace();
         Commit();
     }
 
@@ -165,6 +195,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         set
         {
             if (value == _w.Enabled) return;
+            TakeSaved();
             _w.Enabled = value;
             Commit();
         }
@@ -714,6 +745,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         set
         {
             if (value is null || value == Sits || !Enum.TryParse<WidgetSits>(value, out var s)) return;
+            TakeSaved();
             _w.Sits = s;
             Commit();
         }
@@ -725,6 +757,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         set
         {
             if (value == _w.Locked) return;
+            TakeSaved();
             _w.Locked = value;
             Commit();
         }
@@ -735,6 +768,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     private void Place(string spot)
     {
         if (!int.TryParse(spot, out int anchor)) return;
+        TakeSaved();
         var screens = System.Windows.Forms.Screen.AllScreens;
         var at = new System.Drawing.Point(_w.X ?? 0, _w.Y ?? 0);
         var screen = screens.FirstOrDefault(s => s.Bounds.Contains(at)) ?? System.Windows.Forms.Screen.PrimaryScreen;

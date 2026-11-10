@@ -533,6 +533,32 @@ public sealed class SettingsPageTests
         });
     }
 
+    // While the editor is open the widget can be dragged on the desktop or on the map: a change in the editor, or its
+    // Undo, never puts it back where it was when the editor opened (the user, 2026-11-10: a calendar kept going back).
+    [Fact]
+    public void A_widget_moved_while_its_editor_is_open_stays_where_it_was_moved()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var ed = vm.Editor!;
+            WidgetConfig Saved() => link.Settings.Current.Widgets.Single(w => w.Id == ed.Id);
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Calendar));
+
+            vm.MoveWidget(ed.Id, 300, 500); // dragged on the map (the desktop saves the same way)
+            ed.Theme = nameof(WidgetTheme.Light);
+            Assert.Equal((300, 500, WidgetTheme.Light), (Saved().X, Saved().Y, Saved().Theme));
+            link.Settings.Update(s => (s.Widgets.Single(w => w.Id == ed.Id).X, s.Widgets.Single(w => w.Id == ed.Id).Y) = (900, 40));
+            ed.UndoCommand.Execute(null);
+            Assert.Equal((900, 40, WidgetTheme.App), (Saved().X, Saved().Y, Saved().Theme));
+            ed.Locked = true;
+            Assert.Equal((900, 40, true), (Saved().X, Saved().Y, Saved().Locked));
+            vm.CloseEditorCommand.Execute(null);
+        });
+    }
+
     [Fact]
     public void A_ready_made_widget_becomes_tiles_at_its_first_change_and_can_be_copied_or_removed()
     {
@@ -620,13 +646,12 @@ public sealed class SettingsPageTests
             vm.Refresh();
             int all = link.Settings.Current.Widgets.Count;
             Assert.Equal([all, 1, all - 1], vm.MineChips.Select(c => c.Count));
-            Assert.IsType<MakeYourOwnTile>(vm.Grid[^1]);
+            Assert.Equal(all, vm.Grid.Count); // every widget, nothing else
 
             vm.PickedMineChip = vm.MineChips.Single(c => c.Key == "On");
             Assert.Equal([link.Settings.Current.Widgets[0].Id], vm.Grid.OfType<WidgetCard>().Select(c => c.Id));
             vm.PickedMineChip = vm.MineChips.Single(c => c.Key == "Off");
             Assert.Equal(all - 1, vm.Grid.OfType<WidgetCard>().Count());
-            Assert.DoesNotContain(vm.Grid, o => o is MakeYourOwnTile);
             vm.PickedMineChip = vm.MineChips[0];
             vm.MineQuery = "slim";
             Assert.Equal("Slim bar", Assert.Single(vm.Grid.OfType<WidgetCard>()).Title);

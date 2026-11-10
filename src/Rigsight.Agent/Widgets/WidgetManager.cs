@@ -279,6 +279,9 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     /// <summary>A widget dragged somewhere new no longer waits for its old spot.</summary>
     public void Moved(string id) => _waitingForScreen.Remove(id);
 
+    /// <summary>The widget is in the corner for now, its saved spot on a screen that isn't there.</summary>
+    public bool WaitsForScreen(string id) => _waitingForScreen.Contains(id);
+
     /// <param name="gameInFront">A game (not a video or another app) is in front.</param>
     /// <param name="fillsScreen">The window in front covers its whole screen (borderless or exclusive).</param>
     /// <param name="exclusive">A Direct3D game is in exclusive fullscreen.</param>

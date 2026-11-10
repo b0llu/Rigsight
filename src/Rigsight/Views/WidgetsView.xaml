@@ -196,23 +196,6 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- The last tile in the grid of widgets, dashed: make one of your own. -->
-        <DataTemplate DataType="{x:Type vm:MakeYourOwnTile}">
-            <Grid MinHeight="260">
-                <Rectangle Stroke="{DynamicResource StrokeBrush}" StrokeThickness="1.5" StrokeDashArray="4 3" RadiusX="12" RadiusY="12" SnapsToDevicePixels="True" />
-                <StackPanel Margin="16" VerticalAlignment="Center">
-                    <Border Width="36" Height="36" HorizontalAlignment="Left" CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}">
-                        <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <TextBlock Text="{ctl:T 'Make your own'}" Style="{StaticResource H2}" FontSize="{x:Static ctl:TextSize.Heading}" Margin="0,14,0,0" />
-                    <TextBlock Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" Margin="0,4,0,0"
-                               Text="{ctl:T 'Put any tiles in one box and arrange them your way.'}" />
-                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Create widget'}" HorizontalAlignment="Left" Margin="0,12,0,0"
-                            Command="{Binding DataContext.CreateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                </StackPanel>
-            </Grid>
-        </DataTemplate>
-
         <!-- A chip over a list, with how many it holds. -->
         <DataTemplate x:Key="ChipTemplate">
             <StackPanel Orientation="Horizontal">
@@ -397,7 +380,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="14" />
-                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="400" />
                     </Grid.ColumnDefinitions>
 
                     <!-- The widget at its real size (or fitted), on a stand-in for the wallpaper. -->
@@ -418,7 +401,7 @@
                                     </StackPanel>
                                 </Border>
                             </DockPanel>
-                            <Border x:Name="CanvasFrame" Height="340" SizeChanged="CanvasFrame_SizeChanged">
+                            <Border x:Name="CanvasFrame" Height="340" CornerRadius="15,15,0,0" SizeChanged="CanvasFrame_SizeChanged">
                                 <Border.Style>
                                     <Style TargetType="Border">
                                         <Setter Property="Background" Value="{StaticResource Backdrop}" />
@@ -540,7 +523,7 @@
                                                     <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}" FontSize="{x:Static ctl:TextSize.Body}" />
-                                                        <TextBlock Text="{Binding Line}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Small}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                                                        <TextBlock Text="{Binding Line}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" Margin="0,2,0,0" />
                                                     </StackPanel>
                                                 </DockPanel>
                                             </Button>
