@@ -10,6 +10,53 @@ namespace Rigsight.Tests.Agent;
 public sealed class WidgetSpotTests
 {
     private static readonly Rectangle[] OneScreen = [new(0, 0, 2560, 1440)];
+
+    // The close badge sits over the widget's top right as a count sits on a bell (the user, 2026-11-10: it floated
+    // outside a slim bar): its middle inside the panel's own shape, on the rounded corner's curve and a little in, and
+    // the whole badge inside the window.
+    [Theory]
+    [InlineData("bar")]
+    [InlineData("round")]
+    [InlineData("slight")]
+    [InlineData("square")]
+    public void The_close_badge_sits_over_the_widgets_corner(string shape)
+    {
+        const float scale = 1.5f;
+        const int dpi = 144, room = 17;
+        var cfg = shape == "bar"
+            ? new Rigsight.Core.Settings.WidgetConfig { Style = Rigsight.Core.Settings.WidgetStyle.Pill }
+            : new Rigsight.Core.Settings.WidgetConfig
+            {
+                Style = Rigsight.Core.Settings.WidgetStyle.Custom, Tiles = [new() { Kind = "clock", W = 6, H = 4 }],
+                Corners = shape switch { "slight" => Rigsight.Core.Settings.WidgetCorners.Slight, "square" => Rigsight.Core.Settings.WidgetCorners.Square, _ => Rigsight.Core.Settings.WidgetCorners.Round },
+            };
+        var panel = shape == "bar" ? new Size(300, 51) : new Size(372, 204);
+        var badge = WidgetForm.BadgeAt(cfg, panel, scale, dpi, room);
+        float cx = badge.X + badge.Width / 2, cy = badge.Y + badge.Height / 2;
+        float radius = WidgetRenderer.CornerRadius(cfg, panel.Height / scale) * scale;
+        // Inside the panel: left of its right edge and under its top, and inside the corner's circle.
+        Assert.True(cx < panel.Width && cy > room, $"{shape}: middle at {cx},{cy}");
+        if (radius > 0)
+        {
+            float ox = panel.Width - radius, oy = room + radius;
+            Assert.True(MathF.Sqrt((cx - ox) * (cx - ox) + (cy - oy) * (cy - oy)) < radius, $"{shape}: middle off the curve's inside");
+        }
+        Assert.True(badge.Top >= 0 && badge.Right <= panel.Width + room, $"{shape}: badge {badge} outside the window");
+
+        // A picture to look at: the widget as drawn, with the badge where the window puts it.
+        using var drawn = WidgetRenderer.Render(cfg, null, scale, hover: false, out _);
+        var at = WidgetForm.BadgeAt(cfg, drawn.Size, scale, dpi, room);
+        using var pic = new Bitmap(drawn.Width + room, drawn.Height + room);
+        using (var g = Graphics.FromImage(pic))
+        {
+            g.Clear(Color.FromArgb(42, 51, 80));
+            g.DrawImageUnscaled(drawn, 0, room);
+            WidgetForm.DrawBadge(g, at, dpi / 96f);
+        }
+        var folder = Path.Combine(Path.GetTempPath(), "rigsight-tests", "badges");
+        Directory.CreateDirectory(folder);
+        pic.Save(Path.Combine(folder, $"badge-{shape}.png"));
+    }
     private static readonly Rectangle[] TwoScreens = [new(0, 0, 2560, 1440), new(2560, 0, 1920, 1080)];
 
     [Fact]

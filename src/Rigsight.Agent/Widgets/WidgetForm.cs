@@ -155,9 +155,7 @@ internal sealed class WidgetForm : Form
             _closeRect = RectangleF.Empty;
             if (_hover && !Config.Locked)
             {
-                // The badge: a small round button on the panel's top right corner, half outside it.
-                float d = 20 * DeviceDpi / 96f, cx = panel.Width, cy = Room;
-                _closeRect = new RectangleF(cx - d / 2, cy - d / 2, d, d);
+                _closeRect = BadgeRect(panel.Size, scale);
                 DrawBadge(g, _closeRect, DeviceDpi / 96f);
             }
         }
@@ -166,7 +164,23 @@ internal sealed class WidgetForm : Form
         Win32.SetLayeredBitmap(Handle, bmp, Location, _opacity); // opacity is in the bitmap (background and content apart)
     }
 
-    private static void DrawBadge(Graphics g, RectangleF r, float dpi)
+    /// <summary>
+    /// Where the close badge goes, in the window: over the panel's top right, as a count sits on a bell (the user,
+    /// 2026-11-10: it floated outside a slim bar). Its middle is on the panel's own curve there, not on the empty corner
+    /// of a rounded panel's box, and a little inside it, so most of the badge lies over the widget.
+    /// </summary>
+    private RectangleF BadgeRect(Size panel, float scale) => BadgeAt(Config, panel, scale, DeviceDpi, Room);
+
+    internal static RectangleF BadgeAt(WidgetConfig cfg, Size panel, float scale, int dpi, int room)
+    {
+        float d = 20 * dpi / 96f, inset = 3 * dpi / 96f;
+        float radius = Math.Min(WidgetRenderer.CornerRadius(cfg, panel.Height / scale) * scale, Math.Min(panel.Width, panel.Height) / 2f);
+        float onCurve = radius * (1 - MathF.Sqrt(0.5f)); // the curve's point at 45°, from the box's corner
+        float cx = panel.Width - onCurve - inset, cy = room + onCurve + inset;
+        return new RectangleF(cx - d / 2, cy - d / 2, d, d);
+    }
+
+    internal static void DrawBadge(Graphics g, RectangleF r, float dpi)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;

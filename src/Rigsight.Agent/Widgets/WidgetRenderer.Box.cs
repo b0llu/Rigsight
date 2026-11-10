@@ -60,6 +60,10 @@ internal static partial class WidgetRenderer
         _ => 0,
     };
 
+    /// <summary>The panel's corner radius, in the widget's own pixels (the window puts its close badge on that curve).</summary>
+    internal static float CornerRadius(WidgetConfig cfg, float height) =>
+        cfg.Tiles is not null ? RadiusOf(cfg, height) : WidgetCatalog.LayoutOf(cfg) == WidgetLayout.Bar ? (height - 1) / 2 : 14;
+
     private static float RadiusOf(WidgetConfig cfg, float height) => cfg.Corners switch
     {
         WidgetCorners.Square => 0,
