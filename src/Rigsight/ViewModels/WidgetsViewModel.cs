@@ -154,6 +154,9 @@ public sealed partial class WidgetGroupChip(string key, int count) : ObservableO
     [ObservableProperty] private bool _isSelected;
 }
 
+/// <summary>The last tile in the grid of widgets: make one of your own.</summary>
+public sealed class MakeYourOwnTile;
+
 /// <summary>A widget on the page's map of the screens: where it is and how big, in screen pixels, and its picture.</summary>
 public sealed record WidgetSpot(string Id, string Title, int X, int Y, int Width, int Height, ImageSource? Picture);
 
@@ -245,6 +248,11 @@ public sealed partial class WidgetsViewModel : ObservableObject
     /// <summary>Every widget, in the settings' order (the built-in ones first, as they always were).</summary>
     public ObservableCollection<WidgetCard> Cards { get; } = [];
 
+    /// <summary>The cards as the page lays them out: every widget, then the "Make your own" tile at the end of the grid.</summary>
+    public ObservableCollection<object> Grid { get; } = [];
+
+    public MakeYourOwnTile MakeYourOwn { get; } = new();
+
     public bool CanCreate => _settings.Current.Widgets.Count(w => w.Style == WidgetStyle.Custom) < WidgetCatalog.MaxCustom;
 
     /// <summary>The widget open in the editor, if any.</summary>
@@ -314,10 +322,18 @@ public sealed partial class WidgetsViewModel : ObservableObject
 
     partial void OnChoiceQueryChanged(string value) => FilterChoices();
 
+    /// <summary>The chip picked over the list (the page's chips are a list with one picked).</summary>
+    public WidgetGroupChip? PickedChip
+    {
+        get => Chips.FirstOrDefault(c => c.IsSelected);
+        set { if (value is not null && value != PickedChip) PickChip(value); }
+    }
+
     [RelayCommand]
     private void PickChip(WidgetGroupChip chip)
     {
         foreach (var c in Chips) c.IsSelected = c == chip;
+        OnPropertyChanged(nameof(PickedChip));
         FilterChoices();
     }
 
@@ -419,7 +435,11 @@ public sealed partial class WidgetsViewModel : ObservableObject
             var keep = Cards.ToDictionary(c => c.Id);
             Cards.Clear();
             foreach (var id in ids) Cards.Add(keep.GetValueOrDefault(id) ?? new WidgetCard(id, _settings, _live, this));
+            Grid.Clear();
+            foreach (var c in Cards) Grid.Add(c);
+            Grid.Add(MakeYourOwn);
         }
+        else if (Grid.Count == 0) Grid.Add(MakeYourOwn);
         OnPropertyChanged(nameof(CanCreate));
         CreateCommand.NotifyCanExecuteChanged();
     }

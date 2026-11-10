@@ -20,6 +20,23 @@ public sealed class WidgetSpotTests
         Assert.True(WidgetManager.OnAScreen(new Rectangle(-200, -10, 260, 60), OneScreen));  // most of it off the top left
     }
 
+    // Dragged near an edge, the middle or another widget, a widget is pulled onto it, 12 pixels in or apart; further
+    // away it stays where it was let go.
+    [Fact]
+    public void A_dragged_widget_snaps_to_edges_the_middle_and_other_widgets()
+    {
+        var area = new Rectangle(0, 0, 2560, 1392); // the main screen above its taskbar
+        Rectangle Panel(int x, int y) => new(x, y, 300, 100);
+        Assert.Equal((12, 12), WidgetManager.SnapPanel(Panel(18, 5), area, [], 12, 10));                  // the top left corner
+        Assert.Equal((2560 - 12 - 300, 1392 - 12 - 100), WidgetManager.SnapPanel(Panel(2240, 1285), area, [], 12, 10)); // bottom right
+        Assert.Equal(((2560 - 300) / 2, 400), WidgetManager.SnapPanel(Panel(1126, 400), area, [], 12, 10)); // the middle
+        Assert.Equal((700, 400), WidgetManager.SnapPanel(Panel(700, 400), area, [], 12, 10));              // nothing near: as let go
+
+        var other = new Rectangle(1000, 200, 200, 80);
+        Assert.Equal((1212, 200), WidgetManager.SnapPanel(Panel(1218, 205), area, [other], 12, 10));     // beside it, tops level
+        Assert.Equal((1000, 292), WidgetManager.SnapPanel(Panel(995, 297), area, [other], 12, 10));      // under it, lefts level
+    }
+
     [Fact]
     public void A_widget_on_a_screen_that_isnt_there_waits_for_it()
     {

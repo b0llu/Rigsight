@@ -190,8 +190,9 @@ internal static partial class WidgetRenderer
         float w = size.Width, h = size.Height;
         bool pill = cfg.Tiles is null ? layout == WidgetLayout.Bar : RadiusOf(cfg, h) >= h / 2 - 0.5f;
         var panel = cfg.Tiles is not null ? BoxPanel(cfg, w, h) : RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), pill ? (h - 1) / 2 : 14);
-        // Built-in widgets are signed "Rigsight"; the user's own carry their name.
-        string caption = cfg.Style == WidgetStyle.Custom ? WidgetCatalog.Title(cfg).ToUpperInvariant() : "RIGSIGHT";
+        // The user's own carry their name. Built-in ones say nothing up there: no "RIGSIGHT" on Compact and Gauges (the user,
+        // 2026-11-09); their room stays, so a widget keeps its size and its spot.
+        string caption = cfg.Style == WidgetStyle.Custom ? WidgetCatalog.Title(cfg).ToUpperInvariant() : "";
 
         void DrawContent(Graphics g)
         {

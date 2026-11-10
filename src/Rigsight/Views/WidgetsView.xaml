@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              xmlns:svc="clr-namespace:Rigsight.Services"
+             xmlns:vm="clr-namespace:Rigsight.ViewModels"
              Focusable="True">
     <UserControl.Resources>
         <Style x:Key="Section" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
@@ -32,7 +33,7 @@
         </Style>
 
         <!-- A widget the person has: its picture, name, switch, what it is, Edit, and the screen it's on. -->
-        <DataTemplate x:Key="WidgetCardTemplate">
+        <DataTemplate DataType="{x:Type vm:WidgetCard}">
             <ctl:SmoothBorder Padding="14" CornerRadius="{x:Static ctl:Corner.Card}" BorderThickness="1" Background="{DynamicResource SurfaceBrush}">
                 <ctl:SmoothBorder.Style>
                     <Style TargetType="ctl:SmoothBorder">
@@ -75,20 +76,45 @@
                     <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" FontSize="{x:Static ctl:TextSize.Heading}" TextTrimming="CharacterEllipsis" Margin="0,12,0,0" />
                     <TextBlock Text="{Binding Line}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                Height="34" Margin="0,4,0,0" />
-                    <Button Command="{Binding AddCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" AutomationProperties.Name="{Binding Title, StringFormat='Add {0}'}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                                <Setter Property="Content" Value="{ctl:T 'Add'}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding JustAdded}" Value="True">
-                                        <Setter Property="Content" Value="{ctl:T 'Added'}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
+                    <Button Style="{StaticResource GhostButton}" Command="{Binding AddCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" AutomationProperties.Name="{Binding Title, StringFormat='Add {0}'}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="AddIcon" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock x:Name="AddText" Text="{ctl:T 'Add'}" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Button>
                 </StackPanel>
             </ctl:SmoothBorder>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding JustAdded}" Value="True">
+                    <Setter TargetName="AddIcon" Property="Text" Value="&#xE73E;" />
+                    <Setter TargetName="AddText" Property="Text" Value="{ctl:T 'Added'}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- The last tile in the grid of widgets, dashed: make one of your own. -->
+        <DataTemplate DataType="{x:Type vm:MakeYourOwnTile}">
+            <Grid MinHeight="260">
+                <Rectangle Stroke="{DynamicResource StrokeBrush}" StrokeThickness="1.5" StrokeDashArray="4 3" RadiusX="12" RadiusY="12" SnapsToDevicePixels="True" />
+                <StackPanel Margin="16" VerticalAlignment="Center">
+                    <Border Width="36" Height="36" HorizontalAlignment="Left" CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource Surface2Brush}">
+                        <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="{ctl:T 'Make your own'}" Style="{StaticResource H2}" FontSize="{x:Static ctl:TextSize.Heading}" Margin="0,14,0,0" />
+                    <TextBlock Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               Text="{ctl:T 'Put any tiles in one box and arrange them your way.'}" />
+                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Create widget'}" HorizontalAlignment="Left" Margin="0,12,0,0"
+                            Command="{Binding DataContext.CreateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <!-- A chip over a list, with how many it holds. -->
+        <DataTemplate x:Key="ChipTemplate">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Name}" />
+                <TextBlock Text="{Binding Count}" Foreground="{DynamicResource FaintBrush}" Margin="6,0,0,0" />
+            </StackPanel>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -128,44 +154,22 @@
                 </ctl:SmoothBorder>
 
                 <TextBlock Text="{ctl:T 'YOUR WIDGETS'}" Style="{StaticResource Section}" />
-                <ItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource WidgetCardTemplate}" Focusable="False">
+                <ItemsControl ItemsSource="{Binding Grid}" Focusable="False">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <ctl:TileWrap MinTileWidth="232" Gap="14" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
-                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,14,0,0">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Create widget'}" Command="{Binding CreateCommand}"
-                                VerticalAlignment="Center" Margin="16,0,0,0" />
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{ctl:T 'Make your own'}" Style="{StaticResource H2}" FontSize="{x:Static ctl:TextSize.Heading}" />
-                            <TextBlock Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                       Text="{ctl:T 'Put any tiles in one box and arrange them your way.'}" />
-                        </StackPanel>
-                    </DockPanel>
-                </ctl:SmoothBorder>
 
                 <!-- The list to add from, in a box of its own that scrolls, so the settings for all widgets stay close by
                      (the user, 2026-11-10). -->
-                <DockPanel Margin="0,22,0,8">
-                    <TextBlock Text="{ctl:T 'ADD A WIDGET'}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="4,0,16,0" />
-                    <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search'}" Width="220" Height="34"
-                             Text="{Binding ChoiceQuery, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Search the widgets you can add'}" Margin="12,0,0,0" />
-                    <ItemsControl ItemsSource="{Binding Chips}" Focusable="False" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <RadioButton Style="{StaticResource FilterChip}" Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=OneWay}" Margin="4,2,0,2"
-                                             Command="{Binding DataContext.PickChipCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                <DockPanel Margin="0,22,0,8" LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left" Text="{ctl:T 'ADD A WIDGET'}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="4,0,16,0" />
+                    <ListBox DockPanel.Dock="Right" Style="{StaticResource ChipList}" ItemsSource="{Binding Chips}" SelectedItem="{Binding PickedChip}" ItemTemplate="{StaticResource ChipTemplate}"
+                             VerticalAlignment="Center" Margin="0,6,0,0" AutomationProperties.Name="{ctl:T 'Kinds of widget'}" />
+                    <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search'}" Width="210" Height="34" VerticalAlignment="Center"
+                             Text="{Binding ChoiceQuery, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Search the widgets you can add'}" Margin="0,0,12,0" />
                 </DockPanel>
                 <Border Height="560" CornerRadius="{x:Static ctl:Corner.Card}" BorderThickness="1" BorderBrush="{DynamicResource StrokeBrush}" Background="{DynamicResource Surface2Brush}">
                     <Grid>
@@ -405,32 +409,21 @@
                             <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'ADD TILES'}" Style="{StaticResource Caption}" Margin="2,0,0,8" />
                             <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search'}" Height="34" Text="{Binding TileQuery, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.Name="{ctl:T 'Search the tiles'}" />
-                            <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding TileChips}" Margin="0,8,0,4" Focusable="False">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <RadioButton Style="{StaticResource FilterChip}" Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=OneWay}" Margin="0,0,4,4"
-                                                     Command="{Binding DataContext.PickTileChipCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <ListBox DockPanel.Dock="Top" Style="{StaticResource ChipList}" ItemsSource="{Binding TileChips}" SelectedItem="{Binding PickedTileChip}" ItemTemplate="{StaticResource ChipTemplate}"
+                                     Margin="0,10,0,2" AutomationProperties.Name="{ctl:T 'Kinds of tile'}" />
                             <TextBlock DockPanel.Dock="Top" Text="{Binding NoTilesText}" Style="{StaticResource Muted}" Margin="4,8" Visibility="{Binding NoTiles, Converter={StaticResource Vis}}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="-6,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,4,0,0">
                                 <ItemsControl ItemsSource="{Binding TileChoicesShown}" Focusable="False">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Button Style="{StaticResource RowButton}" Padding="8,6" HorizontalContentAlignment="Stretch"
+                                            <Button Style="{StaticResource RowButton}" HorizontalContentAlignment="Stretch" Margin="0,0,0,6"
                                                     Command="{Binding DataContext.AddTileCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
                                                     AutomationProperties.Name="{Binding Name, StringFormat='Add {0}'}">
-                                                <DockPanel>
-                                                    <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="8,0,2,0" />
+                                                <DockPanel Margin="10,7">
+                                                    <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}" FontSize="{x:Static ctl:TextSize.Body}" />
-                                                        <TextBlock Text="{Binding Line}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Caption}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Line}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Small}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                                                     </StackPanel>
                                                 </DockPanel>
                                             </Button>

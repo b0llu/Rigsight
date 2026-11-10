@@ -64,7 +64,8 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         }
         Readings = MakeReadings();
         TileChoices = [.. WidgetTiles.Kinds.Select(k => new TileChoice(k.Id, WidgetTiles.NameOf(k), WidgetTiles.LineOf(k), k.Group))];
-        TileChips = [.. new[] { WidgetsViewModel.AllGroup }.Concat(WidgetTiles.Kinds.Select(k => k.Group).Distinct()).Select(g => new WidgetGroupChip(g, 0))];
+        TileChips = [.. new[] { WidgetsViewModel.AllGroup }.Concat(WidgetTiles.Kinds.Select(k => k.Group).Distinct())
+            .Select(g => new WidgetGroupChip(g, g == WidgetsViewModel.AllGroup ? TileChoices.Count : TileChoices.Count(c => c.Group == g)))];
         TileChips[0].IsSelected = true;
         FilterTiles();
         Selected = _w.Tiles is { Count: > 0 } ? 0 : -1;
@@ -377,10 +378,17 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
 
     partial void OnTileQueryChanged(string value) => FilterTiles();
 
+    public WidgetGroupChip? PickedTileChip
+    {
+        get => TileChips.FirstOrDefault(c => c.IsSelected);
+        set { if (value is not null && value != PickedTileChip) PickTileChip(value); }
+    }
+
     [RelayCommand]
     private void PickTileChip(WidgetGroupChip chip)
     {
         foreach (var c in TileChips) c.IsSelected = c == chip;
+        OnPropertyChanged(nameof(PickedTileChip));
         FilterTiles();
     }
 
