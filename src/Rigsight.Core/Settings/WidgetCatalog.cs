@@ -17,7 +17,8 @@ public static class WidgetCatalog
     public static readonly IReadOnlyList<WidgetStyle> Listed = [.. BuiltIn.OrderBy(s => s != WidgetStyle.Fps)];
 
     public const string SensorPrefix = "sensor:";
-    public const int MaxCustom = 24;
+    /// <summary>How many widgets of the person's own: no limit people would meet, only a guard against a runaway file.</summary>
+    public const int MaxCustom = 200;
     public const int MaxNameLength = 40;
 
     public static string Title(WidgetStyle style) => style switch
@@ -32,7 +33,7 @@ public static class WidgetCatalog
         _ => Lang.T("My widget"),
     };
 
-    public static string Title(WidgetConfig w) => w.Style == WidgetStyle.Custom ? w.Name ?? Title(w.Style) : Title(w.Style);
+    public static string Title(WidgetConfig w) => w.Style == WidgetStyle.Custom || w.IsBox ? w.Name ?? Title(w.Style) : Title(w.Style);
 
     public static string Description(WidgetStyle style) => style switch
     {
@@ -98,6 +99,15 @@ public static class WidgetCatalog
     /// <summary>What the widget shows in its layout: the readings it can show, in order, as many as it holds.</summary>
     public static List<WidgetItem> ShownItems(WidgetConfig w)
     {
+        // A box shows what its tiles show: each reading, each line's and graph's readings, and a frame rate for FPS.
+        if (w.Tiles is { } tiles)
+            return [.. tiles.SelectMany(t => t.Kind switch
+            {
+                WidgetTiles.Reading when t.Item is not null => [new WidgetItem { Id = t.Item, Label = t.Label }],
+                WidgetTiles.Line or WidgetTiles.Graph => t.Items ?? [],
+                WidgetTiles.Fps => Items(OverlayMetric.Fps, OverlayMetric.FrameTime, OverlayMetric.OnePercentLow),
+                _ => (IEnumerable<WidgetItem>)[],
+            }).DistinctBy(i => i.Id)];
         var layout = LayoutOf(w);
         return [.. ItemsOf(w).Where(i => Shows(layout, i)).Take(MaxItems(layout))];
     }

@@ -130,11 +130,13 @@ public static class SettingsStore
     public static RigsightSettings Deserialize(string json) =>
         Normalize(JsonSerializer.Deserialize(json, SettingsJson.Default.RigsightSettings) ?? new RigsightSettings());
 
-    private const int CurrentVersion = 12;
+    private const int CurrentVersion = 13;
 
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
     {
+        // v13 (the widget boxes): a built-in widget can be removed, so one missing is only put back in a file from before.
+        bool builtInsFixed = s.SettingsVersion < 13;
         // A hand edit can leave null where a section or list belongs: that part starts from its defaults, the rest is kept.
         s.Widgets = s.Widgets is null ? WidgetConfig.Defaults() : [.. s.Widgets.Where(w => w is not null)];
         s.Tracking ??= new TrackingSettings();
@@ -238,11 +240,13 @@ public static class SettingsStore
         s.Sidebar.HeadingNames = Filled(s.Sidebar.HeadingNames);
         s.Sidebar.HiddenHeadings ??= [];
 
-        // One of each built-in widget, in order, then the user's own (each with its own identifier, name and layout).
+        // The built-in widgets, each at most once, in order, then the user's own (each with its own identifier, name and
+        // layout or tiles). Before v13 every built-in one was always there; since, Remove takes one away for good.
         var widgets = (s.Widgets ?? []).Where(w => w is not null && Enum.IsDefined(w.Style)).ToList();
-        foreach (var style in WidgetCatalog.BuiltIn)
-            if (widgets.All(w => w.Style != style))
-                widgets.Add(new WidgetConfig { Style = style, Grayscale = true });
+        if (builtInsFixed)
+            foreach (var style in WidgetCatalog.BuiltIn)
+                if (widgets.All(w => w.Style != style))
+                    widgets.Add(new WidgetConfig { Style = style, Grayscale = true });
         var builtIn = widgets.Where(w => w.Style != WidgetStyle.Custom).GroupBy(w => w.Style).Select(g => g.First()).OrderBy(w => w.Style);
         var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var custom = new List<WidgetConfig>();
@@ -252,15 +256,27 @@ public static class SettingsStore
                 ids.Add(w.Id = WidgetCatalog.NewId());
             string name = (w.Name ?? "").Trim();
             w.Name = name.Length == 0 ? WidgetCatalog.Title(WidgetStyle.Custom) : name.Length > WidgetCatalog.MaxNameLength ? name[..WidgetCatalog.MaxNameLength] : name;
-            if (w.Layout is not { } layout || !WidgetCatalog.CustomLayouts.Contains(layout)) w.Layout = WidgetLayout.Bar;
+            if (w.Tiles is null && (w.Layout is not { } layout || !WidgetCatalog.CustomLayouts.Contains(layout))) w.Layout = WidgetLayout.Bar;
             custom.Add(w);
         }
         s.Widgets = [.. builtIn, .. custom];
 
         foreach (var w in s.Widgets)
         {
-            if (w.Style != WidgetStyle.Custom) (w.Id, w.Name, w.Layout) = (w.Style.ToString(), null, null);
+            // A built-in widget turned into tiles keeps its identifier and may have a name of its own.
+            if (w.Style != WidgetStyle.Custom)
+            {
+                string? own = (w.Name ?? "").Trim();
+                (w.Id, w.Name, w.Layout) = (w.Style.ToString(), w.Tiles is null || own.Length == 0 ? null : own.Length > WidgetCatalog.MaxNameLength ? own[..WidgetCatalog.MaxNameLength] : own, null);
+            }
             WidgetCatalog.Clean(w);
+            WidgetTiles.Clean(w);
+            if (!Enum.IsDefined(w.Theme)) w.Theme = WidgetTheme.Dark;
+            if (!Enum.IsDefined(w.Sits)) w.Sits = WidgetSits.OverWindows;
+            if (!Enum.IsDefined(w.Corners)) w.Corners = WidgetCorners.Round;
+            if (!Enum.IsDefined(w.Gap)) w.Gap = WidgetGap.None;
+            if (w.Accent is { } accent && !System.Text.RegularExpressions.Regex.IsMatch(accent, "^#[0-9A-Fa-f]{6}$")) w.Accent = null;
+            if (string.IsNullOrWhiteSpace(w.Font)) w.Font = null;
             if (w.Theme == WidgetTheme.Black) w.Theme = WidgetTheme.Dark;
             w.BackgroundOpacity = Math.Clamp(w.BackgroundOpacity, 0, 1.0);
             w.ContentOpacity = Math.Clamp(w.ContentOpacity, 0.2, 1.0);

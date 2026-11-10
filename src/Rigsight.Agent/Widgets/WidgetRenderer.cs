@@ -36,7 +36,13 @@ internal sealed record OverlaySensorReading(string Label, SensorKind Kind, doubl
 /// <summary>Draws widget bitmaps with GDI+ (per-pixel alpha, no UI framework needed).</summary>
 internal static partial class WidgetRenderer
 {
-    private sealed record Palette(Color Bg, Color Border, Color Text, Color Muted, Color Faint, Color Track, bool Light);
+    private sealed record Palette(Color Bg, Color Border, Color Text, Color Muted, Color Faint, Color Track, bool Light)
+    {
+        /// <summary>The theme's own part colours and accent ("Like RigSight"); null: the widgets' usual ones.</summary>
+        public Color? CpuColor { get; init; }
+        public Color? GpuColor { get; init; }
+        public Color? AccentColor { get; init; }
+    }
 
     private static readonly Color Cpu = Color.FromArgb(91, 140, 255);
     private static readonly Color Gpu = Color.FromArgb(34, 211, 238);
@@ -56,6 +62,7 @@ internal static partial class WidgetRenderer
         WidgetTheme.Light => LightPalette,
         WidgetTheme.Grey => GreyPalette,
         WidgetTheme.System => WindowsUsesLight() ? LightPalette : DarkPalette,
+        WidgetTheme.App => AppPalette(),
         _ => DarkPalette,
     };
 
@@ -89,7 +96,9 @@ internal static partial class WidgetRenderer
     internal static readonly RecentIcons IconCache = new();
 
     /// <summary>Base size of a widget in device-independent pixels: its layout's, fitted to its readings.</summary>
-    private static SizeF BaseSize(WidgetConfig cfg, List<Reading> readings, Graphics measure) => WidgetCatalog.LayoutOf(cfg) switch
+    private static SizeF BaseSize(WidgetConfig cfg, List<Reading> readings, Graphics measure) => cfg.Tiles is { } tiles
+        ? new SizeF(WidgetTiles.BoxPixels(tiles).W, WidgetTiles.BoxPixels(tiles).H)
+        : WidgetCatalog.LayoutOf(cfg) switch
     {
         WidgetLayout.Bar => new(BarWidth(readings, measure), 34),
         WidgetLayout.Tiles => TilesSize(readings.Count),
@@ -102,6 +111,7 @@ internal static partial class WidgetRenderer
     public static Bitmap Render(WidgetConfig cfg, WidgetData? data, float scale, bool hover, out RectangleF closeRect)
     {
         Gray = cfg.Grayscale;
+        FontName = cfg.Tiles is null ? null : cfg.Font;
         try
         {
             return RenderStyle(cfg, data, scale, hover, out closeRect);
@@ -109,6 +119,7 @@ internal static partial class WidgetRenderer
         finally
         {
             Gray = false; // the overlay draws on this thread too, with its own grayscale
+            FontName = null;
         }
     }
 
@@ -125,6 +136,7 @@ internal static partial class WidgetRenderer
         Gray = cfg.Grayscale;
         try
         {
+            if (cfg.Tiles is not null) return BoxKey(cfg, d, p);
             switch (WidgetCatalog.LayoutOf(cfg))
             {
                 case WidgetLayout.Bar:
@@ -170,13 +182,18 @@ internal static partial class WidgetRenderer
         using var content = new Bitmap(bmp.Width, bmp.Height, PixelFormat.Format32bppArgb);
 
         float w = size.Width, h = size.Height;
-        bool pill = layout == WidgetLayout.Bar;
-        var panel = RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), pill ? (h - 1) / 2 : 14);
+        bool pill = cfg.Tiles is null ? layout == WidgetLayout.Bar : RadiusOf(cfg, h) >= h / 2 - 0.5f;
+        var panel = cfg.Tiles is not null ? BoxPanel(cfg, w, h) : RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), pill ? (h - 1) / 2 : 14);
         // Built-in widgets are signed "Rigsight"; the user's own carry their name.
         string caption = cfg.Style == WidgetStyle.Custom ? WidgetCatalog.Title(cfg).ToUpperInvariant() : "RIGSIGHT";
 
         void DrawContent(Graphics g)
         {
+            if (cfg.Tiles is not null)
+            {
+                DrawBox(g, cfg, d, pal);
+                return;
+            }
             switch (layout)
             {
                 case WidgetLayout.Bar: DrawBar(g, readings, pal); break;
@@ -637,15 +654,28 @@ internal static partial class WidgetRenderer
 
     // Fonts are cached: widgets and the overlay redraw every second and measure the same few sizes over and
     // over. Only a handful of combinations are ever used. UI thread only; never disposed.
-    private static readonly Dictionary<(float Px, FontStyle Style, bool Semibold), Font> Fonts = [];
+    private static readonly Dictionary<(string? Family, float Px, FontStyle Style, bool Semibold), Font> Fonts = [];
+
+    /// <summary>A box's own font (see <see cref="WidgetConfig.Font"/>); null: Segoe UI.</summary>
+    [ThreadStatic] private static string? FontName;
 
     private static Font MakeFont(float px, FontStyle style, bool semibold)
     {
-        if (!Fonts.TryGetValue((px, style, semibold), out var font))
+        string? family = FontName;
+        if (!Fonts.TryGetValue((family, px, style, semibold), out var font))
         {
-            font = semibold ? new Font("Segoe UI Semibold", px, style & ~FontStyle.Bold, GraphicsUnit.Pixel)
-                            : new Font("Segoe UI", px, style, GraphicsUnit.Pixel);
-            Fonts[(px, style, semibold)] = font;
+            try
+            {
+                font = family is not null ? new Font(family, px, semibold ? style | FontStyle.Bold : style, GraphicsUnit.Pixel)
+                     : semibold ? new Font("Segoe UI Semibold", px, style & ~FontStyle.Bold, GraphicsUnit.Pixel)
+                     : new Font("Segoe UI", px, style, GraphicsUnit.Pixel);
+            }
+            catch (ArgumentException)
+            {
+                // A font that isn't on this PC (any more): Windows' own instead.
+                font = new Font("Segoe UI", px, style, GraphicsUnit.Pixel);
+            }
+            Fonts[(family, px, style, semibold)] = font;
         }
         return font;
     }
@@ -734,6 +764,11 @@ internal static partial class WidgetRenderer
     {
         float d = Math.Min(radius * 2, Math.Min(r.Width, r.Height));
         var path = new GraphicsPath();
+        if (d < 0.5f)
+        {
+            path.AddRectangle(r); // square corners
+            return path;
+        }
         path.AddArc(r.X, r.Y, d, d, 180, 90);
         path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
         path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
