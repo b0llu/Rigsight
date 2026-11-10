@@ -335,7 +335,7 @@
                                                                 Visibility="{Binding HasFolder, Converter={StaticResource Vis}}">
                                                             <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE838;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,7,0" /><TextBlock Text="{ctl:T 'Open folder'}" /></StackPanel>
                                                         </Button>
-                                                        <Button Grid.Column="5" Style="{StaticResource OffWhenDisabled}" Margin="6,0,0,0" Width="30" Height="30" Padding="0" ToolTip="{Binding UninstallTip}"
+                                                        <Button Grid.Column="5" Style="{StaticResource DangerIconButton}" Margin="6,0,0,0" Width="30" Height="30" ToolTip="{Binding UninstallTip}"
                                                                 AutomationProperties.Name="{Binding UninstallTip}" IsEnabled="{Binding CanUninstall}"
                                                                 Command="{Binding DataContext.UninstallCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Entry}">
                                                             <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" />
@@ -426,9 +426,9 @@
                                 <Button Style="{StaticResource HeroButton}" Command="{Binding OpenFolderCommand}" Margin="0,0,10,0" Visibility="{Binding GameHasFolder, Converter={StaticResource Vis}}">
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE838;" Style="{StaticResource Icon}" Margin="0,0,8,0" /><TextBlock Text="{ctl:T 'Open game folder'}" /></StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource HeroButton}" Command="{Binding UninstallCommand}" Width="40" Padding="0" ToolTip="{Binding UninstallTip}" AutomationProperties.Name="{Binding UninstallTip}"
+                                <Button Style="{StaticResource DangerIconButton}" Background="{DynamicResource Surface2Brush}" Command="{Binding UninstallCommand}" Width="40" Height="40" ToolTip="{Binding UninstallTip}" AutomationProperties.Name="{Binding UninstallTip}"
                                         Visibility="{Binding GameInstalled, Converter={StaticResource Vis}}" IsEnabled="{Binding OpenedNotRunning}">
-                                    <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" />
+                                    <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" />
                                 </Button>
                             </StackPanel>
                         </Grid>

@@ -87,6 +87,13 @@ public static class ThemeManager
         // Soft, Paper and Mist are like Light: their accent is their own text colour, and their file already uses it.
         else if (own != Colors.White && own != Colors.Black && own != (Color)palette["TextColor"]) Accents.ApplyTo(palette, own);
         Accents.Popups(palette);
+        // Words on the theme's red, as a remove button fills under the pointer: black or white, whichever reads better.
+        if (palette["HotColor"] is Color hot)
+        {
+            var onHot = new SolidColorBrush(Accents.Contrast(hot, Colors.Black) >= Accents.Contrast(hot, Colors.White) ? Color.FromRgb(0x0A, 0x0A, 0x0A) : Colors.White);
+            onHot.Freeze();
+            palette["OnHotBrush"] = onHot;
+        }
         // The frame rate keeps its own blue (as parts keep theirs) until an accent is picked, then it is the accent.
         Accents.Fps(palette, accentColor ?? (light ? Color.FromRgb(0x25, 0x6F, 0xE8) : Color.FromRgb(0x4C, 0x9A, 0xFF)));
         if (index >= 0) dictionaries[index] = palette;

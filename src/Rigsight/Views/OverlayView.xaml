@@ -244,7 +244,7 @@
                                                     Command="{Binding DataContext.MoveSensorDownCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE70D;" />
                                             </Button>
-                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Remove from the overlay'}" AutomationProperties.Name="Remove"
+                                            <Button Style="{StaticResource DangerIconButton}" ToolTip="{ctl:T 'Remove from the overlay'}" AutomationProperties.Name="Remove"
                                                     Command="{Binding DataContext.RemoveSensorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE711;" />
                                             </Button>

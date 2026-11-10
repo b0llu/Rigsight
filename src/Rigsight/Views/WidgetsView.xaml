@@ -49,13 +49,6 @@
                 </Trigger>
             </ControlTemplate.Triggers>
         </ControlTemplate>
-        <Style x:Key="CardAction" TargetType="Button">
-            <Setter Property="Width" Value="28" />
-            <Setter Property="Height" Value="28" />
-            <Setter Property="Margin" Value="4,0,0,0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template" Value="{StaticResource CardActionTemplate}" />
-        </Style>
         <Style x:Key="CardToggle" TargetType="ToggleButton">
             <Setter Property="Width" Value="28" />
             <Setter Property="Height" Value="28" />
@@ -110,7 +103,7 @@
                         <StackPanel x:Name="Actions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0" Opacity="0">
                             <ToggleButton Style="{StaticResource CardToggle}" Content="&#xE8B0;" IsChecked="{Binding Locked}"
                                           ToolTip="{ctl:T 'Click-through'}" AutomationProperties.Name="{Binding Title, StringFormat='Click-through for {0}'}" />
-                            <Button Style="{StaticResource CardAction}" Content="&#xE74D;" Command="{Binding RemoveCommand}"
+                            <Button Style="{StaticResource DangerIconButton}" Background="#DB141414" Margin="4,0,0,0" Content="&#xE74D;" Command="{Binding RemoveCommand}"
                                     ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Title, StringFormat='Remove {0}'}" />
                         </StackPanel>
                     </Grid>
@@ -366,7 +359,7 @@
                             <TextBlock Text="&#xE7A6;" />
                         </Button>
                         <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Duplicate'}" Command="{Binding DuplicateCommand}" />
-                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Remove'}" Command="{Binding RemoveCommand}" Margin="8,0,14,0" AutomationProperties.Name="{ctl:T 'Remove the widget'}" />
+                        <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove'}" Command="{Binding RemoveCommand}" Margin="8,0,14,0" AutomationProperties.Name="{ctl:T 'Remove the widget'}" />
                         <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Enabled}" AutomationProperties.Name="{ctl:T 'Show it on the desktop'}" VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBox x:Name="NameBox" Style="{StaticResource InlineEdit}" Text="{Binding Title, UpdateSourceTrigger=LostFocus}" MaxLength="40" FontSize="{x:Static ctl:TextSize.FigureLarge}" FontWeight="SemiBold"
@@ -450,12 +443,14 @@
                                                                 <Button.Template>
                                                                     <ControlTemplate TargetType="Button">
                                                                         <Border x:Name="Bd" CornerRadius="10" Background="#2B2B2B" BorderBrush="#5A5A5A" BorderThickness="1">
-                                                                            <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="8" Foreground="#F0F0F0" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                            <TextBlock x:Name="X" Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="8" Foreground="#F0F0F0" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                                         </Border>
                                                                         <ControlTemplate.Triggers>
+                                                                            <!-- A remove: the dark badge fills red under the pointer (the user's rule, 2026-11-10). -->
                                                                             <Trigger Property="IsMouseOver" Value="True">
-                                                                                <Setter TargetName="Bd" Property="Background" Value="#3C3C3C" />
-                                                                                <Setter TargetName="Bd" Property="BorderBrush" Value="#8A8A8A" />
+                                                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HotBrush}" />
+                                                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource HotBrush}" />
+                                                                                <Setter TargetName="X" Property="Foreground" Value="{DynamicResource OnHotBrush}" />
                                                                             </Trigger>
                                                                         </ControlTemplate.Triggers>
                                                                     </ControlTemplate>
@@ -602,7 +597,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <DockPanel Margin="0,2">
-                                                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat='Remove {0}'}"
+                                                        <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat='Remove {0}'}"
                                                                 Command="{Binding DataContext.RemoveReadingCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                                             <TextBlock Text="&#xE711;" />
                                                         </Button>
@@ -644,7 +639,7 @@
                                     </DockPanel>
                                     <StackPanel Orientation="Horizontal" Margin="16,8,16,6">
                                         <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Duplicate tile'}" Command="{Binding DuplicateTileCommand}" />
-                                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Remove tile'}" Command="{Binding RemovePickedTileCommand}" Margin="8,0,0,0" />
+                                        <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove tile'}" Command="{Binding RemovePickedTileCommand}" Margin="8,0,0,0" />
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
