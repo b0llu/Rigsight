@@ -283,6 +283,9 @@ public static class SettingsStore
             w.Scale = Math.Clamp(w.Scale, 0.6, 2.5);
         }
 
+        if (s.WidgetsHotkey is { } shownKey && !Hotkey.TryParse(shownKey, out _)) s.WidgetsHotkey = null;
+        if (s.WidgetsFrontHotkey is { } frontKey && !Hotkey.TryParse(frontKey, out _)) s.WidgetsFrontHotkey = null;
+
         var o = s.Overlay ??= new OverlaySettings { Grayscale = true };
         o.BackgroundOpacity = Math.Clamp(o.BackgroundOpacity, 0, 1.0);
         o.ContentOpacity = Math.Clamp(o.ContentOpacity, 0.2, 1.0);

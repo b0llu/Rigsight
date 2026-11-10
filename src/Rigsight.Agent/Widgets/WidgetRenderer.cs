@@ -6,7 +6,12 @@ using Rigsight.Core;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Settings;
 
+#if RIGSIGHT_APP
+// Linked into the app, which draws widgets with the same code for its Widgets page (see Rigsight.csproj).
+namespace Rigsight.TaskbarDrawing;
+#else
 namespace Rigsight.Agent.Widgets;
+#endif
 
 /// <summary>Everything a widget can show, captured once per update.</summary>
 internal sealed class WidgetData
@@ -47,6 +52,7 @@ internal static partial class WidgetRenderer
     private static readonly Color Cpu = Color.FromArgb(91, 140, 255);
     private static readonly Color Gpu = Color.FromArgb(34, 211, 238);
     private static readonly Color Ram = Color.FromArgb(177, 140, 255);
+    private static readonly Color Fps = Color.FromArgb(244, 114, 182);
 
     // Black and white, like the app's own dark and light themes.
     private static readonly Palette DarkPalette = new(Color.FromArgb(10, 10, 10), Color.FromArgb(38, 38, 38), Color.White,

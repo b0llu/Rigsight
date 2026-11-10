@@ -361,5 +361,3 @@ internal static unsafe class Rtss
     }
 }
 
-/// <summary>A game's frame rate (per second), last frame time and 1% low, as measured by RivaTuner.</summary>
-internal readonly record struct FrameStats(double Fps, double FrameTimeMs, double? OnePercentLow);

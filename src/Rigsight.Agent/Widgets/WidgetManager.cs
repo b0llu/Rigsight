@@ -13,10 +13,22 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     private readonly WidgetsOverGames _overGames = new();
     private IntPtr _gameMonitor;
 
+    // The two widget shortcuts (Desktop widgets off and on; the widgets on the desktop in front), and Esc while they're
+    // in front. Made on first use, on the UI thread.
+    private GlobalHotkey? _shownKey, _frontKey, _escKey;
+    private string? _shownKeyText, _frontKeyText;
+    private System.Windows.Forms.Timer? _fadeTimer, _frontTimer;
+    private IntPtr _frontOver;
+
+    /// <summary>The widgets on the desktop are in front of the windows for now (their shortcut), until Esc or a click elsewhere.</summary>
+    public bool InFront { get; private set; }
+
     public static string DisplayName(WidgetStyle style) => WidgetCatalog.Title(style);
 
     public void Apply(RigsightSettings settings)
     {
+        // "Like RigSight" widgets take the app's theme and accent.
+        WidgetRenderer.UseAppLook(settings.Theme, settings.DarkTheme, settings.LightTheme, settings.Accent);
         // Gone from settings (a widget of the user's own deleted) or turned off, or every widget switched off
         // (WidgetsShown, each keeping its own Enabled): its window goes.
         var on = settings.WidgetsShown ? settings.Widgets.Where(w => w.Enabled).ToList() : [];
@@ -40,6 +52,140 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             form.Apply(cfg);
         }
         UpdateVisibility();
+        ApplyShortcuts(settings);
+        ApplyFade(settings);
+    }
+
+    // ── The shortcuts ─────────────────────────────────────────────────────
+
+    private void ApplyShortcuts(RigsightSettings settings)
+    {
+        if (settings.WidgetsHotkey != _shownKeyText)
+        {
+            _shownKeyText = settings.WidgetsHotkey;
+            if (_shownKey is null)
+            {
+                _shownKey = new GlobalHotkey();
+                _shownKey.Pressed += () =>
+                {
+                    Log.Write("widgets", "Desktop widgets turned " + (getSettings().WidgetsShown ? "off" : "on") + " with the shortcut");
+                    mutateSettings(s => s.WidgetsShown = !s.WidgetsShown);
+                };
+            }
+            bool ok = _shownKey.Register(Hotkey.TryParse(_shownKeyText, out var k) ? k : null);
+            if (!ok) Log.Write("widgets", $"The shortcut {_shownKeyText} for Desktop widgets is taken by another program");
+        }
+        if (settings.WidgetsFrontHotkey != _frontKeyText)
+        {
+            _frontKeyText = settings.WidgetsFrontHotkey;
+            if (_frontKey is null)
+            {
+                _frontKey = new GlobalHotkey();
+                _frontKey.Pressed += () => BringInFront(!InFront);
+            }
+            bool ok = _frontKey.Register(Hotkey.TryParse(_frontKeyText, out var k) ? k : null);
+            if (!ok) Log.Write("widgets", $"The shortcut {_frontKeyText} to bring widgets in front is taken by another program");
+        }
+    }
+
+    /// <summary>
+    /// The widgets on the desktop in front of the windows (or back behind them). In front, Esc sends them back, and so does
+    /// any other window coming to the front (a click elsewhere): checked four times a second while they're in front.
+    /// </summary>
+    public void BringInFront(bool front)
+    {
+        if (front == InFront) return;
+        InFront = front;
+        Log.Write("widgets", front ? "Widgets on the desktop brought in front" : "Widgets on the desktop back behind the windows");
+        foreach (var form in _forms.Values.Where(f => f.Config.Sits == WidgetSits.OnDesktop)) form.Restack();
+        if (front)
+        {
+            _escKey ??= new GlobalHotkey();
+            _escKey.Pressed -= SendBack;
+            _escKey.Pressed += SendBack;
+            _escKey.Register(new Hotkey(HotkeyModifiers.None, 0x1B));
+            _frontOver = Native.Win32.GetForegroundWindow();
+            _frontTimer ??= new System.Windows.Forms.Timer { Interval = 250 };
+            _frontTimer.Tick -= CheckFront;
+            _frontTimer.Tick += CheckFront;
+            _frontTimer.Start();
+        }
+        else
+        {
+            _escKey?.Register(null);
+            _frontTimer?.Stop();
+        }
+    }
+
+    private void SendBack() => BringInFront(false);
+
+    private void CheckFront(object? sender, EventArgs e)
+    {
+        var now = Native.Win32.GetForegroundWindow();
+        if (now != _frontOver && !_forms.Values.Any(f => f.IsHandleCreated && f.Handle == now)) BringInFront(false);
+    }
+
+    // ── Fading under the pointer ──────────────────────────────────────────
+
+    /// <summary>Locked widgets fade while the pointer is over them: where the pointer is, four times a second, only while one is locked.</summary>
+    private void ApplyFade(RigsightSettings settings)
+    {
+        bool wanted = settings.WidgetFade && _forms.Values.Any(f => f.Config.Locked);
+        if (!wanted)
+        {
+            _fadeTimer?.Stop();
+            foreach (var f in _forms.Values) f.SetFaded(false);
+            return;
+        }
+        if (_fadeTimer is null)
+        {
+            _fadeTimer = new System.Windows.Forms.Timer { Interval = 250 };
+            _fadeTimer.Tick += (_, _) =>
+            {
+                var at = Cursor.Position;
+                foreach (var f in _forms.Values) f.SetFaded(f.Visible && f.Config.Locked && f.PanelBounds.Contains(at));
+            };
+        }
+        _fadeTimer.Start();
+    }
+
+    // ── Snapping while dragged ────────────────────────────────────────────
+
+    /// <summary>
+    /// A widget being dragged (its window's rectangle <paramref name="r"/>, room for the badge included) pulled onto its
+    /// screen's edges and middle and onto other widgets' edges, 12 pixels apart, when within 10 pixels. Alt, or the
+    /// setting off: placed freely. Returns whether it moved it.
+    /// </summary>
+    public bool Snap(WidgetForm form, ref Native.Win32.RECT r)
+    {
+        if (!getSettings().WidgetSnap || (Control.ModifierKeys & Keys.Alt) != 0) return false;
+        int room = form.Room;
+        var panel = Rectangle.FromLTRB(r.Left, r.Top + room, r.Right - room, r.Bottom);
+        var area = Screen.FromRectangle(panel).WorkingArea;
+        float dpi = form.DeviceDpi / 96f;
+        int gap = (int)Math.Round(12 * dpi), near = (int)Math.Round(10 * dpi);
+        var others = _forms.Values.Where(f => f != form && f.Visible && area.IntersectsWith(f.PanelBounds)).Select(f => f.PanelBounds).ToList();
+        var (x, y) = SnapPanel(panel, area, others, gap, near);
+        if (x == panel.X && y == panel.Y) return false;
+        int dx = x - panel.X, dy = y - panel.Y;
+        r.Left += dx; r.Right += dx; r.Top += dy; r.Bottom += dy;
+        return true;
+    }
+
+    /// <summary>Where a panel snaps to: its screen's edges (a gap in) and middle, other panels' edges (lined up, or a gap apart).</summary>
+    internal static (int X, int Y) SnapPanel(Rectangle panel, Rectangle area, IReadOnlyList<Rectangle> others, int gap, int near)
+    {
+        int w = panel.Width, h = panel.Height;
+        var xs = new List<int> { area.Left + gap, area.Right - gap - w, area.Left + (area.Width - w) / 2 };
+        var ys = new List<int> { area.Top + gap, area.Bottom - gap - h, area.Top + (area.Height - h) / 2 };
+        foreach (var o in others)
+        {
+            xs.AddRange([o.Left, o.Right - w, o.Right + gap, o.Left - gap - w, o.Left + (o.Width - w) / 2]);
+            ys.AddRange([o.Top, o.Bottom - h, o.Bottom + gap, o.Top - gap - h]);
+        }
+        static int Nearest(List<int> cands, int v, int near) =>
+            cands.Select(c => (c, d: Math.Abs(c - v))).Where(p => p.d <= near).OrderBy(p => p.d).Select(p => (int?)p.c).FirstOrDefault() ?? v;
+        return (Nearest(xs, panel.X, near), Nearest(ys, panel.Y, near));
     }
 
     /// <summary>
@@ -65,10 +211,10 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         var screen = (Screen.PrimaryScreen ?? Screen.AllScreens.FirstOrDefault())?.WorkingArea ?? new Rectangle(0, 0, 1920, 1040);
         if (cfg.X is int cx && cfg.Y is int cy)
         {
-            form.Location = new Point(cx, cy);
+            form.PanelLocation = new Point(cx, cy);
             form.Show();
             form.Redraw(); // now at its real size
-            if (OnAScreen(form.Bounds, ScreenAreas)) return;
+            if (OnAScreen(form.PanelBounds, ScreenAreas)) return;
             // Kept, not forgotten: the corner below is not saved, and the spot comes back with its screen.
             _waitingForScreen.Add(cfg.Id);
             WatchScreens();
@@ -79,16 +225,20 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
 
         // No saved spot: render off-screen first to learn the real size, then tuck it into the
         // top-right corner, below any other widgets already placed there.
-        form.Location = new Point(screen.Right + 4000, screen.Top);
+        form.PanelLocation = new Point(screen.Right + 4000, screen.Top);
         form.Show();
         form.Redraw();
         int margin = (int)(12 * form.DeviceDpi / 96.0);
         // Start just below where maximized windows draw their title bar and close button.
         int y = screen.Top + (int)(44 * form.DeviceDpi / 96.0);
-        foreach (var other in _forms.Values.Where(f => f != form && f.Visible && f.Right >= screen.Right - margin * 3 && f.Top < screen.Top + screen.Height / 2))
-            y = Math.Max(y, other.Bottom + margin);
-        form.Location = new Point(screen.Right - form.Width - margin, y);
+        foreach (var other in _forms.Values.Where(f => f != form && f.Visible && f.PanelBounds.Right >= screen.Right - margin * 3 && f.PanelBounds.Top < screen.Top + screen.Height / 2))
+            y = Math.Max(y, other.PanelBounds.Bottom + margin);
+        form.PanelLocation = new Point(screen.Right - form.PanelBounds.Width - margin, y);
         form.Redraw();
+        // Saved as its spot, so the Widgets page's map of the screens shows it there (after this pass over the widgets,
+        // as saving goes round to the settings again). A spot set meanwhile is kept.
+        var spot = form.PanelLocation;
+        form.BeginInvoke(() => Mutate(cfg.Id, c => { if (c.X is null || c.Y is null) (c.X, c.Y) = (spot.X, spot.Y); }));
     }
 
     /// <summary>Screens added, removed or resized: a widget waiting for its spot goes back to it once a screen has it.</summary>
@@ -115,7 +265,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
                 continue;
             }
             if (!OnAScreen(new Rectangle(x, y, form.Width, form.Height), ScreenAreas)) continue;
-            form.Location = new Point(x, y);
+            form.PanelLocation = new Point(x, y);
             form.Redraw();
             _waitingForScreen.Remove(id);
             Log.Write("widgets", $"{WidgetCatalog.Title(cfg)} back at its saved spot {x},{y}: its screen is there now");
@@ -169,7 +319,8 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     {
         foreach (var form in _forms.Values)
         {
-            bool show = _gameMonitor == IntPtr.Zero ||
+            // A widget on the desktop is under the game anyway: it never steps aside.
+            bool show = form.Config.Sits == WidgetSits.OnDesktop || _gameMonitor == IntPtr.Zero ||
                 Native.Win32.MonitorFromWindow(form.Handle, 2 /* MONITOR_DEFAULTTONEAREST */) != _gameMonitor;
             if (show && !form.Visible)
             {
@@ -199,7 +350,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         menu.Items.Add(new ToolStripSeparator());
 
         var theme = new ToolStripMenuItem(Lang.T("Theme"));
-        foreach (var t in new[] { WidgetTheme.Dark, WidgetTheme.Grey, WidgetTheme.Light, WidgetTheme.System })
+        foreach (var t in new[] { WidgetTheme.App, WidgetTheme.Dark, WidgetTheme.Grey, WidgetTheme.Light, WidgetTheme.System })
             theme.DropDownItems.Add(Check(ThemeName(t), cfg.Theme == t, () => Mutate(cfg.Id, c => c.Theme = t)));
         menu.Items.Add(theme);
 
@@ -209,27 +360,79 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         menu.Items.Add(background);
 
         var contentOpacity = new ToolStripMenuItem(Lang.T("Content opacity"));
-        foreach (var o in new[] { 1.0, 0.9, 0.75, 0.6, 0.45 })
+        foreach (var o in new[] { 1.0, 0.9, 0.75, 0.6, 0.45, 0.3, 0.2 })
             contentOpacity.DropDownItems.Add(Check($"{o:P0}", Math.Abs(cfg.ContentOpacity - o) < 0.01, () => Mutate(cfg.Id, c => c.ContentOpacity = o)));
         menu.Items.Add(contentOpacity);
 
         var size = new ToolStripMenuItem(Lang.T("Size"));
-        foreach (var (label, s) in new[] { (Lang.Key("Small"), 0.8), (Lang.Key("Normal"), 1.0), (Lang.Key("Large"), 1.25), (Lang.Key("Extra large"), 1.5), ("2XL", 2.0), ("3XL", 2.5) })
+        foreach (var (label, s) in new[] { (Lang.Key("Small"), 0.8), (Lang.Key("Medium"), 1.0), (Lang.Key("Large"), 1.25), (Lang.Key("Extra large"), 1.5), ("2XL", 2.0), ("3XL", 2.5) })
             size.DropDownItems.Add(Check(Lang.T(label), Math.Abs(cfg.Scale - s) < 0.01, () => Mutate(cfg.Id, c => c.Scale = s)));
         menu.Items.Add(size);
 
         menu.Items.Add(Check(Lang.T("Grayscale"), cfg.Grayscale, () => Mutate(cfg.Id, c => c.Grayscale = !c.Grayscale)));
         menu.Items.Add(Check(Lang.T("Lock in place (click-through)"), cfg.Locked, () => Mutate(cfg.Id, c => c.Locked = !c.Locked)));
         menu.Items.Add(new ToolStripSeparator());
+
+        var sits = new ToolStripMenuItem(Lang.T("Where it sits"));
+        sits.DropDownItems.Add(Check(Lang.T("On the desktop"), cfg.Sits == WidgetSits.OnDesktop, () => Mutate(cfg.Id, c => c.Sits = WidgetSits.OnDesktop)));
+        sits.DropDownItems.Add(Check(Lang.T("Over windows"), cfg.Sits == WidgetSits.OverWindows, () => Mutate(cfg.Id, c => c.Sits = WidgetSits.OverWindows)));
+        menu.Items.Add(sits);
+        // Another screen, at the same corner: only with two screens or more.
+        var screens = Screen.AllScreens;
+        if (screens.Length > 1)
+        {
+            var move = new ToolStripMenuItem(Lang.T("Move to"));
+            var here = Screen.FromRectangle(form.PanelBounds);
+            for (int i = 0; i < screens.Length; i++)
+            {
+                var screen = screens[i];
+                string name = screen.Primary ? Lang.T("Main screen") : Lang.T($"Screen {i + 1}");
+                move.DropDownItems.Add(Check(name, screen.DeviceName == here.DeviceName, () => MoveTo(form, screen)));
+            }
+            menu.Items.Add(move);
+        }
+        menu.Items.Add(Item(Lang.T("Duplicate"), () => Duplicate(cfg)));
         menu.Items.Add(Item(Lang.T("Edit widget…"), () => openWidgetSettings(cfg.Id)));
         menu.Items.Add(Item(Lang.T("Hide this widget"), () => Mutate(cfg.Id, c => c.Enabled = false)));
+        menu.Items.Add(Item(Lang.T("Remove"), () => mutateSettings(s => s.Widgets.RemoveAll(w => w.Id == cfg.Id))));
 
         menu.Closed += (_, _) => menu.BeginInvoke(menu.Dispose);
         menu.Show(at);
     }
 
+    /// <summary>The widget to the same corner of another screen, a little in from its edges.</summary>
+    private void MoveTo(WidgetForm form, Screen screen)
+    {
+        var from = Screen.FromRectangle(form.PanelBounds).WorkingArea;
+        var to = screen.WorkingArea;
+        var p = form.PanelBounds;
+        double fx = from.Width > p.Width ? (double)(p.Left - from.Left) / (from.Width - p.Width) : 1;
+        double fy = from.Height > p.Height ? (double)(p.Top - from.Top) / (from.Height - p.Height) : 0;
+        int x = to.Left + (int)Math.Round(Math.Clamp(fx, 0, 1) * Math.Max(0, to.Width - p.Width));
+        int y = to.Top + (int)Math.Round(Math.Clamp(fy, 0, 1) * Math.Max(0, to.Height - p.Height));
+        form.PanelLocation = new Point(x, y);
+        form.Redraw();
+        Moved(form.Config.Id);
+        Mutate(form.Config.Id, c => { c.X = x; c.Y = y; });
+    }
+
+    /// <summary>A copy of a widget, a widget of the person's own, beside it: a built-in one is copied as tiles.</summary>
+    private void Duplicate(WidgetConfig cfg) => mutateSettings(s =>
+    {
+        if (s.Widgets.Count(w => w.Style == WidgetStyle.Custom) >= WidgetCatalog.MaxCustom) return;
+        s.Widgets.Add(new WidgetConfig
+        {
+            Style = WidgetStyle.Custom, Id = WidgetCatalog.NewId(), Name = WidgetCatalog.Title(cfg), Enabled = true,
+            Tiles = cfg.Tiles?.Select(t => t.Copy()).ToList() ?? WidgetTiles.FromLayout(cfg),
+            X = cfg.X + 24, Y = cfg.Y + 24, Theme = cfg.Theme, Grayscale = cfg.Grayscale, BackgroundOpacity = cfg.BackgroundOpacity,
+            ContentOpacity = cfg.ContentOpacity, Scale = cfg.Scale, Accent = cfg.Accent, Font = cfg.Font, Corners = cfg.Corners,
+            TileBoxes = cfg.TileBoxes, Gap = cfg.Gap, TileLines = cfg.TileLines, Sits = cfg.Sits,
+        });
+    });
+
     private static string ThemeName(WidgetTheme theme) => theme switch
     {
+        WidgetTheme.App => Lang.T("Like RigSight"),
         WidgetTheme.Dark => Lang.T("Dark"),
         WidgetTheme.Grey => Lang.T("Gray"),
         WidgetTheme.Light => Lang.T("Light"),
@@ -282,6 +485,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
                 {
                     Style = cfg.Style, Id = cfg.Id, Name = cfg.Name, Layout = cfg.Layout, Items = cfg.Items, Theme = cfg.Theme,
                     Grayscale = cfg.Grayscale, BackgroundOpacity = cfg.BackgroundOpacity, ContentOpacity = cfg.ContentOpacity, Scale = 1,
+                    Tiles = cfg.Tiles, Accent = cfg.Accent, Font = cfg.Font, Corners = cfg.Corners, TileBoxes = cfg.TileBoxes, Gap = cfg.Gap, TileLines = cfg.TileLines,
                 };
                 var data = _data;
                 // A frame rate only exists with a game in front (never, while the app is): show one as it would look.

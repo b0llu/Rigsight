@@ -108,6 +108,18 @@ public sealed class RigsightSettings
     /// </summary>
     public bool WidgetsShown { get; set; } = true;
 
+    /// <summary>A widget being dragged pulls onto screen edges and other widgets (Alt places it freely).</summary>
+    public bool WidgetSnap { get; set; } = true;
+
+    /// <summary>A locked widget fades while the pointer is over it, so what's behind it can be read.</summary>
+    public bool WidgetFade { get; set; }
+
+    /// <summary>The shortcut that turns <see cref="WidgetsShown"/> off and on ("Ctrl+Alt+W"); null: none.</summary>
+    public string? WidgetsHotkey { get; set; }
+
+    /// <summary>The shortcut that brings the widgets on the desktop in front of the windows until Esc or a click elsewhere; null: none.</summary>
+    public string? WidgetsFrontHotkey { get; set; }
+
     /// <summary>
     /// How <see cref="TraySensors"/> show: a strip in the taskbar (Windows 11), or notification-area icons. Since 1.3 the
     /// style of every reading not in <see cref="TrayStyles"/>, and what "Set all to" sets.

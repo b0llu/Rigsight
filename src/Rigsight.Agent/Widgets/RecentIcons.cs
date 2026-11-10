@@ -1,6 +1,11 @@
 using System.Drawing;
 
+#if RIGSIGHT_APP
+// Linked into the app, which draws widgets with the same code for its Widgets page (see Rigsight.csproj).
+namespace Rigsight.TaskbarDrawing;
+#else
 namespace Rigsight.Agent.Widgets;
+#endif
 
 /// <summary>
 /// App icons as bitmaps, the most recently used few only (the app in front, the app a notice is about): an agent that
