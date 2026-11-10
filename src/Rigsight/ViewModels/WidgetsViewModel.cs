@@ -59,8 +59,27 @@ public sealed partial class WidgetCard : ObservableObject
             _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.Enabled = value; });
             OnPropertyChanged(nameof(Enabled));
             OnPropertyChanged(nameof(Where));
+            _page.CardsChanged();
         }
     }
+
+    /// <summary>Click-through: it can't be dragged and clicks go to what's behind it (the editor's "Lock in place").</summary>
+    public bool Locked
+    {
+        get => Config.Locked;
+        set
+        {
+            if (value == Locked) return;
+            _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.Locked = value; });
+            OnPropertyChanged(nameof(Locked));
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleLocked() => Locked = !Locked;
+
+    [RelayCommand]
+    private void Remove() => _page.Remove(this);
 
     /// <summary>The screen it's on, while it's on and has a spot ("Main screen", "Screen 2"); empty otherwise.</summary>
     public string Where => Config is { Enabled: true, X: int x, Y: int y } ? _page.ScreenName(x, y) : "";
@@ -100,6 +119,7 @@ public sealed partial class WidgetCard : ObservableObject
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Description));
         OnPropertyChanged(nameof(Enabled));
+        OnPropertyChanged(nameof(Locked));
         OnPropertyChanged(nameof(Where));
         Redraw();
     }
@@ -150,8 +170,22 @@ public sealed partial class WidgetGroupChip(string key, int count) : ObservableO
 {
     public string Key { get; } = key;
     public string Name => Lang.T(Key);
-    public int Count { get; } = count;
+    [ObservableProperty] private int _count = count;
     [ObservableProperty] private bool _isSelected;
+}
+
+/// <summary>
+/// A widget just removed with its card's quick Remove: in the card's place for a few seconds, with Undo, which puts it
+/// back as it was, where it was.
+/// </summary>
+public sealed partial class RemovedWidget(WidgetConfig config, int index, WidgetsViewModel page)
+{
+    internal WidgetConfig Config { get; } = config;
+    internal int Index { get; } = index;
+    public string Line { get; } = Lang.T($"{WidgetCatalog.Title(config)} removed.");
+
+    [RelayCommand]
+    private void Undo() => page.UndoRemove(this);
 }
 
 /// <summary>The last tile in the grid of widgets: make one of your own.</summary>
@@ -182,6 +216,10 @@ public sealed partial class WidgetsViewModel : ObservableObject
         Chips = [.. new[] { AllGroup, ReadyMade }.Concat(WidgetTiles.Kinds.Select(k => k.Group).Distinct())
             .Select(g => new WidgetGroupChip(g, g == AllGroup ? Choices.Count : Choices.Count(c => c.Group == g)))];
         Chips[0].IsSelected = true;
+        MineChips = [new(AllGroup, 0), new(OnGroup, 0), new(OffGroup, 0)];
+        MineChips[0].IsSelected = true;
+        _undoTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
+        _undoTimer.Tick += (_, _) => { _undoTimer.Stop(); Removed = null; FillGrid(); };
         FilterChoices();
         Sync();
         // The tray menu, the agent and the editor change these while the page is open.
@@ -197,6 +235,7 @@ public sealed partial class WidgetsViewModel : ObservableObject
     }
 
     private readonly System.Windows.Threading.DispatcherTimer _mapTimer;
+    private readonly System.Windows.Threading.DispatcherTimer _undoTimer;
 
     // ── On or off, and the settings for all widgets ─────────────────────
 
@@ -253,8 +292,98 @@ public sealed partial class WidgetsViewModel : ObservableObject
     /// <summary>Every widget, in the settings' order (the built-in ones first, as they always were).</summary>
     public ObservableCollection<WidgetCard> Cards { get; } = [];
 
-    /// <summary>The cards as the page lays them out: every widget, then the "Make your own" tile at the end of the grid.</summary>
+    /// <summary>
+    /// The cards as the page lays them out: the widgets the chips and search let through, a widget just removed in its
+    /// card's place, then the "Make your own" tile at the end (not under Off, nor while searching).
+    /// </summary>
     public ObservableCollection<object> Grid { get; } = [];
+
+    public static string OnGroup => Lang.Key("On");
+    public static string OffGroup => Lang.Key("Off");
+
+    /// <summary>All, On and Off over the widgets, with how many each holds.</summary>
+    public List<WidgetGroupChip> MineChips { get; }
+
+    public WidgetGroupChip? PickedMineChip
+    {
+        get => MineChips.FirstOrDefault(c => c.IsSelected);
+        set
+        {
+            if (value is null || value == PickedMineChip) return;
+            foreach (var c in MineChips) c.IsSelected = c == value;
+            OnPropertyChanged(nameof(PickedMineChip));
+            FillGrid();
+        }
+    }
+
+    [ObservableProperty] private string _mineQuery = "";
+
+    partial void OnMineQueryChanged(string value) => FillGrid();
+
+    /// <summary>Why the grid is empty: nothing matches the search, or no widget is on (or off).</summary>
+    [ObservableProperty] private string _noMineText = "";
+
+    /// <summary>The widget just removed, while its Undo shows.</summary>
+    public RemovedWidget? Removed { get; private set; }
+
+    /// <summary>A card's switch changed: the counts, and the grid under On or Off, follow once the click is done.</summary>
+    internal void CardsChanged() =>
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(FillGrid, System.Windows.Threading.DispatcherPriority.Background);
+
+    /// <summary>Lays the grid out again from the cards, the chips and the search.</summary>
+    internal void FillGrid()
+    {
+        string chip = PickedMineChip?.Key ?? AllGroup, q = MineQuery.Trim();
+        bool Passes(WidgetCard c, string g) => g == AllGroup || (g == OnGroup) == c.Enabled;
+        foreach (var g in MineChips) g.Count = Cards.Count(c => Passes(c, g.Key));
+        var shown = new List<object>(Cards.Where(c => Passes(c, chip)
+            && (q.Length == 0 || c.Title.Contains(q, StringComparison.CurrentCultureIgnoreCase) || c.Description.Contains(q, StringComparison.CurrentCultureIgnoreCase))));
+        NoMineText = shown.Count > 0 ? ""
+            : q.Length > 0 ? Lang.T($"Nothing matches “{q}”.")
+            : chip == OnGroup ? Lang.T("No widgets are on.")
+            : chip == OffGroup ? Lang.T("No widgets are off.") : "";
+        if (Removed is { } r)
+        {
+            // In its card's place: before the first card that came after it.
+            int at = shown.FindIndex(o => o is WidgetCard c && Cards.IndexOf(c) >= r.Index);
+            shown.Insert(at < 0 ? shown.Count : at, r);
+        }
+        if (chip != OffGroup && q.Length == 0) shown.Add(MakeYourOwn);
+        if (Grid.SequenceEqual(shown)) return;
+        Grid.Clear();
+        foreach (var o in shown) Grid.Add(o);
+    }
+
+    /// <summary>
+    /// Removes a widget at once from its card (a built-in one too: the list to add from has it again), with Undo in the
+    /// card's place for a few seconds.
+    /// </summary>
+    internal void Remove(WidgetCard card)
+    {
+        int index = _settings.Current.Widgets.FindIndex(w => w.Id == card.Id);
+        if (index < 0) return;
+        var saved = WidgetEditorViewModel.Clone(_settings.Current.Widgets[index]);
+        _undoTimer.Stop();
+        Removed = new RemovedWidget(saved, index, this);
+        _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == card.Id));
+        Sync();
+        _undoTimer.Start();
+    }
+
+    /// <summary>Puts a removed widget back as it was, where it was in the list.</summary>
+    internal void UndoRemove(RemovedWidget removed)
+    {
+        if (Removed != removed) return;
+        _undoTimer.Stop();
+        Removed = null;
+        _settings.Update(s =>
+        {
+            if (s.Widgets.Any(w => w.Id == removed.Config.Id)) return;
+            s.Widgets.Insert(Math.Min(removed.Index, s.Widgets.Count), WidgetEditorViewModel.Clone(removed.Config));
+        });
+        Sync();
+        FillGrid();
+    }
 
     public MakeYourOwnTile MakeYourOwn { get; } = new();
 
@@ -467,11 +596,8 @@ public sealed partial class WidgetsViewModel : ObservableObject
             var keep = Cards.ToDictionary(c => c.Id);
             Cards.Clear();
             foreach (var id in ids) Cards.Add(keep.GetValueOrDefault(id) ?? new WidgetCard(id, _settings, _live, this));
-            Grid.Clear();
-            foreach (var c in Cards) Grid.Add(c);
-            Grid.Add(MakeYourOwn);
         }
-        else if (Grid.Count == 0) Grid.Add(MakeYourOwn);
+        FillGrid();
         OnPropertyChanged(nameof(CanCreate));
         CreateCommand.NotifyCanExecuteChanged();
     }

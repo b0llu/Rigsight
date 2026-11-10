@@ -603,6 +603,58 @@ public sealed class SettingsPageTests
 
     // The map of the screens follows every change while the page shows (the user, 2026-11-10: it still showed widgets
     // that had been removed); a burst of changes draws it once, a moment later.
+    // The widgets the person has (the user, 2026-11-10): search and All, On, Off with counts; Click-through and a quick
+    // Remove on each card, the removed one in its card's place with Undo, which puts it back as it was, where it was.
+    [Fact]
+    public void Your_widgets_filter_and_a_card_removes_its_widget_with_undo()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            link.Settings.Update(s =>
+            {
+                foreach (var w in s.Widgets) w.Enabled = false;
+                s.Widgets[0].Enabled = true;
+            });
+            vm.Refresh();
+            int all = link.Settings.Current.Widgets.Count;
+            Assert.Equal([all, 1, all - 1], vm.MineChips.Select(c => c.Count));
+            Assert.IsType<MakeYourOwnTile>(vm.Grid[^1]);
+
+            vm.PickedMineChip = vm.MineChips.Single(c => c.Key == "On");
+            Assert.Equal([link.Settings.Current.Widgets[0].Id], vm.Grid.OfType<WidgetCard>().Select(c => c.Id));
+            vm.PickedMineChip = vm.MineChips.Single(c => c.Key == "Off");
+            Assert.Equal(all - 1, vm.Grid.OfType<WidgetCard>().Count());
+            Assert.DoesNotContain(vm.Grid, o => o is MakeYourOwnTile);
+            vm.PickedMineChip = vm.MineChips[0];
+            vm.MineQuery = "slim";
+            Assert.Equal("Slim bar", Assert.Single(vm.Grid.OfType<WidgetCard>()).Title);
+            vm.MineQuery = "zzz";
+            Assert.Empty(vm.Grid);
+            Assert.Equal("Nothing matches “zzz”.", vm.NoMineText);
+            vm.MineQuery = "";
+            Assert.Equal("", vm.NoMineText);
+
+            // Click-through from the card is the editor's Lock in place.
+            var second = vm.Cards[1];
+            second.Locked = true;
+            Assert.True(link.Settings.Current.Widgets[1].Locked);
+
+            // Remove: gone from the settings at once, Undo in its place; Undo puts it back where it was, still locked.
+            string id = second.Id;
+            second.RemoveCommand.Execute(null);
+            Assert.DoesNotContain(link.Settings.Current.Widgets, w => w.Id == id);
+            var removed = Assert.IsType<RemovedWidget>(vm.Grid[1]);
+            Assert.EndsWith("removed.", removed.Line);
+            removed.UndoCommand.Execute(null);
+            Assert.Equal(id, link.Settings.Current.Widgets[1].Id);
+            Assert.True(link.Settings.Current.Widgets[1].Locked);
+            Assert.DoesNotContain(vm.Grid, o => o is RemovedWidget);
+            Assert.Equal(id, Assert.IsType<WidgetCard>(vm.Grid[1]).Id);
+        });
+    }
+
     [Fact]
     public void The_map_of_the_screens_follows_widgets_switched_off_removed_and_added()
     {

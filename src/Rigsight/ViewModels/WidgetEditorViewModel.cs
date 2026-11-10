@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -79,7 +79,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
 
     public void Close() => _tick.Stop();
 
-    private static WidgetConfig Clone(WidgetConfig w) =>
+    internal static WidgetConfig Clone(WidgetConfig w) =>
         JsonSerializer.Deserialize<WidgetConfig>(JsonSerializer.Serialize(w, SettingsStore.JsonOptions), SettingsStore.JsonOptions)!;
 
     private string Snapshot() => JsonSerializer.Serialize(_w, SettingsStore.JsonOptions);
