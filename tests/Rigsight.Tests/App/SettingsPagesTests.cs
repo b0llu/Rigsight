@@ -386,7 +386,7 @@ public sealed class SettingsPageTests
             Assert.Equal(vm.Choices, vm.ChoicesShown);
             Assert.Equal(vm.Choices.Count, vm.Choices.Select(c => c.Title).Distinct().Count());
             // Listed under their groups in the Add widget pop-up.
-            Assert.Equal(["READY-MADE", "EVERYDAY", "LIVE", "YOUR DAY"],
+            Assert.Equal(["READY-MADE", "EVERYDAY", "LIVE", "INTERNET", "YOUR DAY"],
                 vm.ChoiceGroups.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(g => (string)g.Name));
             Assert.Equal(["Clock", "Date", "Calendar", "Notes", "To-do", "Timer", "Media", "Weather", "Shortcuts", "Photos"], vm.ChoicesShown.Where(c => c.Group == "Everyday").Select(c => c.Title));
             vm.ChoiceQuery = "calend";
