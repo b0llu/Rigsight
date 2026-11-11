@@ -88,8 +88,11 @@ public sealed class LanguagePackCoverageTests
     public void No_page_writes_its_English_directly()
     {
         // Words in a page go through {ctl:T ...}; one written straight in would stay English in every language.
-        var attribute = new System.Text.RegularExpressions.Regex(@"\b(Text|Content|ToolTip|Header|Title|PlaceholderText|Label|LabelText)=""([A-Za-z][^""{]*[a-z][^""{]*)""");
+        // Screen-reader names too (the audit, 2026-11-11: 145 of them stayed English in Spanish since 1.8.0).
+        var attribute = new System.Text.RegularExpressions.Regex(@"\b(Text|Content|ToolTip|Header|Title|PlaceholderText|Label|LabelText|AutomationProperties\.Name|AutomationProperties\.HelpText|AutomationProperties\.ItemStatus)=""([A-Za-z][^""{]*[a-z][^""{]*)""");
         var sentence = new System.Text.RegularExpressions.Regex(@"\b(?:Value|Tag)=""([A-Z][a-z]+ [^""{]*)""");
+        // A text built from a binding with English words in its format ("Add {0}"): the format goes through {ctl:T ...}.
+        var format = new System.Text.RegularExpressions.Regex(@"\b(?:Text|Content|ToolTip|Header|AutomationProperties\.Name|AutomationProperties\.HelpText)=""\{Binding [^""]*StringFormat=(?!\{)'?[^'"",}]*[A-Za-z]{2,}[^""]*""");
         var found = new List<string>();
         foreach (var file in Directory.EnumerateFiles(Path.Combine(Repo.Root, "src"), "*.xaml", SearchOption.AllDirectories))
         {
@@ -98,6 +101,8 @@ public sealed class LanguagePackCoverageTests
             foreach (System.Text.RegularExpressions.Match m in attribute.Matches(xaml))
                 if (!AsIs.Contains(m.Groups[2].Value)) found.Add($"{Path.GetFileName(file)}: {m.Value}");
             foreach (System.Text.RegularExpressions.Match m in sentence.Matches(xaml))
+                found.Add($"{Path.GetFileName(file)}: {m.Value}");
+            foreach (System.Text.RegularExpressions.Match m in format.Matches(xaml))
                 found.Add($"{Path.GetFileName(file)}: {m.Value}");
         }
         Assert.True(found.Count == 0, "English written straight into a page:\n" + string.Join("\n", found));

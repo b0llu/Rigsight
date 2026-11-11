@@ -717,10 +717,49 @@ internal static partial class WidgetRenderer
         return font;
     }
 
+    private static readonly Dictionary<(float Size, FontStyle Style, GraphicsUnit Unit), Font?> EmojiFonts = [];
+
+    /// <summary>
+    /// The font to draw a text in: its own, or Segoe UI Emoji when the text has an emoji. Windows draws emoji only from
+    /// Segoe UI Emoji and GDI+ never goes looking for it, so a 🎮 typed in a note came out as an empty box (the audit,
+    /// 2026-11-11). Segoe UI Emoji's letters are Segoe UI's, with the same widths and line height, so the words don't
+    /// move; the emoji come out in the text's colour (GDI+ draws no colour fonts). A text without one is left as it was.
+    /// </summary>
+    internal static Font ForText(Font font, string text)
+    {
+        if (!HasEmoji(text) || font.Name == "Segoe UI Emoji") return font;
+        var key = (font.Size, font.Style, font.Unit);
+        if (!EmojiFonts.TryGetValue(key, out var emoji))
+        {
+            try
+            {
+                emoji = new Font("Segoe UI Emoji", font.Size, font.Style, font.Unit);
+                // A PC without it gets another font by that name from GDI+: the text's own is better then.
+                if (emoji.Name != "Segoe UI Emoji") { emoji.Dispose(); emoji = null; }
+            }
+            catch (ArgumentException) { emoji = null; }
+            EmojiFonts[key] = emoji;
+        }
+        return emoji ?? font;
+    }
+
+    /// <summary>Whether a text has an emoji (or a part of one: the joiner, the picture form's selector, a keycap).</summary>
+    internal static bool HasEmoji(string text)
+    {
+        foreach (var rune in text.EnumerateRunes())
+        {
+            int c = rune.Value;
+            if (c is >= 0x1F000 and <= 0x1FAFF or 0xFE0F or 0x200D or 0x20E3 or >= 0x2600 and <= 0x27BF
+                or >= 0x2B00 and <= 0x2BFF or >= 0x2300 and <= 0x23FF or >= 0xE0020 and <= 0xE007F)
+                return true;
+        }
+        return false;
+    }
+
     private static void Text(Graphics g, string text, float px, FontStyle style, Color color, float x, float y,
         bool semibold = false, float maxWidth = 0)
     {
-        var font = MakeFont(px, style, semibold);
+        var font = ForText(MakeFont(px, style, semibold), text);
         using var fmt = (StringFormat)StringFormat.GenericTypographic.Clone();
         fmt.FormatFlags |= StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces;
         if (maxWidth > 0) fmt.Trimming = StringTrimming.EllipsisCharacter;
@@ -749,7 +788,7 @@ internal static partial class WidgetRenderer
 
     private static float Measure(Graphics g, string text, float px, FontStyle style, bool semibold = false)
     {
-        var font = MakeFont(px, style, semibold);
+        var font = ForText(MakeFont(px, style, semibold), text);
         return g.MeasureString(text, font, int.MaxValue, StringFormat.GenericTypographic).Width;
     }
 

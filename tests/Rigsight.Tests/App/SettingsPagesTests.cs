@@ -340,6 +340,31 @@ public sealed class SettingsPageTests
         });
     }
 
+    // At the most RigSight keeps, Add widget and Create widget are off and a line under them says why (the audit,
+    // 2026-11-11: Add widget opened its list and a click on any of it did nothing, with no word).
+    [Fact]
+    public void At_the_most_widgets_adding_is_off_and_the_page_says_why()
+    {
+        using var link = new AgentLink();
+        link.Settings.Update(s =>
+        {
+            while (s.Widgets.Count(w => w.Style == WidgetStyle.Custom) < WidgetCatalog.MaxCustom)
+                s.Widgets.Add(new WidgetConfig { Style = WidgetStyle.Custom, Id = WidgetCatalog.NewId(), Name = "Mine", Tiles = [] });
+        });
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            Assert.True(vm.AtLimit);
+            Assert.False(vm.OpenAddListCommand.CanExecute(null));
+            Assert.False(vm.CreateCommand.CanExecute(null));
+            Assert.Equal("You have 200 widgets, the most RigSight keeps. Remove one to add another.", WidgetsViewModel.LimitLine);
+            vm.Remove(vm.Cards.Last(c => c.Style == WidgetStyle.Custom));
+            Assert.False(vm.AtLimit);
+            Assert.True(vm.OpenAddListCommand.CanExecute(null));
+            Assert.True(vm.CreateCommand.CanExecute(null));
+        });
+    }
+
     [Fact]
     public void The_page_has_a_card_for_every_widget_and_a_list_to_add_from()
     {

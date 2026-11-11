@@ -40,7 +40,7 @@
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" MinHeight="26">
                         <StackPanel x:Name="EditButtons" DockPanel.Dock="Right" Orientation="Horizontal" Visibility="Collapsed">
-                            <Button Style="{StaticResource DangerIconButton}" Command="{Binding RemoveCommand}" ToolTip="{ctl:T 'Remove tile'}" AutomationProperties.Name="Remove tile">
+                            <Button Style="{StaticResource DangerIconButton}" Command="{Binding RemoveCommand}" ToolTip="{ctl:T 'Remove tile'}" AutomationProperties.Name="{ctl:T 'Remove tile'}">
                                 <TextBlock Text="&#xE711;" />
                             </Button>
                         </StackPanel>
@@ -422,7 +422,7 @@
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,18">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
                 <!-- Open the app on this dashboard -->
-                <Button Command="{Binding ToggleStartPageCommand}" Margin="0,0,8,0" AutomationProperties.Name="Start page">
+                <Button Command="{Binding ToggleStartPageCommand}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Start page'}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
                             <Setter Property="ToolTip" Value="{ctl:T 'Open RigSight on this dashboard instead of Home'}" />
@@ -461,14 +461,14 @@
                         </TextBlock>
                     </StackPanel>
                 </Button>
-                <Button Style="{StaticResource DangerButton}" Command="{Binding DeletePageCommand}" AutomationProperties.Name="Delete dashboard" Margin="0,0,8,0"
+                <Button Style="{StaticResource DangerButton}" Command="{Binding DeletePageCommand}" AutomationProperties.Name="{ctl:T 'Delete dashboard'}" Margin="0,0,8,0"
                         Visibility="{Binding IsEditing, Converter={StaticResource Vis}}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" />
                         <TextBlock Text="{ctl:T 'Delete'}" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="EditButton" Command="{Binding ToggleEditCommand}" AutomationProperties.Name="Edit dashboard">
+                <Button x:Name="EditButton" Command="{Binding ToggleEditCommand}" AutomationProperties.Name="{ctl:T 'Edit dashboard'}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
                             <Style.Triggers>
@@ -550,7 +550,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Button Command="{Binding DataContext.AddTileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,4" Cursor="Hand" Focusable="False" AutomationProperties.Name="{Binding Title, StringFormat=Add {0}}">
+                                                        CommandParameter="{Binding}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,4" Cursor="Hand" Focusable="False" AutomationProperties.Name="{Binding Title, StringFormat={ctl:T 'Add {0}'}}">
                                                     <Button.Template>
                                                         <ControlTemplate TargetType="Button">
                                                             <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Control}" Padding="10,8">

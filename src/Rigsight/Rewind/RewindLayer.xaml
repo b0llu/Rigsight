@@ -39,13 +39,13 @@
                            Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                 <TextBlock Text="{Binding RevealSub}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
-                    <Button Style="{StaticResource AccentButton}" Command="{Binding WatchRevealedCommand}" Padding="22,9" Margin="0,0,8,0" AutomationProperties.Name="Watch">
+                    <Button Style="{StaticResource AccentButton}" Command="{Binding WatchRevealedCommand}" Padding="22,9" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Watch'}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Margin="0,0,8,0" />
                             <TextBlock Text="{ctl:T 'Watch'}" FontSize="{x:Static ctl:TextSize.Lead}" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource GhostButton}" Command="{Binding LaterCommand}" Padding="22,9" AutomationProperties.Name="Later">
+                    <Button Style="{StaticResource GhostButton}" Command="{Binding LaterCommand}" Padding="22,9" AutomationProperties.Name="{ctl:T 'Later'}">
                         <TextBlock Text="{ctl:T 'Later'}" FontSize="{x:Static ctl:TextSize.Lead}" />
                     </Button>
                 </StackPanel>
@@ -81,7 +81,7 @@
                     <TextBlock Text="{Binding WatchedKind}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" />
                 </StackPanel>
                 <Button Grid.Column="2" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" HorizontalAlignment="Right" Width="32" Height="30"
-                        AutomationProperties.Name="Close" ToolTip="{ctl:T 'Close'}">
+                        AutomationProperties.Name="{ctl:T 'Close'}" ToolTip="{ctl:T 'Close'}">
                     <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S12}" />
                 </Button>
             </Grid>
@@ -95,12 +95,12 @@
                         <Border x:Name="PeekPrev" Width="200" Height="356" CornerRadius="{x:Static ctl:Corner.Card}" ClipToBounds="True" Opacity="0.28" Margin="0,0,28,0" Cursor="Hand"
                                 MouseLeftButtonUp="PeekPrev_Click" Visibility="{Binding AtEnd, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <Button x:Name="PrevButton" Style="{StaticResource RoundArrow}" Command="{Binding PreviousCommand}" IsEnabled="{Binding CanGoBack}"
-                                AutomationProperties.Name="Previous card">
+                                AutomationProperties.Name="{ctl:T 'Previous card'}">
                             <TextBlock Text="&#xE76B;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" />
                         </Button>
                         <Grid Margin="28,0">
                             <Border x:Name="CardFrame" Width="362" Height="644" CornerRadius="{x:Static ctl:Corner.Sheet}" Cursor="Hand" MouseLeftButtonUp="Card_Click"
-                                    Visibility="{Binding AtEnd, Converter={StaticResource Vis}, ConverterParameter=Invert}" AutomationProperties.Name="Next card">
+                                    Visibility="{Binding AtEnd, Converter={StaticResource Vis}, ConverterParameter=Invert}" AutomationProperties.Name="{ctl:T 'Next card'}">
                                 <Border.Effect><DropShadowEffect BlurRadius="60" ShadowDepth="18" Opacity="0.8" Color="Black" /></Border.Effect>
                                 <Border x:Name="CardHost" CornerRadius="{x:Static ctl:Corner.Sheet}" ClipToBounds="True" />
                             </Border>
@@ -112,13 +112,13 @@
                                 <TextBlock Text="{Binding EndSub}" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
                                 <WrapPanel x:Name="Thumbs" HorizontalAlignment="Center" MaxWidth="700" Margin="0,24,0,26" />
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <Button Style="{StaticResource AccentButton}" Command="{Binding OpenShareCommand}" Padding="22,9" Margin="0,0,8,0" AutomationProperties.Name="Share">
+                                    <Button Style="{StaticResource AccentButton}" Command="{Binding OpenShareCommand}" Padding="22,9" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Share'}">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="&#xE72D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Margin="0,0,8,0" />
                                             <TextBlock Text="{ctl:T 'Share'}" FontSize="{x:Static ctl:TextSize.Lead}" />
                                         </StackPanel>
                                     </Button>
-                                    <Button Style="{StaticResource GhostButton}" Command="{Binding AgainCommand}" Padding="22,9" AutomationProperties.Name="Watch again">
+                                    <Button Style="{StaticResource GhostButton}" Command="{Binding AgainCommand}" Padding="22,9" AutomationProperties.Name="{ctl:T 'Watch again'}">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Margin="0,0,8,0" />
                                             <TextBlock Text="{ctl:T 'Watch again'}" FontSize="{x:Static ctl:TextSize.Lead}" />
@@ -128,7 +128,7 @@
                                 </StackPanel>
                             </ctl:SmoothBorder>
                         </Grid>
-                        <Button Style="{StaticResource RoundArrow}" Command="{Binding NextCommand}" IsEnabled="{Binding CanGoNext}" AutomationProperties.Name="Next">
+                        <Button Style="{StaticResource RoundArrow}" Command="{Binding NextCommand}" IsEnabled="{Binding CanGoNext}" AutomationProperties.Name="{ctl:T 'Next'}">
                             <TextBlock Text="&#xE76C;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" />
                         </Button>
                         <Border x:Name="PeekNext" Width="200" Height="356" CornerRadius="{x:Static ctl:Corner.Card}" ClipToBounds="True" Opacity="0.28" Margin="28,0,0,0" Cursor="Hand"
@@ -144,7 +144,7 @@
             <ctl:SmoothBorder Margin="40,30,40,26" CornerRadius="{x:Static ctl:Corner.Panel}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="22,14,14,12">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseShareCommand}" AutomationProperties.Name="Close" ToolTip="{ctl:T 'Close'}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseShareCommand}" AutomationProperties.Name="{ctl:T 'Close'}" ToolTip="{ctl:T 'Close'}">
                             <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S12}" />
                         </Button>
                         <TextBlock Text="{Binding ShareTitle}" FontSize="{x:Static ctl:TextSize.Subtitle}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
@@ -186,7 +186,7 @@
                             </DockPanel>
                             <StackPanel DockPanel.Dock="Bottom" Margin="12,8,12,14">
                                 <!-- Every ticked picture, in order, to paste into a post anywhere. -->
-                                <Button Style="{StaticResource AccentButton}" Command="{Binding CopyCommand}" AutomationProperties.Name="Copy pictures" Padding="12,9">
+                                <Button Style="{StaticResource AccentButton}" Command="{Binding CopyCommand}" AutomationProperties.Name="{ctl:T 'Copy pictures'}" Padding="12,9">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE8C8;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Margin="0,0,8,0" />
                                         <TextBlock Text="{Binding CopyText}" />

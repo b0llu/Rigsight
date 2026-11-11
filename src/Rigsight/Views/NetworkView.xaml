@@ -105,7 +105,7 @@
             </DockPanel>
 
             <!-- ── Right now, always open: the speeds and the last minute, the line, and every app using it. ── -->
-            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Margin="0,0,0,18" AutomationProperties.Name="Right now">
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Margin="0,0,0,18" AutomationProperties.Name="{ctl:T 'Right now'}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1.25*" />
@@ -183,7 +183,7 @@
                                    Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                         <!-- As tall as the card's other columns: more apps than fit scroll inside it. -->
                         <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" MaxHeight="190">
-                            <ItemsControl ItemsSource="{Binding UsingNow}" Focusable="False" Margin="0,0,12,0" AutomationProperties.Name="Using it now">
+                            <ItemsControl ItemsSource="{Binding UsingNow}" Focusable="False" Margin="0,0,12,0" AutomationProperties.Name="{ctl:T 'Using it now'}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:NetLiveRow}">
                                         <Grid Margin="0,5">
@@ -221,7 +221,7 @@
             <StackPanel Visibility="{Binding HasData, Converter={StaticResource Vis}}">
                 <!-- ── The period in four figures, each with what it means (the user, 2026-11-05: option A): used with its
                      download and upload split, downloaded against before, the background's share, and the connection. ── -->
-                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Margin="0,0,0,18" AutomationProperties.Name="The period">
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Margin="0,0,0,18" AutomationProperties.Name="{ctl:T 'The period'}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="1.2*" />
@@ -230,7 +230,7 @@
                             <ColumnDefinition Width="1.2*" />
                         </Grid.ColumnDefinitions>
                         <!-- Used: the total, the download and upload bar, the two amounts in their colours. -->
-                        <StackPanel Margin="20,14,20,15" AutomationProperties.Name="Used">
+                        <StackPanel Margin="20,14,20,15" AutomationProperties.Name="{ctl:T 'Used'}">
                             <TextBlock Text="{ctl:T 'USED'}" Style="{StaticResource Caption}" />
                             <TextBlock Text="{Binding TotalText}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
                             <Grid Height="6" Margin="0,9,0,0">
@@ -243,7 +243,7 @@
                         </StackPanel>
                         <!-- Downloaded, against the period before (a chip only when it's clearly more or less). -->
                         <Border Grid.Column="1" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0">
-                            <StackPanel Margin="20,14,20,15" AutomationProperties.Name="Downloaded">
+                            <StackPanel Margin="20,14,20,15" AutomationProperties.Name="{ctl:T 'Downloaded'}">
                                 <TextBlock Text="{ctl:T 'DOWNLOADED'}" Style="{StaticResource Caption}" />
                                 <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                                     <TextBlock Text="{Binding DownText}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
@@ -258,7 +258,7 @@
                         </Border>
                         <!-- In the background: its share as a bar, and what moved with nobody there. -->
                         <Border Grid.Column="2" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0">
-                            <StackPanel Margin="20,14,20,15" AutomationProperties.Name="In the background" ToolTip="{Binding BackgroundTip}">
+                            <StackPanel Margin="20,14,20,15" AutomationProperties.Name="{ctl:T 'In the background'}" ToolTip="{Binding BackgroundTip}">
                                 <TextBlock Text="{ctl:T 'IN THE BACKGROUND'}" Style="{StaticResource Caption}" />
                                 <TextBlock Text="{Binding BackgroundText}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
                                 <Grid Height="6" Margin="0,9,0,0">
@@ -271,7 +271,7 @@
                         </Border>
                         <!-- The connection: drops (the warning colour only when worth a look), how long it was down, the usual ping. -->
                         <Border Grid.Column="3" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0">
-                            <DockPanel Margin="20,14,16,15" AutomationProperties.Name="Connection">
+                            <DockPanel Margin="20,14,16,15" AutomationProperties.Name="{ctl:T 'Connection'}">
                                 <!-- Drops worth a look: why, asked of the AI (hidden while it's off). -->
                                 <Border DockPanel.Dock="Right" VerticalAlignment="Top" Visibility="{Binding DropsWarn, Converter={StaticResource Vis}}">
                                     <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Why does it drop?'}" CommandParameter="{Binding DropsAsk}" AutomationProperties.Name="{ctl:T 'Why does it drop?'}" />
@@ -361,7 +361,7 @@
                                               ColorApps="{Binding ColorApps}" AppNames="{Binding AppNames}" Selected="{Binding SelectedBin}" SelectedLast="{Binding SelectedBinLast}"
                                               Drops="{Binding Drops}" HighPing="{Binding HighPing}" Zoomed="{Binding Zoomed}"
                                               HoverIndex="{Binding HoverIndex}" HoverPoint="{Binding HoverPoint}" PingMarks="{Binding PingMarks}" Link="{Binding Link}"
-                                              AutomationProperties.Name="Usage chart">
+                                              AutomationProperties.Name="{ctl:T 'Usage chart'}">
                                 <ctl:NetBarsChart.Style>
                                     <Style TargetType="ctl:NetBarsChart">
                                         <Style.Triggers>
@@ -374,7 +374,7 @@
                             </ctl:NetBarsChart>
                             <!-- Too little ping for a graph: why, in its place (still collecting, checks off, not checked then). -->
                             <Border Visibility="{Binding ShowPingNote, Converter={StaticResource Vis}}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                    MaxWidth="460" AutomationProperties.Name="Ping note">
+                                    MaxWidth="460" AutomationProperties.Name="{ctl:T 'Ping note'}">
                                 <StackPanel>
                                     <Border Width="44" Height="44" CornerRadius="22" Background="{DynamicResource Surface2Brush}" HorizontalAlignment="Center">
                                         <TextBlock Text="{Binding PingNoteIcon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S18}" Foreground="{DynamicResource CpuBrush}"
@@ -531,7 +531,7 @@
                         </Grid>
                         <!-- The Ping view's status line, in every state: what's being done, then Pause (asks first) or Resume, underlined. -->
                         <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="0,10,0,0"
-                                Visibility="{Binding IsPingView, Converter={StaticResource Vis}}" AutomationProperties.Name="Ping checks">
+                                Visibility="{Binding IsPingView, Converter={StaticResource Vis}}" AutomationProperties.Name="{ctl:T 'Ping checks'}">
                             <StackPanel Orientation="Horizontal">
                                 <Ellipse Width="7" Height="7" VerticalAlignment="Center">
                                     <Ellipse.Style>
@@ -554,7 +554,7 @@
                                 <Popup IsOpen="{Binding ConfirmStopOpen}" PlacementTarget="{Binding ElementName=PingStatusLink}" Placement="Top" HorizontalOffset="-24"
                                        StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
                                     <Border Width="340" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1"
-                                            CornerRadius="{x:Static ctl:Corner.Control}" Padding="16,14" Margin="0,8,8,8" AutomationProperties.Name="Pause ping checks">
+                                            CornerRadius="{x:Static ctl:Corner.Control}" Padding="16,14" Margin="0,8,8,8" AutomationProperties.Name="{ctl:T 'Pause ping checks'}">
                                         <Border.Effect>
                                             <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" />
                                         </Border.Effect>
@@ -617,7 +617,7 @@
                                        Visibility="{Binding HasApps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
-                                <ItemsControl ItemsSource="{Binding Apps}" Focusable="False" AutomationProperties.Name="Apps">
+                                <ItemsControl ItemsSource="{Binding Apps}" Focusable="False" AutomationProperties.Name="{ctl:T 'Apps'}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:NetAppRow}">
                                             <Button Style="{StaticResource RowButton}" Padding="0,8" Margin="0,0,16,0" AutomationProperties.Name="{Binding Name}"
@@ -687,7 +687,7 @@
                                         <TextBlock Grid.Column="2" Text="{Binding SmallAppsAmount}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                     </Grid>
                                 </Button>
-                                <ItemsControl ItemsSource="{Binding SmallApps}" Focusable="False" Margin="0,0,16,6" AutomationProperties.Name="Apps under 1 MB"
+                                <ItemsControl ItemsSource="{Binding SmallApps}" Focusable="False" Margin="0,0,16,6" AutomationProperties.Name="{ctl:T 'Apps under 1 MB'}"
                                               Visibility="{Binding SmallAppsOpen, Converter={StaticResource Vis}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:NetSmallRow}">
@@ -717,7 +717,7 @@
                             <!-- What's said of the whole period: a summary set apart on top, with no time, the timeline under it. -->
                             <Border DockPanel.Dock="Top" Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}" Padding="12,10" Margin="0,6,10,6"
                                     Visibility="{Binding HasSummary, Converter={StaticResource Vis}}">
-                                <ItemsControl ItemsSource="{Binding Summary}" Focusable="False" AutomationProperties.Name="Summary">
+                                <ItemsControl ItemsSource="{Binding Summary}" Focusable="False" AutomationProperties.Name="{ctl:T 'Summary'}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:NetHappeningRow}">
                                             <Grid Margin="0,3">
@@ -738,7 +738,7 @@
                                 </ItemsControl>
                             </Border>
                             <ScrollViewer x:Name="HappeningsScroll" Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto">
-                                <ItemsControl x:Name="HappeningsList" ItemsSource="{Binding Happenings}" Focusable="False" Margin="0,0,10,0" AutomationProperties.Name="What happened">
+                                <ItemsControl x:Name="HappeningsList" ItemsSource="{Binding Happenings}" Focusable="False" Margin="0,0,10,0" AutomationProperties.Name="{ctl:T 'What happened'}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:NetHappeningRow}">
                                             <Grid>

@@ -92,7 +92,7 @@
                                         ToolTip="{ctl:T 'Go back to Alt+Shift+O'}" VerticalAlignment="Center"
                                         Visibility="{Binding HotkeyChanged, Converter={StaticResource Vis}}" />
                                 <Button Focusable="False" Command="{Binding StartRecordingCommand}" Click="OnRecordClick"
-                                        AutomationProperties.Name="Change shortcut" ToolTip="{ctl:T 'Click, then press the new shortcut'}">
+                                        AutomationProperties.Name="{ctl:T 'Change shortcut'}" ToolTip="{ctl:T 'Click, then press the new shortcut'}">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
                                             <ctl:SmoothBorder x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}"
@@ -236,15 +236,15 @@
                                 <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}" Padding="12,8" Margin="0,0,0,6">
                                     <DockPanel>
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="Move up"
+                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="{ctl:T 'Move up'}"
                                                     Command="{Binding DataContext.MoveSensorUpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE70E;" />
                                             </Button>
-                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move down'}" AutomationProperties.Name="Move down"
+                                            <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move down'}" AutomationProperties.Name="{ctl:T 'Move down'}"
                                                     Command="{Binding DataContext.MoveSensorDownCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE70D;" />
                                             </Button>
-                                            <Button Style="{StaticResource DangerIconButton}" ToolTip="{ctl:T 'Remove from the overlay'}" AutomationProperties.Name="Remove"
+                                            <Button Style="{StaticResource DangerIconButton}" ToolTip="{ctl:T 'Remove from the overlay'}" AutomationProperties.Name="{ctl:T 'Remove'}"
                                                     Command="{Binding DataContext.RemoveSensorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
                                                 <TextBlock Text="&#xE711;" />
                                             </Button>
@@ -395,7 +395,7 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <TextBlock x:Name="PositionLabel" Text="{ctl:T 'POSITION'}" Style="{StaticResource OptionLabel}" VerticalAlignment="Top" Margin="0,4,0,0" />
-                        <ctl:OverlayScreen x:Name="PositionScreen" Grid.Column="1" Width="440" VerticalAlignment="Top" AutomationProperties.Name="Overlay position"
+                        <ctl:OverlayScreen x:Name="PositionScreen" Grid.Column="1" Width="440" VerticalAlignment="Top" AutomationProperties.Name="{ctl:T 'Overlay position'}"
                                            Preview="{Binding Preview}" OverlayScale="{Binding ScaleValue}" Spot="{Binding Spot}" Snap="{Binding SnapPosition}"
                                            ScreenSize="{Binding PickedScreenSize}" />
                         <StackPanel x:Name="PositionSide" Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Top">

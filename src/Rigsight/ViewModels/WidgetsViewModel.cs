@@ -531,6 +531,14 @@ public sealed partial class WidgetsViewModel : ObservableObject
 
     public bool CanCreate => _settings.Current.Widgets.Count(w => w.Style == WidgetStyle.Custom) < WidgetCatalog.MaxCustom;
 
+    /// <summary>
+    /// At the most RigSight keeps, Add widget and Create widget are off and the line under them says why (the audit,
+    /// 2026-11-11: Add widget opened its list and a click on any of it did nothing, with no word).
+    /// </summary>
+    public bool AtLimit => !CanCreate;
+
+    public static string LimitLine => Lang.T($"You have {WidgetCatalog.MaxCustom} widgets, the most RigSight keeps. Remove one to add another.");
+
     /// <summary>The widget open in the editor, if any.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEditing))]
@@ -632,7 +640,7 @@ public sealed partial class WidgetsViewModel : ObservableObject
     [ObservableProperty] private bool _addListOpen;
 
     /// <summary>Opens the Add widget pop-up, its search cleared.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanCreate))]
     private void OpenAddList()
     {
         ChoiceQuery = "";
@@ -785,7 +793,10 @@ public sealed partial class WidgetsViewModel : ObservableObject
         }
         FillGrid();
         OnPropertyChanged(nameof(CanCreate));
+        OnPropertyChanged(nameof(AtLimit));
         CreateCommand.NotifyCanExecuteChanged();
+        OpenAddListCommand.NotifyCanExecuteChanged();
+        if (AtLimit) AddListOpen = false;
     }
 
     /// <summary>The agent used to draw the cards' pictures; the page draws them itself now, so this only refreshes them.</summary>

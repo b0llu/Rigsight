@@ -80,7 +80,7 @@
                         <ColumnDefinition Width="8" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <ComboBox AutomationProperties.Name="Category" ToolTip="{ctl:T 'Show one kind of app'}"
+                    <ComboBox AutomationProperties.Name="{ctl:T 'Category'}" ToolTip="{ctl:T 'Show one kind of app'}"
                               ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
@@ -93,7 +93,7 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <ComboBox Grid.Column="2" AutomationProperties.Name="Sort by" ToolTip="{ctl:T 'Sort by'}" SelectedValuePath="Tag" SelectedValue="{Binding Sort}">
+                    <ComboBox Grid.Column="2" AutomationProperties.Name="{ctl:T 'Sort by'}" ToolTip="{ctl:T 'Sort by'}" SelectedValuePath="Tag" SelectedValue="{Binding Sort}">
                         <ComboBoxItem Content="{ctl:T 'Most used'}" Tag="Active" />
                         <ComboBoxItem Content="{ctl:T 'Most in background'}" Tag="Background" />
                         <ComboBoxItem Content="{ctl:T 'Most internet use'}" Tag="Internet" />
@@ -174,7 +174,7 @@
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE7FC;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Margin="0,0,8,0" /><TextBlock Text="{ctl:T 'Game history'}" /></StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource IconButton}" Width="34" Height="34" VerticalAlignment="Top"
-                                        Click="More_Click" ToolTip="{ctl:T 'Category, tracking and file location'}" AutomationProperties.Name="More options">
+                                        Click="More_Click" ToolTip="{ctl:T 'Category, tracking and file location'}" AutomationProperties.Name="{ctl:T 'More options'}">
                                     <TextBlock Text="&#xE712;" />
                                 </Button>
                                 </StackPanel>
@@ -183,7 +183,7 @@
                             <!-- Three groups side by side (one above the other on a narrow window), each the same parts in the
                                  same order: a caption, a main figure with a word after it, then its rows. -->
                             <local:GroupRow x:Name="Groups" Margin="0,20,0,0">
-                                <Border Style="{StaticResource GroupBox}" AutomationProperties.Name="Time">
+                                <Border Style="{StaticResource GroupBox}" AutomationProperties.Name="{ctl:T 'Time'}">
                                     <StackPanel>
                                         <TextBlock Text="{ctl:T 'TIME'}" Style="{StaticResource Caption}" />
                                         <TextBlock Style="{StaticResource GroupMain}">
@@ -216,7 +216,7 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border Style="{StaticResource GroupBox}" AutomationProperties.Name="Hardware">
+                                <Border Style="{StaticResource GroupBox}" AutomationProperties.Name="{ctl:T 'Hardware'}">
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis">
                                             <Run Text="{ctl:T 'HARDWARE'}" /> <Run Text="{ctl:T 'while it was in front'}" FontWeight="Normal" Foreground="{DynamicResource FaintBrush}" />
@@ -260,7 +260,7 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border Style="{StaticResource GroupBox}" AutomationProperties.Name="Internet">
+                                <Border Style="{StaticResource GroupBox}" AutomationProperties.Name="{ctl:T 'Internet'}">
                                     <StackPanel>
                                         <TextBlock Text="{ctl:T 'INTERNET'}" Style="{StaticResource Caption}" />
                                         <TextBlock Style="{StaticResource GroupMain}">

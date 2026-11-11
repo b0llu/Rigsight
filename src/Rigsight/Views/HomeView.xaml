@@ -276,12 +276,12 @@
                         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
                             <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Visibility="{Binding HasPeriods, Converter={StaticResource Vis}}">
                                 <StackPanel Orientation="Horizontal">
-                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Day'}" IsChecked="{Binding IsYesterday}" GroupName="recap" AutomationProperties.Name="Yesterday" />
-                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Week'}" IsChecked="{Binding IsLastWeek}" GroupName="recap" AutomationProperties.Name="Last week"
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Day'}" IsChecked="{Binding IsYesterday}" GroupName="recap" AutomationProperties.Name="{ctl:T 'Yesterday'}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Week'}" IsChecked="{Binding IsLastWeek}" GroupName="recap" AutomationProperties.Name="{ctl:T 'Last week'}"
                                                  Visibility="{Binding HasLastWeek, Converter={StaticResource Vis}}" />
-                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Month'}" IsChecked="{Binding IsLastMonth}" GroupName="recap" AutomationProperties.Name="Last month"
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Month'}" IsChecked="{Binding IsLastMonth}" GroupName="recap" AutomationProperties.Name="{ctl:T 'Last month'}"
                                                  Visibility="{Binding HasLastMonth, Converter={StaticResource Vis}}" />
-                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Year'}" IsChecked="{Binding IsLastYear}" GroupName="recap" AutomationProperties.Name="Last year"
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Year'}" IsChecked="{Binding IsLastYear}" GroupName="recap" AutomationProperties.Name="{ctl:T 'Last year'}"
                                                  Visibility="{Binding HasLastYear, Converter={StaticResource Vis}}" />
                                 </StackPanel>
                             </Border>
@@ -440,7 +440,7 @@
                         <DockPanel Margin="0,0,0,7">
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
                                     Command="{Binding GoCommand}" CommandParameter="timeline"
-                                    AutomationProperties.Name="Open the Timeline">
+                                    AutomationProperties.Name="{ctl:T 'Open the Timeline'}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Timeline'}" />
                                     <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,0,0,0" />

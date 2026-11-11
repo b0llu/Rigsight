@@ -569,7 +569,9 @@ internal static partial class WidgetRenderer
         float icon = Math.Min(28, inner.Height - 24);
         if (icon >= 14) IconIn(g, "\uE91B", icon, p.Faint, new RectangleF(inner.Left, inner.Top, icon, icon));
         if (waiting) return;
-        string line = t.Folder is null ? Lang.T("Pick a folder in the editor.") : Lang.T("No pictures in this folder.");
+        string line = t.Folder is not { } chosen ? Lang.T("Pick a folder in the editor.")
+            : WidgetFiles.CantOpen(chosen) ? Lang.T("RigSight can't open this folder right now.")
+            : Lang.T("No pictures in this folder.");
         TextIn(g, line, 12.5f, p.Faint, RectangleF.FromLTRB(inner.Left, inner.Top + (icon >= 14 ? icon + 6 : 0), inner.Right, inner.Bottom));
     }
 

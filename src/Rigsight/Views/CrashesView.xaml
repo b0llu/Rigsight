@@ -358,7 +358,7 @@
                     </Button>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,-9,0" DataContext="{Binding Case.Group}">
                         <!-- The AI helper on this case (hidden while the AI is off or Crashes isn't shared). -->
-                        <Button Style="{StaticResource AiButton}" Margin="0,0,12,0" AutomationProperties.Name="Explain this crash"
+                        <Button Style="{StaticResource AiButton}" Margin="0,0,12,0" AutomationProperties.Name="{ctl:T 'Explain this crash'}"
                                 Content="{ctl:T 'Explain this crash'}" CommandParameter="{Binding ExplainAsk}" />
                         <Button Style="{StaticResource ActionButton}" Content="{Binding CopyText}"
                                 Command="{Binding DataContext.CopyCommand, ElementName=Page}" CommandParameter="{Binding}"

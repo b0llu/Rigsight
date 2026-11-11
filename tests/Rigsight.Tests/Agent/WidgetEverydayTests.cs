@@ -121,6 +121,64 @@ public class WidgetEverydayTests : IDisposable
 
     private static WidgetConfig Box(params WidgetTile[] tiles) => new() { Style = WidgetStyle.Custom, Id = "custom-everyday", Tiles = [.. tiles], BackgroundOpacity = 1 };
 
+    // A folder that can't be opened (gone, on a drive or PC that isn't there) said "No pictures in this folder." (the
+    // audit, 2026-11-11); an empty one still does.
+    [Fact]
+    public void A_photos_folder_that_cant_be_opened_is_told_from_an_empty_one()
+    {
+        Directory.CreateDirectory(_dir);
+        string gone = Path.Combine(_dir, "not-there");
+        Assert.Empty(WidgetFiles.PicturesIn(_dir));
+        Assert.False(WidgetFiles.CantOpen(_dir));
+        Assert.Empty(WidgetFiles.PicturesIn(gone));
+        Assert.True(WidgetFiles.CantOpen(gone));
+
+        static string Shown(WidgetConfig cfg)
+        {
+            using var bmp = WidgetRenderer.Render(cfg, new WidgetData(), 1, hover: false, out _);
+            return string.Join(",", Enumerable.Range(0, bmp.Width * bmp.Height / 7).Select(i => bmp.GetPixel(i * 7 % bmp.Width, i * 7 / bmp.Width).ToArgb()));
+        }
+        // The two lines differ on the tile.
+        Assert.NotEqual(Shown(Box(new WidgetTile { Kind = WidgetTiles.Photos, W = 6, H = 4, Folder = _dir })),
+            Shown(Box(new WidgetTile { Kind = WidgetTiles.Photos, W = 6, H = 4, Folder = gone })));
+    }
+
+    // An emoji typed in a note came out as an empty box: GDI+ never looks for Segoe UI Emoji (the audit, 2026-11-11).
+    // A text with one is drawn in it (its letters are Segoe UI's, the same size), and one without is left as it was.
+    [Fact]
+    public void A_text_with_an_emoji_is_drawn_in_Segoe_UI_Emoji_and_one_without_is_left_alone()
+    {
+        using var font = new Font("Segoe UI", 14, GraphicsUnit.Pixel);
+        Assert.Same(font, WidgetRenderer.ForText(font, "Game night at 9"));
+        Assert.False(WidgetRenderer.HasEmoji("Café → 9:00 © Ünïcode 日本"));
+        foreach (var text in new[] { "Game night \U0001F3AE", "Done ✅", "Love ❤️", "\U0001F44D\U0001F3FD", "\U0001F1EE\U0001F1F3" })
+        {
+            Assert.True(WidgetRenderer.HasEmoji(text), text);
+            var used = WidgetRenderer.ForText(font, text);
+            Assert.Equal("Segoe UI Emoji", used.Name);
+            // The same letters, the same width: nothing moves.
+            using var bmp = new Bitmap(10, 10);
+            using var g = Graphics.FromImage(bmp);
+            Assert.Equal(g.MeasureString("Game night", font).Width, g.MeasureString("Game night", used).Width, 0.01);
+        }
+
+        // On a note: two different emoji drew the same empty box before; now each is its own picture.
+        string Note(string text)
+        {
+            using var bmp = WidgetRenderer.Render(Box(new WidgetTile { Kind = WidgetTiles.Notes, W = 6, H = 4, Text = text }), new WidgetData(), 1, hover: false, out _);
+            return string.Join(",", Enumerable.Range(0, bmp.Width * bmp.Height / 3).Select(i => bmp.GetPixel(i * 3 % bmp.Width, i * 3 / bmp.Width).ToArgb()));
+        }
+        Assert.NotEqual(Note("Tonight \U0001F3AE"), Note("Tonight \U0001F600"));
+
+        // A picture for a person: %TEMP%\rigsight-tests\boxes\emoji-note.png.
+        var cfg = Box(new WidgetTile { Kind = WidgetTiles.Notes, W = 8, H = 4, Text = "Game night \U0001F3AE at 9\nBring snacks \U0001F355 ❤️" },
+            new WidgetTile { Kind = WidgetTiles.Todo, Y = 4, W = 8, H = 4, Todos = [new() { Text = "Update drivers ✅", Done = true }, new() { Text = "Clean the fans \U0001F9F9" }] });
+        using var shot = WidgetRenderer.Render(cfg, new WidgetData(), 1.5f, hover: false, out _);
+        var dir = Path.Combine(Path.GetTempPath(), "rigsight-tests", "boxes");
+        Directory.CreateDirectory(dir);
+        shot.Save(Path.Combine(dir, "emoji-note.png"), ImageFormat.Png);
+    }
+
     [Fact]
     public void Media_and_shortcuts_are_clickable_where_they_are_drawn()
     {

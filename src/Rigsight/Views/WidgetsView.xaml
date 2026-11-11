@@ -33,7 +33,7 @@
         <DataTemplate DataType="{x:Type vm:WidgetCard}">
             <DockPanel>
                 <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Enabled}" VerticalAlignment="Center"
-                          AutomationProperties.Name="{Binding Title, StringFormat='Show {0}'}" ToolTip="{ctl:T 'Show it on the desktop'}" />
+                          AutomationProperties.Name="{Binding Title, StringFormat={ctl:T 'Show {0}'}}" ToolTip="{ctl:T 'Show it on the desktop'}" />
                 <Border x:Name="Thumb" DockPanel.Dock="Left" Width="56" Height="34" CornerRadius="6" ClipToBounds="True" Background="{StaticResource Backdrop}" Margin="0,0,12,0">
                     <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="4" RenderOptions.BitmapScalingMode="HighQuality" />
                 </Border>
@@ -66,7 +66,7 @@
              all of them in Spanish); the picture stays at the top of the row. -->
         <DataTemplate x:Key="ChoiceRow">
             <Button Style="{StaticResource RowButton}" HorizontalContentAlignment="Stretch" Margin="0,0,0,4" Command="{Binding AddCommand}"
-                    AutomationProperties.Name="{Binding Title, StringFormat='Add {0}'}">
+                    AutomationProperties.Name="{Binding Title, StringFormat={ctl:T 'Add {0}'}}">
                 <DockPanel Margin="8,6">
                     <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
                                VerticalAlignment="Center" Margin="10,0,2,0" />
@@ -367,6 +367,9 @@
                                              Text="{Binding MineQuery, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Search your widgets'}" />
                                     <ListBox DockPanel.Dock="Top" Style="{StaticResource ChipList}" ItemsSource="{Binding MineChips}" SelectedItem="{Binding PickedMineChip}" ItemTemplate="{StaticResource ChipTemplate}"
                                              Margin="2,10,0,4" AutomationProperties.Name="{ctl:T 'Which widgets to show'}" />
+                                    <!-- At the most RigSight keeps, both buttons are off and this says why, under them. -->
+                                    <TextBlock DockPanel.Dock="Bottom" Text="{x:Static vm:WidgetsViewModel.LimitLine}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="2,8,2,0"
+                                               Visibility="{Binding AtLimit, Converter={StaticResource Vis}}" />
                                     <!-- Add widget (a ready-made one or a tile, from a pop-up) and Create widget (an empty one, in the editor). -->
                                     <Grid DockPanel.Dock="Bottom" Margin="0,8,0,0">
                                         <Grid.ColumnDefinitions>
@@ -439,9 +442,9 @@
                                 <DockPanel Visibility="{Binding HasPicked, Converter={StaticResource Vis}}">
                                     <DockPanel DockPanel.Dock="Top">
                                         <Button DockPanel.Dock="Right" Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove'}" Command="{Binding Picked.RemoveCommand}" Margin="8,0,0,0"
-                                                VerticalAlignment="Center" AutomationProperties.Name="{Binding Picked.Title, StringFormat='Remove {0}'}" />
+                                                VerticalAlignment="Center" AutomationProperties.Name="{Binding Picked.Title, StringFormat={ctl:T 'Remove {0}'}}" />
                                         <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{ctl:T 'Edit'}" Command="{Binding Picked.EditCommand}"
-                                                VerticalAlignment="Center" AutomationProperties.Name="{Binding Picked.Title, StringFormat='Edit {0}'}" />
+                                                VerticalAlignment="Center" AutomationProperties.Name="{Binding Picked.Title, StringFormat={ctl:T 'Edit {0}'}}" />
                                         <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
                                             <TextBlock Text="{Binding Picked.Title}" FontSize="{x:Static ctl:TextSize.Title}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding Picked.Description}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextTrimming="CharacterEllipsis" />
@@ -716,7 +719,7 @@
                                     <DataTemplate>
                                         <Button Style="{StaticResource RowButton}" HorizontalContentAlignment="Stretch" Margin="0,0,0,6"
                                                 Command="{Binding DataContext.AddTileCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
-                                                AutomationProperties.Name="{Binding Name, StringFormat='Add {0}'}">
+                                                AutomationProperties.Name="{Binding Name, StringFormat={ctl:T 'Add {0}'}}">
                                             <DockPanel Margin="10,7">
                                                 <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
                                                 <StackPanel>
@@ -1002,7 +1005,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <DockPanel Margin="0,2">
-                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat='Remove {0}'}"
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat={ctl:T 'Remove {0}'}}"
                                                             Command="{Binding DataContext.RemoveReadingCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                                         <TextBlock Text="&#xE711;" />
                                                     </Button>
@@ -1055,7 +1058,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <DockPanel Margin="0,2">
-                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Text, StringFormat='Remove {0}'}"
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Text, StringFormat={ctl:T 'Remove {0}'}}"
                                                             Command="{Binding DataContext.RemoveTodoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                                         <TextBlock Text="&#xE711;" />
                                                     </Button>
@@ -1134,7 +1137,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <DockPanel Margin="0,2">
-                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat='Remove {0}'}"
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat={ctl:T 'Remove {0}'}}"
                                                             Command="{Binding DataContext.RemoveLinkCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                                         <TextBlock Text="&#xE711;" />
                                                     </Button>

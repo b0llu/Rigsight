@@ -6,7 +6,7 @@
     <!-- ‹  [Yesterday ▾]  ›   The middle says which period is shown; clicking it opens a calendar. 32 px tall, like the
          segmented buttons it usually sits next to. -->
     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-        <Button Style="{StaticResource IconButton}" Width="32" Height="32" Click="Previous_Click" ToolTip="{ctl:T Previous}" AutomationProperties.Name="Previous"
+        <Button Style="{StaticResource IconButton}" Width="32" Height="32" Click="Previous_Click" ToolTip="{ctl:T Previous}" AutomationProperties.Name="{ctl:T 'Previous'}"
                 IsEnabled="{Binding CanGoPrevious, ElementName=Root}">
             <TextBlock Text="&#xE76B;" />
         </Button>
@@ -35,7 +35,7 @@
                            Visibility="{Binding Pickable, ElementName=Root, Converter={StaticResource Vis}}" />
             </StackPanel>
         </Button>
-        <Button Style="{StaticResource IconButton}" Width="32" Height="32" Click="Next_Click" ToolTip="{ctl:T Next}" AutomationProperties.Name="Next"
+        <Button Style="{StaticResource IconButton}" Width="32" Height="32" Click="Next_Click" ToolTip="{ctl:T Next}" AutomationProperties.Name="{ctl:T 'Next'}"
                 IsEnabled="{Binding CanGoNext, ElementName=Root}">
             <TextBlock Text="&#xE76C;" />
         </Button>
@@ -53,11 +53,11 @@
                     <StackPanel x:Name="MonthPanel" Width="264" Visibility="Collapsed">
                         <DockPanel Margin="6,2,0,10">
                             <Button DockPanel.Dock="Right" x:Name="NextYear" Style="{StaticResource IconButton}" Click="NextYear_Click"
-                                    ToolTip="{ctl:T 'Next year'}" AutomationProperties.Name="Next year">
+                                    ToolTip="{ctl:T 'Next year'}" AutomationProperties.Name="{ctl:T 'Next year'}">
                                 <TextBlock Text="&#xE76C;" />
                             </Button>
                             <Button DockPanel.Dock="Right" x:Name="PreviousYear" Style="{StaticResource IconButton}" Click="PreviousYear_Click"
-                                    ToolTip="{ctl:T 'Previous year'}" AutomationProperties.Name="Previous year">
+                                    ToolTip="{ctl:T 'Previous year'}" AutomationProperties.Name="{ctl:T 'Previous year'}">
                                 <TextBlock Text="&#xE76B;" />
                             </Button>
                             <TextBlock x:Name="YearText" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />

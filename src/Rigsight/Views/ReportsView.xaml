@@ -144,7 +144,7 @@
                             <TextBlock DockPanel.Dock="Right" ctl:CountUp.Text="{Binding TimeSplitNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" VerticalAlignment="Center" />
                             <TextBlock Text="{ctl:T 'Where the time went'}" Style="{StaticResource H2}" />
                         </DockPanel>
-                        <ItemsControl ItemsSource="{Binding TimeRows}" Focusable="False" AutomationProperties.Name="Where the time went">
+                        <ItemsControl ItemsSource="{Binding TimeRows}" Focusable="False" AutomationProperties.Name="{ctl:T 'Where the time went'}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Button Style="{StaticResource FlatRowButton}" Margin="-8,0" Command="{Binding DataContext.PickKindCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" AutomationProperties.Name="{Binding Part.Name}">
@@ -365,7 +365,7 @@
                         <!-- Every app, in a box of a set height that scrolls (a month can list hundreds; only the rows on screen are built). -->
                         <ItemsControl ItemsSource="{Binding Apps}" ctl:Roomy.MaxHeight="{x:Static views:ReportsView.AppsMaxHeight}" Focusable="False"
                                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel"
-                                      ScrollViewer.CanContentScroll="True" AutomationProperties.Name="Apps you used">
+                                      ScrollViewer.CanContentScroll="True" AutomationProperties.Name="{ctl:T 'Apps you used'}">
                             <ItemsControl.Template>
                                 <ControlTemplate TargetType="ItemsControl">
                                     <ScrollViewer Style="{StaticResource CardScroll}" Padding="0" VerticalScrollBarVisibility="Auto" CanContentScroll="True">
@@ -436,7 +436,7 @@
                         <DockPanel Margin="0,0,0,6">
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
                                     Command="{Binding GoCommand}" CommandParameter="timeline"
-                                    AutomationProperties.Name="Open the Timeline">
+                                    AutomationProperties.Name="{ctl:T 'Open the Timeline'}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Timeline'}" />
                                     <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,0,0,0" />
