@@ -61,10 +61,10 @@ footer a { color: var(--muted); }
 <main>
 <div class="wrap">
   <h1>Privacy policy</h1>
-  <p class="date">Last updated 28 October 2026</p>
+  <p class="date">Last updated 11 November 2026</p>
 
   <div class="short">
-    <p>Everything RigSight records stays on your PC. There is no account, no ads and no usage tracking. Your readings, apps and history leave your PC only when you ask Ask RigSight, the AI helper, a question, and then only the records that question needs, sent where you chose. The only other things the app does online on its own are asking GitHub whether there's a new version and, if you use RigSight in another language, fetching that language's file to go with an update. You can turn all of these off.</p>
+    <p>Everything RigSight records stays on your PC. There is no account, no ads and no usage tracking. Your readings, apps and history leave your PC only when you ask Ask RigSight, the AI helper, a question, and then only the records that question needs, sent where you chose. The only other things the app does online on its own are asking GitHub whether there's a new version, fetching your language's file to go with an update if you use RigSight in another language, and getting the forecast for a Weather tile if you add one to a widget. You can turn all of these off.</p>
   </div>
 
   <h2>What RigSight records</h2>
@@ -78,6 +78,7 @@ footer a { color: var(--muted); }
   <p>With <strong>Update automatically</strong> on (Settings, About), RigSight asks GitHub for the latest version about once a day. Turn it off and, from version 0.27.0, RigSight never asks by itself: only when you press <strong>Check for updates</strong>. That request carries RigSight's version number and, like any request on the internet, your IP address. Nothing RigSight has recorded goes with it.</p>
   <p>When a new version is out, its installer is downloaded from GitHub: by itself if <strong>Update automatically</strong> is on, or when you press Update if it's off. GitHub's handling of these requests is covered by the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub General Privacy Statement</a>.</p>
   <p>RigSight is in English unless you pick another language in Settings. Picking one downloads that language's file from GitHub, only then. If you use another language, its file for a new version is downloaded together with the update, and once more after it if that didn't work, but only if <strong>Update automatically</strong> is on. These requests, like the update check, carry RigSight's version number and your IP address, and nothing RigSight has recorded.</p>
+  <p>A Weather tile gets its forecast from MET Norway, the Norwegian Meteorological Institute. While a widget that's on has one, RigSight asks for that place's forecast about every 30 minutes, sending only its position, rounded to about a kilometre. When you look a place up in the widget editor, the name you typed is sent to OpenStreetMap's Nominatim to find it. Both carry RigSight's version number and your IP address, and nothing RigSight has recorded. Remove the tile, or turn its widget off, and RigSight stops asking.</p>
 
   <h2>Ask RigSight, the AI helper</h2>
   <p>Ask RigSight answers questions about your PC from what RigSight has recorded. Nothing is sent for it until you have read what it sends and pressed <strong>Start asking</strong>. You can turn it off in Settings, Ask RigSight, and then nothing is sent and its buttons are gone.</p>

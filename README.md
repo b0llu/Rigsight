@@ -67,7 +67,7 @@ With the window open, sensors are read every second instead of every two, so it 
 
 ## Privacy
 
-No account, no telemetry. The only thing RigSight checks online is whether there's a new version. Everything else lives in one folder on your PC, and you can clear it with one click.
+No account, no telemetry. RigSight goes online by itself only to check for a new version and, if you add a Weather tile, to get its forecast. Everything else lives in one folder on your PC, and you can clear it with one click.
 
 It knows which app is in front, how hard your hardware is working, and how much each app downloads and uploads. It never records window titles, what you type, what's on your screen, or the websites you visit.
 

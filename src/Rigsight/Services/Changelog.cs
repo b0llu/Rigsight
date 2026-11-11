@@ -187,6 +187,18 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.9.0", 11, 11,
+            feature: new(Lang.T("Widgets, rebuilt"), Lang.T("Build widgets from tiles, from readings and graphs to notes, to-dos, a timer, weather and music."),
+                [Lang.T("Media, Weather, To-do, Timer, Notes, Photos and Shortcuts tiles sit beside your readings, each in small, medium and large sizes."),
+                    Lang.T("Type a note, tick a to-do or start a timer right on the desktop, and a timer tells you when it's up."),
+                    Lang.T("A full-page editor shows the widget as it will look, with ready sizes for each tile and Place to put it in a corner of any screen."),
+                    Lang.T("The Widgets page lists your widgets beside the one you pick, and Add widget puts a ready-made one on your desktop.")],
+                "widgets", "\uF246", isPage: false) { OpenText = Lang.T("Open Widgets") },
+            added: [Lang.T("A Weather tile gets its forecast from MET Norway, sending only the place's position, rounded to about a kilometre."),
+                Lang.T("Removing a widget can be undone for a few seconds, on the Widgets page and in the editor.")],
+            better: [Lang.T("Widgets now always sit on the desktop under your windows, and the Over windows choice is gone."),
+                Lang.T("Remove and delete buttons are red in every theme, and fill red under the pointer.")],
+            fixedBugs: [Lang.T("A widget left partly off a screen's edge stays there when the PC starts, instead of moving in.")]),
         V("1.8.0", 11, 9,
             added: [Lang.T("You can add FPS to the taskbar, and it shows a dash while no game is running."),
                 Lang.T("Taskbar readings, desktop widgets and the game overlay can each be turned off and on from their page or the tray menu."),

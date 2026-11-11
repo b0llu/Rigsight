@@ -1125,7 +1125,7 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                    <TextBlock Text="{ctl:T 'Weather from MET Norway, places from OpenStreetMap.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,8,0,0" TextWrapping="Wrap" />
+                                    <TextBlock Text="{ctl:T 'Weather from MET Norway. Places © OpenStreetMap contributors.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,8,0,0" TextWrapping="Wrap" />
                                 </StackPanel>
                                 <!-- Shortcuts: the apps, files, folders and links, and ways to add more. -->
                                 <StackPanel Visibility="{Binding IsShortcuts, Converter={StaticResource Vis}}" Margin="16,2,16,6">
