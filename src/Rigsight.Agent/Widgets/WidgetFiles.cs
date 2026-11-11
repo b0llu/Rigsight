@@ -56,11 +56,33 @@ internal static class WidgetFiles
         var files = PicturesIn(folder);
         if (files.Length == 0) return null;
         long step = new DateTimeOffset(now).ToUnixTimeSeconds() / Math.Max(1, t.Every);
-        return files[(int)(step % files.Length)];
+        int at = (int)(step % files.Length);
+        // A picture that couldn't be read is passed over for a while: the tile shows the next one, where it said the
+        // folder had no pictures.
+        for (int i = 0; i < files.Length; i++)
+            if (files[(at + i) % files.Length] is var file && !Unreadable(file)) return file;
+        return null;
+    }
+
+    private static readonly Dictionary<string, DateTime> Unread = new(StringComparer.OrdinalIgnoreCase);
+
+    private static bool Unreadable(string path)
+    {
+        lock (FolderLock) return Unread.TryGetValue(path, out var when) && DateTime.UtcNow - when < TimeSpan.FromMinutes(10);
     }
 
     /// <summary>A picture, turned the way the camera held it and made no bigger than it needs to be; null when it can't be read.</summary>
-    public static Bitmap? Picture(string path) => Pictures.Get(path, LoadPicture);
+    public static Bitmap? Picture(string path)
+    {
+        var bmp = Pictures.Get(path, LoadPicture);
+        if (bmp is null)
+            lock (FolderLock)
+            {
+                if (Unread.Count > 2000) Unread.Clear();
+                Unread[path] = DateTime.UtcNow;
+            }
+        return bmp;
+    }
 
     private static Bitmap? LoadPicture(string path)
     {

@@ -534,7 +534,11 @@ internal static partial class WidgetRenderer
     {
         var r = RectangleF.Inflate(tile, -4, -4);
         string? now = WidgetFiles.PictureNow(t, Now());
-        if (now is not null && WidgetFiles.Picture(now) is { } picture)
+        Bitmap? picture = null;
+        // One that can't be read is passed over from then on (see PictureNow): the next one in its place.
+        for (int tries = 0; tries < 5 && now is not null && (picture = WidgetFiles.Picture(now)) is null; tries++)
+            now = WidgetFiles.PictureNow(t, Now());
+        if (now is not null && picture is not null)
         {
             Cover(g, picture, r, 9);
             if (r.Height >= 88 && r.Width >= 120 && t.Folder is { } folder)
