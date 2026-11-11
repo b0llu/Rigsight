@@ -681,4 +681,67 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
         }
         finally { Drop(id); }
     }
+    // A widget picked on the map while the list's search or chips hide it: the page settles (the list can't light a row
+    // it doesn't show, and the page kept telling it to, over and over).
+    [Fact]
+    public void Picking_on_the_map_a_widget_the_list_hides()
+    {
+        host.Show("widgets");
+        var vm = Ui.Run(() => host.Shell.Widgets);
+        var shown = EveryTile("Shown one");
+        var hidden = EveryTile("Hidden one");
+        AddWidget(shown);
+        AddWidget(hidden);
+        try
+        {
+            Ui.Run(() => vm.MineQuery = "Shown one");
+            Ui.Pump(300);
+            int told = 0;
+            Ui.Run(() =>
+            {
+                vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(WidgetsViewModel.PickedRow)) told++; };
+                vm.PickedId = hidden.Id; // as a click on it on the map does
+            });
+            Ui.Pump(300);
+            int settled = Ui.Run(() => told);
+            Ui.Pump(1000);
+            int later = Ui.Run(() => told) - settled;
+            Assert.True(later == 0, $"The list was told of its pick {later} more times in a second, with nothing changing");
+            Ui.AssertNoProblems("picked on the map, hidden in the list");
+        }
+        finally
+        {
+            Ui.Run(() => vm.MineQuery = "");
+            Drop(shown.Id, hidden.Id);
+        }
+    }
+    // Place in the editor (the nine spots) sends the widget to a corner of the screen it's on, at the size it is there:
+    // the agent draws it at that screen's scale, not the scale of the screen the app's window is on (a laptop at 150%
+    // beside a monitor at 100%). Here the app's window is said to be on a screen at twice this one's scale.
+    [Fact]
+    public void Place_uses_the_scale_of_the_widgets_own_screen()
+    {
+        host.Show("widgets");
+        var primary = System.Windows.Forms.Screen.PrimaryScreen!;
+        var cfg = WidgetsViewModel.NewWidget("Corner", [WidgetTiles.New(WidgetTiles.Kinds.First(k => k.Id == WidgetTiles.Clock))]);
+        (cfg.X, cfg.Y) = (primary.Bounds.Left + 100, primary.Bounds.Top + 100);
+        string id = AddWidget(cfg);
+        try
+        {
+            double own = Ui.Run(() => ScreenChoice.ReadAll(null).Single(m => m.IsMain).Scale);
+            Ui.Run(() => host.Shell.Widgets.Edit(id));
+            Ui.Pump(300);
+            var ed = Ui.Run(() => host.Shell.Widgets.Editor!);
+            Ui.Run(() => { ed.ScreenScale = own * 2; ed.PlaceCommand.Execute("8"); });
+            Ui.Pump(200);
+            var saved = Ui.Run(() => host.Shell.Settings.Current.Widgets.Single(w => w.Id == id));
+            var (pw, ph) = Rigsight.Services.WidgetPictures.SizeOf(saved);
+            var area = primary.WorkingArea;
+            int w = (int)Math.Round(pw * own * saved.Scale), h = (int)Math.Round(ph * own * saved.Scale), gap = (int)Math.Round(12 * own);
+            Assert.Equal((area.Right - gap - w, area.Bottom - gap - h), (saved.X!.Value, saved.Y!.Value));
+            // And the spot it's at is the one lit.
+            Assert.True(Ui.Run(() => ed.PlaceSpots[8].IsActive), "Bottom right isn't lit");
+        }
+        finally { Drop(id); }
+    }
 }

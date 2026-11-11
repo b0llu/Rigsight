@@ -1245,7 +1245,11 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         new(6, Lang.T("Bottom left")), new(7, Lang.T("Bottom")), new(8, Lang.T("Bottom right")),
     ];
 
-    /// <summary>Where a place puts the widget on the screen it's on (its panel's top left): a corner, an edge's middle or the middle, 12 pixels in.</summary>
+    /// <summary>
+    /// Where a place puts the widget on the screen it's on (its panel's top left): a corner, an edge's middle or the
+    /// middle, 12 pixels in, at the size the agent draws it there: that screen's scale, not the one the app's window is
+    /// on (with a laptop at 150% beside a monitor at 100%, a widget sent to a corner hung off the edge or stopped short).
+    /// </summary>
     private (int X, int Y)? SpotFor(int anchor, int? atX, int? atY)
     {
         var at = new System.Drawing.Point(atX ?? 0, atY ?? 0);
@@ -1253,8 +1257,8 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         if (screen is null) return null;
         var area = screen.WorkingArea;
         var (pw, ph) = WidgetPictures.SizeOf(_w);
-        double scale = ScreenScale * _w.Scale;
-        int w = (int)Math.Round(pw * scale), h = (int)Math.Round(ph * scale), gap = (int)Math.Round(12 * ScreenScale);
+        double own = ScreenChoice.ScaleOf(screen.Bounds), scale = own * _w.Scale;
+        int w = (int)Math.Round(pw * scale), h = (int)Math.Round(ph * scale), gap = (int)Math.Round(12 * own);
         int col = anchor % 3, row = anchor / 3;
         int x = col == 0 ? area.Left + gap : col == 2 ? area.Right - gap - w : area.Left + (area.Width - w) / 2;
         int y = row == 0 ? area.Top + gap : row == 2 ? area.Bottom - gap - h : area.Top + (area.Height - h) / 2;
