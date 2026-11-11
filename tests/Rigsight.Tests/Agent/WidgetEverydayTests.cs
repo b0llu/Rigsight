@@ -220,4 +220,18 @@ public class WidgetEverydayTests : IDisposable
         using var none = WidgetRenderer.Render(Box(new WidgetTile { Kind = WidgetTiles.Media, W = 8, H = 3 }), new WidgetData(), 1.5f, hover: false, out _);
         none.Save(Path.Combine(dir, "sizes-media-nothing.png"), ImageFormat.Png);
     }
+
+    // Ready sizes (the user, 2026-11-11): every kind starts at one of them, each is at least its smallest, none twice.
+    [Fact]
+    public void Every_kind_starts_at_one_of_its_ready_sizes()
+    {
+        foreach (var k in WidgetTiles.Kinds)
+        {
+            var presets = WidgetTiles.Presets(k.Id);
+            Assert.NotEmpty(presets);
+            Assert.Contains(presets, p => p.W == k.W && p.H == k.H);
+            Assert.All(presets, p => Assert.True(p.W >= k.MinW && p.H >= k.MinH, $"{k.Id} {p.Name} {p.W}x{p.H}"));
+            Assert.Equal(presets.Count, presets.Select(p => (p.W, p.H)).Distinct().Count());
+        }
+    }
 }

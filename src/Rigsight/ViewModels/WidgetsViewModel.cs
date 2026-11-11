@@ -302,7 +302,7 @@ public sealed partial class WidgetsViewModel : ObservableObject
 
     /// <summary>The widget shown in the pane beside the list.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PickedId), nameof(PickedRow), nameof(HasPicked), nameof(MapLine), nameof(NothingPicked))]
+    [NotifyPropertyChangedFor(nameof(PickedId), nameof(PickedRow), nameof(HasPicked), nameof(MapLine), nameof(NothingPicked), nameof(HasRemoved))]
     private WidgetCard? _picked;
 
     public bool HasPicked => Picked is not null;
@@ -425,7 +425,20 @@ public sealed partial class WidgetsViewModel : ObservableObject
     [ObservableProperty] private string _noMineText = "";
 
     /// <summary>The widget just removed, while its Undo shows.</summary>
-    public RemovedWidget? Removed { get; private set; }
+    public RemovedWidget? Removed
+    {
+        get => _removed;
+        private set
+        {
+            _removed = value;
+            OnPropertyChanged(nameof(Removed));
+            OnPropertyChanged(nameof(HasRemoved));
+        }
+    }
+
+    private RemovedWidget? _removed;
+
+    public bool HasRemoved => Removed is not null && Picked is null;
 
     /// <summary>A card's switch changed: the counts, and the grid under On or Off, follow once the click is done.</summary>
     internal void CardsChanged() =>
@@ -455,8 +468,10 @@ public sealed partial class WidgetsViewModel : ObservableObject
             Grid.Clear();
             foreach (var o in shown) Grid.Add(o);
         }
-        // The picked widget stays picked while the list shows it; otherwise the first one shown is.
-        if (Picked is null || !shown.Contains(Picked)) Picked = shown.OfType<WidgetCard>().FirstOrDefault();
+        // The picked widget stays picked while the list shows it; otherwise the first one shown is (not while the pane
+        // says a widget was just removed).
+        if (Removed is not null && Picked is null) OnPropertyChanged(nameof(PickedRow));
+        else if (Picked is null || !shown.Contains(Picked)) Picked = shown.OfType<WidgetCard>().FirstOrDefault();
         else OnPropertyChanged(nameof(PickedRow));
         OnPropertyChanged(nameof(MapLine));
     }
@@ -471,11 +486,10 @@ public sealed partial class WidgetsViewModel : ObservableObject
         if (index < 0) return;
         var saved = WidgetEditorViewModel.Clone(_settings.Current.Widgets[index]);
         _undoTimer.Stop();
-        // The one after it in the list is picked next (the one before, at the end).
-        var shownCards = Grid.OfType<WidgetCard>().ToList();
-        int at = shownCards.IndexOf(card);
-        Picked = shownCards.Skip(at + 1).FirstOrDefault() ?? shownCards.Take(Math.Max(0, at)).LastOrDefault();
+        // Nothing is picked next: the pane says what was removed, with Undo where Remove was, so a second click can't
+        // take another widget away (the user lost every widget to quick clicks on Remove, 2026-11-11).
         Removed = new RemovedWidget(saved, index, this);
+        Picked = null;
         _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == card.Id));
         Sync();
         _undoTimer.Start();

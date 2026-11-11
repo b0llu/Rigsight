@@ -1026,6 +1026,32 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     public int TileW => Tile?.W ?? 0;
     public int TileH => Tile?.H ?? 0;
 
+    /// <summary>The picked tile's ready sizes (small, medium, large), as "W×H" with their names.</summary>
+    public IReadOnlyList<Choice> SizePresets => Tile is { } t
+        ? [.. WidgetTiles.Presets(t.Kind).Select(p => new Choice($"{p.W}x{p.H}", Lang.T(p.Name)))]
+        : [];
+
+    public bool HasSizePresets => SizePresets.Count > 0;
+
+    /// <summary>The ready size the picked tile is at ("8x3"), or null between them; picked, the tile takes it.</summary>
+    public string? TilePreset
+    {
+        get => Tile is { } t && WidgetTiles.Presets(t.Kind).Any(p => p.W == t.W && p.H == t.H) ? $"{t.W}x{t.H}" : null;
+        set
+        {
+            int i = Selected;
+            if (value is null || value == TilePreset || i < 0 || value.Split('x') is not [var a, var b] || !int.TryParse(a, out int pw) || !int.TryParse(b, out int ph)) return;
+            Change(w =>
+            {
+                var t = w.Tiles![i];
+                var from = (t.X, t.Y);
+                (t.W, t.H) = (pw, ph);
+                WidgetTiles.Settle(w.Tiles, t, from);
+            });
+            SelectTile(i);
+        }
+    }
+
     [RelayCommand]
     private void Grow(string how)
     {

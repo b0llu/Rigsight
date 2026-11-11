@@ -69,6 +69,36 @@ public static class WidgetTiles
     /// <summary>The longest note kept: far more than a tile shows, a guard against a runaway paste.</summary>
     public const int MaxNoteLength = 20_000;
 
+    /// <summary>
+    /// A kind's ready sizes, in grid cells: small, medium and large, each one the size its layout changes at (a media
+    /// tile's cover and Pause, its card with the time, its large card), so a tile can be set with one click (the user,
+    /// 2026-11-11). Any size in between is still a step of the cell counts away.
+    /// </summary>
+    public static IReadOnlyList<(string Name, int W, int H)> Presets(string kind) => kind switch
+    {
+        Media => [(Small, 4, 2), (Medium, 8, 3), (Large, 8, 7)],
+        Weather => [(Small, 4, 2), (Medium, 8, 3), (Large, 8, 7)],
+        Shortcuts => [(Small, 6, 2), (Medium, 6, 4), (Large, 8, 6)],
+        Timer => [(Small, 6, 2), (Medium, 6, 3), (Large, 8, 3)],
+        Photos => [(Small, 4, 3), (Medium, 6, 4), (Large, 8, 6)],
+        Notes => [(Small, 4, 3), (Medium, 6, 4), (Large, 8, 6)],
+        Todo => [(Small, 4, 3), (Medium, 6, 4), (Large, 6, 7)],
+        Clock => [(Small, 3, 1), (Medium, 6, 2), (Large, 8, 4)],
+        Date => [(Small, 3, 1), (Medium, 3, 2), (Large, 6, 3)],
+        Calendar => [(Medium, 6, 6), (Large, 8, 8)],
+        Reading => [(Small, 2, 1), (Medium, 3, 2), (Large, 5, 4)],
+        Line => [(Small, 5, 1), (Medium, 7, 1), (Large, 10, 1)],
+        Graph => [(Small, 6, 3), (Medium, 8, 4), (Large, 12, 6)],
+        Fps => [(Small, 3, 2), (Medium, 5, 3), (Large, 8, 5)],
+        Today => [(Medium, 7, 5), (Large, 9, 6)],
+        NowPlaying => [(Medium, 8, 3), (Large, 10, 4)],
+        _ => [],
+    };
+
+    private static string Small => Lang.Key("Small");
+    private static string Medium => Lang.Key("Medium");
+    private static string Large => Lang.Key("Large");
+
     /// <summary>A note's look: a sticky note (yellow, written by hand) instead of the widget's own.</summary>
     public const string Sticky = "Sticky note";
 

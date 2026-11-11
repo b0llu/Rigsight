@@ -1,4 +1,4 @@
-using System.Windows.Media;
+﻿using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Rigsight.Core;
 using Rigsight.Core.Data;
@@ -764,14 +764,17 @@ public sealed class SettingsPageTests
 
             // Remove: gone from the settings at once, Undo in its place, the next one picked; Undo puts it back where
             // it was, as it was, and picks it again.
-            string id = second.Id, next = vm.Cards[2].Id;
+            string id = second.Id;
             second.RemoveCommand.Execute(null);
             Assert.DoesNotContain(link.Settings.Current.Widgets, w => w.Id == id);
             var removed = Assert.IsType<RemovedWidget>(vm.Grid[1]);
             Assert.EndsWith("removed.", removed.Line);
-            Assert.Equal(next, vm.PickedId);
+            // Nothing picked next: the pane says it was removed, with Undo where Remove was (quick clicks on Remove
+            // took every widget away, 2026-11-11).
+            Assert.Null(vm.PickedId);
+            Assert.True(vm.HasRemoved);
             vm.PickedRow = removed; // a removed one can't be picked
-            Assert.Equal(next, vm.PickedId);
+            Assert.Null(vm.PickedId);
             removed.UndoCommand.Execute(null);
             Assert.Equal(id, link.Settings.Current.Widgets[1].Id);
             Assert.True(link.Settings.Current.Widgets[1].Locked);
