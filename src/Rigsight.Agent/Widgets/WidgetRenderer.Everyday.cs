@@ -171,7 +171,8 @@ internal static partial class WidgetRenderer
     private static void MediaTile(Graphics g, RectangleF tile, RectangleF r, WidgetData d, Palette p, Color accent)
     {
         var m = d.Media;
-        bool large = r.Height >= 150 && r.Width >= 220, medium = !large && r.Height >= 70, small = !large && !medium && r.Width < 200;
+        // A narrow tile is small however tall it is: the medium card's buttons leave a narrow one no room for the title.
+        bool large = r.Height >= 150 && r.Width >= 220, small = !large && r.Width < 200, medium = !large && !small && r.Height >= 70;
         if (m is null)
         {
             float s0 = MathF.Round(Math.Min(r.Height, large ? 72 : 52));
