@@ -129,6 +129,20 @@ public sealed class WidgetTile
     /// <summary>A countdown's day.</summary>
     public DateTime? Until { get; set; }
 
+    /// <summary>A weather tile's place, as found by name (its short name), with where it is.</summary>
+    public string? Place { get; set; }
+    public double? Lat { get; set; }
+    public double? Lon { get; set; }
+
+    /// <summary>A shortcuts tile's apps, files, folders and links, in order.</summary>
+    public List<TileLink>? Links { get; set; }
+
+    /// <summary>A photos tile's folder.</summary>
+    public string? Folder { get; set; }
+
+    /// <summary>How often a photos tile moves on to the next picture, in seconds (<see cref="WidgetTiles.PhotoSteps"/>).</summary>
+    public int Every { get; set; } = 60;
+
     public WidgetTile Copy() => new()
     {
         Kind = Kind, X = X, Y = Y, W = W, H = H, Align = Align, Item = Item, Label = Label, Look = Look,
@@ -136,7 +150,19 @@ public sealed class WidgetTile
         Seconds = Seconds, ShowDate = ShowDate, Text = Text, TextSize = TextSize,
         Todos = Todos?.Select(t => new TodoItem { Text = t.Text, Done = t.Done }).ToList(),
         TimerKind = TimerKind, Minutes = Minutes, RunningSince = RunningSince, RunMs = RunMs, Until = Until,
+        Place = Place, Lat = Lat, Lon = Lon, Links = Links?.Select(l => new TileLink { Path = l.Path, Name = l.Name }).ToList(),
+        Folder = Folder, Every = Every,
     };
+}
+
+/// <summary>One of a shortcuts tile's apps, files, folders or links: where it is, and the name it shows.</summary>
+public sealed class TileLink
+{
+    public string Path { get; set; } = "";
+    public string Name { get; set; } = "";
+
+    /// <summary>A web address (opened in the browser), not a file or folder.</summary>
+    public bool IsWeb => Path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || Path.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>One line of a to-do list.</summary>

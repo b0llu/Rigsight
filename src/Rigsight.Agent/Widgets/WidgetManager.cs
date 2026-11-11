@@ -285,6 +285,31 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     public Action<string, string>? TimerUp { get; set; }
 
     private TileTypingBox? _typing;
+    private MediaWatcher? _media;
+
+    /// <summary>
+    /// Opens a shortcut's app, file, folder or web address with normal rights: through Explorer when the agent runs
+    /// as administrator, so nothing opened from a widget gets the agent's rights.
+    /// </summary>
+    private static void OpenLink(TileLink link)
+    {
+        string kind = link.IsWeb ? "a web address" : Directory.Exists(link.Path) ? "a folder" : $"a {Path.GetExtension(link.Path)} file";
+        try
+        {
+            if (!link.IsWeb && !File.Exists(link.Path) && !Directory.Exists(link.Path))
+            {
+                Log.Write("widgets", $"A shortcut to {kind} wasn't opened: it isn't there any more");
+                return;
+            }
+            if (Environment.IsPrivilegedProcess) System.Diagnostics.Process.Start(RigsightPaths.Explorer, $"\"{link.Path}\"");
+            else System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(link.Path) { UseShellExecute = true });
+            Log.Write("widgets", $"A shortcut opened {kind}");
+        }
+        catch (Exception ex)
+        {
+            Log.Write("widgets", $"A shortcut to {kind} couldn't be opened: {ex.Message}");
+        }
+    }
 
     /// <summary>
     /// A click on a tile's clickable place on the desktop: a to-do ticked, a timer started, paused or reset, or a box to
@@ -312,6 +337,13 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
                 break;
             case WidgetRenderer.HitReset:
                 OnTile(WidgetTimer.Reset);
+                break;
+            case WidgetRenderer.HitPlay or WidgetRenderer.HitNext or WidgetRenderer.HitPrevious:
+                _media?.Press(hit.Action);
+                Log.Write("widgets", $"{WidgetCatalog.Title(cfg)}: media {hit.Action} on the desktop");
+                break;
+            case WidgetRenderer.HitOpen:
+                if (tiles[hit.Tile].Links is { } links && hit.Index < links.Count) OpenLink(links[hit.Index]);
                 break;
             case WidgetRenderer.HitNote:
                 OpenTyping(form, hit, multiline: true, tiles[hit.Tile].Text ?? "", text => OnTile(t => t.Text = text.Length == 0 ? null : text), null);
@@ -371,6 +403,22 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             data.Frame = Rtss.ReadFrameStats(ForegroundPid());
             data.RtssRunning = data.Frame is not null || Rtss.IsLive();
         }
+        // What's playing, for Media tiles: read only while a widget that is on has one.
+        bool media = _forms.Values.Any(f => f.Config.Tiles?.Any(t => t.Kind == WidgetTiles.Media) == true);
+        if (media && _media is null) _media = MediaWatcher.Start();
+        else if (!media && _media is not null)
+        {
+            _media.Dispose();
+            _media = null;
+            Rigsight.Core.Log.Write("widgets", "Media: no Media tile on, stopped reading what's playing");
+        }
+        if (_media is not null)
+        {
+            data = data.Copy();
+            data.Media = _media.Now;
+        }
+        // The weather for Weather tiles, from the internet, at most every half hour a place.
+        WeatherFeed.RefreshInBackground(_forms.Values.SelectMany(f => f.Config.Tiles ?? []));
         _data = data;
         CheckTimers();
         // Decided on every activity tick, so a game switching between windowed and borderless (Alt+Enter) is caught.

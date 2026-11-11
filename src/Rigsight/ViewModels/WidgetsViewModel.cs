@@ -656,6 +656,9 @@ public sealed partial class WidgetsViewModel : ObservableObject
     /// <summary>Reads the screens and draws where each widget is (the page's visits, and after the editor).</summary>
     public void LoadMap()
     {
+        // Weather tiles' pictures show the weather once it has come.
+        WeatherFeed.RefreshInBackground(_settings.Current.Widgets.SelectMany(w => w.Tiles ?? []),
+            () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { foreach (var c in Cards) c.Redraw(); }));
         try { Screens = ScreenChoice.ReadAll(null); }
         catch (Exception) { Screens = []; }
         OnPropertyChanged(nameof(Screens));

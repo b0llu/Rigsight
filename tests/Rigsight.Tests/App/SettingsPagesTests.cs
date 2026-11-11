@@ -338,11 +338,11 @@ public sealed class SettingsPageTests
             // Listed under their groups in the Add widget pop-up.
             Assert.Equal(["READY-MADE", "EVERYDAY", "LIVE", "YOUR DAY"],
                 vm.ChoiceGroups.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(g => (string)g.Name));
-            Assert.Equal(["Clock", "Date", "Calendar", "Notes", "To-do", "Timer"], vm.ChoicesShown.Where(c => c.Group == "Everyday").Select(c => c.Title));
+            Assert.Equal(["Clock", "Date", "Calendar", "Notes", "To-do", "Timer", "Media", "Weather", "Shortcuts", "Photos"], vm.ChoicesShown.Where(c => c.Group == "Everyday").Select(c => c.Title));
             vm.ChoiceQuery = "calend";
             Assert.Equal("Calendar", Assert.Single(vm.ChoicesShown).Title);
             vm.ChoiceQuery = "everyday"; // a group's name finds its widgets
-            Assert.Equal(6, vm.ChoicesShown.Count);
+            Assert.Equal(10, vm.ChoicesShown.Count);
             vm.ChoiceQuery = "zzz";
             Assert.True(vm.NoChoices);
             Assert.Equal("Nothing matches “zzz”.", vm.NoChoicesText);

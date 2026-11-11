@@ -47,6 +47,21 @@ public partial class WidgetsView : UserControl
         SetUpEditor();
     }
 
+    // Enter in the place box searches; Enter in the web address box adds it.
+    private void PlaceBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _vm?.Editor is not { } ed) return;
+        e.Handled = true;
+        ed.FindPlaceCommand.Execute(null);
+    }
+
+    private void NewLink_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _vm?.Editor is not { } ed) return;
+        e.Handled = true;
+        ed.AddWebLinkCommand.Execute(null);
+    }
+
     // The Add widget pop-up opens with its search ready to type in.
     private void AddPopup_Opened(object? sender, EventArgs e) =>
         Dispatcher.BeginInvoke(() => { AddSearch.Focus(); Keyboard.Focus(AddSearch); }, System.Windows.Threading.DispatcherPriority.Input);

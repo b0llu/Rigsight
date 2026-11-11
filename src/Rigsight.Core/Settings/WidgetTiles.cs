@@ -25,7 +25,8 @@ public static class WidgetTiles
     public const int Edge = 4;
 
     public const string Clock = "clock", Date = "date", Calendar = "calendar", Reading = "reading", Line = "line",
-        Graph = "graph", Fps = "fps", Today = "today", NowPlaying = "nowplaying", Notes = "notes", Todo = "todo", Timer = "timer";
+        Graph = "graph", Fps = "fps", Today = "today", NowPlaying = "nowplaying", Notes = "notes", Todo = "todo", Timer = "timer",
+        Media = "media", Weather = "weather", Shortcuts = "shortcuts", Photos = "photos";
 
     public static string GroupEveryday => Lang.Key("Everyday");
     public static string GroupLive => Lang.Key("Live");
@@ -40,6 +41,10 @@ public static class WidgetTiles
         new(Notes, Lang.Key("Notes"), Lang.Key("A note you type straight onto the desktop."), Lang.Key("Everyday"), 6, 4, 3, 2),
         new(Todo, Lang.Key("To-do"), Lang.Key("A short list you tick off."), Lang.Key("Everyday"), 6, 4, 4, 2),
         new(Timer, Lang.Key("Timer"), Lang.Key("A timer, a stopwatch, or a countdown to a day."), Lang.Key("Everyday"), 6, 2, 4, 2),
+        new(Media, Lang.Key("Media"), Lang.Key("What's playing on this PC, with play, pause and skip."), Lang.Key("Everyday"), 9, 2, 6, 2),
+        new(Weather, Lang.Key("Weather"), Lang.Key("The weather for a place you pick. Uses the internet."), Lang.Key("Everyday"), 6, 2, 5, 2),
+        new(Shortcuts, Lang.Key("Shortcuts"), Lang.Key("Apps, folders and links you open with one click."), Lang.Key("Everyday"), 6, 2, 2, 1),
+        new(Photos, Lang.Key("Photos"), Lang.Key("Pictures from a folder, one after another."), Lang.Key("Everyday"), 6, 4, 3, 2),
         new(Reading, Lang.Key("Any reading"), Lang.Key("One reading or sensor, as a number, a ring, a level or a graph."), Lang.Key("Live"), 3, 2, 2, 1),
         new(Line, Lang.Key("Line of readings"), Lang.Key("Readings in one slim line, made for the top of the screen."), Lang.Key("Live"), 7, 1, 3, 1),
         new(Graph, Lang.Key("Temperature graph"), Lang.Key("CPU and GPU temperatures over the last five minutes."), Lang.Key("Live"), 8, 4, 6, 3),
@@ -63,6 +68,13 @@ public static class WidgetTiles
 
     /// <summary>The longest note kept: far more than a tile shows, a guard against a runaway paste.</summary>
     public const int MaxNoteLength = 20_000;
+
+    /// <summary>How many apps, folders and links one shortcuts tile holds at most.</summary>
+    public const int MaxLinks = 12;
+
+    /// <summary>How often a photos tile can move on to the next picture, in seconds, with its name.</summary>
+    public static readonly IReadOnlyList<(int Seconds, string Name)> PhotoSteps =
+        [(10, Lang.Key("Every 10 seconds")), (60, Lang.Key("Every minute")), (300, Lang.Key("Every 5 minutes")), (1800, Lang.Key("Every 30 minutes")), (3600, Lang.Key("Every hour"))];
 
     /// <summary>A clock's styles, as stored (<see cref="WidgetTile.Style"/>) and shown (translated).</summary>
     public static readonly IReadOnlyList<string> ClockStyles =
@@ -242,6 +254,10 @@ public static class WidgetTiles
             t.Todos = t.Todos?.Where(i => i is not null && !string.IsNullOrWhiteSpace(i.Text)).ToList();
             t.Minutes = Math.Clamp(t.Minutes, 1, 24 * 60);
             if (t.RunMs < 0) t.RunMs = 0;
+            if (t.Lat is not (>= -90 and <= 90) || t.Lon is not (>= -180 and <= 180)) (t.Lat, t.Lon) = (null, null);
+            t.Links = t.Links?.Where(l => l is not null && !string.IsNullOrWhiteSpace(l.Path)).Take(MaxLinks).ToList();
+            if (t.Folder is { } f && string.IsNullOrWhiteSpace(f)) t.Folder = null;
+            if (PhotoSteps.All(s => s.Seconds != t.Every)) t.Every = 60;
             t.Items = t.Items?.Where(i => i is not null && (WidgetCatalog.Metric(i.Id) is not null || WidgetCatalog.Sensor(i.Id) is not null)).DistinctBy(i => i.Id).ToList();
         }
         var placed = new List<WidgetTile>();

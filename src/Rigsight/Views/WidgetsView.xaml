@@ -1081,6 +1081,80 @@
                                     <TextBlock Text="{ctl:T 'Start, pause and reset on the widget itself.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="16,4,16,6" TextWrapping="Wrap"
                                                Visibility="{Binding IsCountdownTile, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                                 </StackPanel>
+                                <!-- Weather: the place, found by name. -->
+                                <StackPanel Visibility="{Binding IsWeather, Converter={StaticResource Vis}}" Margin="16,2,16,6">
+                                    <TextBlock Text="{ctl:T 'LOCATION'}" Style="{StaticResource Caption}" Margin="0,6,0,4" />
+                                    <TextBlock Text="{Binding PlaceName}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,0,0,6" Visibility="{Binding PlaceName, Converter={StaticResource Vis}}" />
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Find'}" Command="{Binding FindPlaceCommand}" Margin="8,0,0,0" />
+                                        <TextBox x:Name="PlaceBox" Style="{StaticResource FieldBox}" Tag="{ctl:T 'A town or city'}" Text="{Binding PlaceQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="{ctl:T 'A town or city'}" KeyDown="PlaceBox_KeyDown" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding PlaceNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,6,0,0" TextWrapping="Wrap"
+                                               Visibility="{Binding PlaceNote, Converter={StaticResource Vis}}" />
+                                    <ItemsControl ItemsSource="{Binding PlacesFound}" Focusable="False" Margin="0,6,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource ListChoice}" Padding="8,6" Margin="0,1" AutomationProperties.Name="{Binding Name}"
+                                                        Command="{Binding DataContext.PickPlaceCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="{ctl:T 'Weather from MET Norway, places from OpenStreetMap.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,8,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <!-- Shortcuts: the apps, files, folders and links, and ways to add more. -->
+                                <StackPanel Visibility="{Binding IsShortcuts, Converter={StaticResource Vis}}" Margin="16,2,16,6">
+                                    <TextBlock Text="{ctl:T 'SHORTCUTS'}" Style="{StaticResource Caption}" Margin="0,6,0,4" />
+                                    <ItemsControl ItemsSource="{Binding LinkRows}" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,2">
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat='Remove {0}'}"
+                                                            Command="{Binding DataContext.RemoveLinkCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                        <TextBlock Text="&#xE711;" />
+                                                    </Button>
+                                                    <TextBlock DockPanel.Dock="Left" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource MutedBrush}" Width="24" VerticalAlignment="Center" />
+                                                    <StackPanel VerticalAlignment="Center" Margin="4,0,8,0">
+                                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Where}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <WrapPanel Margin="0,6,0,0">
+                                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Add an app or file'}" Command="{Binding AddAppCommand}" Margin="0,0,8,6" />
+                                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Add a folder'}" Command="{Binding AddFolderCommand}" Margin="0,0,8,6" />
+                                    </WrapPanel>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Add'}" Command="{Binding AddWebLinkCommand}" Margin="8,0,0,0" />
+                                        <TextBox x:Name="NewLinkBox" Style="{StaticResource FieldBox}" Tag="{ctl:T 'A web address'}" Text="{Binding NewLink, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="{ctl:T 'A web address'}" KeyDown="NewLink_KeyDown" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding LinkNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,6,0,0" TextWrapping="Wrap"
+                                               Visibility="{Binding LinkNote, Converter={StaticResource Vis}}" />
+                                    <TextBlock Text="{ctl:T 'Click one on the widget to open it.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,6,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <!-- Photos: the folder, and how often the next picture comes. -->
+                                <StackPanel Visibility="{Binding IsPhotos, Converter={StaticResource Vis}}">
+                                    <DockPanel Style="{StaticResource EditRow}" LastChildFill="True">
+                                        <TextBlock Text="{ctl:T 'Folder'}" Style="{StaticResource EditLabel}" />
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Pick a folder'}" Command="{Binding PickPhotoFolderCommand}" Margin="8,0,0,0" />
+                                        <TextBlock Text="{Binding PhotoFolder}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding PhotoFolder}" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding PhotoCount}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="16,0,16,4"
+                                               Visibility="{Binding HasPhotoFolder, Converter={StaticResource Vis}}" />
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Next picture'}" Style="{StaticResource EditLabel}" />
+                                        <ComboBox DockPanel.Dock="Right" Width="170" ItemsSource="{Binding PhotoSteps}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding PhotoEvery}"
+                                                  AutomationProperties.Name="{ctl:T 'Next picture'}" />
+                                    </DockPanel>
+                                </StackPanel>
                                 <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding CanAlign, Converter={StaticResource Vis}}">
                                     <TextBlock Text="{ctl:T 'Align'}" Style="{StaticResource EditLabel}" />
                                     <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">

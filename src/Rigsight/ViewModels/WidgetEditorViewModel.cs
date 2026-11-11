@@ -42,6 +42,9 @@ public sealed record TileReadingRow(int Index, string Name);
 /// <summary>A line of a to-do list, in the editor.</summary>
 public sealed record TodoRow(int Index, string Text, bool Done);
 
+/// <summary>One of a shortcuts tile's apps, files, folders or links, as the editor lists it.</summary>
+public sealed record LinkRow(int Index, string Name, string Where, string Glyph);
+
 /// <summary>
 /// The widget editor, a page of its own (approved mock-up 8Bfo1Ce7KFJs4g1wxHQP1U, after the user's "do web search on the
 /// create widget/edit side bar, i feel we can show it much better way"): the widget on top at its real size or fitted,
@@ -314,6 +317,8 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         // Drawn at the size it's shown, so a widget shown bigger is as sharp as one shown at its size.
         Picture = IsEmpty ? null : WidgetPictures.Draw(_w, _live, _settings.Current, (float)(ScreenScale * Math.Max(1, Zoom)));
         MarkPlace();
+        // A weather tile shows its weather once it has come (asked for at most every half hour a place).
+        WeatherFeed.RefreshInBackground(_w.Tiles ?? [], () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(Draw));
     }
 
     /// <summary>Where the widget and each tile's box sit on the canvas, at the zoom in use.</summary>
@@ -514,6 +519,9 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         WidgetTiles.Timer when WidgetTimer.IsCountdown(t) => t.Until is { } until ? until.ToString("d MMMM", System.Globalization.CultureInfo.CurrentCulture) : "",
         WidgetTiles.Timer when WidgetTimer.IsStopwatch(t) => Lang.T("Stopwatch"),
         WidgetTiles.Timer => Lang.T($"{t.Minutes} minutes"),
+        WidgetTiles.Weather => t.Place ?? "",
+        WidgetTiles.Shortcuts when t.Links is { Count: > 0 } links => links.Count == 1 ? links[0].Name : Lang.T($"{links.Count} shortcuts"),
+        WidgetTiles.Photos when t.Folder is { } folder => System.IO.Path.GetFileName(folder.TrimEnd('\\')) is { Length: > 0 } name ? name : folder,
         _ => "",
     };
 
@@ -530,6 +538,10 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         WidgetTiles.Today => "\uE81C",
         WidgetTiles.NowPlaying => "\uE768",
         WidgetTiles.Notes => "\uE70B",
+        WidgetTiles.Media => "\uE8D6",
+        WidgetTiles.Weather => "\uE753",
+        WidgetTiles.Shortcuts => "\uE71D",
+        WidgetTiles.Photos => "\uE91B",
         WidgetTiles.Todo => "\uE9D5",
         WidgetTiles.Timer => "\uE916",
         _ => "\uE80A",
@@ -617,6 +629,147 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     {
         get => Tile?.Until;
         set { if (value != CountdownDay) ChangeTile(t => t.Until = value?.Date); }
+    }
+
+    // ── Weather, shortcuts, photos (part three) ───────────────────────────
+
+    public bool IsWeather => Tile?.Kind == WidgetTiles.Weather;
+    public bool IsShortcuts => Tile?.Kind == WidgetTiles.Shortcuts;
+    public bool IsPhotos => Tile?.Kind == WidgetTiles.Photos;
+
+    /// <summary>The weather tile's place, as picked.</summary>
+    public string PlaceName => Tile?.Place ?? "";
+
+    [ObservableProperty] private string _placeQuery = "";
+    [ObservableProperty] private IReadOnlyList<WeatherPlace> _placesFound = [];
+
+    /// <summary>Under the place search: that it's searching, or that nothing was found.</summary>
+    [ObservableProperty] private string _placeNote = "";
+
+    /// <summary>Looks the typed name up (OpenStreetMap), and lists what it found to pick from.</summary>
+    [RelayCommand]
+    private async Task FindPlace()
+    {
+        string q = PlaceQuery.Trim();
+        if (q.Length < 2) return;
+        PlaceNote = Lang.T("Searching…");
+        PlacesFound = [];
+        var found = await WeatherFeed.FindAsync(q);
+        PlacesFound = found;
+        PlaceNote = found.Count == 0 ? Lang.T("No place found by that name. Try the nearest town or city.") : "";
+    }
+
+    [RelayCommand]
+    private void PickPlace(WeatherPlace? place)
+    {
+        if (place is null || !IsWeather) return;
+        ChangeTile(t => (t.Place, t.Lat, t.Lon) = (place.Name, Math.Round(place.Lat, 4), Math.Round(place.Lon, 4)));
+        PlacesFound = [];
+        PlaceQuery = "";
+        PlaceNote = "";
+    }
+
+    public IReadOnlyList<LinkRow> LinkRows => [.. (Tile?.Links ?? []).Select((l, n) => new LinkRow(n, l.Name, l.Path, l.IsWeb ? "\uE774" : System.IO.Directory.Exists(l.Path) ? "\uE8B7" : "\uE8A5"))];
+
+    public bool CanAddLink => IsShortcuts && (Tile?.Links?.Count ?? 0) < WidgetTiles.MaxLinks;
+
+    [ObservableProperty] private string _newLink = "";
+
+    /// <summary>Under the shortcuts: why a web address wasn't added, or that the tile is full.</summary>
+    [ObservableProperty] private string _linkNote = "";
+
+    [RelayCommand]
+    private void AddApp()
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = Lang.T("Apps and shortcuts") + "|*.exe;*.lnk;*.url;*.appref-ms|" + Lang.T("All files") + "|*.*",
+            DereferenceLinks = false,
+        };
+        if (dlg.ShowDialog() != true) return;
+        string path = dlg.FileName, name = System.IO.Path.GetFileNameWithoutExtension(path);
+        if (path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                if (System.Diagnostics.FileVersionInfo.GetVersionInfo(path).ProductName is { Length: > 0 and <= 40 } product) name = product.Trim();
+            }
+            catch (System.IO.IOException) { }
+        }
+        AddLink(path, name);
+    }
+
+    [RelayCommand]
+    private void AddFolder()
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog();
+        if (dlg.ShowDialog() != true) return;
+        AddLink(dlg.FolderName, System.IO.Path.GetFileName(dlg.FolderName.TrimEnd('\\')) is { Length: > 0 } n ? n : dlg.FolderName);
+    }
+
+    [RelayCommand]
+    private void AddWebLink()
+    {
+        string text = NewLink.Trim();
+        if (text.Length == 0) return;
+        if (!text.Contains("://", StringComparison.Ordinal)) text = "https://" + text;
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https") || !uri.Host.Contains('.'))
+        {
+            LinkNote = Lang.T("That isn't a web address. Try one like rigsight.app.");
+            return;
+        }
+        string host = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? uri.Host[4..] : uri.Host;
+        AddLink(uri.ToString(), host);
+        NewLink = "";
+    }
+
+    private void AddLink(string path, string name)
+    {
+        LinkNote = "";
+        if (!IsShortcuts) return;
+        if ((Tile?.Links?.Count ?? 0) >= WidgetTiles.MaxLinks)
+        {
+            LinkNote = Lang.T($"A shortcuts tile holds {WidgetTiles.MaxLinks}. Add another tile for more.");
+            return;
+        }
+        ChangeTile(t =>
+        {
+            t.Links ??= [];
+            if (t.Links.All(l => !string.Equals(l.Path, path, StringComparison.OrdinalIgnoreCase))) t.Links.Add(new TileLink { Path = path, Name = name });
+        });
+    }
+
+    [RelayCommand]
+    private void RemoveLink(LinkRow? row) => ChangeTile(t => { if (row is not null && t.Links is { } l && row.Index < l.Count) l.RemoveAt(row.Index); });
+
+    /// <summary>The photos tile's folder, and how many pictures it holds.</summary>
+    public string PhotoFolder => Tile?.Folder ?? "";
+    public bool HasPhotoFolder => Tile?.Folder is not null;
+
+    public string PhotoCount
+    {
+        get
+        {
+            if (Tile?.Folder is not { } folder) return "";
+            int n = Rigsight.TaskbarDrawing.WidgetFiles.PicturesIn(folder).Length;
+            return n switch { 0 => Lang.T("No pictures in this folder."), 1 => Lang.T("1 picture"), _ => Lang.T($"{n} pictures") };
+        }
+    }
+
+    [RelayCommand]
+    private void PickPhotoFolder()
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog();
+        if (Tile?.Folder is { } now && System.IO.Directory.Exists(now)) dlg.InitialDirectory = now;
+        if (dlg.ShowDialog() == true) ChangeTile(t => t.Folder = dlg.FolderName);
+    }
+
+    public IReadOnlyList<Choice> PhotoSteps { get; } = [.. WidgetTiles.PhotoSteps.Select(s => new Choice(s.Seconds.ToString(System.Globalization.CultureInfo.InvariantCulture), Lang.T(s.Name)))];
+
+    public string PhotoEvery
+    {
+        get => (Tile?.Every ?? 60).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        set { if (value != PhotoEvery && int.TryParse(value, out int s)) ChangeTile(t => t.Every = s); }
     }
 
     public bool HasTile => Tile is not null;

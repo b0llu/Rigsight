@@ -32,6 +32,8 @@ internal sealed class WidgetData
     /// <summary>The overlay's chosen sensors, in order: label, kind and current value.</summary>
     public List<OverlaySensorReading> Sensors = [];
     public TodayInfo Today = new();
+    /// <summary>What's playing on the PC (the Media tile), from the agent; null: nothing, or not known here.</summary>
+    public MediaNow? Media;
 
     public WidgetData Copy() => (WidgetData)MemberwiseClone();
 }

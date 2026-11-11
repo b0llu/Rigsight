@@ -2,7 +2,8 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Windows 10 2004's own APIs: the Media tile reads Windows' media controls (Windows.Media.Control). -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>Rigsight.Agent</RootNamespace>
     <AssemblyName>Rigsight.Agent</AssemblyName>
