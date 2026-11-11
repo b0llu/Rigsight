@@ -177,18 +177,21 @@ public sealed class SettingsModelTests
         Assert.Single(w.Themes);
     }
 
+    // The agent's copy that comes while a change waits to be sent doesn't undo the change, and what changed in the agent
+    // meanwhile is kept with it (audit 2026-11-11: the copy was dropped, and the change sent after it undid what was done
+    // on the desktop, a widget's to-dos, its timer, its menu).
     [Fact]
-    public void The_agents_copy_is_ignored_while_a_change_waits_to_be_sent()
+    public void A_change_waiting_to_be_sent_is_made_on_the_agents_copy_that_came_meanwhile()
     {
         using var w = new Wired();
         Ui.Run(() =>
         {
             w.Settings.Update(s => s.Theme = ThemeManager.Light);
-            var older = w.Agent!.Settings.Clone();
-            older.LiveRefreshMs = 5000;
-            w.Settings.ApplyFromAgent(older);
+            var agents = w.Agent!.Settings.Clone();
+            agents.LiveRefreshMs = 5000;
+            w.Settings.ApplyFromAgent(agents);
             Assert.Equal(ThemeManager.Light, w.Settings.Current.Theme);
-            Assert.Equal(1000, w.Settings.Current.LiveRefreshMs);
+            Assert.Equal(5000, w.Settings.Current.LiveRefreshMs);
         });
     }
 

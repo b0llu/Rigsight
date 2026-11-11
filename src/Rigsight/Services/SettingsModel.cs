@@ -18,6 +18,7 @@ public sealed class SettingsModel
     {
         _client = client;
         Current = Program.TakeEarlySettings() ?? SettingsStore.Load();
+        _agents = SettingsStore.Serialize(Current);
         Units.Fahrenheit = Current.UseFahrenheit;
         TimeText.Style = Current.ClockStyle;
         _debounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
@@ -32,6 +33,9 @@ public sealed class SettingsModel
     // A change not yet delivered to the agent (debouncing, or no connection): keep it, send it when the
     // agent connects, and don't let the agent's older copy overwrite it meanwhile.
     private bool _dirty;
+
+    // The agent's copy the change not yet delivered was made on (the last one that came), as written: see ApplyFromAgent.
+    private string _agents;
 
     public void Update(Action<RigsightSettings> change)
     {
@@ -76,10 +80,19 @@ public sealed class SettingsModel
 
     public void ApplyFromAgent(RigsightSettings settings)
     {
-        // A local change is about to be (or couldn't yet be) sent; the agent will echo it back afterwards.
-        if (_debounce.IsEnabled || _dirty) return;
+        string agents = _agents, theirs = SettingsStore.Serialize(settings), mine = SettingsStore.Serialize(Current);
+        _agents = theirs;
+        if (_debounce.IsEnabled || _dirty)
+        {
+            // A local change is about to be (or couldn't yet be) sent: it's made on this newer copy, so what changed in
+            // the agent meanwhile (a widget used or changed on the desktop, a timer that ran out) isn't undone when it
+            // goes (audit 2026-11-11: the copy was dropped, and the change sent after it put all that back).
+            var merged = SettingsMerge.Merge(agents, mine, theirs);
+            if (SettingsStore.Serialize(merged) == mine) return;
+            settings = merged;
+        }
         // Most messages echo what we already have: nothing to refresh then.
-        if (SettingsStore.Serialize(settings) == SettingsStore.Serialize(Current)) return;
+        else if (theirs == mine) return;
         Current = settings;
         Units.Fahrenheit = settings.UseFahrenheit;
         TimeText.Style = settings.ClockStyle;

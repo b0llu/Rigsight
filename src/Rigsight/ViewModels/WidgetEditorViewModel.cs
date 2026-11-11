@@ -195,29 +195,9 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         Commit();
     }
 
-    /// <summary>
-    /// <paramref name="now"/> with the change from <paramref name="from"/> to <paramref name="to"/> made on it: each value
-    /// the change set is <paramref name="to"/>'s, every other stays <paramref name="now"/>'s. Lists of the same length (the
-    /// tiles, a list's items) are gone through item by item; one the change made longer or shorter is taken whole.
-    /// </summary>
+    /// <summary><paramref name="now"/> with the change from <paramref name="from"/> to <paramref name="to"/> made on it (see <see cref="SettingsMerge"/>).</summary>
     private static WidgetConfig Rebase(string from, string to, string now) =>
-        (Merge(JsonNode.Parse(from), JsonNode.Parse(to), JsonNode.Parse(now)) ?? JsonNode.Parse(to))!.Deserialize<WidgetConfig>(SettingsStore.JsonOptions)!;
-
-    private static JsonNode? Merge(JsonNode? from, JsonNode? to, JsonNode? now)
-    {
-        if (JsonNode.DeepEquals(from, to)) return now?.DeepClone();
-        if (JsonNode.DeepEquals(from, now) || JsonNode.DeepEquals(to, now)) return to?.DeepClone();
-        if (from is JsonObject f && to is JsonObject t && now is JsonObject n)
-        {
-            var merged = new JsonObject();
-            foreach (string key in t.Select(p => p.Key).Union(n.Select(p => p.Key)))
-                merged[key] = Merge(f[key], t[key], n[key]);
-            return merged;
-        }
-        if (from is JsonArray fa && to is JsonArray ta && now is JsonArray na && fa.Count == ta.Count && fa.Count == na.Count)
-            return new JsonArray([.. ta.Select((_, i) => Merge(fa[i], ta[i], na[i]))]);
-        return to?.DeepClone();
-    }
+        (SettingsMerge.Merge(JsonNode.Parse(from), JsonNode.Parse(to), JsonNode.Parse(now)) ?? JsonNode.Parse(to))!.Deserialize<WidgetConfig>(SettingsStore.JsonOptions)!;
 
     /// <summary>Everything the page shows from the widget, after it changed.</summary>
     private void Rebuild()
