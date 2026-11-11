@@ -357,7 +357,7 @@ public sealed class SidebarDashboardTests
                 var grips = Visuals.Descendants<Thumb>(panel).Where(t => t.DataContext is NavEntry).ToList();
                 Assert.Equal(16 + 2, grips.Count);
                 Assert.Equal(["timeline", Gaming, Work, "temperatures"], grips.Select(g => ((NavEntry)g.DataContext).Key).Skip(6).Take(4));
-                Assert.Contains(grips, g => NameOf(g) == "Move Gaming: drag it, or use the arrow keys");
+                Assert.Contains(grips, g => NameOf(g) == "Move Gaming by dragging it or with the arrow keys");
                 // Names show as text until the pencil (approved mock-up, 2026-10-25).
                 Assert.Empty(Visuals.Descendants<TextBox>(panel).Where(b => b.IsVisible));
                 boards.Entry(Gaming).IsRenaming = true;
