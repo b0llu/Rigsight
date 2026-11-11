@@ -216,6 +216,8 @@ internal static partial class WidgetRenderer
         using (var g = Graphics.FromImage(content))
         {
             Prepare(g, scale, TextRenderingHint.AntiAliasGridFit);
+            // Over little or no panel, firmer letter edges (no ClearType there, see below): thin greyscale edges read soft.
+            if (cfg.BackgroundOpacity < SharpFrom) g.TextContrast = 0;
             g.Clear(Color.Transparent);
             DrawContent(g);
         }
@@ -699,8 +701,8 @@ internal static partial class WidgetRenderer
             float o = Math.Max(1, MathF.Round(px / 16f * device)) / device;
             using var shadow = new SolidBrush(TextShadow);
             Draw(shadow, o, o);
-            using var soft = new SolidBrush(Color.FromArgb(TextShadow.A / 2, TextShadow));
-            Draw(soft, 0, o * 1.6f);
+            // Once, a whole pixel down and right: a second, softer copy 1.6 pixels down smeared under every letter, so
+            // text with no backdrop looked blurry next to the same widget with one (the user, 2026-11-11).
         }
         using var brush = new SolidBrush(color);
         Draw(brush, 0, 0);
