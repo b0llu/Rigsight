@@ -16,11 +16,37 @@ internal sealed class MediaWatcher : IDisposable
     private GlobalSystemMediaTransportControlsSession? _session;
     private readonly Lock _lock = new();
     private int _version;
-    private Bitmap? _oldCover;
     private bool _disposed;
+
+    // Covers no longer the current one, let go at a tick (see Take), and the one the widgets were given at the last.
+    private readonly List<Bitmap> _retired = [];
+    private Bitmap? _given;
 
     /// <summary>What's playing now; null: nothing (or not read yet).</summary>
     public MediaNow? Now { get; private set; }
+
+    /// <summary>
+    /// What's playing, for the widgets' data at a tick (UI thread). A cover is let go only here, once the widgets can no
+    /// longer draw it: they keep what they were last given until this tick's data reaches them, and draw it again
+    /// meanwhile (the pointer over them, a scroll). Let go as it was replaced, on the thread the read came on, a track
+    /// change read two or three times in a row (the session, its properties, its picture) let go the cover the widgets
+    /// still had (the audit, 2026-11-11).
+    /// </summary>
+    public MediaNow? Take()
+    {
+        lock (_lock)
+        {
+            var now = Now;
+            _retired.RemoveAll(c =>
+            {
+                if (ReferenceEquals(c, _given) || ReferenceEquals(c, now?.Cover)) return false;
+                c.Dispose();
+                return true;
+            });
+            _given = now?.Cover;
+            return now;
+        }
+    }
 
     public static MediaWatcher Start()
     {
@@ -174,19 +200,15 @@ internal sealed class MediaWatcher : IDisposable
         return bmp;
     }
 
-    private void Set(MediaNow? now)
+    internal void Set(MediaNow? now)
     {
         lock (_lock)
         {
             if (_disposed) { now?.Cover?.Dispose(); return; }
             var before = Now;
             if (now is not null) now = now with { Version = ++_version };
-            // A cover handed out may still be drawn once more: the one before last is let go, not the last one.
-            if (before?.Cover is { } c && !ReferenceEquals(c, now?.Cover))
-            {
-                _oldCover?.Dispose();
-                _oldCover = c;
-            }
+            // A cover handed out may still be drawn: let go at a tick (see Take).
+            if (before?.Cover is { } c && !ReferenceEquals(c, now?.Cover) && !_retired.Contains(c)) _retired.Add(c);
             if (before?.Title != now?.Title || before?.Playing != now?.Playing)
                 Log.Write("widgets", now is null ? "Media: nothing playing" : $"Media: {(now.Playing ? "playing" : "paused")}, {now.Title.Length} characters of title");
             Now = now;

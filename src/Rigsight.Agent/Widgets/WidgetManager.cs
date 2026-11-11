@@ -479,7 +479,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         if (_media is not null)
         {
             data = data.Copy();
-            data.Media = _media.Now;
+            data.Media = _media.Take();
         }
         // The weather for Weather tiles, from the internet, at most every half hour a place.
         WeatherFeed.RefreshInBackground(_forms.Values.SelectMany(f => f.Config.Tiles ?? []));
