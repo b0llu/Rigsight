@@ -103,6 +103,7 @@ internal static partial class WidgetRenderer
         {
             var t = tiles[i];
             _tileIndex = i;
+            _corners = cfg.Corners;
             var r = TileRect(t, cfg);
             if (cfg.TileLines && !cfg.TileBoxes)
             {
@@ -116,6 +117,19 @@ internal static partial class WidgetRenderer
             finally { g.Restore(state); }
         }
     }
+
+    [ThreadStatic] private static WidgetCorners _corners;
+
+    /// <summary>
+    /// The corners of what fills a tile (a photo, a large media tile's blurred cover): the widget's own pick, so square
+    /// corners aren't left with a rounded picture inside them and the panel showing at its corners.
+    /// </summary>
+    private static float FillRadius(float round) => _corners switch
+    {
+        WidgetCorners.Square => 0,
+        WidgetCorners.Slight => Math.Min(round, 5),
+        _ => round,
+    };
 
     /// <summary>Inside a tile: 10 px of room at the sides, 8 above and below (none above and below on a tile one row high).</summary>
     private static RectangleF Inner(WidgetTile t, RectangleF r) => t.H == 1 ? RectangleF.Inflate(r, -10, 0) : RectangleF.Inflate(r, -10, -8);

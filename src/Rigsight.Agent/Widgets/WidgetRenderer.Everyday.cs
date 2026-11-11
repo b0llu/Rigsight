@@ -210,7 +210,7 @@ internal static partial class WidgetRenderer
                     tg.DrawImage(cover, 0, 0, 10, 10);
                 }
                 var back = RectangleF.Inflate(tile, -1, -1);
-                using var clip = RoundRect(back, 12);
+                using var clip = RoundRect(back, FillRadius(12));
                 var state = g.Save();
                 g.SetClip(clip, CombineMode.Intersect);
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
@@ -540,7 +540,7 @@ internal static partial class WidgetRenderer
             now = WidgetFiles.PictureNow(t, Now());
         if (now is not null && picture is not null)
         {
-            Cover(g, picture, r, 9);
+            Cover(g, picture, r, FillRadius(9));
             if (r.Height >= 88 && r.Width >= 120 && t.Folder is { } folder)
             {
                 var files = WidgetFiles.PicturesIn(folder);
@@ -548,7 +548,7 @@ internal static partial class WidgetRenderer
                 string name = Path.GetFileName(folder.TrimEnd('\\', '/'));
                 string caption = at > 0 ? Lang.T($"{name} · {at} of {files.Length}") : name;
                 var foot = RectangleF.FromLTRB(r.Left, r.Bottom - 40, r.Right, r.Bottom);
-                using var clip = RoundRect(r, 9);
+                using var clip = RoundRect(r, FillRadius(9));
                 var state = g.Save();
                 g.SetClip(clip, CombineMode.Intersect);
                 using (var shade = new LinearGradientBrush(new PointF(0, foot.Top - 1), new PointF(0, foot.Bottom), Color.FromArgb(0, 0, 0, 0), Color.FromArgb(150, 0, 0, 0)))
