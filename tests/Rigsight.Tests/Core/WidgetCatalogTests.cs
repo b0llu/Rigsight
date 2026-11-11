@@ -164,7 +164,7 @@ public class WidgetCatalogTests
     [Fact]
     public void There_is_a_limit_to_widgets_of_your_own()
     {
-        var json = "{ \"SettingsVersion\": 8, \"Widgets\": [" + string.Join(",", Enumerable.Range(0, 40).Select(i => $$"""{ "Style": "Custom", "Id": "custom-{{i:0000}}" }""")) + "] }";
+        var json = "{ \"SettingsVersion\": 8, \"Widgets\": [" + string.Join(",", Enumerable.Range(0, WidgetCatalog.MaxCustom + 10).Select(i => $$"""{ "Style": "Custom", "Id": "custom-{{i:0000}}" }""")) + "] }";
         var s = SettingsStore.Deserialize(json);
         Assert.Equal(WidgetCatalog.MaxCustom, s.Widgets.Count(w => w.Style == WidgetStyle.Custom));
     }

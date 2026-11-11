@@ -422,6 +422,7 @@ internal static class ToastRenderer
         NoticeKind.Memory => Lang.T("MEMORY"),
         NoticeKind.Startup => Lang.T("STARTS WITH WINDOWS"),
         NoticeKind.Weekly => Lang.T("WEEKLY RECAP"),
+        NoticeKind.Timer => Lang.T("TIMER"),
         _ => Lang.T("UPDATE"),
     };
 

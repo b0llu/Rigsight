@@ -51,7 +51,7 @@ public class DrawingCostTests(ITestOutputHelper output)
     {
         // style, milliseconds, bytes (managed) per draw at 150% with every reading
         { WidgetStyle.Compact, 6.5, 96_000 },
-        { WidgetStyle.Pill, 2, 12_000 }, // its row laid out by measured ink (centred both ways, 2026-11-10); drawn only when a reading changes
+        { WidgetStyle.Pill, 2, 13_000 }, // its row laid out by measured ink (centred both ways, 2026-11-10); drawn only when a reading changes; text with no backdrop drawn firmer (2026-11-11, +0.3 KB)
         { WidgetStyle.Gauges, 6, 8_000 },
         { WidgetStyle.NowPlaying, 4.5, 8_000 },
         { WidgetStyle.Today, 6, 10_000 },

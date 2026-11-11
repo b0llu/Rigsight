@@ -611,7 +611,7 @@
                                                                 <Button.Template>
                                                                     <ControlTemplate TargetType="Button">
                                                                         <Border x:Name="Bd" CornerRadius="10" Background="#2B2B2B" BorderBrush="#5A5A5A" BorderThickness="1">
-                                                                            <TextBlock x:Name="X" Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="8" Foreground="#F0F0F0" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                            <TextBlock x:Name="X" Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S8}" Foreground="#F0F0F0" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                                         </Border>
                                                                         <ControlTemplate.Triggers>
                                                                             <!-- A remove: the dark badge fills red under the pointer (the user's rule, 2026-11-10). -->
