@@ -382,11 +382,12 @@
                                                 <TextBlock Text="{ctl:T 'Create widget'}" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </Button>
-                                        <!-- The ready-made widgets and every tile, under their groups, over the list; a click adds one. -->
-                                        <Popup IsOpen="{Binding AddListOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=AddWidgetButton}" Placement="Top" VerticalOffset="-8"
+                                        <!-- The ready-made widgets and every tile, under their groups, opening downward from the button as a menu does
+                                             (the user, 2026-11-11); Windows moves it above only where the screen has no room below. A click adds one. -->
+                                        <Popup IsOpen="{Binding AddListOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=AddWidgetButton}" Placement="Bottom" VerticalOffset="6"
                                                StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Opened="AddPopup_Opened">
                                             <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                                                              CornerRadius="{x:Static ctl:Corner.Tile}" Padding="10" Margin="0,8,8,8" Width="430">
+                                                              CornerRadius="{x:Static ctl:Corner.Tile}" Padding="10" Margin="0,0,8,8" Width="430">
                                                 <Border.Effect>
                                                     <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                                                 </Border.Effect>
