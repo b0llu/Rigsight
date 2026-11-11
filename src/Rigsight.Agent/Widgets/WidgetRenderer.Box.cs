@@ -98,8 +98,11 @@ internal static partial class WidgetRenderer
     private static void DrawBox(Graphics g, WidgetConfig cfg, WidgetData d, Palette p)
     {
         var accent = BoxAccent(cfg, p);
-        foreach (var t in cfg.Tiles ?? [])
+        var tiles = cfg.Tiles ?? [];
+        for (int i = 0; i < tiles.Count; i++)
         {
+            var t = tiles[i];
+            _tileIndex = i;
             var r = TileRect(t, cfg);
             if (cfg.TileLines && !cfg.TileBoxes)
             {
@@ -137,6 +140,9 @@ internal static partial class WidgetRenderer
                 break;
             case WidgetTiles.Today: Within(g, r, 256, 140, () => DrawToday(g, d, p)); break;
             case WidgetTiles.NowPlaying: Within(g, r, 310, 88, () => DrawNowPlaying(g, d, p, 310, 88)); break;
+            case WidgetTiles.Notes: NotesTile(g, t, inner, p); break;
+            case WidgetTiles.Todo: TodoTile(g, t, inner, p, accent); break;
+            case WidgetTiles.Timer: TimerTile(g, t, inner, p, accent); break;
         }
     }
 
@@ -697,6 +703,176 @@ internal static partial class WidgetRenderer
         return row;
     }
 
+    // ── Everyday: a note, a to-do list, a timer (approved mock-up 8Bfo1Ce7KFJs4g1wxHQP1U, part two) ──
+
+    /// <summary>
+    /// A place on a tile that does something when clicked on the desktop (a to-do's box, a timer's Start), in the
+    /// widget's own pixels at size M: the window turns it into its own pixels and acts on a click there. Everywhere
+    /// else on the widget a press still drags it.
+    /// </summary>
+    internal readonly record struct TileHit(int Tile, string Action, int Index, RectangleF Rect);
+
+    internal const string HitNote = "note", HitTodo = "todo", HitTodoAdd = "todo-add", HitGo = "go", HitReset = "reset";
+
+    /// <summary>The clickable places of the widget last drawn on this thread (see <see cref="Render"/>).</summary>
+    [ThreadStatic] internal static List<TileHit>? Hits;
+    [ThreadStatic] private static int _tileIndex;
+
+    private static void AddHit(string action, int index, RectangleF r)
+    {
+        if (Hits is null || Hits.Any(h => h.Tile == _tileIndex && h.Action == action && h.Index == index)) return;
+        Hits.Add(new TileHit(_tileIndex, action, index, r));
+    }
+
+    private static long NowMs() => new DateTimeOffset(Now()).ToUnixTimeMilliseconds();
+
+    /// <summary>Text over several lines in a box, cut at a word with "…" where it runs out; with the shadow other text has.</summary>
+    private static void TextIn(Graphics g, string text, float px, Color color, RectangleF box, FontStyle style = FontStyle.Regular)
+    {
+        var font = MakeFont(px, style, false);
+        using var fmt = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit };
+        if (TextShadow.A > 0)
+        {
+            float device = g.Transform.Elements[0];
+            float o = Math.Max(1, MathF.Round(px / 16f * device)) / device;
+            using var shadow = new SolidBrush(TextShadow);
+            g.DrawString(text, font, shadow, new RectangleF(box.X + o, box.Y + o, box.Width, box.Height), fmt);
+        }
+        using var brush = new SolidBrush(color);
+        g.DrawString(text, font, brush, box, fmt);
+    }
+
+    private static readonly Dictionary<float, FontFamily?> IconFamilies = [];
+
+    /// <summary>An icon of Windows' icon font, its drawn shape centred in <paramref name="box"/>.</summary>
+    private static void IconIn(Graphics g, string glyph, float px, Color color, RectangleF box)
+    {
+        if (!IconFamilies.TryGetValue(0, out var family))
+        {
+            family = FontFamily.Families.FirstOrDefault(f => f.Name == "Segoe Fluent Icons") ?? FontFamily.Families.FirstOrDefault(f => f.Name == "Segoe MDL2 Assets");
+            IconFamilies[0] = family;
+        }
+        if (family is null) return;
+        using var path = new GraphicsPath();
+        path.AddString(glyph, family, (int)FontStyle.Regular, px, PointF.Empty, StringFormat.GenericTypographic);
+        var ink = path.GetBounds();
+        if (ink.IsEmpty) return;
+        using var move = new Matrix();
+        move.Translate(box.X + (box.Width - ink.Width) / 2 - ink.X, box.Y + (box.Height - ink.Height) / 2 - ink.Y);
+        path.Transform(move);
+        using var brush = new SolidBrush(color);
+        var smooth = g.SmoothingMode;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.FillPath(brush, path);
+        g.SmoothingMode = smooth;
+    }
+
+    /// <summary>What reads on the accent (a tick in a box, a timer's play button): white on a dark one, near-black on a light one.</summary>
+    private static Color OnAccent(Color accent) => Brightness(accent) > 0.6f ? Color.FromArgb(20, 20, 20) : Color.White;
+
+    /// <summary>A note: typed straight onto the desktop (a click on it opens it to type, see WidgetForm).</summary>
+    private static void NotesTile(Graphics g, WidgetTile t, RectangleF r, Palette p)
+    {
+        Caption(g, Lang.T("NOTE"), r.Left, r.Top, p.Faint);
+        var area = RectangleF.FromLTRB(r.Left, r.Top + 16, r.Right, r.Bottom);
+        if (area.Height < 8) return;
+        float px = WidgetTiles.TextPx(t);
+        if (string.IsNullOrWhiteSpace(t.Text)) TextIn(g, Lang.T("Click here to write."), px, p.Faint, area);
+        else TextIn(g, t.Text!, px, p.Text, area);
+        AddHit(HitNote, 0, area);
+    }
+
+    /// <summary>A to-do list: a box to tick on each line, and a line to add one at the end where there's room.</summary>
+    private static void TodoTile(Graphics g, WidgetTile t, RectangleF r, Palette p, Color accent)
+    {
+        var items = t.Todos ?? [];
+        Caption(g, Lang.T("TO-DO"), r.Left, r.Top, p.Faint);
+        if (items.Count > 0)
+        {
+            string tally = Lang.T($"{items.Count(i => i.Done)} of {items.Count}");
+            Text(g, tally, 9, FontStyle.Bold, p.Faint, r.Right - Measure(g, tally, 9, FontStyle.Bold), r.Top);
+        }
+        float px = WidgetTiles.TextPx(t), row = MathF.Round(px * 1.75f), y = r.Top + 18, box = MathF.Round(px + 1);
+        int fit = Math.Max(0, (int)((r.Bottom - y) / row));
+        int shown = Math.Min(items.Count, Math.Max(0, fit - 1));
+        for (int i = 0; i < shown; i++)
+        {
+            var line = new RectangleF(r.Left, y, r.Width, row);
+            var b = new RectangleF(r.Left + 0.5f, y + MathF.Round((row - box) / 2) + 0.5f, box - 1, box - 1);
+            using (var path = RoundRect(b, 3.5f))
+            {
+                if (items[i].Done)
+                {
+                    using var fill = new SolidBrush(accent);
+                    g.FillPath(fill, path);
+                    IconIn(g, "\uE73E", box * 0.62f, OnAccent(accent), b);
+                }
+                else
+                {
+                    using var pen = new Pen(p.Muted, 1.5f);
+                    g.DrawPath(pen, path);
+                }
+            }
+            float tx = r.Left + box + 8;
+            Text(g, items[i].Text, px, items[i].Done ? FontStyle.Strikeout : FontStyle.Regular, items[i].Done ? p.Faint : p.Text,
+                tx, y + (row - px * 1.33f) / 2, maxWidth: r.Right - tx);
+            AddHit(HitTodo, i, line);
+            y += row;
+        }
+        if (fit > shown)
+        {
+            var line = new RectangleF(r.Left, y, r.Width, row);
+            IconIn(g, "\uE710", box * 0.7f, p.Faint, new RectangleF(r.Left, y + (row - box) / 2, box, box));
+            Text(g, Lang.T("Add an item"), px, FontStyle.Regular, p.Faint, r.Left + box + 8, y + (row - px * 1.33f) / 2, maxWidth: r.Width - box - 8);
+            AddHit(HitTodoAdd, 0, line);
+        }
+    }
+
+    /// <summary>A timer (counts down), a stopwatch (counts up), each with Start or Pause and Reset; or the days to a day.</summary>
+    private static void TimerTile(Graphics g, WidgetTile t, RectangleF r, Palette p, Color accent)
+    {
+        bool wide = r.Width >= 160;
+        if (WidgetTimer.IsCountdown(t))
+        {
+            Caption(g, Lang.T("COUNTDOWN"), r.Left, r.Top, p.Faint);
+            float y = r.Top + 16;
+            if (WidgetTimer.DaysLeft(t, Now()) is not int days)
+            {
+                Text(g, Lang.T("No day picked"), 13, FontStyle.Regular, p.Faint, r.Left, y, maxWidth: r.Width);
+                return;
+            }
+            string big = days switch { > 1 => Lang.T($"{days} days"), 1 => Lang.T("1 day"), 0 => Lang.T("Today"), -1 => Lang.T("1 day ago"), _ => Lang.T($"{-days} days ago") };
+            string date = t.Until!.Value.ToString("d MMMM", Culture);
+            string small = days >= 0 ? Lang.T($"until {date}") : Lang.T($"since {date}");
+            float bigPx = wide ? 24 : 19;
+            Text(g, big, bigPx, FontStyle.Regular, p.Text, r.Left, y, semibold: true);
+            float bx = r.Left + Measure(g, big, bigPx, FontStyle.Regular, true) + 8;
+            if (bx + 40 < r.Right) Text(g, small, 12, FontStyle.Regular, p.Muted, bx, y + bigPx * 1.33f - 12 * 1.33f - 1, maxWidth: r.Right - bx);
+            else Text(g, small, 11.5f, FontStyle.Regular, p.Muted, r.Left, y + bigPx * 1.4f, maxWidth: r.Width);
+            return;
+        }
+        long now = NowMs();
+        bool running = WidgetTimer.Running(t), up = WidgetTimer.IsUp(t, now);
+        Caption(g, (WidgetTimer.IsStopwatch(t) ? Lang.T("STOPWATCH") : Lang.T("TIMER")), r.Left, r.Top, p.Faint);
+        float size = Math.Min(28, Math.Max(20, r.Height - 18)), gap = 6;
+        float bigPx2 = wide ? 26 : 20;
+        Text(g, WidgetTimer.Shown(t, now), bigPx2, FontStyle.Regular, up ? accent : p.Text, r.Left, r.Top + 14);
+        // The buttons on the right, level with the time.
+        float cy = r.Top + 14 + bigPx2 * 0.66f;
+        var go = new RectangleF(r.Right - size, cy - size / 2, size, size);
+        if (wide)
+        {
+            var reset = go;
+            go.Offset(-(size + gap), 0);
+            using (var track = new SolidBrush(p.Track)) g.FillEllipse(track, reset);
+            IconIn(g, "\uE72C", size * 0.4f, p.Muted, reset);
+            AddHit(HitReset, 0, reset);
+        }
+        using (var fill = new SolidBrush(accent)) g.FillEllipse(fill, go);
+        IconIn(g, running ? "\uE769" : "\uE768", size * 0.4f, OnAccent(accent), go);
+        AddHit(HitGo, 0, go);
+    }
+
     // ── What a box shows, as text: the same text means the same picture ───
 
     /// <summary>
@@ -728,6 +904,16 @@ internal static partial class WidgetRenderer
                         var x = Read(i, d, p);
                         sb.Append('|').Append(x.Label).Append('=').Append(x.Text).Append('#').Append(x.ValueColor.ToArgb());
                     }
+                    break;
+                case WidgetTiles.Notes:
+                    sb.Append('|').Append(t.TextSize).Append(':').Append(t.Text);
+                    break;
+                case WidgetTiles.Todo:
+                    sb.Append('|').Append(t.TextSize);
+                    foreach (var i in t.Todos ?? []) sb.Append('|').Append(i.Done ? '+' : '-').Append(i.Text);
+                    break;
+                case WidgetTiles.Timer:
+                    sb.Append('|').Append(WidgetTimer.KindOf(t)).Append(WidgetTimer.Running(t)).Append(WidgetTimer.Shown(t, NowMs())).Append(t.Until?.Ticks).Append(now.Date.Ticks);
                     break;
                 default:
                     return null;

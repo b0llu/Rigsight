@@ -638,8 +638,7 @@
                                                 <Button x:Name="ReadingButton" Style="{StaticResource DropButton}" MinWidth="0" Command="{Binding OpenReadingPickerCommand}" CommandParameter="tile"
                                                         AutomationProperties.Name="{ctl:T 'Reading'}">
                                                     <DockPanel>
-                                                        <TextBlock DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,1,0,0" VerticalAlignment="Center" />
-                                                        <TextBlock Text="{Binding ReadingShown}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                                                                                <TextBlock Text="{Binding ReadingShown}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                     </DockPanel>
                                                 </Button>
                                                 <Popup IsOpen="{Binding ReadingPickerOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=ReadingButton}" Placement="Bottom" HorizontalOffset="-210"
@@ -678,8 +677,7 @@
                                                 <Button x:Name="AddReadingButton" Style="{StaticResource DropButton}" MinWidth="0" Command="{Binding OpenReadingPickerCommand}" CommandParameter="add"
                                                         AutomationProperties.Name="{ctl:T 'Add a reading'}">
                                                     <DockPanel>
-                                                        <TextBlock DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,1,0,0" VerticalAlignment="Center" />
-                                                        <TextBlock Text="{ctl:T 'Add a reading'}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                                                                                <TextBlock Text="{ctl:T 'Add a reading'}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                     </DockPanel>
                                                 </Button>
                                                 <Popup IsOpen="{Binding AddPickerOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=AddReadingButton}" Placement="Bottom" HorizontalOffset="-210"

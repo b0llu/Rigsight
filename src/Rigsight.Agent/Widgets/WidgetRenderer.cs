@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
@@ -119,6 +119,7 @@ internal static partial class WidgetRenderer
     {
         Gray = cfg.Grayscale;
         FontName = cfg.Tiles is null ? null : cfg.Font;
+        Hits = [];
         try
         {
             return RenderStyle(cfg, data, scale, hover, out closeRect);
@@ -258,6 +259,7 @@ internal static partial class WidgetRenderer
 
         using (var final = Graphics.FromImage(bmp))
         {
+            if (!sharpText && cfg.BackgroundOpacity < SharpFrom && EdgeGamma < 1) FirmEdges(content, EdgeGamma);
             if (!sharpText) Compose(final, content, panel, scale, pal.Bg, pal.Border, cfg.BackgroundOpacity, cfg.ContentOpacity);
             // The close button stays fully visible, whatever the opacity: it's how you get rid of the widget.
             var close = pill ? new RectangleF(w - 24, (h - 18) / 2, 18, 18) : new RectangleF(w - 26, 6, 20, 20);
@@ -496,6 +498,36 @@ internal static partial class WidgetRenderer
         }
     }
 
+    /// <summary>How much the half-covered pixels at the edges of letters drawn over nothing are firmed up (1: not at all); 0.75 picked side by side on a dark and a light wallpaper (the user, 2026-11-11: "it can be a bit more sharp").</summary>
+    internal static float EdgeGamma = 0.75f;
+
+    /// <summary>The text shadow's strength over nothing, against its first one: lighter, so it reads less like a smudge, still enough on a light wallpaper.</summary>
+    internal static float ShadowScale = 0.6f;
+
+    /// <summary>
+    /// Firms up the partly covered pixels at the edges of what's drawn on clear pixels: Windows blends a layered
+    /// window's edges straight onto what's behind, which thins and softens light letters on a dark wallpaper.
+    /// </summary>
+    internal static void FirmEdges(Bitmap bmp, float gamma)
+    {
+        var rect = new Rectangle(0, 0, bmp.Width, bmp.Height);
+        var data = bmp.LockBits(rect, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+        try
+        {
+            var lut = new byte[256];
+            for (int i = 0; i < 256; i++) lut[i] = (byte)Math.Round(255 * Math.Pow(i / 255.0, gamma));
+            var row = new byte[data.Stride];
+            for (int y = 0; y < bmp.Height; y++)
+            {
+                IntPtr line = data.Scan0 + y * data.Stride;
+                System.Runtime.InteropServices.Marshal.Copy(line, row, 0, data.Stride);
+                for (int x = 3; x < bmp.Width * 4; x += 4) row[x] = lut[row[x]];
+                System.Runtime.InteropServices.Marshal.Copy(row, 0, line, data.Stride);
+            }
+        }
+        finally { bmp.UnlockBits(data); }
+    }
+
     /// <summary>The background opacity from which text is drawn with ClearType (see RenderStyle).</summary>
     internal const double SharpFrom = 0.6;
 
@@ -585,7 +617,7 @@ internal static partial class WidgetRenderer
     private static Color ShadowFor(double backgroundOpacity, bool lightTheme)
     {
         if (backgroundOpacity >= 0.4) return Color.Empty;
-        int alpha = (int)Math.Round(170 * (1 - backgroundOpacity / 0.4));
+        int alpha = (int)Math.Round(170 * ShadowScale * (1 - backgroundOpacity / 0.4));
         return lightTheme ? Color.FromArgb(alpha, 255, 255, 255) : Color.FromArgb(alpha, 0, 0, 0);
     }
 

@@ -25,7 +25,7 @@ public static class WidgetTiles
     public const int Edge = 4;
 
     public const string Clock = "clock", Date = "date", Calendar = "calendar", Reading = "reading", Line = "line",
-        Graph = "graph", Fps = "fps", Today = "today", NowPlaying = "nowplaying";
+        Graph = "graph", Fps = "fps", Today = "today", NowPlaying = "nowplaying", Notes = "notes", Todo = "todo", Timer = "timer";
 
     public static string GroupEveryday => Lang.Key("Everyday");
     public static string GroupLive => Lang.Key("Live");
@@ -37,6 +37,9 @@ public static class WidgetTiles
         new(Clock, Lang.Key("Clock"), Lang.Key("The time as digits, hands, flip cards or words."), Lang.Key("Everyday"), 6, 2, 2, 1, TileAlign.Center),
         new(Date, Lang.Key("Date"), Lang.Key("The day and the date."), Lang.Key("Everyday"), 3, 2, 3, 1, TileAlign.Center),
         new(Calendar, Lang.Key("Calendar"), Lang.Key("This month, with today marked."), Lang.Key("Everyday"), 6, 6, 5, 5),
+        new(Notes, Lang.Key("Notes"), Lang.Key("A note you type straight onto the desktop."), Lang.Key("Everyday"), 6, 4, 3, 2),
+        new(Todo, Lang.Key("To-do"), Lang.Key("A short list you tick off."), Lang.Key("Everyday"), 6, 4, 4, 2),
+        new(Timer, Lang.Key("Timer"), Lang.Key("A timer, a stopwatch, or a countdown to a day."), Lang.Key("Everyday"), 6, 2, 4, 2),
         new(Reading, Lang.Key("Any reading"), Lang.Key("One reading or sensor, as a number, a ring, a level or a graph."), Lang.Key("Live"), 3, 2, 2, 1),
         new(Line, Lang.Key("Line of readings"), Lang.Key("Readings in one slim line, made for the top of the screen."), Lang.Key("Live"), 7, 1, 3, 1),
         new(Graph, Lang.Key("Temperature graph"), Lang.Key("CPU and GPU temperatures over the last five minutes."), Lang.Key("Live"), 8, 4, 6, 3),
@@ -49,6 +52,17 @@ public static class WidgetTiles
 
     public static string NameOf(WidgetTileKind kind) => Lang.T(kind.Name);
     public static string LineOf(WidgetTileKind kind) => Lang.T(kind.Line);
+
+    /// <summary>A timer tile's kinds, as stored (<see cref="WidgetTile.TimerKind"/>) and shown (translated).</summary>
+    public static readonly IReadOnlyList<string> TimerKinds = [Lang.Key("Timer"), Lang.Key("Stopwatch"), Lang.Key("Countdown")];
+
+    /// <summary>A note's or a to-do list's text sizes, as stored (<see cref="WidgetTile.TextSize"/>), in pixels at size M.</summary>
+    public static readonly IReadOnlyList<(string Name, float Px)> TextSizes = [(Lang.Key("Small"), 11.5f), (Lang.Key("Medium"), 13f), (Lang.Key("Large"), 15f)];
+
+    public static float TextPx(WidgetTile t) => TextSizes.FirstOrDefault(s => s.Name == t.TextSize) is { Name: not null } s ? s.Px : 13f;
+
+    /// <summary>The longest note kept: far more than a tile shows, a guard against a runaway paste.</summary>
+    public const int MaxNoteLength = 20_000;
 
     /// <summary>A clock's styles, as stored (<see cref="WidgetTile.Style"/>) and shown (translated).</summary>
     public static readonly IReadOnlyList<string> ClockStyles =
@@ -222,6 +236,12 @@ public static class WidgetTiles
             t.W = Math.Clamp(t.W, k.MinW, 400);
             t.H = Math.Clamp(t.H, k.MinH, 400);
             if (t.Style is not null && !ClockStyles.Contains(t.Style)) t.Style = null;
+            if (t.TextSize is not null && TextSizes.All(z => z.Name != t.TextSize)) t.TextSize = null;
+            if (t.TimerKind is not null && !TimerKinds.Contains(t.TimerKind)) t.TimerKind = null;
+            if (t.Text is { Length: > MaxNoteLength }) t.Text = t.Text[..MaxNoteLength];
+            t.Todos = t.Todos?.Where(i => i is not null && !string.IsNullOrWhiteSpace(i.Text)).ToList();
+            t.Minutes = Math.Clamp(t.Minutes, 1, 24 * 60);
+            if (t.RunMs < 0) t.RunMs = 0;
             t.Items = t.Items?.Where(i => i is not null && (WidgetCatalog.Metric(i.Id) is not null || WidgetCatalog.Sensor(i.Id) is not null)).DistinctBy(i => i.Id).ToList();
         }
         var placed = new List<WidgetTile>();

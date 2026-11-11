@@ -338,7 +338,7 @@ public sealed class SettingsPageTests
             Assert.Equal(["All", "Ready-made", "Everyday", "Live", "Your day"], vm.Chips.Select(c => c.Key));
 
             vm.PickChipCommand.Execute(vm.Chips.Single(c => c.Key == "Everyday"));
-            Assert.Equal(["Clock", "Date", "Calendar"], vm.ChoicesShown.Select(c => c.Title));
+            Assert.Equal(["Clock", "Date", "Calendar", "Notes", "To-do", "Timer"], vm.ChoicesShown.Select(c => c.Title));
             vm.PickChipCommand.Execute(vm.Chips[0]);
             vm.ChoiceQuery = "calend";
             Assert.Equal("Calendar", Assert.Single(vm.ChoicesShown).Title);

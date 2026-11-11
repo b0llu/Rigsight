@@ -107,12 +107,45 @@ public sealed class WidgetTile
     /// <summary>Whether a clock shows the date beside or under the time.</summary>
     public bool ShowDate { get; set; } = true;
 
+    /// <summary>A note's text, as typed (kept in the settings, so a note is in the full copy too).</summary>
+    public string? Text { get; set; }
+
+    /// <summary>A note's or a to-do list's text size (<see cref="WidgetTiles.TextSizes"/>); null: medium.</summary>
+    public string? TextSize { get; set; }
+
+    /// <summary>A to-do list's items, in order.</summary>
+    public List<TodoItem>? Todos { get; set; }
+
+    /// <summary>A timer tile's kind (<see cref="WidgetTiles.TimerKinds"/>); null: a timer.</summary>
+    public string? TimerKind { get; set; }
+
+    /// <summary>A timer's length, in minutes.</summary>
+    public int Minutes { get; set; } = 25;
+
+    /// <summary>When a timer or stopwatch last started (Unix milliseconds); null while it's stopped or paused.</summary>
+    public long? RunningSince { get; set; }
+
+    /// <summary>How long a timer or stopwatch ran before it was last paused, in milliseconds.</summary>
+    public long RunMs { get; set; }
+
+    /// <summary>A countdown's day.</summary>
+    public DateTime? Until { get; set; }
+
     public WidgetTile Copy() => new()
     {
         Kind = Kind, X = X, Y = Y, W = W, H = H, Align = Align, Item = Item, Label = Label, Look = Look,
         Items = Items?.Select(i => new WidgetItem { Id = i.Id, Label = i.Label }).ToList(), Style = Style, Hours24 = Hours24,
-        Seconds = Seconds, ShowDate = ShowDate,
+        Seconds = Seconds, ShowDate = ShowDate, Text = Text, TextSize = TextSize,
+        Todos = Todos?.Select(t => new TodoItem { Text = t.Text, Done = t.Done }).ToList(),
+        TimerKind = TimerKind, Minutes = Minutes, RunningSince = RunningSince, RunMs = RunMs, Until = Until,
     };
+}
+
+/// <summary>One line of a to-do list.</summary>
+public sealed class TodoItem
+{
+    public string Text { get; set; } = "";
+    public bool Done { get; set; }
 }
 
 /// <summary>
