@@ -52,7 +52,6 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
                 case WidgetTiles.Shortcuts: t.Links = [new() { Path = "https://rigsight.app/", Name = "rigsight.app" }]; break;
                 case WidgetTiles.Date: t.Align = TileAlign.Left; break;
             }
-            tiles.Add(t);
         }
         var cfg = WidgetsViewModel.NewWidget(name, tiles);
         cfg.Theme = WidgetTheme.Light;
@@ -370,5 +369,119 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
         Assert.Equal(Ui.Run(() => vm.Choices.Count), Ui.Run(() => vm.ChoicesShown.Count));
         Ui.Run(() => vm.AddListOpen = false);
         Ui.AssertNoProblems("the Add widget search");
+    }
+    /// <summary>
+    /// Words cut short or cut off under <paramref name="root"/>: a one-line text narrower than it needs, and anything that
+    /// sticks out of the card it's in.
+    /// </summary>
+    /// <summary>Texts shown cut short with "…", for the report.</summary>
+    private static readonly HashSet<string> Trimmed = [];
+
+    private static List<string> CutOff(FrameworkElement root)
+    {
+        var found = new List<string>();
+        double dpi = System.Windows.Media.VisualTreeHelper.GetDpi(root).PixelsPerDip;
+        foreach (var tb in Visuals.Descendants<TextBlock>(root))
+        {
+            if (!tb.IsVisible || string.IsNullOrWhiteSpace(tb.Text) || tb.ActualWidth <= 0 || tb.Text.Length == 1) continue;
+            if (tb.TextWrapping == TextWrapping.NoWrap)
+            {
+                var ft = new System.Windows.Media.FormattedText(tb.Text, System.Globalization.CultureInfo.CurrentUICulture, tb.FlowDirection,
+                    new System.Windows.Media.Typeface(tb.FontFamily, tb.FontStyle, tb.FontWeight, tb.FontStretch), tb.FontSize, System.Windows.Media.Brushes.Black, dpi);
+                double need = ft.WidthIncludingTrailingWhitespace + tb.Padding.Left + tb.Padding.Right;
+                // Cut short on purpose with "…" is listed apart (Trimmed); cut off without one is a fault.
+                // The room its parent gave it (a text given less is laid out at its full width and clipped, so its own
+                // width says nothing).
+                var slot = System.Windows.Controls.Primitives.LayoutInformation.GetLayoutSlot(tb);
+                double has = Math.Min(tb.ActualWidth, slot.Width - tb.Margin.Left - tb.Margin.Right);
+                if (need > has + 1)
+                {
+                    if (tb.TextTrimming == TextTrimming.None) found.Add($"\"{tb.Text}\" needs {need:0} px, has {has:0}");
+                    else Trimmed.Add(tb.Text);
+                }
+            }
+            if (Visuals.Ancestors<SmoothBorder>(tb).FirstOrDefault() is { } card)
+            {
+                var r = tb.TransformToAncestor(card).TransformBounds(new Rect(0, 0, tb.ActualWidth, tb.ActualHeight));
+                if (r.Right > card.ActualWidth + 1 || r.Left < -1) found.Add($"\"{tb.Text}\" runs {Math.Max(r.Right - card.ActualWidth, -r.Left):0} px out of its card");
+            }
+        }
+        return found;
+    }
+
+    public static TheoryData<string, int> Widths => new()
+    {
+        { "en", 1140 }, { "en", 1280 }, { "en", 1920 }, { "es", 1140 }, { "es", 1280 }, { "es", 1920 },
+    };
+
+    // The page and the editor at the window's narrowest, a laptop's and a big screen's width, in English and Spanish:
+    // nothing cut short or out of its card. Drawn to %TEMP%\rigsight-tests\audit4 to be looked at.
+    [Theory]
+    [MemberData(nameof(Widths))]
+    public void The_page_and_the_editor_fit(string language, int windowWidth)
+    {
+        host.Show("widgets");
+        var everything = EveryTile("Everything on one widget");
+        string id = AddWidget(everything);
+        // How wide the app's window leaves the page at this width.
+        double pageWidth = Ui.Run(() =>
+        {
+            host.Window.Width = windowWidth;
+            host.Window.UpdateLayout();
+            return host.Window.PageHost.ActualWidth;
+        });
+        var pack = language == "es" ? Rigsight.Core.LanguagePack.Load(Path.Combine(Rigsight.Tests.Core.Repo.Root, "languages", "es.json")) : null;
+        var problems = new List<string>();
+        try
+        {
+            Ui.Run(() =>
+            {
+                using var _ = Rigsight.Core.Lang.UseHere(pack);
+                var vm = new WidgetsViewModel(host.Shell.Settings, host.Client, host.Shell.Live);
+                var view = new Rigsight.Views.WidgetsView { DataContext = vm };
+                var window = new Window
+                {
+                    Content = view, Width = pageWidth, Height = 1300, Left = -6000, Top = -3000, ShowActivated = false, ShowInTaskbar = false, WindowStyle = WindowStyle.None,
+                };
+                window.SetResourceReference(Window.BackgroundProperty, "BgBrush");
+                try
+                {
+                    window.Show();
+                    vm.PageShown = true;
+                    vm.LoadMap();
+                    vm.PickedId = id;
+                    window.UpdateLayout();
+                    problems.AddRange(CutOff(view).Select(p => "page: " + p));
+                    Ui.SavePng(view, Path.Combine(Shots, $"page-{language}-{windowWidth}.png"));
+                    vm.Edit(id);
+                    window.UpdateLayout();
+                    var ed = vm.Editor!;
+                    foreach (var tab in new[] { "look", "shape", "desktop" })
+                    {
+                        ed.PanelTab = tab;
+                        window.UpdateLayout();
+                        problems.AddRange(CutOff(view).Select(p => $"editor, {tab}: " + p));
+                        Ui.SavePng(view, Path.Combine(Shots, $"editor-{language}-{windowWidth}-{tab}.png"));
+                    }
+                    for (int i = 0; i < ed.TileBoxes.Count; i++)
+                    {
+                        ed.PickTileCommand.Execute(ed.TileBoxes[i]);
+                        window.UpdateLayout();
+                        problems.AddRange(CutOff(view).Select(p => $"editor, {ed.TileName}: " + p));
+                        if (windowWidth == 1140) Ui.SavePng(view, Path.Combine(Shots, $"editor-{language}-{windowWidth}-tile{i:00}.png"));
+                    }
+                    vm.CloseEditorCommand.Execute(null);
+                }
+                finally { window.Close(); }
+            });
+        }
+        finally
+        {
+            Ui.Run(() => host.Window.Width = 1440);
+            Drop(id);
+        }
+        File.WriteAllLines(Path.Combine(Shots, $"trimmed-{language}-{windowWidth}.txt"), Trimmed);
+        Trimmed.Clear();
+        Assert.True(problems.Count == 0, string.Join("\n", problems.Distinct()));
     }
 }

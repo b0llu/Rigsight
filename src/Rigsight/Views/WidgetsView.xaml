@@ -448,9 +448,9 @@
 
                                     <Grid DockPanel.Dock="Bottom" Margin="0,18,0,0">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="5*" MaxWidth="400" />
+                                            <ColumnDefinition Width="5*" MinWidth="90" MaxWidth="400" />
                                             <ColumnDefinition Width="28" />
-                                            <ColumnDefinition Width="6*" MinWidth="300" />
+                                            <ColumnDefinition Width="6*" MinWidth="270" />
                                         </Grid.ColumnDefinitions>
                                         <!-- Where it is: the screens, the picked widget lit and the others dimmed; dragged here, it moves on the desktop. -->
                                         <StackPanel>
