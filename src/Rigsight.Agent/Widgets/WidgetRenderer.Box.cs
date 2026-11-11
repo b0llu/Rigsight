@@ -1004,17 +1004,24 @@ internal static partial class WidgetRenderer
         {
             var line = new RectangleF(r.Left, y, right - r.Left, row);
             var b = new RectangleF(r.Left + 0.5f, y + MathF.Round((row - box) / 2) + 0.5f, box - 1, box - 1);
+            var (hover, press) = StateOf(HitTodo, i);
+            // Under the pointer the box lights up; pressed, it gives a little.
+            if (hover > 0.01f)
+                using (var halo = new SolidBrush(Color.FromArgb((int)(36 * hover), p.Light ? Color.Black : Color.White)))
+                using (var round = RoundRect(RectangleF.Inflate(b, 3, 3), 5.5f))
+                    g.FillPath(halo, round);
+            b = PressedIn(b, press);
             using (var path = RoundRect(b, 3.5f))
             {
                 if (items[i].Done)
                 {
-                    using var fill = new SolidBrush(accent);
+                    using var fill = new SolidBrush(Lifted(accent, hover, press, Brightness(accent) > 0.6f));
                     g.FillPath(fill, path);
                     IconIn(g, "\uE73E", box * 0.62f, OnAccent(accent), b);
                 }
                 else
                 {
-                    using var pen = new Pen(p.Muted, 1.5f);
+                    using var pen = new Pen(Lifted(p.Muted, Math.Min(1, hover * 1.5f), press, p.Light), 1.5f);
                     g.DrawPath(pen, path);
                 }
             }
@@ -1097,12 +1104,10 @@ internal static partial class WidgetRenderer
         {
             var reset = go;
             go.Offset(-(size + gap), 0);
-            using (var track = new SolidBrush(p.Track)) g.FillEllipse(track, reset);
-            IconIn(g, "\uE72C", size * 0.4f, p.Muted, reset);
+            RoundButton(g, reset, "\uE72C", p, accent, false, HitReset);
             AddHit(HitReset, 0, reset);
         }
-        using (var fill = new SolidBrush(accent)) g.FillEllipse(fill, go);
-        IconIn(g, running ? "\uE769" : "\uE768", size * 0.4f, OnAccent(accent), go);
+        RoundButton(g, go, running ? "\uE769" : "\uE768", p, accent, true, HitGo);
         AddHit(HitGo, 0, go);
     }
 

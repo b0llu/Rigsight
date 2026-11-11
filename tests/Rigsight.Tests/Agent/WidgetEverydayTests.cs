@@ -234,4 +234,57 @@ public class WidgetEverydayTests : IDisposable
             Assert.Equal(presets.Count, presets.Select(p => (p.W, p.H)).Distinct().Count());
         }
     }
+
+    // The buttons' hover and press, frame by frame (the user, 2026-11-11): each step of the ease draws differently, a
+    // hover lights the button, a press makes it a little smaller; strips for a person to look at in boxes\anim-*.png.
+    [Fact]
+    public void Buttons_light_up_under_the_pointer_and_give_when_pressed()
+    {
+        using var cover = new Bitmap(60, 60);
+        var data = new WidgetData { Media = new MediaNow("Night Drive", "Example Artist", true, cover, true, true, 1, "Spotify", TimeSpan.FromSeconds(84), TimeSpan.FromSeconds(222), WidgetRenderer.Now()) };
+        var cfg = Box(new WidgetTile { Kind = WidgetTiles.Media, W = 8, H = 3 });
+        var frames = new List<Bitmap>();
+        try
+        {
+            foreach (var (action, hover, press) in new (string, float, float)[]
+            {
+                (WidgetRenderer.HitPlay, 0, 0), (WidgetRenderer.HitPlay, 0.35f, 0), (WidgetRenderer.HitPlay, 0.7f, 0), (WidgetRenderer.HitPlay, 1, 0),
+                (WidgetRenderer.HitPlay, 1, 0.5f), (WidgetRenderer.HitPlay, 1, 1), (WidgetRenderer.HitNext, 1, 0), (WidgetRenderer.HitNext, 1, 1),
+            })
+            {
+                WidgetRenderer.Pointer = new WidgetRenderer.PointerOn(cfg.Id, 0, action, 0, hover, press);
+                frames.Add(WidgetRenderer.Render(cfg, data, 2, hover: false, out _));
+            }
+        }
+        finally { WidgetRenderer.Pointer = null; }
+        var play = WidgetRenderer.Hits!.Single(h => h.Action == WidgetRenderer.HitPlay).Rect;
+        var next = WidgetRenderer.Hits!.Single(h => h.Action == WidgetRenderer.HitNext).Rect;
+        long Diff(Bitmap a, Bitmap b, RectangleF r)
+        {
+            long sum = 0;
+            for (int y = (int)(r.Top * 2); y < (int)(r.Bottom * 2); y++)
+                for (int x = (int)(r.Left * 2); x < (int)(r.Right * 2); x++)
+                {
+                    Color p = a.GetPixel(x, y), q = b.GetPixel(x, y);
+                    sum += Math.Abs(p.R - q.R) + Math.Abs(p.G - q.G) + Math.Abs(p.B - q.B);
+                }
+            return sum;
+        }
+        // Each hover step draws differently, and more so the further it has gone.
+        long d1 = Diff(frames[0], frames[1], play), d2 = Diff(frames[0], frames[2], play), d3 = Diff(frames[0], frames[3], play);
+        Assert.True(d1 > 0 && d2 > d1 && d3 > d2, $"hover steps {d1} {d2} {d3}");
+        // Pressed: different again; and the next button lights only when it's the one under the pointer.
+        Assert.True(Diff(frames[3], frames[5], play) > 0);
+        Assert.True(Diff(frames[0], frames[6], next) > 0);
+        Assert.Equal(0, Diff(frames[0], frames[6], play));
+        // A strip of the frames, side by side.
+        var crop = Rectangle.Round(new RectangleF(play.Left * 2 - 90, play.Top * 2 - 10, play.Width * 2 + 180, play.Height * 2 + 20));
+        using var strip = new Bitmap(crop.Width * frames.Count, crop.Height);
+        using (var g = Graphics.FromImage(strip))
+            for (int i = 0; i < frames.Count; i++) g.DrawImage(frames[i], new Rectangle(i * crop.Width, 0, crop.Width, crop.Height), crop, GraphicsUnit.Pixel);
+        var dir = Path.Combine(Path.GetTempPath(), "rigsight-tests", "boxes");
+        Directory.CreateDirectory(dir);
+        strip.Save(Path.Combine(dir, "anim-media-buttons.png"), ImageFormat.Png);
+        foreach (var f in frames) f.Dispose();
+    }
 }

@@ -28,14 +28,42 @@ internal static partial class WidgetRenderer
 {
     internal const string HitPrevious = "previous", HitPlay = "play", HitNext = "next", HitOpen = "open";
 
-    /// <summary>A round button with an icon; filled with the accent for the main one.</summary>
-    private static void RoundButton(Graphics g, RectangleF b, string glyph, Palette p, Color accent, bool main)
+    /// <summary>
+    /// The clickable place under the pointer and how far its hover and press have gone (0 to 1), for the widget the
+    /// agent is drawing (the user, 2026-11-11: the buttons wanted a hover and a press). Set by the window before each
+    /// drawing of itself; the app never sets it.
+    /// </summary>
+    internal readonly record struct PointerOn(string WidgetId, int Tile, string Action, int Index, float Hover, float Press);
+
+    [ThreadStatic] internal static PointerOn? Pointer;
+
+    /// <summary>How far this tile's clickable place is hovered and pressed.</summary>
+    private static (float Hover, float Press) StateOf(string action, int index) =>
+        Pointer is { } ps && ps.WidgetId == _widgetId && ps.Tile == _tileIndex && ps.Action == action && ps.Index == index ? (ps.Hover, ps.Press) : (0, 0);
+
+    /// <summary>A button pressed in: a little smaller, round its middle.</summary>
+    private static RectangleF PressedIn(RectangleF b, float press) => RectangleF.Inflate(b, -b.Width * 0.05f * press, -b.Height * 0.05f * press);
+
+    /// <summary>A colour lifted under the pointer (towards white on dark, black on light) and dimmed a touch while pressed.</summary>
+    private static Color Lifted(Color c, float hover, float press, bool light)
     {
+        float up = (light ? 0.09f : 0.16f) * hover, down = 0.1f * press;
+        int To(int v, int target, float t) => (int)Math.Round(v + (target - v) * t);
+        int l = light ? 0 : 255;
+        var lifted = Color.FromArgb(c.A, To(c.R, l, up), To(c.G, l, up), To(c.B, l, up));
+        return Color.FromArgb(lifted.A, To(lifted.R, 0, down), To(lifted.G, 0, down), To(lifted.B, 0, down));
+    }
+
+    /// <summary>A round button with an icon, filled with the accent for the main one; lit under the pointer and pressed in when clicked.</summary>
+    private static void RoundButton(Graphics g, RectangleF b, string glyph, Palette p, Color accent, bool main, string? action = null, int index = 0)
+    {
+        var (hover, press) = action is null ? (0f, 0f) : StateOf(action, index);
+        var at = PressedIn(b, press);
         var smooth = g.SmoothingMode;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var fill = new SolidBrush(main ? accent : p.Track)) g.FillEllipse(fill, b);
+        using (var fill = new SolidBrush(Lifted(main ? accent : p.Track, hover, press, p.Light && !main || main && Brightness(accent) > 0.6f))) g.FillEllipse(fill, at);
         g.SmoothingMode = smooth;
-        IconIn(g, glyph, b.Width * 0.4f, main ? OnAccent(accent) : p.Muted, b);
+        IconIn(g, glyph, at.Width * 0.4f, main ? OnAccent(accent) : Lifted(p.Muted, hover, 0, p.Light), at);
     }
 
     /// <summary>A picture filling a box with rounded corners, cut to fit (nothing squashed).</summary>
@@ -102,15 +130,15 @@ internal static partial class WidgetRenderer
         if (previous)
         {
             var prev = new RectangleF(x, cy - size / 2, size, size);
-            RoundButtonOn(g, prev, "\uE892", p, accent, false, on);
+            RoundButtonOn(g, prev, "\uE892", p, accent, false, on, HitPrevious);
             AddHit(HitPrevious, 0, prev);
             x = prev.Right + gap;
         }
         var play = new RectangleF(x, cy - big / 2, big, big);
-        RoundButtonOn(g, play, m.Playing ? "\uE769" : "\uE768", p, accent, true, on);
+        RoundButtonOn(g, play, m.Playing ? "\uE769" : "\uE768", p, accent, true, on, HitPlay);
         AddHit(HitPlay, 0, play);
         var next = new RectangleF(play.Right + gap, cy - size / 2, size, size);
-        RoundButtonOn(g, next, "\uE893", p, accent, false, on);
+        RoundButtonOn(g, next, "\uE893", p, accent, false, on, HitNext);
         AddHit(HitNext, 0, next);
         return next.Right;
     }
@@ -119,18 +147,20 @@ internal static partial class WidgetRenderer
     private static float ControlsWidth(float size, bool previous) => MathF.Round(size * 1.18f) + size + MathF.Round(size * 0.22f) * (previous ? 2 : 1) + (previous ? size : 0);
 
     // Over a cover the side buttons are see-through white, not the panel's grey.
-    private static void RoundButtonOn(Graphics g, RectangleF b, string glyph, Palette p, Color accent, bool main, Color? on)
+    private static void RoundButtonOn(Graphics g, RectangleF b, string glyph, Palette p, Color accent, bool main, Color? on, string action)
     {
         if (on is not { } over || main)
         {
-            RoundButton(g, b, glyph, p, main && on is not null ? Color.White : accent, main);
+            RoundButton(g, b, glyph, p, main && on is not null ? Color.White : accent, main, action);
             return;
         }
+        var (hover, press) = StateOf(action, 0);
+        var at = PressedIn(b, press);
         var smooth = g.SmoothingMode;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var fill = new SolidBrush(Color.FromArgb(46, 255, 255, 255))) g.FillEllipse(fill, b);
+        using (var fill = new SolidBrush(Color.FromArgb((int)(46 + 40 * hover - 20 * press), 255, 255, 255))) g.FillEllipse(fill, at);
         g.SmoothingMode = smooth;
-        IconIn(g, glyph, b.Width * 0.4f, over, b);
+        IconIn(g, glyph, at.Width * 0.4f, over, at);
     }
 
     /// <summary>
@@ -202,7 +232,7 @@ internal static partial class WidgetRenderer
             // The title over a bar, and Pause.
             float bs = MathF.Round(Math.Clamp(artSize * 0.62f, 24, 30));
             var play = new RectangleF(r.Right - bs, rowCy - bs / 2, bs, bs);
-            RoundButton(g, play, m.Playing ? "\uE769" : "\uE768", p, accent, true);
+            RoundButton(g, play, m.Playing ? "\uE769" : "\uE768", p, accent, true, HitPlay);
             AddHit(HitPlay, 0, play);
             float sx = cover2.Right + 10, sw = play.X - 8 - sx;
             if (sw < 20) return;
@@ -457,9 +487,10 @@ internal static partial class WidgetRenderer
         for (int i = 0; i < n; i++)
         {
             var l = links[i];
-            var box = new RectangleF(left + i % cols * (s + gap), top + i / cols * (cellH + gap), s, s);
+            var (hover, press) = StateOf(HitOpen, i);
+            var box = PressedIn(new RectangleF(left + i % cols * (s + gap), top + i / cols * (cellH + gap), s, s), press);
             using (var path = RoundRect(box, s * 0.24f))
-            using (var fill = new SolidBrush(p.Track))
+            using (var fill = new SolidBrush(Lifted(p.Track, hover, press, p.Light)))
                 g.FillPath(fill, path);
             if (WidgetFiles.IconOf(l) is { } icon)
             {

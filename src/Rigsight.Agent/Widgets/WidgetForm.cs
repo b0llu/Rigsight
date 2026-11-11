@@ -67,6 +67,81 @@ internal sealed class WidgetForm : Form
 
     /// <summary>Where the window was last dragged to (its top left), while a drag is on.</summary>
     private Point? _droppedAt;
+
+    // The clickable place under the pointer and the one pressed, with how far each has eased in (0 to 1): a button
+    // lights up under the pointer and gives a little when pressed (the user, 2026-11-11). Eased over a few frames, then
+    // the timer stops: nothing animates while nothing changes.
+    private (int Tile, string Action, int Index)? _hot, _pressed;
+    private float _hotT, _pressT, _hotTo, _pressTo;
+    private long _animAt;
+    private System.Windows.Forms.Timer? _anim;
+
+    /// <summary>How long a hover takes to ease in or out, and a press.</summary>
+    internal const int HoverMs = 140, PressMs = 90;
+
+    private static (int, string, int)? KeyOf(WidgetRenderer.TileHit? h) => h is { } x ? (x.Tile, x.Action, x.Index) : null;
+
+    private void PointAt(WidgetRenderer.TileHit? hit)
+    {
+        var key = KeyOf(hit);
+        if (key == _hot && (key is null ? _hotTo == 0 : _hotTo == 1)) return;
+        if (key is null) _hotTo = 0;
+        else
+        {
+            if (key != _hot) { _hot = key; _hotT = 0; }
+            _hotTo = 1;
+        }
+        Animate();
+    }
+
+    private void Press(bool down)
+    {
+        if (down)
+        {
+            if (_hot is null) return;
+            _pressed = _hot;
+            _pressTo = 1;
+        }
+        else _pressTo = 0;
+        Animate();
+    }
+
+    private void Animate()
+    {
+        _animAt = Environment.TickCount64;
+        if (_anim is null)
+        {
+            _anim = new System.Windows.Forms.Timer { Interval = 15 };
+            _anim.Tick += (_, _) => AnimStep();
+        }
+        if (!_anim.Enabled) _anim.Start();
+        AnimStep();
+    }
+
+    private void AnimStep()
+    {
+        long now = Environment.TickCount64;
+        float dt = Math.Max(1, now - _animAt);
+        _animAt = now;
+        static float Toward(float v, float to, float step) => v < to ? Math.Min(to, v + step) : Math.Max(to, v - step);
+        _hotT = Toward(_hotT, _hotTo, dt / HoverMs);
+        _pressT = Toward(_pressT, _pressTo, dt / PressMs);
+        if (_hotT == 0 && _hotTo == 0) _hot = null;
+        if (_pressT == 0 && _pressTo == 0) _pressed = null;
+        bool done = _hotT == _hotTo && _pressT == _pressTo;
+        if (done) _anim?.Stop();
+        Redraw();
+    }
+
+    /// <summary>The pointer's state for this widget's drawing: eased, so a hover fades in and out and a press gives and returns.</summary>
+    private WidgetRenderer.PointerOn? PointerState()
+    {
+        static float Ease(float t) => 1 - (1 - t) * (1 - t) * (1 - t);
+        var on = _pressed ?? _hot;
+        if (on is not { } k) return null;
+        float hover = _hot == k ? Ease(_hotT) : 0, press = _pressed == k ? Ease(_pressT) : 0;
+        return new WidgetRenderer.PointerOn(Config.Id, k.Tile, k.Action, k.Index, hover, press);
+    }
     private RectangleF _closeRect;
 
     public WidgetForm(WidgetConfig config, WidgetManager manager)
@@ -86,6 +161,8 @@ internal sealed class WidgetForm : Form
             {
                 _hover = false;
                 _hoverTimer.Stop();
+                PointAt(null);
+                Press(false);
                 Redraw();
             }
         };
@@ -260,7 +337,9 @@ internal sealed class WidgetForm : Form
         var before = _drawnOnce ? PanelBounds : Rectangle.Empty;
         _drawnOnce = true;
         Room = RoomFor(DeviceDpi);
+        WidgetRenderer.Pointer = Config.Locked ? null : PointerState();
         using var panel = WidgetRenderer.Render(Config, _data, scale, hover: false, out _);
+        WidgetRenderer.Pointer = null;
         // Where its tiles can be clicked (a to-do's box, a timer's Start), in the widget's own pixels.
         _hits = WidgetRenderer.Hits?.ToList() ?? [];
         _scrollAreas = WidgetRenderer.ScrollAreas?.ToList() ?? [];
@@ -414,6 +493,7 @@ internal sealed class WidgetForm : Form
                 // A press on a clickable place (a note's text, a to-do, Start): a click if it ends there, a drag of the
                 // whole widget once it moves (the user, 2026-11-11: a note couldn't be dragged by its text).
                 _press = HitAt(PointToClient(Cursor.Position)) is not null ? Cursor.Position : null;
+                if (_press is not null) Press(true);
                 break;
 
             case WM_MOUSEMOVE:
@@ -424,9 +504,12 @@ internal sealed class WidgetForm : Form
                     Redraw();
                 }
                 _hoverTimer.Start();
+                PointAt(m.Msg == WM_MOUSEMOVE && !Config.Locked ? HitAt(PointToClient(Cursor.Position)) : null);
                 if (m.Msg == WM_MOUSEMOVE && _press is { } from && (MouseButtons & MouseButtons.Left) != 0 && Moved(from, Cursor.Position))
                 {
                     _press = null;
+                    Press(false);
+                    PointAt(null);
                     // Handed to Windows' own move, as a press on the widget anywhere else is (snapping and all).
                     ReleaseCapture();
                     SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, IntPtr.Zero);
@@ -443,6 +526,7 @@ internal sealed class WidgetForm : Form
                 }
                 bool clicked = _press is not null;
                 _press = null;
+                Press(false);
                 if (clicked && HitAt(up) is { } hit)
                 {
                     _manager.TileClicked(this, hit);
@@ -512,6 +596,7 @@ internal sealed class WidgetForm : Form
         {
             _hoverTimer.Dispose();
             _fadeTimer?.Dispose();
+            _anim?.Dispose();
         }
         base.Dispose(disposing);
     }
