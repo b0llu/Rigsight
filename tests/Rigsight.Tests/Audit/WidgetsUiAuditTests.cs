@@ -820,4 +820,95 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
         }
         finally { Drop([.. added]); }
     }
+    // The page and the editor in every theme: every remove is drawn red (its outline and words the theme's red) and the
+    // picked tile's settings read; pictures of a few to be looked at.
+    [Fact]
+    public void Removes_are_red_in_every_theme()
+    {
+        host.Show("widgets");
+        var vm = Ui.Run(() => host.Shell.Widgets);
+        var cfg = EveryTile("Themes");
+        string id = AddWidget(cfg);
+        var problems = new List<string>();
+        try
+        {
+            foreach (var theme in ThemeCatalog.All)
+            {
+                Ui.Run(() => { Rigsight.Services.ThemeManager.Apply(theme.Key); vm.PickedId = id; });
+                Ui.Pump(150);
+                Ui.Run(() =>
+                {
+                    var hot = ((System.Windows.Media.SolidColorBrush)Application.Current.Resources["HotBrush"]).Color;
+                    foreach (var b in Visuals.Descendants<Button>(host.Window).Where(b => b.IsVisible && b.Style is { } st && (st == (Style)Application.Current.FindResource("DangerButton") || st == (Style)Application.Current.FindResource("DangerIconButton"))))
+                        if (b.BorderBrush is not System.Windows.Media.SolidColorBrush { Color: var c } || c != hot) problems.Add($"{theme.Key}: {AutomationProperties_Name(b)} isn't outlined red");
+                    if (theme.Key is "light" or "contrast" or "neon" or "paper") Ui.SavePng(host.Window, Path.Combine(Shots, $"theme-{theme.Key}-page.png"));
+                });
+                if (theme.Key is "light" or "contrast" or "neon" or "paper")
+                {
+                    Ui.Run(() => vm.Edit(id));
+                    Ui.Pump(300);
+                    Ui.Run(() =>
+                    {
+                        var ed = vm.Editor!;
+                        ed.SelectTile(ed.TileBoxes.First(b => b.Glyph == WidgetEditorViewModel.GlyphOf(WidgetTiles.Todo)).Index);
+                    });
+                    Ui.Pump(200);
+                    Ui.Run(() =>
+                    {
+                        Visuals.Descendants<ScrollViewer>(host.Window).First(v => v.Name == "EditorScroll").ScrollToEnd();
+                    });
+                    Ui.Pump(200);
+                    Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, $"theme-{theme.Key}-editor.png")));
+                    Ui.Run(() => vm.CloseEditorCommand.Execute(null));
+                    Ui.Pump(150);
+                }
+            }
+        }
+        finally
+        {
+            Ui.Run(() => Rigsight.Services.ThemeManager.Apply(Rigsight.Services.ThemeManager.Dark));
+            Drop(id);
+        }
+        Assert.True(problems.Count == 0, string.Join("\n", problems.Distinct()));
+    }
+    // The map with a second screen to the left of the main one and higher up (negative coordinates), at another scale:
+    // a widget there is drawn where it is, and dragged, it lands where it was dropped, in that screen's pixels.
+    [Fact]
+    public void The_map_with_a_screen_left_of_and_above_the_main_one()
+    {
+        _ = host;
+        var (moved, centre, after) = Ui.Run(() =>
+        {
+            var map = new WidgetScreens
+            {
+                MapHeight = 120, Snap = false, Width = 400,
+                Screens = [new(@"\\.\DISPLAY1", 0, 0, 2560, 1440, 1, true, false), new(@"\\.\DISPLAY2", -1920, -300, 1920, 1080, 1.5, false, false)],
+                Spots = [new WidgetSpot("w", "Clock", -1500, -100, 300, 120, null)],
+            };
+            var window = new Window { Content = map, SizeToContent = SizeToContent.WidthAndHeight, Left = -6000, Top = -3000, ShowActivated = false, ShowInTaskbar = false, WindowStyle = WindowStyle.None };
+            window.SetResourceReference(Window.BackgroundProperty, "BgBrush");
+            (string Id, int X, int Y)? got = null;
+            map.Moved += (id, x, y) => got = (id, x, y);
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var c = map.CentreOf("w")!.Value;
+                Ui.SavePng(map, Path.Combine(Shots, "map-negative.png"));
+                // The map's scale: 4480 pixels across 392 (its width less 8).
+                double scale = Math.Min(392.0 / 4480, 120.0 / 1740);
+                Assert.True(map.PickUp(c));
+                map.DragTo(new Point(c.X + 100 * scale, c.Y + 50 * scale));
+                map.Drop();
+                return (got, c, scale);
+            }
+            finally { window.Close(); }
+        });
+        Assert.NotNull(moved);
+        Assert.Equal("w", moved!.Value.Id);
+        Assert.InRange(moved.Value.X, -1402, -1398);
+        Assert.InRange(moved.Value.Y, -52, -48);
+        // Its middle on the map is where it is: 420 pixels right of the map's left (-1920) and 200 down from its top (-300).
+        Assert.InRange(centre.X, (4 + (-1500 + 150 + 1920) * after) - 1, (4 + (-1500 + 150 + 1920) * after) + 1 + (400 - 8 - 4480 * after) / 2);
+    }
 }
