@@ -106,10 +106,18 @@ public static class WeatherFeed
     /// MET Norway's compact forecast: the first hour's temperature and symbol, the high and low of the rest of today, the
     /// next five hours two hours apart, and the next three days (their range, and their sky around midday).
     /// </summary>
+    /// <remarks>An answer in another shape (an error page, a changed format) is no weather, never an exception.</remarks>
     public static WeatherNow? Parse(string json, DateTime now)
     {
+        try { return ParseForecast(json, now); }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException) { return null; }
+    }
+
+    private static WeatherNow? ParseForecast(string json, DateTime now)
+    {
         using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("properties", out var props) || !props.TryGetProperty("timeseries", out var series) || series.GetArrayLength() == 0) return null;
+        if (doc.RootElement.ValueKind != JsonValueKind.Object || !doc.RootElement.TryGetProperty("properties", out var props) || props.ValueKind != JsonValueKind.Object
+            || !props.TryGetProperty("timeseries", out var series) || series.ValueKind != JsonValueKind.Array || series.GetArrayLength() == 0) return null;
         double? temp = null, high = null, low = null;
         string symbol = "";
         var hours = new List<WeatherHour>();
@@ -117,17 +125,19 @@ public static class WeatherFeed
         static string SymbolOf(JsonElement data)
         {
             foreach (var next in new[] { "next_1_hours", "next_6_hours", "next_12_hours" })
-                if (data.TryGetProperty(next, out var n) && n.TryGetProperty("summary", out var s) && s.TryGetProperty("symbol_code", out var code))
+                if (data.TryGetProperty(next, out var n) && n.ValueKind == JsonValueKind.Object && n.TryGetProperty("summary", out var s) && s.ValueKind == JsonValueKind.Object
+                    && s.TryGetProperty("symbol_code", out var code) && code.ValueKind == JsonValueKind.String)
                     return code.GetString() ?? "";
             return "";
         }
         foreach (var step in series.EnumerateArray())
         {
-            if (!step.TryGetProperty("time", out var timeEl) || !DateTime.TryParse(timeEl.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var utc)) continue;
+            if (step.ValueKind != JsonValueKind.Object || !step.TryGetProperty("time", out var timeEl) || timeEl.ValueKind != JsonValueKind.String
+                || !DateTime.TryParse(timeEl.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var utc)) continue;
             var local = utc.ToLocalTime();
-            if (!step.TryGetProperty("data", out var data) || !data.TryGetProperty("instant", out var instant) || !instant.TryGetProperty("details", out var details)
-                || !details.TryGetProperty("air_temperature", out var tEl)) continue;
-            double t = tEl.GetDouble();
+            if (!step.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("instant", out var instant)
+                || instant.ValueKind != JsonValueKind.Object || !instant.TryGetProperty("details", out var details) || details.ValueKind != JsonValueKind.Object
+                || !details.TryGetProperty("air_temperature", out var tEl) || tEl.ValueKind != JsonValueKind.Number || !tEl.TryGetDouble(out double t)) continue;
             string sym = SymbolOf(data);
             if (temp is null)
             {
@@ -176,17 +186,31 @@ public static class WeatherFeed
     }
 
     /// <summary>Nominatim's answer as places: the place's own name, and the rest of its address (its region and country) under it.</summary>
+    /// <remarks>An answer in another shape (Nominatim's error object, an error page) finds nothing, never an exception.</remarks>
     public static IReadOnlyList<WeatherPlace> ParsePlaces(string json)
+    {
+        try { return ReadPlaces(json); }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException) { return []; }
+    }
+
+    private static IReadOnlyList<WeatherPlace> ReadPlaces(string json)
     {
         using var doc = JsonDocument.Parse(json);
         var list = new List<WeatherPlace>();
+        if (doc.RootElement.ValueKind != JsonValueKind.Array) return list;
+        static string? Str(JsonElement p, string name) => p.TryGetProperty(name, out var e) && e.ValueKind == JsonValueKind.String ? e.GetString() : null;
+        static bool Num(JsonElement p, string name, out double v)
+        {
+            v = 0;
+            if (!p.TryGetProperty(name, out var e)) return false;
+            if (e.ValueKind == JsonValueKind.Number) return e.TryGetDouble(out v);
+            return e.ValueKind == JsonValueKind.String && double.TryParse(e.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out v);
+        }
         foreach (var p in doc.RootElement.EnumerateArray())
         {
-            if (!p.TryGetProperty("lat", out var latEl) || !p.TryGetProperty("lon", out var lonEl)) continue;
-            if (!double.TryParse(latEl.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double lat)
-                || !double.TryParse(lonEl.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double lon)) continue;
-            string full = p.TryGetProperty("display_name", out var d) ? d.GetString() ?? "" : "";
-            string own = p.TryGetProperty("name", out var n) && n.GetString() is { Length: > 0 } nm ? nm : full.Split(',')[0].Trim();
+            if (p.ValueKind != JsonValueKind.Object || !Num(p, "lat", out double lat) || !Num(p, "lon", out double lon)) continue;
+            string full = Str(p, "display_name") ?? "";
+            string own = Str(p, "name") is { Length: > 0 } nm ? nm : full.Split(',')[0].Trim();
             var parts = full.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0 && s != own && !s.Any(char.IsDigit)).ToList();
             string detail = parts.Count switch { 0 => "", 1 => parts[0], _ => $"{parts[^2]}, {parts[^1]}" };
             if (own.Length > 0 && list.All(x => x.Name != own || x.Detail != detail)) list.Add(new WeatherPlace(own, detail, lat, lon));
