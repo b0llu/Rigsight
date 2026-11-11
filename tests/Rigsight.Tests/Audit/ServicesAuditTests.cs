@@ -169,6 +169,74 @@ public class ServicesAuditTests : IDisposable
         Assert.DoesNotContain(Path.GetFileName(folder), log);
     }
 
+    // ── Shortcuts opened by the agent, which may run as administrator ────────────────────────────────────────
+    // settings.json is in the person's own folder, writable without admin rights; a shortcut in it is opened by the
+    // agent. Before: a "web address" went to explorer.exe raw inside quotes, so a quote in it ended the argument; a
+    // relative path was found from the agent's working folder; any http(s)-looking text skipped every check.
+
+    private static readonly Func<string, bool> Everything = _ => true, Nothing = _ => false;
+
+    private static System.Diagnostics.ProcessStartInfo? Start(string path, bool admin = true, bool shell = true, Func<string, bool>? file = null, Func<string, bool>? folder = null) =>
+        Rigsight.Agent.Widgets.WidgetManager.LinkStart(new TileLink { Path = path }, admin, shell, file ?? Nothing, folder ?? Nothing);
+
+    [Fact]
+    public void A_web_address_reaches_explorer_escaped_never_breaking_out_of_its_quotes()
+    {
+        var s = Start("https://example.com/a b\"c?x=1&y=2,3")!;
+        Assert.Equal(Rigsight.Core.RigsightPaths.Explorer, s.FileName);
+        Assert.False(s.UseShellExecute);
+        Assert.Equal("\"https://example.com/a%20b%22c?x=1&y=2,3\"", s.Arguments);
+        // A crafted one: whatever happens to it, it is one quoted argument, nothing after it.
+        foreach (string crafted in new[] { "http://x\" /root,C:\\Windows\\System32\\cmd.exe", "https://a.com/\" C:\\evil.exe \"", "http://a.com/%22%20/select,C:\\x" })
+            if (Start(crafted) is { } c) Assert.Equal(2, c.Arguments.Count(ch => ch == '"'));
+    }
+
+    [Theory]
+    [InlineData("cmd.exe")] // found from the agent's working folder (System32 when Windows starts it)
+    [InlineData(@"..\x.exe")]
+    [InlineData(@"\\?\C:\Windows\notepad.exe")]
+    [InlineData(@"\\.\PhysicalDrive0")]
+    [InlineData("file:///C:/Windows/System32/cmd.exe")]
+    [InlineData("ms-settings:privacy")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("C:\\a\"b.exe")]
+    [InlineData("")]
+    public void Only_web_addresses_and_full_paths_that_are_there_are_opened(string path)
+    {
+        Assert.Null(Start(path, file: Everything, folder: Everything));
+        Assert.Null(Start(path, admin: false, file: Everything, folder: Everything));
+    }
+
+    [Fact]
+    public void A_file_or_folder_that_isnt_there_isnt_opened()
+    {
+        Assert.Null(Start(@"C:\Gone\app.exe"));
+        Assert.NotNull(Start(@"C:\Here\app.exe", file: Everything));
+        Assert.NotNull(Start(@"\\nas\Photos", folder: Everything));
+    }
+
+    [Fact]
+    public void As_administrator_a_shortcut_goes_through_the_desktops_explorer_and_never_without_one()
+    {
+        var s = Start(@"C:\Program Files\App\app.exe", file: Everything)!;
+        Assert.Equal("\"C:\\Program Files\\App\\app.exe\"", s.Arguments);
+        // A drive's root isn't quoted: "D:\" would read as an escaped quote.
+        Assert.Equal(@"D:\", Start(@"D:\", folder: Everything)!.Arguments);
+        // No desktop Explorer running (it crashed, another shell): explorer.exe started now would itself run as
+        // administrator, with whatever it opens; nothing is opened.
+        Assert.Null(Start(@"C:\Program Files\App\app.exe", shell: false, file: Everything));
+        Assert.Null(Start("https://rigsight.app", shell: false));
+    }
+
+    [Fact]
+    public void With_normal_rights_a_shortcut_is_opened_by_Windows_directly()
+    {
+        var s = Start("https://rigsight.app/a b", admin: false, shell: false)!;
+        Assert.True(s.UseShellExecute);
+        Assert.Equal("https://rigsight.app/a%20b", s.FileName);
+        Assert.Equal(@"C:\Users\x\Notes.txt", Start(@"C:\Users\x\Notes.txt", admin: false, file: Everything)!.FileName);
+    }
+
     // ── Nominatim's policy: one search a second at most, and the same search not sent twice ─────────────────
 
     [Fact]

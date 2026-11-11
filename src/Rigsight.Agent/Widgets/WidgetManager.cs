@@ -289,26 +289,64 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
 
     /// <summary>
     /// Opens a shortcut's app, file, folder or web address with normal rights: through Explorer when the agent runs
-    /// as administrator, so nothing opened from a widget gets the agent's rights.
+    /// as administrator, so nothing opened from a widget gets the agent's rights (see <see cref="LinkStart"/>).
     /// </summary>
     private static void OpenLink(TileLink link)
     {
         string kind = link.IsWeb ? "a web address" : Directory.Exists(link.Path) ? "a folder" : $"a {Path.GetExtension(link.Path)} file";
         try
         {
-            if (!link.IsWeb && !File.Exists(link.Path) && !Directory.Exists(link.Path))
+            bool admin = Environment.IsPrivilegedProcess, shell = Native.Win32.GetShellWindow() != IntPtr.Zero;
+            if (LinkStart(link, admin, shell, File.Exists, Directory.Exists) is not { } start)
             {
-                Log.Write("widgets", $"A shortcut to {kind} wasn't opened: it isn't there any more");
+                Log.Write("widgets", admin && !shell
+                    ? $"A shortcut to {kind} wasn't opened: Windows' desktop (Explorer) isn't running, and without it it would open with admin rights"
+                    : $"A shortcut to {kind} wasn't opened: it isn't a web address, or a full path to a file or folder that's there");
                 return;
             }
-            if (Environment.IsPrivilegedProcess) System.Diagnostics.Process.Start(RigsightPaths.Explorer, $"\"{link.Path}\"");
-            else System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(link.Path) { UseShellExecute = true });
+            System.Diagnostics.Process.Start(start)?.Dispose();
             Log.Write("widgets", $"A shortcut opened {kind}");
         }
         catch (Exception ex)
         {
             Log.Write("widgets", $"A shortcut to {kind} couldn't be opened: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// How a shortcut is started, or null when it may not be. The settings file is the person's own, writable without
+    /// admin rights, and the agent may run as administrator, so what's in it is never handed to a shell as it is:
+    /// <list type="bullet">
+    /// <item>a web address must read as an http or https address, and goes on escaped (no quote or space left in it);</item>
+    /// <item>anything else must be a full path (not relative to the agent's working folder, not a \\?\ or \\.\ device
+    /// path) to a file or folder that's there;</item>
+    /// <item>as administrator it goes to explorer.exe, which hands it to the desktop's own Explorer, running with normal
+    /// rights; with no desktop Explorer running, explorer.exe would become it, as administrator, so nothing opens.</item>
+    /// </list>
+    /// </summary>
+    internal static System.Diagnostics.ProcessStartInfo? LinkStart(TileLink link, bool admin, bool shellRunning, Func<string, bool> fileExists, Func<string, bool> folderExists)
+    {
+        string target;
+        if (link.IsWeb)
+        {
+            if (!Uri.TryCreate(link.Path.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https") || uri.Host.Length == 0) return null;
+            target = uri.AbsoluteUri;
+            if (target.IndexOfAny(['"', ' ']) >= 0) return null; // AbsoluteUri escapes both; never trusted blindly
+        }
+        else
+        {
+            string path = link.Path;
+            if (path.Length == 0 || path.IndexOfAny(['"', '\0']) >= 0 || !Path.IsPathFullyQualified(path)
+                || path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.StartsWith(@"\\.\", StringComparison.Ordinal)) return null;
+            if (!fileExists(path) && !folderExists(path)) return null;
+            target = Path.TrimEndingDirectorySeparator(path);
+        }
+        if (!admin) return new System.Diagnostics.ProcessStartInfo(target) { UseShellExecute = true };
+        if (!shellRunning) return null;
+        // In quotes, as one argument. A path still ending in \ is a root ("D:\", "\\nas\share\"): quoted it would end
+        // in \", so it goes without quotes, or without its last \ when it has a space.
+        string argument = !target.EndsWith('\\') ? $"\"{target}\"" : target.Contains(' ') ? $"\"{target.TrimEnd('\\')}\"" : target;
+        return new System.Diagnostics.ProcessStartInfo(RigsightPaths.Explorer, argument) { UseShellExecute = false };
     }
 
     /// <summary>
