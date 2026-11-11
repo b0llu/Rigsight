@@ -46,6 +46,38 @@ public sealed class AiCountsAgreeTests
         Regex.Match(crashes, $@"^{kind}: (\d+) in all", RegexOptions.Multiline) is { Success: true } m ? int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) : 0;
 
     [Fact]
+    public void Rewinds_crash_totals_say_which_kinds_they_join_and_add_up_from_get_crashes()
+    {
+        // Real PC, 26 Oct 2026: the year's Rewind said "App crashes 79, sudden shut-offs 55" and get_crashes 72 app crashes
+        // and 58 sudden shut-offs, told as two counts of one thing. Two weeks of history up to mid-June, with a freeze, a
+        // shutdown that didn't finish and a blue screen besides.
+        string db = Path.Combine(TestEnvironment.NewFolder("ai-rewind-crashes"), "rigsight.db");
+        SeedData.Generate(db, SeedProfile.Small, new DateTime(2026, 6, 15, 22, 0, 0));
+        var day = new DateTime(2026, 6, 10, 21, 0, 0);
+        using (var w = RigsightDb.OpenWriter(db))
+            w.InsertCrashes([
+                new CrashEvent { Ts = U(day), Kind = CrashKind.AppHang, AppExe = "dota2.exe" },
+                new CrashEvent { Ts = U(day.AddMinutes(20)), Kind = CrashKind.UnexpectedShutdown, Moment = PowerMoment.ShuttingDown },
+                new CrashEvent { Ts = U(day.AddMinutes(40)), Kind = CrashKind.SystemCrash, Code = "0x133" },
+            ]);
+        int unfinished;
+        using (var r = RigsightDb.OpenReader(db)!)
+            unfinished = r.GetCrashes(U(new DateTime(2026, 1, 1)), U(DateTime.Today.AddDays(1))).Count(c => c is { Kind: CrashKind.UnexpectedShutdown, Moment: PowerMoment.ShuttingDown });
+
+        var tools = Tools(db);
+        string rewind = tools.Run("get_rewind", """{"period":"year","when":"2026"}""");
+        string crashes = tools.Run("get_crashes", Range(new DateTime(2026, 1, 1), DateTime.Today));
+
+        Assert.True(unfinished > 0 && InAll(crashes, "App freezes") > 0 && InAll(crashes, "Blue screens") > 0, crashes);
+        Assert.Contains($"App crashes and freezes together: {InAll(crashes, "App crashes") + InAll(crashes, "App freezes")}.", rewind);
+        Assert.Contains($"Blue screens and sudden shut-offs together: {InAll(crashes, "Blue screens") + InAll(crashes, "Sudden shut-offs") - unfinished} (", rewind);
+        Assert.Contains("get_crashes counts each kind apart", rewind);
+        Assert.DoesNotContain("  App crashes:", rewind);
+        // The year began long before these two weeks of records: said, with the crashes' own source.
+        Assert.Contains("RECORDS: RigSight's own records (time on, apps, games, temperatures, internet) begin", rewind);
+    }
+
+    [Fact]
     public void Crashes_from_before_recording_began_say_whose_records_begin_when()
     {
         // Real PC, 26 Oct 2026: "the history starts on 23 Sep" beside crashes back to 26 Jun, both right (Windows' logs

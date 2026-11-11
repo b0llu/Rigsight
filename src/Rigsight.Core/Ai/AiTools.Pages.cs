@@ -341,8 +341,12 @@ public sealed partial class AiTools
         }
         if (f.Internet && On(Switch.Network) && f.Down + f.Up > 0)
             sb.AppendLine($"  Internet: {Units.Data(f.Down)} down, {Units.Data(f.Up)} up" + (On(Switch.Apps) && f.TopInternet.Count > 0 ? "; most: " + string.Join(", ", f.TopInternet.Take(3).Select(a => $"{a.Name} {Units.Data((long)a.Value)}")) : "") + ".");
+        // Counted as the Crashes page's tiles count them, and named for it: "App crashes 79, sudden shut-offs 55" here and
+        // get_crashes' 72 app crashes and 58 sudden shut-offs were told as two counts of one thing (real PC, 26 Oct 2026).
+        // The first has the freezes in; the second the blue screens, without the shutdowns that didn't finish.
         if (f.Problems && On(Switch.Crashes))
-            sb.AppendLine($"  App crashes: {f.AppCrashes}. Sudden shut-offs: {f.ShutOffs}.");
+            sb.AppendLine($"  App crashes and freezes together: {f.AppCrashes}. Blue screens and sudden shut-offs together: {f.ShutOffs} (shutdowns that didn't finish left out, as the Crashes page's tiles count them). "
+                + "get_crashes counts each kind apart, with the shutdowns that didn't finish in its sudden shut-offs: for one kind use its numbers, and never set these two against them.");
         return sb.ToString() + LeftOut(Switch.Usage, Switch.Apps, Switch.Heat, Switch.Changes, Switch.Network, Switch.Crashes);
     }
 
