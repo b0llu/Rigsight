@@ -85,7 +85,7 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     public string MemShareText => MemShare < 0.1 ? Lang.T("Under 0.1% of your memory") : Lang.T($"{MemShare:0.#}% of your memory");
     public string MemText => Units.Megabytes(MemMB);
     public string CpuText => FormatCpu(Cpu);
-    public static string FormatCpu(double cpu) => cpu < 0.05 ? "0%" : cpu < 10 ? $"{cpu:0.0}%" : $"{cpu:0}%";
+    public static string FormatCpu(double cpu) => Units.AppCpu(cpu);
     public string CountText => Count > 1 ? Lang.T($"{Count} processes") : Lang.T("1 process");
     /// <summary>The heading over its processes when opened ("21 PROCESSES").</summary>
     public string CountCaption => CountText.ToUpperInvariant();

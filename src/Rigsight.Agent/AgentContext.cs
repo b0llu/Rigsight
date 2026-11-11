@@ -497,7 +497,9 @@ internal sealed partial class AgentContext : ApplicationContext
                     long unixMs = TimeUtil.NowUnixMs();
                     _history.Add(unixMs, _sensors);
                     _tracker.OnSensors(SystemState.With(keys));
-                    _tracker.OnFans(_sensors.ReadFans());
+                    var fansRead = _sensors.ReadFans();
+                    _tracker.OnFans(fansRead);
+                    if (fansRead.Count > 0) NoteFans(fansRead);
                     _closeUps.Tick();
                     var values = _sensors.ReadAll();
                     ObserveExtremes(values);
@@ -1337,6 +1339,8 @@ internal sealed partial class AgentContext : ApplicationContext
             Sensors = OverlaySensors(settings),
             Readings = WidgetSensors(settings),
             Histories = WidgetHistories(historyOf),
+            Pc = PcNowFor(settings),
+            Facts = _facts,
         };
         _lastToday = data.Today;
 

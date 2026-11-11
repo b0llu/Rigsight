@@ -143,6 +143,9 @@ public sealed class WidgetTile
     /// <summary>How often a photos tile moves on to the next picture, in seconds (<see cref="WidgetTiles.PhotoSteps"/>).</summary>
     public int Every { get; set; } = 60;
 
+    /// <summary>How many apps a Top CPU users tile lists at most (<see cref="WidgetTiles.RowChoices"/>); null: three.</summary>
+    public int? Rows { get; set; }
+
     public WidgetTile Copy() => new()
     {
         Kind = Kind, X = X, Y = Y, W = W, H = H, Align = Align, Item = Item, Label = Label, Look = Look,
@@ -151,7 +154,7 @@ public sealed class WidgetTile
         Todos = Todos?.Select(t => new TodoItem { Text = t.Text, Done = t.Done }).ToList(),
         TimerKind = TimerKind, Minutes = Minutes, RunningSince = RunningSince, RunMs = RunMs, Until = Until,
         Place = Place, Lat = Lat, Lon = Lon, Links = Links?.Select(l => new TileLink { Path = l.Path, Name = l.Name }).ToList(),
-        Folder = Folder, Every = Every,
+        Folder = Folder, Every = Every, Rows = Rows,
     };
 }
 

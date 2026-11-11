@@ -28,8 +28,17 @@ public static class WidgetTiles
         Graph = "graph", Fps = "fps", Today = "today", NowPlaying = "nowplaying", Notes = "notes", Todo = "todo", Timer = "timer",
         Media = "media", Weather = "weather", Shortcuts = "shortcuts", Photos = "photos";
 
+    // The PC's own tiles (approved mock-up, "PC tiles", 2026-11-11): what the PC is doing now, its internet, and its day
+    // from RigSight's records, each read the way its page reads it.
+    public const string CpuGauge = "cpugauge", GpuGauge = "gpugauge", Fans = "fans", Drives = "drives", Cores = "cores",
+        TopCpu = "topcpu", TopMemory = "topmem",
+        NetSpeed = "netspeed", NetNow = "netnow", NetToday = "nettoday", NetApps = "netapps", NetHours = "nethours", NetDrops = "netdrops",
+        TodaySoFar = "todayso", MostUsed = "mostused", StandOut = "standout", Peaks = "peaks", Yesterday = "yesterday",
+        Crashes = "crashes", Health = "health", Changed = "changed", Week = "week", LastGame = "lastgame";
+
     public static string GroupEveryday => Lang.Key("Everyday");
     public static string GroupLive => Lang.Key("Live");
+    public static string GroupInternet => Lang.Key("Internet");
     public static string GroupYourDay => Lang.Key("Your day");
 
     /// <summary>Every kind, in the order the editor lists them (by group).</summary>
@@ -47,11 +56,39 @@ public static class WidgetTiles
         new(Photos, Lang.Key("Photos"), Lang.Key("Pictures from a folder, one after another."), Lang.Key("Everyday"), 6, 4, 3, 2),
         new(Reading, Lang.Key("Any reading"), Lang.Key("One reading or sensor, as a number, a ring, a level or a graph."), Lang.Key("Live"), 3, 2, 2, 1),
         new(Line, Lang.Key("Line of readings"), Lang.Key("Readings in one slim line, made for the top of the screen."), Lang.Key("Live"), 7, 1, 3, 1),
+        new(CpuGauge, Lang.Key("CPU temperature"), Lang.Key("A big gauge, colored by how hot it is."), Lang.Key("Live"), 3, 4, 3, 3, TileAlign.Center),
+        new(GpuGauge, Lang.Key("GPU temperature"), Lang.Key("A big gauge, colored by how hot it is."), Lang.Key("Live"), 3, 4, 3, 3, TileAlign.Center),
         new(Graph, Lang.Key("Temperature graph"), Lang.Key("CPU and GPU temperatures over the last five minutes."), Lang.Key("Live"), 8, 4, 6, 3),
+        new(Fans, Lang.Key("Fans"), Lang.Key("Every spinning fan and its speed."), Lang.Key("Live"), 6, 3, 5, 2),
+        new(Drives, Lang.Key("Drives"), Lang.Key("How full each drive is, and its temperature."), Lang.Key("Live"), 6, 4, 5, 2),
+        new(Cores, Lang.Key("CPU cores"), Lang.Key("The load on each core of the CPU."), Lang.Key("Live"), 6, 3, 5, 2),
+        new(TopCpu, Lang.Key("Top CPU users"), Lang.Key("The apps using the most CPU right now."), Lang.Key("Live"), 6, 3, 5, 2),
+        new(TopMemory, Lang.Key("Top memory users"), Lang.Key("The apps using the most memory right now."), Lang.Key("Live"), 6, 3, 5, 2),
         new(Fps, Lang.Key("FPS"), Lang.Key("Your game's frame rate, frame time and 1% low. Needs RivaTuner."), Lang.Key("Live"), 5, 3, 3, 2),
+        new(NetSpeed, Lang.Key("Internet speed"), Lang.Key("Download and upload right now, over the last minute."), Lang.Key("Internet"), 6, 4, 5, 2),
+        new(NetNow, Lang.Key("Using the internet now"), Lang.Key("The apps using the internet most right now."), Lang.Key("Internet"), 6, 3, 5, 2),
+        new(NetToday, Lang.Key("Internet today"), Lang.Key("Today's total, download, upload and background use."), Lang.Key("Internet"), 6, 2, 6, 2),
+        new(NetApps, Lang.Key("Top internet users today"), Lang.Key("The apps that used the most internet today."), Lang.Key("Internet"), 6, 3, 5, 2),
+        new(NetHours, Lang.Key("Internet use by hour"), Lang.Key("Each hour of today, split by app."), Lang.Key("Internet"), 9, 3, 6, 3),
+        new(NetDrops, Lang.Key("Connection today"), Lang.Key("Whether the internet dropped today."), Lang.Key("Internet"), 6, 2, 4, 2),
         new(Today, Lang.Key("Today"), Lang.Key("Screen time so far today, your most-used app and today's peaks."), Lang.Key("Your day"), 7, 5, 6, 4),
         new(NowPlaying, Lang.Key("Now playing"), Lang.Key("The app or game you're using, for how long, and its peak temperatures."), Lang.Key("Your day"), 8, 3, 6, 2),
+        new(TodaySoFar, Lang.Key("Today so far"), Lang.Key("Active time, PC on and away."), Lang.Key("Your day"), 9, 2, 6, 2),
+        new(MostUsed, Lang.Key("Most used today"), Lang.Key("Your top apps today."), Lang.Key("Your day"), 6, 4, 5, 3),
+        new(StandOut, Lang.Key("What stands out"), Lang.Key("Today's highlights."), Lang.Key("Your day"), 9, 3, 7, 2),
+        new(Peaks, Lang.Key("Today's peaks"), Lang.Key("CPU peak and GPU peak today, and what was running at the time."), Lang.Key("Your day"), 9, 3, 7, 3),
+        new(Yesterday, Lang.Key("Yesterday"), Lang.Key("Yesterday's active time and top apps."), Lang.Key("Your day"), 6, 4, 5, 3),
+        new(Crashes, Lang.Key("Crashes"), Lang.Key("Crashes in the last 30 days, and the latest one."), Lang.Key("Your day"), 6, 4, 5, 3),
+        new(Health, Lang.Key("PC health"), Lang.Key("Home's PC health lines, with heat, fans, problems and drives."), Lang.Key("Your day"), 9, 4, 8, 3),
+        new(Changed, Lang.Key("What changed lately"), Lang.Key("The latest changes from Timeline, like driver and app updates."), Lang.Key("Your day"), 9, 4, 7, 3),
+        new(Week, Lang.Key("The last 7 days"), Lang.Key("Screen time on each of the last 7 days."), Lang.Key("Your day"), 6, 4, 5, 3),
+        new(LastGame, Lang.Key("Last game"), Lang.Key("The last game you played, for how long, with its average frame rate."), Lang.Key("Your day"), 9, 2, 6, 2),
     ];
+
+    /// <summary>How many apps a Top CPU users tile lists at most (<see cref="WidgetTile.Rows"/>; null: the first).</summary>
+    public static readonly IReadOnlyList<int> RowChoices = [3, 5];
+
+    public static int RowsOf(WidgetTile t) => t.Rows is int n && RowChoices.Contains(n) ? n : RowChoices[0];
 
     public static WidgetTileKind? Kind(string? id) => Kinds.FirstOrDefault(k => k.Id == id);
 
@@ -92,6 +129,24 @@ public static class WidgetTiles
         Fps => [(Small, 3, 2), (Medium, 5, 3), (Large, 8, 5)],
         Today => [(Medium, 7, 5), (Large, 9, 6)],
         NowPlaying => [(Medium, 8, 3), (Large, 10, 4)],
+        // The PC's tiles: small is the least that says what the tile is, medium its usual size, large where it shows more.
+        CpuGauge or GpuGauge => [(Small, 3, 3), (Medium, 3, 4), (Large, 5, 6)],
+        Fans or TopCpu or TopMemory or NetNow or NetApps => [(Small, 5, 2), (Medium, 6, 3), (Large, 6, 5)],
+        Drives => [(Small, 5, 2), (Medium, 6, 4), (Large, 8, 6)],
+        Cores => [(Small, 5, 2), (Medium, 6, 3), (Large, 9, 4)],
+        NetSpeed => [(Small, 5, 2), (Medium, 6, 4), (Large, 9, 5)],
+        NetToday => [(Medium, 6, 2), (Large, 9, 3)],
+        NetHours => [(Small, 6, 3), (Medium, 9, 3), (Large, 12, 5)],
+        NetDrops => [(Small, 4, 2), (Medium, 6, 2), (Large, 9, 3)],
+        TodaySoFar => [(Small, 6, 2), (Medium, 9, 2)],
+        MostUsed or Yesterday => [(Small, 5, 3), (Medium, 6, 4), (Large, 6, 6)],
+        StandOut => [(Small, 7, 2), (Medium, 9, 3), (Large, 12, 5)],
+        Peaks => [(Small, 7, 3), (Medium, 9, 3), (Large, 12, 4)],
+        Crashes => [(Small, 5, 3), (Medium, 6, 4), (Large, 9, 4)],
+        Health => [(Small, 8, 3), (Medium, 9, 4), (Large, 12, 5)],
+        Changed => [(Small, 7, 3), (Medium, 9, 4), (Large, 9, 6)],
+        Week => [(Small, 5, 3), (Medium, 6, 4), (Large, 9, 5)],
+        LastGame => [(Small, 6, 2), (Medium, 9, 2), (Large, 12, 3)],
         _ => [],
     };
 
@@ -292,6 +347,7 @@ public static class WidgetTiles
             if (t.Folder is { } f && string.IsNullOrWhiteSpace(f)) t.Folder = null;
             if (PhotoSteps.All(s => s.Seconds != t.Every)) t.Every = 60;
             if (t.Kind == Notes && t.Look is not (null or Sticky)) t.Look = null;
+            if (t.Rows is int rows && !RowChoices.Contains(rows)) t.Rows = null;
             t.Items = t.Items?.Where(i => i is not null && (WidgetCatalog.Metric(i.Id) is not null || WidgetCatalog.Sensor(i.Id) is not null)).DistinctBy(i => i.Id).ToList();
         }
         var placed = new List<WidgetTile>();

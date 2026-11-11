@@ -34,6 +34,10 @@ internal sealed class WidgetData
     public TodayInfo Today = new();
     /// <summary>What's playing on the PC (the Media tile), from the agent; null: nothing, or not known here.</summary>
     public MediaNow? Media;
+    /// <summary>What the PC's live tiles show (fans, drives, cores, top apps, the internet now); null: none is on a widget.</summary>
+    public PcNow? Pc;
+    /// <summary>What the tiles from RigSight's records show, read about once a minute; null: none is on a widget, or not read yet.</summary>
+    public Rigsight.Core.Reports.PcFacts? Facts;
 
     public WidgetData Copy() => (WidgetData)MemberwiseClone();
 }
