@@ -62,6 +62,71 @@ public sealed class DangerButtonLookTests(AppHost host) : IClassFixture<AppHost>
         Assert.True(problems.Count == 0, string.Join("\n", problems));
     }
 
+    // The user, 2026-11-10, on a screen at 150%: a dark line showed just inside the filled edge, and the bin sat a pixel
+    // right of the middle. Laid out and drawn at each screen scale, from a spot between pixels as in a real page: the
+    // fill reaches the edge with nothing dark between, and the glyph's ink is centred within half a screen pixel.
+    [Theory]
+    [InlineData("\uE74D", 1.0)]
+    [InlineData("\uE711", 1.0)]
+    [InlineData("\uE74D", 2.0)]
+    public void A_filled_icon_button_has_no_dark_ring_and_its_glyph_is_centred(string glyph, double scale)
+    {
+        _ = host;
+        Directory.CreateDirectory(Shots);
+        var (report, offX, offY, ring) = Ui.Run(() =>
+        {
+            ThemeManager.Apply(ThemeManager.Dark);
+            var b = Make("DangerIconButton", glyph, hover: true);
+            b.Margin = new Thickness(0);
+            b.HorizontalAlignment = HorizontalAlignment.Left;
+            b.VerticalAlignment = VerticalAlignment.Top;
+            var card = new Border { Padding = new Thickness(6.4, 6.6, 6, 6), UseLayoutRounding = true, Width = 44, Height = 44 };
+            card.SetResourceReference(Border.BackgroundProperty, "SurfaceBrush");
+            VisualTreeHelper.SetRootDpi(card, new DpiScale(scale, scale));
+            card.Child = b;
+            card.Measure(new Size(44, 44));
+            card.Arrange(new Rect(0, 0, 44, 44));
+            card.UpdateLayout();
+            int w = (int)Math.Ceiling(44 * scale), h = w;
+            var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap(w, h, 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+            bmp.Render(card);
+            var enc = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+            using (var f = File.Create(Path.Combine(Shots, $"remove-icon-{(int)glyph[0]:X}-at-{scale * 100:0}.png"))) enc.Save(f);
+            var px = new byte[w * h * 4];
+            bmp.CopyPixels(px, w * 4, 0);
+            var hot = (Color)Application.Current.Resources["HotColor"];
+            bool IsHot(int x, int y) { int i = (y * w + x) * 4; return Math.Abs(px[i + 2] - hot.R) < 20 && Math.Abs(px[i + 1] - hot.G) < 20 && Math.Abs(px[i] - hot.B) < 20; }
+            int Lum(int x, int y) { int i = (y * w + x) * 4; return (px[i] + px[i + 1] + px[i + 2]) / 3; }
+            // The button: the box of its fully red pixels.
+            int l = w, t = h, r = -1, bo = -1;
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) if (IsHot(x, y)) (l, t, r, bo) = (Math.Min(l, x), Math.Min(t, y), Math.Max(r, x), Math.Max(bo, y));
+            // Inside the edge, along the middle row and column, up to 3 pixels in: anything clearly darker than the red is a seam.
+            int my = (t + bo) / 2, mx = (l + r) / 2;
+            var seams = new List<string>();
+            int hotLum = (hot.R + hot.G + hot.B) / 3;
+            for (int k = 0; k <= 3; k++)
+                foreach (var (x, y) in new[] { (l + k, my), (r - k, my), (mx, t + k), (mx, bo - k) })
+                    if (Lum(x, y) < hotLum - 40) seams.Add($"{x},{y}={Lum(x, y)}");
+            // The glyph: dark pixels well inside the button.
+            int inset = (int)Math.Ceiling(4 * scale), gl = w, gt = h, gr = -1, gb = -1;
+            for (int y = t + inset; y <= bo - inset; y++)
+                for (int x = l + inset; x <= r - inset; x++)
+                    if (Lum(x, y) < hotLum / 2) (gl, gt, gr, gb) = (Math.Min(gl, x), Math.Min(gt, y), Math.Max(gr, x), Math.Max(gb, y));
+            double ox = (gl + gr) / 2.0 - (l + r) / 2.0, oy = (gt + gb) / 2.0 - (t + bo) / 2.0;
+            return ($"at {scale * 100:0}%: button {l},{t}-{r},{bo}, glyph {gl},{gt}-{gr},{gb}; seams {string.Join(" ", seams)}", ox, oy, seams.Count > 0);
+        });
+        Assert.False(ring, "A dark line inside the filled edge. " + report);
+        Assert.True(Math.Abs(offX) <= 0.5 && Math.Abs(offY) <= 0.5, $"The glyph is {offX:0.0}, {offY:0.0} screen px off the middle. " + report);
+    }
+
+    private static T? FindDown<T>(DependencyObject d) where T : DependencyObject
+    {
+        if (d is T t) return t;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++) if (FindDown<T>(VisualTreeHelper.GetChild(d, i)) is { } f) return f;
+        return null;
+    }
+
     private static object WithBin(string words)
     {
         var p = new StackPanel { Orientation = Orientation.Horizontal };

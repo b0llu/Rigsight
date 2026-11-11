@@ -18,7 +18,7 @@
                 <!-- The glyph's line box is the glyph's size, so it sits in the middle of the button (as on Crashes). -->
                 <Style TargetType="TextBlock">
                     <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
-                    <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S13}" />
+                    <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S14}" />
                     <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
                     <Setter Property="LineHeight" Value="14" />
                     <Setter Property="Height" Value="14" />

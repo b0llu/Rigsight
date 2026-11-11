@@ -36,7 +36,7 @@
              on the picture's wallpaper stand-in, which is dark in every theme. -->
         <ControlTemplate x:Key="CardActionTemplate" TargetType="ButtonBase">
             <Border x:Name="Bd" CornerRadius="8" Background="#DB141414" BorderBrush="#4DFFFFFF" BorderThickness="1">
-                <TextBlock x:Name="Glyph" Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" FontFamily="{StaticResource IconFont}" FontSize="13" Foreground="#F0F0F0"
+                <TextBlock x:Name="Glyph" Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" FontFamily="{StaticResource IconFont}" FontSize="14" Foreground="#F0F0F0"
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
             <ControlTemplate.Triggers>
@@ -58,7 +58,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Border x:Name="Bd" CornerRadius="8" Background="#DB141414" BorderBrush="#4DFFFFFF" BorderThickness="1">
-                            <TextBlock x:Name="Glyph" Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" FontFamily="{StaticResource IconFont}" FontSize="13" Foreground="#F0F0F0"
+                            <TextBlock x:Name="Glyph" Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" FontFamily="{StaticResource IconFont}" FontSize="14" Foreground="#F0F0F0"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>

@@ -817,7 +817,7 @@
                                         <TextBlock Text="{Binding}" Style="{StaticResource Body}" VerticalAlignment="Center" />
                                         <Button Style="{StaticResource DangerIconButton}" Width="22" Height="22" Margin="6,0,0,0" ToolTip="{ctl:T 'Remove'}"
                                                 Command="{Binding DataContext.RemoveExcludedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                            <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S9}" />
+                                            <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S10}" />
                                         </Button>
                                     </StackPanel>
                                 </Border>
@@ -1838,7 +1838,7 @@
                                                         <!-- Remove: an icon beside the main button, asked in the row first. -->
                                                         <Button Style="{StaticResource DangerIconButton}" Margin="6,0,0,0" ToolTip="{ctl:T 'Remove from Ollama'}" AutomationProperties.Name="{ctl:T 'Remove from Ollama'}"
                                                                 Command="{Binding DataContext.AskRemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
-                                                            <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" />
+                                                            <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" />
                                                         </Button>
                                                     </StackPanel>
                                                     <StackPanel VerticalAlignment="Center">
@@ -2623,7 +2623,7 @@
                                         <Button Style="{StaticResource IconButton}" Width="22" Height="22" Margin="4,0,0,0"
                                                 Command="{Binding DataContext.ShowAgainCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
                                                 AutomationProperties.Name="{Binding Name}" ToolTip="{ctl:T 'Show it again'}">
-                                            <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S9}" />
+                                            <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S10}" />
                                         </Button>
                                     </StackPanel>
                                 </Border>

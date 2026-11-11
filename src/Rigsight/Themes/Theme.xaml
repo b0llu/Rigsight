@@ -836,9 +836,10 @@
     <Style x:Key="IconButton" TargetType="Button">
         <!-- The Fluent theme gives TextBlocks their own font, so glyph content must ask for the icon font explicitly. -->
         <Style.Resources>
+            <!-- Icons in a box at an even size: an icon-font glyph at an odd size sits half a pixel off the middle of an even box (the user, 2026-11-11). -->
             <Style TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
-                <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S13}" />
+                <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S14}" />
                 <Setter Property="HorizontalAlignment" Value="Center" />
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
@@ -872,7 +873,7 @@
                         <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Choice}" Opacity="0" />
                         <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Choice}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S13}" />
+                                              TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S14}" />
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
@@ -900,8 +901,10 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Grid x:Name="Root">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
-                                CornerRadius="{x:Static ctl:Corner.Button}" />
+                        <!-- The fill and the outline apart, the fill under the whole outline: drawn as one Border, a seam of
+                             what's behind showed between them at 150% (the user, 2026-11-10). -->
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="{x:Static ctl:Corner.Button}" />
+                        <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Button}" />
                         <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Grid>
                     <ControlTemplate.Triggers>
@@ -926,7 +929,7 @@
         <Style.Resources>
             <Style TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
-                <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S12}" />
+                <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S14}" />
                 <Setter Property="HorizontalAlignment" Value="Center" />
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
@@ -938,9 +941,10 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Grid x:Name="Root">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
-                                CornerRadius="{x:Static ctl:Corner.Choice}" />
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.FontFamily="{StaticResource IconFont}" />
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="{x:Static ctl:Corner.Choice}" />
+                        <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Choice}" />
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.FontFamily="{StaticResource IconFont}"
+                                          TextElement.FontSize="{x:Static ctl:IconSize.S14}" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">

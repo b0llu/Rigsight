@@ -1580,7 +1580,7 @@
             <Button.Template>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bd" CornerRadius="11" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
-                        <TextBlock x:Name="Glyph" Text="{Binding Sidebar.HandleGlyph}" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S9}" Foreground="{DynamicResource MutedBrush}"
+                        <TextBlock x:Name="Glyph" Text="{Binding Sidebar.HandleGlyph}" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
