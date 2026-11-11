@@ -1,4 +1,4 @@
-using Rigsight.Core;
+﻿using Rigsight.Core;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Settings;
 using Rigsight.Services;
@@ -192,6 +192,23 @@ public sealed class SettingsModelTests
             w.Settings.ApplyFromAgent(agents);
             Assert.Equal(ThemeManager.Light, w.Settings.Current.Theme);
             Assert.Equal(5000, w.Settings.Current.LiveRefreshMs);
+        });
+    }
+
+    // Two quick changes, the agent's echo of the first coming while the second waits: it isn't taken for the agent
+    // changing it back (the gate's page round, 2026-11-11: Light then Dark, and Light came back).
+    [Fact]
+    public void A_late_echo_of_a_change_already_sent_doesnt_undo_the_next()
+    {
+        using var w = new Wired();
+        Ui.Run(() =>
+        {
+            w.Settings.Update(s => s.Theme = ThemeManager.Light);
+            w.Settings.Flush();
+            var echo = w.Settings.Current.Clone();
+            w.Settings.Update(s => s.Theme = ThemeManager.Dark);
+            w.Settings.ApplyFromAgent(echo);
+            Assert.Equal(ThemeManager.Dark, w.Settings.Current.Theme);
         });
     }
 

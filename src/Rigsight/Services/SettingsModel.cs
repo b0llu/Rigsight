@@ -34,7 +34,10 @@ public sealed class SettingsModel
     // agent connects, and don't let the agent's older copy overwrite it meanwhile.
     private bool _dirty;
 
-    // The agent's copy the change not yet delivered was made on (the last one that came), as written: see ApplyFromAgent.
+    // What the agent has, as far as the app knows: the last copy that came from it, or the last one the app sent, whichever
+    // was later, as written. A change not yet delivered was made on it (see ApplyFromAgent). After a send it's what was
+    // sent: an echo of an earlier send that comes late isn't taken for the agent changing it back (the gate's page round,
+    // 2026-11-11: Light then Dark quickly, and the echo of Light undid Dark).
     private string _agents;
 
     public void Update(Action<RigsightSettings> change)
@@ -56,7 +59,11 @@ public sealed class SettingsModel
     {
         _debounce.Stop();
         if (!_dirty) return;
-        if (_client.Send(new UiMessage { T = "settings", Settings = Current.Clone() })) _dirty = false;
+        if (_client.Send(new UiMessage { T = "settings", Settings = Current.Clone() }))
+        {
+            _dirty = false;
+            _agents = SettingsStore.Serialize(Current);
+        }
     }
 
     /// <summary>
