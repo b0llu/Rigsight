@@ -10,7 +10,20 @@ namespace Rigsight.Core.Settings;
 public sealed record WeatherPlace(string Name, string Detail, double Lat, double Lon);
 
 /// <summary>The weather at a place now: its temperature, MET Norway's symbol for it, and today's high and low.</summary>
-public sealed record WeatherNow(double TempC, string Symbol, double? HighC, double? LowC, DateTime Fetched);
+public sealed record WeatherNow(double TempC, string Symbol, double? HighC, double? LowC, DateTime Fetched)
+{
+    /// <summary>The next hours, two hours apart (a medium and a large tile show them).</summary>
+    public IReadOnlyList<WeatherHour> Hours { get; init; } = [];
+
+    /// <summary>The next days after today (a large tile shows them).</summary>
+    public IReadOnlyList<WeatherDay> Days { get; init; } = [];
+}
+
+/// <summary>An hour ahead: its time, temperature and sky.</summary>
+public sealed record WeatherHour(DateTime At, double TempC, string Symbol);
+
+/// <summary>A day ahead: its date, lowest and highest temperature, and its sky around midday.</summary>
+public sealed record WeatherDay(DateTime Date, double LowC, double HighC, string Symbol);
 
 /// <summary>
 /// The weather for the Weather tile (widgets part three, approved mock-up 8Bfo1Ce7KFJs4g1wxHQP1U; the user, 2026-11-10:
@@ -89,13 +102,25 @@ public static class WeatherFeed
         }
     }
 
-    /// <summary>MET Norway's compact forecast: the first hour's temperature and symbol, and the high and low of the rest of today.</summary>
+    /// <summary>
+    /// MET Norway's compact forecast: the first hour's temperature and symbol, the high and low of the rest of today, the
+    /// next five hours two hours apart, and the next three days (their range, and their sky around midday).
+    /// </summary>
     public static WeatherNow? Parse(string json, DateTime now)
     {
         using var doc = JsonDocument.Parse(json);
         if (!doc.RootElement.TryGetProperty("properties", out var props) || !props.TryGetProperty("timeseries", out var series) || series.GetArrayLength() == 0) return null;
         double? temp = null, high = null, low = null;
         string symbol = "";
+        var hours = new List<WeatherHour>();
+        var days = new Dictionary<DateTime, (double Low, double High, string Symbol, int Noon)>();
+        static string SymbolOf(JsonElement data)
+        {
+            foreach (var next in new[] { "next_1_hours", "next_6_hours", "next_12_hours" })
+                if (data.TryGetProperty(next, out var n) && n.TryGetProperty("summary", out var s) && s.TryGetProperty("symbol_code", out var code))
+                    return code.GetString() ?? "";
+            return "";
+        }
         foreach (var step in series.EnumerateArray())
         {
             if (!step.TryGetProperty("time", out var timeEl) || !DateTime.TryParse(timeEl.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var utc)) continue;
@@ -103,23 +128,31 @@ public static class WeatherFeed
             if (!step.TryGetProperty("data", out var data) || !data.TryGetProperty("instant", out var instant) || !instant.TryGetProperty("details", out var details)
                 || !details.TryGetProperty("air_temperature", out var tEl)) continue;
             double t = tEl.GetDouble();
+            string sym = SymbolOf(data);
             if (temp is null)
             {
                 temp = t;
-                foreach (var next in new[] { "next_1_hours", "next_6_hours", "next_12_hours" })
-                    if (data.TryGetProperty(next, out var n) && n.TryGetProperty("summary", out var s) && s.TryGetProperty("symbol_code", out var code))
-                    {
-                        symbol = code.GetString() ?? "";
-                        break;
-                    }
+                symbol = sym;
             }
             if (local.Date == now.Date)
             {
                 high = high is null ? t : Math.Max(high.Value, t);
                 low = low is null ? t : Math.Min(low.Value, t);
             }
+            if (local > now && local.Minute == 0 && local.Hour % 2 == 0 && hours.Count < 5 && sym.Length > 0) hours.Add(new WeatherHour(local, t, sym));
+            if (local.Date > now.Date && local.Date <= now.Date.AddDays(3))
+            {
+                var d = days.TryGetValue(local.Date, out var was) ? was : (Low: t, High: t, Symbol: "", Noon: int.MaxValue);
+                int fromNoon = Math.Abs(local.Hour - 12);
+                days[local.Date] = (Math.Min(d.Low, t), Math.Max(d.High, t), sym.Length > 0 && fromNoon < d.Noon ? sym : d.Symbol, sym.Length > 0 && fromNoon < d.Noon ? fromNoon : d.Noon);
+            }
         }
-        return temp is null ? null : new WeatherNow(temp.Value, symbol, high, low, now);
+        if (temp is null) return null;
+        return new WeatherNow(temp.Value, symbol, high, low, now)
+        {
+            Hours = hours,
+            Days = [.. days.OrderBy(d => d.Key).Select(d => new WeatherDay(d.Key, d.Value.Low, d.Value.High, d.Value.Symbol))],
+        };
     }
 
     /// <summary>Places that match a name typed in the editor, from OpenStreetMap's Nominatim (at most five).</summary>

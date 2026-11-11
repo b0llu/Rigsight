@@ -1023,6 +1023,10 @@
                                     </Border>
                                 </DockPanel>
                                 <!-- A note: its text, here or typed straight onto it on the desktop. -->
+                                <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding IsNotes, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="{ctl:T 'Sticky note'}" Style="{StaticResource EditLabel}" />
+                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding NoteSticky}" AutomationProperties.Name="{ctl:T 'Sticky note'}" />
+                                </DockPanel>
                                 <StackPanel Visibility="{Binding IsNotes, Converter={StaticResource Vis}}" Margin="16,4,16,6">
                                     <TextBox Style="{StaticResource FieldArea}" Text="{Binding NoteText, UpdateSourceTrigger=LostFocus}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="96" MaxHeight="220"
                                              VerticalScrollBarVisibility="Auto" AutomationProperties.Name="{ctl:T 'Note'}" />

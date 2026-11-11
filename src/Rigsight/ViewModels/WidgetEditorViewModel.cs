@@ -575,6 +575,13 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         }
     }
 
+    /// <summary>A note drawn as a sticky note: yellow paper and handwriting.</summary>
+    public bool NoteSticky
+    {
+        get => Tile?.Look == WidgetTiles.Sticky;
+        set { if (value != NoteSticky) ChangeTile(t => t.Look = value ? WidgetTiles.Sticky : null); }
+    }
+
     public IReadOnlyList<TodoRow> TodoRows => [.. (Tile?.Todos ?? []).Select((i, n) => new TodoRow(n, i.Text, i.Done))];
 
     [ObservableProperty] private string _newTodo = "";

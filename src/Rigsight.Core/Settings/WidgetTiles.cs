@@ -41,8 +41,8 @@ public static class WidgetTiles
         new(Notes, Lang.Key("Notes"), Lang.Key("A note you type straight onto the desktop."), Lang.Key("Everyday"), 6, 4, 3, 2),
         new(Todo, Lang.Key("To-do"), Lang.Key("A short list you tick off."), Lang.Key("Everyday"), 6, 4, 4, 2),
         new(Timer, Lang.Key("Timer"), Lang.Key("A timer, a stopwatch, or a countdown to a day."), Lang.Key("Everyday"), 6, 2, 4, 2),
-        new(Media, Lang.Key("Media"), Lang.Key("What's playing on this PC, with play, pause and skip."), Lang.Key("Everyday"), 9, 2, 6, 2),
-        new(Weather, Lang.Key("Weather"), Lang.Key("The weather for a place you pick. Uses the internet."), Lang.Key("Everyday"), 6, 2, 5, 2),
+        new(Media, Lang.Key("Media"), Lang.Key("What's playing on this PC, with play, pause and skip."), Lang.Key("Everyday"), 8, 3, 4, 2),
+        new(Weather, Lang.Key("Weather"), Lang.Key("The weather for a place you pick. Uses the internet."), Lang.Key("Everyday"), 8, 3, 4, 2),
         new(Shortcuts, Lang.Key("Shortcuts"), Lang.Key("Apps, folders and links you open with one click."), Lang.Key("Everyday"), 6, 2, 2, 1),
         new(Photos, Lang.Key("Photos"), Lang.Key("Pictures from a folder, one after another."), Lang.Key("Everyday"), 6, 4, 3, 2),
         new(Reading, Lang.Key("Any reading"), Lang.Key("One reading or sensor, as a number, a ring, a level or a graph."), Lang.Key("Live"), 3, 2, 2, 1),
@@ -68,6 +68,9 @@ public static class WidgetTiles
 
     /// <summary>The longest note kept: far more than a tile shows, a guard against a runaway paste.</summary>
     public const int MaxNoteLength = 20_000;
+
+    /// <summary>A note's look: a sticky note (yellow, written by hand) instead of the widget's own.</summary>
+    public const string Sticky = "Sticky note";
 
     /// <summary>How many apps, folders and links one shortcuts tile holds at most.</summary>
     public const int MaxLinks = 12;
@@ -258,6 +261,7 @@ public static class WidgetTiles
             t.Links = t.Links?.Where(l => l is not null && !string.IsNullOrWhiteSpace(l.Path)).Take(MaxLinks).ToList();
             if (t.Folder is { } f && string.IsNullOrWhiteSpace(f)) t.Folder = null;
             if (PhotoSteps.All(s => s.Seconds != t.Every)) t.Every = 60;
+            if (t.Kind == Notes && t.Look is not (null or Sticky)) t.Look = null;
             t.Items = t.Items?.Where(i => i is not null && (WidgetCatalog.Metric(i.Id) is not null || WidgetCatalog.Sensor(i.Id) is not null)).DistinctBy(i => i.Id).ToList();
         }
         var placed = new List<WidgetTile>();

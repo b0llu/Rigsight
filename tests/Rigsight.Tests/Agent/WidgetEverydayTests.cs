@@ -173,4 +173,51 @@ public class WidgetEverydayTests : IDisposable
             bmp.Save(Path.Combine(dir, $"everyday-{theme}.png"), ImageFormat.Png);
         }
     }
+
+    // Each tile small, medium and large, for a person to compare with the mock-up's "Everyday tiles, small to large"
+    // board: %TEMP%\rigsight-tests\boxes\sizes-*.png.
+    [Fact]
+    public void Every_everyday_tile_small_medium_and_large()
+    {
+        MakePictures(3);
+        var start = new DateTime(2026, 11, 11, 9, 0, 0);
+        string Hour(int h) => start.AddHours(h).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+        var steps = new List<string>();
+        for (int h = 0; h < 72; h++)
+            steps.Add("{\"time\":\"" + Hour(h) + "\",\"data\":{\"instant\":{\"details\":{\"air_temperature\":" + (20 + h % 7) + "}},\"next_1_hours\":{\"summary\":{\"symbol_code\":\""
+                + (h % 3 == 0 ? "partlycloudy_day" : h % 3 == 1 ? "clearsky_day" : "lightrain") + "\"}}}}");
+        var w = WeatherFeed.Parse("{\"properties\":{\"timeseries\":[" + string.Join(",", steps) + "]}}", start)!;
+        Assert.Equal(5, w.Hours.Count);
+        Assert.All(w.Hours, h => Assert.Equal(0, h.At.Hour % 2));
+        Assert.Equal(3, w.Days.Count);
+        WeatherFeed.Latest[WeatherFeed.Key(18.52, 73.85)] = w;
+        using var cover = new Bitmap(60, 60);
+        using (var g = Graphics.FromImage(cover)) { g.Clear(Color.FromArgb(124, 92, 255)); g.FillEllipse(Brushes.HotPink, 20, 20, 40, 40); }
+        var data = new WidgetData { Media = new MediaNow("Night Drive", "Example Artist", true, cover, true, true, 1, "Spotify", TimeSpan.FromSeconds(84), TimeSpan.FromSeconds(222), WidgetRenderer.Now()) };
+        var links = new List<TileLink> { new() { Path = "https://rigsight.app/", Name = "RigSight" }, new() { Path = Path.GetTempPath(), Name = "Temp" }, new() { Path = Environment.ProcessPath!, Name = "Tests" },
+            new() { Path = "https://github.com/", Name = "GitHub" }, new() { Path = Path.GetTempPath() + "x", Name = "Games" }, new() { Path = "https://example.com/", Name = "Example" } };
+        var dir = Path.Combine(Path.GetTempPath(), "rigsight-tests", "boxes");
+        Directory.CreateDirectory(dir);
+        foreach (var (kind, sizes) in new (string, (int W, int H)[])[]
+        {
+            (WidgetTiles.Media, [(4, 2), (8, 2), (8, 3), (8, 7)]),
+            (WidgetTiles.Weather, [(4, 2), (8, 3), (8, 7)]),
+            (WidgetTiles.Shortcuts, [(6, 2), (6, 5)]),
+            (WidgetTiles.Timer, [(6, 2), (6, 3)]),
+            (WidgetTiles.Photos, [(6, 3), (6, 5)]),
+            (WidgetTiles.Notes, [(6, 5)]),
+        })
+            foreach (var (tw, th) in sizes)
+            {
+                var tile = new WidgetTile { Kind = kind, W = tw, H = th, Place = "Pune", Lat = 18.52, Lon = 73.85, Links = links, Folder = _dir, RunningSince = 1, Minutes = 25,
+                    Text = "BIOS update on Saturday\nReturn the spare fan\nAsk about the 1440p monitor", Look = kind == WidgetTiles.Notes ? WidgetTiles.Sticky : null };
+                using var bmp = WidgetRenderer.Render(Box(tile), data, 1.5f, hover: false, out _);
+                bmp.Save(Path.Combine(dir, $"sizes-{kind}-{tw}x{th}.png"), ImageFormat.Png);
+                if (kind == WidgetTiles.Media)
+                    Assert.Contains(WidgetRenderer.Hits!, h => h.Action == WidgetRenderer.HitPlay); // Pause can be pressed at every size
+            }
+        // Nothing playing.
+        using var none = WidgetRenderer.Render(Box(new WidgetTile { Kind = WidgetTiles.Media, W = 8, H = 3 }), new WidgetData(), 1.5f, hover: false, out _);
+        none.Save(Path.Combine(dir, "sizes-media-nothing.png"), ImageFormat.Png);
+    }
 }

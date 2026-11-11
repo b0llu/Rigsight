@@ -12,7 +12,16 @@ namespace Rigsight.Agent.Widgets;
 #endif
 
 /// <summary>What's playing on the PC (the Media tile): from Windows' media controls, in the agent only.</summary>
-internal sealed record MediaNow(string Title, string Artist, bool Playing, Bitmap? Cover, bool CanPrevious, bool CanNext, int Version);
+internal sealed record MediaNow(string Title, string Artist, bool Playing, Bitmap? Cover, bool CanPrevious, bool CanNext, int Version,
+    string App = "", TimeSpan Position = default, TimeSpan Length = default, DateTime At = default)
+{
+    /// <summary>How far into the track it is now: where it was read, and the time since while it plays.</summary>
+    public TimeSpan PositionAt(DateTime now)
+    {
+        var p = Playing && At != default ? Position + (now - At) : Position;
+        return Length > TimeSpan.Zero && p > Length ? Length : p < TimeSpan.Zero ? TimeSpan.Zero : p;
+    }
+}
 
 // Everyday tiles, part three (approved mock-up 8Bfo1Ce7KFJs4g1wxHQP1U): media, weather, shortcuts, photos.
 internal static partial class WidgetRenderer
@@ -51,46 +60,180 @@ internal static partial class WidgetRenderer
         IconIn(g, glyph, box.Height * 0.45f, p.Muted, box);
     }
 
-    /// <summary>What's playing: its cover, title and artist, and previous, play or pause, and next (clicked on the desktop).</summary>
-    private static void MediaTile(Graphics g, RectangleF r, WidgetData d, Palette p, Color accent)
+    /// <summary>A track's time as people read it: 3:42, or 1:02:05 past an hour.</summary>
+    private static string TrackTime(TimeSpan t) => t.TotalHours >= 1 ? $"{(int)t.TotalHours}:{t.Minutes:00}:{t.Seconds:00}" : $"{(int)t.TotalMinutes}:{t.Seconds:00}";
+
+    /// <summary>A thin bar with how far it is, filled in the accent (or white over a cover).</summary>
+    private static void ProgressBar(Graphics g, RectangleF bar, float fraction, Color track, Color fill)
     {
-        float s = MathF.Round(Math.Min(r.Height, 56));
-        var art = new RectangleF(r.Left, r.Top + (r.Height - s) / 2, s, s);
-        var m = d.Media;
-        if (m?.Cover is { } cover) Cover(g, cover, art, 8);
-        else GlyphSquare(g, art, "\uE8D6", p, 8);
-        float bs = MathF.Round(Math.Clamp(r.Height * 0.6f, 22, 30)), gap = 6, cy = r.Top + r.Height / 2;
-        float right = r.Right;
-        if (m is not null)
+        var smooth = g.SmoothingMode;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var path = RoundRect(bar, bar.Height / 2))
+        using (var b = new SolidBrush(track))
+            g.FillPath(b, path);
+        float w = Math.Clamp(fraction, 0, 1) * bar.Width;
+        if (w >= bar.Height)
         {
-            var next = new RectangleF(right - bs, cy - bs / 2, bs, bs);
-            var play = next with { X = next.X - bs - gap };
-            RoundButton(g, next, "\uE893", p, accent, false);
-            AddHit(HitNext, 0, next);
-            RoundButton(g, play, m.Playing ? "\uE769" : "\uE768", p, accent, true);
-            AddHit(HitPlay, 0, play);
-            right = play.X - gap;
-            if (r.Width >= 250)
-            {
-                var prev = play with { X = play.X - bs - gap };
-                RoundButton(g, prev, "\uE892", p, accent, false);
-                AddHit(HitPrevious, 0, prev);
-                right = prev.X - gap;
-            }
+            using var path = RoundRect(bar with { Width = w }, bar.Height / 2);
+            using var b = new SolidBrush(fill);
+            g.FillPath(b, path);
         }
-        float tx = art.Right + 10, tw = right - 4 - tx;
-        if (tw < 20) return;
-        if (m is null)
-        {
-            Text(g, Lang.T("Nothing playing"), 13, FontStyle.Regular, p.Faint, tx, cy - 9, maxWidth: tw);
-            return;
-        }
-        bool two = m.Artist.Length > 0 && r.Height >= 40;
-        Text(g, m.Title.Length > 0 ? m.Title : Lang.C("media", "Playing"), 13, FontStyle.Regular, p.Text, tx, two ? cy - 18 : cy - 9, semibold: true, maxWidth: tw);
-        if (two) Text(g, m.Artist, 12, FontStyle.Regular, p.Muted, tx, cy + 1, maxWidth: tw);
+        g.SmoothingMode = smooth;
     }
 
-    /// <summary>The weather at the tile's place: its icon, the temperature, and the place, the sky and today's range where there's room.</summary>
+    /// <summary>The time played, the bar and the length, in a row; nothing when the player doesn't say its length.</summary>
+    private static void TimeRow(Graphics g, MediaNow m, RectangleF row, Color text, Color track, Color fill)
+    {
+        if (m.Length <= TimeSpan.Zero) return;
+        var now = m.PositionAt(Now());
+        string a = TrackTime(now), b = TrackTime(m.Length);
+        float aw = Measure(g, a, 10.5f, FontStyle.Regular), bw = Measure(g, b, 10.5f, FontStyle.Regular);
+        float cy = row.Y + row.Height / 2;
+        Text(g, a, 10.5f, FontStyle.Regular, text, row.Left, TextTopFor(cy, 10.5f, FontStyle.Regular));
+        Text(g, b, 10.5f, FontStyle.Regular, text, row.Right - bw, TextTopFor(cy, 10.5f, FontStyle.Regular));
+        var bar = RectangleF.FromLTRB(row.Left + aw + 8, cy - 2, row.Right - bw - 8, cy + 2);
+        if (bar.Width > 20) ProgressBar(g, bar, (float)(now.TotalMilliseconds / m.Length.TotalMilliseconds), track, fill);
+    }
+
+    /// <summary>Back, play or pause, and next, side by side from <paramref name="x"/> (the main one bigger), each clicked on the desktop.</summary>
+    private static float Controls(Graphics g, float x, float cy, float size, bool previous, MediaNow m, Palette p, Color accent, Color? on = null)
+    {
+        float gap = MathF.Round(size * 0.22f), big = MathF.Round(size * 1.18f);
+        if (previous)
+        {
+            var prev = new RectangleF(x, cy - size / 2, size, size);
+            RoundButtonOn(g, prev, "\uE892", p, accent, false, on);
+            AddHit(HitPrevious, 0, prev);
+            x = prev.Right + gap;
+        }
+        var play = new RectangleF(x, cy - big / 2, big, big);
+        RoundButtonOn(g, play, m.Playing ? "\uE769" : "\uE768", p, accent, true, on);
+        AddHit(HitPlay, 0, play);
+        var next = new RectangleF(play.Right + gap, cy - size / 2, size, size);
+        RoundButtonOn(g, next, "\uE893", p, accent, false, on);
+        AddHit(HitNext, 0, next);
+        return next.Right;
+    }
+
+    /// <summary>The width <see cref="Controls"/> takes.</summary>
+    private static float ControlsWidth(float size, bool previous) => MathF.Round(size * 1.18f) + size + MathF.Round(size * 0.22f) * (previous ? 2 : 1) + (previous ? size : 0);
+
+    // Over a cover the side buttons are see-through white, not the panel's grey.
+    private static void RoundButtonOn(Graphics g, RectangleF b, string glyph, Palette p, Color accent, bool main, Color? on)
+    {
+        if (on is not { } over || main)
+        {
+            RoundButton(g, b, glyph, p, main && on is not null ? Color.White : accent, main);
+            return;
+        }
+        var smooth = g.SmoothingMode;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var fill = new SolidBrush(Color.FromArgb(46, 255, 255, 255))) g.FillEllipse(fill, b);
+        g.SmoothingMode = smooth;
+        IconIn(g, glyph, b.Width * 0.4f, over, b);
+    }
+
+    /// <summary>
+    /// What's playing, laid out by the tile's size (the user, 2026-11-11, from what media widgets do): small, the cover, the
+    /// title, a bar and Pause; a row, the cover, title and artist, and the buttons; medium, that and the time played with
+    /// the length; large, the cover blurred behind it all, a big cover, the title, artist and app, the time and the buttons.
+    /// </summary>
+    private static void MediaTile(Graphics g, RectangleF tile, RectangleF r, WidgetData d, Palette p, Color accent)
+    {
+        var m = d.Media;
+        bool large = r.Height >= 150 && r.Width >= 220, medium = !large && r.Height >= 70, small = !large && !medium && r.Width < 200;
+        if (m is null)
+        {
+            float s0 = MathF.Round(Math.Min(r.Height, large ? 72 : 52));
+            var art0 = new RectangleF(r.Left, r.Top + (r.Height - s0) / 2, s0, s0);
+            GlyphSquare(g, art0, "\uE8D6", p, 8);
+            float tx0 = art0.Right + 12, tw0 = r.Right - tx0;
+            if (tw0 < 30) return;
+            bool line = r.Height >= 44 && tw0 >= 120;
+            float cy0 = r.Top + r.Height / 2;
+            Text(g, Lang.T("Nothing playing"), 13, FontStyle.Regular, p.Muted, tx0, line ? cy0 - 18 : TextTopFor(cy0, 13, FontStyle.Regular), maxWidth: tw0);
+            if (line) TextIn(g, Lang.T("Play something in any app with media controls."), 11.5f, p.Faint, RectangleF.FromLTRB(tx0, cy0, r.Right, r.Bottom));
+            return;
+        }
+        string title = m.Title.Length > 0 ? m.Title : Lang.C("media", "Playing");
+        string by = m.Artist.Length > 0 && m.App.Length > 0 ? $"{m.Artist} · {m.App}" : m.Artist.Length > 0 ? m.Artist : m.App;
+        if (large)
+        {
+            // The cover, blurred and darkened, behind everything: drawn tiny, then stretched.
+            if (m.Cover is { } cover)
+            {
+                using var tiny = new Bitmap(10, 10);
+                using (var tg = Graphics.FromImage(tiny))
+                {
+                    tg.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    tg.DrawImage(cover, 0, 0, 10, 10);
+                }
+                var back = RectangleF.Inflate(tile, -1, -1);
+                using var clip = RoundRect(back, 12);
+                var state = g.Save();
+                g.SetClip(clip, CombineMode.Intersect);
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.DrawImage(tiny, RectangleF.Inflate(back, back.Width * 0.15f, back.Height * 0.15f));
+                using (var shade = new SolidBrush(Color.FromArgb(120, 10, 10, 10))) g.FillRectangle(shade, back);
+                g.Restore(state);
+            }
+            bool overCover = m.Cover is not null;
+            Color text = overCover ? Color.White : p.Text, soft = overCover ? Color.FromArgb(214, 214, 214) : p.Muted;
+            float s = MathF.Round(Math.Min(96, r.Height * 0.45f));
+            var art = new RectangleF(r.Left + 4, r.Top + 4, s, s);
+            if (m.Cover is { } c2) Cover(g, c2, art, 9); else GlyphSquare(g, art, "\uE8D6", p, 9);
+            float tx = art.Right + 14, tw = r.Right - tx, ty = art.Top + 4;
+            Caption(g, Lang.T("NOW PLAYING"), tx, ty, overCover ? Color.FromArgb(200, 200, 200) : p.Faint);
+            Text(g, title, 16, FontStyle.Regular, text, tx, ty + 16, semibold: true, maxWidth: tw);
+            if (m.Artist.Length > 0) Text(g, m.Artist, 12.5f, FontStyle.Regular, soft, tx, ty + 40, maxWidth: tw);
+            if (m.App.Length > 0) Text(g, m.App, 11.5f, FontStyle.Regular, overCover ? Color.FromArgb(190, 190, 190) : p.Faint, tx, ty + 58, maxWidth: tw);
+            float size = 28, cy = r.Bottom - 22;
+            Controls(g, r.Left + (r.Width - ControlsWidth(size, true)) / 2, cy, size, true, m, p, accent, overCover ? Color.White : null);
+            TimeRow(g, m, new RectangleF(r.Left + 4, cy - 40, r.Width - 8, 14), text, overCover ? Color.FromArgb(64, 255, 255, 255) : p.Track, overCover ? Color.White : accent);
+            return;
+        }
+        float artSize = MathF.Round(Math.Min(medium ? 52 : r.Height, 56));
+        float top = medium && m.Length > TimeSpan.Zero ? r.Top + 2 : r.Top + (r.Height - artSize) / 2;
+        var cover2 = new RectangleF(r.Left, top, artSize, artSize);
+        if (m.Cover is { } c3) Cover(g, c3, cover2, 8); else GlyphSquare(g, cover2, "\uE8D6", p, 8);
+        float rowCy = cover2.Y + artSize / 2;
+        if (small)
+        {
+            // The title over a bar, and Pause.
+            float bs = MathF.Round(Math.Clamp(artSize * 0.62f, 24, 30));
+            var play = new RectangleF(r.Right - bs, rowCy - bs / 2, bs, bs);
+            RoundButton(g, play, m.Playing ? "\uE769" : "\uE768", p, accent, true);
+            AddHit(HitPlay, 0, play);
+            float sx = cover2.Right + 10, sw = play.X - 8 - sx;
+            if (sw < 20) return;
+            Text(g, title, 12.5f, FontStyle.Regular, p.Text, sx, rowCy - 15, semibold: true, maxWidth: sw);
+            if (m.Length > TimeSpan.Zero)
+                ProgressBar(g, new RectangleF(sx, rowCy + 6, sw, 3), (float)(m.PositionAt(Now()).TotalMilliseconds / m.Length.TotalMilliseconds), p.Track, accent);
+            return;
+        }
+        float buttons = MathF.Round(Math.Clamp(artSize * 0.52f, 22, 28));
+        bool withPrevious = r.Width >= 250;
+        float cw = ControlsWidth(buttons, withPrevious);
+        Controls(g, r.Right - cw, rowCy, buttons, withPrevious, m, p, accent);
+        float x0 = cover2.Right + 12, w0 = r.Right - cw - 10 - x0;
+        if (w0 >= 24)
+        {
+            bool two = by.Length > 0 && artSize >= 40;
+            Text(g, title, 13.5f, FontStyle.Regular, p.Text, x0, two ? rowCy - 18 : TextTopFor(rowCy, 13.5f, FontStyle.Regular), semibold: true, maxWidth: w0);
+            if (two) Text(g, by, 12, FontStyle.Regular, p.Muted, x0, rowCy + 1, maxWidth: w0);
+        }
+        if (medium) TimeRow(g, m, RectangleF.FromLTRB(r.Left, cover2.Bottom + 6, r.Right, Math.Min(r.Bottom, cover2.Bottom + 22)), p.Faint, p.Track, accent);
+    }
+
+    /// <summary>An hour ahead as the clock is read here: "2 PM", or "14:00".</summary>
+    private static string HourText(DateTime at) =>
+        Culture.DateTimeFormat.ShortTimePattern.Contains('H') ? at.ToString("HH:mm", Culture) : at.ToString("h tt", Culture);
+
+    /// <summary>
+    /// The weather at the tile's place, laid out by the tile's size (the user, 2026-11-11, from what weather widgets do):
+    /// small, the sky, the temperature and the place; medium, that with the sky in words and today's range, and the next
+    /// hours under it; large, the next hours with their sky, and the next three days with their range.
+    /// </summary>
     private static void WeatherTile(Graphics g, WidgetTile t, RectangleF r, Palette p, Color accent)
     {
         if (t.Place is not { } place || t.Lat is null)
@@ -100,25 +243,82 @@ internal static partial class WidgetRenderer
             return;
         }
         var w = WeatherFeed.For(t);
-        float icon = MathF.Round(Math.Clamp(r.Height - 8, 22, 40));
-        float cy = r.Top + r.Height / 2;
+        bool large = r.Height >= 150 && r.Width >= 220, medium = !large && r.Height >= 60 && r.Width >= 200;
+        float headH = large || medium ? Math.Min(48, r.Height) : r.Height;
+        float icon = MathF.Round(Math.Clamp(headH - 8, 22, large ? 40 : 36));
+        float cy = r.Top + headH / 2;
         WeatherIcon(g, w?.Symbol, new RectangleF(r.Left, cy - icon / 2, icon, icon), w is null ? p.Faint : p.Text, w is null ? p.Faint : accent);
         float x = r.Left + icon + 10;
         string temp = w is null ? "–" : Units.TempShort(w.TempC);
-        float big = r.Height >= 56 ? 28 : 22;
-        Text(g, temp, big, FontStyle.Regular, p.Text, x, cy - big * 0.68f);
+        float big = large ? 32 : medium ? 28 : r.Height >= 56 ? 26 : 22;
+        Text(g, temp, big, FontStyle.Regular, p.Text, x, TextTopFor(cy, big, FontStyle.Regular));
         x += Measure(g, temp, big, FontStyle.Regular) + 12;
         float tw = r.Right - x;
-        if (tw < 36) return;
-        var lines = new List<(string Text, float Px, Color Color, bool Bold)> { (place, 12.5f, p.Text, true) };
-        if (w is not null && WeatherFeed.Words(w.Symbol) is { Length: > 0 } words) lines.Add((words, 12, p.Muted, false));
-        if (w is { HighC: double hi, LowC: double lo }) lines.Add((Lang.T($"{Units.TempShort(lo)} to {Units.TempShort(hi)} today"), 11.5f, p.Faint, false));
-        int fit = Math.Max(1, Math.Min(lines.Count, (int)(r.Height / 17)));
-        float y = cy - fit * 17 / 2f;
-        foreach (var l in lines.Take(fit))
+        if (tw >= 36)
         {
-            Text(g, l.Text, l.Px, FontStyle.Regular, l.Color, x, y, semibold: l.Bold, maxWidth: tw);
-            y += 17;
+            var lines = new List<(string Text, float Px, Color Color, bool Bold)> { (place, 12.5f, p.Text, true) };
+            string words = w is null ? "" : WeatherFeed.Words(w.Symbol);
+            string range = w is { HighC: double hi, LowC: double lo } ? Lang.T($"{Units.TempShort(lo)} to {Units.TempShort(hi)}") : "";
+            string second = medium && words.Length > 0 && range.Length > 0 ? $"{words} · {range}" : words.Length > 0 ? words : range;
+            // A small tile says the place only: the sky is its icon.
+            if (second.Length > 0 && (medium || large || tw >= 130)) lines.Add((second, 12, p.Muted, false));
+            if (!medium && !large && tw >= 130 && range.Length > 0 && words.Length > 0) lines.Add((range, 11.5f, p.Faint, false));
+            int fit = Math.Max(1, Math.Min(lines.Count, (int)(headH / 17)));
+            float y = cy - fit * 17 / 2f;
+            foreach (var l in lines.Take(fit))
+            {
+                Text(g, l.Text, l.Px, FontStyle.Regular, l.Color, x, y, semibold: l.Bold, maxWidth: tw);
+                y += 17;
+            }
+        }
+        if (w is null || (!medium && !large)) return;
+        float top = r.Top + headH + 8;
+        var hours = w.Hours;
+        if (medium)
+        {
+            // The next hours in a row: "2 PM 26°", as many as fit.
+            if (hours.Count == 0 || r.Bottom - top < 12) return;
+            var cells = hours.Select(h => $"{HourText(h.At)} {Units.TempShort(h.TempC)}").ToList();
+            int n = cells.Count;
+            while (n > 1 && cells.Take(n).Sum(c => Measure(g, c, 11, FontStyle.Regular)) + (n - 1) * 10 > r.Width) n--;
+            float cw = r.Width / n;
+            for (int i = 0; i < n; i++)
+            {
+                float mw = Measure(g, cells[i], 11, FontStyle.Regular);
+                float cx = n == 1 ? r.Left : r.Left + i * (r.Width - mw) / (n - 1);
+                Text(g, cells[i], 11, FontStyle.Regular, p.Muted, cx, top);
+            }
+            return;
+        }
+        // Large: the next hours with their sky, then the days.
+        if (hours.Count > 0)
+        {
+            int n = Math.Min(hours.Count, Math.Max(1, (int)(r.Width / 46)));
+            float cw = r.Width / n;
+            for (int i = 0; i < n; i++)
+            {
+                var h = hours[i];
+                float cx = r.Left + i * cw + cw / 2;
+                string label = HourText(h.At), tt = Units.TempShort(h.TempC);
+                Text(g, label, 10.5f, FontStyle.Regular, p.Faint, cx - Measure(g, label, 10.5f, FontStyle.Regular) / 2, top);
+                WeatherIcon(g, h.Symbol, new RectangleF(cx - 9, top + 16, 18, 18), p.Text, accent);
+                Text(g, tt, 11.5f, FontStyle.Regular, p.Text, cx - Measure(g, tt, 11.5f, FontStyle.Regular) / 2, top + 37);
+            }
+            top += 58;
+        }
+        if (w.Days.Count == 0 || r.Bottom - top < 30) return;
+        using (var line = new Pen(p.Track, 1)) g.DrawLine(line, r.Left, top, r.Right, top);
+        top += 8;
+        foreach (var day in w.Days)
+        {
+            if (top + 16 > r.Bottom) break;
+            string name = day.Date == DateTime.Today.AddDays(1) ? Lang.T("Tomorrow") : day.Date.ToString("dddd", Culture);
+            string span = Lang.T($"{Units.TempShort(day.LowC)} to {Units.TempShort(day.HighC)}");
+            float rowCy = top + 8;
+            Text(g, name, 11.5f, FontStyle.Regular, p.Muted, r.Left, TextTopFor(rowCy, 11.5f, FontStyle.Regular), maxWidth: r.Width * 0.4f);
+            WeatherIcon(g, day.Symbol, new RectangleF(r.Left + r.Width * 0.42f, rowCy - 8, 16, 16), p.Text, accent);
+            Text(g, span, 11.5f, FontStyle.Regular, p.Text, r.Right - Measure(g, span, 11.5f, FontStyle.Regular), TextTopFor(rowCy, 11.5f, FontStyle.Regular));
+            top += 19;
         }
     }
 
@@ -228,7 +428,10 @@ internal static partial class WidgetRenderer
     /// <summary>A shortcut's icon: the app's own, or a folder's or a web page's.</summary>
     private static string LinkGlyph(TileLink l) => l.IsWeb ? "\uE774" : Directory.Exists(l.Path) ? "\uE8B7" : "\uE8A5";
 
-    /// <summary>Apps, files, folders and links in a row, each opened with a click on the desktop; names under them where there's room.</summary>
+    /// <summary>
+    /// Apps, files, folders and links, each opened with a click on the desktop: a row in a short tile, a grid with names
+    /// under them once there's room (the user, 2026-11-11).
+    /// </summary>
     private static void ShortcutsTile(Graphics g, WidgetTile t, RectangleF r, Palette p)
     {
         var links = t.Links ?? [];
@@ -238,13 +441,23 @@ internal static partial class WidgetRenderer
             return;
         }
         bool names = r.Height >= 58;
-        float s = MathF.Round(Math.Clamp(names ? r.Height - 18 : r.Height, 18, 44)), gap = names ? 14 : 10;
-        int n = Math.Clamp((int)((r.Width + gap) / (s + gap)), 1, links.Count);
-        float width = n * s + (n - 1) * gap, x = r.Left + (r.Width - width) / 2, y = r.Top + (r.Height - s - (names ? 18 : 0)) / 2;
+        const float name = 18;
+        float gap = names ? 12 : 10;
+        // One row in a short tile, the icons as big as it allows; in a taller one, 40 px icons in as many rows as fit.
+        float s = MathF.Round(Math.Clamp(names ? Math.Min(r.Height - name, 44) : r.Height, 18, 44));
+        int rows = Math.Max(1, (int)((r.Height + gap) / (s + (names ? name : 0) + gap)));
+        if (rows > 1) s = 40;
+        int cols = Math.Max(1, (int)((r.Width + gap) / (s + gap)));
+        rows = Math.Max(1, Math.Min(rows, (int)((r.Height + gap) / (s + (names ? name : 0) + gap))));
+        int n = Math.Min(links.Count, cols * rows);
+        int usedCols = Math.Min(cols, n), usedRows = (n + cols - 1) / cols;
+        float cellH = s + (names ? name : 0);
+        float left = r.Left + (r.Width - (usedCols * s + (usedCols - 1) * gap)) / 2;
+        float top = r.Top + (r.Height - (usedRows * cellH + (usedRows - 1) * gap)) / 2;
         for (int i = 0; i < n; i++)
         {
             var l = links[i];
-            var box = new RectangleF(x, y, s, s);
+            var box = new RectangleF(left + i % cols * (s + gap), top + i / cols * (cellH + gap), s, s);
             using (var path = RoundRect(box, s * 0.24f))
             using (var fill = new SolidBrush(p.Track))
                 g.FillPath(fill, path);
@@ -257,17 +470,18 @@ internal static partial class WidgetRenderer
             else IconIn(g, LinkGlyph(l), s * 0.42f, p.Muted, box);
             if (names)
             {
-                float nw = s + gap - 4;
-                string name = l.Name;
-                float tw = Math.Min(Measure(g, name, 10.5f, FontStyle.Regular), nw);
-                Text(g, name, 10.5f, FontStyle.Regular, p.Muted, box.X + (s - tw) / 2, box.Bottom + 4, maxWidth: nw);
+                float nw = s + gap - 2;
+                float tw = Math.Min(Measure(g, l.Name, 10.5f, FontStyle.Regular), nw);
+                Text(g, l.Name, 10.5f, FontStyle.Regular, p.Muted, box.X + (s - tw) / 2, box.Bottom + 4, maxWidth: nw);
             }
-            AddHit(HitOpen, i, RectangleF.Inflate(box, gap / 2, names ? 0 : gap / 4) with { Height = s + (names ? 18 : 0) });
-            x += s + gap;
+            AddHit(HitOpen, i, new RectangleF(box.X - gap / 2, box.Y, s + gap, cellH));
         }
     }
 
-    /// <summary>The folder's pictures, one after another, each filling the tile.</summary>
+    /// <summary>
+    /// The folder's pictures, one after another, each filling the tile; a tile with room says the folder and which
+    /// picture it is at its foot ("Goa trip · 3 of 48").
+    /// </summary>
     private static void PhotosTile(Graphics g, WidgetTile t, RectangleF tile, Palette p)
     {
         var r = RectangleF.Inflate(tile, -4, -4);
@@ -275,6 +489,21 @@ internal static partial class WidgetRenderer
         if (now is not null && WidgetFiles.Picture(now) is { } picture)
         {
             Cover(g, picture, r, 9);
+            if (r.Height >= 88 && r.Width >= 120 && t.Folder is { } folder)
+            {
+                var files = WidgetFiles.PicturesIn(folder);
+                int at = Array.IndexOf(files, now) + 1;
+                string name = Path.GetFileName(folder.TrimEnd('\\', '/'));
+                string caption = at > 0 ? Lang.T($"{name} · {at} of {files.Length}") : name;
+                var foot = RectangleF.FromLTRB(r.Left, r.Bottom - 40, r.Right, r.Bottom);
+                using var clip = RoundRect(r, 9);
+                var state = g.Save();
+                g.SetClip(clip, CombineMode.Intersect);
+                using (var shade = new LinearGradientBrush(new PointF(0, foot.Top - 1), new PointF(0, foot.Bottom), Color.FromArgb(0, 0, 0, 0), Color.FromArgb(150, 0, 0, 0)))
+                    g.FillRectangle(shade, foot);
+                g.Restore(state);
+                Text(g, caption, 11.5f, FontStyle.Regular, Color.White, r.Left + 10, r.Bottom - 22, maxWidth: r.Width - 20);
+            }
             return;
         }
         var inner = RectangleF.Inflate(tile, -10, -8);
@@ -287,8 +516,8 @@ internal static partial class WidgetRenderer
     /// <summary>The part of a box's change key for the everyday tiles of part three (null: not one of them).</summary>
     private static string? EverydayKey(WidgetTile t, WidgetData d) => t.Kind switch
     {
-        WidgetTiles.Media => d.Media is { } m ? $"{m.Title}|{m.Artist}|{m.Playing}|{m.Version}" : "-",
-        WidgetTiles.Weather => WeatherFeed.For(t) is { } w ? $"{t.Place}|{w.TempC}|{w.Symbol}|{w.HighC}|{w.LowC}|{Units.Fahrenheit}" : $"{t.Place}|-",
+        WidgetTiles.Media => d.Media is { } m ? $"{m.Title}|{m.Artist}|{m.App}|{m.Playing}|{m.Version}|{(int)m.PositionAt(Now()).TotalSeconds}|{(int)m.Length.TotalSeconds}" : "-",
+        WidgetTiles.Weather => WeatherFeed.For(t) is { } w ? $"{t.Place}|{w.TempC}|{w.Symbol}|{w.HighC}|{w.LowC}|{w.Fetched.Ticks}|{Units.Fahrenheit}|{Now().Hour}" : $"{t.Place}|-",
         WidgetTiles.Shortcuts => string.Join("|", (t.Links ?? []).Select(l => l.Path + ">" + l.Name)),
         WidgetTiles.Photos => $"{t.Folder}|{WidgetFiles.PictureNow(t, Now())}",
         _ => null,

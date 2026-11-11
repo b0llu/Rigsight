@@ -61,12 +61,14 @@ internal sealed class MediaWatcher : IDisposable
             {
                 old.MediaPropertiesChanged -= OnProps;
                 old.PlaybackInfoChanged -= OnPlayback;
+                old.TimelinePropertiesChanged -= OnTimeline;
             }
             _session = session;
             if (session is not null)
             {
                 session.MediaPropertiesChanged += OnProps;
                 session.PlaybackInfoChanged += OnPlayback;
+                session.TimelinePropertiesChanged += OnTimeline;
             }
         }
         _ = ReadAsync(session);
@@ -75,6 +77,45 @@ internal sealed class MediaWatcher : IDisposable
     private void OnProps(GlobalSystemMediaTransportControlsSession s, MediaPropertiesChangedEventArgs e) => _ = ReadAsync(s);
 
     private void OnPlayback(GlobalSystemMediaTransportControlsSession s, PlaybackInfoChangedEventArgs e) => _ = ReadAsync(s, keepCover: true);
+
+    private void OnTimeline(GlobalSystemMediaTransportControlsSession s, TimelinePropertiesChangedEventArgs e) => _ = ReadAsync(s, keepCover: true);
+
+    /// <summary>Where the track is and how long it is, as the player last said (none when it doesn't say).</summary>
+    private static (TimeSpan Position, TimeSpan Length, DateTime At) Timeline(GlobalSystemMediaTransportControlsSession s)
+    {
+        try
+        {
+            var t = s.GetTimelineProperties();
+            var length = t.EndTime - t.StartTime;
+            if (length <= TimeSpan.Zero) return default;
+            var at = t.LastUpdatedTime.Year > 2000 ? t.LastUpdatedTime.LocalDateTime : DateTime.Now;
+            return (t.Position - t.StartTime, length, at);
+        }
+        catch (Exception)
+        {
+            return default;
+        }
+    }
+
+    /// <summary>The player's name from Windows' id for it ("Spotify.exe", "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic").</summary>
+    internal static string AppName(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return "";
+        string s = id.Contains('!') ? id[(id.LastIndexOf('!') + 1)..] : id;
+        if (s.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) s = s[..^4];
+        s = s.Split('.')[^1];
+        return s.ToLowerInvariant() switch
+        {
+            "zunemusic" or "mediaplayer" => "Media Player",
+            "msedge" => "Edge",
+            "chrome" => "Chrome",
+            "firefox" => "Firefox",
+            "vlc" => "VLC",
+            "brave" => "Brave",
+            "opera" => "Opera",
+            _ => s.Length > 0 ? char.ToUpperInvariant(s[0]) + s[1..] : s,
+        };
+    }
 
     private async Task ReadAsync(GlobalSystemMediaTransportControlsSession? s, bool keepCover = false)
     {
@@ -88,9 +129,10 @@ internal sealed class MediaWatcher : IDisposable
             var info = s.GetPlaybackInfo();
             bool playing = info.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
             bool prev = info.Controls.IsPreviousEnabled, next = info.Controls.IsNextEnabled;
+            var (position, length, at) = Timeline(s);
             if (keepCover && Now is { } now)
             {
-                Set(now with { Playing = playing, CanPrevious = prev, CanNext = next });
+                Set(now with { Playing = playing, CanPrevious = prev, CanNext = next, Position = position, Length = length, At = at });
                 return;
             }
             var props = await s.TryGetMediaPropertiesAsync();
@@ -108,7 +150,7 @@ internal sealed class MediaWatcher : IDisposable
                     cover = null;
                 }
             }
-            Set(new MediaNow(props.Title ?? "", props.Artist ?? "", playing, cover, prev, next, 0));
+            Set(new MediaNow(props.Title ?? "", props.Artist ?? "", playing, cover, prev, next, 0, AppName(s.SourceAppUserModelId), position, length, at));
         }
         catch (Exception ex)
         {
@@ -179,6 +221,7 @@ internal sealed class MediaWatcher : IDisposable
             {
                 s.MediaPropertiesChanged -= OnProps;
                 s.PlaybackInfoChanged -= OnPlayback;
+                s.TimelinePropertiesChanged -= OnTimeline;
             }
             _session = null;
             _manager = null;

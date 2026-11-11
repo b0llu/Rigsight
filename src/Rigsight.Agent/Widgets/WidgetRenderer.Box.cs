@@ -143,7 +143,7 @@ internal static partial class WidgetRenderer
             case WidgetTiles.Notes: NotesTile(g, t, inner, p, accent); break;
             case WidgetTiles.Todo: TodoTile(g, t, inner, p, accent); break;
             case WidgetTiles.Timer: TimerTile(g, t, inner, p, accent); break;
-            case WidgetTiles.Media: MediaTile(g, inner, d, p, accent); break;
+            case WidgetTiles.Media: MediaTile(g, r, inner, d, p, accent); break;
             case WidgetTiles.Weather: WeatherTile(g, t, inner, p, accent); break;
             case WidgetTiles.Shortcuts: ShortcutsTile(g, t, inner, p); break;
             case WidgetTiles.Photos: PhotosTile(g, t, r, p); break;
@@ -856,8 +856,36 @@ internal static partial class WidgetRenderer
     /// </summary>
     private static void NotesTile(Graphics g, WidgetTile t, RectangleF r, Palette p, Color accent)
     {
-        Caption(g, Lang.T("NOTE"), r.Left, r.Top, p.Faint);
-        var area = RectangleF.FromLTRB(r.Left, r.Top + 16, r.Right, r.Bottom);
+        // A sticky note: yellow paper and handwriting, the widget's own look left aside.
+        bool sticky = t.Look == WidgetTiles.Sticky;
+        string? font = FontName;
+        var shadow = TextShadow;
+        if (sticky)
+        {
+            var paper = RectangleF.Inflate(r, 6, 4);
+            using (var path = RoundRect(paper, 8))
+            using (var fill = new SolidBrush(Color.FromArgb(245, 247, 222, 120)))
+                g.FillPath(fill, path);
+            p = p with { Text = Color.FromArgb(43, 36, 16), Muted = Color.FromArgb(92, 78, 40), Faint = Color.FromArgb(128, 108, 56), Track = Color.FromArgb(214, 190, 96) };
+            accent = Color.FromArgb(43, 36, 16);
+            if (FontFamily.Families.Any(f => f.Name == "Segoe Print")) FontName = "Segoe Print";
+            TextShadow = Color.Transparent;
+        }
+        try
+        {
+            NoteBody(g, t, r, p, accent, sticky);
+        }
+        finally
+        {
+            FontName = font;
+            TextShadow = shadow;
+        }
+    }
+
+    private static void NoteBody(Graphics g, WidgetTile t, RectangleF r, Palette p, Color accent, bool sticky)
+    {
+        if (!sticky) Caption(g, Lang.T("NOTE"), r.Left, r.Top, p.Faint);
+        var area = sticky ? r : RectangleF.FromLTRB(r.Left, r.Top + 16, r.Right, r.Bottom);
         if (area.Height < 8) return;
         AddHit(HitNote, 0, area);
         AddScrollArea(area);
@@ -1042,6 +1070,22 @@ internal static partial class WidgetRenderer
         }
         long now = NowMs();
         bool running = WidgetTimer.Running(t), up = WidgetTimer.IsUp(t, now);
+        // With room, a ring of what's left (a timer) or of the minute going round (a stopwatch), the rest beside it.
+        if (r.Height >= 60 && r.Width >= 200)
+        {
+            float dia = MathF.Round(Math.Min(r.Height, 72)), thick = MathF.Max(4, dia / 14);
+            var ring = RectangleF.Inflate(new RectangleF(r.Left, r.Top + (r.Height - dia) / 2, dia, dia), -thick / 2, -thick / 2);
+            float frac = WidgetTimer.IsStopwatch(t) ? WidgetTimer.ElapsedMs(t, now) % 60_000 / 60_000f : WidgetTimer.LeftMs(t, now) / (float)WidgetTimer.LengthMs(t);
+            var smooth = g.SmoothingMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var track = new Pen(p.Track, thick)) g.DrawEllipse(track, ring);
+            if (frac > 0.001f)
+                using (var arc = new Pen(up ? accent : accent, thick) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+                    g.DrawArc(arc, ring, -90, 360 * Math.Min(1, frac));
+            g.SmoothingMode = smooth;
+            r = RectangleF.FromLTRB(r.Left + dia + 14, r.Top + (r.Height - 48) / 2, r.Right, r.Top + (r.Height - 48) / 2 + 48);
+            wide = r.Width >= 120;
+        }
         Caption(g, (WidgetTimer.IsStopwatch(t) ? Lang.T("STOPWATCH") : Lang.T("TIMER")), r.Left, r.Top, p.Faint);
         float size = Math.Min(28, Math.Max(20, r.Height - 18)), gap = 6;
         float bigPx2 = wide ? 26 : 20;
