@@ -197,8 +197,22 @@ public sealed class WidgetScreens : FrameworkElement
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
-        if (_dragging is not null) ReleaseMouseCapture();
+        bool held = _dragging is not null;
         Drop();
+        if (held) ReleaseMouseCapture();
+    }
+
+    /// <summary>
+    /// The pointer taken away mid-drag (another window, a menu): the widget goes back where it was, and nothing moves it
+    /// on a later click (it was moved by the next click on an empty part of the map).
+    /// </summary>
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        if (_dragging is null) return;
+        Rigsight.Core.Log.Write("widgets", "A drag on the map was cut off before the button went up; nothing moved");
+        (_dragging, _guide, _dx, _dy) = (null, null, 0, 0);
+        InvalidateVisual();
     }
 
     /// <summary>Puts the widget picked up down where it was dragged to: its new spot, on the desktop too.</summary>
