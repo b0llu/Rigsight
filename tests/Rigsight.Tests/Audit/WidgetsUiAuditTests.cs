@@ -221,6 +221,7 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
             Ui.Pump(200);
             Ui.Run(() => host.Shell.Widgets.Edit(a.Id));
             Ui.Pump(400);
+            Assert.Empty(Ui.Run(() => ShownWrong(host.Window)));
             Assert.Equal(beforeA, Saved(a.Id));
             Assert.Equal(beforeB, Saved(b.Id));
             // The editor no longer shown is done: nothing redraws it.
@@ -537,5 +538,99 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
         }
         finally { Drop(id); }
         Assert.True(missing.Count == 0, string.Join("\n", missing));
+    }
+    // Remove on the page: the widget goes, nothing else is picked (so a second click can't take another), Undo puts it
+    // back where it was and picks it; left alone, Undo goes after a few seconds and the first widget is picked. The list
+    // shows the picked widget lit throughout, and the quick settings show what the picked one has.
+    [Fact]
+    public void Remove_then_Undo_and_Undo_running_out()
+    {
+        host.Show("widgets");
+        var vm = Ui.Run(() => host.Shell.Widgets);
+        var a = EveryTile("Remove me");
+        var b = EveryTile("Keep me");
+        b.Scale = 1.25;
+        b.Theme = WidgetTheme.Grey;
+        AddWidget(a);
+        AddWidget(b);
+        Ui.Pump(300);
+        string beforeA = Saved(a.Id), beforeB = Saved(b.Id);
+        var list = Ui.Run(() => Visuals.Descendants<ListBox>(host.Window).Single(l => l.Name == "MineList"));
+        try
+        {
+            Ui.Run(() => vm.PickedId = a.Id);
+            Ui.Pump(200);
+            int index = Ui.Run(() => host.Shell.Settings.Current.Widgets.FindIndex(w => w.Id == a.Id));
+            Ui.Run(() => vm.Picked!.RemoveCommand.Execute(null));
+            Ui.Pump(250);
+            Assert.Null(Ui.Run(() => vm.Picked));
+            Assert.True(Ui.Run(() => vm.HasRemoved));
+            Assert.Equal("null", Saved(a.Id));
+            Assert.Null(Ui.Run(() => list.SelectedItem));
+            Ui.Run(() => vm.Removed!.UndoCommand.Execute(null));
+            Ui.Pump(250);
+            Assert.Equal(beforeA, Saved(a.Id));
+            Assert.Equal(index, Ui.Run(() => host.Shell.Settings.Current.Widgets.FindIndex(w => w.Id == a.Id)));
+            Assert.Equal(a.Id, Ui.Run(() => vm.PickedId));
+            Assert.Same(Ui.Run(() => vm.Picked), Ui.Run(() => list.SelectedItem));
+            Assert.Empty(Ui.Run(() => ShownWrong(host.Window)));
+
+            // Picked one after another, the list and the quick settings follow.
+            foreach (var id in new[] { b.Id, a.Id, b.Id })
+            {
+                Ui.Run(() => vm.PickedId = id);
+                Ui.Pump(150);
+                Assert.Same(Ui.Run(() => vm.Picked), Ui.Run(() => list.SelectedItem));
+                Assert.Empty(Ui.Run(() => ShownWrong(host.Window)));
+            }
+            Assert.Equal(beforeB, Saved(b.Id));
+
+            // Removed and left: after six seconds Undo is gone, the widget stays gone, the first one is picked.
+            Ui.Run(() => vm.PickedId = a.Id);
+            Ui.Run(() => vm.Picked!.RemoveCommand.Execute(null));
+            var removed = Ui.Run(() => vm.Removed!);
+            Assert.True(Ui.WaitFor(() => vm.Removed is null, 9000), "Undo didn't go");
+            Ui.Pump(200);
+            Assert.Equal("null", Saved(a.Id));
+            Assert.DoesNotContain(removed, Ui.Run(() => vm.Grid.ToList()));
+            Assert.Same(Ui.Run(() => vm.Cards[0]), Ui.Run(() => vm.Picked));
+            Assert.Same(Ui.Run(() => vm.Picked), Ui.Run(() => list.SelectedItem));
+            // Its Undo, clicked late (the row was still there a moment), brings nothing back.
+            Ui.Run(() => removed.UndoCommand.Execute(null));
+            Ui.Pump(150);
+            Assert.Equal("null", Saved(a.Id));
+            Ui.AssertNoProblems("remove and undo");
+        }
+        finally { Drop(a.Id, b.Id); }
+    }
+    // A shortcut left waiting for its keys ("Press the keys") and then a widget opened in the editor: typing in the editor
+    // types (the page took every key as the shortcut, so a name or a note couldn't be typed, and a key combination
+    // pressed there became the shortcut).
+    [Fact]
+    public void A_shortcut_left_waiting_doesnt_take_the_editors_keys()
+    {
+        host.Show("widgets");
+        var vm = Ui.Run(() => host.Shell.Widgets);
+        string id = AddWidget(EveryTile("Keys"));
+        try
+        {
+            Ui.Run(() => vm.RecordShortcutCommand.Execute("shown"));
+            Ui.Run(() => vm.Edit(id));
+            Ui.Pump(400);
+            bool eaten = Ui.Run(() =>
+            {
+                var name = Visuals.Descendants<TextBox>(host.Window).Single(t => t.Name == "NameBox");
+                var e = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(name)!, 0, Key.A) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+                name.RaiseEvent(e);
+                return e.Handled;
+            });
+            Assert.False(eaten, "The A key typed in the widget's name was taken as the shortcut");
+            Assert.Null(Ui.Run(() => vm.Recording));
+        }
+        finally
+        {
+            Ui.Run(() => vm.Recording = null);
+            Drop(id);
+        }
     }
 }

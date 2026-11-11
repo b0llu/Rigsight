@@ -31,7 +31,12 @@ public partial class WidgetsView : UserControl
         };
         Unloaded += (_, _) =>
         {
-            if (_vm is not null) _vm.PageShown = false;
+            if (_vm is not null)
+            {
+                _vm.PageShown = false;
+                // A shortcut left waiting for its keys doesn't wait on another page and take the keys back here.
+                _vm.Recording = null;
+            }
             Watch(null);
         };
         Map.Moved += (id, x, y) => _vm?.MoveWidget(id, x, y);

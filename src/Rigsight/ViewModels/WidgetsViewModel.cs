@@ -534,6 +534,8 @@ public sealed partial class WidgetsViewModel : ObservableObject
             LetGo(open);
             Sync();
         }
+        // A shortcut left waiting for its keys stops waiting: the editor's keys are typing, not a shortcut.
+        Recording = null;
         PickedId = id;
         foreach (var c in Cards) c.IsEditing = c.Id == id;
         Editor = new WidgetEditorViewModel(id, _settings, _live, CloseEditor,
