@@ -99,7 +99,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         if (front == InFront) return;
         InFront = front;
         Log.Write("widgets", front ? "Widgets on the desktop brought in front" : "Widgets on the desktop back behind the windows");
-        foreach (var form in _forms.Values.Where(f => f.Config.Sits == WidgetSits.OnDesktop)) form.Restack();
+        foreach (var form in _forms.Values.Where(f => !f.SitsOver)) form.Restack();
         if (front)
         {
             _escKey ??= new GlobalHotkey();
@@ -329,7 +329,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         foreach (var form in _forms.Values)
         {
             // A widget on the desktop is under the game anyway: it never steps aside.
-            bool show = form.Config.Sits == WidgetSits.OnDesktop || _gameMonitor == IntPtr.Zero ||
+            bool show = !form.SitsOver || _gameMonitor == IntPtr.Zero ||
                 Native.Win32.MonitorFromWindow(form.Handle, 2 /* MONITOR_DEFAULTTONEAREST */) != _gameMonitor;
             if (show && !form.Visible)
             {

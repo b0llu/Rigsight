@@ -108,13 +108,48 @@ internal sealed class WidgetForm : Form
             if (sitsChanged) Restack();
         }
         Redraw();
+        NoteTaskbar();
     }
 
-    /// <summary>Over windows: in front of the always-on-top ones. On the desktop: behind every window.</summary>
+    /// <summary>
+    /// The widget is (partly) on a taskbar. The taskbar is itself an always-on-top window, so a widget on the desktop,
+    /// behind every window, went under it (the user, 2026-11-11: "they no longer come over taskbar"): one placed on the
+    /// taskbar sits over windows while it's there, whatever its own setting, and goes back behind them when moved off.
+    /// </summary>
+    public bool OnTaskbar { get; private set; }
+
+    /// <summary>In front of windows: set to, or on a taskbar.</summary>
+    public bool SitsOver => Config.Sits == WidgetSits.OverWindows || OnTaskbar;
+
+    /// <summary>Whether the widget is on its screen's taskbar now: restacked, and logged, when that changes.</summary>
+    private void NoteTaskbar()
+    {
+        if (!IsHandleCreated) return;
+        var screen = Screen.FromRectangle(PanelBounds);
+        bool on = IsOnTaskbar(PanelBounds, screen.Bounds, screen.WorkingArea);
+        if (on == OnTaskbar) return;
+        OnTaskbar = on;
+        if (Config.Sits == WidgetSits.OnDesktop)
+            Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} " + (on ? "is on the taskbar: in front of it, over windows there" : "is off the taskbar: behind windows again"));
+        Restack();
+    }
+
+    /// <summary>The panel overlaps a taskbar: the part of the screen its work area leaves out (none with a taskbar that hides itself).</summary>
+    internal static bool IsOnTaskbar(Rectangle panel, Rectangle b, Rectangle w)
+    {
+        Rectangle[] bars =
+        [
+            Rectangle.FromLTRB(b.Left, w.Bottom, b.Right, b.Bottom), Rectangle.FromLTRB(b.Left, b.Top, b.Right, w.Top),
+            Rectangle.FromLTRB(b.Left, b.Top, w.Left, b.Bottom), Rectangle.FromLTRB(w.Right, b.Top, b.Right, b.Bottom),
+        ];
+        return bars.Any(r => r.Width > 0 && r.Height > 0 && r.IntersectsWith(panel));
+    }
+
+    /// <summary>Over windows (or on a taskbar): in front of the always-on-top ones. On the desktop: behind every window.</summary>
     public void Restack()
     {
         if (!IsHandleCreated) return;
-        bool over = Config.Sits == WidgetSits.OverWindows || _manager.InFront;
+        bool over = SitsOver || _manager.InFront;
         if (TopMost != over) TopMost = over;
         Win32.SetWindowPos(Handle, over ? Win32.HWND_TOPMOST : HWND_BOTTOM, 0, 0, 0, 0, Win32.SWP_NOMOVE | Win32.SWP_NOSIZE | Win32.SWP_NOACTIVATE);
     }
@@ -130,7 +165,7 @@ internal sealed class WidgetForm : Form
             _drawn = null; // shown again, it's drawn whatever it says
             return;
         }
-        if (Config.Sits == WidgetSits.OverWindows && UnderTaskbar()) KeepOnTop();
+        if (SitsOver && UnderTaskbar()) KeepOnTop();
         // New readings that come to the same picture: nothing to draw. (A changed setting, the pointer over it and a
         // changed screen scale all go through Redraw itself.)
         if (WidgetRenderer.ChangeKey(Config, data) is { } key && key == _drawn) return;
@@ -261,7 +296,7 @@ internal sealed class WidgetForm : Form
     /// </summary>
     public void KeepOnTop()
     {
-        if (Config.Sits == WidgetSits.OverWindows || _manager.InFront)
+        if (SitsOver || _manager.InFront)
             Win32.SetWindowPos(Handle, Win32.HWND_TOPMOST, 0, 0, 0, 0, Win32.SWP_NOMOVE | Win32.SWP_NOSIZE | Win32.SWP_NOACTIVATE);
     }
 
@@ -342,7 +377,7 @@ internal sealed class WidgetForm : Form
                 if (_manager.Snap(this, ref r)) Marshal.StructureToPtr(r, m.LParam, false);
                 break;
 
-            case WM_WINDOWPOSCHANGING when Config.Sits == WidgetSits.OnDesktop && !_manager.InFront:
+            case WM_WINDOWPOSCHANGING when !SitsOver && !_manager.InFront:
                 // On the desktop: whatever happens, it stays behind every window.
                 var pos = Marshal.PtrToStructure<WINDOWPOS>(m.LParam);
                 if ((pos.flags & SWP_NOZORDER) == 0)
@@ -359,6 +394,7 @@ internal sealed class WidgetForm : Form
                 var at = PanelLocation;
                 if (at != _dragFrom) Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} dragged from {_dragFrom.X},{_dragFrom.Y} to {at.X},{at.Y}");
                 _manager.Mutate(Config.Id, c => { c.X = at.X; c.Y = at.Y; });
+                NoteTaskbar();
                 break;
 
             case WM_DPICHANGED:
