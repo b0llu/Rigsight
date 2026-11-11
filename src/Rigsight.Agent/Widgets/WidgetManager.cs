@@ -485,9 +485,10 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     private void CheckTimers()
     {
         long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-        foreach (var form in _forms.Values)
+        // Every widget's timers, shown or not: one started and then hidden (Desktop widgets off, the widget switched off)
+        // still runs, and still says when it's up (the audit, 2026-11-11: it said nothing until the widget came back).
+        foreach (var cfg in getSettings().Widgets.ToList())
         {
-            var cfg = form.Config;
             if (cfg.Tiles is not { } tiles) continue;
             for (int i = 0; i < tiles.Count; i++)
             {
