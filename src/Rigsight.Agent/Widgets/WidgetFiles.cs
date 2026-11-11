@@ -93,10 +93,31 @@ internal static class WidgetFiles
         }
     }
 
+    private static readonly Dictionary<string, (DateTime Read, bool File, bool Folder)> Seen = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether a shortcut's path is a file or a folder now, looked at once a minute at most. A shortcuts tile is drawn
+    /// at every reading when its widget shows one, on the agent's one window thread: a shortcut on a network share
+    /// that's off or out of reach held that thread for seconds at each of those (the audit, 2026-11-11).
+    /// </summary>
+    public static (bool File, bool Folder) Look(string path)
+    {
+        lock (FolderLock)
+        {
+            if (Seen.TryGetValue(path, out var known) && DateTime.UtcNow - known.Read < TimeSpan.FromMinutes(1)) return (known.File, known.Folder);
+            bool folder = Directory.Exists(path), file = !folder && File.Exists(path);
+            Seen[path] = (DateTime.UtcNow, file, folder);
+            return (file, folder);
+        }
+    }
+
+    /// <summary>A shortcut to a folder (see <see cref="Look"/>).</summary>
+    public static bool IsFolder(TileLink link) => !link.IsWeb && Look(link.Path).Folder;
+
     /// <summary>An app's or a file's own icon, for a shortcut; null for a folder, a web address, or one that can't be read.</summary>
     public static Bitmap? IconOf(TileLink link)
     {
-        if (link.IsWeb || Directory.Exists(link.Path) || !File.Exists(link.Path)) return null;
+        if (link.IsWeb || Look(link.Path) is not { File: true }) return null;
         return Icons.Get(link.Path, p =>
         {
             try { return Icon.ExtractAssociatedIcon(p)?.ToBitmap(); }

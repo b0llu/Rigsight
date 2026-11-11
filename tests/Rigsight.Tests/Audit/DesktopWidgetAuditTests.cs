@@ -105,4 +105,31 @@ public class DesktopWidgetAuditTests
         Assert.False(WidgetManager.Opens(gone, elevated: true));
         Assert.True(WidgetManager.Opens(new Rigsight.Core.Settings.TileLink { Path = "https://rigsight.app/?a=1&b=2", Name = "Site" }, elevated: true));
     }
+
+    [Fact]
+    public void A_shortcuts_tile_doesnt_ask_the_disk_at_every_drawing()
+    {
+        // Drawn at every reading on the agent's one window thread, it asked whether each shortcut's file or folder was
+        // there each time: a shortcut on a network share out of reach held the thread for seconds at every reading.
+        // Asked once a minute now: a file gone a moment ago still has its icon from the last time it was looked at.
+        var dir = Path.Combine(Path.GetTempPath(), "rigsight-tests", "shortcuts-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "notes.txt");
+            File.WriteAllText(file, "x");
+            var link = new Rigsight.Core.Settings.TileLink { Path = file, Name = "Notes" };
+            Assert.NotNull(WidgetFiles.IconOf(link));
+            var folder = new Rigsight.Core.Settings.TileLink { Path = dir, Name = "Folder" };
+            Assert.True(WidgetFiles.IsFolder(folder));
+            Assert.Null(WidgetFiles.IconOf(folder));
+
+            File.Delete(file);
+            Assert.NotNull(WidgetFiles.IconOf(link));
+        }
+        finally
+        {
+            try { Directory.Delete(dir, true); } catch (IOException) { }
+        }
+    }
 }
