@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Rigsight.Core.Settings;
 using Rigsight.Tests.App;
 using Rigsight.Tests.Support;
@@ -70,6 +70,52 @@ public sealed class SettingsAuditTests
             vm.Editor!.RemoveCommand.Execute(null);
             Assert.Equal(count, link.Settings.Current.Widgets.Count);
             Assert.False(vm.HasRemoved);
+        });
+    }
+
+    // A widget that had tiles, emptied in the editor and left with Back, went for good with no word: it goes the way
+    // Remove takes it, with Undo bringing it back with its tiles (a new one left empty is still dropped quietly).
+    [Fact]
+    public void A_widget_emptied_in_the_editor_can_be_undone_after_Back()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            var cfg = WidgetsViewModel.NewWidget("Desk", [WidgetTiles.New(WidgetTiles.Kind(WidgetTiles.Clock)!), WidgetTiles.New(WidgetTiles.Kind(WidgetTiles.Notes)!)]);
+            link.Settings.Update(s => s.Widgets.Add(cfg));
+            vm.Refresh();
+            vm.Edit(cfg.Id);
+            var ed = vm.Editor!;
+            ed.RemoveTileAt(1);
+            ed.RemoveTileAt(0);
+            ed.BackCommand.Execute(null);
+            Assert.Null(vm.Editor);
+            Assert.DoesNotContain(link.Settings.Current.Widgets, w => w.Id == cfg.Id);
+            Assert.True(vm.HasRemoved);
+            vm.Removed!.UndoCommand.Execute(null);
+            var back = Assert.Single(link.Settings.Current.Widgets, w => w.Id == cfg.Id);
+            Assert.Equal(2, back.Tiles!.Count);
+        });
+    }
+
+    // Duplicate past the limit of widgets of one's own made one that vanished when the agent tidied the settings.
+    [Fact]
+    public void Duplicate_waits_at_the_limit()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            link.Settings.Update(s =>
+            {
+                while (s.Widgets.Count(w => w.Style == WidgetStyle.Custom) < WidgetCatalog.MaxCustom)
+                    s.Widgets.Add(WidgetsViewModel.NewWidget("Many", [WidgetTiles.New(WidgetTiles.Kind(WidgetTiles.Clock)!)]));
+            });
+            vm.Refresh();
+            vm.Edit(link.Settings.Current.Widgets.Last(w => w.Style == WidgetStyle.Custom).Id);
+            Assert.False(vm.Editor!.DuplicateCommand.CanExecute(null));
+            vm.CloseEditorCommand.Execute(null);
         });
     }
 

@@ -480,11 +480,11 @@ public sealed partial class WidgetsViewModel : ObservableObject
     /// Removes a widget at once from its card (a built-in one too: the list to add from has it again), with Undo in the
     /// card's place for a few seconds.
     /// </summary>
-    internal void Remove(WidgetCard card)
+    internal void Remove(WidgetCard card, WidgetConfig? asItWas = null)
     {
         int index = _settings.Current.Widgets.FindIndex(w => w.Id == card.Id);
         if (index < 0) return;
-        var saved = WidgetEditorViewModel.Clone(_settings.Current.Widgets[index]);
+        var saved = WidgetEditorViewModel.Clone(asItWas ?? _settings.Current.Widgets[index]);
         _undoTimer.Stop();
         // Nothing is picked next: the pane says what was removed, with Undo where Remove was, so a second click can't
         // take another widget away (the user lost every widget to quick clicks on Remove, 2026-11-11).
@@ -563,12 +563,21 @@ public sealed partial class WidgetsViewModel : ObservableObject
         LoadMap();
     }
 
-    /// <summary>An editor closed: it stops drawing, and a new widget left with nothing in it isn't kept.</summary>
+    /// <summary>
+    /// An editor closed: it stops drawing. A new widget left with nothing in it isn't kept; one that had tiles and was
+    /// emptied goes the way Remove takes it, with Undo (the audit, 2026-11-11: it went for good, with no word).
+    /// </summary>
     private void LetGo(WidgetEditorViewModel editor)
     {
         editor.Close();
-        if (_settings.Current.Widgets.FirstOrDefault(w => w.Id == editor.Id) is { Tiles.Count: 0 })
-            _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == editor.Id && w.Tiles is { Count: 0 }));
+        if (_settings.Current.Widgets.FirstOrDefault(w => w.Id == editor.Id) is not { Tiles.Count: 0 }) return;
+        if (!editor.StartedEmpty && Cards.FirstOrDefault(c => c.Id == editor.Id) is { } card)
+        {
+            // Undo brings it back as it was when the editor opened, with its tiles.
+            Remove(card, editor.Opened);
+            return;
+        }
+        _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == editor.Id && w.Tiles is { Count: 0 }));
     }
 
     /// <summary>A new widget with nothing in it yet, opened in the editor (an empty one is gone again when the editor closes).</summary>

@@ -76,6 +76,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         _live = live;
         _close = close;
         _w = Clone(settings.Current.Widgets.First(w => w.Id == id));
+        _opened = Clone(_w);
         // A widget drawn as before the box came is shown as the tiles it becomes (saved as tiles at its first change).
         if (_w.Tiles is null)
         {
@@ -250,7 +251,16 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     [RelayCommand]
     private void Back() => _close();
 
-    [RelayCommand]
+    /// <summary>The widget as it was when the editor opened, and whether it had no tiles then (a new one).</summary>
+    internal WidgetConfig Opened => _opened;
+    private readonly WidgetConfig _opened;
+
+    public bool StartedEmpty => Opened.Tiles is { Count: 0 };
+
+    /// <summary>A copy can be made while there's room for another widget of the person's own (200 at most).</summary>
+    public bool CanDuplicate => _settings.Current.Widgets.Count(w => w.Style == WidgetStyle.Custom) < WidgetCatalog.MaxCustom;
+
+    [RelayCommand(CanExecute = nameof(CanDuplicate))]
     private void Duplicate()
     {
         // As it is now: moved, typed in or ticked on the desktop since the editor last saved it.
