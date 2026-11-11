@@ -357,11 +357,37 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     private void OpenTyping(WidgetForm form, WidgetRenderer.TileHit hit, bool multiline, string text, Action<string>? changed, Action<string>? added)
     {
         _typing?.Close();
-        var (back, fore) = WidgetRenderer.TypingColors(form.Config);
-        float px = WidgetTiles.TextPx(form.Config.Tiles![hit.Tile]) * form.HitScale;
-        _typing = new TileTypingBox(form.ScreenRect(hit), text, multiline, px, back, fore, changed, added);
-        _typing.FormClosed += (_, _) => _typing = null;
-        _typing.Show();
+        string id = form.Config.Id;
+        int tile = hit.Tile;
+        bool adding = !multiline;
+        // The widget draws what's typed, with its caret; the box that takes the keys isn't seen.
+        void Draft(string now, int caret)
+        {
+            WidgetRenderer.Typing = new WidgetRenderer.TypingNow(id, tile, now, caret, adding);
+            if (_forms.TryGetValue(id, out var f)) f.Redraw();
+        }
+        var box = new TileTypingBox(form.ScreenRect(hit), text, multiline, Draft, changed, added);
+        _typing = box;
+        box.FormClosed += (_, _) =>
+        {
+            if (_typing == box) _typing = null;
+            if (WidgetRenderer.Typing is { } ty && ty.WidgetId == id && ty.Tile == tile)
+            {
+                WidgetRenderer.Typing = null;
+                if (_forms.TryGetValue(id, out var f)) f.Redraw();
+            }
+        };
+        box.Show();
+    }
+
+    /// <summary>The wheel over a note or a to-do list: scrolled by a row (a list) or three lines (a note) a notch.</summary>
+    public void Scrolled(WidgetForm form, int tile, int notches)
+    {
+        if (form.Config.Tiles is not { } tiles || tile >= tiles.Count) return;
+        int step = tiles[tile].Kind == WidgetTiles.Notes ? 3 : 1;
+        var key = (form.Config.Id, tile);
+        WidgetRenderer.Scrolls[key] = Math.Max(0, WidgetRenderer.Scrolls.GetValueOrDefault(key) + notches * step);
+        form.Redraw();
     }
 
     /// <summary>Every tick: a timer that has run its length stops at it, and says so once.</summary>

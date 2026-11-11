@@ -19,7 +19,7 @@ namespace Rigsight.Agent.Widgets;
 /// </remarks>
 internal sealed class WidgetForm : Form
 {
-    private const int WM_NCHITTEST = 0x84, WM_MOUSEMOVE = 0x200, WM_NCMOUSEMOVE = 0xA0, WM_LBUTTONUP = 0x202;
+    private const int WM_NCHITTEST = 0x84, WM_MOUSEMOVE = 0x200, WM_NCMOUSEMOVE = 0xA0, WM_LBUTTONUP = 0x202, WM_MOUSEWHEEL = 0x20A;
     private const int WM_RBUTTONUP = 0x205, WM_NCRBUTTONUP = 0xA5, WM_ENTERSIZEMOVE = 0x231, WM_EXITSIZEMOVE = 0x232, WM_DPICHANGED = 0x2E0;
     private const int WM_MOVING = 0x216, WM_WINDOWPOSCHANGING = 0x46, WM_SETCURSOR = 0x20, WM_LBUTTONDOWN = 0x201, WM_NCLBUTTONDOWN = 0xA1;
 
@@ -37,6 +37,16 @@ internal sealed class WidgetForm : Form
     private WidgetData? _data;
     private bool _hover, _dragging;
     private List<WidgetRenderer.TileHit> _hits = [];
+    private List<(int Tile, RectangleF Rect)> _scrollAreas = [];
+
+    /// <summary>The note or to-do list under a point of the window that scrolls with the wheel, if any.</summary>
+    private int? ScrollTileAt(Point client)
+    {
+        if (_hitScale <= 0) return null;
+        var at = new PointF(client.X / _hitScale, (client.Y - Room) / _hitScale);
+        foreach (var (tile, rect) in _scrollAreas) if (rect.Contains(at)) return tile;
+        return null;
+    }
     private float _hitScale = 1;
 
     /// <summary>The clickable place of a tile under a point of the window, if any.</summary>
@@ -54,6 +64,9 @@ internal sealed class WidgetForm : Form
 
     internal float HitScale => _hitScale;
     private Point _dragFrom;
+
+    /// <summary>Where the window was last dragged to (its top left), while a drag is on.</summary>
+    private Point? _droppedAt;
     private RectangleF _closeRect;
 
     public WidgetForm(WidgetConfig config, WidgetManager manager)
@@ -247,6 +260,7 @@ internal sealed class WidgetForm : Form
         using var panel = WidgetRenderer.Render(Config, _data, scale, hover: false, out _);
         // Where its tiles can be clicked (a to-do's box, a timer's Start), in the widget's own pixels.
         _hits = WidgetRenderer.Hits?.ToList() ?? [];
+        _scrollAreas = WidgetRenderer.ScrollAreas?.ToList() ?? [];
         _hitScale = scale;
         using var bmp = new Bitmap(panel.Width + Room, panel.Height + Room, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var g = Graphics.FromImage(bmp))
@@ -380,6 +394,19 @@ internal sealed class WidgetForm : Form
                 m.Result = 1;
                 return;
 
+            case WM_MOUSEWHEEL when !Config.Locked:
+                // Over a note or a to-do list that holds more than it shows: scrolled (a notch down shows what's under).
+                long lp = (long)m.LParam;
+                var wheelAt = PointToClient(new Point((short)(lp & 0xFFFF), (short)((lp >> 16) & 0xFFFF)));
+                if (ScrollTileAt(wheelAt) is int scrolled)
+                {
+                    int delta = (short)(((long)m.WParam >> 16) & 0xFFFF);
+                    _manager.Scrolled(this, scrolled, -Math.Sign(delta) * Math.Max(1, Math.Abs(delta) / 120));
+                    m.Result = IntPtr.Zero;
+                    return;
+                }
+                break;
+
             case WM_LBUTTONDOWN:
                 // A press on a clickable place (a note's text, a to-do, Start): a click if it ends there, a drag of the
                 // whole widget once it moves (the user, 2026-11-11: a note couldn't be dragged by its text).
@@ -428,6 +455,7 @@ internal sealed class WidgetForm : Form
             case WM_ENTERSIZEMOVE:
                 _dragging = true;
                 _dragFrom = PanelLocation;
+                _droppedAt = null;
                 KeepOnTop(); // picked up: over everything while it's dragged, the taskbar included
                 break;
 
@@ -435,6 +463,7 @@ internal sealed class WidgetForm : Form
                 // Pulled onto screen edges and other widgets as it's dragged (Alt: placed freely).
                 var r = Marshal.PtrToStructure<Win32.RECT>(m.LParam);
                 if (_manager.Snap(this, ref r)) Marshal.StructureToPtr(r, m.LParam, false);
+                _droppedAt = new Point(r.Left, r.Top);
                 break;
 
             case WM_WINDOWPOSCHANGING when !SitsOver && !_manager.InFront:
@@ -449,6 +478,15 @@ internal sealed class WidgetForm : Form
 
             case WM_EXITSIZEMOVE:
                 _dragging = false;
+                // Windows keeps a dragged window's top on the screen when it's let go, and the window has room above the
+                // panel for the close badge: a widget dropped against the top edge came down by that room, and one in
+                // the corner moved too (the user, 2026-11-11). It stays exactly where it was let go.
+                if (_droppedAt is { } dropped && dropped != Location)
+                {
+                    Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} was moved by Windows from {dropped.X},{dropped.Y + Room} to {Left},{Top + Room} as it was let go: put back");
+                    Win32.SetWindowPos(Handle, IntPtr.Zero, dropped.X, dropped.Y, 0, 0, Win32.SWP_NOSIZE | SWP_NOZORDER | Win32.SWP_NOACTIVATE);
+                }
+                _droppedAt = null;
                 KeepOnTop();
                 _manager.Moved(Config.Id);
                 var at = PanelLocation;

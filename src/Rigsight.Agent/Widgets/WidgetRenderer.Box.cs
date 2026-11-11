@@ -140,7 +140,7 @@ internal static partial class WidgetRenderer
                 break;
             case WidgetTiles.Today: Within(g, r, 256, 140, () => DrawToday(g, d, p)); break;
             case WidgetTiles.NowPlaying: Within(g, r, 310, 88, () => DrawNowPlaying(g, d, p, 310, 88)); break;
-            case WidgetTiles.Notes: NotesTile(g, t, inner, p); break;
+            case WidgetTiles.Notes: NotesTile(g, t, inner, p, accent); break;
             case WidgetTiles.Todo: TodoTile(g, t, inner, p, accent); break;
             case WidgetTiles.Timer: TimerTile(g, t, inner, p, accent); break;
             case WidgetTiles.Media: MediaTile(g, inner, d, p, accent); break;
@@ -721,6 +721,82 @@ internal static partial class WidgetRenderer
     /// <summary>The clickable places of the widget last drawn on this thread (see <see cref="Render"/>).</summary>
     [ThreadStatic] internal static List<TileHit>? Hits;
     [ThreadStatic] private static int _tileIndex;
+    [ThreadStatic] private static string? _widgetId;
+
+    /// <summary>
+    /// What's being typed into a note or a to-do list on the desktop, drawn by the widget itself in its own font and
+    /// colours with a caret (the user, 2026-11-11: a box laid over it didn't follow the widget's look, and an item added
+    /// with Enter went behind it). Set by the agent while a tile takes the keyboard; the app never sets it.
+    /// </summary>
+    internal sealed record TypingNow(string WidgetId, int Tile, string Text, int Caret, bool Adding);
+
+    internal static TypingNow? Typing;
+
+    /// <summary>How far each note or to-do list is scrolled (rows of a list, lines of a note), by widget and tile; the agent's, kept while it runs.</summary>
+    internal static readonly Dictionary<(string Widget, int Tile), int> Scrolls = [];
+
+    /// <summary>The parts of the widget last drawn on this thread that scroll with the wheel, by tile.</summary>
+    [ThreadStatic] internal static List<(int Tile, RectangleF Rect)>? ScrollAreas;
+
+    private static TypingNow? TypingHere(bool adding) =>
+        Typing is { } ty && ty.WidgetId == _widgetId && ty.Tile == _tileIndex && ty.Adding == adding ? ty : null;
+
+    /// <summary>This tile's scroll, kept within 0 and <paramref name="max"/> (and saved back so the wheel never runs on past the end).</summary>
+    private static int ScrollOf(int max)
+    {
+        var key = (_widgetId ?? "", _tileIndex);
+        int at = Math.Clamp(Scrolls.GetValueOrDefault(key), 0, Math.Max(0, max));
+        if (Scrolls.ContainsKey(key) || at != 0) Scrolls[key] = at;
+        return at;
+    }
+
+    private static void SetScroll(int at) => Scrolls[(_widgetId ?? "", _tileIndex)] = at;
+
+    // Once a tile, as a click's places are (a box can be drawn more than once in one picture).
+    private static void AddScrollArea(RectangleF r)
+    {
+        if (ScrollAreas is null || ScrollAreas.Any(a => a.Tile == _tileIndex)) return;
+        ScrollAreas.Add((_tileIndex, r));
+    }
+
+    /// <summary>A thin bar at a list's or a note's right edge, while it holds more than it shows.</summary>
+    private static void ScrollBar(Graphics g, RectangleF track, int first, int shown, int total, Palette p)
+    {
+        if (total <= shown || track.Height < 12) return;
+        float h = Math.Max(10, track.Height * shown / total), y = track.Y + (track.Height - h) * first / Math.Max(1, total - shown);
+        var smooth = g.SmoothingMode;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var path = RoundRect(new RectangleF(track.Right - 3, y, 3, h), 1.5f))
+        using (var fill = new SolidBrush(p.Faint))
+            g.FillPath(fill, path);
+        g.SmoothingMode = smooth;
+    }
+
+    private static readonly Dictionary<(string, float, FontStyle), float> TextMiddles = [];
+
+    /// <summary>
+    /// Where to draw a line of text so it sits in the middle of a row by its ink: halfway between the middle of its
+    /// capitals and the middle of its small letters, measured on the font (the user, 2026-11-11: a to-do's text sat lower
+    /// than its box).
+    /// </summary>
+    private static float TextTopFor(float centreY, float px, FontStyle style)
+    {
+        var font = MakeFont(px, style, false);
+        var key = (font.FontFamily.Name, px, style);
+        if (!TextMiddles.TryGetValue(key, out float middle))
+        {
+            float Mid(string s)
+            {
+                using var path = new GraphicsPath();
+                path.AddString(s, font.FontFamily, (int)style, px, PointF.Empty, StringFormat.GenericTypographic);
+                var b = path.GetBounds();
+                return b.Top + b.Height / 2;
+            }
+            middle = (Mid("H") + Mid("x")) / 2;
+            TextMiddles[key] = middle;
+        }
+        return centreY - middle;
+    }
 
     private static void AddHit(string action, int index, RectangleF r)
     {
@@ -774,19 +850,107 @@ internal static partial class WidgetRenderer
     /// <summary>What reads on the accent (a tick in a box, a timer's play button): white on a dark one, near-black on a light one.</summary>
     private static Color OnAccent(Color accent) => Brightness(accent) > 0.6f ? Color.FromArgb(20, 20, 20) : Color.White;
 
-    /// <summary>A note: typed straight onto the desktop (a click on it opens it to type, see WidgetForm).</summary>
-    private static void NotesTile(Graphics g, WidgetTile t, RectangleF r, Palette p)
+    /// <summary>
+    /// A note: typed straight onto the desktop (a click on it takes the keyboard, see WidgetManager.TileClicked), drawn
+    /// with a caret while it's typed in, and scrolled with the wheel when it's longer than the tile.
+    /// </summary>
+    private static void NotesTile(Graphics g, WidgetTile t, RectangleF r, Palette p, Color accent)
     {
         Caption(g, Lang.T("NOTE"), r.Left, r.Top, p.Faint);
         var area = RectangleF.FromLTRB(r.Left, r.Top + 16, r.Right, r.Bottom);
         if (area.Height < 8) return;
-        float px = WidgetTiles.TextPx(t);
-        if (string.IsNullOrWhiteSpace(t.Text)) TextIn(g, Lang.T("Click here to write."), px, p.Faint, area);
-        else TextIn(g, t.Text!, px, p.Text, area);
         AddHit(HitNote, 0, area);
+        AddScrollArea(area);
+        float px = WidgetTiles.TextPx(t);
+        var typing = TypingHere(adding: false);
+        string text = typing?.Text ?? t.Text ?? "";
+        if (typing is null && string.IsNullOrWhiteSpace(text))
+        {
+            TextIn(g, Lang.T("Click here to write."), px, p.Faint, area);
+            return;
+        }
+        var font = MakeFont(px, FontStyle.Regular, false);
+        float line = font.GetHeight(g);
+        var body = RectangleF.FromLTRB(area.Left, area.Top, area.Right - 6, area.Bottom);
+        using var fmt = new StringFormat(StringFormat.GenericTypographic) { Trimming = StringTrimming.None };
+        fmt.FormatFlags &= ~StringFormatFlags.NoWrap;
+        fmt.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces;
+        // A line for the caret after a last empty line, as a text box has.
+        string measured = text.EndsWith('\n') ? text + " " : text.Length == 0 ? " " : text;
+        float height = g.MeasureString(measured, font, new SizeF(body.Width, 100_000), fmt).Height;
+        int lines = Math.Max(1, (int)Math.Round(height / line)), shown = Math.Max(1, (int)(body.Height / line));
+        int first = ScrollOf(lines - shown);
+        // The caret, where the text has it: its line kept in sight while it's typed.
+        RectangleF? caret = null;
+        if (typing is not null)
+        {
+            caret = CaretAt(g, text, Math.Clamp(typing.Caret, 0, text.Length), font, body, fmt, line);
+            int caretLine = (int)Math.Round((caret.Value.Y - body.Y) / line);
+            if (caretLine < first) first = caretLine;
+            else if (caretLine >= first + shown) first = caretLine - shown + 1;
+            first = Math.Clamp(first, 0, Math.Max(0, lines - shown));
+            SetScroll(first);
+        }
+        var state = g.Save();
+        g.SetClip(area);
+        g.TranslateTransform(0, -first * line);
+        var box = new RectangleF(body.X, body.Y, body.Width, lines * line + line);
+        if (TextShadow.A > 0)
+        {
+            float device = g.Transform.Elements[0];
+            float o = Math.Max(1, MathF.Round(px / 16f * device)) / device;
+            using var shadow = new SolidBrush(TextShadow);
+            g.DrawString(text, font, shadow, new RectangleF(box.X + o, box.Y + o, box.Width, box.Height), fmt);
+        }
+        using (var brush = new SolidBrush(p.Text)) g.DrawString(text, font, brush, box, fmt);
+        if (caret is { } c)
+        {
+            using var pen = new Pen(accent, Math.Max(1.5f, px / 9f));
+            g.DrawLine(pen, c.X, c.Y + 1, c.X, c.Y + line - 1);
+        }
+        g.Restore(state);
+        ScrollBar(g, area, first, shown, lines, p);
     }
 
-    /// <summary>A to-do list: a box to tick on each line, and a line to add one at the end where there's room.</summary>
+    /// <summary>The caret's place in wrapped text: after the character before it, or at the start of a line.</summary>
+    private static RectangleF CaretAt(Graphics g, string text, int at, Font font, RectangleF body, StringFormat fmt, float line)
+    {
+        if (at == 0) return new RectangleF(body.X, body.Y, 0, line);
+        int i = at - 1;
+        if (text[i] == '\n')
+        {
+            // After a line break: the start of the next line, one line under the break's own line.
+            var before = CharRect(g, text, Math.Max(0, i - 1), font, body, fmt);
+            float y = i == 0 || text[i - 1] == '\n' ? LineTopOfBreak(g, text, i, font, body, fmt, line) : before.Y;
+            return new RectangleF(body.X, y + line, 0, line);
+        }
+        var r = CharRect(g, text, i, font, body, fmt);
+        return new RectangleF(r.Right, r.Y, 0, line);
+    }
+
+    // A break's own line: the line under the text before it (a run of empty lines counted one by one).
+    private static float LineTopOfBreak(Graphics g, string text, int i, Font font, RectangleF body, StringFormat fmt, float line)
+    {
+        int breaks = 0, j = i;
+        while (j >= 0 && text[j] == '\n') { breaks++; j--; }
+        if (j < 0) return body.Y + (breaks - 1) * line;
+        return CharRect(g, text, j, font, body, fmt).Y + (breaks - 1) * line;
+    }
+
+    private static RectangleF CharRect(Graphics g, string text, int i, Font font, RectangleF body, StringFormat fmt)
+    {
+        using var f = (StringFormat)fmt.Clone();
+        f.SetMeasurableCharacterRanges([new CharacterRange(i, 1)]);
+        var regions = g.MeasureCharacterRanges(text, font, new RectangleF(body.X, body.Y, body.Width, 100_000), f);
+        var b = regions.Length > 0 ? regions[0].GetBounds(g) : RectangleF.Empty;
+        foreach (var region in regions) region.Dispose();
+        return b;
+    }
+
+    /// <summary>
+    /// A to-do list: a box to tick on each line, and a line to add one at the end; scrolled with the wheel when it holds
+    /// more than it shows (a thin bar at its right says so), and kept at its end while an item is typed.
+    /// </summary>
     private static void TodoTile(Graphics g, WidgetTile t, RectangleF r, Palette p, Color accent)
     {
         var items = t.Todos ?? [];
@@ -796,12 +960,21 @@ internal static partial class WidgetRenderer
             string tally = Lang.T($"{items.Count(i => i.Done)} of {items.Count}");
             Text(g, tally, 9, FontStyle.Bold, p.Faint, r.Right - Measure(g, tally, 9, FontStyle.Bold), r.Top);
         }
-        float px = WidgetTiles.TextPx(t), row = MathF.Round(px * 1.75f), y = r.Top + 18, box = MathF.Round(px + 1);
-        int fit = Math.Max(0, (int)((r.Bottom - y) / row));
-        int shown = Math.Min(items.Count, Math.Max(0, fit - 1));
-        for (int i = 0; i < shown; i++)
+        float px = WidgetTiles.TextPx(t), row = MathF.Round(px * 1.75f), top = r.Top + 18, box = MathF.Round(px + 1);
+        int fit = Math.Max(1, (int)((r.Bottom - top) / row));
+        int total = items.Count + 1; // the items and the line to add one
+        var typing = TypingHere(adding: true);
+        int first = ScrollOf(total - fit);
+        if (typing is not null && first < total - fit) SetScroll(first = Math.Max(0, total - fit));
+        var list = RectangleF.FromLTRB(r.Left, top, r.Right, top + fit * row);
+        AddScrollArea(list);
+        float right = total > fit ? r.Right - 8 : r.Right;
+        var state = g.Save();
+        g.SetClip(RectangleF.FromLTRB(r.Left - 2, top, r.Right + 2, r.Bottom));
+        float y = top;
+        for (int i = first; i < Math.Min(items.Count, first + fit); i++)
         {
-            var line = new RectangleF(r.Left, y, r.Width, row);
+            var line = new RectangleF(r.Left, y, right - r.Left, row);
             var b = new RectangleF(r.Left + 0.5f, y + MathF.Round((row - box) / 2) + 0.5f, box - 1, box - 1);
             using (var path = RoundRect(b, 3.5f))
             {
@@ -818,18 +991,30 @@ internal static partial class WidgetRenderer
                 }
             }
             float tx = r.Left + box + 8;
-            Text(g, items[i].Text, px, items[i].Done ? FontStyle.Strikeout : FontStyle.Regular, items[i].Done ? p.Faint : p.Text,
-                tx, y + (row - px * 1.33f) / 2, maxWidth: r.Right - tx);
+            var style = items[i].Done ? FontStyle.Strikeout : FontStyle.Regular;
+            Text(g, items[i].Text, px, style, items[i].Done ? p.Faint : p.Text, tx, TextTopFor(b.Y + b.Height / 2, px, style), maxWidth: right - tx);
             AddHit(HitTodo, i, line);
             y += row;
         }
-        if (fit > shown)
+        if (first + fit > items.Count)
         {
-            var line = new RectangleF(r.Left, y, r.Width, row);
-            IconIn(g, "\uE710", box * 0.7f, p.Faint, new RectangleF(r.Left, y + (row - box) / 2, box, box));
-            Text(g, Lang.T("Add an item"), px, FontStyle.Regular, p.Faint, r.Left + box + 8, y + (row - px * 1.33f) / 2, maxWidth: r.Width - box - 8);
+            var line = new RectangleF(r.Left, y, right - r.Left, row);
+            var b = new RectangleF(r.Left, y + MathF.Round((row - box) / 2), box, box);
+            float tx = r.Left + box + 8, ty = TextTopFor(b.Y + b.Height / 2, px, FontStyle.Regular);
+            IconIn(g, "\uE710", box * 0.7f, typing is null ? p.Faint : accent, b);
+            if (typing is null) Text(g, Lang.T("Add an item"), px, FontStyle.Regular, p.Faint, tx, ty, maxWidth: right - tx);
+            else
+            {
+                // What's typed, and the caret after the part before it.
+                Text(g, typing.Text, px, FontStyle.Regular, p.Text, tx, ty, maxWidth: right - tx);
+                float cx = tx + (typing.Caret > 0 ? Measure(g, typing.Text[..Math.Min(typing.Text.Length, typing.Caret)], px, FontStyle.Regular) : 0);
+                using var pen = new Pen(accent, Math.Max(1.5f, px / 9f));
+                g.DrawLine(pen, Math.Min(cx, right), b.Y - 1, Math.Min(cx, right), b.Bottom + 1);
+            }
             AddHit(HitTodoAdd, 0, line);
         }
+        g.Restore(state);
+        ScrollBar(g, list, first, fit, total, p);
     }
 
     /// <summary>A timer (counts down), a stopwatch (counts up), each with Start or Pause and Reset; or the days to a day.</summary>
