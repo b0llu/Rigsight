@@ -1248,9 +1248,15 @@
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
                     <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Control}" Padding="10,7">
-                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                        <!-- Empty, it says what goes in it (its Tag, if it has one), as the search boxes do. -->
+                        <Grid>
+                            <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="2,0"
+                                       TextTrimming="CharacterEllipsis" IsHitTestVisible="False" Visibility="Collapsed" />
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value=""><Setter TargetName="Placeholder" Property="Visibility" Value="Visible" /></Trigger>
                         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" /></Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" /></Trigger>
                         <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.5" /></Trigger>

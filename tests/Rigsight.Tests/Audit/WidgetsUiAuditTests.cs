@@ -484,4 +484,58 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
         Trimmed.Clear();
         Assert.True(problems.Count == 0, string.Join("\n", problems.Distinct()));
     }
+    // The editor in the real window, each tile picked in turn, drawn to be looked at (segments lit, the day box, lists).
+    [Fact]
+    public void Pictures_of_every_tile_picked()
+    {
+        host.Show("widgets");
+        string id = AddWidget(EveryTile("Pictures"));
+        try
+        {
+            Ui.Run(() => host.Shell.Widgets.Edit(id));
+            Ui.Pump(500);
+            var ed = Ui.Run(() => host.Shell.Widgets.Editor!);
+            int n = Ui.Run(() => ed.TileBoxes.Count);
+            for (int i = 0; i < n; i++)
+            {
+                Ui.Run(() => ed.PickTileCommand.Execute(ed.TileBoxes[i]));
+                Ui.Pump(200);
+                Ui.Run(() => Visuals.Descendants<ScrollViewer>(host.Window).First(v => v.Name == "EditorScroll").ScrollToEnd());
+                Ui.Pump(200);
+                string name = Ui.Run(() => ed.TileName);
+                Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, $"host-tile-{i:00}-{name.Replace(' ', '-')}.png")));
+            }
+            Ui.AssertNoProblems("every tile picked");
+        }
+        finally { Drop(id); }
+    }
+    // The boxes to type into on a tile (a to-do item, a town for the weather, a web address) say what goes in them while
+    // they're empty: each has its hint in Tag, as the search boxes do.
+    [Fact]
+    public void Empty_boxes_on_a_tile_say_what_goes_in_them()
+    {
+        host.Show("widgets");
+        string id = AddWidget(EveryTile("Hints"));
+        var missing = new List<string>();
+        try
+        {
+            Ui.Run(() => host.Shell.Widgets.Edit(id));
+            Ui.Pump(400);
+            var ed = Ui.Run(() => host.Shell.Widgets.Editor!);
+            foreach (var (kind, box) in new[] { (WidgetTiles.Todo, "NewTodoBox"), (WidgetTiles.Weather, "PlaceBox"), (WidgetTiles.Shortcuts, "NewLinkBox") })
+            {
+                Ui.Run(() => ed.SelectTile(ed.TileBoxes.First(b => b.Glyph == WidgetEditorViewModel.GlyphOf(kind)).Index));
+                Ui.Pump(250);
+                Ui.Run(() =>
+                {
+                    var tb = Visuals.Descendants<TextBox>(host.Window).Single(t => t.Name == box);
+                    string hint = tb.Tag as string ?? "";
+                    bool shown = Visuals.Descendants<TextBlock>(tb).Any(t => t.IsVisible && t.Text == hint);
+                    if (!shown) missing.Add($"{box}: \"{hint}\" isn't shown in the empty box");
+                });
+            }
+        }
+        finally { Drop(id); }
+        Assert.True(missing.Count == 0, string.Join("\n", missing));
+    }
 }
