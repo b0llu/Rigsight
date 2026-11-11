@@ -986,13 +986,20 @@ internal static partial class WidgetRenderer
     }
 
     private static readonly Dictionary<(string Text, float Width, string Font, float Px, float Scale, System.Drawing.Text.TextRenderingHint Hint), int> NoteLines = [];
+    private static long _noteLinesChars;
 
     /// <summary>How many lines a paragraph of a note wraps to (at least one: an empty one is a line too); remembered while it stays the same.</summary>
     private static int LinesOf(Graphics g, string part, Font font, float width, StringFormat fmt, float line)
     {
         var key = (part, width, font.Name, font.Size, g.Transform.Elements[0], g.TextRenderingHint);
         if (NoteLines.TryGetValue(key, out int n)) return n;
-        if (NoteLines.Count > 4000) NoteLines.Clear();
+        // Kept small: a long paragraph typed in leaves a new one at every key (a few notes' worth, then started again).
+        if (NoteLines.Count > 2000 || _noteLinesChars > 200_000)
+        {
+            NoteLines.Clear();
+            _noteLinesChars = 0;
+        }
+        _noteLinesChars += part.Length;
         float height = part.Length == 0 ? line : g.MeasureString(part, font, new SizeF(width, 1_000_000), fmt).Height;
         n = Math.Max(1, (int)Math.Round(height / line));
         NoteLines[key] = n;
