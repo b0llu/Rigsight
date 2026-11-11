@@ -314,7 +314,11 @@ internal static partial class WidgetRenderer
         }
         if (w is null || (!medium && !large)) return;
         float top = r.Top + headH + 8;
-        var hours = w.Hours;
+        // Only what's still ahead: a forecast kept from earlier (no internet since, the PC asleep) had hours already
+        // gone, and after midnight a day that's today.
+        var clock = Now();
+        var hours = w.Hours.Where(h => h.At > clock).ToList();
+        var days = w.Days.Where(d => d.Date.Date > clock.Date).ToList();
         if (medium)
         {
             // The next hours in a row: "2 PM 26°", as many as fit.
@@ -347,10 +351,10 @@ internal static partial class WidgetRenderer
             }
             top += 58;
         }
-        if (w.Days.Count == 0 || r.Bottom - top < 30) return;
+        if (days.Count == 0 || r.Bottom - top < 30) return;
         using (var line = new Pen(p.Track, 1)) g.DrawLine(line, r.Left, top, r.Right, top);
         top += 8;
-        foreach (var day in w.Days)
+        foreach (var day in days)
         {
             if (top + 16 > r.Bottom) break;
             string name = WeatherDayName(day.Date);
