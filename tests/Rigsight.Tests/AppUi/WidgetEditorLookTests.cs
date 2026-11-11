@@ -27,6 +27,31 @@ public sealed class WidgetEditorLookTests(AppHost host) : IClassFixture<AppHost>
         Ui.Run(() => host.Shell.Widgets.CloseEditorCommand.Execute(null));
     }
 
+    // The reading list, as its pop-up shows it (drawn on its own: a pop-up is a window of its own).
+    [Fact]
+    public void The_reading_picker_as_it_looks()
+    {
+        host.Show("widgets");
+        Ui.Run(() =>
+        {
+            var cfg = WidgetsViewModel.NewWidget("Reading", [WidgetTiles.New(WidgetTiles.Kinds.First(k => k.Id == WidgetTiles.Reading))]);
+            host.Shell.Settings.Update(s => s.Widgets.Add(cfg));
+            host.Shell.Widgets.Edit(cfg.Id);
+            var ed = host.Shell.Widgets.Editor!;
+            ed.OpenReadingPickerCommand.Execute("tile");
+            var view = Visuals.Descendants<Rigsight.Views.WidgetsView>(host.Window).First();
+            var list = new System.Windows.Controls.ContentControl { Content = ed, ContentTemplate = (DataTemplate)view.FindResource("ReadingPickerList") };
+            var window = new Window { Content = list, SizeToContent = SizeToContent.WidthAndHeight, Left = -3000, Top = -3000, ShowActivated = false, ShowInTaskbar = false, WindowStyle = WindowStyle.None };
+            window.SetResourceReference(Window.BackgroundProperty, "BgBrush");
+            window.Show();
+            window.UpdateLayout();
+            Ui.SavePng(list, Path.Combine(Shots, "widget-reading-picker.png"));
+            window.Close();
+            ed.ReadingPickerOpen = false;
+            host.Shell.Widgets.CloseEditorCommand.Execute(null);
+        });
+    }
+
     // The user, 2026-11-10: "i still cant drag on preview to change where the widget is placed". Dragged .
     [Fact]
     public void A_widget_dragged_on_the_map_gets_its_new_spot()

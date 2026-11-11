@@ -189,6 +189,61 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
+        <!-- Picking a reading (the tile's, or one to add to a line or graph): a search box and every reading under its part,
+             as on the Taskbar page (the user, 2026-11-11). The one in use is ticked. -->
+        <DataTemplate x:Key="ReadingPickerList">
+            <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                              CornerRadius="{x:Static ctl:Corner.Tile}" Padding="8" Margin="0,0,8,8" Width="400">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                </Border.Effect>
+                <StackPanel>
+                    <TextBox x:Name="PickerSearch" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search readings…'}" Text="{Binding ReadingQuery, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.Name="{ctl:T 'Search readings…'}" Margin="0,0,0,6" />
+                    <TextBlock Text="{ctl:T 'No sensor matches that. Try a part, like GPU, or a kind, like temp.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}"
+                               Margin="8" TextWrapping="Wrap" Visibility="{Binding NoReadingRows, Converter={StaticResource Vis}}" />
+                    <ItemsControl ItemsSource="{Binding ReadingRows}" Focusable="False" MaxHeight="360" VirtualizingPanel.IsVirtualizing="True" ScrollViewer.CanContentScroll="True"
+                                  VirtualizingPanel.ScrollUnit="Pixel">
+                        <ItemsControl.Template>
+                            <ControlTemplate TargetType="ItemsControl">
+                                <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" CanContentScroll="True">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </ControlTemplate>
+                        </ItemsControl.Template>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <TextBlock Text="{Binding Heading}" Style="{StaticResource Caption}" Margin="6,10,0,4"
+                                               Visibility="{Binding IsHeading, Converter={StaticResource Vis}}" />
+                                    <Button Style="{StaticResource ListChoice}" Padding="8,6" Visibility="{Binding IsChoice, Converter={StaticResource Vis}}" IsEnabled="{Binding Enabled}"
+                                            Command="{Binding DataContext.PickRowCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                            AutomationProperties.Name="{Binding Name}">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource AccentBrush}" Width="16"
+                                                       TextAlignment="Center" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                           Visibility="{Binding HasDetail, Converter={StaticResource Vis}}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ctl:SmoothBorder>
+        </DataTemplate>
+
         <!-- A chip over a list, with how many it holds. -->
         <DataTemplate x:Key="ChipTemplate">
             <StackPanel Orientation="Horizontal">
@@ -579,8 +634,19 @@
                                     <StackPanel Visibility="{Binding IsReading, Converter={StaticResource Vis}}">
                                         <DockPanel Style="{StaticResource EditRow}">
                                             <TextBlock Text="{ctl:T 'Reading'}" Style="{StaticResource EditLabel}" />
-                                            <ComboBox DockPanel.Dock="Right" Width="190" IsTextSearchEnabled="True" ItemsSource="{Binding Readings}" DisplayMemberPath="Name"
-                                                      SelectedValuePath="Id" SelectedValue="{Binding Reading}" AutomationProperties.Name="{ctl:T 'Reading'}" />
+                                            <Grid DockPanel.Dock="Right" Width="190">
+                                                <Button x:Name="ReadingButton" Style="{StaticResource DropButton}" MinWidth="0" Command="{Binding OpenReadingPickerCommand}" CommandParameter="tile"
+                                                        AutomationProperties.Name="{ctl:T 'Reading'}">
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,1,0,0" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding ReadingShown}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                    </DockPanel>
+                                                </Button>
+                                                <Popup IsOpen="{Binding ReadingPickerOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=ReadingButton}" Placement="Bottom" HorizontalOffset="-210"
+                                                       VerticalOffset="4" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Opened="ReadingPicker_Opened">
+                                                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ReadingPickerList}" Focusable="False" />
+                                                </Popup>
+                                            </Grid>
                                         </DockPanel>
                                         <DockPanel Style="{StaticResource EditRow}">
                                             <TextBlock Text="{ctl:T 'Look'}" Style="{StaticResource EditLabel}" />
@@ -608,8 +674,19 @@
                                         </ItemsControl>
                                         <DockPanel Style="{StaticResource EditRow}">
                                             <TextBlock Text="{ctl:T 'Add a reading'}" Style="{StaticResource EditLabel}" />
-                                            <ComboBox DockPanel.Dock="Right" Width="190" IsTextSearchEnabled="True" ItemsSource="{Binding ReadingsToAdd}" DisplayMemberPath="Name"
-                                                      SelectedItem="{Binding ReadingToAdd}" AutomationProperties.Name="{ctl:T 'Add a reading'}" />
+                                            <Grid DockPanel.Dock="Right" Width="190">
+                                                <Button x:Name="AddReadingButton" Style="{StaticResource DropButton}" MinWidth="0" Command="{Binding OpenReadingPickerCommand}" CommandParameter="add"
+                                                        AutomationProperties.Name="{ctl:T 'Add a reading'}">
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,1,0,0" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{ctl:T 'Add a reading'}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                    </DockPanel>
+                                                </Button>
+                                                <Popup IsOpen="{Binding AddPickerOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=AddReadingButton}" Placement="Bottom" HorizontalOffset="-210"
+                                                       VerticalOffset="4" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Opened="ReadingPicker_Opened">
+                                                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ReadingPickerList}" Focusable="False" />
+                                                </Popup>
+                                            </Grid>
                                         </DockPanel>
                                     </StackPanel>
                                     <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding CanAlign, Converter={StaticResource Vis}}">

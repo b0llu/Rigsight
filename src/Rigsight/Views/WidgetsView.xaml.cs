@@ -63,6 +63,24 @@ public partial class WidgetsView : UserControl
         if (CanvasFrame.ActualWidth > 0) ed.CanvasWidth = CanvasFrame.ActualWidth;
     }
 
+    /// <summary>The reading list just opened: typing goes to its search at once.</summary>
+    private void ReadingPicker_Opened(object? sender, EventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Primitives.Popup { Child: ContentControl host }) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (FindDown<TextBox>(host) is { } box) { box.Focus(); Keyboard.Focus(box); }
+        }, System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private static T? FindDown<T>(DependencyObject d) where T : DependencyObject
+    {
+        if (d is T t) return t;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
+            if (FindDown<T>(VisualTreeHelper.GetChild(d, i)) is { } found) return found;
+        return null;
+    }
+
     private void CanvasFrame_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (_vm?.Editor is { } ed && e.NewSize.Width > 0) ed.CanvasWidth = e.NewSize.Width;

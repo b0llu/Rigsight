@@ -607,6 +607,107 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         }
     }
 
+    // ── Picking a reading: a search and every reading under its part, as on the Taskbar page ──
+    // (the user, 2026-11-11: "this reading box also needs to have a searchable list, something like ... taskbar").
+
+    /// <summary>The list a tile's reading is picked from is open.</summary>
+    [ObservableProperty] private bool _readingPickerOpen;
+
+    /// <summary>The list a reading is added to a line or graph from is open.</summary>
+    [ObservableProperty] private bool _addPickerOpen;
+
+    [ObservableProperty] private string _readingQuery = "";
+
+    private bool _pickingToAdd;
+
+    partial void OnReadingQueryChanged(string value)
+    {
+        OnPropertyChanged(nameof(ReadingRows));
+        OnPropertyChanged(nameof(NoReadingRows));
+    }
+
+    /// <summary>The tile's reading by name, on the button that opens the list.</summary>
+    public string ReadingShown => ReadingName(Reading);
+
+    [RelayCommand]
+    private void OpenReadingPicker(string? forWhat)
+    {
+        _pickingToAdd = forWhat == "add";
+        ReadingQuery = "";
+        OnPropertyChanged(nameof(ReadingRows));
+        OnPropertyChanged(nameof(NoReadingRows));
+        if (_pickingToAdd) AddPickerOpen = true;
+        else ReadingPickerOpen = true;
+    }
+
+    [RelayCommand]
+    private void PickRow(TaskbarPartnerItem? row) => row?.Pick?.Invoke();
+
+    public bool NoReadingRows => ReadingRows.Count == 0;
+
+    /// <summary>
+    /// What's typed matched against each reading: the usual ones first, then this PC's sensors under their part, with
+    /// their hardware and value now. The one in use is ticked; on a line or graph, those already on it are ticked and
+    /// can't be added twice.
+    /// </summary>
+    public IReadOnlyList<TaskbarPartnerItem> ReadingRows
+    {
+        get
+        {
+            string q = ReadingQuery.Trim();
+            var source = (_pickingToAdd ? ReadingsToAdd : Readings).Select(r => r.Id).ToHashSet();
+            var taken = _pickingToAdd ? (Tile?.Items ?? []).Select(i => i.Id).ToHashSet() : [Reading];
+            bool Has(string text) => q.Length == 0 || text.Contains(q, StringComparison.CurrentCultureIgnoreCase);
+            var rows = new List<TaskbarPartnerItem>();
+            var usual = WidgetCatalog.Offered(WidgetLayout.Tiles).Where(m => source.Contains(m.ToString()) && Has(WidgetCatalog.MetricName(m))).ToList();
+            if (usual.Count > 0) rows.Add(new(Lang.T("USUAL READINGS"), "", "", "", false, false, null));
+            foreach (var m in usual)
+            {
+                string id = m.ToString(), name = WidgetCatalog.MetricName(m);
+                bool on = taken.Contains(id);
+                rows.Add(new(null, name, "", MetricValue(m), !_pickingToAdd || !on, on, !_pickingToAdd || !on ? () => Pick(id, name) : null, id));
+            }
+            var sensors = _live?.AllSensors.Where(s => source.Contains(WidgetCatalog.SensorPrefix + s.Id)).ToList() ?? [];
+            foreach (var part in TaskbarViewModel.PartOrder)
+            {
+                var these = sensors.Where(s => TrayParts.PartOf(s.HardwareType) == part && (TaskbarViewModel.Matches(s, q) || Has(TrayParts.Label(part)))).ToList();
+                if (these.Count == 0) continue;
+                rows.Add(new(TrayParts.Label(part), "", "", "", false, false, null));
+                foreach (var s in these)
+                {
+                    string id = WidgetCatalog.SensorPrefix + s.Id, name = $"{s.DisplayName} ({s.HardwareShown})";
+                    bool on = taken.Contains(id);
+                    rows.Add(new(null, s.DisplayName, s.HardwareShown, s.FormattedValue ?? "", !_pickingToAdd || !on, on, !_pickingToAdd || !on ? () => Pick(id, name) : null, id));
+                }
+            }
+            return rows;
+        }
+    }
+
+    private void Pick(string id, string name)
+    {
+        if (_pickingToAdd)
+        {
+            AddPickerOpen = false;
+            ReadingToAdd = new ReadingChoice(id, name);
+        }
+        else
+        {
+            ReadingPickerOpen = false;
+            Reading = id;
+        }
+    }
+
+    /// <summary>A usual reading's value now, from the app's own readings (none for what the agent alone knows, the frame rate say).</summary>
+    private string MetricValue(OverlayMetric m) => (m switch
+    {
+        OverlayMetric.CpuTemp => _live?.CpuTemp, OverlayMetric.CpuLoad => _live?.CpuLoad, OverlayMetric.CpuPower => _live?.CpuPower,
+        OverlayMetric.CpuClock => _live?.CpuClock, OverlayMetric.GpuTemp => _live?.GpuTemp, OverlayMetric.GpuHotSpot => _live?.GpuHotSpot,
+        OverlayMetric.GpuLoad => _live?.GpuLoad, OverlayMetric.GpuPower => _live?.GpuPower, OverlayMetric.GpuClock => _live?.GpuClock,
+        OverlayMetric.GpuMemory => _live?.GpuVramUsed, OverlayMetric.Ram => _live?.RamLoad,
+        _ => null,
+    })?.FormattedValue ?? "";
+
     /// <summary>What a graph can add: the readings the agent keeps five minutes of.</summary>
     public IReadOnlyList<ReadingChoice> ReadingsToAdd => Tile?.Kind == WidgetTiles.Graph
         ? [.. WidgetCatalog.GraphMetrics.Select(m => new ReadingChoice(m.ToString(), WidgetCatalog.MetricName(m)))]

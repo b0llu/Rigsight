@@ -533,6 +533,45 @@ public sealed class SettingsPageTests
         });
     }
 
+    // A tile's reading, and one added to a line or graph, are picked from a searchable list grouped like the Taskbar
+    // page's (the user, 2026-11-11): the usual readings first, the one in use ticked, those on a graph already not twice.
+    [Fact]
+    public void A_reading_is_picked_from_a_searchable_list()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var ed = vm.Editor!;
+            WidgetConfig Saved() => link.Settings.Current.Widgets.Single(w => w.Id == ed.Id);
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Reading));
+
+            ed.OpenReadingPickerCommand.Execute("tile");
+            Assert.True(ed.ReadingPickerOpen);
+            Assert.Equal("USUAL READINGS", ed.ReadingRows[0].Heading);
+            Assert.True(ed.ReadingRows.Single(r => r.Id == nameof(OverlayMetric.CpuTemp)).Selected);
+            ed.ReadingQuery = "gpu temp";
+            Assert.All(ed.ReadingRows.Where(r => r.IsChoice), r => Assert.Contains("GPU", r.Name + r.Detail, StringComparison.OrdinalIgnoreCase));
+            ed.PickRowCommand.Execute(ed.ReadingRows.First(r => r.Id == nameof(OverlayMetric.GpuTemp)));
+            Assert.False(ed.ReadingPickerOpen);
+            Assert.Equal(nameof(OverlayMetric.GpuTemp), Saved().Tiles![0].Item);
+            Assert.Equal(WidgetCatalog.MetricName(OverlayMetric.GpuTemp), ed.ReadingShown);
+            ed.ReadingQuery = "zzzz";
+            Assert.True(ed.NoReadingRows);
+
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Graph));
+            ed.OpenReadingPickerCommand.Execute("add");
+            Assert.True(ed.AddPickerOpen);
+            var cpu = ed.ReadingRows.Single(r => r.Id == nameof(OverlayMetric.CpuTemp));
+            Assert.False(cpu.Enabled); // on the graph already
+            var load = ed.ReadingRows.First(r => r.IsChoice && r.Enabled);
+            ed.PickRowCommand.Execute(load);
+            Assert.Contains(Saved().Tiles!.Single(t => t.Kind == WidgetTiles.Graph).Items!, i => i.Id == load.Id);
+            vm.CloseEditorCommand.Execute(null);
+        });
+    }
+
     // While the editor is open the widget can be dragged on the desktop or on the map: a change in the editor, or its
     // Undo, never puts it back where it was when the editor opened (the user, 2026-11-10: a calendar kept going back).
     [Fact]
