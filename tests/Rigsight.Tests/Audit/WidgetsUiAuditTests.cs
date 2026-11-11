@@ -410,6 +410,14 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
         return found;
     }
 
+    /// <summary>Lets the UI thread do what's waiting (layout, lists making their rows) without leaving the caller's flow of work.</summary>
+    private static void DoEvents()
+    {
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, () => frame.Continue = false);
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
+    }
+
     public static TheoryData<string, int> Widths => new()
     {
         { "en", 1140 }, { "en", 1280 }, { "en", 1920 }, { "es", 1140 }, { "es", 1280 }, { "es", 1920 },
@@ -451,15 +459,46 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
                     vm.PageShown = true;
                     vm.LoadMap();
                     vm.PickedId = id;
+                    DoEvents();
                     window.UpdateLayout();
                     problems.AddRange(CutOff(view).Select(p => "page: " + p));
                     Ui.SavePng(view, Path.Combine(Shots, $"page-{language}-{windowWidth}.png"));
+                    // The pop-ups' insides, drawn in a window of their own (an open pop-up would show on the screen).
+                    void PopupInside(System.Windows.Controls.Primitives.Popup popup, string what)
+                    {
+                        var inside = (FrameworkElement)popup.Child;
+                        popup.Child = null;
+                        var holder = new Window { Content = inside, DataContext = popup.DataContext, SizeToContent = SizeToContent.WidthAndHeight, Left = -6000, Top = -3000, ShowActivated = false, ShowInTaskbar = false, WindowStyle = WindowStyle.None };
+                        holder.SetResourceReference(Window.BackgroundProperty, "BgBrush");
+                        try
+                        {
+                            holder.Show();
+                            DoEvents();
+                            holder.UpdateLayout();
+                            var trimmedBefore = Trimmed.ToHashSet();
+                            problems.AddRange(CutOff(inside).Select(p => $"{what}: " + p));
+                            // What each widget or tile shows is said in a sentence: it's read whole, not cut off with "…".
+                            problems.AddRange(Trimmed.Except(trimmedBefore).Select(t => $"{what}: \"{t}\" is cut short"));
+                            Ui.SavePng(inside, Path.Combine(Shots, $"{what}-{language}-{windowWidth}.png"));
+                        }
+                        finally
+                        {
+                            holder.Content = null;
+                            holder.Close();
+                            popup.Child = inside;
+                        }
+                    }
+                    var popups = Visuals.Descendants<System.Windows.Controls.Primitives.Popup>(view).ToList();
+                    PopupInside(popups.Single(p => p.PlacementTarget is Button { Name: "AddWidgetButton" }), "add-widget");
                     vm.Edit(id);
+                    DoEvents();
                     window.UpdateLayout();
                     var ed = vm.Editor!;
+                    PopupInside(Visuals.Descendants<System.Windows.Controls.Primitives.Popup>(view).Single(p => p.PlacementTarget is Button { Name: "AddTileButton" }), "add-tile");
                     foreach (var tab in new[] { "look", "shape", "desktop" })
                     {
                         ed.PanelTab = tab;
+                        DoEvents();
                         window.UpdateLayout();
                         problems.AddRange(CutOff(view).Select(p => $"editor, {tab}: " + p));
                         Ui.SavePng(view, Path.Combine(Shots, $"editor-{language}-{windowWidth}-{tab}.png"));
@@ -467,6 +506,7 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
                     for (int i = 0; i < ed.TileBoxes.Count; i++)
                     {
                         ed.PickTileCommand.Execute(ed.TileBoxes[i]);
+                        DoEvents();
                         window.UpdateLayout();
                         problems.AddRange(CutOff(view).Select(p => $"editor, {ed.TileName}: " + p));
                         if (windowWidth == 1140) Ui.SavePng(view, Path.Combine(Shots, $"editor-{language}-{windowWidth}-tile{i:00}.png"));
@@ -743,5 +783,41 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
             Assert.True(Ui.Run(() => ed.PlaceSpots[8].IsActive), "Bottom right isn't lit");
         }
         finally { Drop(id); }
+    }
+    // Forty widgets added from the pop-up one after another: each is picked and shown in the list, the counts follow,
+    // and adding one doesn't get slower as the list grows.
+    [Fact]
+    public void Adding_many_widgets()
+    {
+        host.Show("widgets");
+        var vm = Ui.Run(() => host.Shell.Widgets);
+        var added = new List<string>();
+        var times = new List<long>();
+        var list = Ui.Run(() => Visuals.Descendants<ListBox>(host.Window).Single(l => l.Name == "MineList"));
+        try
+        {
+            var choices = Ui.Run(() => vm.Choices.ToList());
+            for (int i = 0; i < 40; i++)
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                Ui.Run(() =>
+                {
+                    vm.OpenAddListCommand.Execute(null);
+                    choices[i % choices.Count].AddCommand.Execute(null);
+                    added.Add(vm.PickedId!);
+                });
+                Ui.Pump(30);
+                times.Add(sw.ElapsedMilliseconds);
+                Assert.Same(Ui.Run(() => vm.Picked), Ui.Run(() => list.SelectedItem));
+                Assert.False(Ui.Run(() => vm.AddListOpen));
+            }
+            Assert.Equal(Ui.Run(() => vm.Cards.Count), Ui.Run(() => vm.MineChips[0].Count));
+            Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "page-many-widgets.png")));
+            double first = times.Take(5).Average(), last = times.TakeLast(5).Average();
+            File.WriteAllText(Path.Combine(Shots, "adding-times.txt"), string.Join(", ", times));
+            Assert.True(last < Math.Max(first * 3, 250), $"Adding got slower: {first:0} ms at first, {last:0} ms after 35 ({string.Join(", ", times)})");
+            Ui.AssertNoProblems("adding many widgets");
+        }
+        finally { Drop([.. added]); }
     }
 }

@@ -62,19 +62,21 @@
         </DataTemplate>
 
         <!-- A widget or tile to add, in the Add widget pop-up under its group: its picture, its name and what it shows; a click
-             adds it. -->
+             adds it. What it shows wraps, as in the editor's Add tile list (cut short, most lines ended mid-sentence, nearly
+             all of them in Spanish); the picture stays at the top of the row. -->
         <DataTemplate x:Key="ChoiceRow">
             <Button Style="{StaticResource RowButton}" HorizontalContentAlignment="Stretch" Margin="0,0,0,4" Command="{Binding AddCommand}"
                     AutomationProperties.Name="{Binding Title, StringFormat='Add {0}'}">
                 <DockPanel Margin="8,6">
                     <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
                                VerticalAlignment="Center" Margin="10,0,2,0" />
-                    <Border DockPanel.Dock="Left" Width="56" Height="34" CornerRadius="6" ClipToBounds="True" Background="{StaticResource Backdrop}" Margin="0,0,12,0">
+                    <Border DockPanel.Dock="Left" Width="56" Height="34" CornerRadius="6" ClipToBounds="True" Background="{StaticResource Backdrop}" Margin="0,0,12,0"
+                            VerticalAlignment="Top">
                         <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="4" RenderOptions.BitmapScalingMode="HighQuality" />
                     </Border>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding Line}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Line}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
                     </StackPanel>
                 </DockPanel>
             </Button>
