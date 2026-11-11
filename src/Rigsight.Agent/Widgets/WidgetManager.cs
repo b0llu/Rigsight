@@ -41,6 +41,13 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             _forms[id].Dispose();
             _forms.Remove(id);
         }
+        // Typing into a widget that's gone (hidden, removed, every widget switched off with the shortcut): the box nobody
+        // sees kept the keyboard, and what was typed next went into a note no longer on the screen (the audit, 2026-11-11).
+        if (_typing is { IsDisposed: false } typing && WidgetRenderer.Typing is { } ty && !shown.Contains(ty.WidgetId))
+        {
+            Log.Write("widgets", "Typing on the desktop ended: its widget is no longer shown");
+            typing.Close();
+        }
         foreach (var cfg in on)
         {
             _forms.TryGetValue(cfg.Id, out var form);
