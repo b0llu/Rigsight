@@ -135,4 +135,23 @@ public sealed class AiCountsAgreeTests
         Assert.Contains("Kickoff: 25m in 1 play", tools.Run("list_games", Range(new DateTime(2026, 10, 17), new DateTime(2026, 10, 17))));
         Assert.Contains("Kickoff: 59m in 1 play", tools.Run("list_games", Range(new DateTime(2026, 10, 17), new DateTime(2026, 10, 18))));
     }
+
+    [Fact]
+    public void A_reports_usual_says_which_days_it_covers()
+    {
+        // Real PC, 26 Oct 2026: a month's report compared with the 3 days recorded before it and a week's with 26 days,
+        // and "usually none" against "about 4 a week" was told as a contradiction.
+        using var _ = Culture();
+        var from = new DateTime(2026, 10, 1);
+        var usual = new PcUsual
+        {
+            From = from, To = from.AddDays(31), UsualFrom = from.AddDays(-60), UsualSince = new DateTime(2026, 9, 21), UsualHours = 98,
+            Problems = new UsualProblems([], 0, 290, 98, 10 / 7.0, EffectTone.Same, 0, 0),
+        };
+        var month = new Report { Range = ReportRange.Custom, From = from, To = from.AddDays(31), Usual = usual };
+
+        Assert.Contains("USUAL: \"Against your usual\" compares with 21 Sep to 30 Sep 2026 (10 days, 98 hours of use).", AiTools.UsualDays(month));
+        // A day has no such rows (Home's PC health says it), so nothing is said.
+        Assert.Equal("", AiTools.UsualDays(new Report { Range = ReportRange.Day, From = from, To = from.AddDays(1), Usual = usual }));
+    }
 }

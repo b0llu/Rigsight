@@ -197,8 +197,24 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         Trim(report);
         string title = from == to ? from.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture) : $"{from:d MMM yyyy} to {to:d MMM yyyy}";
         string start = began && Began(db, from, to.AddDays(1), report.Usual) is { } b ? b + "\n" : "";
-        return start + WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports), tight: true)) + Energy(report, from, to)
+        return start + WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports), tight: true)) + UsualDays(report) + Energy(report, from, to)
             + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
+    }
+
+    /// <summary>
+    /// Which days "Against your usual" was set against. A month's report and a week's compare with different days, and
+    /// without them "shut-offs that look like the power: usually none" in one and "about 4 a week" in the other were told
+    /// as a contradiction (real PC, 26 Oct 2026): the month's usual was the 3 days recorded before it, 23 to 25 Sep, the
+    /// week's 23 Sep to 18 Oct. Empty when the report has no such rows.
+    /// </summary>
+    internal static string UsualDays(Report report)
+    {
+        if (report.Usual is not { } u || PcUsual.CardRows(report).Count == 0) return "";
+        var last = u.From.Date.AddDays(-1);
+        if (last < u.UsualSince.Date) return "";
+        int days = (int)Math.Round((u.From.Date - u.UsualSince.Date).TotalDays);
+        return $"\nUSUAL: \"Against your usual\" compares with {u.UsualSince:d MMM} to {last:d MMM yyyy} ({days} {(days == 1 ? "day" : "days")}, {u.UsualHours:0} hours of use). "
+            + "Another period's report compares with other days, so two reports' usuals can differ: say which days a usual covers when setting two against each other.\n";
     }
 
     /// <summary>
