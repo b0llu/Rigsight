@@ -1778,6 +1778,26 @@ public sealed class ControlTests
         return over.Count == 0 ? null : string.Join("; ", over) + " | measured: " + string.Join("; ", results);
     }
 
+    // The sparkle in the words' colour takes the colour around it, and made before it's in a window (as the sidebar makes
+    // its icons again on every settings change) logs no binding error (the gate, 2026-11-11).
+    [Fact]
+    public void The_sparkle_in_ink_takes_the_colour_around_it_without_a_binding_error()
+    {
+        Ui.Run(() =>
+        {
+            Ui.TakeProblems();
+            var icon = (System.Windows.Controls.Grid)Application.Current.FindResource("AiIconInk");
+            var path = (System.Windows.Shapes.Path)icon.Children[0];
+            var holder = new ContentControl { Foreground = Brushes.Red, Content = icon };
+            Draw.Render(holder, 40, 40);
+            Assert.Equal(Colors.Red, ((SolidColorBrush)path.Stroke).Color);
+            holder.Foreground = Brushes.Blue;
+            Draw.Render(holder, 40, 40);
+            Assert.Equal(Colors.Blue, ((SolidColorBrush)path.Stroke).Color);
+            Ui.AssertNoProblems("the sparkle in ink");
+        });
+    }
+
     [Fact]
     public void Every_part_of_a_dropdown_row_takes_the_mouse()
     {
