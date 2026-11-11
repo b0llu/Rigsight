@@ -187,13 +187,18 @@ public sealed partial class LanguageViewModel : ObservableObject
 
     private void Refresh() => Refresh(Options);
 
-    /// <summary>A language not downloaded yet shows its size; English and downloaded ones show nothing.</summary>
+    /// <summary>
+    /// A language not downloaded yet shows its size; English and downloaded ones show nothing. The one in use is
+    /// downloaded: its pack was read as RigSight opened. Finding it again read and checked the whole pack (5,800 texts,
+    /// 11 MB of short-lived memory) on the window's thread at each first visit of Settings in Spanish (2026-11-11).
+    /// </summary>
     private static void Refresh(IEnumerable<LanguageOption> options)
     {
         foreach (var o in options)
         {
             var info = LanguagePack.Known.First(l => l.Code == o.Code);
-            o.Note = o.Code == LanguagePack.English || LanguageStore.Find(o.Code) is not null ? "" : $"{info.SizeKB} KB";
+            bool here = o.Code == LanguagePack.English || o.IsCurrent || LanguageStore.Find(o.Code) is not null;
+            o.Note = here ? "" : $"{info.SizeKB} KB";
         }
     }
 }
