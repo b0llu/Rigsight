@@ -95,7 +95,7 @@ internal static class Pc
         ]),
         ("Virtual Memory", "Memory",
         [
-            ("/vram/load/0", "Memory", SensorKind.Load),
+            ("/vram/load/0", "Virtual Memory", SensorKind.Load), // as the agent names it (SensorHost.NameApart)
         ]),
         ("Test SSD", "Storage",
         [

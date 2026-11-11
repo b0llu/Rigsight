@@ -670,6 +670,35 @@ public sealed class SettingsPageTests
         });
     }
 
+    // A sensor on a tile goes by the name it has everywhere else, as in the list it was picked from: the one given on
+    // All sensors, else its own as shown (it went by the hardware library's English name, 2026-11-11).
+    [Fact]
+    public void A_tiles_sensor_goes_by_the_name_it_shows_everywhere()
+    {
+        var start = new RigsightSettings();
+        start.SensorLabels["/ram/load/0"] = "My RAM";
+        start.Widgets.Add(new WidgetConfig
+        {
+            Style = WidgetStyle.Custom, Id = "custom-names", Name = "Names",
+            Tiles = [new WidgetTile { Kind = WidgetTiles.Reading, Item = WidgetCatalog.SensorPrefix + "/ram/load/0" },
+                     new WidgetTile { Kind = WidgetTiles.Reading, Item = WidgetCatalog.SensorPrefix + "/vram/load/0" }],
+        });
+        var (settings, live) = Kit.Greeted(start);
+        Ui.Run(() =>
+        {
+            var ed = new WidgetEditorViewModel("custom-names", settings, live, () => { });
+            try
+            {
+                Assert.Equal(["My RAM (Total Memory)", "Virtual Memory (Virtual Memory)"], ed.TileBoxes.Select(b => b.Name));
+                ed.PickTileCommand.Execute(ed.TileBoxes[0]);
+                Assert.Equal("My RAM (Total Memory)", ed.ReadingShown);
+                ed.OpenReadingPickerCommand.Execute("tile");
+                Assert.Equal("My RAM", ed.ReadingRows.Single(r => r.Id == WidgetCatalog.SensorPrefix + "/ram/load/0").Name);
+            }
+            finally { ed.Close(); }
+        });
+    }
+
     // While the editor is open the widget can be dragged on the desktop or on the map: a change in the editor, or its
     // Undo, never puts it back where it was when the editor opened (the user, 2026-11-10: a calendar kept going back).
     [Fact]

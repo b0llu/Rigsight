@@ -462,6 +462,28 @@ public class SensorHostTests
     }
 
     [Fact]
+    public void Virtual_memory_readings_are_named_apart_from_the_ram_ones()
+    {
+        // The library calls both parts' readings "Memory", "Memory Used" and "Memory Available" (two "Memory" in the
+        // taskbar's Paired with list, 2026-11-11). Virtual memory's get their own names; RAM's and every identifier stay.
+        var early = EarlyMemory.Create();
+        var ids = early.SelectMany(h => h.Sensors).Select(s => s.Identifier.ToString()).ToList();
+        foreach (var hw in early)
+        {
+            SensorHost.NameApart(hw);
+            SensorHost.NameApart(hw); // the list is rebuilt when the memory group opens: never "Virtual Virtual"
+        }
+        var vram = early.Single(h => h.Name == "Virtual Memory");
+        var ram = early.Single(h => h.Name == "Total Memory");
+        Assert.Equal(["Virtual Memory", "Virtual Memory Available", "Virtual Memory Used"], vram.Sensors.Select(s => s.Name).Order());
+        Assert.Equal(["Memory", "Memory Available", "Memory Used"], ram.Sensors.Select(s => s.Name).Order());
+        Assert.Equal(ids, early.SelectMany(h => h.Sensors).Select(s => s.Identifier.ToString()));
+        Assert.Equal("/vram/load/1", vram.Sensors.Single(s => s.Name == "Virtual Memory").Identifier.ToString());
+        // On the strip, its own word rather than RAM's.
+        Assert.Equal("Virtual", TrayParts.ShortLabel(SensorKind.Load, "Virtual Memory", TrayPart.Ram));
+    }
+
+    [Fact]
     public void The_ram_sticks_join_only_once_found()
     {
         var host = new SensorHost();
