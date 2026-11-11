@@ -138,6 +138,13 @@ public sealed class PcUsual
     /// <summary>Hours of use on each side before problems are counted against each other.</summary>
     internal const double MinProblemHours = 10;
 
+    /// <summary>
+    /// Weeks of usual before problems are counted against it: problems are rare, and a few days can hold none by chance.
+    /// A month's report said shut-offs that look like the power were "usually none" from the 3 days recorded before it,
+    /// while the week after it said "about 4 a week" (real PC, 26 Oct 2026). Less than this: no problem rows at all.
+    /// </summary>
+    internal const double MinProblemWeeks = 1;
+
     /// <summary>Days a fan needs at its speed before that speed is its usual.</summary>
     internal const int FanUsualDays = 3;
 
@@ -300,7 +307,7 @@ public sealed class PcUsual
         }
         UsualProblems? problems = null;
         double usualWeeks = (from.Date - TimeUtil.FromUnix(u)).TotalDays / 7;
-        if (usualHours >= MinProblemHours && nowHours > 0)
+        if (usualHours >= MinProblemHours && usualWeeks >= MinProblemWeeks && nowHours > 0)
         {
             double expected = usualHours > 0 ? pcUsual / usualHours * nowHours : 0;
             // More: a kind came two times at least, and twice (and one) what its usual rate gives the hours used. Fewer:
