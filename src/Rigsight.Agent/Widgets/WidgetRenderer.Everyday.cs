@@ -477,7 +477,7 @@ internal static partial class WidgetRenderer
     }
 
     /// <summary>A shortcut's icon: the app's own, or a folder's or a web page's.</summary>
-    private static string LinkGlyph(TileLink l) => l.IsWeb ? "\uE774" : WidgetFiles.IsFolder(l) ?"\uE8B7" : "\uE8A5";
+    private static string LinkGlyph(TileLink l) => l.IsWeb ? "\uE774" : WidgetFiles.IsFolder(l) ? "\uE8B7" : "\uE8A5";
 
     /// <summary>
     /// Apps, files, folders and links, each opened with a click on the desktop: a row in a short tile, a grid with names

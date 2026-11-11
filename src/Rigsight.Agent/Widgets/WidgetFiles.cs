@@ -138,13 +138,36 @@ internal static class WidgetFiles
         }
     }
 
-    /// <summary>A shortcut to a folder (see <see cref="Look"/>).</summary>
-    public static bool IsFolder(TileLink link) => !link.IsWeb && Look(link.Path).Folder;
+    /// <summary>
+    /// A place on another PC (\\server\share, or a drive mapped to one). It's never looked at while drawing: Windows waits
+    /// about 20 seconds on one that can't be reached, and the drawing (the agent's, the app's page) waited with it.
+    /// </summary>
+    public static bool IsRemote(string path)
+    {
+        if (path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase)) return true;
+        if (path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.StartsWith(@"\\.\", StringComparison.Ordinal)) path = path[4..];
+        if (path.StartsWith(@"\\", StringComparison.Ordinal) || path.StartsWith("//", StringComparison.Ordinal)) return true;
+        try
+        {
+            return path.Length >= 2 && path[1] == ':' && char.IsAsciiLetter(path[0]) && new DriveInfo(path[..1]).DriveType == DriveType.Network;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
-    /// <summary>An app's or a file's own icon, for a shortcut; null for a folder, a web address, or one that can't be read.</summary>
+    /// <summary>
+    /// Whether a shortcut opens a folder: looked at on this PC (once a minute, see <see cref="Look"/>); on another, never
+    /// looked at while drawing, a path with no file type is taken for one.
+    /// </summary>
+    public static bool IsFolder(TileLink link) =>
+        !link.IsWeb && (IsRemote(link.Path) ? !Path.HasExtension(link.Path) : Look(link.Path).Folder);
+
+    /// <summary>An app's or a file's own icon, for a shortcut; null for a folder, a web address, one on another PC, or one that can't be read.</summary>
     public static Bitmap? IconOf(TileLink link)
     {
-        if (link.IsWeb || Look(link.Path) is not { File: true }) return null;
+        if (link.IsWeb || IsRemote(link.Path) || Look(link.Path) is not { File: true }) return null;
         return Icons.Get(link.Path, p =>
         {
             try
