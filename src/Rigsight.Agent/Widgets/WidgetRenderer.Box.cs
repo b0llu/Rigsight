@@ -1138,6 +1138,14 @@ internal static partial class WidgetRenderer
                 case WidgetTiles.Reading when t.Look is null or WidgetTiles.Number or WidgetTiles.Big or WidgetTiles.Ring or WidgetTiles.Level or WidgetTiles.Blocks:
                     var r = Read(new WidgetItem { Id = t.Item ?? "", Label = t.Label }, d, p);
                     sb.Append('|').Append(r.Label).Append('=').Append(r.Text).Append('#').Append(r.ValueColor.ToArgb());
+                    // A big ring's load line under it (see ReadingTile).
+                    if (t.Look == WidgetTiles.Ring)
+                        sb.Append('~').Append(r.Metric switch
+                        {
+                            OverlayMetric.CpuTemp => Units.Short(SensorKind.Load, d.CpuLoad),
+                            OverlayMetric.GpuTemp => Units.Short(SensorKind.Load, d.GpuLoad),
+                            _ => "",
+                        });
                     break;
                 case WidgetTiles.Line:
                     foreach (var i in t.Items ?? [])
