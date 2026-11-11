@@ -143,6 +143,22 @@ public class ServicesAuditTests : IDisposable
         Assert.Equal(4.5, (await WeatherFeed.GetAsync(1.5, 2.5))?.TempC);
     }
 
+    [Fact]
+    public async Task The_log_never_says_where_a_weather_tile_is()
+    {
+        // The log is copied into problem reports; a place to two decimals is about a kilometre: someone's home town.
+        Serve(_ => Json(Forecast));
+        Assert.NotNull(await WeatherFeed.GetAsync(-33.87, 151.21));
+        Serve(_ => Json("", HttpStatusCode.TooManyRequests));
+        Assert.Null(await WeatherFeed.GetAsync(-33.87, 151.21));
+        Serve(_ => throw new HttpRequestException("No such host is known."));
+        Assert.Null(await WeatherFeed.GetAsync(-33.87, 151.21));
+        string log = File.ReadAllText(Rigsight.Core.RigsightPaths.LogFile);
+        Assert.Contains("[weather]", log);
+        Assert.DoesNotContain("-33.87", log);
+        Assert.DoesNotContain("151.21", log);
+    }
+
     // ── Nominatim's policy: one search a second at most, and the same search not sent twice ─────────────────
 
     [Fact]

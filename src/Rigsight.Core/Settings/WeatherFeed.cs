@@ -123,13 +123,13 @@ public static class WeatherFeed
             var expires = answer.Content.Headers.Expires;
             if (answer.StatusCode == HttpStatusCode.NotModified && before is not null)
             {
-                Log.Write("weather", $"Weather for {Key(lat, lon)} hasn't changed since it was last read");
+                Log.Write("weather", "A weather tile's forecast hasn't changed since it was last read");
                 return before with { Fetched = DateTime.Now, Expires = expires ?? before.Expires };
             }
             if (!answer.IsSuccessStatusCode)
             {
                 // 429 is MET Norway throttling, 403 a refusal: either way the place waits ten minutes before it's asked again.
-                Log.Write("weather", $"Weather for {Key(lat, lon)} couldn't be had: MET Norway answered {(int)answer.StatusCode} {answer.ReasonPhrase}");
+                Log.Write("weather", $"A weather tile's forecast couldn't be had: MET Norway answered {(int)answer.StatusCode} {answer.ReasonPhrase}");
                 return null;
             }
             // 203: this version of the forecast is deprecated and will be switched off (MET Norway asks for it to be logged).
@@ -137,12 +137,12 @@ public static class WeatherFeed
                 Log.Write("weather", "MET Norway says locationforecast 2.0 is deprecated (203): the weather needs moving to its new version");
             string json = await answer.Content.ReadAsStringAsync(ct);
             var w = Parse(json, DateTime.Now);
-            Log.Write("weather", w is null ? $"No weather in the answer for {Key(lat, lon)}" : $"Weather for {Key(lat, lon)}: {w.TempC:0.#}°C, {w.Symbol}");
+            Log.Write("weather", w is null ? "No weather in MET Norway's answer" : $"A weather tile's forecast came: {w.TempC:0.#}°C, {w.Symbol}");
             return w is null ? null : w with { Expires = expires, LastModified = answer.Content.Headers.LastModified };
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException)
         {
-            Log.Write("weather", $"Weather for {Key(lat, lon)} couldn't be had: {ex.Message}");
+            Log.Write("weather", $"A weather tile's forecast couldn't be had: {ex.Message}");
             return null;
         }
     }
