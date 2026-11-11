@@ -267,10 +267,7 @@ public sealed class ReportService(SettingsModel settings)
                 if (!string.IsNullOrEmpty(e.AppExe))
                 {
                     byExe.TryGetValue(e.AppExe, out var row);
-                    name = s.AppNames.TryGetValue(e.AppExe, out var alias) ? alias
-                        : Core.Apps.AppCatalog.KnownName(e.AppExe)
-                        ?? row?.Name
-                        ?? (e.AppPath is not null ? Core.Apps.AppCatalog.ResolveName(e.AppExe, e.AppPath) : Core.Apps.AppCatalog.FallbackName(e.AppExe));
+                    name = Core.Stability.CrashExplainer.AppNameOf(e, byExe, s);
                     if (e.AppPath is null && row is not null) e.AppPath = row.Path;
                     if (row is not null)
                     {

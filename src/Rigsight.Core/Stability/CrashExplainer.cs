@@ -100,6 +100,20 @@ public static class CrashExplainer
     private static string Says((string Name, string Meaning, string? Usual) ex) =>
         ex.Meaning is null ? "" : " " + Lang.T($"Windows says {Lang.T(ex.Meaning)} ({Lang.T(ex.Name)}).") + (ex.Usual is null ? "" : " " + Lang.T(ex.Usual));
 
+    /// <summary>
+    /// The name a crash's app goes by on the Crashes page: the person's own name for it, else the name RigSight knows,
+    /// else the one it recorded, else one read from the program (null for a crash with no app: Windows' own).
+    /// </summary>
+    public static string? AppNameOf(CrashEvent e, IReadOnlyDictionary<string, Data.AppRow> byExe, Settings.RigsightSettings s)
+    {
+        if (string.IsNullOrEmpty(e.AppExe)) return null;
+        byExe.TryGetValue(e.AppExe, out var row);
+        return s.AppNames.TryGetValue(e.AppExe, out var alias) ? alias
+            : Apps.AppCatalog.KnownName(e.AppExe)
+            ?? row?.Name
+            ?? (e.AppPath is not null ? Apps.AppCatalog.ResolveName(e.AppExe, e.AppPath) : Apps.AppCatalog.FallbackName(e.AppExe));
+    }
+
     public static CrashExplanation Explain(CrashEvent e, string? appName = null)
     {
         string app = appName ?? (string.IsNullOrEmpty(e.AppExe) ? Lang.T("an app") : Path.GetFileNameWithoutExtension(e.AppExe));

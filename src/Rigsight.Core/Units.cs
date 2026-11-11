@@ -208,6 +208,9 @@ public static class Units
 
     public static string Megabytes(double mb) => mb >= 1024 ? $"{mb / 1024:0.0} GB" : $"{mb:0} MB";
 
+    /// <summary>An app's share of the CPU, as the Processes page writes it: "0%", "3.4%", "12%".</summary>
+    public static string AppCpu(double cpu) => cpu < 0.05 ? "0%" : cpu < 10 ? $"{cpu:0.0}%" : $"{cpu:0}%";
+
     private static string Rate(double bytesPerSec) => Bytes(bytesPerSec) + "/s";
 
     /// <summary>
