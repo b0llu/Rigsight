@@ -27,6 +27,41 @@ public sealed class WidgetEditorLookTests(AppHost host) : IClassFixture<AppHost>
         Ui.Run(() => host.Shell.Widgets.CloseEditorCommand.Execute(null));
     }
 
+    // The editor as in the approved mock-up CqfxQo4cR6vCG3GxFx1VMT: nothing picked (the whole widget), the timer picked, the
+    // to-do list picked; for comparing with the mock-up's boards.
+    [Fact]
+    public void The_editor_with_nothing_then_a_tile_picked()
+    {
+        host.Show("widgets");
+        Ui.Run(() =>
+        {
+            var cfg = WidgetsViewModel.NewWidget("Desk",
+            [
+                new() { Kind = WidgetTiles.Clock, W = 6, H = 2 },
+                new() { Kind = WidgetTiles.Timer, X = 6, W = 6, H = 2 },
+                new() { Kind = WidgetTiles.Notes, Y = 2, W = 6, H = 5, Text = "BIOS update on Saturday\nReturn the spare fan\nAsk about the 1440p monitor" },
+                new() { Kind = WidgetTiles.Todo, X = 6, Y = 2, W = 6, H = 5, Todos = [new() { Text = "Back up the E drive", Done = true }, new() { Text = "Clean the dust filters" }, new() { Text = "Update the graphics driver" }] },
+            ]);
+            host.Shell.Settings.Update(s => s.Widgets.Add(cfg));
+            host.Shell.Widgets.Edit(cfg.Id);
+        });
+        Ui.Pump(800);
+        Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "editor-1-nothing.png")));
+        var ed = Ui.Run(() => host.Shell.Widgets.Editor!);
+        Assert.False(Ui.Run(() => ed.HasTile));
+        Ui.Run(() => ed.PickTileCommand.Execute(ed.TileBoxes[1]));
+        Ui.Pump(400);
+        Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "editor-2-timer.png")));
+        Ui.Run(() => ed.PickTileCommand.Execute(ed.TileBoxes[3]));
+        Ui.Pump(400);
+        Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "editor-3-todo.png")));
+        Ui.Run(() => { ed.WholeWidgetCommand.Execute(null); ed.PanelTab = "desktop"; });
+        Ui.Pump(400);
+        Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "editor-4-desktop-tab.png")));
+        Ui.AssertNoProblems("the editor");
+        Ui.Run(() => host.Shell.Widgets.CloseEditorCommand.Execute(null));
+    }
+
     // The reading list, as its pop-up shows it (drawn on its own: a pop-up is a window of its own).
     [Fact]
     public void The_reading_picker_as_it_looks()

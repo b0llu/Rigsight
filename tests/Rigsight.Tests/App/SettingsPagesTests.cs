@@ -533,6 +533,47 @@ public sealed class SettingsPageTests
         });
     }
 
+    // The editor as in the approved mock-up (2026-11-11): nothing picked at first (the whole widget), a tile picked from
+    // its list; a to-do list's items and a timer's kind and length set from the panel.
+    [Fact]
+    public void The_editor_panel_shows_the_whole_widget_then_the_picked_tile()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var ed = vm.Editor!;
+            WidgetConfig Saved() => link.Settings.Current.Widgets.Single(w => w.Id == ed.Id);
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Todo));
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Timer));
+            ed.WholeWidgetCommand.Execute(null);
+            Assert.False(ed.HasTile);
+            Assert.Equal(["To-do", "Timer"], ed.TileBoxes.Select(b => b.Name));
+
+            ed.PickTileCommand.Execute(ed.TileBoxes[0]);
+            Assert.True(ed.IsTodo);
+            ed.NewTodo = "Clean the dust filters";
+            ed.AddTodoCommand.Execute(null);
+            ed.NewTodo = "Update the graphics driver";
+            ed.AddTodoCommand.Execute(null);
+            ed.ToggleTodoCommand.Execute(ed.TodoRows[0]);
+            Assert.Equal([("Clean the dust filters", true), ("Update the graphics driver", false)], Saved().Tiles![0].Todos!.Select(i => (i.Text, i.Done)));
+            Assert.Equal("1 of 2 done", ed.TileBoxes[0].Detail);
+            ed.RemoveTodoCommand.Execute(ed.TodoRows[1]);
+            Assert.Single(Saved().Tiles![0].Todos!);
+
+            ed.PickTileCommand.Execute(ed.TileBoxes[1]);
+            Assert.True(ed.IsTimerOnly);
+            ed.StepMinutesCommand.Execute("+");
+            Assert.Equal(30, Saved().Tiles![1].Minutes);
+            ed.TimerKind = "Countdown";
+            Assert.True(ed.IsCountdownTile);
+            Assert.NotNull(Saved().Tiles![1].Until);
+            vm.CloseEditorCommand.Execute(null);
+        });
+    }
+
     // A tile's reading, and one added to a line or graph, are picked from a searchable list grouped like the Taskbar
     // page's (the user, 2026-11-11): the usual readings first, the one in use ticked, those on a graph already not twice.
     [Fact]

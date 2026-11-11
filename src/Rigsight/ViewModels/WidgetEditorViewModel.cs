@@ -10,11 +10,16 @@ using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
-/// <summary>A tile on the editor's canvas: its name, its place in cells, and its box on the canvas at the zoom in use.</summary>
-public sealed partial class TileBox(int index, string name) : ObservableObject
+/// <summary>
+/// A tile on the editor's canvas and in its list of tiles: its name, what it shows in a few words, its icon, and its
+/// box on the canvas at the zoom in use.
+/// </summary>
+public sealed partial class TileBox(int index, string name, string detail = "", string glyph = "") : ObservableObject
 {
     public int Index { get; } = index;
     public string Name { get; } = name;
+    public string Detail { get; } = detail;
+    public string Glyph { get; } = glyph;
     [ObservableProperty] private double _left;
     [ObservableProperty] private double _top;
     [ObservableProperty] private double _width;
@@ -33,6 +38,9 @@ public sealed record Choice(string Value, string Name);
 
 /// <summary>A reading on a line of readings or a graph, in the editor.</summary>
 public sealed record TileReadingRow(int Index, string Name);
+
+/// <summary>A line of a to-do list, in the editor.</summary>
+public sealed record TodoRow(int Index, string Text, bool Done);
 
 /// <summary>
 /// The widget editor, a page of its own (approved mock-up 8Bfo1Ce7KFJs4g1wxHQP1U, after the user's "do web search on the
@@ -72,7 +80,8 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
             .Select(g => new WidgetGroupChip(g, g == WidgetsViewModel.AllGroup ? TileChoices.Count : TileChoices.Count(c => c.Group == g)))];
         TileChips[0].IsSelected = true;
         FilterTiles();
-        Selected = _w.Tiles is { Count: > 0 } ? 0 : -1;
+        // Nothing picked at first: the panel shows the whole widget, and the list of tiles says what there is to pick.
+        Selected = -1;
         Rebuild();
         // A clock on the widget moves on: the picture is drawn again each second while the editor is open.
         _tick.Tick += (_, _) => Draw();
@@ -175,7 +184,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         var tiles = _w.Tiles ?? [];
         TileBoxes.Clear();
         for (int i = 0; i < tiles.Count; i++)
-            TileBoxes.Add(new TileBox(i, NameOf(tiles[i])) { IsSelected = i == Selected });
+            TileBoxes.Add(new TileBox(i, NameOf(tiles[i]), DetailOf(tiles[i]), GlyphOf(tiles[i].Kind)) { IsSelected = i == Selected });
         Draw();
         OnPropertyChanged(string.Empty);
     }
@@ -254,7 +263,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     }
     private double _canvasWidth = 700;
 
-    public const double CanvasHeight = 340;
+    public const double CanvasHeight = 520;
 
     /// <summary>
     /// Fit: the whole widget filling the view, made smaller or (up to twice) bigger. 100%: its real size, scrolling where
@@ -447,10 +456,17 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         OnPropertyChanged(nameof(NoTilesText));
     }
 
+    /// <summary>The list of tiles to add is open (from Add tile, over the panel).</summary>
+    [ObservableProperty] private bool _addListOpen;
+
+    [RelayCommand]
+    private void OpenAddList() => AddListOpen = true;
+
     /// <summary>Adds a tile to the right of the widget, or under it once the widget is much wider than tall, and picks it.</summary>
     [RelayCommand]
     private void AddTile(TileChoice choice)
     {
+        AddListOpen = false;
         var kind = WidgetTiles.Kind(choice.Kind)!;
         Change(w =>
         {
@@ -471,6 +487,136 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         Selected = _w.Tiles is { } tiles && index >= 0 && index < tiles.Count ? index : -1;
         foreach (var b in TileBoxes) b.IsSelected = b.Index == Selected;
         OnPropertyChanged(string.Empty);
+    }
+
+    /// <summary>A tile picked in the list of tiles.</summary>
+    [RelayCommand]
+    private void PickTile(TileBox? box)
+    {
+        if (box is not null) SelectTile(box.Index);
+    }
+
+    /// <summary>Back to the whole widget's settings: no tile picked.</summary>
+    [RelayCommand]
+    private void WholeWidget() => SelectTile(-1);
+
+    /// <summary>Which of the whole widget's settings show with no tile picked: "look", "shape" or "desktop".</summary>
+    [ObservableProperty] private string _panelTab = "look";
+
+    /// <summary>A tile's few words in the list of tiles: its style, its reading's look, its readings, its first line…</summary>
+    private string DetailOf(WidgetTile t) => t.Kind switch
+    {
+        WidgetTiles.Clock => Lang.T(t.Style ?? WidgetTiles.ClockStyles[0]),
+        WidgetTiles.Reading => Lang.T(t.Look ?? WidgetTiles.Number),
+        WidgetTiles.Line or WidgetTiles.Graph => string.Join(", ", (t.Items ?? []).Select(i => ReadingName(i.Id))),
+        WidgetTiles.Notes => (t.Text ?? "").Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? "",
+        WidgetTiles.Todo when t.Todos is { Count: > 0 } todos => Lang.T($"{todos.Count(i => i.Done)} of {todos.Count} done"),
+        WidgetTiles.Timer when WidgetTimer.IsCountdown(t) => t.Until is { } until ? until.ToString("d MMMM", System.Globalization.CultureInfo.CurrentCulture) : "",
+        WidgetTiles.Timer when WidgetTimer.IsStopwatch(t) => Lang.T("Stopwatch"),
+        WidgetTiles.Timer => Lang.T($"{t.Minutes} minutes"),
+        _ => "",
+    };
+
+    /// <summary>A tile kind's icon, from Windows' icon font.</summary>
+    internal static string GlyphOf(string kind) => kind switch
+    {
+        WidgetTiles.Clock => "\uE823",
+        WidgetTiles.Date => "\uE8BF",
+        WidgetTiles.Calendar => "\uE787",
+        WidgetTiles.Reading => "\uE9D9",
+        WidgetTiles.Line => "\uE8FD",
+        WidgetTiles.Graph => "\uE9D2",
+        WidgetTiles.Fps => "\uE7FC",
+        WidgetTiles.Today => "\uE81C",
+        WidgetTiles.NowPlaying => "\uE768",
+        WidgetTiles.Notes => "\uE70B",
+        WidgetTiles.Todo => "\uE9D5",
+        WidgetTiles.Timer => "\uE916",
+        _ => "\uE80A",
+    };
+
+    public string TileGlyph => Tile is { } t ? GlyphOf(t.Kind) : "";
+
+    // ── A note, a to-do list, a timer ─────────────────────────────────
+
+    public bool IsNotes => Tile?.Kind == WidgetTiles.Notes;
+    public bool IsTodo => Tile?.Kind == WidgetTiles.Todo;
+    public bool IsTimerTile => Tile?.Kind == WidgetTiles.Timer;
+    public bool HasTextSize => IsNotes || IsTodo;
+
+    public IReadOnlyList<Choice> TextSizes { get; } = [.. WidgetTiles.TextSizes.Select(z => new Choice(z.Name, Lang.T(z.Name)))];
+
+    public string TextSize
+    {
+        get => Tile?.TextSize ?? WidgetTiles.TextSizes[1].Name;
+        set { if (value != TextSize) ChangeTile(t => t.TextSize = value == WidgetTiles.TextSizes[1].Name ? null : value); }
+    }
+
+    /// <summary>A note's text (saved when the box loses focus; on the desktop it's typed straight onto the note).</summary>
+    public string NoteText
+    {
+        get => Tile?.Text ?? "";
+        set
+        {
+            string text = value.Length > WidgetTiles.MaxNoteLength ? value[..WidgetTiles.MaxNoteLength] : value;
+            if (text != NoteText) ChangeTile(t => t.Text = text.Length == 0 ? null : text);
+        }
+    }
+
+    public IReadOnlyList<TodoRow> TodoRows => [.. (Tile?.Todos ?? []).Select((i, n) => new TodoRow(n, i.Text, i.Done))];
+
+    [ObservableProperty] private string _newTodo = "";
+
+    [RelayCommand]
+    private void AddTodo()
+    {
+        string text = NewTodo.Trim();
+        if (text.Length == 0 || !IsTodo) return;
+        ChangeTile(t => (t.Todos ??= []).Add(new TodoItem { Text = text }));
+        NewTodo = "";
+    }
+
+    [RelayCommand]
+    private void ToggleTodo(TodoRow? row) => ChangeTile(t => { if (row is not null && t.Todos is { } l && row.Index < l.Count) l[row.Index].Done = !l[row.Index].Done; });
+
+    [RelayCommand]
+    private void RemoveTodo(TodoRow? row) => ChangeTile(t => { if (row is not null && t.Todos is { } l && row.Index < l.Count) l.RemoveAt(row.Index); });
+
+    public IReadOnlyList<Choice> TimerKinds { get; } = [.. WidgetTiles.TimerKinds.Select(k => new Choice(k, Lang.T(k)))];
+
+    public string TimerKind
+    {
+        get => Tile is { } t ? WidgetTimer.KindOf(t) : WidgetTiles.TimerKinds[0];
+        set
+        {
+            if (value == TimerKind || !WidgetTiles.TimerKinds.Contains(value)) return;
+            ChangeTile(t =>
+            {
+                t.TimerKind = value == WidgetTiles.TimerKinds[0] ? null : value;
+                WidgetTimer.Reset(t);
+                if (value == WidgetTiles.TimerKinds[2] && t.Until is null) t.Until = DateTime.Today.AddDays(7);
+            });
+        }
+    }
+
+    public bool IsCountdownTile => IsTimerTile && Tile is { } t && WidgetTimer.IsCountdown(t);
+    public bool IsTimerOnly => IsTimerTile && Tile is { } t && WidgetTimer.IsTimer(t);
+
+    public int TimerMinutes => Tile?.Minutes ?? 25;
+
+    /// <summary>A timer's length a step longer or shorter: a minute at a time below ten, then five.</summary>
+    [RelayCommand]
+    private void StepMinutes(string? how) => ChangeTile(t =>
+    {
+        int step = how == "+" ? (t.Minutes < 10 ? 1 : 5) : (t.Minutes <= 10 ? -1 : -5);
+        t.Minutes = Math.Clamp(t.Minutes + step, 1, 24 * 60);
+        WidgetTimer.Reset(t);
+    });
+
+    public DateTime? CountdownDay
+    {
+        get => Tile?.Until;
+        set { if (value != CountdownDay) ChangeTile(t => t.Until = value?.Date); }
     }
 
     public bool HasTile => Tile is not null;

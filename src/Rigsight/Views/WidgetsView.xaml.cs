@@ -63,6 +63,15 @@ public partial class WidgetsView : UserControl
         if (CanvasFrame.ActualWidth > 0) ed.CanvasWidth = CanvasFrame.ActualWidth;
     }
 
+    /// <summary>Enter in a to-do list's add box adds the item (and the box stays, for the next one).</summary>
+    private void NewTodo_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _vm?.Editor is not { } ed) return;
+        if (sender is TextBox box) box.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+        ed.AddTodoCommand.Execute(null);
+        e.Handled = true;
+    }
+
     /// <summary>The reading list just opened: typing goes to its search at once.</summary>
     private void ReadingPicker_Opened(object? sender, EventArgs e)
     {
