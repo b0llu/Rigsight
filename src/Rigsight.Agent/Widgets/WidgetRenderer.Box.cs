@@ -989,6 +989,9 @@ internal static partial class WidgetRenderer
             Text(g, tally, 9, FontStyle.Bold, p.Faint, r.Right - Measure(g, tally, 9, FontStyle.Bold), r.Top);
         }
         float px = WidgetTiles.TextPx(t), row = MathF.Round(px * 1.75f), top = r.Top + 18, box = MathF.Round(px + 1);
+        // A tile too short for one whole row: the row as tall as the room (never under its box), so it isn't cut off and
+        // a click on the tile under it isn't taken for this list.
+        row = Math.Min(row, Math.Max(box, r.Bottom - top));
         int fit = Math.Max(1, (int)((r.Bottom - top) / row));
         int total = items.Count + 1; // the items and the line to add one
         var typing = TypingHere(adding: true);
