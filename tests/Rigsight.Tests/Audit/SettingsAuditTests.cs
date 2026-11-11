@@ -40,6 +40,38 @@ public sealed class SettingsAuditTests
         Assert.Equal(count - 1, link.Agent.Settings.Widgets.Count);
     }
 
+    // The editor's Remove took a widget (its tiles, notes and to-dos) away with no way back, where the page's Remove has
+    // Undo: it now leaves the page saying what was removed, with Undo.
+    [Fact]
+    public void Remove_in_the_editor_can_be_undone_like_the_pages_remove()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            int count = link.Settings.Current.Widgets.Count;
+            string id = vm.Cards[1].Id;
+            vm.Edit(id);
+            vm.Editor!.RemoveCommand.Execute(null);
+            Assert.Null(vm.Editor);
+            Assert.Equal(count - 1, link.Settings.Current.Widgets.Count);
+            Assert.DoesNotContain(vm.Cards, c => c.Id == id);
+            Assert.Null(vm.Picked);
+            Assert.True(vm.HasRemoved);
+
+            vm.Removed!.UndoCommand.Execute(null);
+            Assert.Equal(count, link.Settings.Current.Widgets.Count);
+            Assert.Equal(id, link.Settings.Current.Widgets[1].Id);
+            Assert.Equal(id, vm.PickedId);
+
+            // A new widget left empty is still dropped without a word.
+            vm.CreateCommand.Execute(null);
+            vm.Editor!.RemoveCommand.Execute(null);
+            Assert.Equal(count, link.Settings.Current.Widgets.Count);
+            Assert.False(vm.HasRemoved);
+        });
+    }
+
     // Undo in the editor brought back the whole widget as it was before the change it undoes: a note typed on the
     // desktop, a to-do ticked there and a timer started there went back too (a timer that had run out started again and
     // said it was up a second time). Undo and Redo now take back only what the change itself did.

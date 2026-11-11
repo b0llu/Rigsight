@@ -529,7 +529,17 @@ public sealed partial class WidgetsViewModel : ObservableObject
         PickedId = id;
         foreach (var c in Cards) c.IsEditing = c.Id == id;
         Editor = new WidgetEditorViewModel(id, _settings, _live, CloseEditor,
-            (wid, x, y) => _client.SendCommand(WidgetCatalog.MoveCommand, WidgetCatalog.MoveArg(wid, x, y)));
+            (wid, x, y) => _client.SendCommand(WidgetCatalog.MoveCommand, WidgetCatalog.MoveArg(wid, x, y)), () => RemoveFromEditor(id));
+    }
+
+    /// <summary>
+    /// The editor's Remove: back on the page, which says what was removed, with Undo, as a card's Remove does (audit
+    /// 2026-11-11: from the editor a widget went for good with one click). A new widget left empty just goes, as on Back.
+    /// </summary>
+    private void RemoveFromEditor(string id)
+    {
+        CloseEditor();
+        if (Cards.FirstOrDefault(c => c.Id == id) is { } card) Remove(card);
     }
 
     [RelayCommand]

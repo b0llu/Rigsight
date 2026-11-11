@@ -63,12 +63,15 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     private readonly Stack<(string Before, string After)> _undo = new(), _redo = new();
 
     private readonly Action<string, int, int>? _moved;
+    private readonly Action? _remove;
 
     /// <param name="moved">A spot picked here (Place), sent on to the desktop: settings from the app never move a widget there.</param>
-    public WidgetEditorViewModel(string id, SettingsModel settings, LiveData? live, Action close, Action<string, int, int>? moved = null)
+    /// <param name="remove">Remove, done by the Widgets page (which says what was removed, with Undo); none: removed here.</param>
+    public WidgetEditorViewModel(string id, SettingsModel settings, LiveData? live, Action close, Action<string, int, int>? moved = null, Action? remove = null)
     {
         Id = id;
         _moved = moved;
+        _remove = remove;
         _settings = settings;
         _live = live;
         _close = close;
@@ -273,6 +276,11 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     [RelayCommand]
     private void Remove()
     {
+        if (_remove is not null)
+        {
+            _remove();
+            return;
+        }
         _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == Id));
         _close();
     }
