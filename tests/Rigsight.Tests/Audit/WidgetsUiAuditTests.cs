@@ -95,6 +95,37 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
         Assert.Fail($"{what}: the widget changed\n  " + Diff(before, after));
     }
 
+    /// <summary>
+    /// Every list, combo box and segment shown under <paramref name="root"/> whose pick isn't what its setting holds now
+    /// (a list or combo with nothing picked while its setting has a value it lists, or a segment lit for another value).
+    /// </summary>
+    private static List<string> ShownWrong(DependencyObject root)
+    {
+        var wrong = new List<string>();
+        static object? SourceValue(System.Windows.Data.BindingExpression be)
+        {
+            if (be.ResolvedSource is not { } src || be.ResolvedSourcePropertyName is not { } name) return null;
+            return src.GetType().GetProperty(name)?.GetValue(src);
+        }
+        foreach (var sel in Visuals.Descendants<System.Windows.Controls.Primitives.Selector>(root).Where(e => e.IsVisible))
+        {
+            if (System.Windows.Data.BindingOperations.GetBindingExpression(sel, System.Windows.Controls.Primitives.Selector.SelectedValueProperty) is not { } be) continue;
+            var want = SourceValue(be)?.ToString();
+            var listed = sel.Items.Cast<object>().Select(i => i.GetType().GetProperty(sel.SelectedValuePath)?.GetValue(i)?.ToString()).ToList();
+            var shown = sel.SelectedValue?.ToString();
+            if (want is not null && listed.Contains(want) && shown != want)
+                wrong.Add($"{AutomationProperties_Name(sel)}: shows {shown ?? "nothing"}, set to {want}");
+        }
+        foreach (var rb in Visuals.Descendants<RadioButton>(root).Where(e => e.IsVisible))
+        {
+            if (System.Windows.Data.BindingOperations.GetBindingExpression(rb, System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty) is not { } be
+                || be.ParentBinding.Converter is not { } conv) continue;
+            var want = conv.Convert(SourceValue(be), typeof(bool?), be.ParentBinding.ConverterParameter, System.Globalization.CultureInfo.InvariantCulture) as bool?;
+            if (want is bool w && rb.IsChecked != w) wrong.Add($"{rb.Content}: {(rb.IsChecked == true ? "lit" : "not lit")}, should be {(w ? "lit" : "not lit")}");
+        }
+        return wrong;
+    }
+
     private string AddWidget(WidgetConfig cfg)
     {
         Ui.Run(() =>
@@ -128,10 +159,12 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
             Ui.Pump(500);
             var ed = Ui.Run(() => host.Shell.Widgets.Editor!);
             int n = Ui.Run(() => ed.TileBoxes.Count);
+            var shownWrong = new List<string>();
             foreach (var tab in new[] { "look", "shape", "desktop", "look" })
             {
                 Ui.Run(() => ed.PanelTab = tab);
                 Ui.Pump(120);
+                shownWrong.AddRange(Ui.Run(() => ShownWrong(host.Window)).Select(w => $"{tab} tab: {w}"));
             }
             for (int round = 0; round < 2; round++)
                 for (int i = 0; i < n; i++)
@@ -139,6 +172,8 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
                     int k = round == 0 ? i : n - 1 - i;
                     Ui.Run(() => ed.PickTileCommand.Execute(ed.TileBoxes[k]));
                     Ui.Pump(120);
+                    var tile = Ui.Run(() => ed.TileName);
+                    shownWrong.AddRange(Ui.Run(() => ShownWrong(host.Window)).Select(w => $"{tile}: {w}"));
                 }
             Ui.Run(() => ed.WholeWidgetCommand.Execute(null));
             Ui.Pump(200);
@@ -147,6 +182,7 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
             Ui.Run(() => host.Shell.Widgets.CloseEditorCommand.Execute(null));
             Ui.Pump(300);
             Same(before, Saved(id), "every-tile-closed");
+            Assert.True(shownWrong.Count == 0, "Shown other than set:\n" + string.Join("\n", shownWrong.Distinct()));
             Ui.AssertNoProblems("the editor, every tile picked");
         }
         finally { Drop(id); }

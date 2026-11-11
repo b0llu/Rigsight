@@ -207,7 +207,19 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         for (int i = 0; i < tiles.Count; i++)
             TileBoxes.Add(new TileBox(i, NameOf(tiles[i]), DetailOf(tiles[i]), GlyphOf(tiles[i].Kind)) { IsSelected = i == Selected });
         Draw();
+        ShowAll();
+    }
+
+    /// <summary>
+    /// Everything shown follows the widget and the picked tile. The ready sizes and a reading's looks are lists made for
+    /// the tile picked, so their pick is said again once the new lists are in: told at once with the rest, a list could
+    /// take its pick before its new items, find nothing to light, and show none (a tile at a ready size showed none lit).
+    /// </summary>
+    private void ShowAll()
+    {
         OnPropertyChanged(string.Empty);
+        OnPropertyChanged(nameof(TilePreset));
+        OnPropertyChanged(nameof(Look));
     }
 
     // ── The widget's name, and the bar at the top ───────────────────────
@@ -516,7 +528,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     {
         Selected = _w.Tiles is { } tiles && index >= 0 && index < tiles.Count ? index : -1;
         foreach (var b in TileBoxes) b.IsSelected = b.Index == Selected;
-        OnPropertyChanged(string.Empty);
+        ShowAll();
     }
 
     /// <summary>A tile picked in the list of tiles.</summary>
