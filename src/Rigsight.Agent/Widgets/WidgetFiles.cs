@@ -70,10 +70,15 @@ internal static class WidgetFiles
             using var image = Image.FromStream(file);
             if (image.PropertyIdList.Contains(0x0112) && image.GetPropertyItem(0x0112)?.Value is { Length: > 0 } turn)
             {
+                // EXIF's eight: turned, and mirrored too (2, 4, 5, 7: a phone's front camera, some editors).
                 image.RotateFlip(turn[0] switch
                 {
+                    2 => RotateFlipType.RotateNoneFlipX,
                     3 => RotateFlipType.Rotate180FlipNone,
+                    4 => RotateFlipType.RotateNoneFlipY,
+                    5 => RotateFlipType.Rotate90FlipX,
                     6 => RotateFlipType.Rotate90FlipNone,
+                    7 => RotateFlipType.Rotate270FlipX,
                     8 => RotateFlipType.Rotate270FlipNone,
                     _ => RotateFlipType.RotateNoneFlipNone,
                 });
