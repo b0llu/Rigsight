@@ -101,6 +101,10 @@
             <Setter Property="ItemContainerStyle">
                 <Setter.Value>
                     <Style TargetType="ListBoxItem">
+                        <!-- Set here, not left to Windows' own style: its look-up of the list goes wrong (a binding error)
+                             each time a tile of another kind brings other ready sizes. -->
+                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                        <Setter Property="VerticalContentAlignment" Value="Center" />
                         <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
                         <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />
                         <Setter Property="Cursor" Value="Hand" />
