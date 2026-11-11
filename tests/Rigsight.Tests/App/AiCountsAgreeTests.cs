@@ -117,4 +117,22 @@ public sealed class AiCountsAgreeTests
         Assert.Contains("Kickoff: 30m over 3 plays,", tools.Run("list_games", "{}"));
         Assert.StartsWith("Kickoff: 30m in 3 plays.", tools.Run("get_game", """{"name":"Kickoff"}"""));
     }
+
+    [Fact]
+    public void A_games_time_in_a_period_is_only_the_time_inside_it()
+    {
+        // Real PC, 18 to 24 Oct 2026: REMATCH had 1h 56m in list_games where the report said 1h 33m, because a play from
+        // 11:34 PM the night before brought its whole time in. Here 25 minutes of a play are on the 17th, 34 on the 18th.
+        using var t = new TestDb("ai-played-in");
+        long game = t.Db.UpsertApp("kickoff.exe", "Kickoff", @"C:\RigsightTestGames\Kickoff\kickoff.exe", AppCategory.Game);
+        long start = U(2026, 10, 17, 23, 35);
+        t.Db.InsertSession(Session(game, start, start + 59 * 60, game: true));
+        t.Db.AddAppHour(Hour(U(2026, 10, 17, 23), game, fg: 25 * 60));
+        t.Db.AddAppHour(Hour(U(2026, 10, 18, 0), game, fg: 34 * 60));
+        var tools = Tools(t.Path);
+
+        Assert.Contains("Kickoff: 34m in 1 play", tools.Run("list_games", Range(new DateTime(2026, 10, 18), new DateTime(2026, 10, 24))));
+        Assert.Contains("Kickoff: 25m in 1 play", tools.Run("list_games", Range(new DateTime(2026, 10, 17), new DateTime(2026, 10, 17))));
+        Assert.Contains("Kickoff: 59m in 1 play", tools.Run("list_games", Range(new DateTime(2026, 10, 17), new DateTime(2026, 10, 18))));
+    }
 }

@@ -419,19 +419,28 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         foreach (var (g, sec, plays) in PlayedIn(db, from, to))
             sb.AppendLine($"{g.Name}: {Units.Duration(sec)} in {plays} {(plays == 1 ? "play" : "plays")}"
                 + (g.Launcher is { } l ? $", {l}" : "") + (g.GpuLoad is double gpu ? $", graphics card {gpu:0}% busy on average (over all its plays)" : ""));
-        return sb.Length == 0 ? $"No games played on {period}." : $"Games played on {period} (only these were played then):\n" + sb;
+        return sb.Length == 0 ? $"No games played on {period}."
+            : $"Games played on {period} (only these were played then), with the time in front inside the period, as get_report counts it. A play that ran across its start or end is one of its plays, with only its time inside:\n" + sb;
     }
 
-    /// <summary>The games played from one day to another (both included), with the time in front and the plays then.</summary>
+    /// <summary>
+    /// The games played from one day to another (both included): the time in front inside those days, and the plays that
+    /// ran in them. The time is the hours' own, as get_report and get_apps count it: a play's whole time was added before,
+    /// so one from 11:34 PM the night before brought its first half-hour in, and REMATCH had 1h 56m in the week where the
+    /// report said 1h 33m (real PC, 18 to 24 Oct 2026).
+    /// </summary>
     private List<(GameEntry Game, double Sec, int Plays)> PlayedIn(RigsightDb db, DateTime from, DateTime to)
     {
         if (to < from) (from, to) = (to, from);
         DateTime end = to.AddDays(1);
+        long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(end);
+        var stops = GameHistory.Stops(db, settings);
         var list = new List<(GameEntry, double, int)>();
         foreach (var g in Played(db).Where(g => g.FirstPlayed is not { } first || g.LastPlayed is not { } last || (first < end && last >= from)))
         {
-            var plays = GameHistory.Story(db, g, settings, DateTime.Now).Plays.Where(p => p.StartTime < end && p.EndTime >= from).ToList();
-            if (plays.Count > 0) list.Add((g, plays.Sum(p => p.ActiveSec), plays.Count));
+            int plays = GameHistory.Spans(db, g.AppIds, stops).Count(p => p.Start < t && p.End >= f);
+            double sec = g.AppIds.Sum(id => db.GetAppFrontSec(id, f, t));
+            if (plays > 0 && sec > 0) list.Add((g, sec, plays));
         }
         return [.. list.OrderByDescending(x => x.Item2)];
     }
