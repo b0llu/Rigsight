@@ -868,7 +868,7 @@ internal static partial class WidgetRenderer
                 g.FillPath(fill, path);
             p = p with { Text = Color.FromArgb(43, 36, 16), Muted = Color.FromArgb(92, 78, 40), Faint = Color.FromArgb(128, 108, 56), Track = Color.FromArgb(214, 190, 96) };
             accent = Color.FromArgb(43, 36, 16);
-            if (FontFamily.Families.Any(f => f.Name == "Segoe Print")) FontName = "Segoe Print";
+            if (HasSegoePrint) FontName = "Segoe Print";
             TextShadow = Color.Transparent;
         }
         try
@@ -879,6 +879,19 @@ internal static partial class WidgetRenderer
         {
             FontName = font;
             TextShadow = shadow;
+        }
+    }
+
+    private static bool? _hasSegoePrint;
+
+    /// <summary>Whether Windows has its handwriting font, asked once (asking lists every installed font, twice a picture).</summary>
+    private static bool HasSegoePrint
+    {
+        get
+        {
+            if (_hasSegoePrint is { } known) return known;
+            using var fonts = new System.Drawing.Text.InstalledFontCollection();
+            return (_hasSegoePrint = fonts.Families.Any(f => f.Name == "Segoe Print")).Value;
         }
     }
 
