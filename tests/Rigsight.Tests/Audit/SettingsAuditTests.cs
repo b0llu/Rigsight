@@ -206,4 +206,21 @@ public sealed class SettingsAuditTests
             Assert.Equal(("Typed on the desktop", 624, 324), (copy.Tiles![0].Text, copy.X, copy.Y));
         });
     }
+
+    // A shortcuts tile's "is it a web address" was written into the settings file with every link (it's worked out from
+    // the address, never read back).
+    [Fact]
+    public void A_shortcut_is_saved_without_what_is_worked_out_from_it()
+    {
+        var s = new RigsightSettings { SettingsVersion = 13 };
+        s.Widgets.Add(new WidgetConfig
+        {
+            Style = WidgetStyle.Custom, Id = "custom-1", Name = "Links",
+            Tiles = [new WidgetTile { Kind = WidgetTiles.Shortcuts, W = 6, H = 2, Links = [new TileLink { Path = "https://rigsight.app", Name = "RigSight" }] }],
+        });
+        string json = SettingsStore.Serialize(s);
+        Assert.DoesNotContain("IsWeb", json);
+        var link = Assert.Single(SettingsStore.Deserialize(json).Widgets.Single(w => w.Id == "custom-1").Tiles![0].Links!);
+        Assert.Equal(("https://rigsight.app", "RigSight", true), (link.Path, link.Name, link.IsWeb));
+    }
 }

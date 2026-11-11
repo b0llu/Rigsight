@@ -161,7 +161,8 @@ public sealed class TileLink
     public string Path { get; set; } = "";
     public string Name { get; set; } = "";
 
-    /// <summary>A web address (opened in the browser), not a file or folder.</summary>
+    /// <summary>A web address (opened in the browser), not a file or folder. Worked out from the address, so not saved.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     public bool IsWeb => Path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || Path.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 }
 
