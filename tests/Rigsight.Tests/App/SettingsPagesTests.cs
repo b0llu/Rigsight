@@ -335,14 +335,12 @@ public sealed class SettingsPageTests
             Assert.Equal(3 + WidgetTiles.Kinds.Count, vm.Choices.Count);
             Assert.Equal(vm.Choices, vm.ChoicesShown);
             Assert.Equal(vm.Choices.Count, vm.Choices.Select(c => c.Title).Distinct().Count());
-            // Listed under their groups; the first one is picked, shown beside the list with Add.
+            // Listed under their groups in the Add widget pop-up.
             Assert.Equal(["READY-MADE", "EVERYDAY", "LIVE", "YOUR DAY"],
                 vm.ChoiceGroups.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(g => (string)g.Name));
             Assert.Equal(["Clock", "Date", "Calendar", "Notes", "To-do", "Timer"], vm.ChoicesShown.Where(c => c.Group == "Everyday").Select(c => c.Title));
-            Assert.Same(vm.Choices[0], vm.PickedChoice);
             vm.ChoiceQuery = "calend";
             Assert.Equal("Calendar", Assert.Single(vm.ChoicesShown).Title);
-            Assert.Equal("Calendar", vm.PickedChoice!.Title);
             vm.ChoiceQuery = "everyday"; // a group's name finds its widgets
             Assert.Equal(6, vm.ChoicesShown.Count);
             vm.ChoiceQuery = "zzz";
@@ -361,10 +359,13 @@ public sealed class SettingsPageTests
         Ui.Run(() =>
         {
             int before = vm.Cards.Count;
-            vm.Tab = "add";
+            vm.ChoiceQuery = "clock";
+            vm.OpenAddListCommand.Execute(null); // opens with its search cleared
+            Assert.True(vm.AddListOpen);
+            Assert.Equal("", vm.ChoiceQuery);
             vm.Add(vm.Choices.Single(c => c.Title == "Clock"));
-            // Your widgets opens with it picked, so it's clear where it went.
-            Assert.Equal("mine", vm.Tab);
+            // The pop-up closes and it's picked in the list, so it's clear where it went.
+            Assert.False(vm.AddListOpen);
             Assert.Equal(link.Settings.Current.Widgets[^1].Id, vm.PickedId);
             vm.Add(vm.Choices.Single(c => c.Title == "Clock")); // any number of a kind
             Assert.Equal(before + 2, vm.Cards.Count);

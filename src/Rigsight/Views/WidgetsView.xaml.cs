@@ -47,10 +47,14 @@ public partial class WidgetsView : UserControl
         SetUpEditor();
     }
 
+    // The Add widget pop-up opens with its search ready to type in.
+    private void AddPopup_Opened(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(() => { AddSearch.Focus(); Keyboard.Focus(AddSearch); }, System.Windows.Threading.DispatcherPriority.Input);
+
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
         // The picked widget's row is shown in the list (one just added, or picked on the map, may be below its end).
-        if (e.PropertyName is nameof(WidgetsViewModel.Picked) or nameof(WidgetsViewModel.Tab))
+        if (e.PropertyName is nameof(WidgetsViewModel.Picked))
         {
             Dispatcher.BeginInvoke(() => { if (_vm?.Picked is { } picked) MineList.ScrollIntoView(picked); }, System.Windows.Threading.DispatcherPriority.Loaded);
             return;

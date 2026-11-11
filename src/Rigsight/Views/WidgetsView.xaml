@@ -61,22 +61,23 @@
             </DockPanel>
         </DataTemplate>
 
-        <!-- A widget or tile to add, in the list under its group: its picture, its name and what it shows. -->
+        <!-- A widget or tile to add, in the Add widget pop-up under its group: its picture, its name and what it shows; a click
+             adds it. -->
         <DataTemplate x:Key="ChoiceRow">
-            <DockPanel>
-                <Border DockPanel.Dock="Left" Width="56" Height="34" CornerRadius="6" ClipToBounds="True" Background="{StaticResource Backdrop}" Margin="0,0,12,0">
-                    <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="4" RenderOptions.BitmapScalingMode="HighQuality" />
-                </Border>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock x:Name="Name" Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding Line}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-            </DockPanel>
-            <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
-                    <Setter TargetName="Name" Property="FontWeight" Value="SemiBold" />
-                </DataTrigger>
-            </DataTemplate.Triggers>
+            <Button Style="{StaticResource RowButton}" HorizontalContentAlignment="Stretch" Margin="0,0,0,4" Command="{Binding AddCommand}"
+                    AutomationProperties.Name="{Binding Title, StringFormat='Add {0}'}">
+                <DockPanel Margin="8,6">
+                    <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
+                               VerticalAlignment="Center" Margin="10,0,2,0" />
+                    <Border DockPanel.Dock="Left" Width="56" Height="34" CornerRadius="6" ClipToBounds="True" Background="{StaticResource Backdrop}" Margin="0,0,12,0">
+                        <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="4" RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Line}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </DockPanel>
+            </Button>
         </DataTemplate>
 
         <!-- A short list of choices as segments (a widget's Size): the page's segments, as a list with one picked. -->
@@ -251,7 +252,7 @@
 
     <Grid>
         <!-- ── The page, in two panes (approved mock-up UckKnwokm5kF7JjdjHZpqd, option C, 2026-11-11): the list on the left,
-             the picked widget on the right; Add a widget swaps both for the widgets and tiles to add. ── -->
+             the picked widget on the right. Add widget, beside Create widget, opens the list to add from (the user, 2026-11-11). ── -->
         <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                       Visibility="{Binding IsEditing, Converter={StaticResource Vis}, ConverterParameter=Invert}">
             <Grid Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
@@ -260,21 +261,13 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- The title, the two tabs, and Desktop widgets on or off (the tray menu has the same switch, by the same name). -->
+                <!-- The title, and Desktop widgets on or off (the tray menu has the same switch, by the same name). -->
                 <DockPanel>
                     <CheckBox DockPanel.Dock="Right" Style="{StaticResource PageSwitch}" IsChecked="{Binding Shown}" AutomationProperties.Name="{ctl:T 'Desktop widgets'}"
                               ToolTip="{ctl:T 'Off hides them all and keeps which ones are on.'}" />
                     <Button DockPanel.Dock="Right" Style="{StaticResource PageAiButton}" Content="{ctl:T 'Which widgets suit me?'}" CommandParameter="{x:Static svc:PageAsks.Widgets}"
                             AutomationProperties.Name="{ctl:T 'Which widgets suit me?'}" VerticalAlignment="Center" Margin="0,0,20,0" />
                     <TextBlock DockPanel.Dock="Left" Text="{ctl:T 'Desktop widgets'}" Style="{StaticResource H1}" VerticalAlignment="Center" />
-                    <Border Margin="26,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource StrokeBrush}">
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton Style="{StaticResource PanelTab}" FontSize="{x:Static ctl:TextSize.Lead}" Content="{ctl:T 'Your widgets'}" GroupName="widgets-tab"
-                                         IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=mine}" />
-                            <RadioButton Style="{StaticResource PanelTab}" FontSize="{x:Static ctl:TextSize.Lead}" Content="{ctl:T 'Add a widget'}" GroupName="widgets-tab"
-                                         IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=add}" />
-                        </StackPanel>
-                    </Border>
                 </DockPanel>
 
                 <Grid Grid.Row="1" Margin="0,18,0,0">
@@ -287,7 +280,7 @@
                     <!-- ── Left: as tall as the pane beside it; the list scrolls in its own box. ── -->
                     <Grid Height="{Binding ActualHeight, ElementName=RightPane}">
                         <!-- Your widgets: the list, and under it the settings for every widget, one under another. -->
-                        <DockPanel Visibility="{Binding Tab, Converter={StaticResource EqualsVis}, ConverterParameter=mine}">
+                        <DockPanel>
                             <ctl:SmoothBorder DockPanel.Dock="Bottom" Style="{StaticResource Card}" Padding="16,8" Margin="0,14,0,0">
                                 <StackPanel>
                                     <TextBlock Text="{ctl:T 'FOR EVERY WIDGET'}" Style="{StaticResource Caption}" Margin="0,4,0,2" />
@@ -368,13 +361,58 @@
                                              Text="{Binding MineQuery, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Search your widgets'}" />
                                     <ListBox DockPanel.Dock="Top" Style="{StaticResource ChipList}" ItemsSource="{Binding MineChips}" SelectedItem="{Binding PickedMineChip}" ItemTemplate="{StaticResource ChipTemplate}"
                                              Margin="2,10,0,4" AutomationProperties.Name="{ctl:T 'Which widgets to show'}" />
-                                    <Button DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" Command="{Binding CreateCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                            Margin="0,8,0,0" AutomationProperties.Name="{ctl:T 'Create widget'}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="{ctl:T 'Create widget'}" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                    </Button>
+                                    <!-- Add widget (a ready-made one or a tile, from a pop-up) and Create widget (an empty one, in the editor). -->
+                                    <Grid DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition />
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="AddWidgetButton" Style="{StaticResource GhostButton}" Command="{Binding OpenAddListCommand}" HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center" AutomationProperties.Name="{ctl:T 'Add widget'}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{ctl:T 'Add widget'}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="2" Style="{StaticResource GhostButton}" Command="{Binding CreateCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                AutomationProperties.Name="{ctl:T 'Create widget'}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{ctl:T 'Create widget'}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <!-- The ready-made widgets and every tile, under their groups, over the list; a click adds one. -->
+                                        <Popup IsOpen="{Binding AddListOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=AddWidgetButton}" Placement="Top" VerticalOffset="-8"
+                                               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Opened="AddPopup_Opened">
+                                            <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                                              CornerRadius="{x:Static ctl:Corner.Tile}" Padding="10" Margin="0,8,8,8" Width="430">
+                                                <Border.Effect>
+                                                    <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                                                </Border.Effect>
+                                                <DockPanel Height="480">
+                                                    <TextBox x:Name="AddSearch" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search widgets and tiles'}" Height="34"
+                                                             Text="{Binding ChoiceQuery, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Search widgets and tiles'}" />
+                                                    <TextBlock DockPanel.Dock="Top" Text="{Binding NoChoicesText}" Style="{StaticResource Muted}" Margin="6,10" TextWrapping="Wrap"
+                                                               Visibility="{Binding NoChoices, Converter={StaticResource Vis}}" />
+                                                    <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,2,0,0">
+                                                        <ItemsControl ItemsSource="{Binding ChoiceGroups}" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"
+                                                                      AutomationProperties.Name="{ctl:T 'Widgets and tiles to add'}">
+                                                            <ItemsControl.GroupStyle>
+                                                                <GroupStyle>
+                                                                    <GroupStyle.HeaderTemplate>
+                                                                        <DataTemplate>
+                                                                            <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" Margin="8,10,0,6" />
+                                                                        </DataTemplate>
+                                                                    </GroupStyle.HeaderTemplate>
+                                                                </GroupStyle>
+                                                            </ItemsControl.GroupStyle>
+                                                        </ItemsControl>
+                                                    </ScrollViewer>
+                                                </DockPanel>
+                                            </ctl:SmoothBorder>
+                                        </Popup>
+                                    </Grid>
                                     <Grid>
                                         <ListBox x:Name="MineList" Style="{StaticResource CardList}" ItemsSource="{Binding Grid}" SelectedItem="{Binding PickedRow}"
                                                  AutomationProperties.Name="{ctl:T 'Your widgets'}" />
@@ -384,35 +422,13 @@
                             </ctl:SmoothBorder>
                         </DockPanel>
 
-                        <!-- Add a widget: the ready-made widgets and every tile, under their groups. -->
-                        <ctl:SmoothBorder Style="{StaticResource Card}" Padding="12" Visibility="{Binding Tab, Converter={StaticResource EqualsVis}, ConverterParameter=add}">
-                            <DockPanel>
-                                <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search widgets and tiles'}" Height="34"
-                                         Text="{Binding ChoiceQuery, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Search widgets and tiles'}" />
-                                <Grid Margin="0,4,0,0">
-                                    <ListBox x:Name="ChoiceList" Style="{StaticResource CardList}" ItemsSource="{Binding ChoiceGroups}" SelectedItem="{Binding PickedChoice}"
-                                             ItemTemplate="{StaticResource ChoiceRow}" VirtualizingPanel.IsVirtualizingWhenGrouping="True" AutomationProperties.Name="{ctl:T 'Widgets and tiles to add'}">
-                                        <ListBox.GroupStyle>
-                                            <GroupStyle>
-                                                <GroupStyle.HeaderTemplate>
-                                                    <DataTemplate>
-                                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" Margin="10,12,0,6" />
-                                                    </DataTemplate>
-                                                </GroupStyle.HeaderTemplate>
-                                            </GroupStyle>
-                                        </ListBox.GroupStyle>
-                                    </ListBox>
-                                    <TextBlock Text="{Binding NoChoicesText}" Style="{StaticResource Muted}" Margin="10" TextWrapping="Wrap" Visibility="{Binding NoChoices, Converter={StaticResource Vis}}" />
-                                </Grid>
-                            </DockPanel>
-                        </ctl:SmoothBorder>
                     </Grid>
 
-                    <!-- ── Right: the picked widget, or the one picked to add. ── -->
+                    <!-- ── Right: the picked widget. ── -->
                     <ctl:SmoothBorder x:Name="RightPane" Grid.Column="2" Style="{StaticResource Card}" Padding="18" MinHeight="640" VerticalAlignment="Top">
                         <Grid>
-                            <!-- Your widgets: its name, Edit and Remove; its picture at its size; where it is, and its quick settings. -->
-                            <Grid Visibility="{Binding Tab, Converter={StaticResource EqualsVis}, ConverterParameter=mine}">
+                            <!-- Its name, Edit and Remove; its picture at its size; where it is, and its quick settings. -->
+                            <Grid>
                                 <DockPanel Visibility="{Binding HasPicked, Converter={StaticResource Vis}}">
                                     <DockPanel DockPanel.Dock="Top">
                                         <Button DockPanel.Dock="Right" Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove'}" Command="{Binding Picked.RemoveCommand}" Margin="8,0,0,0"
@@ -439,6 +455,22 @@
                                             <TextBlock Text="{Binding MapLine}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
+                                            <Border Style="{StaticResource PaneRow}">
+                                                <DockPanel>
+                                                    <ComboBox DockPanel.Dock="Right" Width="160" ItemsSource="{Binding ThemeChoices}" DisplayMemberPath="Name" SelectedValuePath="Value"
+                                                              SelectedValue="{Binding Picked.Theme}" VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Theme'}" />
+                                                    <TextBlock Text="{ctl:T 'Theme'}" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                                </DockPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource PaneRow}">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Left" Text="{ctl:T 'Backdrop'}" Style="{StaticResource Body}" VerticalAlignment="Center" Margin="0,0,24,0" />
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Picked.BackgroundPercent, StringFormat='{}{0:0}%'}" Width="40" TextAlignment="Right" Style="{StaticResource Body}"
+                                                               VerticalAlignment="Center" />
+                                                    <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center" Value="{Binding Picked.BackgroundPercent}"
+                                                            AutomationProperties.Name="{ctl:T 'Backdrop'}" />
+                                                </DockPanel>
+                                            </Border>
                                             <Border Style="{StaticResource PaneRow}" BorderThickness="0">
                                                 <DockPanel>
                                                     <ListBox DockPanel.Dock="Right" Style="{StaticResource SegmentList}" ItemsSource="{Binding SizeChoices}" DisplayMemberPath="Name" SelectedValuePath="Value"
@@ -458,28 +490,6 @@
                                 <TextBlock Text="{Binding NothingPicked}" Style="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Visibility="{Binding HasPicked, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             </Grid>
-
-                            <!-- Add a widget: the picked one's name and what it shows, Add, and its picture at its size. -->
-                            <DockPanel Visibility="{Binding Tab, Converter={StaticResource EqualsVis}, ConverterParameter=add}">
-                                <DockPanel DockPanel.Dock="Top" Visibility="{Binding PickedChoice, Converter={StaticResource Vis}}">
-                                    <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Command="{Binding PickedChoice.AddCommand}" VerticalAlignment="Center"
-                                            AutomationProperties.Name="{Binding PickedChoice.Title, StringFormat='Add {0}'}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource OnAccentBrush}" />
-                                            <TextBlock Text="{ctl:T 'Add'}" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                    </Button>
-                                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
-                                        <TextBlock Text="{Binding PickedChoice.Title}" FontSize="{x:Static ctl:TextSize.Title}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding PickedChoice.Line}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </DockPanel>
-                                <Border Margin="0,16,0,0" CornerRadius="{x:Static ctl:Corner.Control}" ClipToBounds="True" Background="{StaticResource Backdrop}"
-                                        Visibility="{Binding PickedChoice, Converter={StaticResource Vis}}">
-                                    <Image Source="{Binding PickedChoice.BigPreview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="24" RenderOptions.BitmapScalingMode="HighQuality"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                            </DockPanel>
                         </Grid>
                     </ctl:SmoothBorder>
                 </Grid>

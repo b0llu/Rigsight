@@ -5699,7 +5699,6 @@
     "Show it on the desktop": "Mostrarlo en el escritorio",
     "Off hides them all and keeps which ones are on.": "Desactivado los oculta todos y recuerda cuáles están activados.",
     "Which widgets suit me?": "¿Qué widgets me convienen?",
-    "Add a widget": "Añadir un widget",
     "FOR EVERY WIDGET": "PARA TODOS LOS WIDGETS",
     "Snap to edges and other widgets": "Ajustar a los bordes y a otros widgets",
     "Hold Alt while you drag to place one freely.": "Mantén Alt mientras arrastras para colocarlo libremente.",
@@ -5715,12 +5714,13 @@
     "Shortcut to bring them in front": "Atajo para traerlos al frente",
     "Search your widgets": "Buscar en tus widgets",
     "Which widgets to show": "Qué widgets mostrar",
+    "Add widget": "Añadir widget",
     "Create widget": "Crear widget",
     "Search widgets and tiles": "Buscar widgets y mosaicos",
     "Widgets and tiles to add": "Widgets y mosaicos para añadir",
     "WHERE IT IS": "DÓNDE ESTÁ",
     "Your screens, with the widgets on them": "Tus pantallas, con sus widgets",
-    "Add": "Añadir",
+    "Backdrop": "Fondo",
     "Back to Widgets": "Volver a Widgets",
     "Redo": "Rehacer",
     "Remove the widget": "Quitar el widget",
@@ -5740,7 +5740,6 @@
     "Shape": "Forma",
     "On the desktop": "En el escritorio",
     "Font": "Fuente",
-    "Backdrop": "Fondo",
     "Content": "Contenido",
     "Corners": "Esquinas",
     "Round": "Redondas",
@@ -5760,6 +5759,7 @@
     "Note": "Nota",
     "Or click the note on your desktop and type.": "O haz clic en la nota de tu escritorio y escribe.",
     "ITEMS": "TAREAS",
+    "Add": "Añadir",
     "Tick items and add new ones on the widget too.": "También puedes marcar tareas y añadir otras en el propio widget.",
     "Length": "Duración",
     "Shorter": "Más bajo",
@@ -7095,6 +7095,7 @@
     "Where it sits": "Dónde se coloca",
     "Over windows": "Sobre las ventanas",
     "Shows the ones on the desktop over your windows. Esc or a click elsewhere sends them back.": "Muestra los del escritorio sobre tus ventanas. Esc o un clic en otro sitio los devuelve atrás.",
-    "Click-through": "Deja pasar los clics"
+    "Click-through": "Deja pasar los clics",
+    "Add a widget": "Añadir un widget"
   }
 }

@@ -89,6 +89,32 @@ public sealed partial class WidgetCard : ObservableObject
     /// <summary>Under its name in the list: the screen it's on, or Off.</summary>
     public string Line => !Enabled ? Lang.T("Off") : Where is { Length: > 0 } where ? where : Lang.T("On");
 
+    /// <summary>Its theme (the editor's Theme).</summary>
+    public string Theme
+    {
+        get => Config.Theme.ToString();
+        set
+        {
+            if (value is null || value == Theme || !Enum.TryParse<WidgetTheme>(value, out var theme)) return;
+            _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.Theme = theme; });
+            OnPropertyChanged(nameof(Theme));
+            Redraw();
+        }
+    }
+
+    /// <summary>How solid its backdrop is, 0 to 100 (the editor's Backdrop).</summary>
+    public double BackgroundPercent
+    {
+        get => Math.Round(Config.BackgroundOpacity * 100);
+        set
+        {
+            if (Math.Abs(value - BackgroundPercent) < 1) return;
+            _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.BackgroundOpacity = Math.Clamp(value / 100, 0, 1); });
+            OnPropertyChanged(nameof(BackgroundPercent));
+            Redraw();
+        }
+    }
+
     /// <summary>Its size, S to 3XL (the editor's Size).</summary>
     public string Size
     {
@@ -160,6 +186,8 @@ public sealed partial class WidgetCard : ObservableObject
         OnPropertyChanged(nameof(Locked));
         OnPropertyChanged(nameof(Where));
         OnPropertyChanged(nameof(Line));
+        OnPropertyChanged(nameof(Theme));
+        OnPropertyChanged(nameof(BackgroundPercent));
         OnPropertyChanged(nameof(Size));
         Redraw();
     }
@@ -181,8 +209,8 @@ public sealed partial class WidgetChoice(string title, string line, string group
 
     internal WidgetConfig Make() => make();
 
-    private ImageSource? _preview, _big;
-    private bool _drawn, _bigDrawn;
+    private ImageSource? _preview;
+    private bool _drawn;
 
     public ImageSource? Preview
     {
@@ -197,21 +225,7 @@ public sealed partial class WidgetChoice(string title, string line, string group
         }
     }
 
-    /// <summary>The widget at its size on the desktop, for the pane beside the list.</summary>
-    public ImageSource? BigPreview
-    {
-        get
-        {
-            if (!_bigDrawn)
-            {
-                _bigDrawn = true;
-                _big = page.Draw(Make(), 2f);
-            }
-            return _big;
-        }
-    }
-
-    /// <summary>Adds it, and shows it picked under Your widgets.</summary>
+    /// <summary>Adds it, closes the pop-up, and picks it in the list.</summary>
     [RelayCommand]
     private void Add() => page.Add(this);
 }
@@ -244,9 +258,9 @@ public sealed record WidgetSpot(string Id, string Title, int X, int Y, int Width
 
 /// <summary>
 /// The Widgets page, in two panes (approved mock-up UckKnwokm5kF7JjdjHZpqd, option C, 2026-11-11): Desktop widgets on or
-/// off at the top, with two tabs. Your widgets: the list (search, All, On, Off, Create) and the settings for every widget
-/// on the left; the picked widget on the right, with where it is on the screens and its quick settings. Add a widget: the
-/// ready-made widgets and every tile on the left, the picked one and Add on the right. The editor is a page of its own.
+/// off at the top. On the left the list (search, All, On, Off; Add widget and Create widget at its foot) and the settings
+/// for every widget; on the right the picked widget, with where it is on the screens and its quick settings. Add widget
+/// opens a pop-up of the ready-made widgets and every tile (the user, 2026-11-11). The editor is a page of its own.
 /// </summary>
 public sealed partial class WidgetsViewModel : ObservableObject
 {
@@ -286,9 +300,6 @@ public sealed partial class WidgetsViewModel : ObservableObject
     private readonly System.Windows.Threading.DispatcherTimer _mapTimer;
     private readonly System.Windows.Threading.DispatcherTimer _undoTimer;
 
-    /// <summary>The tab open: "mine" (Your widgets) or "add" (Add a widget).</summary>
-    [ObservableProperty] private string _tab = "mine";
-
     /// <summary>The widget shown in the pane beside the list.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PickedId), nameof(PickedRow), nameof(HasPicked), nameof(MapLine), nameof(NothingPicked))]
@@ -323,7 +334,8 @@ public sealed partial class WidgetsViewModel : ObservableObject
         set { if (value is not null && Cards.FirstOrDefault(c => c.Id == value) is { } c) Picked = c; }
     }
 
-    /// <summary>A widget's sizes, for the picked one's quick settings.</summary>
+    /// <summary>A widget's themes and sizes, for the picked one's quick settings.</summary>
+    public IReadOnlyList<Choice> ThemeChoices { get; } = WidgetEditorViewModel.ThemeList();
     public IReadOnlyList<Choice> SizeChoices => WidgetEditorViewModel.SizeList;
 
     // ── On or off, and the settings for all widgets ─────────────────────
@@ -500,7 +512,6 @@ public sealed partial class WidgetsViewModel : ObservableObject
     public void Edit(string? id)
     {
         if (id is null || _settings.Current.Widgets.All(w => w.Id != id)) return;
-        Tab = "mine";
         PickedId = id;
         foreach (var c in Cards) c.IsEditing = c.Id == id;
         Editor = new WidgetEditorViewModel(id, _settings, _live, CloseEditor,
@@ -554,8 +565,16 @@ public sealed partial class WidgetsViewModel : ObservableObject
 
     public System.ComponentModel.ICollectionView ChoiceGroups { get; }
 
-    /// <summary>The one shown in the pane beside the list, with Add.</summary>
-    [ObservableProperty] private WidgetChoice? _pickedChoice;
+    /// <summary>Whether the Add widget pop-up is open.</summary>
+    [ObservableProperty] private bool _addListOpen;
+
+    /// <summary>Opens the Add widget pop-up, its search cleared.</summary>
+    [RelayCommand]
+    private void OpenAddList()
+    {
+        ChoiceQuery = "";
+        AddListOpen = true;
+    }
 
     [ObservableProperty] private string _choiceQuery = "";
 
@@ -571,7 +590,6 @@ public sealed partial class WidgetsViewModel : ObservableObject
             || c.Line.Contains(q, StringComparison.CurrentCultureIgnoreCase) || c.GroupName.Contains(q, StringComparison.CurrentCultureIgnoreCase)).ToList();
         ChoicesShown.Clear();
         foreach (var c in shown) ChoicesShown.Add(c);
-        if (PickedChoice is null || !shown.Contains(PickedChoice)) PickedChoice = shown.FirstOrDefault();
         OnPropertyChanged(nameof(NoChoices));
         OnPropertyChanged(nameof(NoChoicesText));
     }
@@ -593,8 +611,8 @@ public sealed partial class WidgetsViewModel : ObservableObject
     internal ImageSource? Draw(WidgetConfig cfg, float scale = 1.5f) => WidgetPictures.Draw(cfg, _live, _settings.Current, scale);
 
     /// <summary>
-    /// Adds a widget from the list: on, on the desktop, placed by the agent at the top right of the main screen; then
-    /// Your widgets opens with it picked, so it's clear where it went.
+    /// Adds a widget from the pop-up: on, on the desktop, placed by the agent at the top right of the main screen; the
+    /// pop-up closes and it's picked in the list, so it's clear where it went.
     /// </summary>
     internal void Add(WidgetChoice choice)
     {
@@ -605,7 +623,7 @@ public sealed partial class WidgetsViewModel : ObservableObject
         PickedMineChip = MineChips[0];
         Sync();
         PickedId = cfg.Id;
-        Tab = "mine";
+        AddListOpen = false;
     }
 
     // ── The map of the screens ──────────────────────────────────────────

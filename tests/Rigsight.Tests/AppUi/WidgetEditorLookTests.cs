@@ -27,8 +27,8 @@ public sealed class WidgetEditorLookTests(AppHost host) : IClassFixture<AppHost>
         Ui.Run(() => host.Shell.Widgets.CloseEditorCommand.Execute(null));
     }
 
-    // The page in two panes, as in the approved mock-up UckKnwokm5kF7JjdjHZpqd (option C): Your widgets with one picked,
-    // then Add a widget; for comparing with the mock-up's board.
+    // The page in two panes, as in the approved mock-up UckKnwokm5kF7JjdjHZpqd (option C): one widget picked, then the Add
+    // widget pop-up (drawn on its own: a pop-up is a window of its own); for comparing with the mock-up's board.
     [Fact]
     public void The_page_in_two_panes()
     {
@@ -48,20 +48,23 @@ public sealed class WidgetEditorLookTests(AppHost host) : IClassFixture<AppHost>
             id = cfg.Id;
             host.Shell.Settings.Update(s => { s.WidgetsShown = true; s.Widgets.Add(cfg); });
             host.Shell.Widgets.Refresh();
-            host.Shell.Widgets.Tab = "mine";
             host.Shell.Widgets.PickedId = id;
             host.Shell.Widgets.LoadMap();
         });
         Ui.Pump(800);
         Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "widgets-page-mine.png")));
         Assert.Equal(id, Ui.Run(() => Visuals.Descendants<WidgetScreens>(host.Window).Single().Picked));
-        Ui.Run(() => host.Shell.Widgets.Tab = "add");
-        Ui.Pump(600);
-        Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "widgets-page-add.png")));
+        Ui.Run(() => host.Shell.Widgets.OpenAddListCommand.Execute(null));
+        Ui.Pump(800);
+        Ui.Run(() =>
+        {
+            var popup = Visuals.Descendants<System.Windows.Controls.Primitives.Popup>(host.Window).Single(p => p.IsOpen);
+            Ui.SavePng((FrameworkElement)popup.Child, Path.Combine(Shots, "widgets-page-add.png"));
+            host.Shell.Widgets.AddListOpen = false;
+        });
         Ui.AssertNoProblems("the Widgets page");
         Ui.Run(() =>
         {
-            host.Shell.Widgets.Tab = "mine";
             host.Shell.Settings.Update(s => s.Widgets.RemoveAll(w => w.Id == id));
             host.Shell.Widgets.Refresh();
         });

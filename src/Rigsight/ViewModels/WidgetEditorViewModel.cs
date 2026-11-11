@@ -892,11 +892,14 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
 
     // ── Look ────────────────────────────────────────────────────────────
 
-    public IReadOnlyList<Choice> Themes { get; } =
+    /// <summary>A widget's themes, here and in the Widgets page's quick settings.</summary>
+    public static IReadOnlyList<Choice> ThemeList() =>
     [
         new(nameof(WidgetTheme.App), Lang.T("Like RigSight")), new(nameof(WidgetTheme.Dark), Lang.T("Dark")),
         new(nameof(WidgetTheme.Grey), Lang.T("Gray")), new(nameof(WidgetTheme.Light), Lang.T("Light")), new(nameof(WidgetTheme.System), Lang.T("System")),
     ];
+
+    public IReadOnlyList<Choice> Themes { get; } = ThemeList();
 
     public string Theme
     {
