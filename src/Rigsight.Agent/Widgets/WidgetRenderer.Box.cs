@@ -916,17 +916,41 @@ internal static partial class WidgetRenderer
         using var fmt = new StringFormat(StringFormat.GenericTypographic) { Trimming = StringTrimming.None };
         fmt.FormatFlags &= ~StringFormatFlags.NoWrap;
         fmt.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces;
-        // A line for the caret after a last empty line, as a text box has.
-        string measured = text.EndsWith('\n') ? text + " " : text.Length == 0 ? " " : text;
-        float height = g.MeasureString(measured, font, new SizeF(body.Width, 100_000), fmt).Height;
-        int lines = Math.Max(1, (int)Math.Round(height / line)), shown = Math.Max(1, (int)(body.Height / line));
+        // A paragraph at a time (the text between line breaks), each measured once while it stays the same and drawn only
+        // while it's in sight: a long note laid out whole took 100-200 ms a picture, at every key typed, and one taller
+        // than the 100,000 px it was measured in couldn't be scrolled or typed to its end (audit, 2026-11-11). An empty
+        // paragraph is a line, so a last empty line has room for the caret, as a text box has.
+        var paragraphs = new List<(int Start, string Text, int Lines)>();
+        int lines = 0;
+        for (int start = 0; ; )
+        {
+            int end = text.IndexOf('\n', start);
+            string part = end < 0 ? text[start..] : text[start..end];
+            if (part.EndsWith('\r')) part = part[..^1]; // a note written in the app has Windows' line breaks
+            int n = LinesOf(g, part, font, body.Width, fmt, line);
+            paragraphs.Add((start, part, n));
+            lines += n;
+            if (end < 0) break;
+            start = end + 1;
+        }
+        int shown = Math.Max(1, (int)(body.Height / line));
         int first = ScrollOf(lines - shown);
         // The caret, where the text has it: its line kept in sight while it's typed.
         RectangleF? caret = null;
         if (typing is not null)
         {
-            caret = CaretAt(g, text, Math.Clamp(typing.Caret, 0, text.Length), font, body, fmt, line);
-            int caretLine = (int)Math.Round((caret.Value.Y - body.Y) / line);
+            int at = Math.Clamp(typing.Caret, 0, text.Length), above = 0;
+            foreach (var (start, part, n) in paragraphs)
+            {
+                if (at <= start + part.Length)
+                {
+                    var c = CaretAt(g, part, Math.Clamp(at - start, 0, part.Length), font, body, fmt, line);
+                    caret = c with { Y = c.Y + above * line };
+                    break;
+                }
+                above += n;
+            }
+            int caretLine = caret is { } cr ? (int)Math.Round((cr.Y - body.Y) / line) : 0;
             if (caretLine < first) first = caretLine;
             else if (caretLine >= first + shown) first = caretLine - shown + 1;
             first = Math.Clamp(first, 0, Math.Max(0, lines - shown));
@@ -935,22 +959,44 @@ internal static partial class WidgetRenderer
         var state = g.Save();
         g.SetClip(area);
         g.TranslateTransform(0, -first * line);
-        var box = new RectangleF(body.X, body.Y, body.Width, lines * line + line);
-        if (TextShadow.A > 0)
+        using var shadow = TextShadow.A > 0 ? new SolidBrush(TextShadow) : null;
+        float device = g.Transform.Elements[0];
+        float o = Math.Max(1, MathF.Round(px / 16f * device)) / device;
+        using (var brush = new SolidBrush(p.Text))
         {
-            float device = g.Transform.Elements[0];
-            float o = Math.Max(1, MathF.Round(px / 16f * device)) / device;
-            using var shadow = new SolidBrush(TextShadow);
-            g.DrawString(text, font, shadow, new RectangleF(box.X + o, box.Y + o, box.Width, box.Height), fmt);
+            int row = 0;
+            foreach (var (_, part, n) in paragraphs)
+            {
+                if (row + n > first && row <= first + shown && part.Length > 0)
+                {
+                    var box = new RectangleF(body.X, body.Y + row * line, body.Width, n * line + line);
+                    if (shadow is not null) g.DrawString(part, font, shadow, new RectangleF(box.X + o, box.Y + o, box.Width, box.Height), fmt);
+                    g.DrawString(part, font, brush, box, fmt);
+                }
+                row += n;
+            }
         }
-        using (var brush = new SolidBrush(p.Text)) g.DrawString(text, font, brush, box, fmt);
-        if (caret is { } c)
+        if (caret is { } c2)
         {
             using var pen = new Pen(accent, Math.Max(1.5f, px / 9f));
-            g.DrawLine(pen, c.X, c.Y + 1, c.X, c.Y + line - 1);
+            g.DrawLine(pen, c2.X, c2.Y + 1, c2.X, c2.Y + line - 1);
         }
         g.Restore(state);
         ScrollBar(g, area, first, shown, lines, p);
+    }
+
+    private static readonly Dictionary<(string Text, float Width, string Font, float Px, float Scale, System.Drawing.Text.TextRenderingHint Hint), int> NoteLines = [];
+
+    /// <summary>How many lines a paragraph of a note wraps to (at least one: an empty one is a line too); remembered while it stays the same.</summary>
+    private static int LinesOf(Graphics g, string part, Font font, float width, StringFormat fmt, float line)
+    {
+        var key = (part, width, font.Name, font.Size, g.Transform.Elements[0], g.TextRenderingHint);
+        if (NoteLines.TryGetValue(key, out int n)) return n;
+        if (NoteLines.Count > 4000) NoteLines.Clear();
+        float height = part.Length == 0 ? line : g.MeasureString(part, font, new SizeF(width, 1_000_000), fmt).Height;
+        n = Math.Max(1, (int)Math.Round(height / line));
+        NoteLines[key] = n;
+        return n;
     }
 
     /// <summary>The caret's place in wrapped text: after the character before it, or at the start of a line.</summary>
@@ -982,7 +1028,7 @@ internal static partial class WidgetRenderer
     {
         using var f = (StringFormat)fmt.Clone();
         f.SetMeasurableCharacterRanges([new CharacterRange(i, 1)]);
-        var regions = g.MeasureCharacterRanges(text, font, new RectangleF(body.X, body.Y, body.Width, 100_000), f);
+        var regions = g.MeasureCharacterRanges(text, font, new RectangleF(body.X, body.Y, body.Width, 1_000_000), f);
         var b = regions.Length > 0 ? regions[0].GetBounds(g) : RectangleF.Empty;
         foreach (var region in regions) region.Dispose();
         return b;
