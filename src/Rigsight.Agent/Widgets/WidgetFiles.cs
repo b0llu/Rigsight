@@ -87,7 +87,8 @@ internal static class WidgetFiles
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or OutOfMemoryException or System.Runtime.InteropServices.ExternalException)
         {
-            Rigsight.Core.Log.Write("widgets", $"A picture couldn't be read ({Path.GetExtension(path)}): {ex.Message}");
+            // The kind of error, not its message: that carries the picture's path, with the person's own folder and file names.
+            Rigsight.Core.Log.Write("widgets", $"A picture couldn't be read ({Path.GetExtension(path)}): {ex.GetType().Name}");
             return null;
         }
     }

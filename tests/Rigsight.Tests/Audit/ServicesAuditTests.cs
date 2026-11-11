@@ -159,6 +159,16 @@ public class ServicesAuditTests : IDisposable
         Assert.DoesNotContain("151.21", log);
     }
 
+    [Fact]
+    public void The_log_never_names_a_photos_tiles_folder_or_picture()
+    {
+        string folder = Path.Combine(Path.GetTempPath(), "rigsight-tests", "Holiday " + Guid.NewGuid().ToString("N")[..8]);
+        Assert.Null(Rigsight.Agent.Widgets.WidgetFiles.Picture(Path.Combine(folder, "beach.jpg")));
+        string log = File.ReadAllText(Rigsight.Core.RigsightPaths.LogFile);
+        Assert.Contains("A picture couldn't be read (.jpg)", log);
+        Assert.DoesNotContain(Path.GetFileName(folder), log);
+    }
+
     // ── Nominatim's policy: one search a second at most, and the same search not sent twice ─────────────────
 
     [Fact]
