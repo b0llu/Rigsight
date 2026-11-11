@@ -63,7 +63,12 @@ public sealed class DailyRecapTests
     [Trait("Category", "Machine")] // run within ten minutes of signing in (right after a restart), it rightly fails
     public void Signing_in_is_told_from_the_agent_restarting()
     {
-        // This test runs long after Windows (and Explorer) started: not a fresh sign-in.
+        // Long after Windows (and Explorer) started this isn't a fresh sign-in. Within the first minutes after one it is,
+        // and there's nothing to check: skipped then, not failed (it failed every gate started right after a restart).
+        var session = System.Diagnostics.Process.GetCurrentProcess().SessionId;
+        var desktop = System.Diagnostics.Process.GetProcessesByName("explorer").Where(p => p.SessionId == session)
+            .Select(p => { try { return (DateTime?)p.StartTime; } catch { return null; } }).OfType<DateTime>().DefaultIfEmpty(DateTime.MinValue).Min();
+        Assert.SkipWhen(DateTime.Now - desktop < DailyRecap.JustStartedWithin, $"Windows' desktop started at {desktop:t}, under {DailyRecap.JustStartedWithin.TotalMinutes:0} minutes ago: a fresh sign-in");
         Assert.False(DailyRecap.JustSignedIn());
     }
 
