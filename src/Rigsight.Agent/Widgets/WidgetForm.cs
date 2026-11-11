@@ -35,7 +35,7 @@ internal sealed class WidgetForm : Form
     private readonly WidgetManager _manager;
     private readonly System.Windows.Forms.Timer _hoverTimer = new() { Interval = 250 };
     private WidgetData? _data;
-    private bool _hover, _dragging;
+    private bool _hover, _dragging, _drawnOnce;
     private List<WidgetRenderer.TileHit> _hits = [];
     private List<(int Tile, RectangleF Rect)> _scrollAreas = [];
 
@@ -255,7 +255,10 @@ internal sealed class WidgetForm : Form
         _drawn = WidgetRenderer.ChangeKey(Config, _data);
         float scale = DeviceDpi / 96f * (float)Config.Scale;
         var panelAt = PanelLocation;
-        var before = Size.Width > Room ? PanelBounds : Rectangle.Empty;
+        // Its size as last drawn; none before the first drawing (the window's size until then is Windows' own, not the
+        // widget's: taking it for the widget's made a widget left partly off an edge move in at every start, 2026-11-11).
+        var before = _drawnOnce ? PanelBounds : Rectangle.Empty;
+        _drawnOnce = true;
         Room = RoomFor(DeviceDpi);
         using var panel = WidgetRenderer.Render(Config, _data, scale, hover: false, out _);
         // Where its tiles can be clicked (a to-do's box, a timer's Start), in the widget's own pixels.
