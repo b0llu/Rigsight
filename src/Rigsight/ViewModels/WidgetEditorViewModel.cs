@@ -878,14 +878,17 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         set { if (value != Align && Enum.TryParse<TileAlign>(value, out var a)) ChangeTile(t => t.Align = a); }
     }
 
-    /// <summary>Every reading a tile can show: the usual ones, then each sensor of this PC.</summary>
+    /// <summary>
+    /// Every reading a tile can show: the usual ones, then each sensor of this PC by the name it shows everywhere else
+    /// (the one given on All sensors, else its own in the language in use), as the list it's picked from names it.
+    /// </summary>
     public IReadOnlyList<ReadingChoice> Readings { get; }
 
     private List<ReadingChoice> MakeReadings()
     {
         var list = WidgetCatalog.Offered(WidgetLayout.Tiles).Select(m => new ReadingChoice(m.ToString(), WidgetCatalog.MetricName(m))).ToList();
         if (_live is not null)
-            list.AddRange(_live.AllSensors.Select(s => new ReadingChoice(WidgetCatalog.SensorPrefix + s.Id, $"{s.Name} ({s.HardwareShown})")));
+            list.AddRange(_live.AllSensors.Select(s => new ReadingChoice(WidgetCatalog.SensorPrefix + s.Id, $"{s.DisplayName} ({s.HardwareShown})")));
         return list;
     }
 
