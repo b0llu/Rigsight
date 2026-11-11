@@ -1119,11 +1119,22 @@ internal static partial class WidgetRenderer
             if (typing is null) Text(g, Lang.T("Add an item"), px, FontStyle.Regular, p.Faint, tx, ty, maxWidth: right - tx);
             else
             {
-                // What's typed, and the caret after the part before it.
-                Text(g, typing.Text, px, FontStyle.Regular, p.Text, tx, ty, maxWidth: right - tx);
-                float cx = tx + (typing.Caret > 0 ? g.MeasureString(typing.Text[..Math.Min(typing.Text.Length, typing.Caret)], MakeFont(px, FontStyle.Regular, false), int.MaxValue, CaretFormat).Width : 0);
+                // What's typed, and the caret after the part before it. Longer than the line, it moves along as a text
+                // box does, so the caret and the letters by it stay in sight (it was cut with "…" and the caret sat past
+                // it, what was typed unseen).
+                float at = typing.Caret > 0 ? g.MeasureString(typing.Text[..Math.Min(typing.Text.Length, typing.Caret)], MakeFont(px, FontStyle.Regular, false), int.MaxValue, CaretFormat).Width : 0;
+                float room = right - tx - 2, shift = Math.Max(0, at - room);
+                if (shift > 0)
+                {
+                    var inner = g.Save();
+                    g.IntersectClip(RectangleF.FromLTRB(tx, line.Top, right, line.Bottom));
+                    Text(g, typing.Text, px, FontStyle.Regular, p.Text, tx - shift, ty);
+                    g.Restore(inner);
+                }
+                else Text(g, typing.Text, px, FontStyle.Regular, p.Text, tx, ty, maxWidth: right - tx);
+                float cx = tx + at - shift;
                 using var pen = new Pen(accent, Math.Max(1.5f, px / 9f));
-                g.DrawLine(pen, Math.Min(cx, right), b.Y - 1, Math.Min(cx, right), b.Bottom + 1);
+                g.DrawLine(pen, cx, b.Y - 1, cx, b.Bottom + 1);
             }
             AddHit(HitTodoAdd, 0, line);
         }
