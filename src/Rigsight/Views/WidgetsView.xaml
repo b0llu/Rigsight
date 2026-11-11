@@ -746,17 +746,30 @@
                                 </DockPanel>
                                 <DockPanel Style="{StaticResource EditRow}">
                                     <TextBlock Text="{ctl:T 'Place'}" Style="{StaticResource EditLabel}" />
-                                    <UniformGrid DockPanel.Dock="Right" Columns="3" Rows="3" Width="84" Height="60">
-                                        <Button Style="{StaticResource GhostButton}" Padding="0" Margin="2" Command="{Binding PlaceCommand}" CommandParameter="0" AutomationProperties.Name="{ctl:T 'Top left'}" ToolTip="{ctl:T 'Top left'}" />
-                                        <Button Style="{StaticResource GhostButton}" Padding="0" Margin="2" Command="{Binding PlaceCommand}" CommandParameter="1" AutomationProperties.Name="{ctl:T 'Top'}" ToolTip="{ctl:T 'Top'}" />
-                                        <Button Style="{StaticResource GhostButton}" Padding="0" Margin="2" Command="{Binding PlaceCommand}" CommandParameter="2" AutomationProperties.Name="{ctl:T 'Top right'}" ToolTip="{ctl:T 'Top right'}" />
-                                        <Button Style="{StaticResource GhostButton}" Padding="0" Margin="2" Command="{Binding PlaceCommand}" CommandParameter="3" AutomationProperties.Name="{ctl:T 'Left'}" ToolTip="{ctl:T 'Left'}" />
-                                        <Button Style="{StaticResource GhostButton}" Padding="0" Margin="2" Command="{Binding PlaceCommand}" CommandParameter="4" AutomationProperties.Name="{ctl:T 'Middle'}" ToolTip="{ctl:T 'Middle'}" />
-                                        <Button Style="{StaticResource GhostButton}" Padding="0" Margin="2" Command="{Binding PlaceCommand}" CommandParameter="5" AutomationProperties.Name="{ctl:T 'Right'}" ToolTip="{ctl:T 'Right'}" />
-                                        <Button Style="{StaticResource GhostButton}" Padding="0" Margin="2" Command="{Binding PlaceCommand}" CommandParameter="6" AutomationProperties.Name="{ctl:T 'Bottom left'}" ToolTip="{ctl:T 'Bottom left'}" />
-                                        <Button Style="{StaticResource GhostButton}" Padding="0" Margin="2" Command="{Binding PlaceCommand}" CommandParameter="7" AutomationProperties.Name="{ctl:T 'Bottom'}" ToolTip="{ctl:T 'Bottom'}" />
-                                        <Button Style="{StaticResource GhostButton}" Padding="0" Margin="2" Command="{Binding PlaceCommand}" CommandParameter="8" AutomationProperties.Name="{ctl:T 'Bottom right'}" ToolTip="{ctl:T 'Bottom right'}" />
-                                    </UniformGrid>
+                                    <!-- The nine places; the one the widget is at is lit in the accent colour. -->
+                                    <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding PlaceSpots}" Width="84" Height="60" Focusable="False">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="3" Rows="3" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Padding="0" Margin="2" Command="{Binding DataContext.PlaceCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding Arg}" AutomationProperties.Name="{Binding Name}" ToolTip="{Binding Name}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </DockPanel>
                                 <DockPanel Style="{StaticResource EditRow}">
                                     <TextBlock Text="{ctl:T 'Lock in place (click-through)'}" Style="{StaticResource EditLabel}" />

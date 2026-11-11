@@ -1318,9 +1318,8 @@ internal sealed partial class AgentContext : ApplicationContext
         string? cardKey = _card.Key;
         var cardSections = cardKey is null ? null : CardFor(cardKey, trayReadings, settings, DarkMenuRenderer.Light);
         var activity = _tracker.Activity;
-        // Only tiles and graphs draw history lines; skip scanning it otherwise.
-        var historyOf = settings.Widgets.Where(w => w.Enabled && WidgetCatalog.LayoutOf(w) is WidgetLayout.Tiles or WidgetLayout.Graph)
-            .SelectMany(WidgetCatalog.ItemsOf).Select(i => WidgetCatalog.Metric(i.Id)).OfType<OverlayMetric>().ToHashSet();
+        // Only what draws history lines (graph tiles, a reading as a graph, the older tiles and graph layouts); none otherwise.
+        var historyOf = (settings.WidgetsShown ? settings.Widgets.Where(w => w.Enabled) : []).SelectMany(WidgetTiles.HistoryMetrics).ToHashSet();
         bool drawsHistory = historyOf.Contains(OverlayMetric.CpuTemp) || historyOf.Contains(OverlayMetric.GpuTemp);
         var data = new WidgetData
         {

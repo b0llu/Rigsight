@@ -81,6 +81,31 @@ public static class WidgetTiles
               : kind.Id == Graph ? WidgetCatalog.Items(OverlayMetric.CpuTemp, OverlayMetric.GpuTemp) : null,
     };
 
+    /// <summary>
+    /// The readings whose last five minutes a widget draws: a box's reading tiles shown as a graph (or with load and
+    /// power) and its temperature graphs; an older widget's tiles and graph layouts. The agent reads only these from its
+    /// history (the user, 2026-11-11: a box's sparklines and graph showed in the app and were empty on the desktop).
+    /// </summary>
+    public static IEnumerable<OverlayMetric> HistoryMetrics(WidgetConfig w)
+    {
+        if (w.Tiles is { } tiles)
+        {
+            foreach (var t in tiles)
+            {
+                if (t.Kind == Reading && t.Look is LineGraph or FilledGraph or BarGraph or LoadAndPower
+                    && WidgetCatalog.Metric(t.Item ?? nameof(OverlayMetric.CpuTemp)) is { } m)
+                    yield return m;
+                else if (t.Kind == Graph)
+                    foreach (var item in t.Items ?? WidgetCatalog.Items(OverlayMetric.CpuTemp, OverlayMetric.GpuTemp))
+                        if (WidgetCatalog.Metric(item.Id) is { } g) yield return g;
+            }
+            yield break;
+        }
+        if (WidgetCatalog.LayoutOf(w) is WidgetLayout.Tiles or WidgetLayout.Graph)
+            foreach (var item in WidgetCatalog.ItemsOf(w))
+                if (WidgetCatalog.Metric(item.Id) is { } m) yield return m;
+    }
+
     /// <summary>A widget's size in cells: up to the right and bottom edges of its furthest tiles.</summary>
     public static (int W, int H) BoxSize(IReadOnlyCollection<WidgetTile> tiles) =>
         tiles.Count == 0 ? (0, 0) : (tiles.Max(t => t.X + t.W), tiles.Max(t => t.Y + t.H));

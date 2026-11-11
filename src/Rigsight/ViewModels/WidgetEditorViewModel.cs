@@ -249,20 +249,24 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         {
             if (Math.Abs(value - _canvasWidth) < 0.5) return;
             _canvasWidth = value;
-            Layout();
+            Draw();
         }
     }
     private double _canvasWidth = 700;
 
     public const double CanvasHeight = 340;
 
-    /// <summary>Fit: the whole widget in view, made smaller where needed. 100%: its real size, scrolling where it's bigger.</summary>
+    /// <summary>
+    /// Fit: the whole widget filling the view, made smaller or (up to twice) bigger. 100%: its real size, scrolling where
+    /// it's bigger. (Fit only ever made a widget smaller, so for one that fits the two looked the same: the user,
+    /// 2026-11-11, "this no longer works".)
+    /// </summary>
     public bool Fit
     {
         get => _fit;
         set
         {
-            if (SetProperty(ref _fit, value)) Layout();
+            if (SetProperty(ref _fit, value)) Draw();
         }
     }
     private bool _fit = true;
@@ -291,14 +295,16 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
             if (wide && tall) size = Lang.T($"{w} × {h} pixels at size M, bigger than your main screen");
             else if (wide) size = Lang.T($"{w} × {h} pixels at size M, wider than your main screen");
             else if (tall) size = Lang.T($"{w} × {h} pixels at size M, taller than your main screen");
-            return Zoom < 0.995 ? Lang.T($"{size}, shown at {Math.Round(Zoom * 100):0}%") : size;
+            return Math.Abs(Zoom - 1) > 0.005 ? Lang.T($"{size}, shown at {Math.Round(Zoom * 100):0}%") : size;
         }
     }
 
     private void Draw()
     {
-        Picture = IsEmpty ? null : WidgetPictures.Draw(_w, _live, _settings.Current, (float)ScreenScale);
         Layout();
+        // Drawn at the size it's shown, so a widget shown bigger is as sharp as one shown at its size.
+        Picture = IsEmpty ? null : WidgetPictures.Draw(_w, _live, _settings.Current, (float)(ScreenScale * Math.Max(1, Zoom)));
+        MarkPlace();
     }
 
     /// <summary>Where the widget and each tile's box sit on the canvas, at the zoom in use.</summary>
@@ -307,7 +313,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         var (w, h) = IsEmpty ? (0, 0) : WidgetPictures.SizeOf(_w);
         double cw = Math.Max(200, CanvasWidth), ch = CanvasHeight;
         const double roomX = WidgetTiles.CellWidth, roomY = WidgetTiles.CellHeight;
-        Zoom = Fit && w > 0 ? Math.Min(1, Math.Min(cw / (w + roomX * 2), ch / (h + roomY * 2))) : 1;
+        Zoom = Fit && w > 0 ? Math.Min(MaxFit, Math.Min(cw / (w + roomX * 2), ch / (h + roomY * 2))) : 1;
         PictureWidth = w * Zoom;
         PictureHeight = h * Zoom;
         bool fitsX = PictureWidth + roomX * 2 * Zoom <= cw + 0.5, fitsY = PictureHeight + roomY * 2 * Zoom <= ch + 0.5;
@@ -767,16 +773,23 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         }
     }
 
-    /// <summary>Sends the widget to a corner, an edge's middle or the middle of its screen (0 top left … 8 bottom right), 12 pixels in.</summary>
-    [RelayCommand]
-    private void Place(string spot)
+    /// <summary>How much bigger Fit shows a small widget, at most.</summary>
+    public const double MaxFit = 2;
+
+    /// <summary>The nine places, top left to bottom right; the one the widget is at is lit.</summary>
+    public IReadOnlyList<PlaceSpot> PlaceSpots { get; } =
+    [
+        new(0, Lang.T("Top left")), new(1, Lang.T("Top")), new(2, Lang.T("Top right")),
+        new(3, Lang.T("Left")), new(4, Lang.T("Middle")), new(5, Lang.T("Right")),
+        new(6, Lang.T("Bottom left")), new(7, Lang.T("Bottom")), new(8, Lang.T("Bottom right")),
+    ];
+
+    /// <summary>Where a place puts the widget on the screen it's on (its panel's top left): a corner, an edge's middle or the middle, 12 pixels in.</summary>
+    private (int X, int Y)? SpotFor(int anchor, int? atX, int? atY)
     {
-        if (!int.TryParse(spot, out int anchor)) return;
-        TakeSaved();
-        var screens = System.Windows.Forms.Screen.AllScreens;
-        var at = new System.Drawing.Point(_w.X ?? 0, _w.Y ?? 0);
-        var screen = screens.FirstOrDefault(s => s.Bounds.Contains(at)) ?? System.Windows.Forms.Screen.PrimaryScreen;
-        if (screen is null) return;
+        var at = new System.Drawing.Point(atX ?? 0, atY ?? 0);
+        var screen = System.Windows.Forms.Screen.AllScreens.FirstOrDefault(s => s.Bounds.Contains(at)) ?? System.Windows.Forms.Screen.PrimaryScreen;
+        if (screen is null) return null;
         var area = screen.WorkingArea;
         var (pw, ph) = WidgetPictures.SizeOf(_w);
         double scale = ScreenScale * _w.Scale;
@@ -784,8 +797,39 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         int col = anchor % 3, row = anchor / 3;
         int x = col == 0 ? area.Left + gap : col == 2 ? area.Right - gap - w : area.Left + (area.Width - w) / 2;
         int y = row == 0 ? area.Top + gap : row == 2 ? area.Bottom - gap - h : area.Top + (area.Height - h) / 2;
-        (_w.X, _w.Y) = (x, y);
-        Commit();
-        _moved?.Invoke(Id, x, y);
+        return (x, y);
     }
+
+    /// <summary>
+    /// Lights the place the widget is at, by where it's saved now (it may have been dragged on the desktop meanwhile):
+    /// none when it's somewhere else (the user, 2026-11-11: the grid didn't show which place was in use).
+    /// </summary>
+    private void MarkPlace()
+    {
+        var saved = _settings.Current.Widgets.FirstOrDefault(w => w.Id == Id);
+        int? x = saved?.X ?? _w.X, y = saved?.Y ?? _w.Y;
+        foreach (var p in PlaceSpots)
+            p.IsActive = !IsEmpty && x is int sx && y is int sy && SpotFor(p.Index, x, y) is { } spot && Math.Abs(spot.X - sx) <= 2 && Math.Abs(spot.Y - sy) <= 2;
+    }
+
+    /// <summary>Sends the widget to a corner, an edge's middle or the middle of its screen (0 top left … 8 bottom right), 12 pixels in.</summary>
+    [RelayCommand]
+    private void Place(string spot)
+    {
+        if (!int.TryParse(spot, out int anchor)) return;
+        TakeSaved();
+        if (SpotFor(anchor, _w.X, _w.Y) is not { } at) return;
+        (_w.X, _w.Y) = (at.X, at.Y);
+        Commit();
+        _moved?.Invoke(Id, at.X, at.Y);
+    }
+}
+
+/// <summary>One of the nine places a widget can be sent to from its editor.</summary>
+public sealed partial class PlaceSpot(int index, string name) : ObservableObject
+{
+    public int Index { get; } = index;
+    public string Name { get; } = name;
+    public string Arg { get; } = index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    [ObservableProperty] private bool _isActive;
 }
