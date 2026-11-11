@@ -315,6 +315,31 @@ public sealed class SettingsPageTests
 
     private static WidgetsViewModel WidgetsPage(AgentLink link) => Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
 
+    // A change somewhere else (another widget added) leaves a card's picture alone; a new look or a change to its own
+    // widget draws it again (the gate, 2026-11-11: every change drew every card, so adding got slower with each widget).
+    [Fact]
+    public void A_card_is_drawn_again_only_when_its_picture_would_change()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            var card = vm.Cards[0];
+            var first = card.Preview;
+            Assert.NotNull(first);
+            link.Settings.Update(s => s.Widgets.Add(new WidgetConfig { Style = WidgetStyle.Custom, Id = "custom-other", Name = "Other", Tiles = [] }));
+            vm.Refresh();
+            Assert.Same(first, card.Preview);
+            link.Settings.Update(s => s.Theme = s.Theme == ThemeManager.Dark ? ThemeManager.Light : ThemeManager.Dark);
+            vm.Refresh();
+            var themed = card.Preview;
+            Assert.NotSame(first, themed);
+            link.Settings.Update(s => s.Widgets.First(w => w.Id == card.Id).BackgroundOpacity = 0.5);
+            vm.Refresh();
+            Assert.NotSame(themed, card.Preview);
+        });
+    }
+
     [Fact]
     public void The_page_has_a_card_for_every_widget_and_a_list_to_add_from()
     {

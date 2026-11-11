@@ -145,6 +145,7 @@ public sealed partial class WidgetCard : ObservableObject
             if (!_bigDrawn)
             {
                 _bigDrawn = true;
+                _shown ??= Shows();
                 _big = WidgetPictures.Draw(Config, _live, _settings.Current, 2f);
             }
             return _big;
@@ -159,6 +160,7 @@ public sealed partial class WidgetCard : ObservableObject
             if (!_drawn)
             {
                 _drawn = true;
+                _shown ??= Shows();
                 _preview = WidgetPictures.Draw(Config, _live, _settings.Current, 1.5f);
             }
             return _preview;
@@ -168,6 +170,7 @@ public sealed partial class WidgetCard : ObservableObject
     /// <summary>Draws it again (its settings or the readings changed), if it has been shown.</summary>
     public void Redraw()
     {
+        _shown = Shows();
         if (_bigDrawn)
         {
             _big = WidgetPictures.Draw(Config, _live, _settings.Current, 2f);
@@ -178,6 +181,11 @@ public sealed partial class WidgetCard : ObservableObject
         OnPropertyChanged(nameof(Preview));
     }
 
+    /// <summary>
+    /// Any change to the settings: the card's words follow, and its pictures are drawn again only when what they show
+    /// changed (its widget, the app's look, the units, the language). The gate, 2026-11-11: every change drew every
+    /// card again, so adding the 40th widget took three times as long as the first.
+    /// </summary>
     public void Refresh()
     {
         OnPropertyChanged(nameof(Title));
@@ -189,7 +197,17 @@ public sealed partial class WidgetCard : ObservableObject
         OnPropertyChanged(nameof(Theme));
         OnPropertyChanged(nameof(BackgroundPercent));
         OnPropertyChanged(nameof(Size));
-        Redraw();
+        if (Shows() != _shown) Redraw();
+    }
+
+    /// <summary>What the pictures show, as they were last drawn (null before then).</summary>
+    private string? _shown;
+
+    private string Shows()
+    {
+        var s = _settings.Current;
+        return $"{s.Theme}|{s.DarkTheme}|{s.LightTheme}|{s.Accent}|{s.UseFahrenheit}|{s.Language}|"
+            + System.Text.Json.JsonSerializer.Serialize(Config, SettingsStore.JsonOptions);
     }
 }
 

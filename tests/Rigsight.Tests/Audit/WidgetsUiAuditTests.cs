@@ -835,9 +835,11 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
             }
             Assert.Equal(Ui.Run(() => vm.Cards.Count), Ui.Run(() => vm.MineChips[0].Count));
             Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "page-many-widgets.png")));
-            double first = times.Take(5).Average(), last = times.TakeLast(5).Average();
+            // From the second: the first add also warms the pop-up and the page (365 ms where the rest took 60), and
+            // measured from it, adding growing from 110 to 350 ms passed (the gate, 2026-11-11).
+            double first = times.Skip(1).Take(5).Average(), last = times.TakeLast(5).Average();
             File.WriteAllText(Path.Combine(Shots, "adding-times.txt"), string.Join(", ", times));
-            Assert.True(last < Math.Max(first * 3, 250), $"Adding got slower: {first:0} ms at first, {last:0} ms after 35 ({string.Join(", ", times)})");
+            Assert.True(last < Math.Max(first * 2, 150), $"Adding got slower: {first:0} ms at first, {last:0} ms after 35 ({string.Join(", ", times)})");
             NoProblemsButTheDatePickers("adding many widgets");
         }
         finally { Drop([.. added]); }
