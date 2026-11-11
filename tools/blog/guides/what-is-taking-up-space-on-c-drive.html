@@ -3,7 +3,7 @@
  "slug": "what-is-taking-up-space-on-c-drive",
  "series": "guide",
  "published": "2026-10-26",
- "updated": "2026-10-26",
+ "updated": "2026-11-11",
  "topic": "Storage",
  "keyword": "what is taking up space on my c drive windows 11",
  "also": [
@@ -13,7 +13,8 @@
   "what is taking up space on my hard drive windows 11"
  ],
  "title": "What is taking up space on my C drive in Windows 11",
- "summary": "How to see what is taking up space on your C drive in Windows 11 and 10, what Storage Sense and Disk Cleanup remove, and which big system files are safe to shrink and which to leave alone.",
+ "summary": "My C drive grew from 198 to 271 GB in seven weeks, 68 GB of it in one day, and my Steam games aren't even on it. How to see what is taking up space on your C drive in Windows 11, what you can safely clear, and what to leave alone.",
+ "description": "What is taking up space on my C drive in Windows 11? Check Settings > System > Storage, clear what Windows suggests, and shrink big system files safely.",
  "short": "Open Settings > System > Storage to see what fills your C drive by category, then Cleanup recommendations to remove temporary files, large unused files and old apps. Disk Cleanup's Clean up system files removes old update files. Big hidden files like hiberfil.sys can be shrunk safely. Never delete WinSxS by hand.",
  "faq": [
   [
@@ -58,12 +59,20 @@
   1144,
   790
  ],
- "cover_alt": "RigSight's Storage page: four drives fullest first with how much each grew in 8 days, and space you could free on C such as the NVIDIA shader cache, temporary files and the Recycle Bin, beside drive health"
+ "cover_alt": "RigSight's Storage page with my drives: four drives fullest first with how much each grew in 8 days, and space you could free on C such as the NVIDIA shader cache, temporary files and the Recycle Bin, beside drive health"
 }
 -->
-<p>The C drive bar has gone red, a game update won't fit, and you can't think what you saved there. Here is how to see what is taking up space on your C drive in Windows 11, what you can safely clear, and what to leave alone. The same steps work on Windows 10, with slightly different menu names.</p>
+<p>On 23 September my C drive had 198 GB used. Seven weeks later it had 271 GB, out of 446. On 30 October alone it grew by 68 GB. That morning Steam downloaded a 58 GB game update, which looks like the obvious answer. It isn't, because every Steam game I have lives on my E drive. Something else filled C, and I'd never have known the day without a record. Here is how to see what is taking up space on your C drive in Windows 11, what you can safely clear, and what to leave alone.</p>
 
-<h2>See what fills the drive in Settings</h2>
+<h2>How RigSight caught it</h2>
+
+<p>Windows shows what fills a drive today. RigSight also keeps track of how it got there. Its Storage page lists the drives inside your PC, fullest first, with USB and network drives below them, and shows how much each has grown over the last few days, such as +3.7 GB in 8 days. A drive that fills fast stands out before it is full. With admin rights, each drive also shows its health in plain words.</p>
+<p>Below the drives, Space you could free lists what RigSight found. That can include temporary files, the Windows temp folder, downloads you haven't touched in 90 days, the Windows Update cache, NVIDIA, AMD and DirectX shader caches, crash dumps, a previous Windows installation and the Recycle Bin. Nothing is deleted for you. Each line opens its folder or a list to review, and only the Recycle Bin has an Empty button.</p>
+<p>Scan a drive and RigSight shows its folders as a list and a map side by side, coloured by kind of file, and you can open any folder down to its files or switch to the largest files. A scan also finds big files you haven't changed in a year. Each drive keeps its last scan after a restart, so you can come back to it. On the Games page every game shows its size and the drive it sits on, and you can uninstall it through its own launcher. The Timeline notes when a drive's used space jumped or dropped within a day, and by how much.</p>
+
+<p>That's how I found the 30 October jump, and why I knew not to blame Steam. RigSight records each drive's used space every day. Steam's own download log, which RigSight reads, says what Steam fetched, and Steam's library list says which drive each game sits on. The rest of the 68 GB is what a scan of C is for. RigSight is free and open source.</p>
+
+<h2>What is taking up space on my C drive in Windows 11? Check Settings first</h2>
 <ol>
 <li>Open <b>Start > Settings > System > Storage</b>.</li>
 <li>Wait a few seconds while Windows adds up each category for the C drive.</li>
@@ -106,10 +115,5 @@
 <p>On a gaming PC, games are usually the biggest thing on C. Each launcher has its own place to see sizes and uninstall. In Steam, open <b>Settings > Storage</b>. It shows each game's size per drive, and you can tick a game and press <b>Move</b> to put it on another drive without downloading it again. Uninstall games you have finished through their launcher, so their save data and leftovers are handled properly.</p>
 <p>Graphics drivers keep a shader cache that can reach several GB. Games and Windows rebuild it on their own, so clearing it is safe, but the next launch of each game may take longer while it builds again. Disk Cleanup has a DirectX Shader Cache option for this.</p>
 <p>For your own files, OneDrive's Files On-Demand keeps files online and frees the local copy until you open one. Videos, old phone backups and the Downloads folder are the usual surprises, and typing <code>size:gigantic</code> into Explorer's search box while C is open finds files over 4 GB on the whole drive.</p>
-
-<h2>How RigSight shows what is filling your drives</h2>
-<p>Windows shows what fills a drive today. RigSight, a free and open source PC monitor, also keeps track of how it got there. Its Storage page lists the drives inside your PC, fullest first, with USB and network drives below them, and shows how much each has grown over the last few days, such as +3.7 GB in 8 days. A drive that fills fast stands out before it is full. With admin rights, each drive also shows its health in plain words.</p>
-<p>Below the drives, Space you could free lists what RigSight found. That can include temporary files, the Windows temp folder, downloads you haven't touched in 90 days, the Windows Update cache, NVIDIA, AMD and DirectX shader caches, crash dumps, a previous Windows installation and the Recycle Bin. Nothing is deleted for you. Each line opens its folder or a list to review, and only the Recycle Bin has an Empty button.</p>
-<p>Scan a drive and RigSight shows its folders as a list and a map side by side, coloured by kind of file, and you can open any folder down to its files or switch to the largest files. A scan also finds big files you haven't changed in a year. Each drive keeps its last scan after a restart, so you can come back to it. On the Games page every game shows its size and the drive it sits on, and you can uninstall it through its own launcher. The Timeline notes when a drive's used space jumped or dropped within a day, and by how much.</p>
 
 <p>Start with Settings > System > Storage and Cleanup recommendations, then Disk Cleanup's system files. If C is still tight after that, move a game library to another drive. If the drive also feels slow or throws errors, run an <a href="ssd-health-check">SSD health check</a>.</p>

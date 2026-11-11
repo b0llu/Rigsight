@@ -41,12 +41,12 @@
   "gpu-fan-not-spinning": "2026-11-09",
   "gpu-thermal-throttling": "2026-11-09",
   "what-is-using-my-ram": "2026-11-10",
-  "rigsight-in-spanish": "2026-11-10"
+  "rigsight-in-spanish": "2026-11-10",
+  "what-is-taking-up-space-on-c-drive": "2026-11-11",
+  "three-ways-to-ask": "2026-11-11"
  },
  "queue": [
-  "three-ways-to-ask",
   "choosing-a-model-blind",
-  "what-is-taking-up-space-on-c-drive",
   "testing-ai-on-fake-pcs",
   "vsync-fps-cap",
   "how-to-show-fps-overlay",
@@ -68,7 +68,6 @@
   "screen-time-on-pc",
   "ssd-health-check",
   "vsync-fps-cap",
-  "what-is-taking-up-space-on-c-drive",
   "which-app-is-using-my-internet"
  ]
 }
