@@ -33,7 +33,7 @@ It records quietly in the background using about **0.02% of your CPU**, and ever
 - **🕒 Everything that changed.** A timeline of your PC, day by day: drivers, Windows updates, apps, startup programs, hardware and settings, and whether it ran hotter or less stable afterwards.
 - **🎮 Your numbers, inside the game.** Press `Alt+Shift+O` for a small overlay with FPS, temperatures, load and anything else you pick, in colour or grayscale, anywhere on the screen. It works in fullscreen games too and is safe with anti-cheat.
 - **🧱 Your own dashboards.** Start from a preset made for your PC's sensors, or build pages from tiles and arrange them however you like.
-- **🖥️ On your desktop.** Seven widgets you can edit, or make your own with any readings, readings right in the taskbar beside the clock, a tray icon with a health dot, and calm notifications: a daily recap, game summaries and temperature alerts.
+- **🖥️ On your desktop.** Widgets you build from tiles (your readings next to a clock, notes, a to-do list, a timer, the weather or what's playing), readings right in the taskbar beside the clock, a tray icon with a health dot, and calm notifications: a daily recap, game summaries and temperature alerts.
 - **💾 Storage and memory.** Drive space and health, cleanup suggestions, and which apps use your memory.
 - **⚫ Black, grey or white.** A pure black, dark grey or pure white app, or let it follow Windows. Add an accent colour if you like.
 
