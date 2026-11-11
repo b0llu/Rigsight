@@ -526,6 +526,14 @@ public sealed partial class WidgetsViewModel : ObservableObject
     public void Edit(string? id)
     {
         if (id is null || _settings.Current.Widgets.All(w => w.Id != id)) return;
+        // Opened from a widget's menu on the desktop while the editor is open on another: that one is done (its redraw
+        // each second stops, and a new widget left empty in it goes), as Back would leave it.
+        if (Editor is { } open)
+        {
+            if (open.Id == id) return;
+            LetGo(open);
+            Sync();
+        }
         PickedId = id;
         foreach (var c in Cards) c.IsEditing = c.Id == id;
         Editor = new WidgetEditorViewModel(id, _settings, _live, CloseEditor,
@@ -545,18 +553,20 @@ public sealed partial class WidgetsViewModel : ObservableObject
     [RelayCommand]
     private void CloseEditor()
     {
-        if (Editor is { } editor)
-        {
-            editor.Close();
-            // A new widget left with nothing in it isn't kept.
-            if (_settings.Current.Widgets.FirstOrDefault(w => w.Id == editor.Id) is { Tiles.Count: 0 })
-                _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == editor.Id && w.Tiles is { Count: 0 }));
-        }
+        if (Editor is { } editor) LetGo(editor);
         Editor = null;
         foreach (var c in Cards) c.IsEditing = false;
         Sync();
         foreach (var c in Cards) c.Refresh();
         LoadMap();
+    }
+
+    /// <summary>An editor closed: it stops drawing, and a new widget left with nothing in it isn't kept.</summary>
+    private void LetGo(WidgetEditorViewModel editor)
+    {
+        editor.Close();
+        if (_settings.Current.Widgets.FirstOrDefault(w => w.Id == editor.Id) is { Tiles.Count: 0 })
+            _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == editor.Id && w.Tiles is { Count: 0 }));
     }
 
     /// <summary>A new widget with nothing in it yet, opened in the editor (an empty one is gone again when the editor closes).</summary>
