@@ -63,7 +63,7 @@ internal sealed class WidgetForm : Form
         Left + hit.Rect.X * _hitScale, Top + Room + hit.Rect.Y * _hitScale, hit.Rect.Width * _hitScale, hit.Rect.Height * _hitScale));
 
     internal float HitScale => _hitScale;
-    private Point _dragFrom;
+    private Point _dragFrom, _dragStart;
 
     /// <summary>Where the window was last dragged to (its top left), while a drag is on.</summary>
     private Point? _droppedAt;
@@ -460,6 +460,35 @@ internal sealed class WidgetForm : Form
         return Math.Abs(to.X - from.X) > d.Width / 2 || Math.Abs(to.Y - from.Y) > d.Height / 2;
     }
 
+    /// <summary>
+    /// Where a widget goes once Windows' move has ended, when not where Windows left it: where it was last dragged to, as
+    /// Windows keeps a dragged window's top on the screen. Not when Windows put it back where the drag began, as it does
+    /// for Esc pressed during the drag.
+    /// </summary>
+    internal static Point? PutBack(Point started, Point? dropped, Point now) =>
+        dropped is { } d && d != now && now != started ? d : null;
+
+    /// <summary>A drag has ended, Windows' move done: the widget where it was let go, and its spot saved.</summary>
+    private void Dropped(Point? droppedAt)
+    {
+        _dragging = false;
+        if (IsDisposed || !IsHandleCreated) return;
+        // Windows keeps a dragged window's top on the screen when it's let go, and the window has room above the panel
+        // for the close badge: a widget dropped against the top edge came down by that room, and one in the corner moved
+        // too (the user, 2026-11-11). It stays exactly where it was let go.
+        if (PutBack(_dragStart, droppedAt, Location) is { } dropped)
+        {
+            Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} was moved by Windows from {dropped.X},{dropped.Y + Room} to {Left},{Top + Room} as it was let go: put back");
+            Win32.SetWindowPos(Handle, IntPtr.Zero, dropped.X, dropped.Y, 0, 0, Win32.SWP_NOSIZE | SWP_NOZORDER | Win32.SWP_NOACTIVATE);
+        }
+        KeepOnTop();
+        _manager.Moved(Config.Id);
+        var at = PanelLocation;
+        if (at != _dragFrom) Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} dragged from {_dragFrom.X},{_dragFrom.Y} to {at.X},{at.Y}");
+        _manager.Mutate(Config.Id, c => { c.X = at.X; c.Y = at.Y; });
+        NoteTaskbar();
+    }
+
     protected override void WndProc(ref Message m)
     {
         switch (m.Msg)
@@ -542,6 +571,7 @@ internal sealed class WidgetForm : Form
             case WM_ENTERSIZEMOVE:
                 _dragging = true;
                 _dragFrom = PanelLocation;
+                _dragStart = Location;
                 _droppedAt = null;
                 KeepOnTop(); // picked up: over everything while it's dragged, the taskbar included
                 break;
@@ -564,22 +594,13 @@ internal sealed class WidgetForm : Form
                 break;
 
             case WM_EXITSIZEMOVE:
-                _dragging = false;
-                // Windows keeps a dragged window's top on the screen when it's let go, and the window has room above the
-                // panel for the close badge: a widget dropped against the top edge came down by that room, and one in
-                // the corner moved too (the user, 2026-11-11). It stays exactly where it was let go.
-                if (_droppedAt is { } dropped && dropped != Location)
-                {
-                    Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} was moved by Windows from {dropped.X},{dropped.Y + Room} to {Left},{Top + Room} as it was let go: put back");
-                    Win32.SetWindowPos(Handle, IntPtr.Zero, dropped.X, dropped.Y, 0, 0, Win32.SWP_NOSIZE | SWP_NOZORDER | Win32.SWP_NOACTIVATE);
-                }
+                // Windows sends this before its move's last step: it puts the window back where the drag began when Esc
+                // was pressed, and places it only then with "Show window contents while dragging" off. The drop is taken
+                // once that's done (the audit, 2026-11-11: an Esc'd drag was saved where it was, and the widget jumped
+                // there at the next change of a setting).
+                var droppedAt = _droppedAt;
                 _droppedAt = null;
-                KeepOnTop();
-                _manager.Moved(Config.Id);
-                var at = PanelLocation;
-                if (at != _dragFrom) Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} dragged from {_dragFrom.X},{_dragFrom.Y} to {at.X},{at.Y}");
-                _manager.Mutate(Config.Id, c => { c.X = at.X; c.Y = at.Y; });
-                NoteTaskbar();
+                BeginInvoke(() => Dropped(droppedAt));
                 break;
 
             case WM_DPICHANGED:

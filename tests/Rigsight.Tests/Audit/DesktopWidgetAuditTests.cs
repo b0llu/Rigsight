@@ -72,4 +72,18 @@ public class DesktopWidgetAuditTests
         const int transparent = 0x20, layered = 0x80000;
         Assert.Equal(transparent | layered, cp.ExStyle & (transparent | layered));
     }
+
+    [Fact]
+    public void A_drag_cancelled_with_Esc_leaves_the_widget_where_it_was()
+    {
+        // Picked up at 100,100, dragged to 300,50, Esc: Windows puts it back at 100,100 just after it says the move has
+        // ended (Wine's move loop, as Windows'). The widget had saved 300,50 by then, and jumped there at the next change
+        // of a setting. The drop is now taken after Windows' last step: back where it began, it stays.
+        Assert.Null(WidgetForm.PutBack(new Point(100, 100), new Point(300, 50), new Point(100, 100)));
+        // Dropped against the screen's top (the badge's room above it), Windows brings it down: put back, as before.
+        Assert.Equal(new Point(300, -11), WidgetForm.PutBack(new Point(100, 100), new Point(300, -11), new Point(300, 0)));
+        // Dropped where Windows left it, or never moved: nothing to do.
+        Assert.Null(WidgetForm.PutBack(new Point(100, 100), new Point(300, 50), new Point(300, 50)));
+        Assert.Null(WidgetForm.PutBack(new Point(100, 100), null, new Point(100, 100)));
+    }
 }
