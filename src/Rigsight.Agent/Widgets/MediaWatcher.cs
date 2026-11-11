@@ -97,13 +97,19 @@ internal sealed class MediaWatcher : IDisposable
         }
     }
 
-    /// <summary>The player's name from Windows' id for it ("Spotify.exe", "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic").</summary>
+    /// <summary>
+    /// The player's name from Windows' id for it ("Spotify.exe", "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic").
+    /// Some ids are a code, not a name: Firefox's is made from where it's installed ("308046B0AF4A39CB" for the usual
+    /// folder), and a part after a name can be one ("Chrome.QXSO…"); a code is never shown, so an unknown one is no name.
+    /// </summary>
     internal static string AppName(string? id)
     {
         if (string.IsNullOrWhiteSpace(id)) return "";
         string s = id.Contains('!') ? id[(id.LastIndexOf('!') + 1)..] : id;
         if (s.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) s = s[..^4];
-        s = s.Split('.')[^1];
+        if (s == "308046B0AF4A39CB") return "Firefox";
+        static bool IsCode(string part) => part.Length >= 12 && part.Any(char.IsAsciiDigit) && part.All(c => char.IsAsciiDigit(c) || char.IsAsciiLetterUpper(c));
+        s = s.Split('.').LastOrDefault(p => p.Length > 0 && !IsCode(p)) ?? "";
         return s.ToLowerInvariant() switch
         {
             "zunemusic" or "mediaplayer" => "Media Player",

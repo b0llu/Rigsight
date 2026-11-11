@@ -237,6 +237,21 @@ public class ServicesAuditTests : IDisposable
         Assert.Equal(@"C:\Users\x\Notes.txt", Start(@"C:\Users\x\Notes.txt", admin: false, file: Everything)!.FileName);
     }
 
+    // ── The Media tile's player name ───────────────────────────────────────
+
+    [Theory]
+    [InlineData("308046B0AF4A39CB", "Firefox")] // Firefox's id is a code made from where it's installed
+    [InlineData("6F193CCC56814779", "")] // another install's code: no name rather than the code
+    [InlineData("Chrome.QXSOAXJ4YC4N62ZWRLWVPABJBA", "Chrome")]
+    [InlineData("Spotify.exe", "Spotify")]
+    [InlineData("SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify", "Spotify")]
+    [InlineData("Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic", "Media Player")]
+    [InlineData("MSEdge", "Edge")]
+    [InlineData("com.squirrel.Discord.Discord", "Discord")]
+    [InlineData(null, "")]
+    public void A_player_is_named_never_shown_as_a_code(string? id, string name) =>
+        Assert.Equal(name, Rigsight.Agent.Widgets.MediaWatcher.AppName(id));
+
     // ── Nominatim's policy: one search a second at most, and the same search not sent twice ─────────────────
 
     [Fact]
