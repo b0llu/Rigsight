@@ -553,20 +553,23 @@
                     <!-- The widget at its real size (or fitted), on a stand-in for the wallpaper. -->
                     <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" ClipToBounds="True" VerticalAlignment="Top">
                         <DockPanel>
-                            <DockPanel DockPanel.Dock="Bottom" Margin="12,8" LastChildFill="False">
+                            <!-- The size line takes the room left between the two switches and is cut short with "…" where
+                                 there's too little (at the window's narrowest, On light was pushed out of the card). -->
+                            <DockPanel DockPanel.Dock="Bottom" Margin="12,8">
                                 <Border Style="{StaticResource SegmentHost}" DockPanel.Dock="Left">
                                     <StackPanel Orientation="Horizontal">
                                         <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Fit'}" GroupName="editor-zoom" IsChecked="{Binding Fit, Converter={StaticResource Equals}, ConverterParameter=True}" />
                                         <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Actual size'}" GroupName="editor-zoom" IsChecked="{Binding Fit, Converter={StaticResource Equals}, ConverterParameter=False}" />
                                     </StackPanel>
                                 </Border>
-                                <TextBlock Text="{Binding SizeLine}" DockPanel.Dock="Left" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
-                                <Border Style="{StaticResource SegmentHost}" DockPanel.Dock="Right">
+                                <Border Style="{StaticResource SegmentHost}" DockPanel.Dock="Right" Margin="12,0,0,0">
                                     <StackPanel Orientation="Horizontal">
                                         <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'On dark'}" GroupName="editor-back" IsChecked="{Binding OnLight, Converter={StaticResource Equals}, ConverterParameter=False}" />
                                         <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'On light'}" GroupName="editor-back" IsChecked="{Binding OnLight, Converter={StaticResource Equals}, ConverterParameter=True}" />
                                     </StackPanel>
                                 </Border>
+                                <TextBlock Text="{Binding SizeLine}" ToolTip="{Binding SizeLine}" Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                             </DockPanel>
                             <Border x:Name="CanvasFrame" Height="{x:Static vm:WidgetEditorViewModel.CanvasHeight}" CornerRadius="15,15,0,0" SizeChanged="CanvasFrame_SizeChanged">
                                 <Border.Style>
