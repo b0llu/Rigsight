@@ -83,21 +83,15 @@ public sealed class SettingsStoreTests
         }
     }
 
-    // Widgets start on the desktop, built-in ones too (the user, 2026-11-10). One that was on in a file from before stays
-    // over windows, as it worked; one switched off there starts on the desktop when it's switched on.
+    // Every widget sits on the desktop (the user, 2026-11-11: Over windows removed). A file that still says where one sat
+    // loads, keeping everything else about it.
     [Fact]
-    public void Widgets_start_on_the_desktop_and_one_in_use_before_stays_over_windows()
+    public void A_file_from_when_widgets_could_sit_over_windows_still_loads()
     {
-        const string widgets = """
-            "Widgets": [ { "Style": "Pill", "Enabled": true }, { "Style": "Compact", "Enabled": false } ]
-            """;
-        var old = SettingsStore.Deserialize($$"""{ "SettingsVersion": 12, {{widgets}} }""");
-        Assert.Equal(WidgetSits.OverWindows, old.Widgets.Single(w => w.Style == WidgetStyle.Pill).Sits);
-        Assert.Equal(WidgetSits.OnDesktop, old.Widgets.Single(w => w.Style == WidgetStyle.Compact).Sits);
-        Assert.All(SettingsStore.Deserialize("{}").Widgets, w => Assert.Equal(WidgetSits.OnDesktop, w.Sits));
-        // Picked over windows, it stays so.
-        var picked = SettingsStore.Deserialize("""{ "SettingsVersion": 13, "Widgets": [ { "Style": "Pill", "Enabled": true, "Sits": "OverWindows" } ] }""");
-        Assert.Equal(WidgetSits.OverWindows, picked.Widgets.Single().Sits);
+        var s = SettingsStore.Deserialize("""{ "SettingsVersion": 13, "Widgets": [ { "Style": "Pill", "Enabled": true, "Sits": "OverWindows", "X": 40, "Y": 20 } ] }""");
+        var pill = s.Widgets.Single(w => w.Style == WidgetStyle.Pill);
+        Assert.Equal((true, 40, 20), (pill.Enabled, pill.X, pill.Y));
+        Assert.DoesNotContain("Sits", SettingsStore.Serialize(s));
     }
 
     [Fact]

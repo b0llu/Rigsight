@@ -55,8 +55,6 @@ public sealed class WidgetItem
 /// </summary>
 public enum WidgetTheme { Dark, Light, System, Black, Grey, App }
 
-/// <summary>Where a widget sits among windows. Over windows is how widgets always were; every one starts on the desktop now.</summary>
-public enum WidgetSits { OverWindows, OnDesktop }
 
 /// <summary>The corners of a widget's panel (and of each tile's box).</summary>
 public enum WidgetCorners { Round, Slight, Square }
@@ -222,11 +220,6 @@ public sealed class WidgetConfig
     /// <summary>A thin line between tiles that touch (not with a box for each tile).</summary>
     public bool TileLines { get; set; }
 
-    /// <summary>
-    /// Over windows (how every widget was before) or on the desktop, under them. Every widget starts on the desktop, a
-    /// built-in one too (the user, 2026-11-10); one in use before this came stays over windows (see SettingsStore).
-    /// </summary>
-    public WidgetSits Sits { get; set; } = WidgetSits.OnDesktop;
 
     /// <summary>Whether this is a box of tiles (see <see cref="Tiles"/>).</summary>
     [System.Text.Json.Serialization.JsonIgnore]

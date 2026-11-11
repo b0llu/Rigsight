@@ -21,7 +21,13 @@ internal sealed class WidgetForm : Form
 {
     private const int WM_NCHITTEST = 0x84, WM_MOUSEMOVE = 0x200, WM_NCMOUSEMOVE = 0xA0, WM_LBUTTONUP = 0x202;
     private const int WM_RBUTTONUP = 0x205, WM_NCRBUTTONUP = 0xA5, WM_ENTERSIZEMOVE = 0x231, WM_EXITSIZEMOVE = 0x232, WM_DPICHANGED = 0x2E0;
-    private const int WM_MOVING = 0x216, WM_WINDOWPOSCHANGING = 0x46, WM_SETCURSOR = 0x20;
+    private const int WM_MOVING = 0x216, WM_WINDOWPOSCHANGING = 0x46, WM_SETCURSOR = 0x20, WM_LBUTTONDOWN = 0x201, WM_NCLBUTTONDOWN = 0xA1;
+
+    [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>Where a press on a clickable place began, while it may still be a click (null once it became a drag).</summary>
+    private Point? _press;
     private const uint GW_HWNDPREV = 3;
     private const int HTCLIENT = 1, HTCAPTION = 2, HTTRANSPARENT = -1;
     private static readonly IntPtr HWND_BOTTOM = new(1);
@@ -58,7 +64,6 @@ internal sealed class WidgetForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        TopMost = config.Sits == WidgetSits.OverWindows;
         StartPosition = FormStartPosition.Manual;
         Text = "Rigsight widget";
         Room = RoomFor(DeviceDpi); // before the window exists, so a spot set now is the panel's
@@ -107,7 +112,6 @@ internal sealed class WidgetForm : Form
 
     public void Apply(WidgetConfig config)
     {
-        bool sitsChanged = Config.Sits != config.Sits;
         Config = config;
         // A spot set in the app (the widget dragged on the Widgets page's map, or placed from its editor): there on the
         // desktop too (the user, 2026-11-10: it went back where it was). Not while it's being dragged here, nor while it
@@ -122,7 +126,6 @@ internal sealed class WidgetForm : Form
             long ex = (long)Win32.GetWindowLongPtr(Handle, Win32.GWL_EXSTYLE);
             ex = config.Locked ? ex | Win32.WS_EX_TRANSPARENT : ex & ~Win32.WS_EX_TRANSPARENT;
             Win32.SetWindowLongPtr(Handle, Win32.GWL_EXSTYLE, (IntPtr)ex);
-            if (sitsChanged) Restack();
         }
         Redraw();
         NoteTaskbar();
@@ -131,12 +134,15 @@ internal sealed class WidgetForm : Form
     /// <summary>
     /// The widget is (partly) on a taskbar. The taskbar is itself an always-on-top window, so a widget on the desktop,
     /// behind every window, went under it (the user, 2026-11-11: "they no longer come over taskbar"): one placed on the
-    /// taskbar sits over windows while it's there, whatever its own setting, and goes back behind them when moved off.
+    /// taskbar sits over windows while it's there, and goes back behind them when moved off.
     /// </summary>
     public bool OnTaskbar { get; private set; }
 
-    /// <summary>In front of windows: set to, or on a taskbar.</summary>
-    public bool SitsOver => Config.Sits == WidgetSits.OverWindows || OnTaskbar;
+    /// <summary>
+    /// In front of windows: only while on a taskbar. Every widget sits on the desktop, behind windows (the user,
+    /// 2026-11-11: Over windows removed); the shortcut brings them all in front for a moment.
+    /// </summary>
+    public bool SitsOver => OnTaskbar;
 
     /// <summary>Whether the widget is on its screen's taskbar now: restacked, and logged, when that changes.</summary>
     private void NoteTaskbar()
@@ -146,8 +152,7 @@ internal sealed class WidgetForm : Form
         bool on = IsOnTaskbar(PanelBounds, screen.Bounds, screen.WorkingArea);
         if (on == OnTaskbar) return;
         OnTaskbar = on;
-        if (Config.Sits == WidgetSits.OnDesktop)
-            Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} " + (on ? "is on the taskbar: in front of it, over windows there" : "is off the taskbar: behind windows again"));
+        Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} " + (on ? "is on the taskbar: in front of it, over windows there" : "is off the taskbar: behind windows again"));
         Restack();
     }
 
@@ -162,7 +167,7 @@ internal sealed class WidgetForm : Form
         return bars.Any(r => r.Width > 0 && r.Height > 0 && r.IntersectsWith(panel));
     }
 
-    /// <summary>Over windows (or on a taskbar): in front of the always-on-top ones. On the desktop: behind every window.</summary>
+    /// <summary>On a taskbar (or brought in front): in front of the always-on-top ones. Otherwise behind every window.</summary>
     public void Restack()
     {
         if (!IsHandleCreated) return;
@@ -352,6 +357,13 @@ internal sealed class WidgetForm : Form
 
     private const uint SWP_NOZORDER = 0x4;
 
+    /// <summary>The pointer has gone further than Windows' own drag distance from where it was pressed.</summary>
+    internal static bool Moved(Point from, Point to)
+    {
+        var d = SystemInformation.DragSize;
+        return Math.Abs(to.X - from.X) > d.Width / 2 || Math.Abs(to.Y - from.Y) > d.Height / 2;
+    }
+
     protected override void WndProc(ref Message m)
     {
         switch (m.Msg)
@@ -368,6 +380,12 @@ internal sealed class WidgetForm : Form
                 m.Result = 1;
                 return;
 
+            case WM_LBUTTONDOWN:
+                // A press on a clickable place (a note's text, a to-do, Start): a click if it ends there, a drag of the
+                // whole widget once it moves (the user, 2026-11-11: a note couldn't be dragged by its text).
+                _press = HitAt(PointToClient(Cursor.Position)) is not null ? Cursor.Position : null;
+                break;
+
             case WM_MOUSEMOVE:
             case WM_NCMOUSEMOVE:
                 if (!_hover)
@@ -376,6 +394,14 @@ internal sealed class WidgetForm : Form
                     Redraw();
                 }
                 _hoverTimer.Start();
+                if (m.Msg == WM_MOUSEMOVE && _press is { } from && (MouseButtons & MouseButtons.Left) != 0 && Moved(from, Cursor.Position))
+                {
+                    _press = null;
+                    // Handed to Windows' own move, as a press on the widget anywhere else is (snapping and all).
+                    ReleaseCapture();
+                    SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, IntPtr.Zero);
+                    return;
+                }
                 break;
 
             case WM_LBUTTONUP:
@@ -385,7 +411,9 @@ internal sealed class WidgetForm : Form
                     _manager.Mutate(Config.Id, c => c.Enabled = false);
                     return;
                 }
-                if (HitAt(up) is { } hit)
+                bool clicked = _press is not null;
+                _press = null;
+                if (clicked && HitAt(up) is { } hit)
                 {
                     _manager.TileClicked(this, hit);
                     return;

@@ -456,10 +456,6 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         menu.Items.Add(Check(Lang.T("Lock in place (click-through)"), cfg.Locked, () => Mutate(cfg.Id, c => c.Locked = !c.Locked)));
         menu.Items.Add(new ToolStripSeparator());
 
-        var sits = new ToolStripMenuItem(Lang.T("Where it sits"));
-        sits.DropDownItems.Add(Check(Lang.T("On the desktop"), cfg.Sits == WidgetSits.OnDesktop, () => Mutate(cfg.Id, c => c.Sits = WidgetSits.OnDesktop)));
-        sits.DropDownItems.Add(Check(Lang.T("Over windows"), cfg.Sits == WidgetSits.OverWindows, () => Mutate(cfg.Id, c => c.Sits = WidgetSits.OverWindows)));
-        menu.Items.Add(sits);
         // Another screen, at the same corner: only with two screens or more.
         var screens = Screen.AllScreens;
         if (screens.Length > 1)
@@ -509,7 +505,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             Tiles = cfg.Tiles?.Select(t => t.Copy()).ToList() ?? WidgetTiles.FromLayout(cfg),
             X = cfg.X + 24, Y = cfg.Y + 24, Theme = cfg.Theme, Grayscale = cfg.Grayscale, BackgroundOpacity = cfg.BackgroundOpacity,
             ContentOpacity = cfg.ContentOpacity, Scale = cfg.Scale, Accent = cfg.Accent, Font = cfg.Font, Corners = cfg.Corners,
-            TileBoxes = cfg.TileBoxes, Gap = cfg.Gap, TileLines = cfg.TileLines, Sits = cfg.Sits,
+            TileBoxes = cfg.TileBoxes, Gap = cfg.Gap, TileLines = cfg.TileLines,
         });
     });
 

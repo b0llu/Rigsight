@@ -371,7 +371,7 @@ public sealed class SettingsPageTests
             var added = link.Settings.Current.Widgets.TakeLast(2).ToList();
             Assert.All(added, w =>
             {
-                Assert.Equal((WidgetStyle.Custom, WidgetTheme.App, WidgetSits.OnDesktop, true), (w.Style, w.Theme, w.Sits, w.Enabled));
+                Assert.Equal((WidgetStyle.Custom, WidgetTheme.App, true), (w.Style, w.Theme, w.Enabled));
                 Assert.Equal(WidgetTiles.Clock, Assert.Single(w.Tiles!).Kind);
             });
             Assert.NotEqual(added[0].Id, added[1].Id);
@@ -527,13 +527,12 @@ public sealed class SettingsPageTests
             ed.ContentPercent = 10; // never below 20%
             ed.Corners = nameof(WidgetCorners.Square);
             ed.TileBoxesOn = true;
-            ed.Sits = nameof(WidgetSits.OverWindows);
             ed.Locked = true;
             ed.Enabled = false;
             var w = Saved();
             Assert.Equal(("Desk", WidgetTheme.Light, "#22D3EE", "Bahnschrift", true, 1.5), (w.Name, w.Theme, w.Accent, w.Font, w.Grayscale, w.Scale));
             Assert.Equal((0.4, 0.2, WidgetCorners.Square, true, true), (Math.Round(w.BackgroundOpacity, 2), Math.Round(w.ContentOpacity, 2), w.Corners, w.TileBoxes, w.Gap != WidgetGap.None));
-            Assert.Equal((WidgetSits.OverWindows, true, false), (w.Sits, w.Locked, w.Enabled));
+            Assert.Equal((true, false), (w.Locked, w.Enabled));
             ed.Accent = "";
             Assert.Null(Saved().Accent);
             vm.CloseEditorCommand.Execute(null);
@@ -748,14 +747,13 @@ public sealed class SettingsPageTests
             vm.MineQuery = "";
             Assert.Equal("", vm.NoMineText);
 
-            // The picked one's quick settings: Click-through is the editor's Lock in place; where it sits; its size.
+            // The picked one's quick settings: Click-through is the editor's Lock in place; its size.
             var second = vm.Cards[1];
             vm.PickedRow = second;
             Assert.Same(second, vm.Picked);
             vm.Picked!.Locked = true;
-            vm.Picked.Sits = nameof(WidgetSits.OverWindows);
             vm.Picked.Size = "1.5";
-            Assert.Equal((true, WidgetSits.OverWindows, 1.5), (link.Settings.Current.Widgets[1].Locked, link.Settings.Current.Widgets[1].Sits, link.Settings.Current.Widgets[1].Scale));
+            Assert.Equal((true, 1.5), (link.Settings.Current.Widgets[1].Locked, link.Settings.Current.Widgets[1].Scale));
 
             // A search that hides the picked one picks the first one it shows.
             vm.MineQuery = "slim";

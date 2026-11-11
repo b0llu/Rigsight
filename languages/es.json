@@ -125,9 +125,6 @@
     "Extra large": "Muy grande",
     "Grayscale": "Escala de grises",
     "Lock in place (click-through)": "Fijar en su sitio (deja pasar los clics)",
-    "Where it sits": "Dónde se coloca",
-    "On the desktop": "En el escritorio",
-    "Over windows": "Sobre las ventanas",
     "Move to": "Mover a",
     "Main screen": "Pantalla principal",
     "Screen {0}": "Pantalla {0}",
@@ -5713,7 +5710,7 @@
     "Clear the shortcut for Desktop widgets": "Quitar el atajo para Widgets de escritorio",
     "Shortcut to turn them off and on": "Atajo para desactivarlos y activarlos",
     "Set the shortcut to bring widgets in front": "Definir el atajo para traer los widgets al frente",
-    "Shows the ones on the desktop over your windows. Esc or a click elsewhere sends them back.": "Muestra los del escritorio sobre tus ventanas. Esc o un clic en otro sitio los devuelve atrás.",
+    "Shows them over your windows. Esc or a click elsewhere sends them back.": "Los muestra sobre tus ventanas. Esc o un clic en otro sitio los devuelve atrás.",
     "Clear the shortcut to bring widgets in front": "Quitar el atajo para traer los widgets al frente",
     "Shortcut to bring them in front": "Atajo para traerlos al frente",
     "Search your widgets": "Buscar en tus widgets",
@@ -5723,7 +5720,6 @@
     "Widgets and tiles to add": "Widgets y mosaicos para añadir",
     "WHERE IT IS": "DÓNDE ESTÁ",
     "Your screens, with the widgets on them": "Tus pantallas, con sus widgets",
-    "Click-through": "Deja pasar los clics",
     "Add": "Añadir",
     "Back to Widgets": "Volver a Widgets",
     "Redo": "Rehacer",
@@ -5742,6 +5738,7 @@
     "No tiles yet.": "Aún no hay mosaicos.",
     "Click a tile, here or on the widget, to change just that tile.": "Haz clic en un mosaico, aquí o en el widget, para cambiar solo ese mosaico.",
     "Shape": "Forma",
+    "On the desktop": "En el escritorio",
     "Font": "Fuente",
     "Backdrop": "Fondo",
     "Content": "Contenido",
@@ -7094,6 +7091,10 @@
     "YOUR WIDGETS": "TUS WIDGETS",
     "ADD A WIDGET": "AÑADIR UN WIDGET",
     "Kinds of widget": "Tipos de widget",
-    "Search the widgets you can add": "Buscar entre los widgets que puedes añadir"
+    "Search the widgets you can add": "Buscar entre los widgets que puedes añadir",
+    "Where it sits": "Dónde se coloca",
+    "Over windows": "Sobre las ventanas",
+    "Shows the ones on the desktop over your windows. Esc or a click elsewhere sends them back.": "Muestra los del escritorio sobre tus ventanas. Esc o un clic en otro sitio los devuelve atrás.",
+    "Click-through": "Deja pasar los clics"
   }
 }

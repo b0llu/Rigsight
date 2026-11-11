@@ -337,7 +337,7 @@
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button Style="{StaticResource GhostButton}" Command="{Binding RecordShortcutCommand}" CommandParameter="front" MinWidth="96"
                                                         AutomationProperties.Name="{ctl:T 'Set the shortcut to bring widgets in front'}"
-                                                        ToolTip="{ctl:T 'Shows the ones on the desktop over your windows. Esc or a click elsewhere sends them back.'}">
+                                                        ToolTip="{ctl:T 'Shows them over your windows. Esc or a click elsewhere sends them back.'}">
                                                     <TextBlock>
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
@@ -439,20 +439,6 @@
                                             <TextBlock Text="{Binding MapLine}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
-                                            <Border Style="{StaticResource PaneRow}">
-                                                <DockPanel>
-                                                    <ComboBox DockPanel.Dock="Right" Width="160" ItemsSource="{Binding SitsChoices}" DisplayMemberPath="Name" SelectedValuePath="Value"
-                                                              SelectedValue="{Binding Picked.Sits}" VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Where it sits'}" />
-                                                    <TextBlock Text="{ctl:T 'Where it sits'}" Style="{StaticResource Body}" VerticalAlignment="Center" />
-                                                </DockPanel>
-                                            </Border>
-                                            <Border Style="{StaticResource PaneRow}">
-                                                <DockPanel>
-                                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Picked.Locked}" VerticalAlignment="Center"
-                                                              AutomationProperties.Name="{ctl:T 'Click-through'}" />
-                                                    <TextBlock Text="{ctl:T 'Click-through'}" Style="{StaticResource Body}" VerticalAlignment="Center" />
-                                                </DockPanel>
-                                            </Border>
                                             <Border Style="{StaticResource PaneRow}" BorderThickness="0">
                                                 <DockPanel>
                                                     <ListBox DockPanel.Dock="Right" Style="{StaticResource SegmentList}" ItemsSource="{Binding SizeChoices}" DisplayMemberPath="Name" SelectedValuePath="Value"
@@ -871,10 +857,6 @@
                                     </StackPanel>
                                     <StackPanel Visibility="{Binding PanelTab, Converter={StaticResource EqualsVis}, ConverterParameter=desktop}">
 
-                                <DockPanel Style="{StaticResource EditRow}">
-                                    <TextBlock Text="{ctl:T 'Where it sits'}" Style="{StaticResource EditLabel}" />
-                                    <ComboBox DockPanel.Dock="Right" Width="150" ItemsSource="{Binding SitsChoices}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Sits}" AutomationProperties.Name="{ctl:T 'Where it sits'}" />
-                                </DockPanel>
                                 <DockPanel Style="{StaticResource EditRow}">
                                     <TextBlock Text="{ctl:T 'Place'}" Style="{StaticResource EditLabel}" />
                                     <!-- The nine places; the one the widget is at is lit in the accent colour. -->

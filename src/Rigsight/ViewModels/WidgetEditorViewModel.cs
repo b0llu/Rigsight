@@ -137,7 +137,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     private void KeepSavedPlace()
     {
         if (_settings.Current.Widgets.FirstOrDefault(w => w.Id == Id) is not { } now) return;
-        (_w.X, _w.Y, _w.Enabled, _w.Locked, _w.Sits) = (now.X, now.Y, now.Enabled, now.Locked, now.Sits);
+        (_w.X, _w.Y, _w.Enabled, _w.Locked) = (now.X, now.Y, now.Enabled, now.Locked);
     }
 
     private void Commit()
@@ -938,10 +938,6 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
 
     public IReadOnlyList<Choice> Sizes => SizeList;
 
-    /// <summary>Where a widget sits, here and in the Widgets page's quick settings.</summary>
-    public static IReadOnlyList<Choice> SitsList() =>
-        [new(nameof(WidgetSits.OnDesktop), Lang.T("On the desktop")), new(nameof(WidgetSits.OverWindows), Lang.T("Over windows"))];
-
     public string Size
     {
         get => _w.Scale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
@@ -999,20 +995,6 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     }
 
     // ── On the desktop ──────────────────────────────────────────────────
-
-    public IReadOnlyList<Choice> SitsChoices { get; } = SitsList();
-
-    public string Sits
-    {
-        get => _w.Sits.ToString();
-        set
-        {
-            if (value is null || value == Sits || !Enum.TryParse<WidgetSits>(value, out var s)) return;
-            TakeSaved();
-            _w.Sits = s;
-            Commit();
-        }
-    }
 
     public bool Locked
     {

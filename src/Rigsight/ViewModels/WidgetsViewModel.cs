@@ -89,18 +89,6 @@ public sealed partial class WidgetCard : ObservableObject
     /// <summary>Under its name in the list: the screen it's on, or Off.</summary>
     public string Line => !Enabled ? Lang.T("Off") : Where is { Length: > 0 } where ? where : Lang.T("On");
 
-    /// <summary>On the desktop or over windows (the editor's "Where it sits").</summary>
-    public string Sits
-    {
-        get => Config.Sits.ToString();
-        set
-        {
-            if (value is null || value == Sits || !Enum.TryParse<WidgetSits>(value, out var sits)) return;
-            _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.Sits = sits; });
-            OnPropertyChanged(nameof(Sits));
-        }
-    }
-
     /// <summary>Its size, S to 3XL (the editor's Size).</summary>
     public string Size
     {
@@ -172,7 +160,6 @@ public sealed partial class WidgetCard : ObservableObject
         OnPropertyChanged(nameof(Locked));
         OnPropertyChanged(nameof(Where));
         OnPropertyChanged(nameof(Line));
-        OnPropertyChanged(nameof(Sits));
         OnPropertyChanged(nameof(Size));
         Redraw();
     }
@@ -336,8 +323,7 @@ public sealed partial class WidgetsViewModel : ObservableObject
         set { if (value is not null && Cards.FirstOrDefault(c => c.Id == value) is { } c) Picked = c; }
     }
 
-    /// <summary>Where a widget sits, and its sizes, for the picked one's quick settings.</summary>
-    public IReadOnlyList<Choice> SitsChoices { get; } = WidgetEditorViewModel.SitsList();
+    /// <summary>A widget's sizes, for the picked one's quick settings.</summary>
     public IReadOnlyList<Choice> SizeChoices => WidgetEditorViewModel.SizeList;
 
     // ── On or off, and the settings for all widgets ─────────────────────
@@ -552,7 +538,7 @@ public sealed partial class WidgetsViewModel : ObservableObject
     internal static WidgetConfig NewWidget(string name, List<WidgetTile> tiles) => new()
     {
         Style = WidgetStyle.Custom, Id = WidgetCatalog.NewId(), Name = name, Tiles = tiles, Enabled = true,
-        Theme = WidgetTheme.App, Sits = WidgetSits.OnDesktop,
+        Theme = WidgetTheme.App,
     };
 
     // ── The list to add from ────────────────────────────────────────────
