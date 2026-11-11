@@ -21,7 +21,7 @@ internal sealed class WidgetForm : Form
 {
     private const int WM_NCHITTEST = 0x84, WM_MOUSEMOVE = 0x200, WM_NCMOUSEMOVE = 0xA0, WM_LBUTTONUP = 0x202;
     private const int WM_RBUTTONUP = 0x205, WM_NCRBUTTONUP = 0xA5, WM_ENTERSIZEMOVE = 0x231, WM_EXITSIZEMOVE = 0x232, WM_DPICHANGED = 0x2E0;
-    private const int WM_MOVING = 0x216, WM_WINDOWPOSCHANGING = 0x46;
+    private const int WM_MOVING = 0x216, WM_WINDOWPOSCHANGING = 0x46, WM_SETCURSOR = 0x20;
     private const uint GW_HWNDPREV = 3;
     private const int HTCLIENT = 1, HTCAPTION = 2, HTTRANSPARENT = -1;
     private static readonly IntPtr HWND_BOTTOM = new(1);
@@ -30,6 +30,23 @@ internal sealed class WidgetForm : Form
     private readonly System.Windows.Forms.Timer _hoverTimer = new() { Interval = 250 };
     private WidgetData? _data;
     private bool _hover, _dragging;
+    private List<WidgetRenderer.TileHit> _hits = [];
+    private float _hitScale = 1;
+
+    /// <summary>The clickable place of a tile under a point of the window, if any.</summary>
+    internal WidgetRenderer.TileHit? HitAt(Point client)
+    {
+        if (_hits.Count == 0 || _hitScale <= 0) return null;
+        var at = new PointF(client.X / _hitScale, (client.Y - Room) / _hitScale);
+        foreach (var h in _hits) if (h.Rect.Contains(at)) return h;
+        return null;
+    }
+
+    /// <summary>A tile's clickable place on the screen.</summary>
+    internal Rectangle ScreenRect(WidgetRenderer.TileHit hit) => Rectangle.Round(new RectangleF(
+        Left + hit.Rect.X * _hitScale, Top + Room + hit.Rect.Y * _hitScale, hit.Rect.Width * _hitScale, hit.Rect.Height * _hitScale));
+
+    internal float HitScale => _hitScale;
     private Point _dragFrom;
     private RectangleF _closeRect;
 
@@ -223,6 +240,9 @@ internal sealed class WidgetForm : Form
         var before = Size.Width > Room ? PanelBounds : Rectangle.Empty;
         Room = RoomFor(DeviceDpi);
         using var panel = WidgetRenderer.Render(Config, _data, scale, hover: false, out _);
+        // Where its tiles can be clicked (a to-do's box, a timer's Start), in the widget's own pixels.
+        _hits = WidgetRenderer.Hits?.ToList() ?? [];
+        _hitScale = scale;
         using var bmp = new Bitmap(panel.Width + Room, panel.Height + Room, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var g = Graphics.FromImage(bmp))
         {
@@ -339,7 +359,13 @@ internal sealed class WidgetForm : Form
             case WM_NCHITTEST:
                 if (Config.Locked) { m.Result = HTTRANSPARENT; return; }
                 var pt = PointToClient(new Point((short)((long)m.LParam & 0xFFFF), (short)(((long)m.LParam >> 16) & 0xFFFF)));
-                m.Result = _closeRect.Contains(pt) ? HTCLIENT : HTCAPTION;
+                // The close badge and a tile's clickable places are clicked; anywhere else a press drags the widget.
+                m.Result = _closeRect.Contains(pt) || HitAt(pt) is not null ? HTCLIENT : HTCAPTION;
+                return;
+
+            case WM_SETCURSOR when !Config.Locked && HitAt(PointToClient(Cursor.Position)) is not null:
+                Cursor.Current = Cursors.Hand;
+                m.Result = 1;
                 return;
 
             case WM_MOUSEMOVE:
@@ -353,9 +379,15 @@ internal sealed class WidgetForm : Form
                 break;
 
             case WM_LBUTTONUP:
-                if (_closeRect.Contains(PointToClient(Cursor.Position)))
+                var up = PointToClient(Cursor.Position);
+                if (_closeRect.Contains(up))
                 {
                     _manager.Mutate(Config.Id, c => c.Enabled = false);
+                    return;
+                }
+                if (HitAt(up) is { } hit)
+                {
+                    _manager.TileClicked(this, hit);
                     return;
                 }
                 break;

@@ -2215,6 +2215,8 @@
     "The CPU peaked at {0} and the GPU at {1}.": "La CPU llegó a {0} y la GPU a {1}.",
     "The CPU peaked at {0}.": "La CPU llegó a {0}.",
     "The GPU peaked at {0}.": "La GPU llegó a {0}.",
+    "Your timer is up": "Tu temporizador ha terminado",
+    "{0}, on {1}.": "{0}, en {1}.",
     "You played {0} for {1}": "Jugaste a {0} durante {1}",
     "Yesterday: {0} active": "Ayer: {0} de uso",
     "{0}: {1} active": "{0}: {1} de uso",

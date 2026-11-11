@@ -281,6 +281,79 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     /// <summary>A widget dragged somewhere new no longer waits for its old spot.</summary>
     public void Moved(string id) => _waitingForScreen.Remove(id);
 
+    /// <summary>Says a widget's timer is up (title, body): the agent's notifications.</summary>
+    public Action<string, string>? TimerUp { get; set; }
+
+    private TileTypingBox? _typing;
+
+    /// <summary>
+    /// A click on a tile's clickable place on the desktop: a to-do ticked, a timer started, paused or reset, or a box to
+    /// type in opened over a note or a to-do list's last line (the keyboard is taken only then; Esc gives it back).
+    /// </summary>
+    public void TileClicked(WidgetForm form, WidgetRenderer.TileHit hit)
+    {
+        var cfg = form.Config;
+        if (cfg.Tiles is not { } tiles || hit.Tile >= tiles.Count) return;
+        string kind = tiles[hit.Tile].Kind, id = cfg.Id;
+        int index = hit.Tile;
+        void OnTile(Action<WidgetTile> change) => Mutate(id, c =>
+        {
+            if (c.Tiles is { } ts && index < ts.Count && ts[index].Kind == kind) change(ts[index]);
+        });
+        long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        switch (hit.Action)
+        {
+            case WidgetRenderer.HitTodo:
+                OnTile(t => { if (t.Todos is { } l && hit.Index < l.Count) l[hit.Index].Done = !l[hit.Index].Done; });
+                break;
+            case WidgetRenderer.HitGo:
+                OnTile(t => WidgetTimer.StartOrPause(t, now));
+                Log.Write("widgets", $"{WidgetCatalog.Title(cfg)}: timer started or paused on the desktop");
+                break;
+            case WidgetRenderer.HitReset:
+                OnTile(WidgetTimer.Reset);
+                break;
+            case WidgetRenderer.HitNote:
+                OpenTyping(form, hit, multiline: true, tiles[hit.Tile].Text ?? "", text => OnTile(t => t.Text = text.Length == 0 ? null : text), null);
+                break;
+            case WidgetRenderer.HitTodoAdd:
+                OpenTyping(form, hit, multiline: false, "", null, text => OnTile(t => (t.Todos ??= []).Add(new TodoItem { Text = text })));
+                break;
+        }
+    }
+
+    private void OpenTyping(WidgetForm form, WidgetRenderer.TileHit hit, bool multiline, string text, Action<string>? changed, Action<string>? added)
+    {
+        _typing?.Close();
+        var (back, fore) = WidgetRenderer.TypingColors(form.Config);
+        float px = WidgetTiles.TextPx(form.Config.Tiles![hit.Tile]) * form.HitScale;
+        _typing = new TileTypingBox(form.ScreenRect(hit), text, multiline, px, back, fore, changed, added);
+        _typing.FormClosed += (_, _) => _typing = null;
+        _typing.Show();
+    }
+
+    /// <summary>Every tick: a timer that has run its length stops at it, and says so once.</summary>
+    private void CheckTimers()
+    {
+        long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        foreach (var form in _forms.Values)
+        {
+            var cfg = form.Config;
+            if (cfg.Tiles is not { } tiles) continue;
+            for (int i = 0; i < tiles.Count; i++)
+            {
+                var t = tiles[i];
+                if (t.Kind != WidgetTiles.Timer || !WidgetTimer.Running(t) || !WidgetTimer.IsUp(t, now)) continue;
+                int index = i, minutes = t.Minutes;
+                string id = cfg.Id, name = WidgetCatalog.Title(cfg);
+                Mutate(id, c => { if (c.Tiles is { } ts && index < ts.Count && ts[index].Kind == WidgetTiles.Timer) WidgetTimer.Stop(ts[index]); });
+                Log.Write("widgets", $"{name}: a {minutes}-minute timer is up");
+                var (title, body) = NoticeWords.TimerUp(minutes, name);
+                TimerUp?.Invoke(title, body);
+            }
+        }
+    }
+
     /// <summary>The widget is in the corner for now, its saved spot on a screen that isn't there.</summary>
     public bool WaitsForScreen(string id) => _waitingForScreen.Contains(id);
 
@@ -299,6 +372,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             data.RtssRunning = data.Frame is not null || Rtss.IsLive();
         }
         _data = data;
+        CheckTimers();
         // Decided on every activity tick, so a game switching between windowed and borderless (Alt+Enter) is caught.
         _gameMonitor = _overGames.Update(gameInFront, fillsScreen, exclusive, overlayPlanes, gameMonitor, data.Activity.Name, out var log);
         if (log is not null && _forms.Count > 0) Rigsight.Core.Log.Write("widgets", log);

@@ -233,6 +233,7 @@ internal sealed partial class AgentContext : ApplicationContext
         _tray = new TrayController(() => OpenApp(null), switches, _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
+        _widgets.TimerUp = (title, body) => _notices.Show(new Notice(NoticeKind.Timer, title, body, Page: "widgets"));
 
         // A window that has just opened gets its readings and the running apps now, not at their next turn (readings
         // are two seconds apart and the apps five while no window is open: its pages stood empty that long).

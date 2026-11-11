@@ -63,6 +63,10 @@ public static class NoticeWords
     /// </summary>
     public static string Long(double seconds) => CrashFindings.Words(seconds);
 
+    /// <summary>A widget's timer has run its length: "Your timer is up" / "25 minutes, on Desk."</summary>
+    public static (string Title, string Body) TimerUp(int minutes, string widget) =>
+        (Lang.T("Your timer is up"), Lang.T($"{Long(minutes * 60.0)}, on {widget}."));
+
     /// <summary>A game session's end: "You played Dota 2 for 2 hours and 14 minutes" / "The CPU peaked at 71°C and the GPU at 68°C."</summary>
     public static (string Title, string Body) Session(string game, double activeSec, double? cpuPeak, double? gpuPeak) =>
         (Lang.T($"You played {Name(game)} for {Long(activeSec)}"), Peaks(cpuPeak, gpuPeak));

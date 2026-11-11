@@ -63,6 +63,13 @@ internal static partial class WidgetRenderer
     private static readonly Palette GreyPalette = new(Color.FromArgb(38, 38, 38), Color.FromArgb(59, 59, 59), Color.White,
         Color.FromArgb(173, 173, 173), Color.FromArgb(138, 138, 138), Color.FromArgb(59, 59, 59), false);
 
+    /// <summary>The colours to type a note or a to-do in, over the widget: its panel and its text, solid.</summary>
+    internal static (Color Back, Color Text) TypingColors(WidgetConfig cfg)
+    {
+        var p = For(cfg.Theme);
+        return (Color.FromArgb(255, p.Bg), Color.FromArgb(255, p.Text));
+    }
+
     private static Palette For(WidgetTheme theme) => theme switch
     {
         WidgetTheme.Light => LightPalette,
