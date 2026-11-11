@@ -1,4 +1,4 @@
-namespace Rigsight.Core.Settings;
+﻿namespace Rigsight.Core.Settings;
 
 /// <summary>The built-in widgets (one of each), and <see cref="Custom"/> for the user's own.</summary>
 public enum WidgetStyle
@@ -49,10 +49,129 @@ public sealed class WidgetItem
 }
 
 /// <summary>
-/// System follows Windows' app mode; Grey is the dark one on dark grey, as the app's Grey theme. Black is no longer
-/// offered (it became Dark); kept so older settings files still load.
+/// System follows Windows' app mode; Grey is the dark one on dark grey, as the app's Grey theme; App ("Like RigSight")
+/// takes the app's own theme and accent, and is what a new widget starts on. Black is no longer offered (it became
+/// Dark); kept so older settings files still load.
 /// </summary>
-public enum WidgetTheme { Dark, Light, System, Black, Grey }
+public enum WidgetTheme { Dark, Light, System, Black, Grey, App }
+
+
+/// <summary>The corners of a widget's panel (and of each tile's box).</summary>
+public enum WidgetCorners { Round, Slight, Square }
+
+/// <summary>The room between a widget's tiles.</summary>
+public enum WidgetGap { None, Small, Normal, Large }
+
+/// <summary>How a tile lines up what it shows (Center is by the ink, both ways).</summary>
+public enum TileAlign { Left, Center, Right }
+
+/// <summary>
+/// One tile in a widget's box (see <see cref="WidgetConfig.Tiles"/> and <see cref="WidgetTiles"/>): what it is, where it
+/// sits on the box's grid and how big it is, in cells (<see cref="WidgetTiles.CellWidth"/> by
+/// <see cref="WidgetTiles.CellHeight"/> pixels at size M), and its own settings. Only the settings its kind uses are read.
+/// </summary>
+public sealed class WidgetTile
+{
+    /// <summary>The kind (<see cref="WidgetTiles"/>' identifiers, like "clock" or "reading").</summary>
+    public string Kind { get; set; } = "";
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int W { get; set; } = 1;
+    public int H { get; set; } = 1;
+
+    /// <summary>Its alignment; null: its kind's own (a clock is centred, a reading starts on the left).</summary>
+    public TileAlign? Align { get; set; }
+
+    /// <summary>A reading tile's reading (an overlay reading's name or "sensor:…", as <see cref="WidgetItem.Id"/>).</summary>
+    public string? Item { get; set; }
+
+    /// <summary>A reading tile's short name, instead of the reading's own.</summary>
+    public string? Label { get; set; }
+
+    /// <summary>A reading tile's look (<see cref="WidgetTiles.Looks"/>); null: a number.</summary>
+    public string? Look { get; set; }
+
+    /// <summary>The readings of a line of readings or a graph, in order.</summary>
+    public List<WidgetItem>? Items { get; set; }
+
+    /// <summary>A clock's style (<see cref="WidgetTiles.ClockStyles"/>); null: digital.</summary>
+    public string? Style { get; set; }
+
+    /// <summary>A clock's 24-hour time; null: as Windows has it.</summary>
+    public bool? Hours24 { get; set; }
+
+    public bool Seconds { get; set; }
+
+    /// <summary>Whether a clock shows the date beside or under the time.</summary>
+    public bool ShowDate { get; set; } = true;
+
+    /// <summary>A note's text, as typed (kept in the settings, so a note is in the full copy too).</summary>
+    public string? Text { get; set; }
+
+    /// <summary>A note's or a to-do list's text size (<see cref="WidgetTiles.TextSizes"/>); null: medium.</summary>
+    public string? TextSize { get; set; }
+
+    /// <summary>A to-do list's items, in order.</summary>
+    public List<TodoItem>? Todos { get; set; }
+
+    /// <summary>A timer tile's kind (<see cref="WidgetTiles.TimerKinds"/>); null: a timer.</summary>
+    public string? TimerKind { get; set; }
+
+    /// <summary>A timer's length, in minutes.</summary>
+    public int Minutes { get; set; } = 25;
+
+    /// <summary>When a timer or stopwatch last started (Unix milliseconds); null while it's stopped or paused.</summary>
+    public long? RunningSince { get; set; }
+
+    /// <summary>How long a timer or stopwatch ran before it was last paused, in milliseconds.</summary>
+    public long RunMs { get; set; }
+
+    /// <summary>A countdown's day.</summary>
+    public DateTime? Until { get; set; }
+
+    /// <summary>A weather tile's place, as found by name (its short name), with where it is.</summary>
+    public string? Place { get; set; }
+    public double? Lat { get; set; }
+    public double? Lon { get; set; }
+
+    /// <summary>A shortcuts tile's apps, files, folders and links, in order.</summary>
+    public List<TileLink>? Links { get; set; }
+
+    /// <summary>A photos tile's folder.</summary>
+    public string? Folder { get; set; }
+
+    /// <summary>How often a photos tile moves on to the next picture, in seconds (<see cref="WidgetTiles.PhotoSteps"/>).</summary>
+    public int Every { get; set; } = 60;
+
+    public WidgetTile Copy() => new()
+    {
+        Kind = Kind, X = X, Y = Y, W = W, H = H, Align = Align, Item = Item, Label = Label, Look = Look,
+        Items = Items?.Select(i => new WidgetItem { Id = i.Id, Label = i.Label }).ToList(), Style = Style, Hours24 = Hours24,
+        Seconds = Seconds, ShowDate = ShowDate, Text = Text, TextSize = TextSize,
+        Todos = Todos?.Select(t => new TodoItem { Text = t.Text, Done = t.Done }).ToList(),
+        TimerKind = TimerKind, Minutes = Minutes, RunningSince = RunningSince, RunMs = RunMs, Until = Until,
+        Place = Place, Lat = Lat, Lon = Lon, Links = Links?.Select(l => new TileLink { Path = l.Path, Name = l.Name }).ToList(),
+        Folder = Folder, Every = Every,
+    };
+}
+
+/// <summary>One of a shortcuts tile's apps, files, folders or links: where it is, and the name it shows.</summary>
+public sealed class TileLink
+{
+    public string Path { get; set; } = "";
+    public string Name { get; set; } = "";
+
+    /// <summary>A web address (opened in the browser), not a file or folder. Worked out from the address, so not saved.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsWeb => Path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || Path.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>One line of a to-do list.</summary>
+public sealed class TodoItem
+{
+    public string Text { get; set; } = "";
+    public bool Done { get; set; }
+}
 
 /// <summary>
 /// No longer a choice: widgets step aside on the screen of a game that fills it (borderless or exclusive fullscreen),
@@ -104,6 +223,34 @@ public sealed class WidgetConfig
 
     /// <summary>Labels grey and readings white instead of coloured, as the overlay can.</summary>
     public bool Grayscale { get; set; }
+
+    /// <summary>
+    /// The widget as a box of tiles the person arranges (see <see cref="WidgetTile"/>); null for a widget drawn as before
+    /// the box came (a built-in one, or one of the person's own with a layout), which turns into tiles the first time it's
+    /// changed in the editor (<see cref="WidgetTiles.FromLayout"/>).
+    /// </summary>
+    public List<WidgetTile>? Tiles { get; set; }
+
+    /// <summary>The colour that marks things on the widget (today on a calendar, a clock's second hand), as #RRGGBB; null: the theme's.</summary>
+    public string? Accent { get; set; }
+
+    /// <summary>The font of everything on the widget; null: Segoe UI, as Windows' own.</summary>
+    public string? Font { get; set; }
+
+    public WidgetCorners Corners { get; set; }
+
+    /// <summary>Each tile on a panel of its own instead of one panel behind them all.</summary>
+    public bool TileBoxes { get; set; }
+
+    public WidgetGap Gap { get; set; }
+
+    /// <summary>A thin line between tiles that touch (not with a box for each tile).</summary>
+    public bool TileLines { get; set; }
+
+
+    /// <summary>Whether this is a box of tiles (see <see cref="Tiles"/>).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsBox => Tiles is not null;
 
     /// <summary>No longer used (see <see cref="WidgetVisibility"/>).</summary>
     public WidgetVisibility Visibility { get; set; } = WidgetVisibility.Always;

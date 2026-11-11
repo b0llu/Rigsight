@@ -2,443 +2,1216 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
-             xmlns:svc="clr-namespace:Rigsight.Services">
+             xmlns:svc="clr-namespace:Rigsight.Services"
+             xmlns:vm="clr-namespace:Rigsight.ViewModels"
+             Focusable="True">
     <UserControl.Resources>
-        <Style x:Key="OptionLabel" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Width" Value="90" />
-        </Style>
-        <Style x:Key="Section" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
-            <Setter Property="Margin" Value="0,20,0,8" />
-        </Style>
-
         <!-- Behind the widget pictures: a stand-in for a wallpaper, so see-through widgets show as they would. -->
         <LinearGradientBrush x:Key="Backdrop" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#2A3350" Offset="0" />
             <GradientStop Color="#1B3A36" Offset="1" />
         </LinearGradientBrush>
+        <LinearGradientBrush x:Key="LightBackdrop" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#C9D6F2" Offset="0" />
+            <GradientStop Color="#CFE8DD" Offset="1" />
+        </LinearGradientBrush>
 
-        <!-- One widget on the page: its picture, name, switch and an Edit button; outlined while it's in the editor. -->
-        <DataTemplate x:Key="WidgetCardTemplate">
-            <ctl:SmoothBorder Width="250" Margin="0,0,14,14" Padding="14" CornerRadius="{x:Static ctl:Corner.Card}" BorderThickness="1"
-                              Background="{DynamicResource SurfaceBrush}">
-                <ctl:SmoothBorder.Style>
-                    <Style TargetType="ctl:SmoothBorder">
-                        <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsEditing}" Value="True">
-                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </ctl:SmoothBorder.Style>
-                <StackPanel>
-                    <Border Height="100" CornerRadius="{x:Static ctl:Corner.Control}" ClipToBounds="True" Background="{StaticResource Backdrop}">
-                        <Grid>
-                            <TextBlock Text="{ctl:T 'Preview appears when the agent is running'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Label}"
-                                       TextWrapping="Wrap" TextAlignment="Center" Margin="12,0" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Visibility="{Binding Preview, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                            <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="10"
-                                   RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Grid>
+        <!-- A row in an editor card: its name on the left, one control on the right. -->
+        <Style x:Key="EditRow" TargetType="DockPanel">
+            <Setter Property="Margin" Value="16,5" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="LastChildFill" Value="False" />
+        </Style>
+        <Style x:Key="EditLabel" TargetType="TextBlock" BasedOn="{StaticResource Body}">
+            <Setter Property="DockPanel.Dock" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+
+        <!-- A widget in the list (approved mock-up UckKnwokm5kF7JjdjHZpqd, "Two panes"): its picture, its name, the screen
+             it's on (or Off) and its switch. One that's off is dimmed; the picked one's name is bold. -->
+        <DataTemplate DataType="{x:Type vm:WidgetCard}">
+            <DockPanel>
+                <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Enabled}" VerticalAlignment="Center"
+                          AutomationProperties.Name="{Binding Title, StringFormat='Show {0}'}" ToolTip="{ctl:T 'Show it on the desktop'}" />
+                <Border x:Name="Thumb" DockPanel.Dock="Left" Width="56" Height="34" CornerRadius="6" ClipToBounds="True" Background="{StaticResource Backdrop}" Margin="0,0,12,0">
+                    <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="4" RenderOptions.BitmapScalingMode="HighQuality" />
+                </Border>
+                <StackPanel x:Name="Words" VerticalAlignment="Center">
+                    <TextBlock x:Name="Name" Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Line}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </DockPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Enabled}" Value="False">
+                    <Setter TargetName="Thumb" Property="Opacity" Value="0.45" />
+                    <Setter TargetName="Words" Property="Opacity" Value="0.6" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter TargetName="Name" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- A widget just removed, in its row's place for a few seconds: its name, and Undo. -->
+        <DataTemplate DataType="{x:Type vm:RemovedWidget}">
+            <DockPanel MinHeight="34">
+                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Undo'}" Command="{Binding UndoCommand}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Line}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0" />
+            </DockPanel>
+        </DataTemplate>
+
+        <!-- A widget or tile to add, in the Add widget pop-up under its group: its picture, its name and what it shows; a click
+             adds it. What it shows wraps, as in the editor's Add tile list (cut short, most lines ended mid-sentence, nearly
+             all of them in Spanish); the picture stays at the top of the row. -->
+        <DataTemplate x:Key="ChoiceRow">
+            <Button Style="{StaticResource RowButton}" HorizontalContentAlignment="Stretch" Margin="0,0,0,4" Command="{Binding AddCommand}"
+                    AutomationProperties.Name="{Binding Title, StringFormat='Add {0}'}">
+                <DockPanel Margin="8,6">
+                    <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
+                               VerticalAlignment="Center" Margin="10,0,2,0" />
+                    <Border DockPanel.Dock="Left" Width="56" Height="34" CornerRadius="6" ClipToBounds="True" Background="{StaticResource Backdrop}" Margin="0,0,12,0"
+                            VerticalAlignment="Top">
+                        <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="4" RenderOptions.BitmapScalingMode="HighQuality" />
                     </Border>
-                    <DockPanel Margin="0,12,0,0">
-                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Enabled}" VerticalAlignment="Center"
-                                  AutomationProperties.Name="{Binding Title, StringFormat='Show {0}'}" ToolTip="{ctl:T 'Show it on the desktop'}" />
-                        <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" FontSize="{x:Static ctl:TextSize.Heading}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                    </DockPanel>
-                    <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
-                               Height="34" Margin="0,4,0,0" />
-                    <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Edit'}" Command="{Binding EditCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"
-                            AutomationProperties.Name="{Binding Title, StringFormat='Edit {0}'}" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Line}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
+            </Button>
+        </DataTemplate>
+
+        <!-- A short list of choices as segments (a widget's Size): the page's segments, as a list with one picked. -->
+        <Style x:Key="SegmentList" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBox">
+                        <Border Style="{StaticResource SegmentHost}">
+                            <ItemsPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem">
+                        <!-- Set here, not left to Windows' own style: its look-up of the list goes wrong (a binding error)
+                             each time a tile of another kind brings other ready sizes. -->
+                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                        <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />
+                        <Setter Property="Cursor" Value="Hand" />
+                        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Choice}" Padding="11,5">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SegmentOnBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource SegmentOnTextBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A setting in a pane: its name on the left, its control on the right, a line under it but the last. -->
+        <Style x:Key="PaneRow" TargetType="Border">
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource StrokeBrush}" />
+            <Setter Property="Padding" Value="0,6" />
+            <Setter Property="MinHeight" Value="46" />
+        </Style>
+
+        <!-- Picking a reading (the tile's, or one to add to a line or graph): a search box and every reading under its part,
+             as on the Taskbar page (the user, 2026-11-11). The one in use is ticked. -->
+        <DataTemplate x:Key="ReadingPickerList">
+            <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                              CornerRadius="{x:Static ctl:Corner.Tile}" Padding="8" Margin="0,0,8,8" Width="400">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                </Border.Effect>
+                <StackPanel>
+                    <TextBox x:Name="PickerSearch" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search readings…'}" Text="{Binding ReadingQuery, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.Name="{ctl:T 'Search readings…'}" Margin="0,0,0,6" />
+                    <TextBlock Text="{ctl:T 'No sensor matches that. Try a part, like GPU, or a kind, like temp.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}"
+                               Margin="8" TextWrapping="Wrap" Visibility="{Binding NoReadingRows, Converter={StaticResource Vis}}" />
+                    <ItemsControl ItemsSource="{Binding ReadingRows}" Focusable="False" MaxHeight="360" VirtualizingPanel.IsVirtualizing="True" ScrollViewer.CanContentScroll="True"
+                                  VirtualizingPanel.ScrollUnit="Pixel">
+                        <ItemsControl.Template>
+                            <ControlTemplate TargetType="ItemsControl">
+                                <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" CanContentScroll="True">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </ControlTemplate>
+                        </ItemsControl.Template>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <TextBlock Text="{Binding Heading}" Style="{StaticResource Caption}" Margin="6,10,0,4"
+                                               Visibility="{Binding IsHeading, Converter={StaticResource Vis}}" />
+                                    <Button Style="{StaticResource ListChoice}" Padding="8,6" Visibility="{Binding IsChoice, Converter={StaticResource Vis}}" IsEnabled="{Binding Enabled}"
+                                            Command="{Binding DataContext.PickRowCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                            AutomationProperties.Name="{Binding Name}">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource AccentBrush}" Width="16"
+                                                       TextAlignment="Center" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                           Visibility="{Binding HasDetail, Converter={StaticResource Vis}}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </ctl:SmoothBorder>
+        </DataTemplate>
+
+        <!-- The editor panel's tabs (Look, Shape, On the desktop): Settings' tabs, a size smaller. -->
+        <Style x:Key="PanelTab" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Body}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid>
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="7,7,0,0" Padding="10,7,10,9">
+                                <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <Border x:Name="Line" Height="2" CornerRadius="1" Margin="10,0,10,-1" VerticalAlignment="Bottom"
+                                    Background="{DynamicResource AccentBrush}" Visibility="Collapsed" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Line" Property="Visibility" Value="Visible" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- A quiet link with an icon (Whole widget): muted, lit under the pointer. -->
+        <Style x:Key="PlainLink" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent" Padding="2,3">
+                            <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A chip over a list, with how many it holds. -->
+        <DataTemplate x:Key="ChipTemplate">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Name}" />
+                <TextBlock Text="{Binding Count}" Foreground="{DynamicResource FaintBrush}" Margin="6,0,0,0" />
+            </StackPanel>
         </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
-        <!-- The widgets -->
-        <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
+        <!-- ── The page, in two panes (approved mock-up UckKnwokm5kF7JjdjHZpqd, option C, 2026-11-11): the list on the left,
+             the picked widget on the right. Add widget, beside Create widget, opens the list to add from (the user, 2026-11-11). ── -->
+        <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Visibility="{Binding IsEditing, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+            <Grid Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- The title, and Desktop widgets on or off (the tray menu has the same switch, by the same name). -->
                 <DockPanel>
-                    <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Command="{Binding CreateCommand}" VerticalAlignment="Top"
-                            Margin="16,4,0,0" AutomationProperties.Name="Create widget">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource OnAccentBrush}" />
-                            <TextBlock Text="{ctl:T 'Create widget'}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <!-- The page's own question for the AI (mock-up board 5). -->
-                    <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'Which widgets suit me?'}" CommandParameter="{x:Static svc:PageAsks.Widgets}" AutomationProperties.Name="{ctl:T 'Which widgets suit me?'}" />
-                    <StackPanel>
-                        <TextBlock Text="{ctl:T 'Desktop widgets'}" Style="{StaticResource H1}" />
-                        <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="{ctl:T 'Small readouts that sit on your desktop, always up to date. Drag one anywhere, or lock it so clicks pass straight through.'}" />
-                    </StackPanel>
+                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource PageSwitch}" IsChecked="{Binding Shown}" AutomationProperties.Name="{ctl:T 'Desktop widgets'}"
+                              ToolTip="{ctl:T 'Off hides them all and keeps which ones are on.'}" />
+                    <Button DockPanel.Dock="Right" Style="{StaticResource PageAiButton}" Content="{ctl:T 'Which widgets suit me?'}" CommandParameter="{x:Static svc:PageAsks.Widgets}"
+                            AutomationProperties.Name="{ctl:T 'Which widgets suit me?'}" VerticalAlignment="Center" Margin="0,0,20,0" />
+                    <TextBlock DockPanel.Dock="Left" Text="{ctl:T 'Desktop widgets'}" Style="{StaticResource H1}" VerticalAlignment="Center" />
                 </DockPanel>
 
-            <!-- On or off as a whole, the first card (approved mock-up BrxrxUeSZAHcqXGrxtt4LC, 2026-11-09; the tray menu has the
-                 same switch, by the same name). -->
-            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Margin="0,20,0,0">
-                <ctl:SettingRow Icon="&#xF0E2;" Title="{ctl:T 'Desktop widgets'}" Line="{ctl:T 'Off hides them all and keeps which ones are on.'}">
-                    <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Shown}" AutomationProperties.Name="{ctl:T 'Desktop widgets'}" />
-                </ctl:SettingRow>
-            </ctl:SmoothBorder>
-                <TextBlock Text="{ctl:T 'BUILT IN'}" Style="{StaticResource Section}" Margin="0,22,0,10" />
-                <ScrollViewer x:Name="BuiltInRow" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled"
-                              PreviewMouseWheel="BuiltInRow_PreviewMouseWheel">
-                    <ItemsControl ItemsSource="{Binding BuiltIn}" ItemTemplate="{StaticResource WidgetCardTemplate}" Margin="0,0,0,4">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                </ScrollViewer>
+                <Grid Grid.Row="1" Margin="0,18,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="390" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                <TextBlock Text="{ctl:T 'YOUR WIDGETS'}" Style="{StaticResource Section}" Margin="0,18,0,10" />
-                <ItemsControl ItemsSource="{Binding Custom}" ItemTemplate="{StaticResource WidgetCardTemplate}"
-                              Visibility="{Binding HasCustom, Converter={StaticResource Vis}}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
-                <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasCustom, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Create widget'}" Command="{Binding CreateCommand}"
-                                VerticalAlignment="Center" Margin="16,0,0,0" />
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{ctl:T 'Make your own'}" Style="{StaticResource H2}" FontSize="{x:Static ctl:TextSize.Heading}" />
-                            <TextBlock Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                       Text="{ctl:T 'Pick a layout and the readings you want, like frame rate, temperatures, loads, or any sensor on your PC.'}" />
-                        </StackPanel>
-                    </DockPanel>
-                </ctl:SmoothBorder>
-            </StackPanel>
-        </ScrollViewer>
-
-        <!-- Over the page while the editor is open: dims it a little; a click on it closes the editor. -->
-        <Border x:Name="EditorScrim" Background="#000000" Opacity="0" Visibility="Collapsed" MouseLeftButtonDown="EditorScrim_MouseLeftButtonDown" />
-
-        <!-- The editor: a sheet over the page that slides in from the right (see the code-behind). -->
-        <!-- The editor's shadow on an empty box of its own behind it, sliding with it (the same transform): an effect on the
-             editor itself drew all its text without ClearType, softer than the rest of the app. -->
-        <Border Width="430" HorizontalAlignment="Right" Background="{DynamicResource SidebarBrush}" IsHitTestVisible="False"
-                Visibility="{Binding Visibility, ElementName=EditorPanel}" RenderTransform="{Binding RenderTransform, ElementName=EditorPanel}">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.35" Color="Black" />
-            </Border.Effect>
-        </Border>
-        <Border x:Name="EditorPanel" Width="430" HorizontalAlignment="Right" Visibility="Collapsed"
-                BorderThickness="1,0,0,0" BorderBrush="{DynamicResource StrokeBrush}" Background="{DynamicResource SidebarBrush}">
-            <Border.RenderTransform>
-                <TranslateTransform x:Name="EditorSlide" X="430" />
-            </Border.RenderTransform>
-            <ScrollViewer x:Name="EditorContent" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                          DataContext="{Binding Editing}">
-                <StackPanel Margin="22,22,22,26">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close the editor"
-                                Command="{Binding DataContext.CloseEditorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" VerticalAlignment="Top">
-                            <TextBlock Text="&#xE711;" />
-                        </Button>
-                        <StackPanel>
-                            <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0" />
-                        </StackPanel>
-                    </DockPanel>
-
-                    <Border Height="150" CornerRadius="{x:Static ctl:Corner.Tile}" ClipToBounds="True" Background="{StaticResource Backdrop}" Margin="0,16,0,0">
-                        <Image Source="{Binding Preview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="14"
-                               RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-
-                    <!-- The user's own: name and layout -->
-                    <StackPanel Visibility="{Binding IsCustom, Converter={StaticResource Vis}}">
-                        <TextBlock Text="{ctl:T 'NAME'}" Style="{StaticResource Section}" />
-                        <TextBox Text="{Binding Title, UpdateSourceTrigger=LostFocus}" MaxLength="40" AutomationProperties.Name="Widget name" />
-                        <TextBlock Text="{ctl:T 'LAYOUT'}" Style="{StaticResource Section}" />
-                        <Border Style="{StaticResource SegmentHost}" HorizontalAlignment="Left">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Bar'}" GroupName="editor-layout"
-                                             IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Bar}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Tiles'}" GroupName="editor-layout"
-                                             IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Tiles}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Gauges'}" GroupName="editor-layout"
-                                             IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Gauges}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Graph'}" GroupName="editor-layout"
-                                             IsChecked="{Binding Layout, Converter={StaticResource Equals}, ConverterParameter=Graph}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-
-                    <!-- Readings -->
-                    <StackPanel Visibility="{Binding HasReadings, Converter={StaticResource Vis}}">
-                        <DockPanel Margin="0,20,0,8">
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding ItemsCount}" Style="{StaticResource Caption}" />
-                            <TextBlock Text="{ctl:T 'READINGS'}" Style="{StaticResource Caption}" />
-                        </DockPanel>
-                        <!-- Above the readings: adding one grows the list below it, so the field and its open list stay put.
-                             The reading picker: one search field for the usual readings and every sensor. Typing opens the list,
-                             chips narrow it to a part, a click adds a line at once and the list stays open for the next. It floats
-                             over the editor (nothing moves). -->
-                        <Grid Margin="0,0,0,8">
-                            <TextBox x:Name="PickBox" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Add a reading… type to search'}" Height="36"
-                                     ctl:Debounce.Text="{Binding PickerText}" AutomationProperties.Name="Add a reading"
-                                     GotKeyboardFocus="PickBox_GotKeyboardFocus" PreviewMouseLeftButtonDown="PickBox_MouseDown" PreviewKeyDown="PickBox_KeyDown"
-                                     LostKeyboardFocus="PickBox_LostKeyboardFocus" TextChanged="PickBox_TextChanged" />
-                            <Popup x:Name="PickPopup" PlacementTarget="{Binding ElementName=PickBox}" Placement="Bottom" VerticalOffset="6" StaysOpen="True"
-                                   PreviewKeyDown="PickPopup_KeyDown" LostKeyboardFocus="PickBox_LostKeyboardFocus"
-                                   AllowsTransparency="True" PopupAnimation="Fade" IsOpen="{Binding PickerOpen, Mode=TwoWay}">
-                                <!-- As wide as the field above it; the popup is 8 px wider and taller for the shadow. -->
-                                <Border Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                                        CornerRadius="{x:Static ctl:Corner.Tile}" Padding="0,10,0,6" Margin="0,0,8,8" Width="{Binding ActualWidth, ElementName=PickBox}">
-                                    <Border.Effect>
-                                        <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
-                                    </Border.Effect>
-                                    <DockPanel>
-                                        <!-- Chips: a part each, with how many there are to add under what's typed. -->
-                                        <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding PickerChips}" Margin="10,0,10,8" Focusable="False">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Button Focusable="False" Cursor="Hand" Margin="0,0,6,6" AutomationProperties.Name="{Binding Name}"
-                                                            Visibility="{Binding IsShown, Converter={StaticResource Vis}}"
-                                                            Command="{Binding DataContext.PickChipCommand, ElementName=PickBox}" CommandParameter="{Binding}">
-                                                        <Button.Template>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" CornerRadius="11" Padding="10,3">
-                                                                    <StackPanel Orientation="Horizontal">
-                                                                        <TextBlock x:Name="Name" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
-                                                                        <TextBlock x:Name="Count" Text="{Binding Count}" FontSize="{x:Static ctl:TextSize.MiniPlus}" Foreground="{DynamicResource FaintBrush}"
-                                                                                   Margin="6,1,0,0" VerticalAlignment="Center" />
-                                                                    </StackPanel>
-                                                                </Border>
-                                                                <ControlTemplate.Triggers>
-                                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                                                                        <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                                                    </Trigger>
-                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentBrush}" />
-                                                                        <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
-                                                                        <Setter TargetName="Count" Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
-                                                                    </DataTrigger>
-                                                                </ControlTemplate.Triggers>
-                                                            </ControlTemplate>
-                                                        </Button.Template>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                        <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource StrokeBrush}" />
-                                        <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Click to add · Enter adds the first · Esc to close'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" Margin="14,6,14,0" />
-                                        <Border DockPanel.Dock="Bottom" Height="1" Background="{DynamicResource StrokeBrush}" />
-                                        <Grid>
-                                                <ItemsControl x:Name="PickScroll" ItemsSource="{Binding PickerOptions}" Margin="6,4" Focusable="False" MaxHeight="340"
-                                                              Visibility="{Binding PickerEmpty, Converter={StaticResource Vis}, ConverterParameter=Invert}"
-                                                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                                                              VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True">
-                                                    <ItemsControl.Template>
-                                                        <ControlTemplate TargetType="ItemsControl">
-                                                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="True" Focusable="False">
-                                                                <ItemsPresenter />
-                                                            </ScrollViewer>
-                                                        </ControlTemplate>
-                                                    </ItemsControl.Template>
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <StackPanel>
-                                                                <TextBlock Text="{Binding Header}" FontSize="{x:Static ctl:TextSize.MiniPlus}" Foreground="{DynamicResource FaintBrush}" Margin="8,10,8,4"
-                                                                           Visibility="{Binding HasHeader, Converter={StaticResource Vis}}" />
-                                                                <Button Cursor="Hand" Focusable="False" IsEnabled="{Binding CanAdd}" AutomationProperties.Name="{Binding Name}"
-                                                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                                                        Command="{Binding DataContext.PickOptionCommand, ElementName=PickBox}" CommandParameter="{Binding}">
-                                                                    <Button.Template>
-                                                                        <ControlTemplate TargetType="Button">
-                                                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Field}" Padding="8,6" HorizontalAlignment="Stretch">
-                                                                                <DockPanel>
-                                                                                    <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,10,0" VerticalAlignment="Center"
-                                                                                             Fill="{Binding DotBrush, Converter={StaticResource ResourceBrush}}" />
-                                                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Side}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
-                                                                                               VerticalAlignment="Center" Margin="10,0,0,0" MaxWidth="230" TextTrimming="CharacterEllipsis" />
-                                                                                    <StackPanel VerticalAlignment="Center">
-                                                                                        <StackPanel Orientation="Horizontal">
-                                                                                            <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                                                                        </StackPanel>
-                                                                                        <TextBlock Text="{Binding Source}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
-                                                                                                   Visibility="{Binding HasSource, Converter={StaticResource Vis}}" />
-                                                                                    </StackPanel>
-                                                                                </DockPanel>
-                                                                            </Border>
-                                                                            <ControlTemplate.Triggers>
-                                                                                <Trigger Property="IsMouseOver" Value="True">
-                                                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                                                                                </Trigger>
-                                                                                <Trigger Property="IsKeyboardFocused" Value="True">
-                                                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                                                                                </Trigger>
-                                                                                <Trigger Property="IsEnabled" Value="False">
-                                                                                    <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
-                                                                                    <Setter TargetName="Bd" Property="Background" Value="Transparent" />
-                                                                                </Trigger>
-                                                                            </ControlTemplate.Triggers>
-                                                                        </ControlTemplate>
-                                                                    </Button.Template>
-                                                                </Button>
-                                                            </StackPanel>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-                                            <!-- Nothing to show: says so, and where else there's a match. -->
-                                            <StackPanel Margin="16,24,16,22" HorizontalAlignment="Center" Visibility="{Binding PickerEmpty, Converter={StaticResource Vis}}">
-                                                <TextBlock Text="{Binding PickerEmptyText}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
-                                                           HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
-                                                <TextBlock Text="{Binding PickerEmptyHint}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center"
-                                                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" Visibility="{Binding PickerEmptyHint, Converter={StaticResource Vis}}" />
-                                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Search all groups'}" HorizontalAlignment="Center" Margin="0,10,0,0"
-                                                        Command="{Binding SearchAllCommand}" Visibility="{Binding CanSearchAll, Converter={StaticResource Vis}}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </DockPanel>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                        <ItemsControl ItemsSource="{Binding Items}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}" Padding="12,8" Margin="0,0,0,6">
+                    <!-- ── Left: as tall as the pane beside it; the list scrolls in its own box. ── -->
+                    <Grid Height="{Binding ActualHeight, ElementName=RightPane}">
+                        <!-- Your widgets: the list, and under it the settings for every widget, one under another. -->
+                        <DockPanel>
+                            <ctl:SmoothBorder DockPanel.Dock="Bottom" Style="{StaticResource Card}" Padding="16,8" Margin="0,14,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{ctl:T 'FOR EVERY WIDGET'}" Style="{StaticResource Caption}" Margin="0,4,0,2" />
+                                    <Border Style="{StaticResource PaneRow}">
+                                        <DockPanel>
+                                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Snap}" VerticalAlignment="Center"
+                                                      AutomationProperties.Name="{ctl:T 'Snap to edges and other widgets'}" ToolTip="{ctl:T 'Hold Alt while you drag to place one freely.'}" />
+                                            <TextBlock Text="{ctl:T 'Snap to edges and other widgets'}" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                        </DockPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource PaneRow}">
+                                        <DockPanel>
+                                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Fade}" VerticalAlignment="Center"
+                                                      AutomationProperties.Name="{ctl:T 'Fade when the pointer is over them'}"
+                                                      ToolTip="{ctl:T 'Click-through widgets fade almost away, so you can click what\'s behind them. Others fade to half.'}" />
+                                            <TextBlock Text="{ctl:T 'Fade when the pointer is over them'}" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                        </DockPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource PaneRow}">
                                         <DockPanel>
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="Move up"
-                                                        Command="{Binding DataContext.MoveItemUpCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
-                                                    <TextBlock Text="&#xE70E;" />
+                                                <Button Style="{StaticResource GhostButton}" Command="{Binding RecordShortcutCommand}" CommandParameter="shown" MinWidth="96"
+                                                        AutomationProperties.Name="{ctl:T 'Set the shortcut for Desktop widgets'}">
+                                                    <TextBlock>
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="{Binding ShownHotkey, TargetNullValue={ctl:T 'Not set'}}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Recording}" Value="shown">
+                                                                        <Setter Property="Text" Value="{ctl:T 'Press the keys'}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
                                                 </Button>
-                                                <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Move down'}" AutomationProperties.Name="Move down"
-                                                        Command="{Binding DataContext.MoveItemDownCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
-                                                    <TextBlock Text="&#xE70D;" />
-                                                </Button>
-                                                <Button Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Remove from the widget'}" AutomationProperties.Name="Remove"
-                                                        Command="{Binding DataContext.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                <Button Style="{StaticResource IconButton}" Command="{Binding ClearShortcutCommand}" CommandParameter="shown" Margin="4,0,0,0" ToolTip="{ctl:T 'Clear'}"
+                                                        AutomationProperties.Name="{ctl:T 'Clear the shortcut for Desktop widgets'}" Visibility="{Binding ShownHotkey, Converter={StaticResource Vis}}">
                                                     <TextBlock Text="&#xE711;" />
                                                 </Button>
                                             </StackPanel>
-                                            <!-- Short name on the widget: typed over its usual one, which shows as the hint. -->
-                                            <Grid DockPanel.Dock="Right" Width="110" Margin="10,0,6,0" VerticalAlignment="Center">
-                                                <TextBox x:Name="LabelBox" Text="{Binding Label, UpdateSourceTrigger=LostFocus}" MaxLength="18" FontSize="{x:Static ctl:TextSize.Small}"
-                                                         ToolTip="{ctl:T 'Short name on the widget (up to 18 letters). Leave empty for the usual one.'}" />
-                                                <TextBlock Text="{ctl:T 'Short name'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" IsHitTestVisible="False"
-                                                           Margin="11,0,8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <TextBlock Text="{ctl:T 'Shortcut to turn them off and on'}" Style="{StaticResource Body}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        </DockPanel>
+                                    </Border>
+                                    <Border Style="{StaticResource PaneRow}" BorderThickness="0">
+                                        <DockPanel>
+                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button Style="{StaticResource GhostButton}" Command="{Binding RecordShortcutCommand}" CommandParameter="front" MinWidth="96"
+                                                        AutomationProperties.Name="{ctl:T 'Set the shortcut to bring widgets in front'}"
+                                                        ToolTip="{ctl:T 'Shows them over your windows. Esc or a click elsewhere sends them back.'}">
+                                                    <TextBlock>
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="{Binding FrontHotkey, TargetNullValue={ctl:T 'Not set'}}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Recording}" Value="front">
+                                                                        <Setter Property="Text" Value="{ctl:T 'Press the keys'}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Button>
+                                                <Button Style="{StaticResource IconButton}" Command="{Binding ClearShortcutCommand}" CommandParameter="front" Margin="4,0,0,0" ToolTip="{ctl:T 'Clear'}"
+                                                        AutomationProperties.Name="{ctl:T 'Clear the shortcut to bring widgets in front'}" Visibility="{Binding FrontHotkey, Converter={StaticResource Vis}}">
+                                                    <TextBlock Text="&#xE711;" />
+                                                </Button>
+                                            </StackPanel>
+                                            <TextBlock Text="{ctl:T 'Shortcut to bring them in front'}" Style="{StaticResource Body}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        </DockPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ctl:SmoothBorder>
+
+                            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="12">
+                                <DockPanel>
+                                    <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search your widgets'}" Height="34"
+                                             Text="{Binding MineQuery, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Search your widgets'}" />
+                                    <ListBox DockPanel.Dock="Top" Style="{StaticResource ChipList}" ItemsSource="{Binding MineChips}" SelectedItem="{Binding PickedMineChip}" ItemTemplate="{StaticResource ChipTemplate}"
+                                             Margin="2,10,0,4" AutomationProperties.Name="{ctl:T 'Which widgets to show'}" />
+                                    <!-- Add widget (a ready-made one or a tile, from a pop-up) and Create widget (an empty one, in the editor). -->
+                                    <Grid DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition />
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="AddWidgetButton" Style="{StaticResource GhostButton}" Command="{Binding OpenAddListCommand}" HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center" AutomationProperties.Name="{ctl:T 'Add widget'}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{ctl:T 'Add widget'}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="2" Style="{StaticResource GhostButton}" Command="{Binding CreateCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                AutomationProperties.Name="{ctl:T 'Create widget'}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{ctl:T 'Create widget'}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <!-- The ready-made widgets and every tile, under their groups, opening downward from the button as a menu does
+                                             (the user, 2026-11-11); Windows moves it above only where the screen has no room below. A click adds one. -->
+                                        <Popup IsOpen="{Binding AddListOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=AddWidgetButton}" Placement="Bottom" VerticalOffset="6"
+                                               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Opened="AddPopup_Opened">
+                                            <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                                              CornerRadius="{x:Static ctl:Corner.Tile}" Padding="10" Margin="0,0,8,8" Width="430">
+                                                <Border.Effect>
+                                                    <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                                                </Border.Effect>
+                                                <DockPanel Height="480">
+                                                    <TextBox x:Name="AddSearch" DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search widgets and tiles'}" Height="34"
+                                                             Text="{Binding ChoiceQuery, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Search widgets and tiles'}" />
+                                                    <TextBlock DockPanel.Dock="Top" Text="{Binding NoChoicesText}" Style="{StaticResource Muted}" Margin="6,10" TextWrapping="Wrap"
+                                                               Visibility="{Binding NoChoices, Converter={StaticResource Vis}}" />
+                                                    <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,2,0,0">
+                                                        <ItemsControl ItemsSource="{Binding ChoiceGroups}" ItemTemplate="{StaticResource ChoiceRow}" Focusable="False"
+                                                                      AutomationProperties.Name="{ctl:T 'Widgets and tiles to add'}">
+                                                            <ItemsControl.GroupStyle>
+                                                                <GroupStyle>
+                                                                    <GroupStyle.HeaderTemplate>
+                                                                        <DataTemplate>
+                                                                            <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" Margin="8,10,0,6" />
+                                                                        </DataTemplate>
+                                                                    </GroupStyle.HeaderTemplate>
+                                                                </GroupStyle>
+                                                            </ItemsControl.GroupStyle>
+                                                        </ItemsControl>
+                                                    </ScrollViewer>
+                                                </DockPanel>
+                                            </ctl:SmoothBorder>
+                                        </Popup>
+                                    </Grid>
+                                    <Grid>
+                                        <ListBox x:Name="MineList" Style="{StaticResource CardList}" ItemsSource="{Binding Grid}" SelectedItem="{Binding PickedRow}"
+                                                 AutomationProperties.Name="{ctl:T 'Your widgets'}" />
+                                        <TextBlock Text="{Binding NoMineText}" Style="{StaticResource Muted}" Margin="10" TextWrapping="Wrap" Visibility="{Binding NoMineText, Converter={StaticResource Vis}}" />
+                                    </Grid>
+                                </DockPanel>
+                            </ctl:SmoothBorder>
+                        </DockPanel>
+
+                    </Grid>
+
+                    <!-- ── Right: the picked widget. ── -->
+                    <ctl:SmoothBorder x:Name="RightPane" Grid.Column="2" Style="{StaticResource Card}" Padding="18" MinHeight="640" VerticalAlignment="Top">
+                        <Grid>
+                            <!-- Its name, Edit and Remove; its picture at its size; where it is, and its quick settings. -->
+                            <Grid>
+                                <DockPanel Visibility="{Binding HasPicked, Converter={StaticResource Vis}}">
+                                    <DockPanel DockPanel.Dock="Top">
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove'}" Command="{Binding Picked.RemoveCommand}" Margin="8,0,0,0"
+                                                VerticalAlignment="Center" AutomationProperties.Name="{Binding Picked.Title, StringFormat='Remove {0}'}" />
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{ctl:T 'Edit'}" Command="{Binding Picked.EditCommand}"
+                                                VerticalAlignment="Center" AutomationProperties.Name="{Binding Picked.Title, StringFormat='Edit {0}'}" />
+                                        <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                            <TextBlock Text="{Binding Picked.Title}" FontSize="{x:Static ctl:TextSize.Title}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Picked.Description}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </DockPanel>
+
+                                    <Grid DockPanel.Dock="Bottom" Margin="0,18,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="5*" MinWidth="90" MaxWidth="400" />
+                                            <ColumnDefinition Width="28" />
+                                            <ColumnDefinition Width="6*" MinWidth="270" />
+                                        </Grid.ColumnDefinitions>
+                                        <!-- Where it is: the screens, the picked widget lit and the others dimmed; dragged here, it moves on the desktop. -->
+                                        <StackPanel>
+                                            <TextBlock Text="{ctl:T 'WHERE IT IS'}" Style="{StaticResource Caption}" Margin="0,0,0,8" />
+                                            <ctl:WidgetScreens x:Name="Map" MapHeight="120" Screens="{Binding Screens}" Spots="{Binding Spots}" Snap="{Binding Snap}" Picked="{Binding PickedId}"
+                                                               AutomationProperties.Name="{ctl:T 'Your screens, with the widgets on them'}" />
+                                            <TextBlock Text="{Binding MapLine}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <Border Style="{StaticResource PaneRow}">
+                                                <DockPanel>
+                                                    <ComboBox DockPanel.Dock="Right" Width="160" ItemsSource="{Binding ThemeChoices}" DisplayMemberPath="Name" SelectedValuePath="Value"
+                                                              SelectedValue="{Binding Picked.Theme}" VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Theme'}" />
+                                                    <TextBlock Text="{ctl:T 'Theme'}" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                                </DockPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource PaneRow}">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Left" Text="{ctl:T 'Backdrop'}" Style="{StaticResource Body}" VerticalAlignment="Center" Margin="0,0,24,0" />
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Picked.BackgroundPercent, StringFormat='{}{0:0}%'}" Width="40" TextAlignment="Right" Style="{StaticResource Body}"
+                                                               VerticalAlignment="Center" />
+                                                    <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center" Value="{Binding Picked.BackgroundPercent}"
+                                                            AutomationProperties.Name="{ctl:T 'Backdrop'}" />
+                                                </DockPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource PaneRow}" BorderThickness="0">
+                                                <DockPanel>
+                                                    <ListBox DockPanel.Dock="Right" Style="{StaticResource SegmentList}" ItemsSource="{Binding SizeChoices}" DisplayMemberPath="Name" SelectedValuePath="Value"
+                                                             SelectedValue="{Binding Picked.Size}" VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Size'}" />
+                                                    <TextBlock Text="{ctl:T 'Size'}" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                                </DockPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- The widget at its size, on a stand-in for the wallpaper (a big one is fitted). -->
+                                    <Border Margin="0,16,0,0" MinHeight="280" CornerRadius="{x:Static ctl:Corner.Control}" ClipToBounds="True" Background="{StaticResource Backdrop}">
+                                        <Image Source="{Binding Picked.BigPreview}" Stretch="Uniform" StretchDirection="DownOnly" Margin="24" RenderOptions.BitmapScalingMode="HighQuality"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                </DockPanel>
+                                <Grid Visibility="{Binding HasPicked, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                    <TextBlock Text="{Binding NothingPicked}" Style="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Visibility="{Binding HasRemoved, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                    <!-- A widget just removed: said here, with Undo where Remove was. -->
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding HasRemoved, Converter={StaticResource Vis}}">
+                                        <TextBlock Text="{Binding Removed.Line}" Style="{StaticResource Body}" HorizontalAlignment="Center" />
+                                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Undo'}" Command="{Binding Removed.UndoCommand}" HorizontalAlignment="Center" Margin="0,10,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </ctl:SmoothBorder>
+                </Grid>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- ── The editor, a page of its own (approved mock-up CqfxQo4cR6vCG3GxFx1VMT, 2026-11-11): the widget the hero on the
+             left; on the right its tiles, then one panel for what's picked, the whole widget with nothing picked. ── -->
+        <ScrollViewer x:Name="EditorScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" DataContext="{Binding Editor}"
+                      Visibility="{Binding DataContext.IsEditing, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Vis}}">
+            <StackPanel Margin="32,22,32,32" MaxWidth="{StaticResource PageWidth}">
+                <!-- The bar at the top: back, the name in a box with a pencil (it looks like what it is), then the actions. -->
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Command="{Binding BackCommand}" AutomationProperties.Name="{ctl:T 'Back to Widgets'}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'Widgets'}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource IconButton}" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" ToolTip="{ctl:T 'Undo'}" AutomationProperties.Name="{ctl:T 'Undo'}">
+                            <TextBlock Text="&#xE7A7;" />
+                        </Button>
+                        <Button Style="{StaticResource IconButton}" Command="{Binding RedoCommand}" IsEnabled="{Binding CanRedo}" ToolTip="{ctl:T 'Redo'}" AutomationProperties.Name="{ctl:T 'Redo'}" Margin="2,0,10,0">
+                            <TextBlock Text="&#xE7A6;" />
+                        </Button>
+                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Duplicate'}" Command="{Binding DuplicateCommand}" />
+                        <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove'}" Command="{Binding RemoveCommand}" Margin="8,0,14,0" AutomationProperties.Name="{ctl:T 'Remove the widget'}" />
+                        <CheckBox Style="{StaticResource PageSwitch}" IsChecked="{Binding Enabled}" AutomationProperties.Name="{ctl:T 'Show it on the desktop'}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Border DockPanel.Dock="Left" Margin="12,0,0,0" Width="320" HorizontalAlignment="Left" CornerRadius="{x:Static ctl:Corner.Button}" BorderThickness="1"
+                            BorderBrush="{DynamicResource StrokeBrush}" Background="{DynamicResource SurfaceBrush}" Padding="10,2,10,2">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource FaintBrush}"
+                                       VerticalAlignment="Center" IsHitTestVisible="False" />
+                            <TextBox x:Name="NameBox" Style="{StaticResource InlineEdit}" Text="{Binding Title, UpdateSourceTrigger=LostFocus}" MaxLength="40" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold"
+                                     VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Widget name'}" ToolTip="{ctl:T 'Click to rename'}" KeyDown="NameBox_KeyDown" />
+                        </DockPanel>
+                    </Border>
+                </DockPanel>
+
+                <Grid Margin="0,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="380" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- The widget at its real size (or fitted), on a stand-in for the wallpaper. -->
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" ClipToBounds="True" VerticalAlignment="Top">
+                        <DockPanel>
+                            <!-- The size line takes the room left between the two switches and is cut short with "…" where
+                                 there's too little (at the window's narrowest, On light was pushed out of the card). -->
+                            <DockPanel DockPanel.Dock="Bottom" Margin="12,8">
+                                <Border Style="{StaticResource SegmentHost}" DockPanel.Dock="Left">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Fit'}" GroupName="editor-zoom" IsChecked="{Binding Fit, Converter={StaticResource Equals}, ConverterParameter=True}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Actual size'}" GroupName="editor-zoom" IsChecked="{Binding Fit, Converter={StaticResource Equals}, ConverterParameter=False}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SegmentHost}" DockPanel.Dock="Right" Margin="12,0,0,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'On dark'}" GroupName="editor-back" IsChecked="{Binding OnLight, Converter={StaticResource Equals}, ConverterParameter=False}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'On light'}" GroupName="editor-back" IsChecked="{Binding OnLight, Converter={StaticResource Equals}, ConverterParameter=True}" />
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock Text="{Binding SizeLine}" ToolTip="{Binding SizeLine}" Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                            </DockPanel>
+                            <Border x:Name="CanvasFrame" Height="{x:Static vm:WidgetEditorViewModel.CanvasHeight}" CornerRadius="15,15,0,0" SizeChanged="CanvasFrame_SizeChanged">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{StaticResource Backdrop}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding OnLight}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource LightBackdrop}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <ScrollViewer x:Name="CanvasScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Focusable="True"
+                                                  AutomationProperties.Name="{ctl:T 'The widget, to arrange'}" PreviewKeyDown="Canvas_PreviewKeyDown" MouseLeftButtonDown="Canvas_MouseDown">
+                                        <Canvas x:Name="EditCanvas" Width="{Binding ContentWidth}" Height="{Binding ContentHeight}" Background="Transparent">
+                                            <Image Source="{Binding Picture}" Width="{Binding PictureWidth}" Height="{Binding PictureHeight}" Stretch="Fill"
+                                                   Canvas.Left="{Binding PictureLeft}" Canvas.Top="{Binding PictureTop}" RenderOptions.BitmapScalingMode="HighQuality" IsHitTestVisible="False" />
+                                            <ItemsControl ItemsSource="{Binding TileBoxes}" Focusable="False" Width="{Binding ContentWidth}" Height="{Binding ContentHeight}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <Canvas />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemContainerStyle>
+                                                    <Style TargetType="ContentPresenter">
+                                                        <Setter Property="Canvas.Left" Value="{Binding Left}" />
+                                                        <Setter Property="Canvas.Top" Value="{Binding Top}" />
+                                                    </Style>
+                                                </ItemsControl.ItemContainerStyle>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <!-- A tile's handle: picked, it shows its outline, its edges and corner to resize, and the badge to remove it. -->
+                                                        <Grid x:Name="Root" Width="{Binding Width}" Height="{Binding Height}" Tag="move" Background="Transparent" Cursor="SizeAll"
+                                                              MouseLeftButtonDown="Tile_MouseDown" MouseMove="Tile_MouseMove" MouseLeftButtonUp="Tile_MouseUp"
+                                                              AutomationProperties.Name="{Binding Name}">
+                                                            <Border x:Name="Outline" CornerRadius="6" BorderThickness="2" BorderBrush="Transparent" IsHitTestVisible="False" />
+                                                            <!-- Its name over it under the pointer, so it's clear a click picks it. -->
+                                                            <Border x:Name="NameChip" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,-24,0,0" CornerRadius="5" Padding="7,2"
+                                                                    Background="#EDEDED" IsHitTestVisible="False" Visibility="Collapsed">
+                                                                <TextBlock Text="{Binding Name}" Foreground="#0A0A0A" FontSize="{x:Static ctl:TextSize.Caption}" />
+                                                            </Border>
+                                                            <Border x:Name="RightGrip" Width="10" HorizontalAlignment="Right" Margin="0,12,-5,12" Background="Transparent" Cursor="SizeWE" Tag="e"
+                                                                    MouseLeftButtonDown="Tile_MouseDown" MouseMove="Tile_MouseMove" MouseLeftButtonUp="Tile_MouseUp" Visibility="Collapsed" />
+                                                            <Border x:Name="BottomGrip" Height="10" VerticalAlignment="Bottom" Margin="12,0,12,-5" Background="Transparent" Cursor="SizeNS" Tag="s"
+                                                                    MouseLeftButtonDown="Tile_MouseDown" MouseMove="Tile_MouseMove" MouseLeftButtonUp="Tile_MouseUp" Visibility="Collapsed" />
+                                                            <Border x:Name="CornerGrip" Width="12" Height="12" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-6,-6"
+                                                                    Background="White" BorderBrush="#333333" BorderThickness="1" CornerRadius="2" Cursor="SizeNWSE" Tag="se" Visibility="Collapsed"
+                                                                    MouseLeftButtonDown="Tile_MouseDown" MouseMove="Tile_MouseMove" MouseLeftButtonUp="Tile_MouseUp" />
+                                                            <Button x:Name="Badge" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-7,-7,0" Visibility="Collapsed"
+                                                                    Command="{Binding DataContext.RemoveTileCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                                    ToolTip="{ctl:T 'Remove tile'}" AutomationProperties.Name="{ctl:T 'Remove tile'}" Cursor="Hand">
+                                                                <Button.Template>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border x:Name="Bd" CornerRadius="10" Background="#2B2B2B" BorderBrush="#5A5A5A" BorderThickness="1">
+                                                                            <TextBlock x:Name="X" Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S8}" Foreground="#F0F0F0" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <!-- A remove: the dark badge fills red under the pointer (the user's rule, 2026-11-10). -->
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HotBrush}" />
+                                                                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource HotBrush}" />
+                                                                                <Setter TargetName="X" Property="Foreground" Value="{DynamicResource OnHotBrush}" />
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Button.Template>
+                                                            </Button>
+                                                        </Grid>
+                                                        <DataTemplate.Triggers>
+                                                            <Trigger SourceName="Root" Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Outline" Property="BorderBrush" Value="#99FFFFFF" />
+                                                                <Setter TargetName="NameChip" Property="Visibility" Value="Visible" />
+                                                                <Setter TargetName="Badge" Property="Visibility" Value="Visible" />
+                                                            </Trigger>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter TargetName="Outline" Property="BorderBrush" Value="White" />
+                                                                <Setter TargetName="RightGrip" Property="Visibility" Value="Visible" />
+                                                                <Setter TargetName="BottomGrip" Property="Visibility" Value="Visible" />
+                                                                <Setter TargetName="CornerGrip" Property="Visibility" Value="Visible" />
+                                                                <Setter TargetName="Badge" Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Border x:Name="DropOutline" BorderBrush="#D9FFFFFF" BorderThickness="2" CornerRadius="8" Visibility="Collapsed" IsHitTestVisible="False" />
+                                        </Canvas>
+                                    </ScrollViewer>
+                                    <!-- An empty widget: three to start from, or a tile from the list. -->
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}">
+                                        <TextBlock Text="{ctl:T 'Start from one of these, or add a tile.'}" Foreground="#E4DED4" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Center" />
+                                        <ItemsControl ItemsSource="{Binding Starters}" Margin="0,14,0,0" HorizontalAlignment="Center" Focusable="False">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Style="{StaticResource GhostButton}" Content="{Binding Name}" Margin="5,0"
+                                                            Command="{Binding DataContext.StartCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DockPanel>
+                    </ctl:SmoothBorder>
+
+                    <StackPanel Grid.Column="2">
+                        <!-- The widget's tiles: a click picks one, as a click on it on the widget does. -->
+                        <ctl:SmoothBorder Style="{StaticResource Card}" Padding="14,12">
+                            <StackPanel>
+                                <DockPanel Margin="2,0,0,6">
+                                    <Button x:Name="AddTileButton" DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Padding="10,5" Command="{Binding OpenAddListCommand}"
+                                            AutomationProperties.Name="{ctl:T 'Add tile'}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{ctl:T 'Add tile'}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <TextBlock Text="{ctl:T 'TILES'}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                </DockPanel>
+                                <Popup IsOpen="{Binding AddListOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=AddTileButton}" Placement="Bottom" HorizontalOffset="-330"
+                                       VerticalOffset="6" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                                    <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+                                                      CornerRadius="{x:Static ctl:Corner.Tile}" Padding="10" Margin="0,0,8,8" Width="400">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                                        </Border.Effect>
+                                        <DockPanel Height="420">
+                        <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search'}" Height="34" Text="{Binding TileQuery, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.Name="{ctl:T 'Search the tiles'}" />
+                        <ListBox DockPanel.Dock="Top" Style="{StaticResource ChipList}" ItemsSource="{Binding TileChips}" SelectedItem="{Binding PickedTileChip}" ItemTemplate="{StaticResource ChipTemplate}"
+                                 Margin="0,10,0,2" AutomationProperties.Name="{ctl:T 'Kinds of tile'}" />
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding NoTilesText}" Style="{StaticResource Muted}" Margin="4,8" Visibility="{Binding NoTiles, Converter={StaticResource Vis}}" />
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,4,0,0" ctl:WheelChain.Enabled="True">
+                            <ItemsControl ItemsSource="{Binding TileChoicesShown}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource RowButton}" HorizontalContentAlignment="Stretch" Margin="0,0,0,6"
+                                                Command="{Binding DataContext.AddTileCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                AutomationProperties.Name="{Binding Name, StringFormat='Add {0}'}">
+                                            <DockPanel Margin="10,7">
+                                                <TextBlock DockPanel.Dock="Right" Text="&#xE710;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}" FontSize="{x:Static ctl:TextSize.Body}" />
+                                                    <TextBlock Text="{Binding Line}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                                        </DockPanel>
+                                    </ctl:SmoothBorder>
+                                </Popup>
+                                <ItemsControl ItemsSource="{Binding TileBoxes}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource ListChoice}" Padding="8,6" Margin="0,1"
+                                                    Command="{Binding DataContext.PickTileCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                    AutomationProperties.Name="{Binding Name}">
+                                                <DockPanel>
+                                                    <Border DockPanel.Dock="Left" Width="28" Height="28" CornerRadius="{x:Static ctl:Corner.Choice}" Margin="0,0,10,0">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="150" Margin="10,0,0,0" />
+                                                    <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </DockPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="{ctl:T 'No tiles yet.'}" Style="{StaticResource Muted}" Margin="8,4" Visibility="{Binding IsEmpty, Converter={StaticResource Vis}}" />
+                            </StackPanel>
+                        </ctl:SmoothBorder>
+
+                        <!-- What's picked: the whole widget, or one tile. -->
+                        <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0,10" Margin="0,12,0,0">
+                            <Grid>
+                                <!-- Nothing picked: the whole widget, in three tabs. -->
+                                <StackPanel Visibility="{Binding HasTile, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                    <TextBlock Text="{ctl:T 'Click a tile, here or on the widget, to change just that tile.'}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="16,2,16,10" />
+                                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Margin="12,0,12,6">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Style="{StaticResource PanelTab}" Content="{ctl:T 'Look'}" GroupName="editor-tab" IsChecked="{Binding PanelTab, Converter={StaticResource Equals}, ConverterParameter=look}" />
+                                            <RadioButton Style="{StaticResource PanelTab}" Content="{ctl:T 'Shape'}" GroupName="editor-tab" IsChecked="{Binding PanelTab, Converter={StaticResource Equals}, ConverterParameter=shape}" />
+                                            <RadioButton Style="{StaticResource PanelTab}" Content="{ctl:T 'On the desktop'}" GroupName="editor-tab" IsChecked="{Binding PanelTab, Converter={StaticResource Equals}, ConverterParameter=desktop}" />
+                                        </StackPanel>
+                                    </Border>
+                                    <StackPanel Visibility="{Binding PanelTab, Converter={StaticResource EqualsVis}, ConverterParameter=look}">
+
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{ctl:T 'Theme'}" Style="{StaticResource EditLabel}" />
+                                    <ComboBox DockPanel.Dock="Right" Width="160" ItemsSource="{Binding Themes}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Theme}" AutomationProperties.Name="{ctl:T 'Theme'}" />
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{ctl:T 'Accent'}" Style="{StaticResource EditLabel}" />
+                                    <ComboBox DockPanel.Dock="Right" Width="160" ItemsSource="{Binding Accents}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Accent}" AutomationProperties.Name="{ctl:T 'Accent'}" />
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{ctl:T 'Font'}" Style="{StaticResource EditLabel}" />
+                                    <ComboBox DockPanel.Dock="Right" Width="160" ItemsSource="{Binding Fonts}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Font}" AutomationProperties.Name="{ctl:T 'Font'}" />
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{ctl:T 'Colors'}" Style="{StaticResource EditLabel}" />
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Color'}" GroupName="editor-gray" IsChecked="{Binding Grayscale, Converter={StaticResource Equals}, ConverterParameter=False}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grayscale'}" GroupName="editor-gray" IsChecked="{Binding Grayscale, Converter={StaticResource Equals}, ConverterParameter=True}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{ctl:T 'Size'}" Style="{StaticResource EditLabel}" />
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Style="{StaticResource Segment}" Content="S" GroupName="editor-size" IsChecked="{Binding Size, Converter={StaticResource Equals}, ConverterParameter=0.8}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="M" GroupName="editor-size" IsChecked="{Binding Size, Converter={StaticResource Equals}, ConverterParameter=1}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="L" GroupName="editor-size" IsChecked="{Binding Size, Converter={StaticResource Equals}, ConverterParameter=1.25}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="XL" GroupName="editor-size" IsChecked="{Binding Size, Converter={StaticResource Equals}, ConverterParameter=1.5}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="2XL" GroupName="editor-size" IsChecked="{Binding Size, Converter={StaticResource Equals}, ConverterParameter=2}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="3XL" GroupName="editor-size" IsChecked="{Binding Size, Converter={StaticResource Equals}, ConverterParameter=2.5}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}" LastChildFill="True">
+                                    <TextBlock Text="{ctl:T 'Backdrop'}" Style="{StaticResource EditLabel}" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding BackgroundPercent, StringFormat='{}{0:0}%'}" Width="40" TextAlignment="Right" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                    <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center" Value="{Binding BackgroundPercent}" AutomationProperties.Name="{ctl:T 'Backdrop'}" />
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}" LastChildFill="True">
+                                    <TextBlock Text="{ctl:T 'Content'}" Style="{StaticResource EditLabel}" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding ContentPercent, StringFormat='{}{0:0}%'}" Width="40" TextAlignment="Right" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                                    <Slider Minimum="20" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center" Value="{Binding ContentPercent}" AutomationProperties.Name="{ctl:T 'Content'}" />
+                                </DockPanel>
+
+                                    </StackPanel>
+                                    <StackPanel Visibility="{Binding PanelTab, Converter={StaticResource EqualsVis}, ConverterParameter=shape}">
+
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{ctl:T 'Corners'}" Style="{StaticResource EditLabel}" />
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Round'}" GroupName="editor-corners" IsChecked="{Binding Corners, Converter={StaticResource Equals}, ConverterParameter=Round}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Slight'}" GroupName="editor-corners" IsChecked="{Binding Corners, Converter={StaticResource Equals}, ConverterParameter=Slight}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Square'}" GroupName="editor-corners" IsChecked="{Binding Corners, Converter={StaticResource Equals}, ConverterParameter=Square}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{ctl:T 'A box for each tile'}" Style="{StaticResource EditLabel}" />
+                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding TileBoxesOn}" AutomationProperties.Name="{ctl:T 'A box for each tile'}" />
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{ctl:T 'Space between tiles'}" Style="{StaticResource EditLabel}" />
+                                    <ComboBox DockPanel.Dock="Right" Width="120" ItemsSource="{Binding Gaps}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Gap}" AutomationProperties.Name="{ctl:T 'Space between tiles'}" />
+                                </DockPanel>
+                                <!-- Lines only between tiles that share one box. -->
+                                <DockPanel>
+                                    <DockPanel.Style>
+                                        <Style TargetType="DockPanel" BasedOn="{StaticResource EditRow}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding TileBoxesOn}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DockPanel.Style>
+                                    <TextBlock Text="{ctl:T 'Lines between tiles'}" Style="{StaticResource EditLabel}" />
+                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding TileLines}" AutomationProperties.Name="{ctl:T 'Lines between tiles'}" />
+                                </DockPanel>
+
+                                    </StackPanel>
+                                    <StackPanel Visibility="{Binding PanelTab, Converter={StaticResource EqualsVis}, ConverterParameter=desktop}">
+
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{ctl:T 'Place'}" Style="{StaticResource EditLabel}" />
+                                    <!-- The nine places; the one the widget is at is lit in the accent colour. -->
+                                    <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding PlaceSpots}" Width="84" Height="60" Focusable="False">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="3" Rows="3" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Padding="0" Margin="2" Command="{Binding DataContext.PlaceCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding Arg}" AutomationProperties.Name="{Binding Name}" ToolTip="{Binding Name}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
                                                             <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Text, ElementName=LabelBox}" Value="">
-                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </Grid>
+                                                    </Button.Style>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{ctl:T 'Lock in place (click-through)'}" Style="{StaticResource EditLabel}" />
+                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Locked}" AutomationProperties.Name="{ctl:T 'Lock in place (click-through)'}" />
+                                </DockPanel>
+
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- A tile picked: back to the whole widget, the tile's name and line, its own settings. -->
+                                <StackPanel Visibility="{Binding HasTile, Converter={StaticResource Vis}}">
+                                    <Button Style="{StaticResource PlainLink}" Command="{Binding WholeWidgetCommand}" HorizontalAlignment="Left" Margin="14,0,0,6" AutomationProperties.Name="{ctl:T 'Whole widget'}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE76B;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{ctl:T 'Whole widget'}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="16,4,14,12" Margin="0,0,0,6">
+                                        <DockPanel>
+                                            <Border DockPanel.Dock="Left" Width="34" Height="34" CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" Margin="0,0,12,0">
+                                                <TextBlock Text="{Binding TileGlyph}" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S16}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button Style="{StaticResource IconButton}" Command="{Binding DuplicateTileCommand}" ToolTip="{ctl:T 'Duplicate tile'}" AutomationProperties.Name="{ctl:T 'Duplicate tile'}" Margin="0,0,6,0">
+                                                    <TextBlock Text="&#xE8C8;" />
+                                                </Button>
+                                                <Button Style="{StaticResource DangerIconButton}" Command="{Binding RemovePickedTileCommand}" ToolTip="{ctl:T 'Remove tile'}" AutomationProperties.Name="{ctl:T 'Remove tile'}">
+                                                    <TextBlock Text="&#xE74D;" />
+                                                </Button>
+                                            </StackPanel>
                                             <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
-                                                           Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
-                                                <!-- Kept for another layout: greyed, with why. -->
-                                                <TextBlock Text="{Binding NotShownText}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource WarmBrush}"
-                                                           Visibility="{Binding NotShown, Converter={StaticResource Vis}}" />
+                                                <TextBlock Text="{Binding TileName}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding TileLine}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" Margin="0,2,0,0" />
                                             </StackPanel>
                                         </DockPanel>
                                     </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                <!-- A clock -->
+                                <StackPanel Visibility="{Binding IsClock, Converter={StaticResource Vis}}">
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Style'}" Style="{StaticResource EditLabel}" />
+                                        <ComboBox DockPanel.Dock="Right" Width="150" ItemsSource="{Binding ClockStyles}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding ClockStyle}" AutomationProperties.Name="{ctl:T 'Style'}" />
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Hours'}" Style="{StaticResource EditLabel}" />
+                                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T '12-hour'}" GroupName="editor-hours" IsChecked="{Binding Hours24, Converter={StaticResource Equals}, ConverterParameter=False}" />
+                                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T '24-hour'}" GroupName="editor-hours" IsChecked="{Binding Hours24, Converter={StaticResource Equals}, ConverterParameter=True}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Seconds'}" Style="{StaticResource EditLabel}" />
+                                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Seconds}" AutomationProperties.Name="{ctl:T 'Seconds'}" />
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Date'}" Style="{StaticResource EditLabel}" />
+                                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding ShowDate}" AutomationProperties.Name="{ctl:T 'Date'}" />
+                                    </DockPanel>
+                                </StackPanel>
+                                <!-- A reading -->
+                                <StackPanel Visibility="{Binding IsReading, Converter={StaticResource Vis}}">
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Reading'}" Style="{StaticResource EditLabel}" />
+                                        <Grid DockPanel.Dock="Right" Width="190">
+                                            <Button x:Name="ReadingButton" Style="{StaticResource DropButton}" MinWidth="0" Command="{Binding OpenReadingPickerCommand}" CommandParameter="tile"
+                                                    AutomationProperties.Name="{ctl:T 'Reading'}">
+                                                <DockPanel>
+                                                                                                            <TextBlock Text="{Binding ReadingShown}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                </DockPanel>
+                                            </Button>
+                                            <Popup IsOpen="{Binding ReadingPickerOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=ReadingButton}" Placement="Bottom" HorizontalOffset="-210"
+                                                   VerticalOffset="4" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Opened="ReadingPicker_Opened">
+                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ReadingPickerList}" Focusable="False" />
+                                            </Popup>
+                                        </Grid>
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Look'}" Style="{StaticResource EditLabel}" />
+                                        <ComboBox DockPanel.Dock="Right" Width="190" ItemsSource="{Binding Looks}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Look}" AutomationProperties.Name="{ctl:T 'Look'}" />
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Short name'}" Style="{StaticResource EditLabel}" />
+                                        <TextBox x:Name="ShortNameBox" DockPanel.Dock="Right" Width="150" Text="{Binding ShortName, UpdateSourceTrigger=LostFocus}" MaxLength="18" AutomationProperties.Name="{ctl:T 'Short name'}" />
+                                    </DockPanel>
+                                </StackPanel>
+                                <!-- A line of readings or a graph -->
+                                <StackPanel Visibility="{Binding HasReadings, Converter={StaticResource Vis}}">
+                                    <ItemsControl ItemsSource="{Binding TileReadings}" Focusable="False" Margin="16,2,16,4">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,2">
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat='Remove {0}'}"
+                                                            Command="{Binding DataContext.RemoveReadingCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                        <TextBlock Text="&#xE711;" />
+                                                    </Button>
+                                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Add a reading'}" Style="{StaticResource EditLabel}" />
+                                        <Grid DockPanel.Dock="Right" Width="190">
+                                            <Button x:Name="AddReadingButton" Style="{StaticResource DropButton}" MinWidth="0" Command="{Binding OpenReadingPickerCommand}" CommandParameter="add"
+                                                    AutomationProperties.Name="{ctl:T 'Add a reading'}">
+                                                <DockPanel>
+                                                                                                            <TextBlock Text="{ctl:T 'Add a reading'}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                </DockPanel>
+                                            </Button>
+                                            <Popup IsOpen="{Binding AddPickerOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=AddReadingButton}" Placement="Bottom" HorizontalOffset="-210"
+                                                   VerticalOffset="4" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" Opened="ReadingPicker_Opened">
+                                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ReadingPickerList}" Focusable="False" />
+                                            </Popup>
+                                        </Grid>
+                                    </DockPanel>
+                                </StackPanel>
+                                <!-- A note or a to-do list: its text size. -->
+                                <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding HasTextSize, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="{ctl:T 'Text size'}" Style="{StaticResource EditLabel}" />
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Small'}" GroupName="editor-textsize" IsChecked="{Binding TextSize, Converter={StaticResource Equals}, ConverterParameter=Small}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Medium'}" GroupName="editor-textsize" IsChecked="{Binding TextSize, Converter={StaticResource Equals}, ConverterParameter=Medium}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Large'}" GroupName="editor-textsize" IsChecked="{Binding TextSize, Converter={StaticResource Equals}, ConverterParameter=Large}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DockPanel>
+                                <!-- A note: its text, here or typed straight onto it on the desktop. -->
+                                <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding IsNotes, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="{ctl:T 'Sticky note'}" Style="{StaticResource EditLabel}" />
+                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding NoteSticky}" AutomationProperties.Name="{ctl:T 'Sticky note'}" />
+                                </DockPanel>
+                                <StackPanel Visibility="{Binding IsNotes, Converter={StaticResource Vis}}" Margin="16,4,16,6">
+                                    <TextBox x:Name="NoteBox" Style="{StaticResource FieldArea}" Text="{Binding NoteText, UpdateSourceTrigger=LostFocus}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="96" MaxHeight="220"
+                                             VerticalScrollBarVisibility="Auto" AutomationProperties.Name="{ctl:T 'Note'}" />
+                                    <TextBlock Text="{ctl:T 'Or click the note on your desktop and type.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,6,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <!-- A to-do list: its items, ticked or not, and a box to add one. -->
+                                <StackPanel Visibility="{Binding IsTodo, Converter={StaticResource Vis}}" Margin="16,2,16,6">
+                                    <TextBlock Text="{ctl:T 'ITEMS'}" Style="{StaticResource Caption}" Margin="0,6,0,4" />
+                                    <ItemsControl ItemsSource="{Binding TodoRows}" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,2">
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Text, StringFormat='Remove {0}'}"
+                                                            Command="{Binding DataContext.RemoveTodoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                        <TextBlock Text="&#xE711;" />
+                                                    </Button>
+                                                    <CheckBox IsChecked="{Binding Done, Mode=OneWay}" Command="{Binding DataContext.ToggleTodoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                              VerticalAlignment="Center" AutomationProperties.Name="{Binding Text}">
+                                                        <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis" />
+                                                    </CheckBox>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <DockPanel Margin="0,6,0,0">
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Add'}" Command="{Binding AddTodoCommand}" Margin="8,0,0,0" />
+                                        <TextBox x:Name="NewTodoBox" Style="{StaticResource FieldBox}" Tag="{ctl:T 'Add an item'}" Text="{Binding NewTodo, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{ctl:T 'Add an item'}" KeyDown="NewTodo_KeyDown" />
+                                    </DockPanel>
+                                    <TextBlock Text="{ctl:T 'Tick items and add new ones on the widget too.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,6,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <!-- A timer: its kind, then a timer's length or a countdown's day. -->
+                                <StackPanel Visibility="{Binding IsTimerTile, Converter={StaticResource Vis}}">
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Kind'}" Style="{StaticResource EditLabel}" />
+                                        <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Timer'}" GroupName="editor-timerkind" IsChecked="{Binding TimerKind, Converter={StaticResource Equals}, ConverterParameter=Timer}" />
+                                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Stopwatch'}" GroupName="editor-timerkind" IsChecked="{Binding TimerKind, Converter={StaticResource Equals}, ConverterParameter=Stopwatch}" />
+                                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Countdown'}" GroupName="editor-timerkind" IsChecked="{Binding TimerKind, Converter={StaticResource Equals}, ConverterParameter=Countdown}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding IsTimerOnly, Converter={StaticResource Vis}}">
+                                        <TextBlock Text="{ctl:T 'Length'}" Style="{StaticResource EditLabel}" />
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Style="{StaticResource IconButton}" Command="{Binding StepMinutesCommand}" CommandParameter="-" ToolTip="{ctl:T 'Shorter'}" AutomationProperties.Name="{ctl:T 'Shorter'}"><TextBlock Text="&#xE738;" /></Button>
+                                            <TextBlock Text="{Binding TimerMinutes}" Width="32" TextAlignment="Center" VerticalAlignment="Center" Style="{StaticResource Body}" />
+                                            <Button Style="{StaticResource IconButton}" Command="{Binding StepMinutesCommand}" CommandParameter="+" ToolTip="{ctl:T 'Longer'}" AutomationProperties.Name="{ctl:T 'Longer'}"><TextBlock Text="&#xE710;" /></Button>
+                                            <TextBlock Text="{ctl:T 'minutes'}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding IsCountdownTile, Converter={StaticResource Vis}}">
+                                        <TextBlock Text="{ctl:T 'Day'}" Style="{StaticResource EditLabel}" />
+                                        <DatePicker DockPanel.Dock="Right" Width="170" SelectedDate="{Binding CountdownDay}" AutomationProperties.Name="{ctl:T 'Day'}" />
+                                    </DockPanel>
+                                    <TextBlock Text="{ctl:T 'Start, pause and reset on the widget itself.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="16,4,16,6" TextWrapping="Wrap"
+                                               Visibility="{Binding IsCountdownTile, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                </StackPanel>
+                                <!-- Weather: the place, found by name. -->
+                                <StackPanel Visibility="{Binding IsWeather, Converter={StaticResource Vis}}" Margin="16,2,16,6">
+                                    <TextBlock Text="{ctl:T 'LOCATION'}" Style="{StaticResource Caption}" Margin="0,6,0,4" />
+                                    <TextBlock Text="{Binding PlaceName}" Style="{StaticResource Body}" FontWeight="SemiBold" Margin="0,0,0,6" Visibility="{Binding PlaceName, Converter={StaticResource Vis}}" />
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Find'}" Command="{Binding FindPlaceCommand}" Margin="8,0,0,0" />
+                                        <TextBox x:Name="PlaceBox" Style="{StaticResource FieldBox}" Tag="{ctl:T 'A town or city'}" Text="{Binding PlaceQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="{ctl:T 'A town or city'}" KeyDown="PlaceBox_KeyDown" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding PlaceNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,6,0,0" TextWrapping="Wrap"
+                                               Visibility="{Binding PlaceNote, Converter={StaticResource Vis}}" />
+                                    <ItemsControl ItemsSource="{Binding PlacesFound}" Focusable="False" Margin="0,6,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource ListChoice}" Padding="8,6" Margin="0,1" AutomationProperties.Name="{Binding Name}"
+                                                        Command="{Binding DataContext.PickPlaceCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="{ctl:T 'Weather from MET Norway, places from OpenStreetMap.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,8,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <!-- Shortcuts: the apps, files, folders and links, and ways to add more. -->
+                                <StackPanel Visibility="{Binding IsShortcuts, Converter={StaticResource Vis}}" Margin="16,2,16,6">
+                                    <TextBlock Text="{ctl:T 'SHORTCUTS'}" Style="{StaticResource Caption}" Margin="0,6,0,4" />
+                                    <ItemsControl ItemsSource="{Binding LinkRows}" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,2">
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat='Remove {0}'}"
+                                                            Command="{Binding DataContext.RemoveLinkCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                        <TextBlock Text="&#xE711;" />
+                                                    </Button>
+                                                    <TextBlock DockPanel.Dock="Left" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource MutedBrush}" Width="24" VerticalAlignment="Center" />
+                                                    <StackPanel VerticalAlignment="Center" Margin="4,0,8,0">
+                                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Where}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <WrapPanel Margin="0,6,0,0">
+                                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Add an app or file'}" Command="{Binding AddAppCommand}" Margin="0,0,8,6" />
+                                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Add a folder'}" Command="{Binding AddFolderCommand}" Margin="0,0,8,6" />
+                                    </WrapPanel>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Add'}" Command="{Binding AddWebLinkCommand}" Margin="8,0,0,0" />
+                                        <TextBox x:Name="NewLinkBox" Style="{StaticResource FieldBox}" Tag="{ctl:T 'A web address'}" Text="{Binding NewLink, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="{ctl:T 'A web address'}" KeyDown="NewLink_KeyDown" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding LinkNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,6,0,0" TextWrapping="Wrap"
+                                               Visibility="{Binding LinkNote, Converter={StaticResource Vis}}" />
+                                    <TextBlock Text="{ctl:T 'Click one on the widget to open it.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,6,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <!-- Photos: the folder, and how often the next picture comes. -->
+                                <StackPanel Visibility="{Binding IsPhotos, Converter={StaticResource Vis}}">
+                                    <DockPanel Style="{StaticResource EditRow}" LastChildFill="True">
+                                        <TextBlock Text="{ctl:T 'Folder'}" Style="{StaticResource EditLabel}" />
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Pick a folder'}" Command="{Binding PickPhotoFolderCommand}" Margin="8,0,0,0" />
+                                        <TextBlock Text="{Binding PhotoFolder}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding PhotoFolder}" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding PhotoCount}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="16,0,16,4"
+                                               Visibility="{Binding HasPhotoFolder, Converter={StaticResource Vis}}" />
+                                    <DockPanel Style="{StaticResource EditRow}">
+                                        <TextBlock Text="{ctl:T 'Next picture'}" Style="{StaticResource EditLabel}" />
+                                        <ComboBox DockPanel.Dock="Right" Width="170" ItemsSource="{Binding PhotoSteps}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding PhotoEvery}"
+                                                  AutomationProperties.Name="{ctl:T 'Next picture'}" />
+                                    </DockPanel>
+                                </StackPanel>
+                                <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding CanAlign, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="{ctl:T 'Align'}" Style="{StaticResource EditLabel}" />
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Left'}" GroupName="editor-align" IsChecked="{Binding Align, Converter={StaticResource Equals}, ConverterParameter=Left}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Center'}" GroupName="editor-align" IsChecked="{Binding Align, Converter={StaticResource Equals}, ConverterParameter=Center}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Right'}" GroupName="editor-align" IsChecked="{Binding Align, Converter={StaticResource Equals}, ConverterParameter=Right}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DockPanel>
+                                <!-- Ready sizes, one click each, where the tile's layout changes (the user, 2026-11-11); the cells under them. -->
+                                <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding HasSizePresets, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="{ctl:T 'Size'}" Style="{StaticResource EditLabel}" />
+                                    <ListBox DockPanel.Dock="Right" Style="{StaticResource SegmentList}" ItemsSource="{Binding SizePresets}" DisplayMemberPath="Name" SelectedValuePath="Value"
+                                             SelectedValue="{Binding TilePreset}" VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Size'}" />
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
+                                        <TextBlock Text="{ctl:T 'In grid cells'}" Style="{StaticResource Body}" />
+                                    </StackPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Style="{StaticResource IconButton}" Command="{Binding GrowCommand}" CommandParameter="w-" ToolTip="{ctl:T 'Narrower'}" AutomationProperties.Name="{ctl:T 'Narrower'}"><TextBlock Text="&#xE738;" /></Button>
+                                        <TextBlock Text="{Binding TileW}" Width="24" TextAlignment="Center" VerticalAlignment="Center" Style="{StaticResource Body}" />
+                                        <Button Style="{StaticResource IconButton}" Command="{Binding GrowCommand}" CommandParameter="w+" ToolTip="{ctl:T 'Wider'}" AutomationProperties.Name="{ctl:T 'Wider'}"><TextBlock Text="&#xE710;" /></Button>
+                                        <TextBlock Text="×" Margin="8,0" VerticalAlignment="Center" Foreground="{DynamicResource FaintBrush}" />
+                                        <Button Style="{StaticResource IconButton}" Command="{Binding GrowCommand}" CommandParameter="h-" ToolTip="{ctl:T 'Shorter'}" AutomationProperties.Name="{ctl:T 'Shorter'}"><TextBlock Text="&#xE738;" /></Button>
+                                        <TextBlock Text="{Binding TileH}" Width="24" TextAlignment="Center" VerticalAlignment="Center" Style="{StaticResource Body}" />
+                                        <Button Style="{StaticResource IconButton}" Command="{Binding GrowCommand}" CommandParameter="h+" ToolTip="{ctl:T 'Taller'}" AutomationProperties.Name="{ctl:T 'Taller'}"><TextBlock Text="&#xE710;" /></Button>
+                                    </StackPanel>
+                                </DockPanel>
 
-                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Reset to default'}" Command="{Binding ResetCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"
-                                Visibility="{Binding CanReset, Converter={StaticResource Vis}}" ToolTip="{ctl:T 'Back to this widget\'s own readings'}" />
+                                </StackPanel>
+                            </Grid>
+                        </ctl:SmoothBorder>
                     </StackPanel>
-
-                    <!-- Look -->
-                    <TextBlock Text="{ctl:T 'LOOK'}" Style="{StaticResource Section}" />
-                    <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <TextBlock Text="{ctl:T 'THEME'}" Style="{StaticResource OptionLabel}" />
-                        <Border Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Dark'}" GroupName="editor-theme"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Dark}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Gray'}" GroupName="editor-theme"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Grey}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Light'}" GroupName="editor-theme"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=Light}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'System'}" GroupName="editor-theme"
-                                             IsChecked="{Binding Theme, Converter={StaticResource Equals}, ConverterParameter=System}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <TextBlock Text="{ctl:T 'COLORS'}" Style="{StaticResource OptionLabel}" />
-                        <Border Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Color'}" GroupName="editor-colors"
-                                             IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Color}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Grayscale'}" GroupName="editor-colors"
-                                             IsChecked="{Binding Colors, Converter={StaticResource Equals}, ConverterParameter=Grayscale}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <TextBlock Text="{ctl:T 'SIZE'}" Style="{StaticResource OptionLabel}" />
-                        <Border Style="{StaticResource SegmentHost}">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton Style="{StaticResource Segment}" Content="S" GroupName="editor-size"
-                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=0.8}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="M" GroupName="editor-size"
-                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=1}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="L" GroupName="editor-size"
-                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=1.25}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="XL" GroupName="editor-size"
-                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=1.5}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="2XL" GroupName="editor-size"
-                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=2}" />
-                                <RadioButton Style="{StaticResource Segment}" Content="3XL" GroupName="editor-size"
-                                             IsChecked="{Binding Scale, Converter={StaticResource Equals}, ConverterParameter=2.5}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                    <DockPanel Margin="0,4" ToolTip="{ctl:T 'The panel behind the readings. At 0% only the readings show, with a soft shadow so they stay readable.'}">
-                        <TextBlock Text="{ctl:T 'BACKGROUND'}" Style="{StaticResource OptionLabel}" />
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding BackgroundPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
-                                   Style="{StaticResource Body}" VerticalAlignment="Center" />
-                        <Slider Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
-                                Value="{Binding BackgroundPercent}" AutomationProperties.Name="Background" />
-                    </DockPanel>
-                    <DockPanel Margin="0,4" ToolTip="{ctl:T 'The readings themselves, with their numbers, labels, gauges and charts.'}">
-                        <TextBlock Text="{ctl:T 'CONTENT'}" Style="{StaticResource OptionLabel}" />
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding ContentPercent, StringFormat='{}{0:0}%'}" Width="44" TextAlignment="Right"
-                                   Style="{StaticResource Body}" VerticalAlignment="Center" />
-                        <Slider Minimum="20" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
-                                Value="{Binding ContentPercent}" AutomationProperties.Name="Content" />
-                    </DockPanel>
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Locked}" Margin="0,8,0,0">
-                        <TextBlock Text="{ctl:T 'Lock in place (click-through)'}" Style="{StaticResource Body}" />
-                    </CheckBox>
-
-                    <!-- The user's own: copy or remove -->
-                    <StackPanel Orientation="Horizontal" Margin="0,24,0,0" Visibility="{Binding IsCustom, Converter={StaticResource Vis}}">
-                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Duplicate'}" Command="{Binding DuplicateCommand}" />
-                        <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Delete widget'}" Command="{Binding DeleteCommand}" Margin="8,0,0,0"
-                                Foreground="{DynamicResource HotBrush}" />
-                    </StackPanel>
-                </StackPanel>
-            </ScrollViewer>
-        </Border>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

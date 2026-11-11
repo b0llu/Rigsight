@@ -1,6 +1,11 @@
 using System.Drawing;
 
+#if RIGSIGHT_APP
+// Linked into the app, which draws widgets with the same code for its Widgets page (see Rigsight.csproj).
+namespace Rigsight.TaskbarDrawing;
+#else
 namespace Rigsight.Agent.Widgets;
+#endif
 
 /// <summary>
 /// App icons as bitmaps, the most recently used few only (the app in front, the app a notice is about): an agent that
@@ -19,6 +24,12 @@ internal sealed class RecentIcons(int capacity = 16)
     public int Count
     {
         get { lock (_lock) return _icons.Count; }
+    }
+
+    /// <summary>Whether <paramref name="path"/>'s icon has been loaded and is still kept (null counts: none was found).</summary>
+    public bool Contains(string path)
+    {
+        lock (_lock) return _icons.ContainsKey(path);
     }
 
     /// <summary>The icon of <paramref name="path"/>, loaded with <paramref name="load"/> the first time (null: none).</summary>

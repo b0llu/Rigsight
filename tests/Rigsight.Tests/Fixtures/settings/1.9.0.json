@@ -1,0 +1,642 @@
+{
+  "SettingsVersion": 13,
+  "UseFahrenheit": true,
+  "ClockStyle": "H24",
+  "Language": "es",
+  "Theme": "plum",
+  "DarkTheme": "plum",
+  "LightTheme": "paper",
+  "Accent": "teal",
+  "KeepStatusColors": true,
+  "LiveRefreshMs": 1500,
+  "ChartWindowSeconds": 604800,
+  "ChartPlot": "Average",
+  "Tracking": {
+    "PausedUntil": 1794200000,
+    "SensorIntervalMs": 3000,
+    "ProcessIntervalSeconds": 10,
+    "IdleMinutes": 12,
+    "FullscreenCountsAsActive": false,
+    "PingChecks": false,
+    "KeepHistoryDays": 365,
+    "ExcludedApps": [
+      "notepad.exe",
+      "spotify.exe"
+    ]
+  },
+  "Alerts": {
+    "Enabled": false,
+    "CpuLimit": 78,
+    "GpuLimit": 81,
+    "GpuHotSpotLimit": 94,
+    "SustainSeconds": 25,
+    "CooldownMinutes": 30,
+    "SessionSummaries": false,
+    "DailyRecap": false,
+    "SessionSummaryMinMinutes": 40,
+    "CrashNotifications": false,
+    "InternetDrops": false,
+    "QuietDuringFullscreen": false,
+    "Style": "Windows",
+    "CardSeconds": 14,
+    "FanStops": false,
+    "DriveHealth": false,
+    "HotterThanUsual": false,
+    "GpuSlowing": false,
+    "FansSlower": false,
+    "MoreProblems": false,
+    "WorseChanges": false,
+    "DriveFull": false,
+    "WeeklyRecap": true,
+    "MemoryGrowth": true,
+    "NewStartupApps": true,
+    "CardsPerDay": 2
+  },
+  "Rewind": {
+    "Month": false,
+    "Quarter": false,
+    "Half": false,
+    "Year": false,
+    "Time": false,
+    "Games": false,
+    "Internet": false,
+    "Heat": false,
+    "Changes": false,
+    "Problems": false,
+    "LeftOut": [
+      "heat",
+      "internet"
+    ],
+    "FullScreen": false,
+    "Notify": false,
+    "ShareAccent": "violet",
+    "ShareShape": "square"
+  },
+  "Ai": {
+    "Mode": "Ollama",
+    "Place": "Sidebar",
+    "Shortcut": "Ctrl+Shift+J",
+    "ShortcutGiven": true,
+    "PageButtons": false,
+    "KeepConversationDays": 90,
+    "SendingNoteClosed": true,
+    "WebSearchNoteClosed": true,
+    "FirstQuestionSeen": [
+      "RigSight",
+      "Ollama"
+    ],
+    "GiftsSeen": [
+      41
+    ],
+    "TrialNotesSeen": [
+      "ended:2026-11-05T08:41:15.1500000+05:30"
+    ],
+    "Service": "Anthropic",
+    "Model": "some-model",
+    "CustomAddress": "https://example.test/v1",
+    "OllamaAddress": "http://localhost:11500",
+    "OllamaModel": "llama3",
+    "OllamaPreferences": {
+      "Length": "short",
+      "Tone": "plain",
+      "Language": "es",
+      "About": "I play at 1440p."
+    },
+    "OwnKeyPreferences": {
+      "Length": "long",
+      "Tone": "plain",
+      "Language": "fr",
+      "About": "Small case, quiet fans."
+    },
+    "PagesOff": [
+      "network"
+    ],
+    "ShareCrashes": false,
+    "ShareHeat": false,
+    "ShareApps": false,
+    "ShareChanges": false,
+    "ShareMemory": false,
+    "ShareNetwork": false,
+    "ShareParts": false,
+    "ShareUsage": false
+  },
+  "Widgets": [
+    {
+      "Style": "Compact",
+      "Id": "Compact",
+      "Name": null,
+      "Layout": null,
+      "Items": null,
+      "Enabled": true,
+      "X": 1800,
+      "Y": 40,
+      "BackgroundOpacity": 0.5,
+      "ContentOpacity": 0.8,
+      "Scale": 1.25,
+      "Locked": true,
+      "Theme": "Light",
+      "Grayscale": true,
+      "Visibility": "HideInFullscreen"
+    },
+    {
+      "Style": "Pill",
+      "Id": "Pill",
+      "Name": null,
+      "Layout": null,
+      "Items": null,
+      "Enabled": true,
+      "X": 100,
+      "Y": 200,
+      "BackgroundOpacity": 0.7,
+      "ContentOpacity": 0.9,
+      "Scale": 1.5,
+      "Locked": false,
+      "Theme": "Grey",
+      "Grayscale": false,
+      "Visibility": "Always"
+    },
+    {
+      "Style": "Gauges",
+      "Id": "Gauges",
+      "Name": null,
+      "Layout": null,
+      "Items": null,
+      "Enabled": false,
+      "X": null,
+      "Y": null,
+      "BackgroundOpacity": 0.94,
+      "ContentOpacity": 1,
+      "Scale": 1,
+      "Locked": false,
+      "Theme": "System",
+      "Grayscale": true,
+      "Visibility": "Always"
+    },
+    {
+      "Style": "NowPlaying",
+      "Id": "NowPlaying",
+      "Name": null,
+      "Layout": null,
+      "Items": null,
+      "Enabled": false,
+      "X": 2238,
+      "Y": 62,
+      "BackgroundOpacity": 1,
+      "ContentOpacity": 1,
+      "Scale": 1,
+      "Locked": false,
+      "Theme": "Dark",
+      "Grayscale": false,
+      "Visibility": "Always"
+    },
+    {
+      "Style": "Today",
+      "Id": "Today",
+      "Name": null,
+      "Layout": null,
+      "Items": null,
+      "Enabled": false,
+      "X": null,
+      "Y": null,
+      "BackgroundOpacity": 0.94,
+      "ContentOpacity": 0.94,
+      "Scale": 1,
+      "Locked": false,
+      "Theme": "Dark",
+      "Grayscale": true,
+      "Visibility": "Always"
+    },
+    {
+      "Style": "Graph",
+      "Id": "Graph",
+      "Name": null,
+      "Layout": null,
+      "Items": null,
+      "Enabled": false,
+      "X": null,
+      "Y": null,
+      "BackgroundOpacity": 0.94,
+      "ContentOpacity": 0.94,
+      "Scale": 2,
+      "Locked": false,
+      "Theme": "Dark",
+      "Grayscale": true,
+      "Visibility": "Always"
+    },
+    {
+      "Style": "Fps",
+      "Id": "Fps",
+      "Name": null,
+      "Layout": null,
+      "Items": null,
+      "Enabled": true,
+      "X": 10,
+      "Y": 10,
+      "BackgroundOpacity": 0.3,
+      "ContentOpacity": 1,
+      "Scale": 0.8,
+      "Locked": true,
+      "Theme": "Dark",
+      "Grayscale": true,
+      "Visibility": "Always"
+    },
+    {
+      "Style": "Custom",
+      "Id": "custom-ace425ba",
+      "Name": "Desk",
+      "Layout": "Tiles",
+      "Items": [
+        {
+          "Id": "CpuTemp",
+          "Label": "Chip"
+        },
+        {
+          "Id": "GpuTemp",
+          "Label": null
+        },
+        {
+          "Id": "Ram",
+          "Label": null
+        }
+      ],
+      "Enabled": true,
+      "X": 2276,
+      "Y": 31,
+      "BackgroundOpacity": 0.6,
+      "ContentOpacity": 0.9,
+      "Scale": 1.1,
+      "Locked": true,
+      "Theme": "Light",
+      "Grayscale": false,
+      "Visibility": "HideInFullscreen"
+    },
+    {
+      "Style": "Custom",
+      "Id": "custom-1a2b3c4d",
+      "Name": "Desk",
+      "Enabled": true,
+      "X": 100,
+      "Y": 200,
+      "Theme": "Light",
+      "Scale": 1.5,
+      "Accent": "#22D3EE",
+      "Font": "Bahnschrift",
+      "Corners": "Square",
+      "TileBoxes": true,
+      "Gap": "Small",
+      "Tiles": [
+        {
+          "Kind": "clock",
+          "X": 0,
+          "Y": 0,
+          "W": 6,
+          "H": 2,
+          "Align": "Right",
+          "Style": "Analog",
+          "Hours24": true,
+          "Seconds": true,
+          "ShowDate": false
+        },
+        {
+          "Kind": "reading",
+          "X": 6,
+          "Y": 0,
+          "W": 3,
+          "H": 2,
+          "Item": "CpuTemp",
+          "Label": "CPU",
+          "Look": "Ring"
+        },
+        {
+          "Kind": "line",
+          "X": 0,
+          "Y": 2,
+          "W": 7,
+          "H": 1,
+          "Items": [
+            {
+              "Id": "GpuTemp",
+              "Label": "GPU"
+            }
+          ]
+        },
+        {
+          "Kind": "notes",
+          "X": 0,
+          "Y": 3,
+          "W": 6,
+          "H": 4,
+          "Text": "BIOS update on Saturday",
+          "TextSize": "Large"
+        },
+        {
+          "Kind": "todo",
+          "X": 6,
+          "Y": 3,
+          "W": 6,
+          "H": 4,
+          "Todos": [
+            {
+              "Text": "Clean the dust filters",
+              "Done": true
+            }
+          ]
+        },
+        {
+          "Kind": "timer",
+          "X": 0,
+          "Y": 7,
+          "W": 6,
+          "H": 2,
+          "TimerKind": "Stopwatch",
+          "Minutes": 10,
+          "RunningSince": 1794200000000,
+          "RunMs": 5000,
+          "Until": "2026-12-24T00:00:00"
+        },
+        {
+          "Kind": "weather",
+          "X": 6,
+          "Y": 7,
+          "W": 6,
+          "H": 2,
+          "Place": "Pune",
+          "Lat": 18.52,
+          "Lon": 73.85
+        },
+        {
+          "Kind": "shortcuts",
+          "X": 0,
+          "Y": 9,
+          "W": 6,
+          "H": 2,
+          "Links": [
+            {
+              "Path": "C:\\Windows\\notepad.exe",
+              "Name": "Notepad"
+            }
+          ]
+        },
+        {
+          "Kind": "photos",
+          "X": 6,
+          "Y": 9,
+          "W": 6,
+          "H": 4,
+          "Folder": "C:\\Users\\Public\\Pictures",
+          "Every": 300
+        }
+      ]
+    },
+    {
+      "Style": "Custom",
+      "Id": "custom-5e6f7a8b",
+      "Name": "Lines",
+      "Enabled": false,
+      "TileLines": true,
+      "Tiles": [
+        {
+          "Kind": "date",
+          "X": 0,
+          "Y": 0,
+          "W": 3,
+          "H": 2
+        },
+        {
+          "Kind": "calendar",
+          "X": 3,
+          "Y": 0,
+          "W": 6,
+          "H": 6
+        }
+      ]
+    }
+  ],
+  "Overlay": {
+    "Enabled": false,
+    "OnlyOverGames": true,
+    "Gap": "Large",
+    "GapPx": 7,
+    "GameScreen": "DISPLAY2",
+    "Hotkey": "Ctrl+Alt+O",
+    "Corner": "BottomRight",
+    "Anchor": 5,
+    "OffsetX": 0.25,
+    "OffsetY": -0.1,
+    "SnapPosition": false,
+    "Layout": "Line",
+    "BackgroundOpacity": 0.4,
+    "ContentOpacity": 0.7,
+    "Scale": 1.5,
+    "Grayscale": false,
+    "Metrics": [
+      "Fps",
+      "OnePercentLow",
+      "CpuTemp",
+      "GpuTemp"
+    ],
+    "Sensors": [
+      {
+        "Id": "/amdcpu/0/power/0",
+        "Label": "CPU W"
+      }
+    ]
+  },
+  "AppNames": {
+    "game-shipping.exe": "My Game"
+  },
+  "AppCategories": {
+    "game-shipping.exe": "Game"
+  },
+  "SensorLabels": {
+    "/amdcpu/0/temperature/2": "Die"
+  },
+  "HiddenSensors": [
+    "/amdcpu/0/voltage/1"
+  ],
+  "CollapsedHardware": [
+    "Total Memory"
+  ],
+  "HardwareOrder": [
+    "NVIDIA GeForce RTX 3080 Ti",
+    "AMD Ryzen 7 5700X3D"
+  ],
+  "NetColorApps": [
+    "2:obs64.exe",
+    "1:chrome.exe"
+  ],
+  "TraySensors": [
+    "/amdcpu/0/temperature/2",
+    "/amdcpu/0/load/0",
+    "/gpu-nvidia/0/temperature/0",
+    "rigsight/network/both",
+    "/ram/load/0"
+  ],
+  "TrayShown": false,
+  "WidgetsShown": false,
+  "WidgetSnap": true,
+  "WidgetFade": true,
+  "WidgetsHotkey": "Ctrl+Alt+W",
+  "WidgetsFrontHotkey": "Ctrl+Alt+Q",
+  "TrayStyle": "Icons",
+  "TrayStyles": {
+    "/amdcpu/0/temperature/2": "TwoRows",
+    "/amdcpu/0/load/0": "TwoRows",
+    "/ram/load/0": "Strip"
+  },
+  "TraySizes": {
+    "/gpu-nvidia/0/temperature/0": "Large"
+  },
+  "TrayLookFrom": {
+    "/amdcpu/0/temperature/2": "/amdcpu/0/load/0"
+  },
+  "TraySpeedBits": true,
+  "TrayGrayscale": false,
+  "TraySide": "Left",
+  "TrayGraphs": [],
+  "TrayLooks": {
+    "/amdcpu/0/temperature/2": "Blocks",
+    "/gpu-nvidia/0/temperature/0": "Area"
+  },
+  "TrayTiles": false,
+  "TrayWidth": "Roomy",
+  "TrayGap": "Small",
+  "TrayLetterNames": true,
+  "TrayAlone": [
+    "/ram/load/0"
+  ],
+  "TrayPairs": [
+    "/amdcpu/0/temperature/2"
+  ],
+  "TrayGrayOf": {
+    "/gpu-nvidia/0/temperature/0": false
+  },
+  "TrayTilesOf": {
+    "/amdcpu/0/temperature/2": true,
+    "/ram/load/0": false
+  },
+  "TrayLetters": [
+    "rigsight/network/both"
+  ],
+  "TrayGraphsBehind": [
+    "/gpu-nvidia/0/temperature/0"
+  ],
+  "TrayColors": {
+    "/amdcpu/0/temperature/2": {
+      "Number": "heat",
+      "Name": "#3B82F6",
+      "Tile": "#14B8A6"
+    }
+  },
+  "TrayNumberColors": [
+    "#3B82F6"
+  ],
+  "TrayNameColors": [
+    "#A855F7"
+  ],
+  "TrayTileColors": [
+    "#14B8A6"
+  ],
+  "MutedCrashApps": [
+    "flaky.exe"
+  ],
+  "CustomPages": [
+    {
+      "Id": "a1b2c3d4e5",
+      "Name": "Streaming",
+      "Grid": 2,
+      "Tiles": [
+        {
+          "Id": "f6a7b8c9d0",
+          "Kind": "sensor",
+          "Sensor": "key:CpuTemp",
+          "X": 3,
+          "Y": 2,
+          "W": 4,
+          "H": 3
+        }
+      ]
+    }
+  ],
+  "Sidebar": {
+    "Order": [
+      "home",
+      "custom:a1b2c3d4e5",
+      "temperatures"
+    ],
+    "Hidden": [
+      "storage"
+    ],
+    "Collapsed": [
+      "dashboards"
+    ],
+    "Groups": {
+      "custom:a1b2c3d4e5": "Mine"
+    },
+    "Names": {
+      "temperatures": "Heat"
+    },
+    "HeadingNames": {
+      "dashboards": "Boards"
+    },
+    "HiddenHeadings": [
+      "tools"
+    ],
+    "Pages": "full",
+    "AskPages": true,
+    "IconsOnly": true
+  },
+  "StartPage": "temperatures",
+  "AutoUpdate": false,
+  "YieldToHardwareApps": true,
+  "HardwareAppsChecked": true,
+  "SensorNoticeSeen": "1.6.0",
+  "StandardNoteSeen": true,
+  "StartAtSignIn": false,
+  "WhatsNewSeen": "1.7.0",
+  "FirstVisitTips": true,
+  "TipsSeen": [
+    "network"
+  ],
+  "LastBigDay": "2026-11-08",
+  "NoticesSeen": 3,
+  "NoticesRead": [
+    5,
+    7
+  ],
+  "WhatsNewAfter": "Button",
+  "NewFeaturePage": "games",
+  "NewFeatureText": "Games",
+  "Zoom": 1.2,
+  "WindowBounds": [
+    329,
+    145,
+    1920,
+    1187
+  ],
+  "WindowMaximized": true,
+  "Support": {
+    "Shown": 2,
+    "LastShown": "2026-10-21T20:38:15.0198955+05:30",
+    "Done": true,
+    "Clicked": true
+  },
+  "LastUpdateNotice": "1.5.0",
+  "StartupConfigured": true,
+  "LastRecapDay": "2026-11-08",
+  "RecappedDay": "2026-11-07",
+  "ExportFolder": "D:\\Exports",
+  "ExportAsCsv": true,
+  "HistoryFile": {
+    "CheckedAt": "2026-11-03T17:39:02.7750612+05:30",
+    "CheckedWhy": "after RigSight last closed suddenly",
+    "Checking": false,
+    "Damaged": false,
+    "Outcome": null,
+    "RepairedAt": null,
+    "Summary": null,
+    "DamagedCopy": null,
+    "WaitingReason": null,
+    "Dismissed": true
+  }
+}

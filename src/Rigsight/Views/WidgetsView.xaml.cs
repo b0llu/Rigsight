@@ -3,41 +3,59 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
+using Rigsight.Core.Settings;
 using Rigsight.ViewModels;
 
 namespace Rigsight.Views;
 
+/// <summary>
+/// The Widgets page and its editor. The page, in two panes (approved mock-up UckKnwokm5kF7JjdjHZpqd): the list and the
+/// settings for all widgets on the left, the picked widget with its map of the screens on the right. The editor, a page
+/// of its own: tiles dragged and resized on the canvas by whole cells, the keyboard for the picked tile, and the shortcut
+/// keys recorded here.
+/// </summary>
 public partial class WidgetsView : UserControl
 {
-    private const double EditorWidth = 430;
-    // The shared frozen one: an unfrozen ease kept in a static field holds on to the last animation that used it, and
-    // through its Completed handler the whole page (Settings stayed in memory after every theme change, 2026-10-27).
-    private static readonly IEasingFunction Ease = Services.Motion.Ease;
     private WidgetsViewModel? _vm;
 
     public WidgetsView()
     {
         InitializeComponent();
         DataContextChanged += (_, _) => Watch(DataContext as WidgetsViewModel);
-        // The reading picker's list closes on a click elsewhere on the page or when the window loses focus.
-        PreviewMouseDown += ClosePickerOnClickElsewhere;
-        Unloaded += (_, _) =>
-        {
-            Watch(null);
-            if (Window.GetWindow(this) is { } w) WeakEventManager<Window, EventArgs>.RemoveHandler(w, nameof(Window.Deactivated), ClosePickerOnDeactivated);
-            ClosePickerOnDeactivated(null, EventArgs.Empty);
-        };
         Loaded += (_, _) =>
         {
             Watch(DataContext as WidgetsViewModel);
-            // Weakly: a page the window held on to by this stayed in memory after it was replaced (a theme change).
-            if (Window.GetWindow(this) is { } w)
-            {
-                WeakEventManager<Window, EventArgs>.RemoveHandler(w, nameof(Window.Deactivated), ClosePickerOnDeactivated);
-                WeakEventManager<Window, EventArgs>.AddHandler(w, nameof(Window.Deactivated), ClosePickerOnDeactivated);
-            }
+            if (_vm is null) return;
+            _vm.PageShown = true;
+            _vm.LoadMap();
         };
+        Unloaded += (_, _) =>
+        {
+            if (_vm is not null)
+            {
+                _vm.PageShown = false;
+                // A shortcut left waiting for its keys doesn't wait on another page and take the keys back here.
+                _vm.Recording = null;
+            }
+            Watch(null);
+        };
+        Map.Moved += (id, x, y) => _vm?.MoveWidget(id, x, y);
+        PreviewKeyDown += RecordShortcut;
+        PreviewMouseDown += (_, e) => KeepTyped(e.OriginalSource as DependencyObject);
+    }
+
+    /// <summary>
+    /// A press anywhere but in a box that's saved when it's left (the name, a note, a short name) saves what was typed in
+    /// it first. Most buttons here don't take the keyboard, so the box was never left: a click on another tile in the list,
+    /// on Whole widget or on Back showed the next thing and what was typed was lost.
+    /// </summary>
+    private void KeepTyped(DependencyObject? pressed)
+    {
+        // A word in a text (a Run) isn't on the visual tree: the text it's in is.
+        while (pressed is not null and not Visual) pressed = LogicalTreeHelper.GetParent(pressed);
+        foreach (var box in new[] { NameBox, NoteBox, ShortNameBox })
+            if (box.GetBindingExpression(TextBox.TextProperty) is { IsDirty: true } typed && (pressed is null || !box.IsAncestorOf(pressed)))
+                typed.UpdateSource();
     }
 
     private void Watch(WidgetsViewModel? vm)
@@ -46,179 +64,203 @@ public partial class WidgetsView : UserControl
         _vm = vm;
         if (vm is null) return;
         vm.PropertyChanged += OnViewModelChanged;
-        ShowEditor(vm.IsEditing, animate: false);
+        SetUpEditor();
     }
+
+    // Enter in the place box searches; Enter in the web address box adds it.
+    private void PlaceBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _vm?.Editor is not { } ed) return;
+        e.Handled = true;
+        ed.FindPlaceCommand.Execute(null);
+    }
+
+    private void NewLink_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _vm?.Editor is not { } ed) return;
+        e.Handled = true;
+        ed.AddWebLinkCommand.Execute(null);
+    }
+
+    // The Add widget pop-up opens with its search ready to type in.
+    private void AddPopup_Opened(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(() => { AddSearch.Focus(); Keyboard.Focus(AddSearch); }, System.Windows.Threading.DispatcherPriority.Input);
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_vm is null) return;
-        if (e.PropertyName == nameof(WidgetsViewModel.IsEditing)) ShowEditor(_vm.IsEditing, animate: true);
-        // Another widget while it's open: its settings fade in, so the change is seen.
-        else if (e.PropertyName == nameof(WidgetsViewModel.Editing) && _vm.IsEditing && EditorPanel.IsVisible)
-            EditorContent.BeginAnimation(OpacityProperty, new DoubleAnimation(0.35, 1, TimeSpan.FromMilliseconds(180)) { EasingFunction = Ease });
-    }
-
-    /// <summary>
-    /// The editor slides in over the page from the right while the page dims a little behind it; closing slides it
-    /// back out and takes it (and the dimming) away. The page itself never moves.
-    /// </summary>
-    private void ShowEditor(bool show, bool animate)
-    {
-        var duration = TimeSpan.FromMilliseconds(animate ? (show ? 260 : 200) : 0);
-        if (show)
+        // The picked widget's row is shown in the list (one just added, or picked on the map, may be below its end).
+        if (e.PropertyName is nameof(WidgetsViewModel.Picked))
         {
-            EditorPanel.Visibility = Visibility.Visible;
-            EditorScrim.Visibility = Visibility.Visible;
-            EditorContent.BeginAnimation(OpacityProperty, null);
+            Dispatcher.BeginInvoke(() => { if (_vm?.Picked is { } picked) MineList.ScrollIntoView(picked); }, System.Windows.Threading.DispatcherPriority.Loaded);
+            return;
         }
-        var slide = new DoubleAnimation(show ? 0 : EditorWidth, duration) { EasingFunction = Ease };
-        if (!show) slide.Completed += (_, _) =>
-        {
-            if (_vm is { IsEditing: true }) return; // opened again meanwhile
-            EditorPanel.Visibility = Visibility.Collapsed;
-            EditorScrim.Visibility = Visibility.Collapsed;
-        };
-        EditorSlide.BeginAnimation(TranslateTransform.XProperty, slide, HandoffBehavior.SnapshotAndReplace);
-        EditorScrim.BeginAnimation(OpacityProperty, new DoubleAnimation(show ? 0.3 : 0, duration) { EasingFunction = Ease }, HandoffBehavior.SnapshotAndReplace);
+        if (e.PropertyName != nameof(WidgetsViewModel.Editor)) return;
+        SetUpEditor();
+        // The editor opens at its top, and the page comes back where it was.
+        EditorScroll.ScrollToTop();
+        if (_vm?.Editor is not null) Dispatcher.BeginInvoke(() => CanvasScroll.Focus(), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
-    /// <summary>A click outside the editor, on the page, closes it.</summary>
-    private void EditorScrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    /// <summary>The editor draws the widget pixel for pixel at this screen's scale, as wide as the canvas is.</summary>
+    private void SetUpEditor()
     {
-        if (_vm is { IsEditing: true }) _vm.Editing = null;
+        if (_vm?.Editor is not { } ed) return;
+        ed.ScreenScale = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        if (CanvasFrame.ActualWidth > 0) ed.CanvasWidth = CanvasFrame.ActualWidth;
+    }
+
+    /// <summary>Enter in a to-do list's add box adds the item (and the box stays, for the next one).</summary>
+    private void NewTodo_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _vm?.Editor is not { } ed) return;
+        if (sender is TextBox box) box.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+        ed.AddTodoCommand.Execute(null);
         e.Handled = true;
     }
 
-    // ── The built-in row scrolls sideways with the wheel ──
-
-    private double _rowTarget;
-    private bool _rowScrolling;
-
-    /// <summary>
-    /// The wheel over the built-in row moves it sideways, smoothly; once it can't go further that way (or everything
-    /// fits), the wheel scrolls the page as it does anywhere else (gliding, see SmoothWheel).
-    /// </summary>
-    private void BuiltInRow_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    /// <summary>The reading list just opened: typing goes to its search at once.</summary>
+    private void ReadingPicker_Opened(object? sender, EventArgs e)
     {
-        e.Handled = true;
-        double from = _rowScrolling ? _rowTarget : BuiltInRow.HorizontalOffset;
-        double to = Math.Clamp(from - e.Delta * 1.4, 0, BuiltInRow.ScrollableWidth);
-        if (Math.Abs(to - from) < 0.5)
-        {
-            if (!Controls.SmoothWheel.TryGlide(PageScroll, e.Delta))
-                PageScroll.ScrollToVerticalOffset(PageScroll.VerticalOffset - e.Delta / 120.0 * 48);
-            return;
-        }
-        _rowTarget = to;
-        if (_rowScrolling) return;
-        _rowScrolling = true;
-        CompositionTarget.Rendering += StepRow;
-    }
-
-    private void StepRow(object? sender, EventArgs e)
-    {
-        double now = BuiltInRow.HorizontalOffset, gap = _rowTarget - now;
-        if (Math.Abs(gap) < 0.5 || !IsLoaded)
-        {
-            BuiltInRow.ScrollToHorizontalOffset(_rowTarget);
-            _rowScrolling = false;
-            CompositionTarget.Rendering -= StepRow;
-            return;
-        }
-        BuiltInRow.ScrollToHorizontalOffset(now + gap * 0.22);
-    }
-
-    // ── The reading picker ──
-
-    private ViewModels.WidgetCard? PickerCard => PickBox.DataContext as ViewModels.WidgetCard;
-
-    /// <summary>Into the field: the list opens (a click there too, when it was closed with Esc while the field kept focus).</summary>
-    private void PickBox_GotKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
-    {
-        if (PickerCard is { } card) card.PickerOpen = true;
-    }
-
-    private void PickBox_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        if (PickerCard is { PickerOpen: false } card && PickBox.IsKeyboardFocusWithin) card.PickerOpen = true;
-    }
-
-    /// <summary>A key typed opens the list at once (the search itself waits for a pause in the typing).</summary>
-    private void PickBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
-    {
-        if (PickerCard is { PickerOpen: false } card && PickBox.IsKeyboardFocusWithin && PickBox.Text.Length > 0) card.PickerOpen = true;
-    }
-
-    /// <summary>
-    /// The list closes when it's meant to: the keyboard left both the field and the list, a click elsewhere on the page
-    /// (see <see cref="ClosePickerOnClickElsewhere"/>), the window lost focus, or Esc.
-    /// </summary>
-    private void PickBox_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
-    {
-        if (e.NewFocus is DependencyObject to && (to == PickBox || IsInPicker(to))) return;
-        // Focus can pass through nothing on its way into the list: look again once it has landed.
+        if (sender is not System.Windows.Controls.Primitives.Popup { Child: ContentControl host }) return;
         Dispatcher.BeginInvoke(() =>
         {
-            if (PickBox.IsKeyboardFocusWithin || PickPopup.Child?.IsKeyboardFocusWithin == true) return;
-            if (PickerCard is { } card) card.PickerOpen = false;
+            if (FindDown<TextBox>(host) is { } box) { box.Focus(); Keyboard.Focus(box); }
         }, System.Windows.Threading.DispatcherPriority.Input);
     }
 
-    private bool IsInPicker(DependencyObject o)
+    private static T? FindDown<T>(DependencyObject d) where T : DependencyObject
     {
-        // A Run or a Hyperlink isn't a Visual: asking VisualTreeHelper for its parent throws, so those go by the logical tree.
-        for (var d = o; d is not null; d = (d is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D ? System.Windows.Media.VisualTreeHelper.GetParent(d) : null) ?? LogicalTreeHelper.GetParent(d))
-            if (d == PickPopup.Child) return true;
-        return false;
+        if (d is T t) return t;
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
+            if (FindDown<T>(VisualTreeHelper.GetChild(d, i)) is { } found) return found;
+        return null;
     }
 
-    /// <summary>
-    /// A click on the page outside the field closes the list. A click in the list comes here too (WPF passes a popup's
-    /// events up through the page it belongs to) and keeps it open: a chip or a line was what was clicked.
-    /// </summary>
-    private void ClosePickerOnClickElsewhere(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void CanvasFrame_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (PickerCard is not { PickerOpen: true } card || PickBox.IsMouseOver) return;
-        if (e.OriginalSource is DependencyObject source && IsInPicker(source)) return;
-        card.PickerOpen = false;
+        if (_vm?.Editor is { } ed && e.NewSize.Width > 0) ed.CanvasWidth = e.NewSize.Width;
+        // Inside the card's rounded top corners: the backdrop, and a widget scrolled under them, stay in (the user,
+        // 2026-11-10: the preview's box went outside its card).
+        if (sender is Border frame && e.NewSize.Width > 0 && e.NewSize.Height > 0)
+        {
+            double r = frame.CornerRadius.TopLeft, w = e.NewSize.Width, h = e.NewSize.Height;
+            var figure = new PathFigure { StartPoint = new Point(0, h), IsClosed = true };
+            figure.Segments.Add(new LineSegment(new Point(0, r), false));
+            figure.Segments.Add(new ArcSegment(new Point(r, 0), new Size(r, r), 0, false, SweepDirection.Clockwise, false));
+            figure.Segments.Add(new LineSegment(new Point(w - r, 0), false));
+            figure.Segments.Add(new ArcSegment(new Point(w, r), new Size(r, r), 0, false, SweepDirection.Clockwise, false));
+            figure.Segments.Add(new LineSegment(new Point(w, h), false));
+            var clip = new PathGeometry([figure]);
+            clip.Freeze();
+            frame.Clip = clip;
+        }
     }
 
-    private void ClosePickerOnDeactivated(object? sender, EventArgs e)
+    // ── Shortcut keys ──
+
+    /// <summary>While a shortcut waits for its keys, the keys pressed are it (Esc stops waiting).</summary>
+    private void RecordShortcut(object sender, KeyEventArgs e)
     {
-        if (PickerCard is { PickerOpen: true } card) card.PickerOpen = false;
+        if (_vm is not { Recording: not null } vm) return;
+        e.Handled = true;
+        // With Alt held, WPF reports the key as "System".
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.Escape) { vm.Recording = null; return; }
+        if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.None) return;
+        var mods = HotkeyModifiers.None;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) mods |= HotkeyModifiers.Ctrl;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) mods |= HotkeyModifiers.Alt;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) mods |= HotkeyModifiers.Shift;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Windows)) mods |= HotkeyModifiers.Win;
+        vm.Record(KeyInterop.VirtualKeyFromKey(key), mods);
     }
 
-    private void PickPopup_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    // ── The editor ──
+
+    /// <summary>Enter keeps the new name, Esc puts the old one back; either way the canvas has the keyboard again.</summary>
+    private void NameBox_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != System.Windows.Input.Key.Escape || PickerCard is not { } card) return;
-        card.PickerOpen = false;
-        PickBox.Focus();
+        if (e.Key == Key.Enter) NameBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+        else if (e.Key == Key.Escape) NameBox.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+        else return;
+        CanvasScroll.Focus();
         e.Handled = true;
     }
 
-    /// <summary>
-    /// Esc closes the list; Enter adds the first line that can be added (searched first, if the pause hasn't come yet);
-    /// Down opens it. Focus stays in the field throughout: the lines don't take it, so adding one doesn't close the list.
-    /// </summary>
-    private void PickBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    /// <summary>Arrow keys move the picked tile a cell; Delete removes it; Ctrl+Z and Ctrl+Y undo and redo.</summary>
+    private void Canvas_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (PickerCard is not { } card) return;
-        if (e.Key == System.Windows.Input.Key.Escape && card.PickerOpen)
+        if (_vm?.Editor is not { } ed) return;
+        bool ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        switch (e.Key)
         {
-            card.PickerOpen = false;
-            e.Handled = true;
+            case Key.Left: ed.Nudge(-1, 0); break;
+            case Key.Right: ed.Nudge(1, 0); break;
+            case Key.Up: ed.Nudge(0, -1); break;
+            case Key.Down: ed.Nudge(0, 1); break;
+            case Key.Delete or Key.Back when ed.Selected >= 0: ed.RemoveTileAt(ed.Selected); break;
+            case Key.Z when ctrl: ed.UndoCommand.Execute(null); break;
+            case Key.Y when ctrl: ed.RedoCommand.Execute(null); break;
+            default: return;
         }
-        else if (e.Key == System.Windows.Input.Key.Enter)
-        {
-            card.PickerOpen = true;
-            card.PickerText = PickBox.Text;
-            if (card.PickerOptions.FirstOrDefault(o => o.CanAdd) is { } first) card.PickOptionCommand.Execute(first);
-            e.Handled = true;
-        }
-        else if (e.Key == System.Windows.Input.Key.Down)
-        {
-            card.PickerOpen = true;
-            e.Handled = true;
-        }
+        e.Handled = true;
+    }
+
+    /// <summary>A click on the canvas away from every tile picks none.</summary>
+    private void Canvas_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        CanvasScroll.Focus();
+        if (_vm?.Editor is { } ed && !e.Handled) ed.SelectTile(-1);
+    }
+
+    private FrameworkElement? _grip;
+    private TileBox? _box;
+    private string _mode = "move";
+    private Point _from;
+    private int _dx, _dy;
+
+    /// <summary>Pressed on a tile (to move it) or on its edge or corner (to resize it): the tile is picked and follows the pointer.</summary>
+    private void Tile_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement el || el.DataContext is not TileBox box || _vm?.Editor is not { } ed) return;
+        e.Handled = true;
+        CanvasScroll.Focus();
+        ed.SelectTile(box.Index);
+        (_grip, _box, _mode, _from, _dx, _dy) = (el, box, el.Tag as string ?? "move", e.GetPosition(EditCanvas), 0, 0);
+        el.CaptureMouse();
+    }
+
+    /// <summary>The tile's outline where it would land, in whole cells.</summary>
+    private void Tile_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_grip is null || _box is null || sender != _grip || e.LeftButton != MouseButtonState.Pressed || _vm?.Editor is not { } ed) return;
+        var p = e.GetPosition(EditCanvas);
+        double cw = WidgetTiles.CellWidth * ed.Zoom, ch = WidgetTiles.CellHeight * ed.Zoom;
+        int dx = (int)Math.Round((p.X - _from.X) / cw), dy = (int)Math.Round((p.Y - _from.Y) / ch);
+        if (_mode == "e") dy = 0;
+        if (_mode == "s") dx = 0;
+        (_dx, _dy) = (dx, dy);
+        double left = _box.Left, top = _box.Top, width = _box.Width, height = _box.Height;
+        if (_mode == "move") { left += dx * cw; top += dy * ch; }
+        else { width = Math.Max(cw, width + dx * cw); height = Math.Max(ch, height + dy * ch); }
+        Canvas.SetLeft(DropOutline, left);
+        Canvas.SetTop(DropOutline, top);
+        DropOutline.Width = width;
+        DropOutline.Height = height;
+        DropOutline.Visibility = dx != 0 || dy != 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Let go: the tile moves or resizes by the cells dragged (a tile dropped on another swaps with it where they fit).</summary>
+    private void Tile_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_grip is null || sender != _grip) return;
+        e.Handled = true;
+        _grip.ReleaseMouseCapture();
+        DropOutline.Visibility = Visibility.Collapsed;
+        var (box, mode, dx, dy) = (_box, _mode, _dx, _dy);
+        (_grip, _box) = (null, null);
+        if (box is null || _vm?.Editor is not { } ed) return;
+        if (mode == "move") ed.MoveTile(box.Index, dx, dy);
+        else ed.ResizeTile(box.Index, dx, dy);
     }
 }

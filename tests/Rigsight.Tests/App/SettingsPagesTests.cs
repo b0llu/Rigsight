@@ -1,4 +1,4 @@
-using System.Windows.Media;
+﻿using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Rigsight.Core;
 using Rigsight.Core.Data;
@@ -313,428 +313,535 @@ public sealed class SettingsPageTests
 
     // ── Widgets ──────────────────────────────────────────────────────────
 
+    private static WidgetsViewModel WidgetsPage(AgentLink link) => Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+
     [Fact]
-    public void There_is_a_card_for_every_built_in_widget_and_none_of_the_users_own_yet()
+    public void The_page_has_a_card_for_every_widget_and_a_list_to_add_from()
     {
         using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+        var vm = WidgetsPage(link);
         Ui.Run(() =>
         {
-            // The FPS widget first (the newest, the one people look for), then the rest in their usual order.
-            Assert.Equal(WidgetCatalog.BuiltIn.OrderBy(st => st != WidgetStyle.Fps), vm.BuiltIn.Select(c => c.Style));
-            Assert.Empty(vm.Custom);
-            Assert.False(vm.HasCustom);
+            Assert.Equal(link.Settings.Current.Widgets.Select(w => w.Id), vm.Cards.Select(c => c.Id));
+            Assert.Equal("Slim bar", vm.Cards.Single(c => c.Style == WidgetStyle.Pill).Title);
+            Assert.Equal("Temperature graph", vm.Cards.Single(c => c.Style == WidgetStyle.Graph).Title);
+            Assert.All(vm.Cards, c => Assert.False(string.IsNullOrWhiteSpace(c.Description)));
             Assert.True(vm.CanCreate);
-            Assert.Equal(vm.BuiltIn.Count, vm.BuiltIn.Select(c => c.Title).Distinct().Count());
-            Assert.Equal(vm.BuiltIn.Count, vm.BuiltIn.Select(c => c.Description).Distinct().Count());
-            Assert.All(vm.BuiltIn, c => Assert.True(c.IsBuiltIn && !string.IsNullOrWhiteSpace(c.Title)));
-            Assert.Equal("Slim bar", vm.BuiltIn.Single(c => c.Style == WidgetStyle.Pill).Title);
-            Assert.Equal("Temperature graph", vm.BuiltIn.Single(c => c.Style == WidgetStyle.Graph).Title);
             Assert.False(vm.IsEditing);
+
+            // Every ready-made widget and every tile on its own, the ready-made ones first.
+            // A ready-made widget that is one tile is listed once, as that tile.
+            Assert.Equal(["Compact", "Gauges", "Slim bar"], vm.Choices.Where(c => c.Group == "Ready-made").Select(c => c.Title).Order());
+            Assert.Equal(3 + WidgetTiles.Kinds.Count, vm.Choices.Count);
+            Assert.Equal(vm.Choices, vm.ChoicesShown);
+            Assert.Equal(vm.Choices.Count, vm.Choices.Select(c => c.Title).Distinct().Count());
+            // Listed under their groups in the Add widget pop-up.
+            Assert.Equal(["READY-MADE", "EVERYDAY", "LIVE", "YOUR DAY"],
+                vm.ChoiceGroups.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(g => (string)g.Name));
+            Assert.Equal(["Clock", "Date", "Calendar", "Notes", "To-do", "Timer", "Media", "Weather", "Shortcuts", "Photos"], vm.ChoicesShown.Where(c => c.Group == "Everyday").Select(c => c.Title));
+            vm.ChoiceQuery = "calend";
+            Assert.Equal("Calendar", Assert.Single(vm.ChoicesShown).Title);
+            vm.ChoiceQuery = "everyday"; // a group's name finds its widgets
+            Assert.Equal(10, vm.ChoicesShown.Count);
+            vm.ChoiceQuery = "zzz";
+            Assert.True(vm.NoChoices);
+            Assert.Equal("Nothing matches “zzz”.", vm.NoChoicesText);
+            vm.ChoiceQuery = "";
+            Assert.False(vm.NoChoices);
         });
     }
 
     [Fact]
-    public void Adding_fps_to_the_slim_bar_and_resetting_it()
+    public void A_widget_added_from_the_list_sits_on_the_desktop_in_the_apps_look()
     {
         using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+        var vm = WidgetsPage(link);
         Ui.Run(() =>
         {
-            var bar = vm.BuiltIn.Single(c => c.Style == WidgetStyle.Pill);
-            bar.EditCommand.Execute(null);
-            Assert.Same(bar, vm.Editing);
-            Assert.True(bar.IsEditing && vm.IsEditing);
-            Assert.Equal(["CpuTemp", "GpuTemp", "Ram"], bar.Items.Select(i => i.Id));
-            Assert.False(bar.CanReset);
-
-            bar.ReadingToAdd = bar.Offered.Single(o => o.Metric == OverlayMetric.Fps);
-            bar.AddReadingCommand.Execute(null);
-            Assert.Equal(["CpuTemp", "GpuTemp", "Ram", "Fps"], bar.Items.Select(i => i.Id));
-            Assert.Equal(["CpuTemp", "GpuTemp", "Ram", "Fps"], link.Settings.Current.Widgets.Single(w => w.Style == WidgetStyle.Pill).Items!.Select(i => i.Id));
-            Assert.DoesNotContain(bar.Offered, o => o.Metric == OverlayMetric.Fps);
-            Assert.True(bar.CanReset);
-            Assert.Null(bar.ReadingToAdd);
-
-            // First in line, with a short name of its own.
-            bar.MoveItemUpCommand.Execute(bar.Items[3]);
-            bar.MoveItemUpCommand.Execute(bar.Items[2]);
-            bar.MoveItemUpCommand.Execute(bar.Items[1]);
-            bar.MoveItemUpCommand.Execute(bar.Items[0]); // already first: nothing
-            Assert.Equal(["Fps", "CpuTemp", "GpuTemp", "Ram"], bar.Items.Select(i => i.Id));
-            bar.Items[0].Label = "  Frames  ";
-            Assert.Equal("Frames", link.Settings.Current.Widgets.Single(w => w.Style == WidgetStyle.Pill).Items![0].Label);
-            Assert.Equal("Frames", bar.Items[0].Label);
-
-            bar.ResetCommand.Execute(null);
-            Assert.Null(link.Settings.Current.Widgets.Single(w => w.Style == WidgetStyle.Pill).Items);
-            Assert.Equal(["CpuTemp", "GpuTemp", "Ram"], bar.Items.Select(i => i.Id));
-            Assert.False(bar.CanReset);
-
-            vm.CloseEditorCommand.Execute(null);
-            Assert.Null(vm.Editing);
-            Assert.False(bar.IsEditing);
-        });
-    }
-
-    [Fact]
-    public void A_widget_always_keeps_one_reading_and_at_most_its_layouts_share()
-    {
-        using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
-        Ui.Run(() =>
-        {
-            var gauges = vm.BuiltIn.Single(c => c.Style == WidgetStyle.Gauges);
-            // Gauges show temperatures and percentages only.
-            Assert.DoesNotContain(gauges.Offered, o => o.Metric is OverlayMetric.CpuClock or OverlayMetric.Fps or OverlayMetric.Clock);
-            gauges.RemoveItemCommand.Execute(gauges.Items[0]);
-            gauges.RemoveItemCommand.Execute(gauges.Items[0]); // the last one stays
-            Assert.Single(gauges.Items);
-            while (gauges.CanAddMore)
+            int before = vm.Cards.Count;
+            vm.ChoiceQuery = "clock";
+            vm.OpenAddListCommand.Execute(null); // opens with its search cleared
+            Assert.True(vm.AddListOpen);
+            Assert.Equal("", vm.ChoiceQuery);
+            vm.Add(vm.Choices.Single(c => c.Title == "Clock"));
+            // The pop-up closes and it's picked in the list, so it's clear where it went.
+            Assert.False(vm.AddListOpen);
+            Assert.Equal(link.Settings.Current.Widgets[^1].Id, vm.PickedId);
+            vm.Add(vm.Choices.Single(c => c.Title == "Clock")); // any number of a kind
+            Assert.Equal(before + 2, vm.Cards.Count);
+            var added = link.Settings.Current.Widgets.TakeLast(2).ToList();
+            Assert.All(added, w =>
             {
-                gauges.ReadingToAdd = gauges.Offered[0];
-                gauges.AddReadingCommand.Execute(null);
-            }
-            Assert.Equal(4, gauges.Items.Count);
-            Assert.Equal("4 of 4", gauges.ItemsCount);
-            gauges.ReadingToAdd = gauges.Offered[0];
-            Assert.False(gauges.AddReadingCommand.CanExecute(null));
-
-            // Now playing and Today show no readings to pick.
-            Assert.False(vm.BuiltIn.Single(c => c.Style == WidgetStyle.NowPlaying).HasReadings);
-            Assert.True(gauges.HasReadings);
-        });
-    }
-
-    [Fact]
-    public void Switching_layouts_back_and_forth_keeps_the_readings_both_can_show()
-    {
-        // A user: "if I add FPS and time to a bar, move it to tiles and come back to bar, FPS and time of day are gone".
-        using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
-        Ui.Run(() =>
-        {
-            vm.CreateCommand.Execute(null);
-            var mine = Assert.Single(vm.Custom);
-            foreach (var m in new[] { OverlayMetric.CpuLoad, OverlayMetric.GpuLoad, OverlayMetric.Fps, OverlayMetric.Clock })
-            {
-                mine.ReadingToAdd = mine.Offered.Single(o => o.Metric == m);
-                mine.AddReadingCommand.Execute(null);
-            }
-            // Seven: more than Tiles holds (6).
-            string[] five = ["CpuTemp", "GpuTemp", "Ram", "CpuLoad", "GpuLoad", "Fps", "Clock"];
-            Assert.Equal(five, mine.Items.Select(i => i.Id));
-            mine.Layout = "Tiles";
-            // Kept, not dropped: Tiles shows six, the seventh is greyed with why.
-            Assert.Equal(five, mine.Items.Select(i => i.Id));
-            Assert.Equal("Tiles shows 6", mine.Items.Last().NotShown);
-            Assert.All(mine.Items.Take(6), i => Assert.True(i.IsShown));
-            Assert.Equal("6 of 6", mine.ItemsCount);
-            Assert.False(mine.CanAddMore);
-            mine.Layout = "Bar";
-            Assert.Equal(five, mine.Items.Select(i => i.Id));
-            Assert.All(mine.Items, i => Assert.True(i.IsShown));
-            Assert.Equal(five, link.Settings.Current.Widgets.Single(w => w.Id == mine.Id).Items!.Select(i => i.Id));
-        });
-    }
-
-    [Fact]
-    public void The_reading_picker_searches_groups_and_adds_on_a_click()
-    {
-        using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
-        Ui.Run(() =>
-        {
-            vm.CreateCommand.Execute(null);
-            var mine = Assert.Single(vm.Custom);
-
-            // Typing opens the list and finds a reading by any word of it; matches only.
-            mine.PickerText = "screen";
-            Assert.True(mine.PickerOpen);
-            var screen = Assert.Single(mine.PickerOptions);
-            Assert.Equal(("ScreenTime", "Screen time today"), (screen.Id, screen.Name));
-            Assert.Equal("TODAY", screen.Header);
-
-            // A click adds it at once; the list stays open, without it.
-            mine.PickOptionCommand.Execute(screen);
-            Assert.Equal(["CpuTemp", "GpuTemp", "Ram", "ScreenTime"], mine.Items.Select(i => i.Id));
-            Assert.True(mine.PickerOpen);
-            Assert.True(mine.PickerEmpty);
-            Assert.Equal("Nothing matches \"screen\"", mine.PickerEmptyText);
-
-            // A chip narrows to a part; nothing there, matches elsewhere: it says so and offers the rest.
-            mine.PickerText = "peak";
-            mine.PickerCategory = "Gpu";
-            Assert.True(mine.PickerEmpty);
-            Assert.Equal("Nothing matches \"peak\" in GPU", mine.PickerEmptyText);
-            Assert.True(mine.CanSearchAll);
-            Assert.Equal(2, mine.PickerChips.Single(c => c.Key == "Today").Count); // CPU and GPU peak today
-            mine.SearchAllCommand.Execute(null);
-            Assert.Equal(["CpuPeakToday", "GpuPeakToday"], mine.PickerOptions.Select(o => o.Id));
-
-            // Gauges: what a gauge can't show stays in the list, dimmed, with why.
-            mine.PickerText = "";
-            mine.Layout = "Gauges";
-            var top = mine.PickerOptions.Single(o => o.Id == "TopApp");
-            Assert.Equal("Gauges show a temperature or a percentage", top.Off);
-            Assert.False(top.CanAdd);
-            Assert.True(mine.PickerOptions.Single(o => o.Id == "CpuLoad").CanAdd);
-            // And the screen time already on it says the same in the list of readings.
-            Assert.Equal("Gauges show a temperature or a percentage", mine.Items.Single(i => i.Id == "ScreenTime").NotShown);
-
-            // Full: every line says so, none adds.
-            mine.PickOptionCommand.Execute(mine.PickerOptions.Single(o => o.Id == "CpuLoad"));
-            Assert.False(mine.CanAddMore);
-            Assert.All(mine.PickerOptions, o => Assert.False(o.CanAdd));
-            Assert.Contains(mine.PickerOptions, o => o.Off == "Full. Remove one to add another");
-        });
-    }
-
-    [Fact]
-    public void A_click_in_the_picker_keeps_it_open_and_a_click_elsewhere_closes_it()
-    {
-        // A user: clicking a chip closed the list (the popup's clicks pass up through the page it belongs to).
-        using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
-        Ui.Run(() =>
-        {
-            vm.CreateCommand.Execute(null);
-            var card = vm.Custom[0];
-            var view = new Views.WidgetsView { DataContext = vm };
-            var window = new System.Windows.Window { Content = view, Left = -32000, Top = -32000, Width = 1400, Height = 1000, ShowActivated = false, ShowInTaskbar = false };
-            window.Show();
-            try
-            {
-                Ui.Pump(300);
-                card.PickerOpen = true;
-                Ui.Pump(300);
-                var popup = (System.Windows.Controls.Primitives.Popup)view.FindName("PickPopup");
-                Assert.True(popup.IsOpen);
-                // A user: the list was 8 px narrower than the field above it (its shadow's margin came off its width).
-                var field = (System.Windows.FrameworkElement)view.FindName("PickBox");
-                Assert.Equal(field.ActualWidth, ((System.Windows.FrameworkElement)popup.Child).ActualWidth, 0.5);
-                var chip = Visuals.Descendants<System.Windows.Controls.Button>(popup.Child).First(b => b.DataContext is PickerChip { Key: "Today" });
-                void Click(System.Windows.UIElement on) => on.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left)
-                    { RoutedEvent = System.Windows.UIElement.PreviewMouseDownEvent, Source = on });
-                Click(chip);
-                chip.Command.Execute(chip.CommandParameter);
-                Ui.Pump(100);
-                Assert.True(card.PickerOpen);
-                Assert.Equal("Today", card.PickerCategory);
-                Assert.True(popup.IsOpen);
-
-                // Elsewhere on the page: closed.
-                Click(Visuals.Descendants<System.Windows.Controls.TextBlock>(view).First(t => t.Text == "LOOK"));
-                Ui.Pump(100);
-                Assert.False(card.PickerOpen);
-                Assert.False(popup.IsOpen);
-            }
-            finally { window.Close(); }
-        });
-    }
-
-    [Theory]
-    [InlineData("/gpu-nvidia/0/fan/1", "GPU fan 1")]
-    [InlineData("/amdcpu/0/temperature/2", "CPU temperature 2")]
-    [InlineData("/lpc/it8686e/fan/0", "Motherboard fan 0")]
-    [InlineData("odd", "odd")]
-    public void A_sensor_not_read_yet_is_named_from_its_identifier(string id, string name) => Assert.Equal(name, WidgetCard.SensorName(id));
-
-    [Fact]
-    public void A_sensor_on_a_widget_before_the_first_readings_is_waiting_not_missing()
-    {
-        // A user saw "/gpu-nvidia/0/fan/1 · Not found on this PC right now": the editor opened before the agent's readings.
-        using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
-        Ui.Run(() =>
-        {
-            vm.CreateCommand.Execute(null);
-            var mine = vm.Custom[0];
-            link.Settings.Update(x => x.Widgets.Single(w => w.Id == mine.Id).Items = [new WidgetItem { Id = "sensor:/gpu-nvidia/0/fan/1" }]);
-            vm.Duplicate(mine);
-            var row = vm.Custom[1].Items.Single();
-            Assert.Equal(("GPU fan 1", "Waiting for the readings"), (row.Name, row.Detail));
-        });
-    }
-
-    [Fact]
-    public void Making_renaming_copying_and_deleting_widgets_of_your_own()
-    {
-        using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
-        Ui.Run(() =>
-        {
-            vm.CreateCommand.Execute(null);
-            var mine = Assert.Single(vm.Custom);
-            Assert.Same(mine, vm.Editing);
-            Assert.True(mine.IsCustom && mine.Enabled);
-            Assert.Equal("My widget 1", mine.Title);
-            Assert.Equal("Bar · 3 readings", mine.Description);
-            Assert.StartsWith("custom-", mine.Id);
-            var saved = link.Settings.Current.Widgets.Single(w => w.Id == mine.Id);
-            Assert.Equal((WidgetStyle.Custom, WidgetLayout.Bar), (saved.Style, saved.Layout));
-            link.Sent("render-previews");
-
-            mine.Title = "  Temps  ";
-            Assert.Equal("Temps", link.Settings.Current.Widgets.Single(w => w.Id == mine.Id).Name);
-            mine.Title = "   ";
-            Assert.Equal("My widget", mine.Title);
-            mine.Title = "Temps";
-
-            // Graph: it keeps what a graph can show (RAM, CPU and GPU temperature all can).
-            mine.Layout = "Graph";
-            Assert.Equal("Graph", mine.Layout);
-            Assert.Equal("Graph · 3 readings", mine.Description);
-            Assert.False(mine.CanAddSensors); // no history of other sensors
-            mine.Layout = "Now playing"; // not a layout of one's own
-            Assert.Equal("Graph", mine.Layout);
-
-            // Built-in widgets keep their name and layout.
-            var compact = vm.BuiltIn.Single(c => c.Style == WidgetStyle.Compact);
-            compact.Title = "Nope";
-            compact.Layout = "Bar";
-            Assert.Equal(("Compact", "Tiles"), (compact.Title, compact.Layout));
-
-            vm.Duplicate(mine);
-            Assert.Equal(2, vm.Custom.Count);
-            var copy = vm.Custom[1];
-            Assert.Equal("Temps copy", copy.Title);
-            Assert.Equal("Graph", copy.Layout);
-            Assert.NotEqual(mine.Id, copy.Id);
-            Assert.Same(copy, vm.Editing);
-
-            // A built-in widget copied becomes one of your own, with its readings.
-            vm.Duplicate(vm.BuiltIn.Single(c => c.Style == WidgetStyle.Pill));
-            Assert.Equal(("Slim bar copy", "Bar"), (vm.Custom[2].Title, vm.Custom[2].Layout));
-
-            var barCopy = vm.Custom[2];
-            copy.DeleteCommand.Execute(null);
-            Assert.Same(barCopy, vm.Editing); // another one open stays open
-            Assert.Equal(["Temps", "Slim bar copy"], vm.Custom.Select(c => c.Title));
-            barCopy.DeleteCommand.Execute(null);
-            Assert.Null(vm.Editing); // the one open is gone, and so is the editor
-            vm.Duplicate(vm.BuiltIn.Single(c => c.Style == WidgetStyle.Pill));
-            Assert.DoesNotContain(link.Settings.Current.Widgets, w => w.Id == copy.Id);
-            vm.BuiltIn[0].DeleteCommand.Execute(null); // built-in ones can't be deleted
-            Assert.Equal(WidgetCatalog.BuiltIn.Count, vm.BuiltIn.Count);
-
-            // Opened from a widget's menu on the desktop.
-            vm.Edit(mine.Id);
-            Assert.Same(mine, vm.Editing);
-            vm.Edit("custom-nope");
-            Assert.Same(mine, vm.Editing);
-        });
-    }
-
-    [Theory]
-    [InlineData(WidgetStyle.Compact)]
-    [InlineData(WidgetStyle.Pill)]
-    [InlineData(WidgetStyle.Graph)]
-    [InlineData(WidgetStyle.Fps)]
-    public void A_widget_cards_controls_change_only_that_widget(WidgetStyle style)
-    {
-        using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
-        Ui.Run(() =>
-        {
-            var card = vm.Cards.Single(c => c.Style == style);
-            var others = SettingsStore.Serialize(link.Settings.Current.Clone());
-            Assert.Equal(WidgetCatalog.BuiltIn.Count, vm.Cards.Count());
-            card.Enabled = true;
-            card.Theme = "Light";
-            card.Colors = "Grayscale";
-            card.Locked = true;
-            card.BackgroundPercent = 55;
-            card.ContentPercent = 80;
-            card.Scale = "1.25";
-            var config = link.Settings.Current.Widgets.Single(w => w.Style == style);
-            Assert.True(config.Enabled);
-            Assert.Equal(WidgetTheme.Light, config.Theme);
-            Assert.True(config.Grayscale);
-            Assert.True(config.Locked);
-            Assert.Equal(0.55, config.BackgroundOpacity, 6);
-            Assert.Equal(0.8, config.ContentOpacity, 6);
-            Assert.Equal(1.25, config.Scale);
-            Assert.Equal((55.0, 80.0, "1.25", "Light", "Grayscale"), (card.BackgroundPercent, card.ContentPercent, card.Scale, card.Theme, card.Colors));
-            Assert.All(link.Settings.Current.Widgets.Where(w => w.Style != style), w => Assert.False(w.Enabled));
-            Assert.NotEqual(others, SettingsStore.Serialize(link.Settings.Current));
-        });
-    }
-
-    [Fact]
-    public void Widget_scale_reads_without_trailing_zeros_in_any_culture()
-    {
-        using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
-        Ui.Run(() =>
-        {
-            var old = System.Globalization.CultureInfo.CurrentCulture;
-            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
-            try
-            {
-                var card = vm.Cards.Single(c => c.Style == WidgetStyle.Compact);
-                card.Scale = "1.5";
-                Assert.Equal("1.5", card.Scale);
-                Assert.Equal(1.5, link.Settings.Current.Widgets[0].Scale);
-                card.Scale = "1";
-                Assert.Equal("1", card.Scale);
-            }
-            finally
-            {
-                System.Globalization.CultureInfo.CurrentCulture = old;
-            }
-        });
-    }
-
-    [Fact]
-    public void Widget_previews_are_asked_for_and_loaded_when_ready()
-    {
-        using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
-        Ui.Run(vm.RequestPreviews);
-        link.Sent("render-previews");
-
-        var folder = Path.Combine(RigsightPaths.DataDir, "previews");
-        Directory.CreateDirectory(folder);
-        var file = Path.Combine(folder, "Pill.png"); // by the widget's identifier: the style's name for a built-in one
-        try
-        {
-            WritePng(file, 40, 12);
-            Ui.Run(() =>
-            {
-                vm.OnPreviewsReady();
-                var pill = vm.Cards.Single(c => c.Style == WidgetStyle.Pill);
-                var preview = Assert.IsAssignableFrom<BitmapSource>(pill.Preview);
-                Assert.Equal(40, preview.PixelWidth);
-                Assert.True(preview.IsFrozen);
-                // Mid-rewrite (unreadable): the last picture stays.
-                File.WriteAllText(file, "not a png");
-                pill.LoadPreview();
-                Assert.Same(preview, pill.Preview);
-                // Styles without a picture yet have none.
-                Assert.Null(vm.Cards.Single(c => c.Style == WidgetStyle.Graph).Preview);
+                Assert.Equal((WidgetStyle.Custom, WidgetTheme.App, true), (w.Style, w.Theme, w.Enabled));
+                Assert.Equal(WidgetTiles.Clock, Assert.Single(w.Tiles!).Kind);
             });
-        }
-        finally
+            Assert.NotEqual(added[0].Id, added[1].Id);
+            Assert.Equal("1 tile", vm.Cards[^1].Description);
+
+            // A ready-made one comes as tiles that look as it always did.
+            vm.Add(vm.Choices.Single(c => c.Title == "Compact"));
+            var compact = link.Settings.Current.Widgets[^1];
+            Assert.Equal(2, compact.Tiles!.Count);
+            Assert.Equal("Compact", compact.Name);
+        });
+    }
+
+    [Fact]
+    public void A_new_widget_opens_empty_in_the_editor_and_is_not_kept_if_left_empty()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
         {
-            File.Delete(file);
-        }
-        Assert.Null(PreviewImages.Load("NoSuchPreview"));
+            int before = link.Settings.Current.Widgets.Count;
+            vm.CreateCommand.Execute(null);
+            var ed = Assert.IsType<WidgetEditorViewModel>(vm.Editor);
+            Assert.True(vm.IsEditing);
+            Assert.True(ed.IsEmpty);
+            Assert.False(ed.HasTile);
+            Assert.Equal("My widget", ed.Title);
+            Assert.Equal(before + 1, link.Settings.Current.Widgets.Count);
+            Assert.True(vm.Cards.Single(c => c.Id == ed.Id).IsEditing);
+
+            ed.BackCommand.Execute(null);
+            Assert.Null(vm.Editor);
+            Assert.Equal(before, link.Settings.Current.Widgets.Count);
+
+            // One started from a starter is kept.
+            vm.CreateCommand.Execute(null);
+            ed = vm.Editor!;
+            ed.StartCommand.Execute(ed.Starters.Single(s => s.Value == "desk"));
+            Assert.Equal([WidgetTiles.Clock, WidgetTiles.Calendar, WidgetTiles.Date], link.Settings.Current.Widgets.Single(w => w.Id == ed.Id).Tiles!.Select(t => t.Kind));
+            Assert.Equal(0, ed.Selected);
+            Assert.True(ed.IsClock);
+            string id = ed.Id;
+            ed.BackCommand.Execute(null);
+            Assert.Equal("3 tiles", vm.Cards.Single(c => c.Id == id).Description);
+            Assert.False(vm.Cards.Single(c => c.Id == id).IsEditing);
+        });
+    }
+
+    [Fact]
+    public void Tiles_are_added_moved_resized_and_removed_with_undo_for_each()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var ed = vm.Editor!;
+            WidgetConfig Saved() => link.Settings.Current.Widgets.Single(w => w.Id == ed.Id);
+
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Clock));
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Date));
+            Assert.Equal(2, Saved().Tiles!.Count);
+            Assert.Equal(1, ed.Selected); // the one added is picked
+            Assert.Equal(2, ed.TileBoxes.Count);
+            var (clock, date) = (Saved().Tiles![0], Saved().Tiles![1]);
+            Assert.Equal((0, 0, 6, 2), (clock.X, clock.Y, clock.W, clock.H));
+            Assert.Equal((0, 2), (date.X, date.Y)); // under it, as the widget is already much wider than tall
+
+            // No limit on tiles, even past what fits on a screen.
+            for (int i = 0; i < 12; i++) ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Calendar));
+            Assert.Equal(14, Saved().Tiles!.Count);
+            for (int i = 0; i < 12; i++) ed.UndoCommand.Execute(null);
+            Assert.Equal(2, Saved().Tiles!.Count);
+
+            // The date dragged a cell to the right, then the clock made as small as a clock can be.
+            ed.MoveTile(1, 1, 0);
+            Assert.Equal((1, 2), (Saved().Tiles![1].X, Saved().Tiles![1].Y));
+            ed.ResizeTile(0, -10, -10);
+            Assert.Equal((2, 1), (Saved().Tiles![0].W, Saved().Tiles![0].H)); // never smaller than a clock can be
+            ed.GrowCommand.Execute("w+");
+            Assert.Equal(3, ed.TileW);
+            ed.UndoCommand.Execute(null);
+            ed.UndoCommand.Execute(null);
+            Assert.Equal((6, 2), (Saved().Tiles![0].W, Saved().Tiles![0].H));
+            ed.RedoCommand.Execute(null);
+            Assert.Equal((2, 1), (Saved().Tiles![0].W, Saved().Tiles![0].H));
+            Assert.True(ed.CanUndo && ed.CanRedo);
+
+            ed.SelectTile(0);
+            ed.DuplicateTileCommand.Execute(null);
+            Assert.Equal(3, Saved().Tiles!.Count);
+            Assert.Equal(WidgetTiles.Clock, Saved().Tiles![2].Kind);
+            ed.RemoveTileCommand.Execute(ed.TileBoxes[2]);
+            ed.SelectTile(1);
+            ed.RemovePickedTileCommand.Execute(null);
+            Assert.Equal(WidgetTiles.Clock, Assert.Single(Saved().Tiles!).Kind);
+            ed.RemoveTileAt(0);
+            Assert.True(ed.IsEmpty);
+            ed.UndoCommand.Execute(null);
+            Assert.False(ed.IsEmpty);
+            vm.CloseEditorCommand.Execute(null);
+        });
+    }
+
+    [Fact]
+    public void The_picked_tiles_settings_and_the_widgets_look_are_saved_at_once()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var ed = vm.Editor!;
+            WidgetConfig Saved() => link.Settings.Current.Widgets.Single(w => w.Id == ed.Id);
+
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Clock));
+            Assert.True(ed.IsClock && ed.CanAlign && !ed.IsReading && !ed.HasReadings);
+            Assert.Equal("Clock", ed.TileName);
+            ed.ClockStyle = "Analog";
+            ed.Hours24 = true;
+            ed.Seconds = true;
+            ed.ShowDate = false;
+            ed.Align = "Left";
+            var clock = Saved().Tiles![0];
+            Assert.Equal(("Analog", true, true, false, TileAlign.Left), (clock.Style, clock.Hours24, clock.Seconds, clock.ShowDate, clock.Align));
+            ed.ClockStyle = WidgetTiles.ClockStyles[0];
+            Assert.Null(Saved().Tiles![0].Style); // the first style is the usual one, kept as nothing
+
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Reading));
+            Assert.True(ed.IsReading);
+            ed.Reading = nameof(OverlayMetric.GpuTemp);
+            ed.Look = WidgetTiles.Looks(nameof(OverlayMetric.GpuTemp), null)[1];
+            ed.ShortName = "  My GPU  ";
+            var reading = Saved().Tiles![1];
+            Assert.Equal((nameof(OverlayMetric.GpuTemp), "My GPU"), (reading.Item, reading.Label));
+            Assert.Equal(ed.Look, reading.Look);
+
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Line));
+            Assert.True(ed.HasReadings);
+            int n = ed.TileReadings.Count;
+            ed.ReadingToAdd = ed.ReadingsToAdd.First(r => ed.TileReadings.All(t => t.Name != r.Name));
+            Assert.Equal(n + 1, ed.TileReadings.Count);
+            ed.RemoveReadingCommand.Execute(ed.TileReadings[0]);
+            Assert.Equal(n, ed.TileReadings.Count);
+
+            ed.Title = "  Desk  ";
+            ed.Theme = nameof(WidgetTheme.Light);
+            ed.Accent = "#22D3EE";
+            ed.Font = "Bahnschrift";
+            ed.Grayscale = true;
+            ed.Size = "1.5";
+            ed.BackgroundPercent = 40;
+            ed.ContentPercent = 10; // never below 20%
+            ed.Corners = nameof(WidgetCorners.Square);
+            ed.TileBoxesOn = true;
+            ed.Locked = true;
+            ed.Enabled = false;
+            var w = Saved();
+            Assert.Equal(("Desk", WidgetTheme.Light, "#22D3EE", "Bahnschrift", true, 1.5), (w.Name, w.Theme, w.Accent, w.Font, w.Grayscale, w.Scale));
+            Assert.Equal((0.4, 0.2, WidgetCorners.Square, true, true), (Math.Round(w.BackgroundOpacity, 2), Math.Round(w.ContentOpacity, 2), w.Corners, w.TileBoxes, w.Gap != WidgetGap.None));
+            Assert.Equal((true, false), (w.Locked, w.Enabled));
+            ed.Accent = "";
+            Assert.Null(Saved().Accent);
+            vm.CloseEditorCommand.Execute(null);
+        });
+    }
+
+    // The editor as in the approved mock-up (2026-11-11): nothing picked at first (the whole widget), a tile picked from
+    // its list; a to-do list's items and a timer's kind and length set from the panel.
+    [Fact]
+    public void The_editor_panel_shows_the_whole_widget_then_the_picked_tile()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var ed = vm.Editor!;
+            WidgetConfig Saved() => link.Settings.Current.Widgets.Single(w => w.Id == ed.Id);
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Todo));
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Timer));
+            ed.WholeWidgetCommand.Execute(null);
+            Assert.False(ed.HasTile);
+            Assert.Equal(["To-do", "Timer"], ed.TileBoxes.Select(b => b.Name));
+
+            ed.PickTileCommand.Execute(ed.TileBoxes[0]);
+            Assert.True(ed.IsTodo);
+            ed.NewTodo = "Clean the dust filters";
+            ed.AddTodoCommand.Execute(null);
+            ed.NewTodo = "Update the graphics driver";
+            ed.AddTodoCommand.Execute(null);
+            ed.ToggleTodoCommand.Execute(ed.TodoRows[0]);
+            Assert.Equal([("Clean the dust filters", true), ("Update the graphics driver", false)], Saved().Tiles![0].Todos!.Select(i => (i.Text, i.Done)));
+            Assert.Equal("1 of 2 done", ed.TileBoxes[0].Detail);
+            ed.RemoveTodoCommand.Execute(ed.TodoRows[1]);
+            Assert.Single(Saved().Tiles![0].Todos!);
+
+            ed.PickTileCommand.Execute(ed.TileBoxes[1]);
+            Assert.True(ed.IsTimerOnly);
+            ed.StepMinutesCommand.Execute("+");
+            Assert.Equal(30, Saved().Tiles![1].Minutes);
+            ed.TimerKind = "Countdown";
+            Assert.True(ed.IsCountdownTile);
+            Assert.NotNull(Saved().Tiles![1].Until);
+            vm.CloseEditorCommand.Execute(null);
+        });
+    }
+
+    // A tile's reading, and one added to a line or graph, are picked from a searchable list grouped like the Taskbar
+    // page's (the user, 2026-11-11): the usual readings first, the one in use ticked, those on a graph already not twice.
+    [Fact]
+    public void A_reading_is_picked_from_a_searchable_list()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var ed = vm.Editor!;
+            WidgetConfig Saved() => link.Settings.Current.Widgets.Single(w => w.Id == ed.Id);
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Reading));
+
+            ed.OpenReadingPickerCommand.Execute("tile");
+            Assert.True(ed.ReadingPickerOpen);
+            Assert.Equal("USUAL READINGS", ed.ReadingRows[0].Heading);
+            Assert.True(ed.ReadingRows.Single(r => r.Id == nameof(OverlayMetric.CpuTemp)).Selected);
+            ed.ReadingQuery = "gpu temp";
+            Assert.All(ed.ReadingRows.Where(r => r.IsChoice), r => Assert.Contains("GPU", r.Name + r.Detail, StringComparison.OrdinalIgnoreCase));
+            ed.PickRowCommand.Execute(ed.ReadingRows.First(r => r.Id == nameof(OverlayMetric.GpuTemp)));
+            Assert.False(ed.ReadingPickerOpen);
+            Assert.Equal(nameof(OverlayMetric.GpuTemp), Saved().Tiles![0].Item);
+            Assert.Equal(WidgetCatalog.MetricName(OverlayMetric.GpuTemp), ed.ReadingShown);
+            ed.ReadingQuery = "zzzz";
+            Assert.True(ed.NoReadingRows);
+
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Graph));
+            ed.OpenReadingPickerCommand.Execute("add");
+            Assert.True(ed.AddPickerOpen);
+            var cpu = ed.ReadingRows.Single(r => r.Id == nameof(OverlayMetric.CpuTemp));
+            Assert.False(cpu.Enabled); // on the graph already
+            var load = ed.ReadingRows.First(r => r.IsChoice && r.Enabled);
+            ed.PickRowCommand.Execute(load);
+            Assert.Contains(Saved().Tiles!.Single(t => t.Kind == WidgetTiles.Graph).Items!, i => i.Id == load.Id);
+            vm.CloseEditorCommand.Execute(null);
+        });
+    }
+
+    // While the editor is open the widget can be dragged on the desktop or on the map: a change in the editor, or its
+    // Undo, never puts it back where it was when the editor opened (the user, 2026-11-10: a calendar kept going back).
+    [Fact]
+    public void A_widget_moved_while_its_editor_is_open_stays_where_it_was_moved()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var ed = vm.Editor!;
+            WidgetConfig Saved() => link.Settings.Current.Widgets.Single(w => w.Id == ed.Id);
+            ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == WidgetTiles.Calendar));
+
+            vm.MoveWidget(ed.Id, 300, 500); // dragged on the map (the desktop saves the same way)
+            ed.Theme = nameof(WidgetTheme.Light);
+            Assert.Equal((300, 500, WidgetTheme.Light), (Saved().X, Saved().Y, Saved().Theme));
+            link.Settings.Update(s => (s.Widgets.Single(w => w.Id == ed.Id).X, s.Widgets.Single(w => w.Id == ed.Id).Y) = (900, 40));
+            ed.UndoCommand.Execute(null);
+            Assert.Equal((900, 40, WidgetTheme.App), (Saved().X, Saved().Y, Saved().Theme));
+            ed.Locked = true;
+            Assert.Equal((900, 40, true), (Saved().X, Saved().Y, Saved().Locked));
+            vm.CloseEditorCommand.Execute(null);
+        });
+    }
+
+    [Fact]
+    public void A_ready_made_widget_becomes_tiles_at_its_first_change_and_can_be_copied_or_removed()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            var compact = vm.Cards.Single(c => c.Style == WidgetStyle.Compact);
+            compact.EditCommand.Execute(null);
+            var ed = vm.Editor!;
+            Assert.Null(link.Settings.Current.Widgets.Single(w => w.Id == compact.Id).Tiles); // opened, not changed yet
+            Assert.Equal(2, ed.TileBoxes.Count); // shown as the tiles it will become
+            ed.Size = "2";
+            var saved = link.Settings.Current.Widgets.Single(w => w.Id == compact.Id);
+            Assert.Equal(2, saved.Tiles!.Count);
+            Assert.Equal(WidgetStyle.Compact, saved.Style);
+
+            int before = link.Settings.Current.Widgets.Count;
+            ed.DuplicateCommand.Execute(null);
+            Assert.Null(vm.Editor);
+            var copy = link.Settings.Current.Widgets[^1];
+            Assert.Equal((before + 1, WidgetStyle.Custom, "Compact", 2), (link.Settings.Current.Widgets.Count, copy.Style, copy.Name, copy.Tiles!.Count));
+
+            vm.Edit(compact.Id);
+            vm.Editor!.RemoveCommand.Execute(null);
+            Assert.Null(vm.Editor);
+            Assert.DoesNotContain(link.Settings.Current.Widgets, w => w.Id == compact.Id);
+            Assert.DoesNotContain(vm.Cards, c => c.Id == compact.Id);
+
+            // Opened from a widget's menu on the desktop; an identifier that's gone opens nothing.
+            vm.Edit(copy.Id);
+            Assert.Equal(copy.Id, vm.Editor!.Id);
+            vm.Edit("custom-nope");
+            Assert.Equal(copy.Id, vm.Editor!.Id);
+            vm.CloseEditorCommand.Execute(null);
+        });
+    }
+
+    [Fact]
+    public void The_settings_for_all_widgets_and_their_shortcuts()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.Snap = false;
+            vm.Fade = true;
+            vm.Shown = false;
+            Assert.Equal((false, true, false), (link.Settings.Current.WidgetSnap, link.Settings.Current.WidgetFade, link.Settings.Current.WidgetsShown));
+
+            Assert.False(vm.Record(0x57, HotkeyModifiers.Ctrl)); // nothing waiting for keys
+            vm.RecordShortcutCommand.Execute("shown");
+            Assert.Equal("shown", vm.Recording);
+            Assert.False(vm.Record(0x57, HotkeyModifiers.None)); // a letter alone isn't a shortcut; still waiting
+            Assert.Equal("shown", vm.Recording);
+            Assert.True(vm.Record(0x57, HotkeyModifiers.Ctrl | HotkeyModifiers.Alt));
+            Assert.Null(vm.Recording);
+            Assert.Equal("Ctrl+Alt+W", link.Settings.Current.WidgetsHotkey);
+
+            vm.RecordShortcutCommand.Execute("front");
+            Assert.True(vm.Record(0x71, HotkeyModifiers.None)); // F2 alone is fine
+            Assert.Equal("F2", link.Settings.Current.WidgetsFrontHotkey);
+            vm.ClearShortcutCommand.Execute("shown");
+            Assert.Null(link.Settings.Current.WidgetsHotkey);
+            Assert.Equal("F2", link.Settings.Current.WidgetsFrontHotkey);
+        });
+    }
+
+    // The map of the screens follows every change while the page shows (the user, 2026-11-10: it still showed widgets
+    // that had been removed); a burst of changes draws it once, a moment later.
+    // The widgets the person has (the user, 2026-11-10): search and All, On, Off with counts; Click-through and a quick
+    // Remove on each card, the removed one in its card's place with Undo, which puts it back as it was, where it was.
+    [Fact]
+    public void Your_widgets_filter_and_a_card_removes_its_widget_with_undo()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            link.Settings.Update(s =>
+            {
+                foreach (var w in s.Widgets) w.Enabled = false;
+                s.Widgets[0].Enabled = true;
+            });
+            vm.Refresh();
+            int all = link.Settings.Current.Widgets.Count;
+            Assert.Equal([all, 1, all - 1], vm.MineChips.Select(c => c.Count));
+            Assert.Equal(all, vm.Grid.Count); // every widget, nothing else
+
+            vm.PickedMineChip = vm.MineChips.Single(c => c.Key == "On");
+            Assert.Equal([link.Settings.Current.Widgets[0].Id], vm.Grid.OfType<WidgetCard>().Select(c => c.Id));
+            vm.PickedMineChip = vm.MineChips.Single(c => c.Key == "Off");
+            Assert.Equal(all - 1, vm.Grid.OfType<WidgetCard>().Count());
+            vm.PickedMineChip = vm.MineChips[0];
+            vm.MineQuery = "slim";
+            Assert.Equal("Slim bar", Assert.Single(vm.Grid.OfType<WidgetCard>()).Title);
+            vm.MineQuery = "zzz";
+            Assert.Empty(vm.Grid);
+            Assert.Equal("Nothing matches “zzz”.", vm.NoMineText);
+            vm.MineQuery = "";
+            Assert.Equal("", vm.NoMineText);
+
+            // The picked one's quick settings: Click-through is the editor's Lock in place; its size.
+            var second = vm.Cards[1];
+            vm.PickedRow = second;
+            Assert.Same(second, vm.Picked);
+            vm.Picked!.Locked = true;
+            vm.Picked.Size = "1.5";
+            Assert.Equal((true, 1.5), (link.Settings.Current.Widgets[1].Locked, link.Settings.Current.Widgets[1].Scale));
+
+            // A search that hides the picked one picks the first one it shows.
+            vm.MineQuery = "slim";
+            Assert.Equal("Slim bar", vm.Picked!.Title);
+            vm.MineQuery = "";
+            vm.PickedId = second.Id;
+
+            // Remove: gone from the settings at once, Undo in its place, the next one picked; Undo puts it back where
+            // it was, as it was, and picks it again.
+            string id = second.Id;
+            second.RemoveCommand.Execute(null);
+            Assert.DoesNotContain(link.Settings.Current.Widgets, w => w.Id == id);
+            var removed = Assert.IsType<RemovedWidget>(vm.Grid[1]);
+            Assert.EndsWith("removed.", removed.Line);
+            // Nothing picked next: the pane says it was removed, with Undo where Remove was (quick clicks on Remove
+            // took every widget away, 2026-11-11).
+            Assert.Null(vm.PickedId);
+            Assert.True(vm.HasRemoved);
+            vm.PickedRow = removed; // a removed one can't be picked
+            Assert.Null(vm.PickedId);
+            removed.UndoCommand.Execute(null);
+            Assert.Equal(id, link.Settings.Current.Widgets[1].Id);
+            Assert.True(link.Settings.Current.Widgets[1].Locked);
+            Assert.Equal(id, vm.PickedId);
+            Assert.DoesNotContain(vm.Grid, o => o is RemovedWidget);
+            Assert.Equal(id, Assert.IsType<WidgetCard>(vm.Grid[1]).Id);
+        });
+    }
+
+    [Fact]
+    public void The_map_of_the_screens_follows_widgets_switched_off_removed_and_added()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        string[] Spots() { Thread.Sleep(450); return Ui.Run(() => vm.Spots.Select(s => s.Id).ToArray()); }
+        string first = "", second = "";
+        Ui.Run(() =>
+        {
+            link.Settings.Update(s =>
+            {
+                foreach (var w in s.Widgets) w.Enabled = false;
+                (s.Widgets[0].Enabled, s.Widgets[0].X, s.Widgets[0].Y) = (true, 100, 100);
+                (s.Widgets[1].Enabled, s.Widgets[1].X, s.Widgets[1].Y) = (true, 500, 100);
+                s.WidgetsShown = true;
+            });
+            (first, second) = (link.Settings.Current.Widgets[0].Id, link.Settings.Current.Widgets[1].Id);
+            vm.PageShown = true;
+            vm.LoadMap();
+            Assert.Equal([first, second], vm.Spots.Select(s => s.Id));
+            vm.Cards.Single(c => c.Id == first).Enabled = false; // switched off on its card
+        });
+        Assert.Equal([second], Spots());
+
+        Ui.Run(() => link.Settings.Update(s => s.Widgets.RemoveAll(w => w.Id == second))); // removed from its menu on the desktop
+        Assert.Empty(Spots());
+
+        Ui.Run(() => link.Settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == first) is { } w) (w.Enabled, w.X) = (true, 300); })); // on again, moved
+        Assert.Equal([first], Spots());
+        Assert.Equal(300, Ui.Run(() => vm.Spots[0].X));
+
+        // Away from the page, nothing is drawn for it.
+        Ui.Run(() => { vm.PageShown = false; link.Settings.Update(s => s.Widgets.First(w => w.Id == first).Enabled = false); });
+        Assert.Equal([first], Spots());
     }
 
     [Fact]
     public void Widget_cards_refresh_when_settings_change_elsewhere()
     {
         using var link = new AgentLink();
-        var vm = Ui.Run(() => new WidgetsViewModel(link.Settings, link.Client));
+        var vm = WidgetsPage(link);
         Ui.Run(() =>
         {
-            var card = vm.Cards.Single(c => c.Style == WidgetStyle.Compact);
-            link.Settings.Update(s => s.Widgets[0].Locked = true);
+            var card = vm.Cards[0];
+            bool was = card.Enabled;
+            link.Settings.Update(s => s.Widgets[0].Enabled = !was);
             var changed = Kit.Changes(card, vm.Refresh);
-            Assert.Contains("", changed);
-            Assert.True(card.Locked);
+            Assert.Contains(nameof(WidgetCard.Enabled), changed);
+            Assert.Equal(!was, card.Enabled);
+
+            // A widget removed elsewhere (its menu on the desktop) closes the editor open on it.
+            vm.Edit(card.Id);
+            link.Settings.Update(s => s.Widgets.RemoveAt(0));
+            vm.Refresh();
+            Assert.Null(vm.Editor);
+            Assert.DoesNotContain(vm.Cards, c => c.Id == card.Id);
         });
+        Assert.Null(PreviewImages.Load("NoSuchPreview"));
     }
 
     internal static void WritePng(string path, int w, int h)

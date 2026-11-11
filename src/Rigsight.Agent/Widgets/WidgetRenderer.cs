@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
@@ -6,7 +6,12 @@ using Rigsight.Core;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Settings;
 
+#if RIGSIGHT_APP
+// Linked into the app, which draws widgets with the same code for its Widgets page (see Rigsight.csproj).
+namespace Rigsight.TaskbarDrawing;
+#else
 namespace Rigsight.Agent.Widgets;
+#endif
 
 /// <summary>Everything a widget can show, captured once per update.</summary>
 internal sealed class WidgetData
@@ -27,6 +32,8 @@ internal sealed class WidgetData
     /// <summary>The overlay's chosen sensors, in order: label, kind and current value.</summary>
     public List<OverlaySensorReading> Sensors = [];
     public TodayInfo Today = new();
+    /// <summary>What's playing on the PC (the Media tile), from the agent; null: nothing, or not known here.</summary>
+    public MediaNow? Media;
 
     public WidgetData Copy() => (WidgetData)MemberwiseClone();
 }
@@ -36,11 +43,18 @@ internal sealed record OverlaySensorReading(string Label, SensorKind Kind, doubl
 /// <summary>Draws widget bitmaps with GDI+ (per-pixel alpha, no UI framework needed).</summary>
 internal static partial class WidgetRenderer
 {
-    private sealed record Palette(Color Bg, Color Border, Color Text, Color Muted, Color Faint, Color Track, bool Light);
+    private sealed record Palette(Color Bg, Color Border, Color Text, Color Muted, Color Faint, Color Track, bool Light)
+    {
+        /// <summary>The theme's own part colours and accent ("Like RigSight"); null: the widgets' usual ones.</summary>
+        public Color? CpuColor { get; init; }
+        public Color? GpuColor { get; init; }
+        public Color? AccentColor { get; init; }
+    }
 
     private static readonly Color Cpu = Color.FromArgb(91, 140, 255);
     private static readonly Color Gpu = Color.FromArgb(34, 211, 238);
     private static readonly Color Ram = Color.FromArgb(177, 140, 255);
+    private static readonly Color Fps = Color.FromArgb(244, 114, 182);
 
     // Black and white, like the app's own dark and light themes.
     private static readonly Palette DarkPalette = new(Color.FromArgb(10, 10, 10), Color.FromArgb(38, 38, 38), Color.White,
@@ -56,6 +70,7 @@ internal static partial class WidgetRenderer
         WidgetTheme.Light => LightPalette,
         WidgetTheme.Grey => GreyPalette,
         WidgetTheme.System => WindowsUsesLight() ? LightPalette : DarkPalette,
+        WidgetTheme.App => AppPalette(),
         _ => DarkPalette,
     };
 
@@ -89,11 +104,14 @@ internal static partial class WidgetRenderer
     internal static readonly RecentIcons IconCache = new();
 
     /// <summary>Base size of a widget in device-independent pixels: its layout's, fitted to its readings.</summary>
-    private static SizeF BaseSize(WidgetConfig cfg, List<Reading> readings, Graphics measure) => WidgetCatalog.LayoutOf(cfg) switch
+    private static SizeF BaseSize(WidgetConfig cfg, List<Reading> readings, Graphics measure) => cfg.Tiles is { } tiles
+        ? new SizeF(WidgetTiles.BoxPixels(tiles).W, WidgetTiles.BoxPixels(tiles).H)
+        : WidgetCatalog.LayoutOf(cfg) switch
     {
         WidgetLayout.Bar => new(BarWidth(readings, measure), 34),
-        WidgetLayout.Tiles => TilesSize(readings.Count),
-        WidgetLayout.Gauges => new(20 + Math.Max(1, readings.Count) * 114, 150),
+        WidgetLayout.Tiles => TilesSize(readings.Count, captioned: cfg.Style == WidgetStyle.Custom),
+        // Without a caption (the built-in one, since 2026-11-10) the gauges are as far from the top as from the bottom.
+        WidgetLayout.Gauges => new(20 + Math.Max(1, readings.Count) * 114, cfg.Style == WidgetStyle.Custom ? 150 : 130),
         WidgetLayout.Graph => new(Math.Max(300, 34 + LegendWidth(readings, measure) + 14), 138),
         WidgetLayout.NowPlaying => new(310, 88),
         _ => new(256, 140),
@@ -102,6 +120,10 @@ internal static partial class WidgetRenderer
     public static Bitmap Render(WidgetConfig cfg, WidgetData? data, float scale, bool hover, out RectangleF closeRect)
     {
         Gray = cfg.Grayscale;
+        FontName = cfg.Tiles is null ? null : cfg.Font;
+        Hits = [];
+        ScrollAreas = [];
+        _widgetId = cfg.Id;
         try
         {
             return RenderStyle(cfg, data, scale, hover, out closeRect);
@@ -109,6 +131,7 @@ internal static partial class WidgetRenderer
         finally
         {
             Gray = false; // the overlay draws on this thread too, with its own grayscale
+            FontName = null;
         }
     }
 
@@ -125,6 +148,7 @@ internal static partial class WidgetRenderer
         Gray = cfg.Grayscale;
         try
         {
+            if (cfg.Tiles is not null) return BoxKey(cfg, d, p);
             switch (WidgetCatalog.LayoutOf(cfg))
             {
                 case WidgetLayout.Bar:
@@ -170,16 +194,22 @@ internal static partial class WidgetRenderer
         using var content = new Bitmap(bmp.Width, bmp.Height, PixelFormat.Format32bppArgb);
 
         float w = size.Width, h = size.Height;
-        bool pill = layout == WidgetLayout.Bar;
-        var panel = RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), pill ? (h - 1) / 2 : 14);
-        // Built-in widgets are signed "Rigsight"; the user's own carry their name.
-        string caption = cfg.Style == WidgetStyle.Custom ? WidgetCatalog.Title(cfg).ToUpperInvariant() : "RIGSIGHT";
+        bool pill = cfg.Tiles is null ? layout == WidgetLayout.Bar : RadiusOf(cfg, h) >= h / 2 - 0.5f;
+        var panel = cfg.Tiles is not null ? BoxPanel(cfg, w, h) : RoundRect(new RectangleF(0.5f, 0.5f, w - 1, h - 1), pill ? (h - 1) / 2 : 14);
+        // The user's own carry their name. Built-in ones say nothing up there: no "RIGSIGHT" on Compact and Gauges (the user,
+        // 2026-11-09); their room stays, so a widget keeps its size and its spot.
+        string caption = cfg.Style == WidgetStyle.Custom ? WidgetCatalog.Title(cfg).ToUpperInvariant() : "";
 
         void DrawContent(Graphics g)
         {
+            if (cfg.Tiles is not null)
+            {
+                DrawBox(g, cfg, d, pal);
+                return;
+            }
             switch (layout)
             {
-                case WidgetLayout.Bar: DrawBar(g, readings, pal); break;
+                case WidgetLayout.Bar: DrawBar(g, readings, pal, w, h); break;
                 case WidgetLayout.Tiles: DrawTiles(g, readings, d, pal, w, caption); break;
                 case WidgetLayout.Gauges: DrawGauges(g, readings, d, pal, caption); break;
                 case WidgetLayout.Graph: DrawGraph(g, readings, d, pal, w, h); break;
@@ -191,6 +221,8 @@ internal static partial class WidgetRenderer
         using (var g = Graphics.FromImage(content))
         {
             Prepare(g, scale, TextRenderingHint.AntiAliasGridFit);
+            // Over little or no panel, firmer letter edges (no ClearType there, see below): thin greyscale edges read soft.
+            if (cfg.BackgroundOpacity < SharpFrom) g.TextContrast = 0;
             g.Clear(Color.Transparent);
             DrawContent(g);
         }
@@ -231,6 +263,7 @@ internal static partial class WidgetRenderer
 
         using (var final = Graphics.FromImage(bmp))
         {
+            if (!sharpText && cfg.BackgroundOpacity < SharpFrom && EdgeGamma < 1) FirmEdges(content, EdgeGamma);
             if (!sharpText) Compose(final, content, panel, scale, pal.Bg, pal.Border, cfg.BackgroundOpacity, cfg.ContentOpacity);
             // The close button stays fully visible, whatever the opacity: it's how you get rid of the widget.
             var close = pill ? new RectangleF(w - 24, (h - 18) / 2, 18, 18) : new RectangleF(w - 26, 6, 20, 20);
@@ -319,43 +352,33 @@ internal static partial class WidgetRenderer
 
     // ── Layouts ──────────────────────────────────────────────────────────
 
-    /// <summary>The slim bar's shape: dot, label, value, for each reading, on one line.</summary>
-    private static float BarWidth(List<Reading> readings, Graphics g)
-    {
-        float x = 16;
-        foreach (var r in readings)
-            x += 11 + Measure(g, r.Label, 11, FontStyle.Bold) + 5 + Measure(g, r.Text, 13, FontStyle.Bold, semibold: true) + 16;
-        return Math.Max(x + 18, 120);
-    }
+    /// <summary>
+    /// The slim bar: its row of readings with the same room on the left and the right (the close cross is a badge outside
+    /// the widget now, so no room is kept for it on the right).
+    /// </summary>
+    private static float BarWidth(List<Reading> readings, Graphics g) =>
+        Math.Max(ReadingRow(g, readings, p: null, dot: _ => Color.Empty).Box.Width + BarPad * 2, 120);
 
-    private static void DrawBar(Graphics g, List<Reading> readings, Palette p)
-    {
-        float x = 16;
-        foreach (var r in readings)
-        {
-            using (var dot = new SolidBrush(Accent(r.Accent, p))) g.FillEllipse(dot, x, 14, 6, 6);
-            x += 11;
-            Text(g, r.Label, 11, FontStyle.Bold, p.Muted, x, 9);
-            x += Measure(g, r.Label, 11, FontStyle.Bold) + 5;
-            Text(g, r.Text, 13, FontStyle.Bold, r.ValueColor, x, 7.5f, semibold: true);
-            x += Measure(g, r.Text, 13, FontStyle.Bold, semibold: true) + 16;
-        }
-    }
+    private const float BarPad = 14;
+
+    /// <summary>The row in the middle of the bar, both ways (see <see cref="ReadingRow"/>).</summary>
+    private static void DrawBar(Graphics g, List<Reading> readings, Palette p, float w, float h) =>
+        ReadingRow(g, readings, p, r => Accent(r.Accent, p)).Draw(g, new RectangleF(0, 0, w, h), TileAlign.Center);
 
     private const float TileHeight = 90, TileGap = 14;
 
     /// <summary>A grid of tiles, two across (one alone is a single tile); a caption on top when there are several.</summary>
-    private static SizeF TilesSize(int count)
+    private static SizeF TilesSize(int count, bool captioned = true)
     {
         int columns = count <= 1 ? 1 : 2, rows = Math.Max(1, (count + columns - 1) / columns);
-        return new SizeF(columns == 1 ? 184 : 276, (count > 1 ? 30 : 10) + rows * TileHeight + (count > 1 ? 2 : 0));
+        return new SizeF(columns == 1 ? 184 : 276, (count > 1 && captioned ? 30 : 10) + rows * TileHeight + (count > 1 ? 2 : 0));
     }
 
     private static void DrawTiles(Graphics g, List<Reading> readings, WidgetData d, Palette p, float w, string caption)
     {
         int columns = readings.Count <= 1 ? 1 : 2;
-        float top = readings.Count > 1 ? 30 : 10;
-        if (readings.Count > 1) Caption(g, caption, 14, 10, p.Faint);
+        float top = readings.Count > 1 && caption.Length > 0 ? 30 : 10;
+        if (readings.Count > 1 && caption.Length > 0) Caption(g, caption, 14, 10, p.Faint);
         float colW = (w - TileGap * (columns + 1)) / columns;
         using var div = new Pen(p.Track, 1);
         for (int i = 0; i < readings.Count; i++)
@@ -385,12 +408,13 @@ internal static partial class WidgetRenderer
 
     private static void DrawGauges(Graphics g, List<Reading> readings, WidgetData d, Palette p, string caption)
     {
-        Caption(g, caption, 14, 10, p.Faint);
+        if (caption.Length > 0) Caption(g, caption, 14, 10, p.Faint);
+        float cy = caption.Length > 0 ? 78 : 58;
         for (int i = 0; i < readings.Count; i++)
         {
             var r = readings[i];
             float cx = 10 + 57 + i * 114;
-            const float cy = 78, radius = 40, t = 8;
+            const float radius = 40, t = 8;
             var rect = new RectangleF(cx - radius, cy - radius, radius * 2, radius * 2);
             using (var track = new Pen(p.Track, t) { StartCap = LineCap.Round, EndCap = LineCap.Round })
                 g.DrawArc(track, rect, 135, 270);
@@ -434,7 +458,7 @@ internal static partial class WidgetRenderer
     private static void DrawGraph(Graphics g, List<Reading> readings, WidgetData d, Palette p, float w, float h)
     {
         Caption(g, Lang.T("LAST 5 MINUTES"), 14, 10, p.Faint);
-        float gx = w - 34;
+        float gx = w - 14;
         for (int i = readings.Count - 1; i >= 0; i--)
         {
             string text = $"{readings[i].Label} {readings[i].Text}";
@@ -476,6 +500,36 @@ internal static partial class WidgetRenderer
                 prev = pt;
             }
         }
+    }
+
+    /// <summary>How much the half-covered pixels at the edges of letters drawn over nothing are firmed up (1: not at all); 0.75 picked side by side on a dark and a light wallpaper (the user, 2026-11-11: "it can be a bit more sharp").</summary>
+    internal static float EdgeGamma = 0.75f;
+
+    /// <summary>The text shadow's strength over nothing, against its first one: lighter, so it reads less like a smudge, still enough on a light wallpaper.</summary>
+    internal static float ShadowScale = 0.6f;
+
+    /// <summary>
+    /// Firms up the partly covered pixels at the edges of what's drawn on clear pixels: Windows blends a layered
+    /// window's edges straight onto what's behind, which thins and softens light letters on a dark wallpaper.
+    /// </summary>
+    internal static void FirmEdges(Bitmap bmp, float gamma)
+    {
+        var rect = new Rectangle(0, 0, bmp.Width, bmp.Height);
+        var data = bmp.LockBits(rect, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+        try
+        {
+            var lut = new byte[256];
+            for (int i = 0; i < 256; i++) lut[i] = (byte)Math.Round(255 * Math.Pow(i / 255.0, gamma));
+            var row = new byte[data.Stride];
+            for (int y = 0; y < bmp.Height; y++)
+            {
+                IntPtr line = data.Scan0 + y * data.Stride;
+                System.Runtime.InteropServices.Marshal.Copy(line, row, 0, data.Stride);
+                for (int x = 3; x < bmp.Width * 4; x += 4) row[x] = lut[row[x]];
+                System.Runtime.InteropServices.Marshal.Copy(row, 0, line, data.Stride);
+            }
+        }
+        finally { bmp.UnlockBits(data); }
     }
 
     /// <summary>The background opacity from which text is drawn with ClearType (see RenderStyle).</summary>
@@ -567,7 +621,7 @@ internal static partial class WidgetRenderer
     private static Color ShadowFor(double backgroundOpacity, bool lightTheme)
     {
         if (backgroundOpacity >= 0.4) return Color.Empty;
-        int alpha = (int)Math.Round(170 * (1 - backgroundOpacity / 0.4));
+        int alpha = (int)Math.Round(170 * ShadowScale * (1 - backgroundOpacity / 0.4));
         return lightTheme ? Color.FromArgb(alpha, 255, 255, 255) : Color.FromArgb(alpha, 0, 0, 0);
     }
 
@@ -637,15 +691,28 @@ internal static partial class WidgetRenderer
 
     // Fonts are cached: widgets and the overlay redraw every second and measure the same few sizes over and
     // over. Only a handful of combinations are ever used. UI thread only; never disposed.
-    private static readonly Dictionary<(float Px, FontStyle Style, bool Semibold), Font> Fonts = [];
+    private static readonly Dictionary<(string? Family, float Px, FontStyle Style, bool Semibold), Font> Fonts = [];
+
+    /// <summary>A box's own font (see <see cref="WidgetConfig.Font"/>); null: Segoe UI.</summary>
+    [ThreadStatic] private static string? FontName;
 
     private static Font MakeFont(float px, FontStyle style, bool semibold)
     {
-        if (!Fonts.TryGetValue((px, style, semibold), out var font))
+        string? family = FontName;
+        if (!Fonts.TryGetValue((family, px, style, semibold), out var font))
         {
-            font = semibold ? new Font("Segoe UI Semibold", px, style & ~FontStyle.Bold, GraphicsUnit.Pixel)
-                            : new Font("Segoe UI", px, style, GraphicsUnit.Pixel);
-            Fonts[(px, style, semibold)] = font;
+            try
+            {
+                font = family is not null ? new Font(family, px, semibold ? style | FontStyle.Bold : style, GraphicsUnit.Pixel)
+                     : semibold ? new Font("Segoe UI Semibold", px, style & ~FontStyle.Bold, GraphicsUnit.Pixel)
+                     : new Font("Segoe UI", px, style, GraphicsUnit.Pixel);
+            }
+            catch (ArgumentException)
+            {
+                // A font that isn't on this PC (any more): Windows' own instead.
+                font = new Font("Segoe UI", px, style, GraphicsUnit.Pixel);
+            }
+            Fonts[(family, px, style, semibold)] = font;
         }
         return font;
     }
@@ -670,8 +737,8 @@ internal static partial class WidgetRenderer
             float o = Math.Max(1, MathF.Round(px / 16f * device)) / device;
             using var shadow = new SolidBrush(TextShadow);
             Draw(shadow, o, o);
-            using var soft = new SolidBrush(Color.FromArgb(TextShadow.A / 2, TextShadow));
-            Draw(soft, 0, o * 1.6f);
+            // Once, a whole pixel down and right: a second, softer copy 1.6 pixels down smeared under every letter, so
+            // text with no backdrop looked blurry next to the same widget with one (the user, 2026-11-11).
         }
         using var brush = new SolidBrush(color);
         Draw(brush, 0, 0);
@@ -734,6 +801,11 @@ internal static partial class WidgetRenderer
     {
         float d = Math.Min(radius * 2, Math.Min(r.Width, r.Height));
         var path = new GraphicsPath();
+        if (d < 0.5f)
+        {
+            path.AddRectangle(r); // square corners
+            return path;
+        }
         path.AddArc(r.X, r.Y, d, d, 180, 90);
         path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
         path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);

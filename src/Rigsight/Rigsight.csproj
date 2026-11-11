@@ -60,6 +60,13 @@
     <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Strip.cs" Link="TaskbarDrawing\WidgetRenderer.Strip.cs" />
     <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Tray.cs" Link="TaskbarDrawing\WidgetRenderer.Tray.cs" />
     <Compile Include="..\Rigsight.Agent\Widgets\DirectWriteText.cs" Link="TaskbarDrawing\DirectWriteText.cs" />
+    <!-- The widgets' drawing too, so the Widgets page and its editor draw a widget exactly as the desktop will, at once. -->
+    <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.cs" Link="TaskbarDrawing\WidgetRenderer.cs" />
+    <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Box.cs" Link="TaskbarDrawing\WidgetRenderer.Box.cs" />
+    <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Everyday.cs" Link="TaskbarDrawing\WidgetRenderer.Everyday.cs" />
+    <Compile Include="..\Rigsight.Agent\Widgets\WidgetFiles.cs" Link="TaskbarDrawing\WidgetFiles.cs" />
+    <Compile Include="..\Rigsight.Agent\Widgets\RecentIcons.cs" Link="TaskbarDrawing\RecentIcons.cs" />
+    <Compile Include="..\Rigsight.Agent\Widgets\FrameStats.cs" Link="TaskbarDrawing\FrameStats.cs" />
   </ItemGroup>
 
   <ItemGroup>

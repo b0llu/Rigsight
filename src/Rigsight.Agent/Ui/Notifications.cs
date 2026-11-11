@@ -15,6 +15,8 @@ internal enum NoticeKind
     Alert, Recap, Session, Crash, Overlay, Update, Rewind, Internet, InternetBack,
     // The notifications round (2026-11-07): problems in red, worth knowing in amber, recaps in blue.
     FanStopped, DriveFailing, Fans, Drive, Usual, Slowed, Change, Space, Memory, Startup, Weekly,
+    // A widget's timer that has run out (widgets part two, 2026-11-11).
+    Timer,
 }
 
 /// <summary>Something worth telling the user. <see cref="Urgent"/> notices are shown even during fullscreen games.</summary>
@@ -420,6 +422,7 @@ internal static class ToastRenderer
         NoticeKind.Memory => Lang.T("MEMORY"),
         NoticeKind.Startup => Lang.T("STARTS WITH WINDOWS"),
         NoticeKind.Weekly => Lang.T("WEEKLY RECAP"),
+        NoticeKind.Timer => Lang.T("TIMER"),
         _ => Lang.T("UPDATE"),
     };
 

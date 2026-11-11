@@ -61,6 +61,39 @@ public sealed class SettingsStoreTests
         Assert.Equal("Ctrl+K", SettingsStore.Deserialize("{}").Ai.Shortcut);
     }
 
+    // Since v13 (widgets as boxes of tiles) a built-in widget can be removed for good; a file from before still gets every
+    // one back, and nothing a person set on a widget changes on the way (settings survive updates).
+    [Fact]
+    public void A_removed_built_in_widget_stays_removed_from_v13_on()
+    {
+        const string widgets = """
+            "Widgets": [ { "Style": "Pill", "Enabled": true, "X": 40, "Y": 20, "Theme": "Light", "Locked": true },
+                         { "Style": "Custom", "Id": "custom-1", "Name": "Desk", "Tiles": [ { "Kind": "clock", "W": 6, "H": 2 } ] } ]
+            """;
+        var old = SettingsStore.Deserialize($$"""{ "SettingsVersion": 12, {{widgets}} }""");
+        Assert.Equal(WidgetCatalog.BuiltIn.Count + 1, old.Widgets.Count);
+        var now = SettingsStore.Deserialize($$"""{ "SettingsVersion": 13, {{widgets}} }""");
+        Assert.Equal([WidgetStyle.Pill, WidgetStyle.Custom], now.Widgets.Select(w => w.Style));
+        foreach (var s in new[] { old, now })
+        {
+            var pill = s.Widgets.Single(w => w.Style == WidgetStyle.Pill);
+            Assert.Equal((true, 40, 20, WidgetTheme.Light, true), (pill.Enabled, pill.X, pill.Y, pill.Theme, pill.Locked));
+            var desk = s.Widgets.Single(w => w.Id == "custom-1");
+            Assert.Equal(("Desk", WidgetTiles.Clock), (desk.Name, Assert.Single(desk.Tiles!).Kind));
+        }
+    }
+
+    // Every widget sits on the desktop (the user, 2026-11-11: Over windows removed). A file that still says where one sat
+    // loads, keeping everything else about it.
+    [Fact]
+    public void A_file_from_when_widgets_could_sit_over_windows_still_loads()
+    {
+        var s = SettingsStore.Deserialize("""{ "SettingsVersion": 13, "Widgets": [ { "Style": "Pill", "Enabled": true, "Sits": "OverWindows", "X": 40, "Y": 20 } ] }""");
+        var pill = s.Widgets.Single(w => w.Style == WidgetStyle.Pill);
+        Assert.Equal((true, 40, 20), (pill.Enabled, pill.X, pill.Y));
+        Assert.DoesNotContain("Sits", SettingsStore.Serialize(s));
+    }
+
     [Fact]
     public void Null_widgets_get_the_default_widgets() =>
         Assert.Equal([WidgetStyle.Pill], Load("\"Widgets\": null").Widgets.Where(w => w.Enabled).Select(w => w.Style));

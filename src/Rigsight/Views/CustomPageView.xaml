@@ -40,7 +40,7 @@
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" MinHeight="26">
                         <StackPanel x:Name="EditButtons" DockPanel.Dock="Right" Orientation="Horizontal" Visibility="Collapsed">
-                            <Button Style="{StaticResource IconButton}" Command="{Binding RemoveCommand}" ToolTip="{ctl:T 'Remove tile'}" AutomationProperties.Name="Remove tile">
+                            <Button Style="{StaticResource DangerIconButton}" Command="{Binding RemoveCommand}" ToolTip="{ctl:T 'Remove tile'}" AutomationProperties.Name="Remove tile">
                                 <TextBlock Text="&#xE711;" />
                             </Button>
                         </StackPanel>
@@ -461,7 +461,7 @@
                         </TextBlock>
                     </StackPanel>
                 </Button>
-                <Button Style="{StaticResource GhostButton}" Command="{Binding DeletePageCommand}" AutomationProperties.Name="Delete dashboard" Margin="0,0,8,0" Foreground="{DynamicResource HotBrush}"
+                <Button Style="{StaticResource DangerButton}" Command="{Binding DeletePageCommand}" AutomationProperties.Name="Delete dashboard" Margin="0,0,8,0"
                         Visibility="{Binding IsEditing, Converter={StaticResource Vis}}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" />

@@ -833,12 +833,81 @@
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Template" Value="{StaticResource AccentButtonTemplate}" />
     </Style>
+    <!-- A line in a floating list (a look, a sensor to add): lit on hover, outlined when it's the one in use (Tag "on"). -->
+    <Style x:Key="ListChoice" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Field}" Padding="{TemplateBinding Padding}" Background="Transparent">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                            <Setter TargetName="Bd" Property="Background" Value="Transparent" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A dropdown in a grey well, no border: its content left, lit on hover; muted when it can't be used. -->
+    <Style x:Key="DropButton" TargetType="Button">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S13}" />
+        <Setter Property="Padding" Value="12,7,10,7" />
+        <Setter Property="MinWidth" Value="180" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
+                                    <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <Storyboard><DoubleAnimation Storyboard.TargetName="Body" Storyboard.TargetProperty="Opacity" To="0.4" Duration="0" /></Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Field}" />
+                        <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Field}" Opacity="0" />
+                        <DockPanel x:Name="Body" Margin="{TemplateBinding Padding}">
+                            <TextBlock DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S9}" Margin="10,1,0,0"
+                                       Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
     <Style x:Key="IconButton" TargetType="Button">
         <!-- The Fluent theme gives TextBlocks their own font, so glyph content must ask for the icon font explicitly. -->
         <Style.Resources>
+            <!-- Icons in a box at an even size: an icon-font glyph at an odd size sits half a pixel off the middle of an even box (the user, 2026-11-11). -->
             <Style TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
-                <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S13}" />
+                <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S14}" />
                 <Setter Property="HorizontalAlignment" Value="Center" />
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
@@ -872,12 +941,90 @@
                         <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Choice}" Opacity="0" />
                         <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Choice}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S13}" />
+                                              TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S14}" />
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- Every action that removes or deletes something (the user's rule, 2026-11-10): the theme's own red as an outline
+         and words at rest, filled red under the pointer with words that read on it (OnHotBrush, set with the theme), a
+         touch dimmer while pressed. What's inside takes the button's colour, so an icon in it turns with the words: give
+         it no Foreground of its own. -->
+    <Style x:Key="DangerButton" TargetType="Button">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Foreground" Value="{DynamicResource HotBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource HotBrush}" />
+        <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Body}" />
+        <Setter Property="Padding" Value="13,7" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root">
+                        <!-- The fill and the outline apart, the fill under the whole outline: drawn as one Border, a seam of
+                             what's behind showed between them at 150% (the user, 2026-11-10). -->
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="{x:Static ctl:Corner.Button}" />
+                        <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Button}" />
+                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HotBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource OnHotBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.8" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- The same for a remove with only an icon (a bin, or the cross in a list): square, its glyph in the icon font. -->
+    <Style x:Key="DangerIconButton" TargetType="Button" BasedOn="{StaticResource DangerButton}">
+        <Style.Resources>
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+                <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S14}" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+        </Style.Resources>
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="{x:Static ctl:Corner.Choice}" />
+                        <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Choice}" />
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.FontFamily="{StaticResource IconFont}"
+                                          TextElement.FontSize="{x:Static ctl:IconSize.S14}" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HotBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource OnHotBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.8" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -1101,9 +1248,15 @@
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
                     <Border x:Name="Bd" Background="{DynamicResource Surface2Brush}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Control}" Padding="10,7">
-                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                        <!-- Empty, it says what goes in it (its Tag, if it has one), as the search boxes do. -->
+                        <Grid>
+                            <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="2,0"
+                                       TextTrimming="CharacterEllipsis" IsHitTestVisible="False" Visibility="Collapsed" />
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value=""><Setter TargetName="Placeholder" Property="Visibility" Value="Visible" /></Trigger>
                         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" /></Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource StrokeBrush}" /></Trigger>
                         <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.5" /></Trigger>

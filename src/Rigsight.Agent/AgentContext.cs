@@ -233,6 +233,7 @@ internal sealed partial class AgentContext : ApplicationContext
         _tray = new TrayController(() => OpenApp(null), switches, _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
+        _widgets.TimerUp = (title, body) => _notices.Show(new Notice(NoticeKind.Timer, title, body, Page: "widgets"));
 
         // A window that has just opened gets its readings and the running apps now, not at their next turn (readings
         // are two seconds apart and the apps five while no window is open: its pages stood empty that long).
@@ -1318,9 +1319,8 @@ internal sealed partial class AgentContext : ApplicationContext
         string? cardKey = _card.Key;
         var cardSections = cardKey is null ? null : CardFor(cardKey, trayReadings, settings, DarkMenuRenderer.Light);
         var activity = _tracker.Activity;
-        // Only tiles and graphs draw history lines; skip scanning it otherwise.
-        var historyOf = settings.Widgets.Where(w => w.Enabled && WidgetCatalog.LayoutOf(w) is WidgetLayout.Tiles or WidgetLayout.Graph)
-            .SelectMany(WidgetCatalog.ItemsOf).Select(i => WidgetCatalog.Metric(i.Id)).OfType<OverlayMetric>().ToHashSet();
+        // Only what draws history lines (graph tiles, a reading as a graph, the older tiles and graph layouts); none otherwise.
+        var historyOf = (settings.WidgetsShown ? settings.Widgets.Where(w => w.Enabled) : []).SelectMany(WidgetTiles.HistoryMetrics).ToHashSet();
         bool drawsHistory = historyOf.Contains(OverlayMetric.CpuTemp) || historyOf.Contains(OverlayMetric.GpuTemp);
         var data = new WidgetData
         {
@@ -2198,6 +2198,14 @@ internal sealed partial class AgentContext : ApplicationContext
                 _startupEnabled = msg.Cmd == "startup-on" ? StartupTask.Enable() : !StartupTask.Disable();
                 _startupEnabled = StartupTask.IsEnabled();
                 _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
+                break;
+            case WidgetCatalog.MoveCommand:
+                // A widget moved in the app (its map, its editor): the one way the app moves a widget (see KeepAgentFields).
+                if (WidgetCatalog.ParseMove(msg.Arg) is { } move)
+                    _ui.Post(_ => MutateSettings(s =>
+                    {
+                        if (s.Widgets.FirstOrDefault(w => w.Id == move.Id) is { } w) (w.X, w.Y) = (move.X, move.Y);
+                    }), null);
                 break;
             case "pause":
                 _ui.Post(_ => PauseFor(int.TryParse(msg.Arg, out var m) ? m : 60), null);

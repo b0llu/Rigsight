@@ -6,84 +6,15 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core;
 using Rigsight.Core.Settings;
-using Rigsight.Models;
 using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
 
-/// <summary>A reading on a widget, in its editor: what it is, and the short name shown for it.</summary>
-public sealed partial class WidgetItemRow(WidgetCard card, string id, string name, string detail) : ObservableObject
-{
-    public string Id { get; } = id;
-
-    /// <summary>Why the widget's layout doesn't show it ("Tiles shows 6"), or null when it does. Kept, not dropped.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsShown), nameof(NotShownText))]
-    private string? _notShown;
-
-    public bool IsShown => NotShown is null;
-    /// <summary>The note under the row: "Not shown · Tiles shows 6".</summary>
-    public string? NotShownText => NotShown is null ? null : Lang.T($"Not shown · {NotShown}");
-    /// <summary>What the reading is ("CPU temperature", or the sensor's name): shown when no short name is set.</summary>
-    public string Name { get; } = name;
-    /// <summary>Where it comes from: the sensor's hardware, or nothing for the usual readings.</summary>
-    public string Detail { get; } = detail;
-
-    public string Label
-    {
-        get => card.ItemLabel(Id);
-        set { card.SetItemLabel(Id, value); OnPropertyChanged(); }
-    }
-
-    public void Refresh() => OnPropertyChanged(nameof(Label));
-}
-
-/// <summary>A reading that can be added to a widget.</summary>
-public sealed record WidgetMetricOption(OverlayMetric Metric, string Name);
-
 /// <summary>
-/// A line of the reading picker: a usual reading or a sensor, where it comes from, its value now, and why it can't be
-/// added where it can't (the layout can't show it, or the widget is full). <see cref="Header"/>: the group heading above
-/// it, when it's the first of its group.
+/// A widget the person has, on the Widgets page (approved mock-up UckKnwokm5kF7JjdjHZpqd, "Two panes"): a row in the list
+/// (its picture, name, the screen it's on, its switch) and, picked, the pane beside it (its picture at its size, where it
+/// is, and where it sits, Click-through and its size).
 /// </summary>
-public sealed record PickerOption(string Id, string Name, string Source, string Value, WidgetCategory Category, string? Off)
-{
-    /// <summary>A fan's speed (the Fans chip lists the graphics card's fans too).</summary>
-    public bool IsSensorFan { get; init; }
-
-    /// <summary>A sensor's kind in words ("Temperature", "Clock"), so "temp" finds "Core (Tctl/Tdie)".</summary>
-    public string? Kind { get; init; }
-    public string? Header { get; init; }
-    public bool HasHeader => Header is not null;
-    public bool CanAdd => Off is null;
-    /// <summary>What stands at the right: its value, or why it can't be added.</summary>
-    public string Side => Off ?? Value;
-    public bool HasSource => Source.Length > 0;
-    /// <summary>The dot's colour: the part's (CPU blue, GPU cyan, RAM purple), muted for the rest.</summary>
-    public string DotBrush => Category switch
-    {
-        WidgetCategory.Cpu => "CpuBrush",
-        WidgetCategory.Gpu => "GpuBrush",
-        WidgetCategory.Ram => "PurpleBrush",
-        WidgetCategory.Game => "PinkBrush",
-        WidgetCategory.Storage or WidgetCategory.Network => "SkyBrush",
-        _ => "FaintBrush",
-    };
-}
-
-/// <summary>A chip of the picker: a group of readings, with how many there are to add (under the words typed).</summary>
-public sealed partial class PickerChip(string key, string name) : ObservableObject
-{
-    public string Key { get; } = key;
-    public string Name { get; } = name;
-    [ObservableProperty] private int _count;
-    [ObservableProperty] private bool _isSelected;
-
-    /// <summary>The group has something on this PC (a PC without, say, readable drive sensors shows no Storage chip).</summary>
-    [ObservableProperty] private bool _isShown = true;
-}
-
-/// <summary>One widget: its card on the Widgets page, and everything its editor changes.</summary>
 public sealed partial class WidgetCard : ObservableObject
 {
     private readonly SettingsModel _settings;
@@ -96,462 +27,763 @@ public sealed partial class WidgetCard : ObservableObject
         _settings = settings;
         _live = live;
         _page = page;
-        // Weakly: the live data lives as long as the app, and held on to every card made (they're made on each visit).
-        if (live is not null) System.ComponentModel.PropertyChangedEventManager.AddHandler(live, OnLiveChanged, nameof(LiveData.PickableSensors));
-        LoadItems();
     }
 
     public string Id { get; }
 
-    /// <summary>The widget's settings (a copy of the app's: changes go through <see cref="Change"/>).</summary>
-    private WidgetConfig Config => _settings.Current.Widgets.FirstOrDefault(w => w.Id == Id) ?? new WidgetConfig { Id = Id };
+    internal WidgetConfig Config => _settings.Current.Widgets.FirstOrDefault(w => w.Id == Id) ?? new WidgetConfig { Id = Id };
 
     public WidgetStyle Style => Config.Style;
 
-    /// <summary>The user's own (a name, a layout, can be duplicated or deleted), not a built-in one.</summary>
-    public bool IsCustom => Style == WidgetStyle.Custom;
-    public bool IsBuiltIn => !IsCustom;
+    public string Title => WidgetCatalog.Title(Config);
 
-    private void Change(Action<WidgetConfig> change, params string[] properties)
-    {
-        _settings.Update(s =>
-        {
-            if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } w) change(w);
-        });
-        foreach (var p in properties) OnPropertyChanged(p);
-    }
-
-    public string Title
-    {
-        get => WidgetCatalog.Title(Config);
-        set
-        {
-            if (!IsCustom) return;
-            string name = (value ?? "").Trim();
-            if (name.Length == 0) name = WidgetCatalog.Title(WidgetStyle.Custom);
-            if (name.Length > WidgetCatalog.MaxNameLength) name = name[..WidgetCatalog.MaxNameLength];
-            Change(w => w.Name = name, nameof(Title));
-        }
-    }
-
-    /// <summary>A built-in widget's description; the user's own say how they're made ("Bar · 3 readings").</summary>
+    /// <summary>A built-in widget says what it shows; one of tiles, how many; one of the person's own from before, its layout.</summary>
     public string Description
     {
         get
         {
-            if (IsBuiltIn) return WidgetCatalog.Description(Style);
-            int n = WidgetCatalog.ShownItems(Config).Count;
-            string layout = WidgetCatalog.LayoutName(LayoutValue);
+            var c = Config;
+            if (c.Tiles is { } tiles) return tiles.Count == 1 ? Lang.T("1 tile") : Lang.T($"{tiles.Count} tiles");
+            if (c.Style != WidgetStyle.Custom) return WidgetCatalog.Description(c.Style);
+            int n = WidgetCatalog.ShownItems(c).Count;
+            string layout = WidgetCatalog.LayoutName(WidgetCatalog.LayoutOf(c));
             return n == 1 ? Lang.T($"{layout} · 1 reading") : Lang.T($"{layout} · {n} readings");
         }
     }
 
-    public bool Enabled { get => Config.Enabled; set => Change(c => c.Enabled = value, nameof(Enabled)); }
-    public string Theme { get => Config.Theme.ToString(); set => Change(c => c.Theme = Enum.Parse<WidgetTheme>(value), nameof(Theme)); }
-    public string Colors { get => Config.Grayscale ? "Grayscale" : "Color"; set => Change(c => c.Grayscale = value == "Grayscale", nameof(Colors)); }
-    public bool Locked { get => Config.Locked; set => Change(c => c.Locked = value, nameof(Locked)); }
-    public double BackgroundPercent { get => Math.Round(Config.BackgroundOpacity * 100); set => Change(c => c.BackgroundOpacity = value / 100, nameof(BackgroundPercent)); }
-    public double ContentPercent { get => Math.Round(Config.ContentOpacity * 100); set => Change(c => c.ContentOpacity = value / 100, nameof(ContentPercent)); }
-    public string Scale { get => Config.Scale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture); set => Change(c => c.Scale = double.Parse(value, System.Globalization.CultureInfo.InvariantCulture), nameof(Scale)); }
-
-    // ── Layout and readings ──
-
-    private WidgetLayout LayoutValue => WidgetCatalog.LayoutOf(Config);
-
-    /// <summary>The layout (Bar, Tiles, Gauges, Graph); only the user's own widgets can change it.</summary>
-    public string Layout
+    public bool Enabled
     {
-        get => LayoutValue.ToString();
+        get => Config.Enabled;
         set
         {
-            if (!IsCustom || !Enum.TryParse<WidgetLayout>(value, out var layout) || !WidgetCatalog.CustomLayouts.Contains(layout)) return;
-            // Keep the readings the new layout can show (a graph can't show a sensor, gauges can't show a clock speed).
-            Change(w =>
-            {
-                w.Layout = layout;
-                WidgetCatalog.Clean(w);
-            }, nameof(Layout), nameof(Description));
-            LoadItems();
+            if (value == Enabled) return;
+            _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.Enabled = value; });
+            OnPropertyChanged(nameof(Enabled));
+            OnPropertyChanged(nameof(Where));
+            OnPropertyChanged(nameof(Line));
+            _page.CardsChanged();
         }
     }
 
-    public string LayoutName => WidgetCatalog.LayoutName(LayoutValue);
-
-    /// <summary>Whether this widget shows readings to pick (Now playing and Today don't).</summary>
-    public bool HasReadings => WidgetCatalog.MaxItems(LayoutValue) > 0;
-
-    public ObservableCollection<WidgetItemRow> Items { get; } = [];
-
-    public int MaxItems => WidgetCatalog.MaxItems(LayoutValue);
-    public bool CanAddMore => Items.Count(i => i.IsShown) < MaxItems && Items.Count < WidgetCatalog.MaxKept;
-    public string ItemsCount => Lang.T($"{Items.Count(i => i.IsShown)} of {MaxItems}");
-
-    /// <summary>The readings that can still be added, in the overlay's order.</summary>
-    public IReadOnlyList<WidgetMetricOption> Offered =>
-        [.. WidgetCatalog.Offered(LayoutValue).Where(m => Items.All(i => i.Id != m.ToString())).Select(m => new WidgetMetricOption(m, WidgetCatalog.MetricName(m)))];
-
-    /// <summary>The PC's sensors this layout can show (gauges: temperatures and percentages), not already on it.</summary>
-    public IReadOnlyList<SensorItem> OfferedSensors =>
-        _live is null || !WidgetCatalog.AllowsSensor(LayoutValue) ? []
-            : [.. _live.PickableSensors.Where(s => WidgetCatalog.AllowsSensor(LayoutValue, s.Kind) && Items.All(i => i.Id != WidgetCatalog.SensorPrefix + s.Id))];
-
-    public bool CanAddSensors => WidgetCatalog.AllowsSensor(LayoutValue) && _live is not null;
-
-    // ── The reading picker: one searchable list of the usual readings and every sensor, by part ──
-
-    /// <summary>What's typed in the picker: every word must be in a reading's name, its part's name or its group.</summary>
-    [ObservableProperty] private string _pickerText = "";
-
-    [ObservableProperty] private bool _pickerOpen;
-
-    /// <summary>The chip picked ("all", or a <see cref="WidgetCategory"/>'s name).</summary>
-    [ObservableProperty] private string _pickerCategory = "all";
-
-    public List<PickerChip> PickerChips { get; } =
-        [new("all", Lang.T("All")), .. Enum.GetValues<WidgetCategory>().Select(c => new PickerChip(c.ToString(), WidgetCatalog.CategoryName(c)))];
-
-    [ObservableProperty] private List<PickerOption> _pickerOptions = [];
-    [ObservableProperty] private bool _pickerEmpty;
-    [ObservableProperty] private string _pickerEmptyText = "";
-    [ObservableProperty] private string _pickerEmptyHint = "";
-    [ObservableProperty] private bool _canSearchAll;
-
-    partial void OnPickerTextChanged(string value)
+    /// <summary>Click-through: it can't be dragged and clicks go to what's behind it (the editor's "Lock in place").</summary>
+    public bool Locked
     {
-        if (value.Length > 0) PickerOpen = true;
-        BuildPicker();
-    }
-
-    partial void OnPickerOpenChanged(bool value)
-    {
-        if (value) BuildPicker();
-    }
-
-    partial void OnPickerCategoryChanged(string value) => BuildPicker();
-
-    [RelayCommand]
-    private void PickChip(PickerChip chip) => PickerCategory = chip.Key;
-
-    [RelayCommand]
-    private void SearchAll() => PickerCategory = "all";
-
-    /// <summary>A click on a line adds it at once; the picker stays open for the next one.</summary>
-    [RelayCommand]
-    private void PickOption(PickerOption option)
-    {
-        if (!option.CanAdd || Items.Any(i => i.Id == option.Id)) return;
-        EditItems(list => list.Add(new WidgetItem { Id = option.Id }));
-        BuildPicker();
-    }
-
-    /// <summary>Everything that can go on a widget, grouped by part: the usual readings first, then the sensors.</summary>
-    private List<PickerOption> AllOptions()
-    {
-        var layout = LayoutValue;
-        bool full = !CanAddMore;
-        string? Off(string? why) => why ?? (full ? Lang.T("Full. Remove one to add another") : null);
-        var list = new List<PickerOption>();
-        foreach (var m in Enum.GetValues<OverlayMetric>())
+        get => Config.Locked;
+        set
         {
-            string id = m.ToString();
-            if (WidgetCatalog.Metric(id) is null || Items.Any(i => i.Id == id)) continue;
-            list.Add(new PickerOption(id, WidgetCatalog.MetricName(m), WidgetCatalog.MetricDetail(m), ValueOf(m), WidgetCatalog.CategoryOf(m),
-                Off(WidgetCatalog.WhyNot(layout, m))));
-        }
-        if (_live is not null)
-            foreach (var sensor in _live.PickableSensors)
-            {
-                string id = WidgetCatalog.SensorPrefix + sensor.Id;
-                if (Items.Any(i => i.Id == id)) continue;
-                list.Add(new PickerOption(id, sensor.DisplayName, sensor.HardwareName, sensor.ShortValue, WidgetCatalog.CategoryOf(sensor.HardwareType, sensor.Kind),
-                    Off(WidgetCatalog.WhyNot(layout, null, sensor.Kind))) { IsSensorFan = sensor.Kind == Core.SensorKind.Fan, Kind = sensor.TypeLabel });
-            }
-        return list;
-    }
-
-    /// <summary>A usual reading's value now, where the app has it (the frame rate and what's in front are the agent's alone).</summary>
-    private string ValueOf(OverlayMetric m)
-    {
-        if (_live is not { } live) return "";
-        var today = live.Today;
-        return m switch
-        {
-            OverlayMetric.CpuTemp => live.CpuTemp?.ShortValue ?? "",
-            OverlayMetric.CpuLoad => live.CpuLoad?.ShortValue ?? "",
-            OverlayMetric.CpuClock => live.CpuClock?.ShortValue ?? "",
-            OverlayMetric.CpuPower => live.CpuPower?.ShortValue ?? "",
-            OverlayMetric.GpuTemp => live.GpuTemp?.ShortValue ?? "",
-            OverlayMetric.GpuHotSpot => live.GpuHotSpot?.ShortValue ?? "",
-            OverlayMetric.GpuLoad => live.GpuLoad?.ShortValue ?? "",
-            OverlayMetric.GpuClock => live.GpuClock?.ShortValue ?? "",
-            OverlayMetric.GpuPower => live.GpuPower?.ShortValue ?? "",
-            OverlayMetric.GpuMemory => live.GpuVramUsed?.ShortValue ?? "",
-            OverlayMetric.Ram => live.RamLoad?.ShortValue ?? "",
-            OverlayMetric.ScreenTime => today.ActiveSec > 0 ? Core.Units.Duration(today.ActiveSec) : "",
-            OverlayMetric.PcOn => today.OnSec > 0 ? Core.Units.Duration(today.OnSec) : "",
-            OverlayMetric.TopApp => today.TopApp ?? "",
-            OverlayMetric.CpuPeakToday => Core.Units.TempShort(today.CpuPeak) is var t && today.CpuPeak is not null ? t : "",
-            OverlayMetric.GpuPeakToday => Core.Units.TempShort(today.GpuPeak) is var g && today.GpuPeak is not null ? g : "",
-            OverlayMetric.Clock => DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture),
-            OverlayMetric.Date => DateTime.Now.ToString("ddd d MMM", System.Globalization.CultureInfo.CurrentCulture),
-            _ => "",
-        };
-    }
-
-    /// <summary>The picker's list for what's typed and the chip picked, with each chip's count, or why nothing shows.</summary>
-    private void BuildPicker()
-    {
-        if (!PickerOpen) return;
-        var words = Core.TextMatch.Words(PickerText);
-        bool Matches(PickerOption o) => words.Length == 0
-            || Core.TextMatch.Has(words, o.Name, o.Source, WidgetCatalog.CategoryName(o.Category), o.Kind, o.IsSensorFan ? "fan" : null, o.IsSensorFan ? Lang.T("fan") : null,
-                o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? "sensor" : null);
-        // The Fans chip has every fan, the graphics card's too.
-        bool In(PickerOption o, string key) => key == "all" || o.Category.ToString() == key || (key == nameof(WidgetCategory.Fans) && o.IsSensorFan);
-        var options = AllOptions();
-        var matching = options.Where(Matches).ToList();
-        foreach (var chip in PickerChips)
-        {
-            chip.Count = matching.Count(o => In(o, chip.Key));
-            chip.IsSelected = chip.Key == PickerCategory;
-            chip.IsShown = chip.IsSelected || chip.Key == "all" || options.Any(o => In(o, chip.Key));
-        }
-        bool all = PickerCategory == "all";
-        var shown = matching.Where(o => In(o, PickerCategory))
-            .OrderBy(o => all ? (int)o.Category : 0)
-            .ThenBy(o => o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal))
-            .ThenBy(o => o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? o.Source : "", StringComparer.CurrentCultureIgnoreCase)
-            .ToList();
-        // A heading over each group: the part under All, else the usual readings apart from the sensors.
-        string Group(PickerOption o) => all ? WidgetCatalog.CategoryName(o.Category).ToUpperInvariant()
-            : o.Id.StartsWith(WidgetCatalog.SensorPrefix, StringComparison.Ordinal) ? Lang.T("SENSORS") : Lang.T("USUAL READINGS");
-        string? last = null;
-        PickerOptions = [.. shown.Select(o =>
-        {
-            string g = Group(o);
-            var line = g == last ? o : o with { Header = g };
-            last = g;
-            return line;
-        })];
-        PickerEmpty = shown.Count == 0;
-        string name = PickerChips.First(c => c.Key == PickerCategory).Name;
-        int elsewhere = all ? 0 : matching.Count;
-        string typed = PickerText.Trim();
-        PickerEmptyText = words.Length == 0 ? (all ? Lang.T("Nothing left to add") : Lang.T($"Nothing left to add in {name}"))
-            : all ? Lang.T($"Nothing matches \"{typed}\"") : Lang.T($"Nothing matches \"{typed}\" in {name}");
-        CanSearchAll = PickerEmpty && elsewhere > 0;
-        // "1 reading matches", "2 readings match": the readings that match, so the verb agrees with the number.
-        PickerEmptyHint = CanSearchAll ? (elsewhere == 1 ? Lang.T("1 reading matches in other groups.") : Lang.T($"{elsewhere} readings match in other groups."))
-            : words.Length > 0 ? Lang.T("Try another word, such as a part's name or \"fan\".") : "";
-    }
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddReadingCommand))]
-    private WidgetMetricOption? _readingToAdd;
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddSensorCommand))]
-    private SensorItem? _sensorToAdd;
-
-    private bool CanAddReading() => ReadingToAdd is not null && CanAddMore;
-    private bool CanAddSensor() => SensorToAdd is not null && CanAddMore;
-
-    [RelayCommand(CanExecute = nameof(CanAddReading))]
-    private void AddReading()
-    {
-        if (ReadingToAdd is not { } option) return;
-        EditItems(list => list.Add(new WidgetItem { Id = option.Metric.ToString() }));
-        ReadingToAdd = null;
-    }
-
-    [RelayCommand(CanExecute = nameof(CanAddSensor))]
-    private void AddSensor()
-    {
-        if (SensorToAdd is not { } sensor) return;
-        EditItems(list => list.Add(new WidgetItem { Id = WidgetCatalog.SensorPrefix + sensor.Id }));
-        SensorToAdd = null;
-    }
-
-    [RelayCommand]
-    private void RemoveItem(WidgetItemRow row)
-    {
-        // A widget always shows something: the last reading stays.
-        if (Items.Count <= 1) return;
-        EditItems(list => list.RemoveAll(i => i.Id == row.Id));
-    }
-
-    [RelayCommand]
-    private void MoveItemUp(WidgetItemRow row) => MoveItem(row, -1);
-
-    [RelayCommand]
-    private void MoveItemDown(WidgetItemRow row) => MoveItem(row, 1);
-
-    private void MoveItem(WidgetItemRow row, int by) => EditItems(list =>
-    {
-        int i = list.FindIndex(x => x.Id == row.Id), j = i + by;
-        if (i >= 0 && j >= 0 && j < list.Count) (list[i], list[j]) = (list[j], list[i]);
-    });
-
-    internal string ItemLabel(string id) => WidgetCatalog.ItemsOf(Config).FirstOrDefault(i => i.Id == id)?.Label ?? "";
-
-    internal void SetItemLabel(string id, string? label)
-    {
-        label = string.IsNullOrWhiteSpace(label) ? null : label.Trim();
-        if (label?.Length > OverlaySettings.MaxLabelLength) label = label[..OverlaySettings.MaxLabelLength];
-        if (label == (ItemLabel(id) is { Length: > 0 } now ? now : null)) return;
-        EditItems(list => { if (list.FirstOrDefault(i => i.Id == id) is { } item) item.Label = label; }, reload: false);
-    }
-
-    /// <summary>Changes the widget's own list of readings (a built-in one gets its own copy of its defaults first).</summary>
-    private void EditItems(Action<List<WidgetItem>> change, bool reload = true)
-    {
-        Change(w =>
-        {
-            var list = WidgetCatalog.ItemsOf(w).Select(i => new WidgetItem { Id = i.Id, Label = i.Label }).ToList();
-            change(list);
-            w.Items = list;
-            WidgetCatalog.Clean(w);
-        }, nameof(Description), nameof(CanReset));
-        if (reload) LoadItems();
-    }
-
-    /// <summary>A built-in widget whose readings were changed can go back to its own.</summary>
-    public bool CanReset => IsBuiltIn && Config.Items is not null;
-
-    [RelayCommand]
-    private void Reset()
-    {
-        Change(w => w.Items = null, nameof(CanReset), nameof(Description));
-        LoadItems();
-    }
-
-    /// <summary>Rebuilds the readings from settings, only when they changed (so a short name being typed isn't disturbed).</summary>
-    private void LoadItems()
-    {
-        var wanted = WidgetCatalog.ItemsOf(Config);
-        if (!Items.Select(i => i.Id).SequenceEqual(wanted.Select(i => i.Id)))
-            Rebuild(wanted);
-        // What this layout doesn't show stays in the list, greyed, with why: switching back shows it again.
-        var shown = WidgetCatalog.ShownItems(Config).Select(i => i.Id).ToHashSet();
-        foreach (var row in Items)
-        {
-            row.NotShown = shown.Contains(row.Id) ? null
-                : WidgetCatalog.Shows(LayoutValue, new WidgetItem { Id = row.Id }) ? Lang.T($"{LayoutName} shows {MaxItems}")
-                : WidgetCatalog.WhyNot(LayoutValue, WidgetCatalog.Metric(row.Id), SensorKindOf(row.Id)) ?? Lang.T($"{LayoutName} can't show this");
-            row.Refresh();
-        }
-        OnPropertyChanged(nameof(CanAddMore));
-        OnPropertyChanged(nameof(ItemsCount));
-        OnPropertyChanged(nameof(MaxItems));
-        OnPropertyChanged(nameof(Offered));
-        OnPropertyChanged(nameof(OfferedSensors));
-        OnPropertyChanged(nameof(CanAddSensors));
-        OnPropertyChanged(nameof(HasReadings));
-        OnPropertyChanged(nameof(LayoutName));
-        AddReadingCommand.NotifyCanExecuteChanged();
-        AddSensorCommand.NotifyCanExecuteChanged();
-        BuildPicker();
-    }
-
-    private Core.SensorKind? SensorKindOf(string id) =>
-        WidgetCatalog.Sensor(id) is { } sensorId ? _live?.AllSensors.FirstOrDefault(s => s.Id == sensorId)?.Kind : null;
-
-    private void Rebuild(List<WidgetItem> wanted)
-    {
-        var names = new Dictionary<string, SensorItem>();
-        if (_live is not null) foreach (var s in _live.AllSensors) names.TryAdd(s.Id, s);
-        Items.Clear();
-        // Before the agent's first readings there are no sensors to name them by: said as such, not as missing.
-        bool read = names.Count > 0;
-        _namedSensors = read;
-        foreach (var item in wanted)
-        {
-            if (WidgetCatalog.Metric(item.Id) is { } m) Items.Add(new WidgetItemRow(this, item.Id, WidgetCatalog.MetricName(m), ""));
-            else if (WidgetCatalog.Sensor(item.Id) is { } sensorId)
-                Items.Add(names.TryGetValue(sensorId, out var s)
-                    ? new WidgetItemRow(this, item.Id, s.DisplayName, s.HardwareName)
-                    : new WidgetItemRow(this, item.Id, SensorName(sensorId), read ? Lang.T("Not found on this PC right now") : Lang.T("Waiting for the readings")));
+            if (value == Locked) return;
+            _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.Locked = value; });
+            OnPropertyChanged(nameof(Locked));
         }
     }
 
-    /// <summary>Whether the rows were named from the agent's sensors (else they're named again once those arrive).</summary>
-    private bool _namedSensors;
+    [RelayCommand]
+    private void ToggleLocked() => Locked = !Locked;
 
-    /// <summary>A sensor's name from its identifier while it can't be looked up ("/gpu-nvidia/0/fan/1" is "GPU fan 1").</summary>
-    internal static string SensorName(string id)
-    {
-        var parts = id.Trim('/').Split('/');
-        if (parts.Length < 2) return id;
-        string part = parts[0] switch
-        {
-            var p when p.StartsWith("gpu", StringComparison.OrdinalIgnoreCase) => "GPU ",
-            var p when p.Contains("cpu", StringComparison.OrdinalIgnoreCase) => "CPU ",
-            var p when p.Contains("lpc", StringComparison.OrdinalIgnoreCase) || p.Contains("mainboard", StringComparison.OrdinalIgnoreCase) => "Motherboard ",
-            _ => "",
-        };
-        string kind = parts[^2].Replace('-', ' ');
-        string number = parts[^1];
-        return $"{part}{kind} {number}".Trim() is var name && name.Length > 0 ? char.ToUpperInvariant(name[0]) + name[1..] : id;
-    }
+    [RelayCommand]
+    private void Remove() => _page.Remove(this);
 
-    /// <summary>The agent's sensors arrived (or changed): sensor rows named from them, and the picker's list with them.</summary>
-    private void OnLiveChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    /// <summary>The screen it's on, while it's on and has a spot ("Main screen", "Screen 2"); empty otherwise.</summary>
+    public string Where => Config is { Enabled: true, X: int x, Y: int y } ? _page.ScreenName(x, y) : "";
+
+    /// <summary>Under its name in the list: the screen it's on, or Off.</summary>
+    public string Line => !Enabled ? Lang.T("Off") : Where is { Length: > 0 } where ? where : Lang.T("On");
+
+    /// <summary>Its theme (the editor's Theme).</summary>
+    public string Theme
     {
-        if (e.PropertyName != nameof(LiveData.PickableSensors)) return;
-        if (!_namedSensors && Items.Any(i => WidgetCatalog.Sensor(i.Id) is not null))
+        get => Config.Theme.ToString();
+        set
         {
-            Rebuild(WidgetCatalog.ItemsOf(Config));
-            LoadItems(); // the rows' "not shown" notes, and the picker
+            if (value is null || value == Theme || !Enum.TryParse<WidgetTheme>(value, out var theme)) return;
+            _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.Theme = theme; });
+            OnPropertyChanged(nameof(Theme));
+            Redraw();
         }
-        else BuildPicker();
     }
 
-    // ── Page actions ──
+    /// <summary>How solid its backdrop is, 0 to 100 (the editor's Backdrop).</summary>
+    public double BackgroundPercent
+    {
+        get => Math.Round(Config.BackgroundOpacity * 100);
+        set
+        {
+            if (Math.Abs(value - BackgroundPercent) < 1) return;
+            _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.BackgroundOpacity = Math.Clamp(value / 100, 0, 1); });
+            OnPropertyChanged(nameof(BackgroundPercent));
+            Redraw();
+        }
+    }
+
+    /// <summary>Its size, S to 3XL (the editor's Size).</summary>
+    public string Size
+    {
+        get => Config.Scale.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        set
+        {
+            if (value is null || value == Size
+                || !double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double scale)) return;
+            _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.Scale = scale; });
+            OnPropertyChanged(nameof(Size));
+            Redraw();
+        }
+    }
 
     [ObservableProperty] private bool _isEditing;
 
     [RelayCommand]
     private void Edit() => _page.Edit(this);
 
-    [RelayCommand]
-    private void Duplicate() => _page.Duplicate(this);
+    private ImageSource? _preview, _big;
+    private bool _drawn, _bigDrawn;
 
-    [RelayCommand]
-    private void Delete() => _page.Delete(this);
+    /// <summary>The widget at its size on the desktop, for the pane beside the list, drawn sharp.</summary>
+    public ImageSource? BigPreview
+    {
+        get
+        {
+            if (!_bigDrawn)
+            {
+                _bigDrawn = true;
+                _big = WidgetPictures.Draw(Config, _live, _settings.Current, 2f);
+            }
+            return _big;
+        }
+    }
 
-    // Read from the data folder the first time the card is shown, not as the app opens (nine pictures decoded on the
-    // window's thread before it showed: about 50 ms, measured 2026-11-06).
+    /// <summary>The widget as it looks, drawn the first time the card is shown and again when it changes.</summary>
+    public ImageSource? Preview
+    {
+        get
+        {
+            if (!_drawn)
+            {
+                _drawn = true;
+                _preview = WidgetPictures.Draw(Config, _live, _settings.Current, 1.5f);
+            }
+            return _preview;
+        }
+    }
+
+    /// <summary>Draws it again (its settings or the readings changed), if it has been shown.</summary>
+    public void Redraw()
+    {
+        if (_bigDrawn)
+        {
+            _big = WidgetPictures.Draw(Config, _live, _settings.Current, 2f);
+            OnPropertyChanged(nameof(BigPreview));
+        }
+        if (!_drawn) return;
+        _preview = WidgetPictures.Draw(Config, _live, _settings.Current, 1.5f);
+        OnPropertyChanged(nameof(Preview));
+    }
+
+    public void Refresh()
+    {
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(Description));
+        OnPropertyChanged(nameof(Enabled));
+        OnPropertyChanged(nameof(Locked));
+        OnPropertyChanged(nameof(Where));
+        OnPropertyChanged(nameof(Line));
+        OnPropertyChanged(nameof(Theme));
+        OnPropertyChanged(nameof(BackgroundPercent));
+        OnPropertyChanged(nameof(Size));
+        Redraw();
+    }
+}
+
+/// <summary>A widget to add: a ready-made one or a tile on its own, with its picture.</summary>
+public sealed partial class WidgetChoice(string title, string line, string group, Func<WidgetConfig> make, WidgetsViewModel page) : ObservableObject
+{
+    public string Title { get; } = title;
+    public string Line { get; } = line;
+
+    /// <summary>Its group's name in English, shown translated as the heading it's listed under.</summary>
+    public string Group { get; } = group;
+
+    public string GroupName => Lang.T(Group);
+
+    /// <summary>The heading it's listed under, in capitals as every caption is.</summary>
+    public string GroupCaps => GroupName.ToUpper(System.Globalization.CultureInfo.CurrentCulture);
+
+    internal WidgetConfig Make() => make();
+
     private ImageSource? _preview;
-    private bool _previewRead;
+    private bool _drawn;
 
     public ImageSource? Preview
     {
         get
         {
-            if (!_previewRead)
+            if (!_drawn)
             {
-                _previewRead = true;
-                _preview = PreviewImages.Load(Id);
+                _drawn = true;
+                _preview = page.Draw(Make());
             }
             return _preview;
         }
+    }
+
+    /// <summary>Adds it, closes the pop-up, and picks it in the list.</summary>
+    [RelayCommand]
+    private void Add() => page.Add(this);
+}
+
+/// <summary>A chip over the list of the person's widgets: All, On, Off.</summary>
+public sealed partial class WidgetGroupChip(string key, int count) : ObservableObject
+{
+    public string Key { get; } = key;
+    public string Name => Lang.T(Key);
+    [ObservableProperty] private int _count = count;
+    [ObservableProperty] private bool _isSelected;
+}
+
+/// <summary>
+/// A widget just removed with its card's quick Remove: in the card's place for a few seconds, with Undo, which puts it
+/// back as it was, where it was.
+/// </summary>
+public sealed partial class RemovedWidget(WidgetConfig config, int index, WidgetsViewModel page)
+{
+    internal WidgetConfig Config { get; } = config;
+    internal int Index { get; } = index;
+    public string Line { get; } = Lang.T($"{WidgetCatalog.Title(config)} removed.");
+
+    [RelayCommand]
+    private void Undo() => page.UndoRemove(this);
+}
+
+/// <summary>A widget on the page's map of the screens: where it is and how big, in screen pixels, and its picture.</summary>
+public sealed record WidgetSpot(string Id, string Title, int X, int Y, int Width, int Height, ImageSource? Picture);
+
+/// <summary>
+/// The Widgets page, in two panes (approved mock-up UckKnwokm5kF7JjdjHZpqd, option C, 2026-11-11): Desktop widgets on or
+/// off at the top. On the left the list (search, All, On, Off; Add widget and Create widget at its foot) and the settings
+/// for every widget; on the right the picked widget, with where it is on the screens and its quick settings. Add widget
+/// opens a pop-up of the ready-made widgets and every tile (the user, 2026-11-11). The editor is a page of its own.
+/// </summary>
+public sealed partial class WidgetsViewModel : ObservableObject
+{
+    private readonly SettingsModel _settings;
+    private readonly AgentClient _client;
+    private readonly LiveData? _live;
+
+    public WidgetsViewModel(SettingsModel settings, AgentClient client, LiveData? live = null)
+    {
+        _settings = settings;
+        _client = client;
+        _live = live;
+        _mapTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        _mapTimer.Tick += (_, _) => RedrawMap();
+        Choices = MakeChoices();
+        ChoiceGroups = System.Windows.Data.CollectionViewSource.GetDefaultView(ChoicesShown);
+        ChoiceGroups.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(WidgetChoice.GroupCaps)));
+        MineChips = [new(AllGroup, 0), new(OnGroup, 0), new(OffGroup, 0)];
+        MineChips[0].IsSelected = true;
+        _undoTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
+        _undoTimer.Tick += (_, _) => { _undoTimer.Stop(); Removed = null; FillGrid(); };
+        FilterChoices();
+        Sync();
+        // The tray menu, the agent and the editor change these while the page is open.
+        settings.Changed += () =>
+        {
+            OnPropertyChanged(nameof(Shown));
+            OnPropertyChanged(nameof(Snap));
+            OnPropertyChanged(nameof(Fade));
+            OnPropertyChanged(nameof(ShownHotkey));
+            OnPropertyChanged(nameof(FrontHotkey));
+            OnPropertyChanged(nameof(MapLine));
+            MapChanged();
+        };
+    }
+
+    private readonly System.Windows.Threading.DispatcherTimer _mapTimer;
+    private readonly System.Windows.Threading.DispatcherTimer _undoTimer;
+
+    /// <summary>The widget shown in the pane beside the list.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PickedId), nameof(PickedRow), nameof(HasPicked), nameof(MapLine), nameof(NothingPicked), nameof(HasRemoved))]
+    private WidgetCard? _picked;
+
+    public bool HasPicked => Picked is not null;
+
+    /// <summary>In the pane when no widget is picked: there are none yet, or the search shows none.</summary>
+    public string NothingPicked => Cards.Count == 0 ? Lang.T("Add a widget, or create your own, to see it here.") : Lang.T("Pick a widget on the left to see it here.");
+
+    /// <summary>The list's picked row (a widget just removed can't be picked: the list goes back to the one picked).</summary>
+    public object? PickedRow
+    {
+        get => Picked;
         set
         {
-            _previewRead = true;
-            SetProperty(ref _preview, value);
+            if (value is WidgetCard c) Picked = c;
+            else System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(() => OnPropertyChanged(nameof(PickedRow)));
         }
     }
 
-    /// <summary>A newer picture from the agent: read now if the card has been shown, else when it first is.</summary>
-    public void LoadPreview()
+    /// <summary>Under the map: how to move the picked widget, or why it isn't there.</summary>
+    public string MapLine =>
+        !_settings.Current.WidgetsShown ? Lang.T("Turn Desktop widgets on to see it here.")
+        : Picked is not { Enabled: true } ? Lang.T("Turn it on to see it here.")
+        : Lang.T("Drag it on the map to move it.");
+
+    /// <summary>The picked widget by its identifier: a click on another widget on the map picks that one.</summary>
+    public string? PickedId
     {
-        if (_previewRead) Preview = PreviewImages.Load(Id) ?? Preview;
+        get => Picked?.Id;
+        set { if (value is not null && Cards.FirstOrDefault(c => c.Id == value) is { } c) Picked = c; }
     }
+
+    /// <summary>A widget's themes and sizes, for the picked one's quick settings.</summary>
+    public IReadOnlyList<Choice> ThemeChoices { get; } = WidgetEditorViewModel.ThemeList();
+    public IReadOnlyList<Choice> SizeChoices => WidgetEditorViewModel.SizeList;
+
+    // ── On or off, and the settings for all widgets ─────────────────────
+
+    /// <summary>Whether the widgets show on the desktop (the page's first card; the tray menu has it too). Off keeps each one's own.</summary>
+    public bool Shown
+    {
+        get => _settings.Current.WidgetsShown;
+        set { if (value != Shown) _settings.Update(s => s.WidgetsShown = value); }
+    }
+
+    public bool Snap
+    {
+        get => _settings.Current.WidgetSnap;
+        set { if (value != Snap) _settings.Update(s => s.WidgetSnap = value); }
+    }
+
+    public bool Fade
+    {
+        get => _settings.Current.WidgetFade;
+        set { if (value != Fade) _settings.Update(s => s.WidgetFade = value); }
+    }
+
+    /// <summary>The shortcut for Desktop widgets as the person pressed it ("Ctrl+Alt+W"), or null.</summary>
+    public string? ShownHotkey => _settings.Current.WidgetsHotkey;
+    public string? FrontHotkey => _settings.Current.WidgetsFrontHotkey;
+
+    /// <summary>Which shortcut is waiting for its keys: "shown", "front", or null.</summary>
+    [ObservableProperty] private string? _recording;
+
+    [RelayCommand]
+    private void RecordShortcut(string which) => Recording = Recording == which ? null : which;
+
+    [RelayCommand]
+    private void ClearShortcut(string which)
+    {
+        Recording = null;
+        _settings.Update(s => { if (which == "front") s.WidgetsFrontHotkey = null; else s.WidgetsHotkey = null; });
+    }
+
+    /// <summary>The keys pressed while a shortcut was waiting for them; false when they can't be a shortcut (the page says nothing, it keeps waiting).</summary>
+    public bool Record(int virtualKey, HotkeyModifiers modifiers)
+    {
+        if (Recording is not { } which) return false;
+        var hotkey = new Hotkey(modifiers, virtualKey);
+        if (!Hotkey.IsSupportedKey(virtualKey) || !hotkey.IsValid) return false;
+        string text = hotkey.ToString();
+        _settings.Update(s => { if (which == "front") s.WidgetsFrontHotkey = text; else s.WidgetsHotkey = text; });
+        Recording = null;
+        return true;
+    }
+
+    // ── The widgets the person has ─────────────────────────────────────
+
+    /// <summary>Every widget, in the settings' order (the built-in ones first, as they always were).</summary>
+    public ObservableCollection<WidgetCard> Cards { get; } = [];
+
+    /// <summary>
+    /// The cards as the page lays them out: the widgets the chips and search let through, a widget just removed in its
+    /// card's place.
+    /// </summary>
+    public ObservableCollection<object> Grid { get; } = [];
+
+    public static string OnGroup => Lang.Key("On");
+    public static string OffGroup => Lang.Key("Off");
+
+    /// <summary>All, On and Off over the widgets, with how many each holds.</summary>
+    public List<WidgetGroupChip> MineChips { get; }
+
+    public WidgetGroupChip? PickedMineChip
+    {
+        get => MineChips.FirstOrDefault(c => c.IsSelected);
+        set
+        {
+            if (value is null || value == PickedMineChip) return;
+            foreach (var c in MineChips) c.IsSelected = c == value;
+            OnPropertyChanged(nameof(PickedMineChip));
+            FillGrid();
+        }
+    }
+
+    [ObservableProperty] private string _mineQuery = "";
+
+    partial void OnMineQueryChanged(string value) => FillGrid();
+
+    /// <summary>Why the grid is empty: nothing matches the search, or no widget is on (or off).</summary>
+    [ObservableProperty] private string _noMineText = "";
+
+    /// <summary>The widget just removed, while its Undo shows.</summary>
+    public RemovedWidget? Removed
+    {
+        get => _removed;
+        private set
+        {
+            _removed = value;
+            OnPropertyChanged(nameof(Removed));
+            OnPropertyChanged(nameof(HasRemoved));
+        }
+    }
+
+    private RemovedWidget? _removed;
+
+    public bool HasRemoved => Removed is not null && Picked is null;
+
+    /// <summary>A card's switch changed: the counts, and the grid under On or Off, follow once the click is done.</summary>
+    internal void CardsChanged() =>
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(FillGrid, System.Windows.Threading.DispatcherPriority.Background);
+
+    /// <summary>Lays the grid out again from the cards, the chips and the search.</summary>
+    internal void FillGrid()
+    {
+        string chip = PickedMineChip?.Key ?? AllGroup, q = MineQuery.Trim();
+        bool Passes(WidgetCard c, string g) => g == AllGroup || (g == OnGroup) == c.Enabled;
+        foreach (var g in MineChips) g.Count = Cards.Count(c => Passes(c, g.Key));
+        var shown = new List<object>(Cards.Where(c => Passes(c, chip)
+            && (q.Length == 0 || c.Title.Contains(q, StringComparison.CurrentCultureIgnoreCase) || c.Description.Contains(q, StringComparison.CurrentCultureIgnoreCase))));
+        NoMineText = shown.Count > 0 ? ""
+            : q.Length > 0 ? Lang.T($"Nothing matches “{q}”.")
+            : chip == OnGroup ? Lang.T("No widgets are on.")
+            : chip == OffGroup ? Lang.T("No widgets are off.")
+            : Lang.T("No widgets yet.");
+        if (Removed is { } r)
+        {
+            // In its card's place: before the first card that came after it.
+            int at = shown.FindIndex(o => o is WidgetCard c && Cards.IndexOf(c) >= r.Index);
+            shown.Insert(at < 0 ? shown.Count : at, r);
+        }
+        if (!Grid.SequenceEqual(shown))
+        {
+            Grid.Clear();
+            foreach (var o in shown) Grid.Add(o);
+        }
+        // The picked widget stays picked while the list shows it; otherwise the first one shown is (not while the pane
+        // says a widget was just removed).
+        if (Removed is not null && Picked is null) OnPropertyChanged(nameof(PickedRow));
+        else if (Picked is null || !shown.Contains(Picked)) Picked = shown.OfType<WidgetCard>().FirstOrDefault();
+        else OnPropertyChanged(nameof(PickedRow));
+        OnPropertyChanged(nameof(MapLine));
+    }
+
+    /// <summary>
+    /// Removes a widget at once from its card (a built-in one too: the list to add from has it again), with Undo in the
+    /// card's place for a few seconds.
+    /// </summary>
+    internal void Remove(WidgetCard card, WidgetConfig? asItWas = null)
+    {
+        int index = _settings.Current.Widgets.FindIndex(w => w.Id == card.Id);
+        if (index < 0) return;
+        var saved = WidgetEditorViewModel.Clone(asItWas ?? _settings.Current.Widgets[index]);
+        _undoTimer.Stop();
+        // Nothing is picked next: the pane says what was removed, with Undo where Remove was, so a second click can't
+        // take another widget away (the user lost every widget to quick clicks on Remove, 2026-11-11).
+        Removed = new RemovedWidget(saved, index, this);
+        Picked = null;
+        _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == card.Id));
+        Sync();
+        _undoTimer.Start();
+    }
+
+    /// <summary>Puts a removed widget back as it was, where it was in the list.</summary>
+    internal void UndoRemove(RemovedWidget removed)
+    {
+        if (Removed != removed) return;
+        _undoTimer.Stop();
+        Removed = null;
+        _settings.Update(s =>
+        {
+            if (s.Widgets.Any(w => w.Id == removed.Config.Id)) return;
+            s.Widgets.Insert(Math.Min(removed.Index, s.Widgets.Count), WidgetEditorViewModel.Clone(removed.Config));
+        });
+        Sync();
+        PickedId = removed.Config.Id;
+        FillGrid();
+    }
+
+    public bool CanCreate => _settings.Current.Widgets.Count(w => w.Style == WidgetStyle.Custom) < WidgetCatalog.MaxCustom;
+
+    /// <summary>The widget open in the editor, if any.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEditing))]
+    private WidgetEditorViewModel? _editor;
+
+    public bool IsEditing => Editor is not null;
+
+    public void Edit(WidgetCard card) => Edit(card.Id);
+
+    /// <summary>Opens the editor on a widget by its identifier (from its right-click menu on the desktop too).</summary>
+    public void Edit(string? id)
+    {
+        if (id is null || _settings.Current.Widgets.All(w => w.Id != id)) return;
+        // Opened from a widget's menu on the desktop while the editor is open on another: that one is done (its redraw
+        // each second stops, and a new widget left empty in it goes), as Back would leave it.
+        if (Editor is { } open)
+        {
+            if (open.Id == id) return;
+            LetGo(open);
+            Sync();
+        }
+        // A shortcut left waiting for its keys stops waiting: the editor's keys are typing, not a shortcut.
+        Recording = null;
+        PickedId = id;
+        foreach (var c in Cards) c.IsEditing = c.Id == id;
+        Editor = new WidgetEditorViewModel(id, _settings, _live, CloseEditor,
+            (wid, x, y) => _client.SendCommand(WidgetCatalog.MoveCommand, WidgetCatalog.MoveArg(wid, x, y)), () => RemoveFromEditor(id));
+    }
+
+    /// <summary>
+    /// The editor's Remove: back on the page, which says what was removed, with Undo, as a card's Remove does (audit
+    /// 2026-11-11: from the editor a widget went for good with one click). A new widget left empty just goes, as on Back.
+    /// </summary>
+    private void RemoveFromEditor(string id)
+    {
+        CloseEditor();
+        if (Cards.FirstOrDefault(c => c.Id == id) is { } card) Remove(card);
+    }
+
+    [RelayCommand]
+    private void CloseEditor()
+    {
+        if (Editor is { } editor) LetGo(editor);
+        Editor = null;
+        foreach (var c in Cards) c.IsEditing = false;
+        Sync();
+        foreach (var c in Cards) c.Refresh();
+        LoadMap();
+    }
+
+    /// <summary>
+    /// An editor closed: it stops drawing. A new widget left with nothing in it isn't kept; one that had tiles and was
+    /// emptied goes the way Remove takes it, with Undo (the audit, 2026-11-11: it went for good, with no word).
+    /// </summary>
+    private void LetGo(WidgetEditorViewModel editor)
+    {
+        editor.Close();
+        if (_settings.Current.Widgets.FirstOrDefault(w => w.Id == editor.Id) is not { Tiles.Count: 0 }) return;
+        if (!editor.StartedEmpty && Cards.FirstOrDefault(c => c.Id == editor.Id) is { } card)
+        {
+            // Undo brings it back as it was when the editor opened, with its tiles.
+            Remove(card, editor.Opened);
+            return;
+        }
+        _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == editor.Id && w.Tiles is { Count: 0 }));
+    }
+
+    /// <summary>A new widget with nothing in it yet, opened in the editor (an empty one is gone again when the editor closes).</summary>
+    [RelayCommand(CanExecute = nameof(CanCreate))]
+    private void Create()
+    {
+        var cfg = NewWidget(Lang.T("My widget"), []);
+        _settings.Update(s => s.Widgets.Add(cfg));
+        Sync();
+        Edit(cfg.Id);
+    }
+
+    /// <summary>A widget of the person's own as a new one starts: on the desktop, in the app's own look, on.</summary>
+    internal static WidgetConfig NewWidget(string name, List<WidgetTile> tiles) => new()
+    {
+        Style = WidgetStyle.Custom, Id = WidgetCatalog.NewId(), Name = name, Tiles = tiles, Enabled = true,
+        Theme = WidgetTheme.App,
+    };
+
+    // ── The list to add from ────────────────────────────────────────────
+
+    public static string AllGroup => Lang.Key("All");
+    public static string ReadyMade => Lang.Key("Ready-made");
+
+    /// <summary>The ready-made widgets (today's built-in ones, as tiles) and every tile on its own.</summary>
+    public IReadOnlyList<WidgetChoice> Choices { get; }
+
+    /// <summary>The ones the search lets through, in their groups (Ready-made, Everyday, Live, Your day).</summary>
+    public ObservableCollection<WidgetChoice> ChoicesShown { get; } = [];
+
+    public System.ComponentModel.ICollectionView ChoiceGroups { get; }
+
+    /// <summary>Whether the Add widget pop-up is open.</summary>
+    [ObservableProperty] private bool _addListOpen;
+
+    /// <summary>Opens the Add widget pop-up, its search cleared.</summary>
+    [RelayCommand]
+    private void OpenAddList()
+    {
+        ChoiceQuery = "";
+        AddListOpen = true;
+    }
+
+    [ObservableProperty] private string _choiceQuery = "";
+
+    partial void OnChoiceQueryChanged(string value) => FilterChoices();
+
+    public bool NoChoices => ChoicesShown.Count == 0;
+    public string NoChoicesText => Lang.T($"Nothing matches “{ChoiceQuery.Trim()}”.");
+
+    private void FilterChoices()
+    {
+        string q = ChoiceQuery.Trim();
+        var shown = Choices.Where(c => q.Length == 0 || c.Title.Contains(q, StringComparison.CurrentCultureIgnoreCase)
+            || c.Line.Contains(q, StringComparison.CurrentCultureIgnoreCase) || c.GroupName.Contains(q, StringComparison.CurrentCultureIgnoreCase)).ToList();
+        ChoicesShown.Clear();
+        foreach (var c in shown) ChoicesShown.Add(c);
+        OnPropertyChanged(nameof(NoChoices));
+        OnPropertyChanged(nameof(NoChoicesText));
+    }
+
+    private List<WidgetChoice> MakeChoices()
+    {
+        var list = new List<WidgetChoice>();
+        // A ready-made widget that is one tile (the FPS widget, the graph, Today, Now playing) is listed once, as that tile.
+        var tileNames = WidgetTiles.Kinds.Select(WidgetTiles.NameOf).ToHashSet();
+        foreach (var style in WidgetCatalog.Listed.Where(s => !tileNames.Contains(WidgetCatalog.Title(s))))
+            list.Add(new WidgetChoice(WidgetCatalog.Title(style), WidgetCatalog.Description(style), ReadyMade,
+                () => NewWidget(WidgetCatalog.Title(style), WidgetTiles.FromLayout(new WidgetConfig { Style = style, Id = style.ToString() })), this));
+        foreach (var kind in WidgetTiles.Kinds)
+            list.Add(new WidgetChoice(WidgetTiles.NameOf(kind), WidgetTiles.LineOf(kind), kind.Group,
+                () => NewWidget(WidgetTiles.NameOf(kind), [WidgetTiles.New(kind)]), this));
+        return list;
+    }
+
+    internal ImageSource? Draw(WidgetConfig cfg, float scale = 1.5f) => WidgetPictures.Draw(cfg, _live, _settings.Current, scale);
+
+    /// <summary>
+    /// Adds a widget from the pop-up: on, on the desktop, placed by the agent at the top right of the main screen; the
+    /// pop-up closes and it's picked in the list, so it's clear where it went.
+    /// </summary>
+    internal void Add(WidgetChoice choice)
+    {
+        if (!CanCreate) return;
+        var cfg = choice.Make();
+        _settings.Update(s => s.Widgets.Add(cfg));
+        MineQuery = "";
+        PickedMineChip = MineChips[0];
+        Sync();
+        PickedId = cfg.Id;
+        AddListOpen = false;
+    }
+
+    // ── The map of the screens ──────────────────────────────────────────
+
+    public List<ScreenChoice.Monitor> Screens { get; private set; } = [];
+
+    /// <summary>The widgets that are on and have a spot, where they are on the screens.</summary>
+    [ObservableProperty] private List<WidgetSpot> _spots = [];
+
+    /// <summary>Whether the page is on the screen (the view says): only then does the map follow every change.</summary>
+    public bool PageShown { get; set; }
+
+    /// <summary>
+    /// Any change to the settings (a widget switched on or off, added, removed, moved on the desktop, the tray's switch)
+    /// draws the map again, a moment later so a burst of changes draws it once (the user, 2026-11-10: it still showed
+    /// widgets that had been removed).
+    /// </summary>
+    private void MapChanged()
+    {
+        if (!_mapTimer.Dispatcher.CheckAccess())
+        {
+            _mapTimer.Dispatcher.BeginInvoke(MapChanged);
+            return;
+        }
+        if (!PageShown || IsEditing) return;
+        _mapTimer.Stop();
+        _mapTimer.Start();
+    }
+
+    /// <summary>Reads the screens and draws where each widget is (the page's visits, and after the editor).</summary>
+    public void LoadMap()
+    {
+        // Weather tiles' pictures show the weather once it has come.
+        WeatherFeed.RefreshInBackground(_settings.Current.Widgets.SelectMany(w => w.Tiles ?? []),
+            () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { foreach (var c in Cards) c.Redraw(); }));
+        try { Screens = ScreenChoice.ReadAll(null); }
+        catch (Exception) { Screens = []; }
+        OnPropertyChanged(nameof(Screens));
+        RedrawMap();
+    }
+
+    /// <summary>Where each widget that is on is now, on the screens already read.</summary>
+    internal void RedrawMap()
+    {
+        _mapTimer.Stop();
+        var spots = new List<WidgetSpot>();
+        if (_settings.Current.WidgetsShown)
+            foreach (var w in _settings.Current.Widgets.Where(w => w is { Enabled: true, X: not null, Y: not null }))
+            {
+                var (x, y) = (w.X!.Value, w.Y!.Value);
+                double scale = (Screens.FirstOrDefault(s => x >= s.Left && x < s.Left + s.Width && y >= s.Top && y < s.Top + s.Height)?.Scale ?? 1) * w.Scale;
+                var (pw, ph) = WidgetPictures.SizeOf(w);
+                spots.Add(new WidgetSpot(w.Id, WidgetCatalog.Title(w), x, y, (int)Math.Round(pw * scale), (int)Math.Round(ph * scale), Draw(w)));
+            }
+        Spots = spots;
+    }
+
+    /// <summary>
+    /// A widget dragged on the map, or placed from its editor, to a new spot (its panel's top left, in screen pixels):
+    /// saved here, and sent to the agent as its own command, the one way the app moves a widget on the desktop.
+    /// </summary>
+    public void MoveWidget(string id, int x, int y)
+    {
+        _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == id) is { } c) (c.X, c.Y) = (x, y); });
+        _client.SendCommand(WidgetCatalog.MoveCommand, WidgetCatalog.MoveArg(id, x, y));
+        LoadMap();
+        foreach (var c in Cards.Where(c => c.Id == id)) c.Refresh();
+    }
+
+    /// <summary>The name of the screen a spot is on: "Main screen", else "Screen 2" as Windows numbers it.</summary>
+    internal string ScreenName(int x, int y)
+    {
+        if (Screens.Count == 0) LoadScreensQuietly();
+        var s = Screens.FirstOrDefault(s => x >= s.Left && x < s.Left + s.Width && y >= s.Top && y < s.Top + s.Height);
+        if (s is null) return "";
+        return s.IsMain ? Lang.T("Main screen") : Lang.T($"Screen {ScreenChoice.NumberOf(s.Device)}");
+    }
+
+    private void LoadScreensQuietly()
+    {
+        try { Screens = ScreenChoice.ReadAll(null); }
+        catch (Exception) { Screens = []; }
+    }
+
+    // ── Keeping up with the settings ────────────────────────────────────
+
+    /// <summary>Makes the cards match the settings: one for each widget, in its order.</summary>
+    private void Sync()
+    {
+        var ids = _settings.Current.Widgets.Select(w => w.Id).ToList();
+        if (!Cards.Select(c => c.Id).SequenceEqual(ids))
+        {
+            var keep = Cards.ToDictionary(c => c.Id);
+            Cards.Clear();
+            foreach (var id in ids) Cards.Add(keep.GetValueOrDefault(id) ?? new WidgetCard(id, _settings, _live, this));
+        }
+        FillGrid();
+        OnPropertyChanged(nameof(CanCreate));
+        CreateCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>The agent used to draw the cards' pictures; the page draws them itself now, so this only refreshes them.</summary>
+    public void RequestPreviews()
+    {
+        foreach (var c in Cards) c.Redraw();
+        LoadMap();
+    }
+
+    public void OnPreviewsReady() { }
 
     public void Refresh()
     {
-        OnPropertyChanged(string.Empty);
-        LoadItems();
+        Sync();
+        foreach (var c in Cards) c.Refresh();
+        if (Editor is { } editor && _settings.Current.Widgets.All(w => w.Id != editor.Id)) CloseEditor();
     }
 }
 
@@ -578,150 +810,5 @@ public static class PreviewImages
             // Being rewritten by the agent right now; the next refresh will pick it up.
             return null;
         }
-    }
-}
-
-/// <summary>
-/// The Widgets page: the built-in widgets in a row, the user's own below, a button to make one, and a side panel
-/// that edits the chosen widget (its readings and look) with a live preview.
-/// </summary>
-public sealed partial class WidgetsViewModel : ObservableObject
-{
-    private readonly SettingsModel _settings;
-    private readonly AgentClient _client;
-    private readonly LiveData? _live;
-
-    public WidgetsViewModel(SettingsModel settings, AgentClient client, LiveData? live = null)
-    {
-        _settings = settings;
-        _client = client;
-        _live = live;
-        Sync();
-        // The tray menu can switch them all on or off while the page is open.
-        settings.Changed += () => OnPropertyChanged(nameof(Shown));
-    }
-
-    /// <summary>Whether the widgets show on the desktop (the switch by the title; the tray menu has it too). Off keeps each one's own.</summary>
-    public bool Shown
-    {
-        get => _settings.Current.WidgetsShown;
-        set { if (value != Shown) _settings.Update(s => s.WidgetsShown = value); }
-    }
-
-    /// <summary>The built-in widgets, FPS first.</summary>
-    public ObservableCollection<WidgetCard> BuiltIn { get; } = [];
-
-    /// <summary>The user's own widgets, in the order they were made.</summary>
-    public ObservableCollection<WidgetCard> Custom { get; } = [];
-
-    /// <summary>Every widget, built-in ones first.</summary>
-    public IEnumerable<WidgetCard> Cards => BuiltIn.Concat(Custom);
-
-    public bool HasCustom => Custom.Count > 0;
-    public bool CanCreate => Custom.Count < WidgetCatalog.MaxCustom;
-
-    /// <summary>The widget open in the side panel, if any.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsEditing))]
-    private WidgetCard? _editing;
-
-    public bool IsEditing => Editing is not null;
-
-    partial void OnEditingChanged(WidgetCard? oldValue, WidgetCard? newValue)
-    {
-        if (oldValue is not null) oldValue.IsEditing = false;
-        if (newValue is not null) newValue.IsEditing = true;
-    }
-
-    public void Edit(WidgetCard card) => Editing = card;
-
-    /// <summary>Opens the editor for a widget by its identifier (from its right-click menu on the desktop).</summary>
-    public void Edit(string? id)
-    {
-        if (Cards.FirstOrDefault(c => c.Id == id) is { } card) Editing = card;
-    }
-
-    [RelayCommand]
-    private void CloseEditor() => Editing = null;
-
-    [RelayCommand(CanExecute = nameof(CanCreate))]
-    private void Create()
-    {
-        string id = WidgetCatalog.NewId();
-        int n = Custom.Count + 1;
-        string name = Lang.T($"My widget {n}");
-        while (Custom.Any(c => c.Title == name)) name = Lang.T($"My widget {++n}");
-        _settings.Update(s => s.Widgets.Add(new WidgetConfig
-        {
-            Style = WidgetStyle.Custom, Id = id, Name = name, Layout = WidgetLayout.Bar,
-            Items = WidgetCatalog.DefaultItems(WidgetStyle.Custom), Enabled = true, Grayscale = true,
-        }));
-        Sync();
-        Edit(id);
-        RequestPreviews();
-    }
-
-    public void Duplicate(WidgetCard card)
-    {
-        if (!CanCreate || _settings.Current.Widgets.FirstOrDefault(w => w.Id == card.Id) is not { } from) return;
-        string id = WidgetCatalog.NewId();
-        var layout = WidgetCatalog.LayoutOf(from);
-        _settings.Update(s => s.Widgets.Add(new WidgetConfig
-        {
-            Style = WidgetStyle.Custom, Id = id, Name = Lang.T($"{WidgetCatalog.Title(from)} copy"),
-            Layout = WidgetCatalog.CustomLayouts.Contains(layout) ? layout : WidgetLayout.Bar,
-            Items = [.. WidgetCatalog.ItemsOf(from).Select(i => new WidgetItem { Id = i.Id, Label = i.Label })], Enabled = true,
-            Theme = from.Theme, Grayscale = from.Grayscale, Scale = from.Scale, BackgroundOpacity = from.BackgroundOpacity, ContentOpacity = from.ContentOpacity,
-        }));
-        Sync();
-        Edit(id);
-        RequestPreviews();
-    }
-
-    public void Delete(WidgetCard card)
-    {
-        if (!card.IsCustom) return;
-        if (Editing == card) Editing = null;
-        _settings.Update(s => s.Widgets.RemoveAll(w => w.Id == card.Id));
-        Sync();
-    }
-
-    /// <summary>Makes the lists match settings: cards for new widgets, none for deleted ones.</summary>
-    private void Sync()
-    {
-        var widgets = _settings.Current.Widgets;
-        Match(BuiltIn, [.. WidgetCatalog.Listed.Select(s => widgets.FirstOrDefault(w => w.Style == s)?.Id ?? s.ToString())]);
-        Match(Custom, [.. widgets.Where(w => w.Style == WidgetStyle.Custom).Select(w => w.Id)]);
-        if (Editing is { } editing && !Cards.Contains(editing)) Editing = null;
-        OnPropertyChanged(nameof(HasCustom));
-        OnPropertyChanged(nameof(CanCreate));
-        CreateCommand.NotifyCanExecuteChanged();
-
-        void Match(ObservableCollection<WidgetCard> list, List<string> ids)
-        {
-            if (list.Select(c => c.Id).SequenceEqual(ids)) return;
-            var keep = list.ToDictionary(c => c.Id);
-            list.Clear();
-            foreach (var id in ids)
-            {
-                var card = keep.GetValueOrDefault(id) ?? new WidgetCard(id, _settings, _live, this);
-                card.LoadPreview();
-                list.Add(card);
-            }
-        }
-    }
-
-    /// <summary>Asks the agent to render fresh preview images of every widget.</summary>
-    public void RequestPreviews() => _client.SendCommand("render-previews");
-
-    public void OnPreviewsReady()
-    {
-        foreach (var c in Cards) c.LoadPreview();
-    }
-
-    public void Refresh()
-    {
-        Sync();
-        foreach (var c in Cards) c.Refresh();
     }
 }

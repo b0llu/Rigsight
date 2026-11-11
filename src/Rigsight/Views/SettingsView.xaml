@@ -815,9 +815,9 @@
                                 <Border CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" Padding="10,3,4,3" Margin="0,0,8,8">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding}" Style="{StaticResource Body}" VerticalAlignment="Center" />
-                                        <Button Style="{StaticResource IconButton}" Width="22" Height="22" Margin="6,0,0,0" ToolTip="{ctl:T 'Remove'}"
+                                        <Button Style="{StaticResource DangerIconButton}" Width="22" Height="22" Margin="6,0,0,0" ToolTip="{ctl:T 'Remove'}"
                                                 Command="{Binding DataContext.RemoveExcludedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                            <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S9}" />
+                                            <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S10}" />
                                         </Button>
                                     </StackPanel>
                                 </Border>
@@ -1239,15 +1239,6 @@
                                 </Setter.Value>
                             </Setter>
                         </Style>
-                        <Style x:Key="KeyRemove" TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                            <Setter Property="Background" Value="Transparent" />
-                            <Setter Property="Foreground" Value="{DynamicResource HotBrush}" />
-                        </Style>
-                        <Style x:Key="KeyRemoveYes" TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                            <Setter Property="Background" Value="{DynamicResource HotBrush}" />
-                            <Setter Property="Foreground" Value="White" />
-                            <Setter Property="FontWeight" Value="SemiBold" />
-                        </Style>
                         <!-- A table heading that sorts: the column's name, bold while the table is sorted by it. -->
                         <Style x:Key="SortHead" TargetType="Button">
                             <Setter Property="Cursor" Value="Hand" />
@@ -1300,7 +1291,7 @@
                                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                                                             <Button Style="{StaticResource KeyBoxButton}" Content="{ctl:T 'Cancel'}" Margin="0,0,8,0"
                                                                     Command="{Binding DataContext.CancelRemoveKeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
-                                                            <Button Style="{StaticResource KeyRemoveYes}" Content="{ctl:T 'Remove'}" AutomationProperties.Name="{ctl:T 'Remove it'}"
+                                                            <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove'}" AutomationProperties.Name="{ctl:T 'Remove it'}"
                                                                     Command="{Binding DataContext.RemoveKeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
                                                         </StackPanel>
                                                         <TextBlock Text="{Binding RemoveQuestion}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
@@ -1309,7 +1300,7 @@
                                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                                                             <Button Style="{StaticResource KeyBoxButton}" Content="{ctl:T 'Use'}" Margin="0,0,6,0" Visibility="{Binding CanUse, Converter={StaticResource Vis}}"
                                                                     Command="{Binding DataContext.UseKeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
-                                                            <Button Style="{StaticResource KeyRemove}" Content="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat='Remove {0}'}"
+                                                            <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat='Remove {0}'}"
                                                                     Command="{Binding DataContext.AskRemoveKeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
                                                         </StackPanel>
                                                         <Border DockPanel.Dock="Left" Style="{StaticResource Badge}" Background="{Binding BadgeColor}" Margin="0,0,12,0">
@@ -1720,11 +1711,6 @@
                                 </Setter.Value>
                             </Setter>
                         </Style>
-                        <Style x:Key="CancelBox" TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                            <Setter Property="Background" Value="{DynamicResource HotSoftBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource HotBrush}" />
-                            <Setter Property="FontWeight" Value="SemiBold" />
-                        </Style>
                         <Style x:Key="InUse" TargetType="Border">
                             <Setter Property="CornerRadius" Value="{x:Static ctl:Corner.Button}" />
                             <Setter Property="Padding" Value="10,3" />
@@ -1832,7 +1818,7 @@
                                                 <DockPanel Visibility="{Binding AskingRemove, Converter={StaticResource Vis}}">
                                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                                                         <ctl:Spinner Width="16" Height="16" Margin="0,0,10,0" VerticalAlignment="Center" Visibility="{Binding Removing, Converter={StaticResource Vis}}" />
-                                                        <Button Style="{StaticResource CancelBox}" Content="{ctl:T 'Remove'}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Remove it'}"
+                                                        <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove'}" Margin="0,0,8,0" AutomationProperties.Name="{ctl:T 'Remove it'}"
                                                                 Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
                                                         <Button Style="{StaticResource BoxButton}" Content="{ctl:T 'Cancel'}" AutomationProperties.Name="{ctl:T 'Keep it'}"
                                                                 Command="{Binding DataContext.CancelRemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
@@ -1850,9 +1836,9 @@
                                                                     Visibility="{Binding CanUse, Converter={StaticResource Vis}}" />
                                                         </Grid>
                                                         <!-- Remove: an icon beside the main button, asked in the row first. -->
-                                                        <Button Style="{StaticResource IconButton}" Margin="6,0,0,0" ToolTip="{ctl:T 'Remove from Ollama'}" AutomationProperties.Name="{ctl:T 'Remove from Ollama'}"
+                                                        <Button Style="{StaticResource DangerIconButton}" Margin="6,0,0,0" ToolTip="{ctl:T 'Remove from Ollama'}" AutomationProperties.Name="{ctl:T 'Remove from Ollama'}"
                                                                 Command="{Binding DataContext.AskRemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
-                                                            <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" />
+                                                            <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" />
                                                         </Button>
                                                     </StackPanel>
                                                     <StackPanel VerticalAlignment="Center">
@@ -2207,10 +2193,10 @@
                             <TextBlock Text="{ctl:T 'Keep conversations for'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                         </DockPanel>
                         <DockPanel Style="{StaticResource Row}">
-                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Command="{Binding ClearConversationsCommand}" AutomationProperties.Name="{ctl:T 'Clear all conversations'}">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource DangerButton}" Command="{Binding ClearConversationsCommand}" AutomationProperties.Name="{ctl:T 'Clear all conversations'}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource HotBrush}" Margin="0,0,8,0" />
-                                    <TextBlock Text="{ctl:T 'Clear all…'}" Foreground="{DynamicResource HotBrush}" />
+                                    <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" />
+                                    <TextBlock Text="{ctl:T 'Clear all…'}" />
                                 </StackPanel>
                             </Button>
                             <TextBlock Text="{ctl:T 'Conversations'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
@@ -2255,14 +2241,14 @@
                                 <TextBlock Text="{ctl:T 'Open data folder'}" />
                             </StackPanel>
                         </Button>
-                        <Button Style="{StaticResource GhostButton}" Command="{Binding ClearHistoryCommand}" Margin="0,0,8,8">
+                        <Button Style="{StaticResource DangerButton}" Command="{Binding ClearHistoryCommand}" Margin="0,0,8,8">
                             <StackPanel Orientation="Horizontal">
                                 <Grid Width="12" Margin="0,0,8,0">
                                     <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" HorizontalAlignment="Center" Foreground="{DynamicResource HotBrush}"
                                                Visibility="{Binding IsClearing, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                                     <ctl:Spinner Visibility="{Binding IsClearing, Converter={StaticResource Vis}}" />
                                 </Grid>
-                                <TextBlock Text="{ctl:T 'Clear all history…'}" Foreground="{DynamicResource HotBrush}" />
+                                <TextBlock Text="{ctl:T 'Clear all history…'}" />
                             </StackPanel>
                         </Button>
                     </WrapPanel>
@@ -2295,9 +2281,8 @@
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Open folder'}" Margin="0,0,8,0"
                                                         Command="{Binding DataContext.OpenDataFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Delete'}" AutomationProperties.Name="{Binding Name, StringFormat='Delete {0}'}"
-                                                        Command="{Binding DataContext.DeleteDamagedCopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
-                                                        Foreground="{DynamicResource HotBrush}" />
+                                                <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Delete'}" AutomationProperties.Name="{Binding Name, StringFormat='Delete {0}'}"
+                                                        Command="{Binding DataContext.DeleteDamagedCopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
                                             </StackPanel>
                                             <StackPanel VerticalAlignment="Center">
                                                 <TextBlock Text="{ctl:T 'Damaged copy kept'}" FontWeight="SemiBold" />
@@ -2437,7 +2422,7 @@
                                                         <TextBlock Text="{ctl:T 'Recreate'}" />
                                                     </StackPanel>
                                                 </Button>
-                                                <Button Style="{StaticResource IconButton}" Command="{Binding RemoveCommand}" AutomationProperties.Name="Remove" ToolTip="{ctl:T 'Remove'}">
+                                                <Button Style="{StaticResource DangerIconButton}" Command="{Binding RemoveCommand}" AutomationProperties.Name="Remove" ToolTip="{ctl:T 'Remove'}">
                                                     <TextBlock Text="&#xE74D;" />
                                                 </Button>
                                             </StackPanel>
@@ -2638,7 +2623,7 @@
                                         <Button Style="{StaticResource IconButton}" Width="22" Height="22" Margin="4,0,0,0"
                                                 Command="{Binding DataContext.ShowAgainCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
                                                 AutomationProperties.Name="{Binding Name}" ToolTip="{ctl:T 'Show it again'}">
-                                            <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S9}" />
+                                            <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S10}" />
                                         </Button>
                                     </StackPanel>
                                 </Border>

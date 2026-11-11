@@ -109,6 +109,21 @@ public sealed class RigsightSettings
     public bool WidgetsShown { get; set; } = true;
 
     /// <summary>
+    /// A widget being dragged pulls onto screen edges and other widgets (Alt places it freely). Off by default: a widget
+    /// goes where it's dropped (the user, 2026-11-10: "the widget should be free by default").
+    /// </summary>
+    public bool WidgetSnap { get; set; }
+
+    /// <summary>A widget fades while the pointer is over it: a click-through one almost away, so what's behind it can be read and clicked.</summary>
+    public bool WidgetFade { get; set; }
+
+    /// <summary>The shortcut that turns <see cref="WidgetsShown"/> off and on ("Ctrl+Alt+W"); null: none.</summary>
+    public string? WidgetsHotkey { get; set; }
+
+    /// <summary>The shortcut that brings the widgets on the desktop in front of the windows until Esc or a click elsewhere; null: none.</summary>
+    public string? WidgetsFrontHotkey { get; set; }
+
+    /// <summary>
     /// How <see cref="TraySensors"/> show: a strip in the taskbar (Windows 11), or notification-area icons. Since 1.3 the
     /// style of every reading not in <see cref="TrayStyles"/>, and what "Set all to" sets.
     /// </summary>

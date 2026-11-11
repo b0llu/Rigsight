@@ -58,18 +58,24 @@ public sealed partial class ScreenChoice(OverlayViewModel owner, ScreenChoice.Mo
         foreach (var s in System.Windows.Forms.Screen.AllScreens)
         {
             var b = s.Bounds;
-            double scale = 1;
-            try
-            {
-                IntPtr monitor = MonitorFromPoint(new POINT { X = b.Left + b.Width / 2, Y = b.Top + b.Height / 2 }, 2 /* nearest */);
-                if (GetDpiForMonitor(monitor, 0 /* effective */, out uint dpi, out _) == 0 && dpi > 0) scale = dpi / 96.0;
-            }
-            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { }
+            double scale = ScaleOf(b);
             list.Add(new Monitor(s.DeviceName, b.Left, b.Top, b.Width, b.Height, scale, s.Primary,
                 gameScreen is not null && string.Equals(s.DeviceName, gameScreen, StringComparison.OrdinalIgnoreCase)));
         }
         // In Windows' order, 1 first.
         return [.. list.OrderBy(m => NumberOf(m.Device) is var n and > 0 ? n : int.MaxValue)];
+    }
+
+    /// <summary>A screen's own scale (its DPI over 96), as the agent draws a widget on it; 1 where Windows can't say.</summary>
+    internal static double ScaleOf(System.Drawing.Rectangle bounds)
+    {
+        try
+        {
+            IntPtr monitor = MonitorFromPoint(new POINT { X = bounds.Left + bounds.Width / 2, Y = bounds.Top + bounds.Height / 2 }, 2 /* nearest */);
+            if (GetDpiForMonitor(monitor, 0 /* effective */, out uint dpi, out _) == 0 && dpi > 0) return dpi / 96.0;
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { }
+        return 1;
     }
 
     [StructLayout(LayoutKind.Sequential)] private struct POINT { public int X, Y; }

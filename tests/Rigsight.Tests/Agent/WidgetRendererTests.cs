@@ -13,7 +13,8 @@ public class WidgetRendererTests
 {
     private static readonly Dictionary<WidgetStyle, (int W, int H)> BaseSizes = new()
     {
-        [WidgetStyle.Compact] = (276, 122), [WidgetStyle.Gauges] = (248, 150), [WidgetStyle.NowPlaying] = (310, 88),
+        // Compact and Gauges without the RIGSIGHT caption since 2026-11-10, so without its band at the top.
+        [WidgetStyle.Compact] = (276, 102), [WidgetStyle.Gauges] = (248, 130), [WidgetStyle.NowPlaying] = (310, 88),
         [WidgetStyle.Today] = (256, 140), [WidgetStyle.Graph] = (300, 138), [WidgetStyle.Fps] = (184, 100),
     };
 

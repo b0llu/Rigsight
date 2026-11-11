@@ -37,74 +37,6 @@
             </Setter>
         </Style>
 
-        <!-- A line in a floating list (a look, a sensor to add): lit on hover, outlined when it's the one in use (Tag "on"). -->
-        <Style x:Key="ListChoice" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Field}" Padding="{TemplateBinding Padding}" Background="Transparent">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
-                                <Setter TargetName="Bd" Property="Background" Value="Transparent" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- A dropdown in a grey well, no border: its content left, lit on hover; muted when it can't be used. -->
-        <Style x:Key="DropButton" TargetType="Button">
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-            <Setter Property="FontSize" Value="{x:Static ctl:IconSize.S13}" />
-            <Setter Property="Padding" Value="12,7,10,7" />
-            <Setter Property="MinWidth" Value="180" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualStateGroup.Transitions>
-                                        <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
-                                        <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
-                                    </VisualStateGroup.Transitions>
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="MouseOver">
-                                        <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
-                                    </VisualState>
-                                    <VisualState x:Name="Pressed">
-                                        <Storyboard><DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard>
-                                    </VisualState>
-                                    <VisualState x:Name="Disabled">
-                                        <Storyboard><DoubleAnimation Storyboard.TargetName="Body" Storyboard.TargetProperty="Opacity" To="0.4" Duration="0" /></Storyboard>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Field}" />
-                            <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Field}" Opacity="0" />
-                            <DockPanel x:Name="Body" Margin="{TemplateBinding Padding}">
-                                <TextBlock DockPanel.Dock="Right" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S9}" Margin="10,1,0,0"
-                                           Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                                <ContentPresenter VerticalAlignment="Center" />
-                            </DockPanel>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
         <!-- A spot's row head opens it: a plain button, its shade drawn by the whole row (see SpotRow), as Windows' settings
              cards shade edge to edge. -->
@@ -123,46 +55,6 @@
             </Setter>
         </Style>
 
-        <!-- The row's quick remove: a small cross in a quiet red, its own soft red behind it under the pointer. -->
-        <Style x:Key="QuickRemove" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Width" Value="30" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid>
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualStateGroup.Transitions>
-                                        <VisualTransition To="MouseOver" GeneratedDuration="{StaticResource MotionFast}" />
-                                        <VisualTransition GeneratedDuration="{StaticResource MotionNormal}" />
-                                    </VisualStateGroup.Transitions>
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="MouseOver">
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
-                                            <DoubleAnimation Storyboard.TargetName="Cross" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
-                                        </Storyboard>
-                                    </VisualState>
-                                    <VisualState x:Name="Pressed">
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
-                                            <DoubleAnimation Storyboard.TargetName="Cross" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
-                                        </Storyboard>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                            <Border x:Name="Hover" Background="{DynamicResource HotSoftBrush}" CornerRadius="{x:Static ctl:Corner.Field}" Opacity="0" />
-                            <TextBlock x:Name="Cross" Text="&#xE711;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{DynamicResource HotBrush}" Opacity="0.6"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
 
         <!-- "Like the rest" by a setting's title, when the spot has its own: back to the whole taskbar's. -->
@@ -309,8 +201,10 @@
                                     </Grid>
                                 </Button>
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button x:Name="QuickX" Style="{StaticResource QuickRemove}" Command="{Binding RemoveCommand}" ToolTip="{ctl:T 'Remove from the taskbar'}"
-                                            AutomationProperties.Name="{Binding RemoveName}" Margin="2,0,2,0" />
+                                    <Button x:Name="QuickX" Style="{StaticResource DangerIconButton}" Command="{Binding RemoveCommand}" ToolTip="{ctl:T 'Remove from the taskbar'}"
+                                            AutomationProperties.Name="{Binding RemoveName}" Margin="2,0,2,0" VerticalAlignment="Center">
+                                        <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S11}" />
+                                    </Button>
                                     <Button Style="{StaticResource SpotHead}" Command="{Binding ToggleCommand}" Width="28" Height="30" Focusable="False"
                                             AutomationProperties.Name="{Binding ToggleName}">
                                         <TextBlock Text="&#xE70D;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource FaintBrush}"

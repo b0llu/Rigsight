@@ -19,7 +19,7 @@ public static class DashboardTiles
     [
         new(Lang.Key("LIVE"), "cpu-gauge", Lang.Key("CPU temperature"), Lang.Key("A big gauge, colored by how hot it is."), "\uE9CA", 3, 4, MinW: 2, MinH: 3),
         new(Lang.Key("LIVE"), "gpu-gauge", Lang.Key("GPU temperature"), Lang.Key("A big gauge, colored by how hot it is."), "\uE9CA", 3, 4, MinW: 2, MinH: 3),
-        new(Lang.Key("LIVE"), "temp-chart", Lang.Key("Temperature chart"), Lang.Key("CPU and GPU temperatures over the last few minutes."), "\uE9D9", 12, 4, MinW: 4, MinH: 3),
+        new(Lang.Key("LIVE"), "temp-chart", Lang.Key("Temperature graph"), Lang.Key("CPU and GPU temperatures over the last few minutes."), "\uE9D9", 12, 4, MinW: 4, MinH: 3),
         new(Lang.Key("LIVE"), "fans", Lang.Key("Fans"), Lang.Key("Every spinning fan and its speed."), "\uEDA8", 3, 4, MinW: 3, MinH: 3),
         new(Lang.Key("LIVE"), "drives", Lang.Key("Drives"), Lang.Key("How full each drive is, and its temperature."), "\uEDA2", 6, 4, MinW: 3, MinH: 3),
         new(Lang.Key("LIVE"), "top-memory", Lang.Key("Top memory users"), Lang.Key("The apps using the most memory right now."), "\uE964", 6, 4, MinW: 4, MinH: 3),

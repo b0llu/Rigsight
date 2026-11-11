@@ -581,13 +581,13 @@ public sealed partial class TaskbarViewModel : ObservableObject
     public bool ShowCommon => AddSearch.Trim().Length == 0 && HasQuickPicks;
 
     /// <summary>Whether a sensor matches what's typed: its name, hardware, part or kind.</summary>
-    private static bool Matches(SensorItem s, string q) => q.Length == 0 || s.DisplayName.Contains(q, StringComparison.OrdinalIgnoreCase)
+    internal static bool Matches(SensorItem s, string q) => q.Length == 0 || s.DisplayName.Contains(q, StringComparison.OrdinalIgnoreCase)
         || s.HardwareShown.Contains(q, StringComparison.OrdinalIgnoreCase)
         || TrayParts.Label(TrayParts.PartOf(s.HardwareType)).Contains(q, StringComparison.OrdinalIgnoreCase)
         || Units.TypeLabel(s.Kind).Contains(q, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The order the parts come in the list.</summary>
-    private static readonly TrayPart[] PartOrder = [TrayPart.Cpu, TrayPart.Gpu, TrayPart.Ram, TrayPart.Drive, TrayPart.Network, TrayPart.Board, TrayPart.Other];
+    internal static readonly TrayPart[] PartOrder = [TrayPart.Cpu, TrayPart.Gpu, TrayPart.Ram, TrayPart.Drive, TrayPart.Network, TrayPart.Board, TrayPart.Other];
 
     /// <summary>
     /// Every sensor that matches what's typed (its name, hardware or part), under its part's heading; those already in

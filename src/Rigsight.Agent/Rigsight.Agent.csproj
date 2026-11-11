@@ -2,7 +2,8 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Windows 10 2004's own APIs: the Media tile reads Windows' media controls (Windows.Media.Control). -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>Rigsight.Agent</RootNamespace>
     <AssemblyName>Rigsight.Agent</AssemblyName>
@@ -21,6 +22,13 @@
 
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="7" />
+  </ItemGroup>
+
+  <!-- Windows' own APIs for .NET (the Media tile's media controls) stay as they come, not compiled ahead of time:
+       ReadyToRun doubled the file to 53 MB for the handful of types one tile uses. -->
+  <ItemGroup>
+    <PublishReadyToRunExclude Include="Microsoft.Windows.SDK.NET.dll" />
+    <PublishReadyToRunExclude Include="WinRT.Runtime.dll" />
   </ItemGroup>
 
   <ItemGroup>

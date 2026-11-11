@@ -147,6 +147,15 @@ public static class Accents
         (byte)Math.Round(a.R * share + b.R * (1 - share)), (byte)Math.Round(a.G * share + b.G * (1 - share)),
         (byte)Math.Round(a.B * share + b.B * (1 - share)));
 
+    /// <summary>The WCAG contrast ratio between two colours (1 to 21).</summary>
+    public static double Contrast(Color a, Color b)
+    {
+        static double Channel(byte v) => v / 255.0 is var s && s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        static double L(Color c) => 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
+        double la = L(a), lb = L(b);
+        return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
+    }
+
     private static SolidColorBrush Brush(Color c, double opacity)
     {
         var b = new SolidColorBrush(c) { Opacity = opacity };
