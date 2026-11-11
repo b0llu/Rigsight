@@ -2,6 +2,7 @@
 {"slug": "rewrite-in-rust", "series": "build", "happened": "2026-11-07", "published": "2026-11-07", "version": "1.6.2",
  "title": "Should RigSight be rewritten in Rust? I measured first",
  "summary": "RigSight felt slow to open, and I wondered whether parts of it should be rewritten in Rust. Measuring every part said no. The slow parts were drivers, Windows and the way the window started, and fixing those made it open in about 1.1 seconds instead of 1.9.",
+ "description": "Should a slow app be rewritten in Rust? I measured RigSight first. Drivers, Windows and startup took the time, and now it opens in about 1.1 seconds.",
  "short": "RigSight felt slow to open, so I asked whether to rewrite parts in Rust. Measured, its own code was a sliver of the cost. Fixing how the window starts and one sensor bug made it open in about 1.1 seconds and use half the CPU.",
  "mark": "1.1 s"}
 -->

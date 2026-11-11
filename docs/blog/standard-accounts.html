@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Making RigSight work without admin rights · The RigSight log</title>
-  <meta name="description" content="On a standard Windows account RigSight asked for an admin password at every start and recorded nothing without one. Here&#x27;s how it learned to do what it can, and say what it can&#x27;t." />
+  <meta name="description" content="Without admin rights, Windows hides CPU temperature, motherboard fans and drive health. How RigSight runs on a standard account and says what&#x27;s missing." />
   <meta name="theme-color" content="#000000" />
   <meta name="color-scheme" content="dark" />
   <link rel="canonical" href="https://rigsight.app/blog/standard-accounts" />
@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
   <meta property="og:site_name" content="RigSight" />
   <meta property="og:title" content="Making RigSight work without admin rights · The RigSight log" />
-  <meta property="og:description" content="On a standard Windows account RigSight asked for an admin password at every start and recorded nothing without one. Here&#x27;s how it learned to do what it can, and say what it can&#x27;t." />
+  <meta property="og:description" content="Without admin rights, Windows hides CPU temperature, motherboard fans and drive health. How RigSight runs on a standard account and says what&#x27;s missing." />
   <meta property="og:url" content="https://rigsight.app/blog/standard-accounts" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
@@ -21,7 +21,7 @@
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="800" />
   <meta property="og:type" content="article" />
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "Making RigSight work without admin rights", "description": "On a standard Windows account RigSight asked for an admin password at every start and recorded nothing without one. Here's how it learned to do what it can, and say what it can't.", "datePublished": "2026-11-04", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/standard-accounts", "image": "https://rigsight.app/img/blog/standard-accounts.webp"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "Making RigSight work without admin rights", "description": "Without admin rights, Windows hides CPU temperature, motherboard fans and drive health. How RigSight runs on a standard account and says what's missing.", "datePublished": "2026-11-04", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/standard-accounts", "image": "https://rigsight.app/img/blog/standard-accounts.webp"}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -240,7 +240,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>On those, RigSight behaved badly. At every start it asked for an admin's password. If nobody typed it, it recorded nothing at all.</p>
 
-<h2>Do what you can</h2>
+<h2>Do what you can without admin rights</h2>
 
 <p>Version 0.23.0 makes the recorder look at the account it's running in first. It can be an admin, an admin that hasn't been given admin rights yet, or a standard account. On a standard account it now runs without admin rights and never asks for them.</p>
 

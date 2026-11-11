@@ -2,6 +2,7 @@
 {"slug": "standard-accounts", "series": "build", "happened": "2026-10-13", "published": "2026-10-26", "version": "0.23.0",
  "title": "Making RigSight work without admin rights",
  "summary": "On a standard Windows account RigSight asked for an admin password at every start and recorded nothing without one. Here's how it learned to do what it can, and say what it can't.",
+ "description": "Without admin rights, Windows hides CPU temperature, motherboard fans and drive health. How RigSight runs on a standard account and says what's missing.",
  "short": "On a standard Windows account RigSight asked for an admin password at every start and recorded nothing without one. Now it records what Windows allows and names what it can't read, instead of storing zeros.",
  "mark": "0"}
 -->
@@ -11,7 +12,7 @@
 
 <p>On those, RigSight behaved badly. At every start it asked for an admin's password. If nobody typed it, it recorded nothing at all.</p>
 
-<h2>Do what you can</h2>
+<h2>Do what you can without admin rights</h2>
 
 <p>Version 0.23.0 makes the recorder look at the account it's running in first. It can be an admin, an admin that hasn't been given admin rights yet, or a standard account. On a standard account it now runs without admin rights and never asks for them.</p>
 
