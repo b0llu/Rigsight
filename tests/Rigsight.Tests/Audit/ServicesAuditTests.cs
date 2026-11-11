@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http;
 using Rigsight.Core.Settings;
 
 namespace Rigsight.Tests.Audit;
@@ -10,7 +12,40 @@ namespace Rigsight.Tests.Audit;
 [Collection("Drawing")]
 public class ServicesAuditTests : IDisposable
 {
-    public void Dispose() => WeatherFeed.Latest.Clear();
+    private readonly HttpClient _http = WeatherFeed.Http;
+
+    public void Dispose()
+    {
+        WeatherFeed.Http = _http;
+        WeatherFeed.Latest.Clear();
+    }
+
+    /// <summary>Answers every request with <paramref name="answer"/>, and keeps the requests.</summary>
+    private sealed class Stub(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler
+    {
+        public List<(HttpRequestMessage Ask, DateTime At)> Asks { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            lock (Asks) Asks.Add((request, DateTime.UtcNow));
+            return Task.FromResult(answer(request));
+        }
+    }
+
+    private static Stub Serve(Func<HttpRequestMessage, HttpResponseMessage> answer)
+    {
+        var stub = new Stub(answer);
+        WeatherFeed.Http = WeatherFeed.NewClient(stub);
+        return stub;
+    }
+
+    private const string Forecast = """
+        {"properties":{"timeseries":[
+          {"time":"2026-11-11T03:00:00Z","data":{"instant":{"details":{"air_temperature":4.5}},"next_1_hours":{"summary":{"symbol_code":"cloudy"}}}}
+        ]}}
+        """;
+
+    private static HttpResponseMessage Json(string json, HttpStatusCode code = HttpStatusCode.OK) => new(code) { Content = new StringContent(json) };
 
     // ── An answer in a shape that wasn't expected ─────────────────────────
 
@@ -43,5 +78,92 @@ public class ServicesAuditTests : IDisposable
             """, now);
         Assert.NotNull(w);
         Assert.Equal(5.5, w.TempC);
+    }
+
+    // ── MET Norway's terms: Expires, If-Modified-Since, and its answers that aren't a forecast ──────────────
+
+    [Fact]
+    public async Task A_forecast_asked_for_again_says_when_it_was_last_changed_and_keeps_it_when_unchanged()
+    {
+        var changed = new DateTimeOffset(2026, 11, 11, 8, 0, 0, TimeSpan.Zero);
+        var stub = Serve(ask =>
+        {
+            if (ask.Headers.IfModifiedSince is null)
+            {
+                var first = Json(Forecast);
+                first.Content.Headers.LastModified = changed;
+                first.Content.Headers.Expires = DateTimeOffset.UtcNow.AddMinutes(30);
+                return first;
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotModified) { Content = new ByteArrayContent([]) };
+        });
+        var w = await WeatherFeed.GetAsync(59.91, 10.75);
+        Assert.NotNull(w);
+        Assert.Equal(changed, w.LastModified);
+        Assert.NotNull(w.Expires);
+        WeatherFeed.Latest[WeatherFeed.Key(59.91, 10.75)] = w with { Fetched = DateTime.Now.AddHours(-1) };
+
+        var again = await WeatherFeed.GetAsync(59.91, 10.75);
+        Assert.Equal(changed, stub.Asks[1].Ask.Headers.IfModifiedSince);
+        // 304 Not Modified: the forecast already had is kept, as read now.
+        Assert.NotNull(again);
+        Assert.Equal(4.5, again.TempC);
+        Assert.True(DateTime.Now - again.Fetched < TimeSpan.FromMinutes(1));
+    }
+
+    [Fact]
+    public void A_forecast_isnt_asked_for_again_before_it_expires()
+    {
+        var stub = Serve(_ => Json(Forecast));
+        var tile = new WidgetTile { Kind = WidgetTiles.Weather, Lat = 48.85, Lon = 2.35 };
+        // Older than half an hour, but MET Norway said it holds for 20 minutes more.
+        WeatherFeed.Latest[WeatherFeed.Key(48.85, 2.35)] = new WeatherNow(3, "cloudy", null, null, DateTime.Now.AddMinutes(-40))
+        {
+            Expires = DateTimeOffset.UtcNow.AddMinutes(20),
+        };
+        Assert.Equal(0, WeatherFeed.RefreshInBackground([tile]));
+        WeatherFeed.Latest[WeatherFeed.Key(48.85, 2.35)] = WeatherFeed.Latest[WeatherFeed.Key(48.85, 2.35)] with { Expires = DateTimeOffset.UtcNow.AddMinutes(-1) };
+        Assert.Equal(1, WeatherFeed.RefreshInBackground([tile]));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task A_refused_forecast_is_no_weather(HttpStatusCode code)
+    {
+        Serve(_ => Json("<html>no</html>", code));
+        Assert.Null(await WeatherFeed.GetAsync(1.5, 2.5));
+    }
+
+    [Fact]
+    public async Task A_deprecated_forecast_is_still_read()
+    {
+        Serve(_ => Json(Forecast, HttpStatusCode.NonAuthoritativeInformation));
+        Assert.Equal(4.5, (await WeatherFeed.GetAsync(1.5, 2.5))?.TempC);
+    }
+
+    // ── Nominatim's policy: one search a second at most, and the same search not sent twice ─────────────────
+
+    [Fact]
+    public async Task Place_searches_are_a_second_apart_and_the_same_one_isnt_sent_twice()
+    {
+        var stub = Serve(_ => Json("""[{"lat":"59.91","lon":"10.75","name":"Oslo","display_name":"Oslo, Norway"}]"""));
+        string a = "Oslo " + Guid.NewGuid().ToString("N")[..6], b = "Bergen " + Guid.NewGuid().ToString("N")[..6];
+        Assert.Single(await WeatherFeed.FindAsync(a));
+        Assert.Single(await WeatherFeed.FindAsync(b));
+        Assert.Single(await WeatherFeed.FindAsync(" " + a.ToUpperInvariant() + " "));
+        Assert.Equal(2, stub.Asks.Count);
+        Assert.True(stub.Asks[1].At - stub.Asks[0].At >= TimeSpan.FromMilliseconds(950), $"{(stub.Asks[1].At - stub.Asks[0].At).TotalMilliseconds} ms apart");
+    }
+
+    [Fact]
+    public async Task A_refused_place_search_finds_nothing_and_isnt_remembered()
+    {
+        var stub = Serve(_ => Json("<html>blocked</html>", HttpStatusCode.Forbidden));
+        string q = "Lima " + Guid.NewGuid().ToString("N")[..6];
+        Assert.Empty(await WeatherFeed.FindAsync(q));
+        Assert.Empty(await WeatherFeed.FindAsync(q));
+        Assert.Equal(2, stub.Asks.Count);
     }
 }

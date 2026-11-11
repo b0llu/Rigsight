@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using Rigsight.Core.Updates;
@@ -17,6 +18,12 @@ public sealed record WeatherNow(double TempC, string Symbol, double? HighC, doub
 
     /// <summary>The next days after today (a large tile shows them).</summary>
     public IReadOnlyList<WeatherDay> Days { get; init; } = [];
+
+    /// <summary>Until when MET Norway says this forecast holds: it isn't asked for again before then (its terms).</summary>
+    public DateTimeOffset? Expires { get; init; }
+
+    /// <summary>When MET Norway last changed it: sent back as If-Modified-Since the next time (its terms).</summary>
+    public DateTimeOffset? LastModified { get; init; }
 }
 
 /// <summary>An hour ahead: its time, temperature and sky.</summary>
@@ -33,16 +40,24 @@ public sealed record WeatherDay(DateTime Date, double LowC, double HighC, string
 /// <item>the forecast comes from MET Norway (api.met.no) for that place's latitude and longitude, rounded to two
 /// decimals (about a kilometre), at most every 30 minutes.</item>
 /// </list>
-/// Both services ask for an app name in the User-Agent; nothing about the person is sent.
+/// Both services ask for an app name in the User-Agent; nothing about the person is sent. Their terms are kept: a
+/// forecast isn't asked for again before its Expires and is asked with If-Modified-Since (MET Norway,
+/// api.met.no/doc/TermsOfService); place searches are a second apart at least, only on Find, and the same search isn't
+/// sent twice (operations.osmfoundation.org/policies/nominatim).
 /// </summary>
 public static class WeatherFeed
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    /// <summary>What both services are asked with (a test gives its own, with no internet).</summary>
+    internal static HttpClient Http { get; set; } = NewClient(new HttpClientHandler());
 
-    static WeatherFeed() =>
-        Http.DefaultRequestHeaders.UserAgent.ParseAdd($"RigSight/{ReleaseFeed.Current.ToString(3)} (+https://rigsight.app)");
+    internal static HttpClient NewClient(HttpMessageHandler handler)
+    {
+        var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(20) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd($"RigSight/{ReleaseFeed.Current.ToString(3)} (+https://rigsight.app)");
+        return http;
+    }
 
-    /// <summary>How long a forecast is kept before it's asked for again.</summary>
+    /// <summary>How long a forecast is kept before it's asked for again (longer when MET Norway's Expires says so).</summary>
     public static readonly TimeSpan Fresh = TimeSpan.FromMinutes(30);
 
     /// <summary>The latest weather for each place asked for in this program, by <see cref="Key"/>.</summary>
@@ -57,19 +72,26 @@ public static class WeatherFeed
     public static WeatherNow? For(WidgetTile t) => t is { Lat: double lat, Lon: double lon } && Latest.TryGetValue(Key(lat, lon), out var w) ? w : null;
 
     /// <summary>
-    /// Asks for the weather of every weather tile given whose forecast is older than <see cref="Fresh"/>, in the
-    /// background; a place that failed is asked again after ten minutes. Returns at once.
+    /// Asks for the weather of every weather tile given whose forecast is older than <see cref="Fresh"/> and past its
+    /// Expires, in the background; a place that failed is asked again after ten minutes. Returns at once, with how many
+    /// places it asked for.
     /// </summary>
-    public static void RefreshInBackground(IEnumerable<WidgetTile> tiles, Action? done = null)
+    public static int RefreshInBackground(IEnumerable<WidgetTile> tiles, Action? done = null)
     {
         var now = DateTime.UtcNow;
+        int asked = 0;
         foreach (var t in tiles)
         {
             if (t is not { Kind: WidgetTiles.Weather, Lat: double lat, Lon: double lon }) continue;
             string key = Key(lat, lon);
-            if (Latest.TryGetValue(key, out var w) && now - w.Fetched.ToUniversalTime() < Fresh) continue;
-            if (Asked.TryGetValue(key, out var at) && now - at < TimeSpan.FromMinutes(10)) continue;
-            Asked[key] = now;
+            if (Latest.TryGetValue(key, out var w) && (now - w.Fetched.ToUniversalTime() < Fresh || w.Expires > DateTimeOffset.UtcNow)) continue;
+            // Claimed in one step, so two callers at once (the agent's tick and a redraw, say) don't both ask.
+            if (Asked.TryGetValue(key, out var at))
+            {
+                if (now - at < TimeSpan.FromMinutes(10) || !Asked.TryUpdate(key, now, at)) continue;
+            }
+            else if (!Asked.TryAdd(key, now)) continue;
+            asked++;
             _ = Task.Run(async () =>
             {
                 var got = await GetAsync(lat, lon);
@@ -81,21 +103,44 @@ public static class WeatherFeed
                 }
             });
         }
+        return asked;
     }
 
-    /// <summary>The weather now at a place, from MET Norway; null when it can't be had.</summary>
+    /// <summary>
+    /// The weather now at a place, from MET Norway; null when it can't be had. The forecast already had for the place is
+    /// asked with its Last-Modified as If-Modified-Since, and kept when MET Norway answers 304 Not Modified.
+    /// </summary>
     public static async Task<WeatherNow?> GetAsync(double lat, double lon, CancellationToken ct = default)
     {
+        Latest.TryGetValue(Key(lat, lon), out var before);
         try
         {
             string url = string.Create(CultureInfo.InvariantCulture,
                 $"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={Math.Round(lat, 2):0.00}&lon={Math.Round(lon, 2):0.00}");
-            string json = await Http.GetStringAsync(url, ct);
+            using var ask = new HttpRequestMessage(HttpMethod.Get, url);
+            if (before?.LastModified is { } since) ask.Headers.IfModifiedSince = since;
+            using var answer = await Http.SendAsync(ask, ct);
+            var expires = answer.Content.Headers.Expires;
+            if (answer.StatusCode == HttpStatusCode.NotModified && before is not null)
+            {
+                Log.Write("weather", $"Weather for {Key(lat, lon)} hasn't changed since it was last read");
+                return before with { Fetched = DateTime.Now, Expires = expires ?? before.Expires };
+            }
+            if (!answer.IsSuccessStatusCode)
+            {
+                // 429 is MET Norway throttling, 403 a refusal: either way the place waits ten minutes before it's asked again.
+                Log.Write("weather", $"Weather for {Key(lat, lon)} couldn't be had: MET Norway answered {(int)answer.StatusCode} {answer.ReasonPhrase}");
+                return null;
+            }
+            // 203: this version of the forecast is deprecated and will be switched off (MET Norway asks for it to be logged).
+            if (answer.StatusCode == HttpStatusCode.NonAuthoritativeInformation)
+                Log.Write("weather", "MET Norway says locationforecast 2.0 is deprecated (203): the weather needs moving to its new version");
+            string json = await answer.Content.ReadAsStringAsync(ct);
             var w = Parse(json, DateTime.Now);
             Log.Write("weather", w is null ? $"No weather in the answer for {Key(lat, lon)}" : $"Weather for {Key(lat, lon)}: {w.TempC:0.#}°C, {w.Symbol}");
-            return w;
+            return w is null ? null : w with { Expires = expires, LastModified = answer.Content.Headers.LastModified };
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException)
         {
             Log.Write("weather", $"Weather for {Key(lat, lon)} couldn't be had: {ex.Message}");
             return null;
@@ -165,20 +210,48 @@ public static class WeatherFeed
         };
     }
 
-    /// <summary>Places that match a name typed in the editor, from OpenStreetMap's Nominatim (at most five).</summary>
+    private static readonly SemaphoreSlim OneSearch = new(1, 1);
+    private static DateTime _lastSearch = DateTime.MinValue;
+    private static readonly ConcurrentDictionary<string, IReadOnlyList<WeatherPlace>> Searched = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Places that match a name typed in the editor, from OpenStreetMap's Nominatim (at most five). Searches go one at a
+    /// time, a second apart at least, and a search already answered in this program is answered from memory: Nominatim
+    /// allows one request a second, and blocks programs that send the same one again and again.
+    /// </summary>
     public static async Task<IReadOnlyList<WeatherPlace>> FindAsync(string name, CancellationToken ct = default)
     {
         name = name.Trim();
         if (name.Length < 2) return [];
+        string remembered = Lang.Code + "|" + name;
+        if (Searched.TryGetValue(remembered, out var known)) return known;
         try
         {
-            string url = $"https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language={Uri.EscapeDataString(Lang.Code)}&q={Uri.EscapeDataString(name)}";
-            string json = await Http.GetStringAsync(url, ct);
-            var found = ParsePlaces(json);
-            Log.Write("weather", $"A place search found {found.Count}");
-            return found;
+            await OneSearch.WaitAsync(ct);
+            try
+            {
+                if (Searched.TryGetValue(remembered, out known)) return known;
+                var wait = _lastSearch + TimeSpan.FromSeconds(1) - DateTime.UtcNow;
+                if (wait > TimeSpan.Zero) await Task.Delay(wait, ct);
+                string url = $"https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language={Uri.EscapeDataString(Lang.Code)}&q={Uri.EscapeDataString(name)}";
+                using var answer = await Http.GetAsync(url, ct);
+                if (!answer.IsSuccessStatusCode)
+                {
+                    Log.Write("weather", $"A place search failed: OpenStreetMap answered {(int)answer.StatusCode} {answer.ReasonPhrase}");
+                    return [];
+                }
+                var found = ParsePlaces(await answer.Content.ReadAsStringAsync(ct));
+                if (Searched.Count < 200) Searched[remembered] = found;
+                Log.Write("weather", $"A place search found {found.Count}");
+                return found;
+            }
+            finally
+            {
+                _lastSearch = DateTime.UtcNow;
+                OneSearch.Release();
+            }
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException)
         {
             Log.Write("weather", $"A place search failed: {ex.Message}");
             return [];
