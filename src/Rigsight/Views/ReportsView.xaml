@@ -435,7 +435,7 @@
                     <StackPanel>
                         <DockPanel Margin="0,0,0,6">
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
-                                    Command="{Binding DataContext.GoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="timeline"
+                                    Command="{Binding GoCommand}" CommandParameter="timeline"
                                     AutomationProperties.Name="Open the Timeline">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Timeline'}" />

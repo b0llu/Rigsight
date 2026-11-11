@@ -338,6 +338,15 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     /// <summary>Opens a change's before and after on the Timeline (set by the window).</summary>
     public Action<DateTime>? OpenChange { get; set; }
 
+    /// <summary>
+    /// Opens another page (set by the window): the page's own, not the window's looked up from the page, which a page kept
+    /// while another is on screen can't find (a binding error each time; the gate, 2026-11-11).
+    /// </summary>
+    public Action<string>? GoTo { get; set; }
+
+    [RelayCommand]
+    private void Go(string page) => GoTo?.Invoke(page);
+
     [RelayCommand]
     private void OpenLine(HomeLine line)
     {

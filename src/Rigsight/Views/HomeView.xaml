@@ -142,7 +142,7 @@
                     <StackPanel>
                         <DockPanel Margin="0,0,0,14">
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}"
-                                    Command="{Binding DataContext.GoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="reports">
+                                    Command="{Binding GoCommand}" CommandParameter="reports">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Full report'}" />
                                     <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,0,0,0" />
@@ -439,7 +439,7 @@
                     <StackPanel>
                         <DockPanel Margin="0,0,0,7">
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
-                                    Command="{Binding DataContext.GoCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="timeline"
+                                    Command="{Binding GoCommand}" CommandParameter="timeline"
                                     AutomationProperties.Name="Open the Timeline">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Timeline'}" />

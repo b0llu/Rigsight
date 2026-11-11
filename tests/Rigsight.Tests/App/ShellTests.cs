@@ -139,6 +139,37 @@ public sealed class ShellTests : IClassFixture<AppHost>
         });
     }
 
+    // Home's "Full report" and "Timeline" and Reports' "Timeline" open their page with the page's own command: looking up
+    // the window's from a page kept off screen logged a binding error each time (the gate, 2026-11-11).
+    [Fact]
+    public void Home_and_Reports_buttons_open_their_pages_with_no_binding_error()
+    {
+        Ui.TakeProblems();
+        void Press(string from, string to)
+        {
+            Ui.Run(() => Shell.GoCommand.Execute(from));
+            Ui.Pump(150);
+            Ui.Run(() =>
+            {
+                var view = (FrameworkElement)host.Window.PageHost.Content;
+                var button = Visuals.Descendants<System.Windows.Controls.Button>(view)
+                    .First(b => b.CommandParameter as string == to && b.Command is not null);
+                Assert.True(button.Command.CanExecute(to));
+                button.Command.Execute(to);
+                Assert.Equal(to, Shell.CurrentPage);
+            });
+        }
+        Press("home", "reports");
+        Press("home", "timeline");
+        Press("reports", "timeline");
+        // Home and Reports off screen while settings change, then shown again.
+        Ui.Run(() => Shell.Settings.Update(s => s.Theme = s.Theme));
+        Ui.Pump(200);
+        Ui.Run(() => Shell.GoCommand.Execute("home"));
+        Ui.Pump(200);
+        Ui.AssertNoProblems("Home and Reports buttons");
+    }
+
     [Fact]
     public void Go_switches_pages_and_shows_the_right_view()
     {

@@ -449,6 +449,15 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// <summary>Opens the page a line leads to (set by the window).</summary>
     public Action<HomeOpen>? Open { get; set; }
 
+    /// <summary>
+    /// Opens another page (set by the window): the page's own, not the window's looked up from the page, which a page kept
+    /// while another is on screen can't find (a binding error each time; the gate, 2026-11-11).
+    /// </summary>
+    public Action<string>? GoTo { get; set; }
+
+    [RelayCommand]
+    private void Go(string page) => GoTo?.Invoke(page);
+
     // PC health speaks of the last 7 days (today's usual); today's lines of today; the recap's of its period.
     [RelayCommand]
     private void OpenLine(HomeLine line)
