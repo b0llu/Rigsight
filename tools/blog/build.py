@@ -311,12 +311,12 @@ def build_site():
               "How RigSight, a free PC monitor for Windows, gets made, and the PC problems it catches, why they happen and how to fix them.",
               index_html(posts, "site", img, fixes), None)]
     for p in posts:
-        pages.append((p["slug"], f"{p['title']} · The RigSight log", p["summary"], article_html(p, posts, "site", img, False), p))
+        pages.append((p["slug"], f"{p['title']} · The RigSight log", p.get("description") or p["summary"], article_html(p, posts, "site", img, False), p))
     for slug, title, desc, inner, p in pages:
         url = f"{SITE}/blog/{slug}"
         extra = ""
         if p:
-            ld = {"@context": "https://schema.org", "@type": "BlogPosting", "headline": p["title"], "description": p["summary"],
+            ld = {"@context": "https://schema.org", "@type": "BlogPosting", "headline": p["title"], "description": p.get("description") or p["summary"],
                   "datePublished": p["published"], "author": {"@type": "Person", "name": AUTHOR},
                   "publisher": {"@type": "Organization", "name": "RigSight", "url": SITE}, "mainEntityOfPage": url}
             ld["image"] = f"{SITE}/img/blog/{p['slug']}.webp"

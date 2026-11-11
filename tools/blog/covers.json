@@ -232,5 +232,15 @@
     "every line RigSight shows"
    ]
   ]
+ },
+ "widgets-from-tiles": {
+  "img": "cards/widgets",
+  "crop": [
+   0,
+   0,
+   1120,
+   700
+  ],
+  "alt": "Three RigSight widgets built from tiles, a clock with the date, the weather and the music playing, a sticky note with a to-do list, and CPU and GPU rings beside a temperature graph"
  }
 }

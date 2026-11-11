@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Should RigSight be rewritten in Rust? I measured first · The RigSight log</title>
-  <meta name="description" content="RigSight felt slow to open, and I wondered whether parts of it should be rewritten in Rust. Measuring every part said no. The slow parts were drivers, Windows and the way the window started, and fixing those made it open in about 1.1 seconds instead of 1.9." />
+  <meta name="description" content="Should a slow app be rewritten in Rust? I measured RigSight first. Drivers, Windows and startup took the time, and now it opens in about 1.1 seconds." />
   <meta name="theme-color" content="#000000" />
   <meta name="color-scheme" content="dark" />
   <link rel="canonical" href="https://rigsight.app/blog/rewrite-in-rust" />
@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
   <meta property="og:site_name" content="RigSight" />
   <meta property="og:title" content="Should RigSight be rewritten in Rust? I measured first · The RigSight log" />
-  <meta property="og:description" content="RigSight felt slow to open, and I wondered whether parts of it should be rewritten in Rust. Measuring every part said no. The slow parts were drivers, Windows and the way the window started, and fixing those made it open in about 1.1 seconds instead of 1.9." />
+  <meta property="og:description" content="Should a slow app be rewritten in Rust? I measured RigSight first. Drivers, Windows and startup took the time, and now it opens in about 1.1 seconds." />
   <meta property="og:url" content="https://rigsight.app/blog/rewrite-in-rust" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
@@ -21,7 +21,7 @@
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="800" />
   <meta property="og:type" content="article" />
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "Should RigSight be rewritten in Rust? I measured first", "description": "RigSight felt slow to open, and I wondered whether parts of it should be rewritten in Rust. Measuring every part said no. The slow parts were drivers, Windows and the way the window started, and fixing those made it open in about 1.1 seconds instead of 1.9.", "datePublished": "2026-11-07", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/rewrite-in-rust", "image": "https://rigsight.app/img/blog/rewrite-in-rust.webp"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "Should RigSight be rewritten in Rust? I measured first", "description": "Should a slow app be rewritten in Rust? I measured RigSight first. Drivers, Windows and startup took the time, and now it opens in about 1.1 seconds.", "datePublished": "2026-11-07", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/rewrite-in-rust", "image": "https://rigsight.app/img/blog/rewrite-in-rust.webp"}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -278,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>The lesson I'm keeping is boring, and that's fine. When something feels slow, measure where the time goes before deciding what to rewrite. Most of the time, the answer is doing less, not doing it in another language.</p>
   </div>
-  <nav class="next" aria-label="More posts"><a class="more" href="plain-words"><span>Before this</span><b>Rewriting all 5,445 sentences RigSight shows</b></a><a class="more" href="three-ways-to-ask"><span>From The AI journey</span><b>Three ways to ask, including one that never leaves your PC</b></a></nav>
+  <nav class="next" aria-label="More posts"><a class="more" href="plain-words"><span>Before this</span><b>Rewriting all 5,445 sentences RigSight shows</b></a><a class="more" href="widgets-from-tiles"><span>What happened next</span><b>Rebuilding RigSight's widgets as boxes of tiles</b></a></nav>
   <aside class="get">
     <img src="../img/logo-144.webp" alt="" width="40" height="40">
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, app time, internet use and crashes, and keeps them as history on your PC.</p>

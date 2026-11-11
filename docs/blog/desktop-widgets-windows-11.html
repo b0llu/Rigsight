@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>How to get desktop widgets on Windows 11, with CPU temperature · RigSight</title>
+  <meta name="description" content="Windows 11 keeps widgets on a board, not the desktop. RigSight puts free desktop widgets on Windows 11, with clocks, notes, weather and CPU temperature." />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="canonical" href="https://rigsight.app/blog/desktop-widgets-windows-11" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
+  <meta property="og:site_name" content="RigSight" />
+  <meta property="og:title" content="How to get desktop widgets on Windows 11, with CPU temperature · RigSight" />
+  <meta property="og:description" content="Windows 11 keeps widgets on a board, not the desktop. RigSight puts free desktop widgets on Windows 11, with clocks, notes, weather and CPU temperature." />
+  <meta property="og:url" content="https://rigsight.app/blog/desktop-widgets-windows-11" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
+  <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <meta property="og:image" content="https://rigsight.app/img/blog/desktop-widgets-windows-11.webp" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="800" />
+  <meta property="og:type" content="article" />
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "How to get desktop widgets on Windows 11, with CPU temperature", "description": "Windows 11 keeps widgets on a board, not the desktop. RigSight puts free desktop widgets on Windows 11, with clocks, notes, weather and CPU temperature.", "datePublished": "2026-11-11", "dateModified": "2026-11-11", "image": "https://rigsight.app/img/blog/desktop-widgets-windows-11.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/desktop-widgets-windows-11", "keywords": "desktop widgets windows 11, windows 11 widgets on desktop, desktop widgets windows 11 free, desktop widgets windows 11 clock, does windows have widgets, windows 11 widgets alternative, cpu temperature widget windows 11, gpu temperature widget windows 11, pc monitor widget windows 11, rainmeter alternative windows 11, clock widget windows 11 desktop, weather widget windows 11 desktop, sticky notes desktop windows 11, to do list widget windows 11"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "How to get desktop widgets on Windows 11, with CPU temperature", "item": "https://rigsight.app/blog/desktop-widgets-windows-11"}]}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does Windows have widgets?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Windows 11 has a Widgets board that opens from the weather on the taskbar, with Windows key + W, or by swiping in from the side of the screen. You can add, remove, resize and arrange widgets on the board, but Microsoft's page describes them only there, not on the desktop."}}, {"@type": "Question", "name": "How do I put widgets on my desktop in Windows 11?", "acceptedAnswer": {"@type": "Answer", "text": "Use an app that draws them on the desktop. In RigSight, open Widgets and click Add widget for a ready-made one, or Create widget to build your own from tiles. Place puts it in a corner of any screen, or you can drag it where you like."}}, {"@type": "Question", "name": "Is there a CPU temperature widget for Windows 11?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. RigSight's Any reading tile shows CPU or GPU temperature as a number, a ring, a level or a graph, and its Temperature graph tile shows both over the last five minutes. CPU temperature needs RigSight running with admin rights."}}, {"@type": "Question", "name": "Are there free desktop widgets for Windows 11?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. RigSight is free and open source under the MIT licence, and Rainmeter is free and open source under the GNU GPL v2. Windows' own Widgets board is free too, but it stays on its board."}}, {"@type": "Question", "name": "What is a good Rainmeter alternative for Windows 11?", "acceptedAnswer": {"@type": "Answer", "text": "If you want widgets without writing or installing skins, RigSight builds them in an editor from tiles, with PC readings next to a clock, notes and the weather. Rainmeter is the better fit if you like designing every part of a skin yourself."}}]}</script>
+  <style>
+@font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
+@font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
+/* Layout: the site's dark look. The list is picture-left rows like a magazine contents page; a post is a 680px column
+   under a cover that matches its row, with pictures a little wider than the text. */
+:root {
+  --bg: #000;
+  --surface: #0a0b0d;
+  --surface-2: #111317;
+  --line: rgba(255,255,255,.08);
+  --line-2: rgba(255,255,255,.14);
+  --fg: #f3f4f6;
+  --text: #c5cad2;
+  --muted: #a0a6b0;
+  --faint: #767c87;
+  --cpu: #5b8def;
+  --gpu: #22d3ee;
+  --hot: #a78bfa;
+  --ram: #c084fc;
+  --coffee: #facc15;
+  --display: "Geist", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 80px; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+a { color: var(--gpu); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--gpu); outline-offset: 3px; border-radius: 6px; }
+img { max-width: 100%; height: auto; }
+/* As wide as the home page's (its --max), so the top bar and what's under it line up with it. Every part of a
+   post is as wide as that too (--col). */
+.wrap, .wrap-narrow { max-width: 1200px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+
+/* top bar: the home page's, size for size */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(0,0,0,.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.top-in { display: flex; align-items: center; gap: 48px; height: 68px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+.brand img { border-radius: 6px; }
+.top .brand { gap: 11px; font: 700 19px/1 var(--display); }
+.top .brand img { width: 30px; height: 30px; border-radius: 8px; }
+.top nav { display: flex; gap: 30px; }
+.top nav a { color: #b9bec7; text-decoration: none; font: 500 15.5px/1 var(--body); }
+.top nav a:hover, .top nav a.on { color: var(--fg); }
+.top nav a.coffee, .foot a.coffee { color: var(--coffee); }
+.top nav a.coffee { font-weight: 700; }
+.top .btn-sm { height: 40px; padding: 0 20px; font-size: 15px; }
+.top-end { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.coffee-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; color: var(--coffee); font-weight: 600; font-size: 14.5px; text-decoration: none; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3); white-space: nowrap; }
+.coffee-pill:hover { color: #fde047; background: rgba(250,204,21,.14); }
+.icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; color: #c9cdd4; }
+.icon-btn:hover { color: var(--fg); background: rgba(255,255,255,.09); }
+.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--fg); color: #000; font-weight: 600; text-decoration: none; border-radius: 999px; padding: 11px 20px; font-size: 15px; white-space: nowrap; }
+.btn:hover { background: #fff; }
+.btn-sm { padding: 7px 14px; font-size: 13.5px; }
+.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.progress i { display: block; height: 100%; background: var(--gpu); transform-origin: 0 50%; transform: scaleX(0); }
+
+/* blog index */
+.blog-head { padding-block: 64px 36px; }
+.kicker { font: 500 13px/1 var(--mono); color: var(--gpu); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 18px; }
+.blog-head h1 { font: 600 clamp(40px, 7vw, 72px)/1.02 var(--display); letter-spacing: -0.045em; margin: 0 0 18px; text-wrap: balance; }
+.intro { color: var(--muted); font-size: 18.5px; line-height: 1.6; max-width: 640px; margin: 0 0 14px; }
+.starts { color: var(--faint); font-size: 14.5px; margin: 0; }
+.starts a { color: var(--muted); }
+.starts a:hover { color: var(--fg); }
+.eyebrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--faint); margin: 0 0 10px; font-weight: 500; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.s-build { background: var(--cpu); }
+.s-ai { background: var(--hot); }
+.s-guide, .s-fix { background: var(--gpu); }
+.meta { font-size: 13.5px; color: var(--faint); margin: 0; font-variant-numeric: tabular-nums; }
+.filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.chip { font: 600 14px/1 var(--body); color: var(--muted); background: transparent; border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 14px; cursor: pointer; }
+.chip span { color: var(--faint); font-weight: 500; margin-left: 4px; }
+.rss { margin-left: auto; align-self: center; font-size: 14px; color: var(--faint); text-decoration: none; }
+.rss:hover { color: var(--fg); }
+.chip:hover { color: var(--fg); }
+.chip[aria-pressed="true"] { color: #000; background: var(--fg); border-color: var(--fg); }
+.chip[aria-pressed="true"] span { color: #444; }
+.rows { list-style: none; margin: 8px 0 80px; padding: 0; }
+.row a { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 40px; align-items: center; padding: 30px 0; text-decoration: none; color: inherit; }
+.row + .row { border-top: 1px solid var(--line); }
+.row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
+.row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
+.row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
+.row a:hover .thumb img { transform: scale(1.015); }
+
+/* guides */
+.body h3 { font: 600 19px/1.3 var(--display); color: var(--fg); margin: 1.6em 0 .4em; }
+.body pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0 0 1.2em; max-width: 100%; }
+.body pre code { background: none; border: 0; padding: 0; font-size: 14.5px; line-height: 1.6; white-space: pre; }
+.body table { border-collapse: collapse; width: 100%; font-size: 16px; margin: 0 0 1.2em; display: block; overflow-x: auto; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.body th { color: var(--fg); font-weight: 600; }
+.faq { margin-top: 2.4em; }
+.qa { border-top: 1px solid var(--line); }
+.qa:last-child { border-bottom: 1px solid var(--line); }
+.qa summary { cursor: pointer; list-style: none; padding: 16px 32px 16px 0; position: relative; color: var(--fg); font-weight: 600; font-size: 17.5px; line-height: 1.45; }
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary::after { content: "+"; position: absolute; right: 4px; top: 14px; font: 400 22px/1 var(--mono); color: var(--faint); }
+.qa[open] summary::after { content: "\2212"; }
+.qa p { margin: 0 0 18px; color: var(--text); font-size: 17px; }
+.guide .short { border-color: rgba(34,211,238,.35); }
+.next.rel { grid-template-columns: 1fr 1fr; }
+
+/* a post: every part as wide as the top bar (the user, 2026-11-06: full width), so all their edges line up with it */
+.post { --col: 100%; padding-block: 40px 40px; }
+.post > * { max-width: var(--col); }
+.crumbs { display: flex; gap: 8px; font-size: 14px; color: var(--faint); margin-bottom: 26px; }
+.crumbs a { color: var(--muted); text-decoration: none; }
+.crumbs a:hover { color: var(--fg); }
+.dek { font-size: 19px; line-height: 1.55; color: var(--muted); margin: 0 0 18px; }
+.byline b { color: var(--fg); font-weight: 600; }
+.cover { margin: 0 0 32px; }
+.cover img { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--line); }
+.post h1 { font: 600 clamp(34px, 5.6vw, 52px)/1.06 var(--display); letter-spacing: -0.04em; margin: 0 0 14px; text-wrap: balance; }
+.byline { color: var(--faint); font-size: 14.5px; margin: 0 0 30px; font-variant-numeric: tabular-nums; }
+.short { background: var(--surface); border: 1px solid var(--line-2); border-radius: 16px; padding: 20px 24px; margin-bottom: 40px; }
+.short p { margin: 0; color: var(--fg); font-size: 17.5px; line-height: 1.6; }
+.short .short-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+.body, .post h1, .dek, .short p, .qa summary { overflow-wrap: anywhere; }
+.body { font-size: 18px; line-height: 1.75; color: var(--text); }
+.body > p { margin: 0 0 1.15em; }
+.body h2 { font: 600 25px/1.25 var(--display); letter-spacing: -0.025em; color: var(--fg); margin: 1.9em 0 .55em; text-wrap: balance; }
+.body strong { color: var(--fg); font-weight: 600; }
+.body ul, .body ol { padding-left: 1.2em; margin: 0 0 1.2em; }
+.body li { margin: .35em 0; }
+.body li::marker { color: var(--faint); }
+.body code { font: 500 .86em var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--fg); }
+.body blockquote { margin: 1.5em 0; padding: 2px 0 2px 20px; border-left: 2px solid var(--hot); color: var(--fg); font-size: 19px; }
+.body blockquote p { margin: 0; }
+.body blockquote cite { display: block; margin-top: 6px; font-style: normal; font-size: 14px; color: var(--faint); }
+.shot { margin: 2em 0; }
+.shot img { display: block; width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,.06); }
+figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top: 10px; }
+.stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin: 1.8em 0; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat b { font: 500 clamp(40px, 7vw, 60px)/1 var(--mono); letter-spacing: -0.04em; color: var(--gpu); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 16px; line-height: 1.5; flex: 1 1 260px; min-width: 0; }
+.stat.hot b { color: var(--hot); }
+.stat.cpu b { color: var(--cpu); }
+.fig { margin: 2em 0; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+.fig svg { display: block; width: 100%; height: auto; min-width: 520px; font-family: var(--body); }
+.fig figcaption { margin-top: 14px; }
+.fig .t { fill: var(--muted); font-size: 13px; }
+.fig .tf { fill: var(--faint); font-size: 12px; }
+.fig .tb { fill: var(--fg); font-size: 14px; font-weight: 600; }
+.fig .tm { fill: var(--fg); font-family: var(--mono); font-size: 13px; }
+.fig .box { fill: var(--surface-2); stroke: var(--line-2); }
+.fig .grid { stroke: var(--line); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 2em 0; }
+.pair > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; min-width: 0; }
+.pair p { margin: 0; font-size: 16px; line-height: 1.6; }
+.pair .k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px; color: var(--faint); }
+.pair .bad .k { color: #f0a35e; }
+.pair .good .k { color: #34d399; }
+.next { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 56px 0 28px; }
+.more { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 14px; text-decoration: none; min-width: 0; }
+.more span { font-size: 13px; color: var(--faint); }
+.more b { color: var(--fg); font-weight: 600; font-size: 16.5px; line-height: 1.35; }
+.more:hover { border-color: var(--line-2); background: var(--surface); }
+.get { display: flex; align-items: center; gap: 18px; padding: 20px 22px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.get img { border-radius: 10px; flex: none; }
+.get p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; min-width: 0; }
+.get p b { color: var(--fg); }
+
+.foot { border-top: 1px solid var(--line); margin-top: 72px; }
+.foot-in { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; padding-block: 28px 40px; }
+.foot nav { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+.foot nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+.foot nav a:hover { color: var(--fg); }
+
+@media (max-width: 760px) {
+  .wrap, .wrap-narrow { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .top nav a:not(.on) { display: none; }
+  /* as on the home page: Blog sits with GitHub and Download on the right */
+  .top nav { margin-left: auto; }
+  .top nav a.on { font: 600 15px/1 var(--body); padding: 8px 4px; }
+  .top-end { gap: 14px; margin-left: 0; }
+  .top-in { gap: 14px; }
+  .row a { grid-template-columns: 1fr; gap: 16px; padding: 24px 0; }
+  .row h2 { font-size: 21px; }
+  .row .sum { font-size: 15px; }
+  .dek { font-size: 17px; }
+  .body { font-size: 17px; }
+  .pair, .next { grid-template-columns: 1fr; }
+  .get { flex-wrap: wrap; }
+  .blog-head { padding-block: 40px 28px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+
+  </style>
+</head>
+<body>
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="24" height="24"><span>RigSight</span></a>
+  <nav aria-label="Site"><a href="./" class="on">Blog</a><a href="../#faq">FAQ</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+  <div class="top-end"><a class="icon-btn" href="https://github.com/b0llu/Rigsight" aria-label="RigSight on GitHub"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5"/></svg></a><a class="btn btn-sm" href="https://github.com/b0llu/Rigsight/releases/latest">Download</a></div>
+</div><div class="progress" aria-hidden="true"><i></i></div></header><main><article class="post wrap-narrow guide">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Blog</a></nav>
+  <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Tools</p>
+  <h1>How to get desktop widgets on Windows 11, with CPU temperature</h1>
+  <p class="dek">Windows 11 keeps its widgets on a board beside the taskbar. How to get desktop widgets on Windows 11 that stay where you put them, with a clock, notes, the weather and your CPU and GPU temperature, and the other options people use.</p>
+  <p class="byline"><b>Dhruv Samant</b> · Updated 11 November 2026 · 5 min read</p>
+  <figure class="cover"><img class="" src="../img/blog/desktop-widgets-windows-11.webp" srcset="../img/blog/desktop-widgets-windows-11-600.webp 600w, ../img/blog/desktop-widgets-windows-11.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Three RigSight desktop widgets built from tiles, a clock with the date, the weather and the music playing, a sticky note with a to-do list, and CPU and GPU rings beside a temperature graph" fetchpriority="high" decoding="async"><figcaption>Three RigSight widgets built from tiles, drawn with example readings.</figcaption></figure>
+  <div class="short"><p class="short-k">The short answer</p><p>Windows 11's own widgets open on the Widgets board, from the taskbar or Windows key + W, and Microsoft doesn't describe a way to pin one to the desktop. For widgets that stay on the desktop, use an app. RigSight is free and open source, and builds them from tiles such as a clock, a note, the weather or your CPU temperature.</p></div>
+  <div class="body">
+<p>Windows 11 has widgets, but they open on the Widgets board, a panel that slides in from the taskbar. Close it and they're gone again. If you want desktop widgets on Windows 11 that stay where you put them, like a clock, a note or your CPU temperature, you need an app that draws them. I wanted that on my own PC, and I wanted widgets good enough to use instead of Windows' own, so in RigSight 1.9.0 I rebuilt its widgets from tiles. Here's what Windows gives you, how RigSight does it, and the other options people use.</p>
+
+<h2>Where Windows 11's own widgets live</h2>
+
+<p>Most of the time, Windows 11 shows the weather on the taskbar. Select it, press Windows key + W, or swipe in from the side of the screen, and the Widgets board opens. On the board you can add, remove, resize and arrange widgets, and the Widgets page in the Microsoft Store has more for apps that support them. To take the button off the taskbar, right-click the taskbar, open <strong>Taskbar settings</strong> and turn off <strong>Widgets</strong> under <strong>Taskbar items</strong>. The board still opens with Windows key + W.</p>
+
+<p>Microsoft's page describes widgets only on that board. It says nothing about putting one on the desktop itself. So for Windows 11 widgets on the desktop, or a Windows 11 widgets alternative that stays in view, you need another app.</p>
+
+<h2>Desktop widgets on Windows 11 with RigSight</h2>
+
+<p>In RigSight, a widget is a box you fill with tiles. You can put as many tiles in one as you like, in any arrangement, and the widget sits on the desktop under your windows. The part of RigSight that records all day draws them, so they stay when you close the RigSight window. RigSight is free and open source.</p>
+
+<p>There are 16 kinds of tile. Ten are everyday things.</p>
+
+<ul>
+  <li>A clock, in five styles. Digits, hands, flip cards, the time in words, or the day in big letters with the time under it.</li>
+  <li>The date, and a calendar of this month with today marked.</li>
+  <li>Notes you type straight onto the desktop. Turn on <strong>Sticky note</strong> and the note gets yellow paper and handwriting.</li>
+  <li>A to-do list you tick off and add to on the widget itself.</li>
+  <li>A timer, a stopwatch, or a countdown to a day. A timer tells you when it's up.</li>
+  <li>Media, which shows what's playing on the PC with play, pause and skip.</li>
+  <li>The weather for a place you pick.</li>
+  <li>Shortcuts to up to 12 apps, folders and links, each opened with one click.</li>
+  <li>Photos from a folder, one after another, from every 10 seconds to every hour.</li>
+</ul>
+
+<p>The other six are about your PC. Most tiles come in ready sizes, <strong>Small</strong>, <strong>Medium</strong> and <strong>Large</strong>, and any size in between.</p>
+
+<h2>A CPU temperature widget for Windows 11</h2>
+
+<p>The <strong>Any reading</strong> tile shows one reading or sensor. CPU temperature, GPU temperature, a load, memory, a fan or anything else RigSight reads. It can be a number, a big number, a ring, a level, blocks, or a line, filled or bar graph of the last five minutes. For CPU and GPU temperature there's one more look that puts the load and power next to the temperature. Rings, levels and blocks need a temperature or a percentage, so they don't show for every reading.</p>
+
+<p>The rest of the PC tiles are these.</p>
+
+<ul>
+  <li><strong>Temperature graph</strong> draws CPU and GPU temperatures over the last five minutes.</li>
+  <li><strong>Line of readings</strong> puts several readings in one slim line, made for the top of the screen.</li>
+  <li><strong>FPS</strong> shows your game's frame rate, frame time and 1% low. It needs RivaTuner Statistics Server.</li>
+  <li><strong>Today</strong> shows screen time so far today, your most used app and today's peaks.</li>
+  <li><strong>Now playing</strong> shows the app or game you're using, for how long, and its peak temperatures.</li>
+</ul>
+
+<p>CPU temperature needs RigSight running with admin rights.</p>
+
+<h2>How to put widgets on your desktop with RigSight</h2>
+
+<ol>
+  <li>Install RigSight from <a href="https://rigsight.app">rigsight.app</a>, open it and go to <strong>Widgets</strong>.</li>
+  <li>Click <strong>Add widget</strong> and pick a ready-made widget or a single tile. It appears at the top right of your main screen. To start from nothing, click <strong>Create widget</strong> instead, which opens an empty widget in the editor.</li>
+  <li>In the editor, click <strong>Add tile</strong> and pick a kind. The editor fills the page and shows the widget as it will look.</li>
+  <li>Drag tiles to arrange them. Tiles never overlap. Drop one on another and the other moves out of the way.</li>
+  <li>Click a tile to change just that tile, like a clock's style, a reading's look or the size. For the weather, type a town or city and click <strong>Find</strong>.</li>
+  <li>Use <strong>Place</strong> to put the widget in a corner of any screen, or drag it on the desktop.</li>
+</ol>
+
+<p>Because the widgets sit under your windows, you can set a <strong>Shortcut to bring them in front</strong>. Press it, glance at them, and Esc or a click anywhere else sends them back. There's also a shortcut to turn them all off and on. <strong>Lock in place</strong> makes a widget click-through, so a click lands on whatever is under it.</p>
+
+<p>Weather is the only tile that goes online. Its forecast comes from MET Norway, and RigSight sends only the place's position, rounded to about a kilometre. When you look a place up in the editor, the name you typed goes to OpenStreetMap's Nominatim to find it. <a href="https://rigsight.app/privacy.html">The privacy page</a> says what each one sees. Every other tile works without the internet.</p>
+
+<h2>Other ways to get widgets on Windows 11</h2>
+
+<p>Rainmeter is free and open source under the GNU GPL v2, and has been since 2001. It shows skins on your desktop, such as hardware usage meters and audio visualizers, and runs on Windows 7 through Windows 11. It suits people who enjoy building their desktop's look skin by skin.</p>
+
+<p>Microsoft Sticky Notes is Microsoft's own app for quick notes. Sign in with a Microsoft account and your notes sync to your other devices, to the web, and to OneNote on phones. If your notes need to follow you to your phone, it's the one to use.</p>
+
+<p>The Widgets board is still there for news and the widgets apps add to it. You can keep using it next to RigSight's widgets.</p>
+
+<p>Your next step is to decide what you look at most during the day. If it's the time and a few notes, one widget with a clock and a sticky note covers it. If you keep wondering how hot your PC is while you play, add a CPU and GPU temperature ring next to them, and you won't have to open anything to check.</p>
+  <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Does Windows have widgets?</summary><p>Yes. Windows 11 has a Widgets board that opens from the weather on the taskbar, with Windows key + W, or by swiping in from the side of the screen. You can add, remove, resize and arrange widgets on the board, but Microsoft's page describes them only there, not on the desktop.</p></details><details class="qa"><summary>How do I put widgets on my desktop in Windows 11?</summary><p>Use an app that draws them on the desktop. In RigSight, open Widgets and click Add widget for a ready-made one, or Create widget to build your own from tiles. Place puts it in a corner of any screen, or you can drag it where you like.</p></details><details class="qa"><summary>Is there a CPU temperature widget for Windows 11?</summary><p>Yes. RigSight's Any reading tile shows CPU or GPU temperature as a number, a ring, a level or a graph, and its Temperature graph tile shows both over the last five minutes. CPU temperature needs RigSight running with admin rights.</p></details><details class="qa"><summary>Are there free desktop widgets for Windows 11?</summary><p>Yes. RigSight is free and open source under the MIT licence, and Rainmeter is free and open source under the GNU GPL v2. Windows' own Widgets board is free too, but it stays on its board.</p></details><details class="qa"><summary>What is a good Rainmeter alternative for Windows 11?</summary><p>If you want widgets without writing or installing skins, RigSight builds them in an editor from tiles, with PC readings next to a clock, notes and the weather. Rainmeter is the better fit if you like designing every part of a skin yourself.</p></details></section>
+  </div>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="free-pc-monitoring-software"><span>Tools</span><b>Free PC monitoring software, and why I built an HWiNFO alternative</b></a><a class="more" href="blue-screen-of-death-causes"><span>Crashes</span><b>Blue screen of death causes on Windows 11, and the three on my PC</b></a><a class="more" href="game-crashes-to-desktop-no-error"><span>Crashes</span><b>Game crashes to desktop with no error? How RigSight finds why</b></a><a class="more" href="pc-restarts-randomly-while-gaming"><span>Crashes</span><b>PC restarts randomly while gaming? Rule things out first</b></a></nav>
+  <aside class="get">
+    <img src="../img/logo-144.webp" alt="" width="40" height="40">
+    <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>
+    <a class="btn" href="https://github.com/b0llu/Rigsight/releases/latest">Download for Windows</a>
+  </aside>
+</article></main><footer class="foot"><div class="wrap foot-in">
+  <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="20" height="20"><span>RigSight</span></a>
+  <nav aria-label="Links"><a href="../">Home</a><a href="./">Blog</a><a href="https://github.com/b0llu/Rigsight">GitHub</a><a href="https://github.com/b0llu/Rigsight/releases">Releases</a><a href="../privacy.html">Privacy policy</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
+</div></footer><script>
+(function () {
+  var bar = document.querySelector('.progress i');
+  if (!bar) return;
+  function tick() {
+    var post = [].find.call(document.querySelectorAll('.post'), function (a) { return a.offsetParent !== null; });
+    if (!post) { bar.style.transform = 'scaleX(0)'; return; }
+    var r = post.getBoundingClientRect(), h = r.height - innerHeight;
+    var f = h > 0 ? Math.min(1, Math.max(0, -r.top / h)) : 1;
+    bar.style.transform = 'scaleX(' + f.toFixed(3) + ')';
+  }
+  addEventListener('scroll', tick, { passive: true });
+  addEventListener('resize', tick);
+  window.__tick = tick; tick();
+})();
+(function () {
+  var chips = document.querySelectorAll('.chip[data-series]');
+  if (!chips.length) return;
+  function show(s) {
+    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
+    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
+  }
+  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
+})();
+</script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
+</body>
+</html>
