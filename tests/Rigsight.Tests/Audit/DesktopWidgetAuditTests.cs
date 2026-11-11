@@ -121,6 +121,25 @@ public class DesktopWidgetAuditTests
         Assert.False(WidgetManager.StaysInFront(IntPtr.Zero, browser, ours));
     }
 
+    [Fact]
+    public void A_touchpad_swipe_scrolls_a_note_by_what_it_turned()
+    {
+        // A precision touchpad sends a notch's worth (120) as many small turns. Each was taken as a whole notch: twelve
+        // turns of 10 scrolled a to-do list twelve rows (a note 36 lines), where a wheel's one notch scrolls one.
+        int carry = 0, rows = 0;
+        for (int i = 0; i < 12; i++) rows += WidgetForm.Notches(ref carry, -10);
+        Assert.Equal(-1, rows);
+        // A wheel's notches, as before.
+        carry = 0;
+        Assert.Equal(1, WidgetForm.Notches(ref carry, 120));
+        Assert.Equal(-2, WidgetForm.Notches(ref carry, -240));
+        // Half a notch one way, then back: nothing carried over to the other way.
+        carry = 0;
+        Assert.Equal(0, WidgetForm.Notches(ref carry, 60));
+        Assert.Equal(0, WidgetForm.Notches(ref carry, -60));
+        Assert.Equal(-1, WidgetForm.Notches(ref carry, -60));
+    }
+
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern uint GetGuiResources(IntPtr process, uint flags);
 

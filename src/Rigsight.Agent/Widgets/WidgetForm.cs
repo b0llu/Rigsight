@@ -489,6 +489,22 @@ internal sealed class WidgetForm : Form
         NoteTaskbar();
     }
 
+    private int _wheelCarry;
+
+    /// <summary>
+    /// Whole notches of the wheel, from what it has turned (120 a notch), the rest carried to the next turn. A touchpad
+    /// or a smooth wheel sends a turn in many small parts, each taken as a whole notch before: a short swipe ran a
+    /// to-do list or a note to its end (the audit, 2026-11-11). A turn the other way starts afresh.
+    /// </summary>
+    internal static int Notches(ref int carry, int delta)
+    {
+        if (carry != 0 && Math.Sign(carry) != Math.Sign(delta)) carry = 0;
+        carry += delta;
+        int notches = carry / 120;
+        carry -= notches * 120;
+        return notches;
+    }
+
     protected override void WndProc(ref Message m)
     {
         switch (m.Msg)
@@ -512,7 +528,7 @@ internal sealed class WidgetForm : Form
                 if (ScrollTileAt(wheelAt) is int scrolled)
                 {
                     int delta = (short)(((long)m.WParam >> 16) & 0xFFFF);
-                    _manager.Scrolled(this, scrolled, -Math.Sign(delta) * Math.Max(1, Math.Abs(delta) / 120));
+                    if (Notches(ref _wheelCarry, delta) is int notches and not 0) _manager.Scrolled(this, scrolled, -notches);
                     m.Result = IntPtr.Zero;
                     return;
                 }
