@@ -305,6 +305,7 @@ internal sealed class SensorHost
     {
         // Cleaned once here, for every page, the log and the copied logs: some drives pad their name with NULs.
         if (Log.Printable(hw.Name).Trim() is var name && name != hw.Name && name.Length > 0) hw.Name = name;
+        NameApart(hw);
         var tier = hw.HardwareType switch
         {
             HardwareType.Cpu or HardwareType.GpuNvidia or HardwareType.GpuAmd or HardwareType.GpuIntel => Tier.Fast,
@@ -317,6 +318,21 @@ internal sealed class SensorHost
         _hardware.Add((hw, tier));
         foreach (var sub in hw.SubHardware)
             Collect(sub);
+    }
+
+    /// <summary>
+    /// The library gives Virtual Memory's readings the same names as Total Memory's ("Memory", "Memory Used", "Memory
+    /// Available"), so every list had two readings called "Memory", told apart only by their part (2026-11-11). Named
+    /// once here, for every page, the taskbar, the overlay, widgets and the log: "Virtual Memory", "Virtual Memory
+    /// Used", "Virtual Memory Available", names SensorWords (and the Spanish pack) and the strip's "Virtual" word
+    /// already know. Identifiers stay as they are, so everything saved by them (names given, the taskbar, tiles) keeps
+    /// working; RAM's own names stay too, as KeySensors finds RAM by them. Never prefixed twice when the list is rebuilt.
+    /// </summary>
+    internal static void NameApart(IHardware hw)
+    {
+        if (hw.HardwareType != HardwareType.Memory || !hw.Name.Contains("Virtual", StringComparison.OrdinalIgnoreCase)) return;
+        foreach (var s in hw.Sensors)
+            if (s.Name.StartsWith("Memory", StringComparison.Ordinal)) s.Name = "Virtual " + s.Name;
     }
 
     private void Describe(IHardware hw, IHardware? parent, List<HardwareMeta> schema)
