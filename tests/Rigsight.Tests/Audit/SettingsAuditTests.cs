@@ -39,4 +39,55 @@ public sealed class SettingsAuditTests
         Ui.Pump(200);
         Assert.Equal(count - 1, link.Agent.Settings.Widgets.Count);
     }
+
+    // Undo in the editor brought back the whole widget as it was before the change it undoes: a note typed on the
+    // desktop, a to-do ticked there and a timer started there went back too (a timer that had run out started again and
+    // said it was up a second time). Undo and Redo now take back only what the change itself did.
+    [Fact]
+    public void Undo_in_the_editor_keeps_what_was_typed_ticked_or_timed_on_the_desktop()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.CreateCommand.Execute(null);
+            var ed = vm.Editor!;
+            WidgetConfig Saved() => link.Settings.Current.Widgets.Single(w => w.Id == ed.Id);
+            WidgetTile Tile(string kind) => Saved().Tiles!.Single(t => t.Kind == kind);
+            foreach (var kind in new[] { WidgetTiles.Notes, WidgetTiles.Todo, WidgetTiles.Timer })
+                ed.AddTileCommand.Execute(ed.TileChoices.Single(c => c.Kind == kind));
+
+            ed.Theme = nameof(WidgetTheme.Light);
+            // Used on the desktop meanwhile.
+            link.Settings.Update(s =>
+            {
+                var tiles = s.Widgets.Single(w => w.Id == ed.Id).Tiles!;
+                tiles.Single(t => t.Kind == WidgetTiles.Notes).Text = "Call the shop";
+                tiles.Single(t => t.Kind == WidgetTiles.Todo).Todos = [new TodoItem { Text = "Milk", Done = true }];
+                tiles.Single(t => t.Kind == WidgetTiles.Timer).RunningSince = 1_800_000_000_000;
+            });
+            void Kept()
+            {
+                Assert.Equal("Call the shop", Tile(WidgetTiles.Notes).Text);
+                Assert.Equal(("Milk", true), (Assert.Single(Tile(WidgetTiles.Todo).Todos!).Text, Tile(WidgetTiles.Todo).Todos![0].Done));
+                Assert.Equal(1_800_000_000_000, Tile(WidgetTiles.Timer).RunningSince);
+            }
+
+            ed.UndoCommand.Execute(null);
+            Assert.Equal(WidgetTheme.App, Saved().Theme);
+            Kept();
+            ed.RedoCommand.Execute(null);
+            Assert.Equal(WidgetTheme.Light, Saved().Theme);
+            Kept();
+
+            // What the editor itself changed in a note is still undone.
+            ed.SelectTile(Saved().Tiles!.FindIndex(t => t.Kind == WidgetTiles.Notes));
+            ed.NoteText = "Call the shop at five";
+            Assert.Equal("Call the shop at five", Tile(WidgetTiles.Notes).Text);
+            ed.UndoCommand.Execute(null);
+            Assert.Equal("Call the shop", Tile(WidgetTiles.Notes).Text);
+            Assert.Equal(WidgetTheme.Light, Saved().Theme);
+            vm.CloseEditorCommand.Execute(null);
+        });
+    }
 }

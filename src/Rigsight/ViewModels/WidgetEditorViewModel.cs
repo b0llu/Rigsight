@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Windows.Media;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -58,7 +59,8 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     private readonly Action _close;
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromSeconds(1) };
     private WidgetConfig _w;
-    private readonly Stack<string> _undo = new(), _redo = new();
+    /// <summary>Each change made here: the widget just before it and just after it (see <see cref="Rebase"/>).</summary>
+    private readonly Stack<(string Before, string After)> _undo = new(), _redo = new();
 
     private readonly Action<string, int, int>? _moved;
 
@@ -107,7 +109,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     private void Change(Action<WidgetConfig> change)
     {
         TakeSaved();
-        _undo.Push(Snapshot());
+        string before = Snapshot();
         _redo.Clear();
         if (_w.Tiles is null)
         {
@@ -115,6 +117,8 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
             _w.Layout = null;
         }
         change(_w);
+        WidgetTiles.Clean(_w);
+        _undo.Push((before, Snapshot()));
         Commit();
     }
 
@@ -159,13 +163,19 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     public bool CanUndo => _undo.Count > 0;
     public bool CanRedo => _redo.Count > 0;
 
+    /// <summary>
+    /// Undo takes back what the change itself did, on the widget as it's saved now: what was done to it meanwhile on the
+    /// desktop (a note typed, a to-do ticked, a timer started or run out) stays (audit 2026-11-11: it all went back to
+    /// how it was before the change, and a timer that had run out said so again).
+    /// </summary>
     [RelayCommand]
     private void Undo()
     {
         if (_undo.Count == 0) return;
         TakeSaved();
-        _redo.Push(Snapshot());
-        _w = JsonSerializer.Deserialize<WidgetConfig>(_undo.Pop(), SettingsStore.JsonOptions)!;
+        var step = _undo.Pop();
+        _redo.Push(step);
+        _w = Rebase(step.After, step.Before, Snapshot());
         KeepSavedPlace();
         Commit();
     }
@@ -175,10 +185,35 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     {
         if (_redo.Count == 0) return;
         TakeSaved();
-        _undo.Push(Snapshot());
-        _w = JsonSerializer.Deserialize<WidgetConfig>(_redo.Pop(), SettingsStore.JsonOptions)!;
+        var step = _redo.Pop();
+        _undo.Push(step);
+        _w = Rebase(step.Before, step.After, Snapshot());
         KeepSavedPlace();
         Commit();
+    }
+
+    /// <summary>
+    /// <paramref name="now"/> with the change from <paramref name="from"/> to <paramref name="to"/> made on it: each value
+    /// the change set is <paramref name="to"/>'s, every other stays <paramref name="now"/>'s. Lists of the same length (the
+    /// tiles, a list's items) are gone through item by item; one the change made longer or shorter is taken whole.
+    /// </summary>
+    private static WidgetConfig Rebase(string from, string to, string now) =>
+        (Merge(JsonNode.Parse(from), JsonNode.Parse(to), JsonNode.Parse(now)) ?? JsonNode.Parse(to))!.Deserialize<WidgetConfig>(SettingsStore.JsonOptions)!;
+
+    private static JsonNode? Merge(JsonNode? from, JsonNode? to, JsonNode? now)
+    {
+        if (JsonNode.DeepEquals(from, to)) return now?.DeepClone();
+        if (JsonNode.DeepEquals(from, now) || JsonNode.DeepEquals(to, now)) return to?.DeepClone();
+        if (from is JsonObject f && to is JsonObject t && now is JsonObject n)
+        {
+            var merged = new JsonObject();
+            foreach (string key in t.Select(p => p.Key).Union(n.Select(p => p.Key)))
+                merged[key] = Merge(f[key], t[key], n[key]);
+            return merged;
+        }
+        if (from is JsonArray fa && to is JsonArray ta && now is JsonArray na && fa.Count == ta.Count && fa.Count == na.Count)
+            return new JsonArray([.. ta.Select((_, i) => Merge(fa[i], ta[i], na[i]))]);
+        return to?.DeepClone();
     }
 
     /// <summary>Everything the page shows from the widget, after it changed.</summary>
