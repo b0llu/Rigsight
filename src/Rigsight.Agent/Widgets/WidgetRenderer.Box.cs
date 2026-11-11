@@ -1045,7 +1045,7 @@ internal static partial class WidgetRenderer
             {
                 // What's typed, and the caret after the part before it.
                 Text(g, typing.Text, px, FontStyle.Regular, p.Text, tx, ty, maxWidth: right - tx);
-                float cx = tx + (typing.Caret > 0 ? Measure(g, typing.Text[..Math.Min(typing.Text.Length, typing.Caret)], px, FontStyle.Regular) : 0);
+                float cx = tx + (typing.Caret > 0 ? g.MeasureString(typing.Text[..Math.Min(typing.Text.Length, typing.Caret)], MakeFont(px, FontStyle.Regular, false), int.MaxValue, CaretFormat).Width : 0);
                 using var pen = new Pen(accent, Math.Max(1.5f, px / 9f));
                 g.DrawLine(pen, Math.Min(cx, right), b.Y - 1, Math.Min(cx, right), b.Bottom + 1);
             }
@@ -1053,6 +1053,16 @@ internal static partial class WidgetRenderer
         }
         g.Restore(state);
         ScrollBar(g, list, first, fit, total, p);
+    }
+
+    /// <summary>How far a caret is along what's typed: spaces at the end counted (GDI+ leaves them out of a width), so a space moves it on.</summary>
+    private static readonly StringFormat CaretFormat = CaretFormatOf();
+
+    private static StringFormat CaretFormatOf()
+    {
+        var f = (StringFormat)StringFormat.GenericTypographic.Clone();
+        f.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces | StringFormatFlags.NoWrap;
+        return f;
     }
 
     /// <summary>A timer (counts down), a stopwatch (counts up), each with Start or Pause and Reset; or the days to a day.</summary>
