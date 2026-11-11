@@ -569,6 +569,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         WidgetTiles.Weather => t.Place ?? "",
         WidgetTiles.Shortcuts when t.Links is { Count: > 0 } links => links.Count == 1 ? links[0].Name : Lang.T($"{links.Count} shortcuts"),
         WidgetTiles.Photos when t.Folder is { } folder => System.IO.Path.GetFileName(folder.TrimEnd('\\')) is { Length: > 0 } name ? name : folder,
+        WidgetTiles.TopCpu => Lang.T($"{WidgetTiles.RowsOf(t)} apps"),
         _ => "",
     };
 
@@ -591,8 +592,38 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         WidgetTiles.Photos => "\uE91B",
         WidgetTiles.Todo => "\uE9D5",
         WidgetTiles.Timer => "\uE916",
+        WidgetTiles.CpuGauge or WidgetTiles.GpuGauge => "\uE9CA",
+        WidgetTiles.Fans => "\uE9F5",
+        WidgetTiles.Drives => "\uEDA2",
+        WidgetTiles.Cores or WidgetTiles.TopCpu => "\uE950",
+        WidgetTiles.TopMemory => "\uE964",
+        WidgetTiles.NetSpeed or WidgetTiles.NetNow or WidgetTiles.NetToday or WidgetTiles.NetApps or WidgetTiles.NetDrops => "\uE839",
+        WidgetTiles.NetHours or WidgetTiles.Week => "\uE9D2",
+        WidgetTiles.TodaySoFar => "\uE823",
+        WidgetTiles.MostUsed or WidgetTiles.Yesterday => "\uE8A9",
+        WidgetTiles.StandOut => "\uE734",
+        WidgetTiles.Peaks => "\uE9CA",
+        WidgetTiles.Crashes => "\uE7BA",
+        WidgetTiles.Health => "\uE95E",
+        WidgetTiles.Changed => "\uE81C",
+        WidgetTiles.LastGame => "\uE7FC",
         _ => "\uE80A",
     };
+
+    // \u2500\u2500 Top CPU users \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+    public bool IsTopCpu => Tile?.Kind == WidgetTiles.TopCpu;
+
+    /// <summary>How many apps a Top CPU users tile lists at most ("3" or "5"), as its segments say.</summary>
+    public string TopRows
+    {
+        get => (Tile is { } t ? WidgetTiles.RowsOf(t) : WidgetTiles.RowChoices[0]).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        set
+        {
+            if (value == TopRows || !int.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out int n) || !WidgetTiles.RowChoices.Contains(n)) return;
+            ChangeTile(t => t.Rows = n == WidgetTiles.RowChoices[0] ? null : n);
+        }
+    }
 
     public string TileGlyph => Tile is { } t ? GlyphOf(t.Kind) : "";
 

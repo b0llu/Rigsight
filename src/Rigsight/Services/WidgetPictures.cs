@@ -35,7 +35,77 @@ public static class WidgetPictures
         foreach (var s in live.AllSensors) d.Readings[s.Id] = new OverlaySensorReading(s.Name, s.Kind, s.Value);
         if (live.Activity is { } a) d.Activity = a;
         d.Today = live.Today;
+        d.Pc = PcFrom(live);
+        d.Facts = _facts;
         return d;
+    }
+
+    /// <summary>The PC's live tiles from the app's readings, the same ones its pages show.</summary>
+    private static PcNow PcFrom(LiveData live)
+    {
+        var pc = new PcNow
+        {
+            Fans = [.. live.Fans.Select(f => new FanNow(f.DisplayName, f.Value))],
+            Cores = [.. live.AllSensors.Where(s => s.HardwareType == "Cpu" && TrayParts.IsCoreLoad(s.Kind, s.Name)).Select(s => (float)Math.Clamp((s.Value ?? 0) / 100, 0, 1))],
+            TopCpu = [.. live.Procs.OrderByDescending(p => p.Cpu).Take(8).Select(p => new TileApp(p.Name, p.Path, Units.AppCpu(p.Cpu)))],
+            TopMemory = [.. live.Procs.OrderByDescending(p => p.MemMB).Take(8).Select(p => new TileApp(p.Name, p.Path, Units.Megabytes(p.MemMB)))],
+            NetPerApp = live.Net is { Apps.Count: > 0 },
+            NetDown = live.Net is { Stalled: false } n ? n.Down : null,
+            NetUp = live.Net is { Stalled: false } u ? u.Up : null,
+            NetApps = live.Net is { Stalled: false } m ? [.. m.Apps.Where(x => x.Down + x.Up >= 1024).OrderByDescending(x => x.Down + x.Up).Take(8)
+                .Select(x => new TileApp(x.Name, x.Path, Units.Speed(x.Down + x.Up)))] : null,
+            DownHistory = [.. live.NetHistory.Select(x => (float)x.Down)],
+            UpHistory = [.. live.NetHistory.Select(x => (float)x.Up)],
+        };
+        if (pc.Cores.Length == 0) pc.Cores = null;
+        if (live.Procs.Count == 0) (pc.TopCpu, pc.TopMemory) = (null, null);
+        var temps = live.Drives.Where(x => x.Temperature is not null)
+            .Select(x => (Disk: DriveSpace.DiskOfSensor(x.Temperature!.Id), x.Temperature!.Value)).Where(x => x.Disk is not null)
+            .GroupBy(x => x.Disk!.Value).ToDictionary(gr => gr.Key, gr => gr.First().Value);
+        if (Environment.TickCount64 - _volumes.At >= 30_000) _volumes = (Environment.TickCount64, DriveSpace.Fixed());
+        pc.Drives = [.. _volumes.List.Select(v => new DriveNow(v.Letter, v.UsedShare, v.Free, v.Disk is int disk ? temps.GetValueOrDefault(disk) : null))];
+        return pc;
+    }
+
+    private static (long At, List<VolumeSpace> List) _volumes = (long.MinValue, []);
+
+    // What the tiles from RigSight's records show, read in the background as the agent reads it (PcFacts), about once
+    // a minute while a widget has such a tile; the page draws the widget again when it has come.
+    private static volatile Core.Reports.PcFacts? _facts;
+    private static DateTime _factsAt;
+    private static int _factsReading;
+
+    /// <summary>Has the records read for these widgets, when one has a tile that shows them and the last reading is old; <paramref name="read"/> is told when it's in.</summary>
+    internal static void KeepFacts(IEnumerable<WidgetConfig> widgets, RigsightSettings settings, IReadOnlyCollection<Core.Reports.DriveCheck> drives, Action? read = null)
+    {
+        var needs = Core.Reports.PcFacts.NeedsOf(widgets);
+        if (needs == Core.Reports.PcNeeds.None) return;
+        var have = _facts;
+        var now = DateTime.Now;
+        if (have is not null && (have.Holds & needs) == needs && now - _factsAt < Core.Reports.PcFacts.Every && now.Date == _factsAt.Date) return;
+        // Every widget's needs together (the page draws them one by one): one reading serves them all.
+        if (have is not null && now.Date == _factsAt.Date) needs |= have.Holds;
+        if (Interlocked.CompareExchange(ref _factsReading, 1, 0) != 0) return;
+        _factsAt = now;
+        var s = settings.Clone();
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                using var db = Core.Data.RigsightDb.OpenReader();
+                if (db is null) return;
+                _facts = Core.Reports.PcFacts.Read(db, s, DateTime.Now, needs, drives, Core.Reports.HomeCards.Fullest(), have);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("widgets", ex);
+            }
+            finally
+            {
+                Volatile.Write(ref _factsReading, 0);
+            }
+            read?.Invoke();
+        });
     }
 
     /// <summary>The last five minutes of a reading, as the agent gives a widget (one value a second).</summary>
@@ -55,6 +125,8 @@ public static class WidgetPictures
         try
         {
             WidgetRenderer.UseAppLook(settings.Theme, settings.DarkTheme, settings.LightTheme, settings.Accent);
+            if (cfg.Tiles is { Count: > 0 })
+                KeepFacts([cfg], settings, live is null ? [] : [.. live.Drives.Select(x => new Core.Reports.DriveCheck(x.Name, x.HasHealth, x.HealthReason is not null))]);
             using var bmp = WidgetRenderer.Render(cfg, DataFrom(live), scale, hover: false, out _);
             return TaskbarBar.ToImage(bmp, scale);
         }

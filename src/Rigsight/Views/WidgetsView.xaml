@@ -1073,6 +1073,16 @@
                                     </DockPanel>
                                     <TextBlock Text="{ctl:T 'Tick items and add new ones on the widget too.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,6,0,0" TextWrapping="Wrap" />
                                 </StackPanel>
+                                <!-- Top CPU users: how many apps it lists at most. -->
+                                <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding IsTopCpu, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="{ctl:T 'How many'}" Style="{StaticResource EditLabel}" />
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Style="{StaticResource Segment}" Content="3" GroupName="editor-toprows" IsChecked="{Binding TopRows, Converter={StaticResource Equals}, ConverterParameter=3}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="5" GroupName="editor-toprows" IsChecked="{Binding TopRows, Converter={StaticResource Equals}, ConverterParameter=5}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DockPanel>
                                 <!-- A timer: its kind, then a timer's length or a countdown's day. -->
                                 <StackPanel Visibility="{Binding IsTimerTile, Converter={StaticResource Vis}}">
                                     <DockPanel Style="{StaticResource EditRow}">

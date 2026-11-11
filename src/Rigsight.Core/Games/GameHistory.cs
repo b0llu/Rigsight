@@ -253,6 +253,23 @@ public static class GameHistory
     }
 
     /// <summary>
+    /// A game's last play, joined from its sessions as <see cref="Story"/> joins them (a stop of the PC between two keeps
+    /// them apart), with its figures (its average frame rate among them); null when it has none. Only what the last play
+    /// needs is read: the widgets' Last game tile asks for it once a minute.
+    /// </summary>
+    public static GamePlay? LastPlay(RigsightDb db, GameEntry entry, RigsightSettings s, DateTime now)
+    {
+        if (!entry.HasHistory) return null;
+        var sessions = entry.AppIds.SelectMany(db.GetAppSessions).OrderBy(x => x.Start).ToList();
+        if (sessions.Count == 0) return null;
+        long first = sessions[0].Start, last = sessions.Max(x => x.End);
+        var stops = db.GetCrashes(first - 60, Math.Max(last, TimeUtil.ToUnix(now)) + 3600)
+            .Where(c => !s.IsCrashMuted(c.AppExe) && c.Kind is CrashKind.UnexpectedShutdown or CrashKind.SystemCrash).Select(c => c.Ts).ToList();
+        var (start, end, active, parts) = Join(sessions, stops)[^1];
+        return new GamePlay(start, end, active, parts, db.GetPlayStats(entry.AppIds[0], start, end + 60), PlayEnd.Closed);
+    }
+
+    /// <summary>
     /// Sessions joined into plays: a break under <see cref="JoinGapSec"/> joins two, a stop of the PC between them
     /// (<paramref name="stops"/>) never does.
     /// </summary>

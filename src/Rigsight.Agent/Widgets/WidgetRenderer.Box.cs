@@ -161,6 +161,7 @@ internal static partial class WidgetRenderer
             case WidgetTiles.Weather: WeatherTile(g, t, inner, p, accent); break;
             case WidgetTiles.Shortcuts: ShortcutsTile(g, t, inner, p); break;
             case WidgetTiles.Photos: PhotosTile(g, t, r, p); break;
+            default: PcTile(g, t, inner, d, p, accent); break;
         }
     }
 
@@ -1277,7 +1278,7 @@ internal static partial class WidgetRenderer
                     sb.Append('|').Append(WidgetTimer.KindOf(t)).Append(WidgetTimer.Running(t)).Append(WidgetTimer.Shown(t, NowMs())).Append(t.Until?.Ticks).Append(now.Date.Ticks);
                     break;
                 default:
-                    if (EverydayKey(t, d) is not { } key) return null;
+                    if ((EverydayKey(t, d) ?? PcKey(t, d, p)) is not { } key) return null;
                     sb.Append('|').Append(key);
                     break;
             }
