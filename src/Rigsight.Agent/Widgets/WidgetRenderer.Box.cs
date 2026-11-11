@@ -466,7 +466,7 @@ internal static partial class WidgetRenderer
         var first = new DateTime(now.Year, now.Month, 1);
         var dtf = Culture.DateTimeFormat;
         int start = (int)dtf.FirstDayOfWeek, lead = ((int)first.DayOfWeek - start + 7) % 7, days = DateTime.DaysInMonth(now.Year, now.Month);
-        Text(g, Culture.TextInfo.ToTitleCase(first.ToString("Y", Culture)), 12.5f, FontStyle.Bold, p.Text, r.Left + 3, r.Top, semibold: true, maxWidth: r.Width - 6);
+        Text(g, MonthTitle(first), 12.5f, FontStyle.Bold, p.Text, r.Left + 3, r.Top, semibold: true, maxWidth: r.Width - 6);
         float top = r.Top + 22, cw = r.Width / 7, ch = Math.Max(14, (r.Bottom - top) / 7);
         for (int i = 0; i < 7; i++)
         {
@@ -491,6 +491,16 @@ internal static partial class WidgetRenderer
             if (today && !Gray && Brightness(accent) < 0.6f) color = Color.White;
             Text(g, text, 11.5f, today ? FontStyle.Bold : FontStyle.Regular, color, cx - ink.Width / 2 - ink.Left, cy - ink.Height / 2 - ink.Top, semibold: today);
         }
+    }
+
+    /// <summary>
+    /// A calendar's month and year as Windows writes them, its first letter a capital: "November 2026", "Noviembre de
+    /// 2026" (title case made every word a capital, "Noviembre De 2026").
+    /// </summary>
+    internal static string MonthTitle(DateTime month)
+    {
+        string s = month.ToString("Y", Culture);
+        return s.Length > 0 ? char.ToUpper(s[0], Culture) + s[1..] : s;
     }
 
     private static float Brightness(Color c) => (0.299f * c.R + 0.587f * c.G + 0.114f * c.B) / 255f;
