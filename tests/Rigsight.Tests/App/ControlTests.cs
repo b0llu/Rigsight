@@ -1697,7 +1697,24 @@ public sealed class ControlTests
     [Trait("Category", "Perf")]
     public void Drawing_big_series_stays_fast()
     {
+        // A second try before failing: with the gate's five test processes side by side a measure came in just over,
+        // the code untouched (2026-11-11: 115.7 ms of 115, then 36.2 of 35, where they take 37 and 11 alone). Something
+        // really slower is over on both tries.
+        var tries = new List<string>();
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            string? over = MeasureDrawing();
+            if (over is null) return;
+            tries.Add(over);
+        }
+        Assert.Fail(string.Join(" || again: ", tries));
+    }
+
+    /// <summary>Draws each big chart and says which took longer than its budget, with every measure; null when none did.</summary>
+    private static string? MeasureDrawing()
+    {
         var results = new List<string>();
+        var over = new List<string>();
         Ui.Run(() =>
         {
             // Temperatures move smoothly (a saw-tooth of 40° a minute would mostly measure WPF's software rasterizer).
@@ -1746,7 +1763,6 @@ public sealed class ControlTests
             results.Add($"day timeline 1440: {timelineMs:0.0} ms");
 
             // Budgets: about three times what they took on the development PC (Ryzen 7 5700X3D; in brackets), at least 25 ms.
-            var over = new List<string>();
             void Budget(string what, double ms, double budget) { if (ms > budget) over.Add($"{what} {ms:0.0} ms > {budget} ms"); }
             Budget("line chart", line, 115);            // (37)
             Budget("line chart drawing", lineDraw, 25); // (4)
@@ -1758,8 +1774,8 @@ public sealed class ControlTests
             Budget("treemap", mapMs, 400);              // (135)
             Budget("day timeline", timelineMs, 135);    // (45)
             File.WriteAllLines(Path.Combine(TestEnvironment.DataDir, "perf-controls.txt"), results);
-            Assert.True(over.Count == 0, string.Join("; ", over) + " | measured: " + string.Join("; ", results));
         });
+        return over.Count == 0 ? null : string.Join("; ", over) + " | measured: " + string.Join("; ", results);
     }
 
     [Fact]
