@@ -130,9 +130,18 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
 
     private void CheckFront(object? sender, EventArgs e)
     {
-        var now = Native.Win32.GetForegroundWindow();
-        if (now != _frontOver && !_forms.Values.Any(f => f.IsHandleCreated && f.Handle == now)) BringInFront(false);
+        var ours = _forms.Values.Where(f => f.IsHandleCreated).Select(f => f.Handle).ToList();
+        if (_typing is { IsDisposed: false, IsHandleCreated: true } typing) ours.Add(typing.Handle);
+        if (!StaysInFront(Native.Win32.GetForegroundWindow(), _frontOver, ours)) BringInFront(false);
     }
+
+    /// <summary>
+    /// The widgets stay in front while the window in front is the one that was when they came, or one of theirs: a
+    /// widget, or the box that takes the keys for a note or a to-do clicked on. That box wasn't counted, so a note
+    /// clicked on to type in went back behind the windows a quarter of a second later (the audit, 2026-11-11).
+    /// </summary>
+    internal static bool StaysInFront(IntPtr now, IntPtr frontOver, IEnumerable<IntPtr> ours) =>
+        now == frontOver || now != IntPtr.Zero && ours.Contains(now);
 
     // ── Fading under the pointer ──────────────────────────────────────────
 

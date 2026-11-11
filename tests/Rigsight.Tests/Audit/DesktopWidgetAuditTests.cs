@@ -107,6 +107,21 @@ public class DesktopWidgetAuditTests
     }
 
     [Fact]
+    public void Widgets_brought_in_front_stay_there_while_a_note_on_them_is_typed_in()
+    {
+        // The shortcut brings the widgets in front of the windows until another window comes to the front. The box that
+        // takes the keys for a note is a window of its own: it wasn't counted as one of the widgets', so the note went
+        // back behind the windows a quarter of a second after it was clicked.
+        IntPtr browser = 100, widget = 200, typingBox = 300, other = 400;
+        IntPtr[] ours = [widget, typingBox];
+        Assert.True(WidgetManager.StaysInFront(typingBox, browser, ours));
+        Assert.True(WidgetManager.StaysInFront(widget, browser, ours));
+        Assert.True(WidgetManager.StaysInFront(browser, browser, ours));
+        Assert.False(WidgetManager.StaysInFront(other, browser, ours));
+        Assert.False(WidgetManager.StaysInFront(IntPtr.Zero, browser, ours));
+    }
+
+    [Fact]
     public void A_shortcuts_tile_doesnt_ask_the_disk_at_every_drawing()
     {
         // Drawn at every reading on the agent's one window thread, it asked whether each shortcut's file or folder was
