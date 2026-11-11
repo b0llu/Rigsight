@@ -181,4 +181,29 @@ public sealed class SettingsAuditTests
         Assert.Equal("[1,5,4]", SettingsMerge.Merge(numbers, new JsonArray(1, 5, 3), new JsonArray(1, 2, 4))!.ToJsonString());
         Assert.Equal("[1,2,3,9]", SettingsMerge.Merge(numbers, new JsonArray(1, 2, 3, 9), new JsonArray(1, 2, 4))!.ToJsonString());
     }
+
+    // Duplicate copied the widget as the editor had it when it opened or last changed it: one moved, typed in or ticked
+    // on the desktop meanwhile came out as it was before, and beside its old spot.
+    [Fact]
+    public void Duplicate_copies_the_widget_as_it_is_now()
+    {
+        using var link = new AgentLink();
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            vm.Add(vm.Choices.Single(c => c.Title == "Notes"));
+            string id = link.Settings.Current.Widgets[^1].Id;
+            vm.Edit(id);
+            link.Settings.Update(s =>
+            {
+                var w = s.Widgets.Single(w => w.Id == id);
+                (w.X, w.Y) = (600, 300);
+                w.Tiles![0].Text = "Typed on the desktop";
+            });
+            vm.Editor!.DuplicateCommand.Execute(null);
+            var copy = link.Settings.Current.Widgets[^1];
+            Assert.NotEqual(id, copy.Id);
+            Assert.Equal(("Typed on the desktop", 624, 324), (copy.Tiles![0].Text, copy.X, copy.Y));
+        });
+    }
 }

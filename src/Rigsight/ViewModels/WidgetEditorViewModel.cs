@@ -241,6 +241,8 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     [RelayCommand]
     private void Duplicate()
     {
+        // As it is now: moved, typed in or ticked on the desktop since the editor last saved it.
+        TakeSaved();
         var copy = Clone(_w);
         copy.Id = WidgetCatalog.NewId();
         copy.Style = WidgetStyle.Custom;
