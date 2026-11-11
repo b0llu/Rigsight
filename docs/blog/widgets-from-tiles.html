@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Rebuilding RigSight&#x27;s widgets as boxes of tiles · The RigSight log</title>
-  <meta name="description" content="RigSight 1.9.0 turned every widget into a box you fill with tiles, your readings next to a clock, notes, a to-do list or the weather. Getting there meant centring clocks by their ink and making a picture on the desktop take clicks and typing." />
+  <meta name="description" content="RigSight 1.9.0 builds desktop widgets for Windows 11 from tiles, your readings next to a clock, notes, a to-do list or the weather. How I rebuilt them." />
   <meta name="theme-color" content="#000000" />
   <meta name="color-scheme" content="dark" />
   <link rel="canonical" href="https://rigsight.app/blog/widgets-from-tiles" />
@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
   <meta property="og:site_name" content="RigSight" />
   <meta property="og:title" content="Rebuilding RigSight&#x27;s widgets as boxes of tiles · The RigSight log" />
-  <meta property="og:description" content="RigSight 1.9.0 turned every widget into a box you fill with tiles, your readings next to a clock, notes, a to-do list or the weather. Getting there meant centring clocks by their ink and making a picture on the desktop take clicks and typing." />
+  <meta property="og:description" content="RigSight 1.9.0 builds desktop widgets for Windows 11 from tiles, your readings next to a clock, notes, a to-do list or the weather. How I rebuilt them." />
   <meta property="og:url" content="https://rigsight.app/blog/widgets-from-tiles" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
@@ -21,7 +21,7 @@
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="800" />
   <meta property="og:type" content="article" />
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "Rebuilding RigSight's widgets as boxes of tiles", "description": "RigSight 1.9.0 turned every widget into a box you fill with tiles, your readings next to a clock, notes, a to-do list or the weather. Getting there meant centring clocks by their ink and making a picture on the desktop take clicks and typing.", "datePublished": "2026-11-11", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/widgets-from-tiles", "image": "https://rigsight.app/img/blog/widgets-from-tiles.webp"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "Rebuilding RigSight's widgets as boxes of tiles", "description": "RigSight 1.9.0 builds desktop widgets for Windows 11 from tiles, your readings next to a clock, notes, a to-do list or the weather. How I rebuilt them.", "datePublished": "2026-11-11", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/widgets-from-tiles", "image": "https://rigsight.app/img/blog/widgets-from-tiles.webp"}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -238,7 +238,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>On 9 November I started rebuilding them. I wanted widgets good enough to use instead of Windows' own, and I wanted you to decide what goes in one and how it looks. The main rule was no limits. If someone wants an odd widget that doesn't even fit on their screen, that's their call.</p>
 
-<h2>A box of tiles</h2>
+<h2>Desktop widgets as boxes of tiles</h2>
 
 <p>So a widget became a box you fill with tiles. The box is a grid of small cells, 40 by 32 pixels at size M, and a tile covers as many cells as you give it. There are 16 kinds of tile. Six are about your PC. One shows any reading as a number, a ring or a graph, and the others show a line of readings, a temperature graph, FPS, your day so far and the app you're using. The other ten are everyday things. There's a clock, the date, a calendar, notes, a to-do list, a timer, what's playing, the weather, shortcuts and photos.</p>
 
