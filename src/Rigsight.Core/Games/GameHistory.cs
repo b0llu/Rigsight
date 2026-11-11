@@ -168,9 +168,7 @@ public static class GameHistory
         var sessions = entry.AppIds.SelectMany(db.GetAppSessions).OrderBy(x => x.Start).ToList();
         long first = sessions[0].Start, last = sessions.Max(x => x.End);
         var crashes = db.GetCrashes(first - 60, Math.Max(last, TimeUtil.ToUnix(now)) + 3600).Where(c => !s.IsCrashMuted(c.AppExe)).ToList();
-        // Anything that stops the PC ends a play: two sessions either side of it are two plays.
-        var stops = crashes.Where(c => c.Kind is CrashKind.UnexpectedShutdown or CrashKind.SystemCrash).Select(c => c.Ts).ToList();
-        var spans = Join(sessions, stops);
+        var spans = Join(sessions, Stops(crashes, s));
 
         var mainApp = entry.AppIds[0];
         var exes = new HashSet<string>(entry.Exes, StringComparer.OrdinalIgnoreCase);
@@ -251,6 +249,23 @@ public static class GameHistory
             SinceUpdate = SinceUpdate(plays, lastUpdate ?? entry.Installed?.Updated),
         };
     }
+
+    /// <summary>Anything that stops the PC (a sudden shut-off, a blue screen) ends a play: two sessions either side of it are two plays.</summary>
+    public static List<long> Stops(IEnumerable<CrashEvent> crashes, RigsightSettings s) =>
+        [.. crashes.Where(c => !s.IsCrashMuted(c.AppExe) && c.Kind is CrashKind.UnexpectedShutdown or CrashKind.SystemCrash).Select(c => c.Ts)];
+
+    /// <summary>Every stop of the PC on record (see <see cref="Stops(IEnumerable{CrashEvent}, RigsightSettings)"/>), read once for many games.</summary>
+    public static List<long> Stops(RigsightDb db, RigsightSettings s) => Stops(db.GetCrashes(0, long.MaxValue), s);
+
+    /// <summary>
+    /// A game's plays without each one's readings: its programs' sessions joined as <see cref="Story"/> joins them, the one
+    /// count of plays for the Games page, Rewind and the AI's look-ups. Sessions were counted two other ways before: the
+    /// AI's list of games said Dota 2 had 48 "sessions" (every stretch in front, even 20 seconds) where its own look-up
+    /// said 32 plays, and Rewind counted each session of a minute or more, 27 Dota 2 plays in October against the Games
+    /// page's 22 (real PC, 26 Oct and 11 Nov 2026).
+    /// </summary>
+    public static List<(long Start, long End, double Active, int Parts)> Spans(RigsightDb db, IEnumerable<long> appIds, IReadOnlyList<long> stops) =>
+        Join([.. appIds.SelectMany(db.GetAppSessions)], stops);
 
     /// <summary>
     /// Sessions joined into plays: a break under <see cref="JoinGapSec"/> joins two, a stop of the PC between them

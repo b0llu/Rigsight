@@ -50,7 +50,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
             Def("get_report", "RigSight's report for a period: time on, peaks for CPU and GPU temperature, what stood out, this period against the PC's own usual (temperatures, fans, problems), apps used with their peaks, crashes, and the electricity the CPU and graphics card used (kWh, average and highest watts). Dates are the user's local dates.", Dates()),
             Def("get_crashes", "Every crash, hang, graphics driver reset, blue screen and sudden shut-off in a period, each with what was going on (app in front, loads, temperatures, power), RigSight's finding with how sure it is, and changes in the 7 days before.", Dates()),
             Def("get_changes", "What changed on the PC in a period: drivers, Windows updates, hardware, BIOS/firmware, settings, fan settings, apps installed or updated.", Dates()),
-            Def("list_games", "The games played on this PC with hours played, sessions, launcher and how hard each works the graphics card. With from and to: only the games played in that period, with the time played in it. Without them: all of RigSight's history, not any one day.", new JsonObject
+            Def("list_games", "The games played on this PC with hours played, plays, launcher and how hard each works the graphics card. With from and to: only the games played in that period, with the time played in it. Without them: all of RigSight's history, not any one day.", new JsonObject
             {
                 ["type"] = "object",
                 ["properties"] = new JsonObject
@@ -398,13 +398,18 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var sb = new StringBuilder();
         // Said first: a model asked about one day once took the busiest games of all time for that day's.
         sb.AppendLine($"Every game in the whole history ({games.Min(g => g.FirstPlayed):d MMM yyyy} to {games.Max(g => g.LastPlayed):d MMM yyyy}), not any one day or week. For a period, ask with from and to.");
+        // Plays as get_game and the Games page count them, not the sessions under them (see GameHistory.Spans).
+        var stops = GameHistory.Stops(db, settings);
         foreach (var g in games)
-            sb.AppendLine($"{g.Name}: {Units.Duration(g.ActiveSec)} over {g.Sessions} sessions, first {g.FirstPlayed:d MMM yyyy}, last {g.LastPlayed:d MMM yyyy}"
+        {
+            int plays = GameHistory.Spans(db, g.AppIds, stops).Count;
+            sb.AppendLine($"{g.Name}: {Units.Duration(g.ActiveSec)} over {plays} {(plays == 1 ? "play" : "plays")}, first {g.FirstPlayed:d MMM yyyy}, last {g.LastPlayed:d MMM yyyy}"
                 + (g.Launcher is { } l ? $", {l}" : "") + (g.GpuLoad is double gpu ? $", graphics card {gpu:0}% busy on average" : ""));
+        }
         return sb.ToString();
     }
 
-    /// <summary>Only the games played in the period, with the time played in it (from each game's plays).</summary>
+    /// <summary>Only the games played in the period, with the time played in it (see <see cref="PlayedIn"/>).</summary>
     private string GamesIn(RigsightDb db, DateTime from, DateTime to)
     {
         if (to < from) (from, to) = (to, from);

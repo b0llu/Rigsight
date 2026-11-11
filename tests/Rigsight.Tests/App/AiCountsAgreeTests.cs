@@ -101,4 +101,20 @@ public sealed class AiCountsAgreeTests
         Assert.Contains("App crashes: 1 in all", recent);
         Assert.DoesNotContain("RECORDS:", recent);
     }
+
+    [Fact]
+    public void List_games_and_get_game_count_the_same_plays()
+    {
+        // Real PC, 26 Oct 2026: list_games said Dota 2 had 48 "sessions", get_game 32 plays. A match, five minutes in the
+        // menu, another match; a third an hour later; then a launch of 30 seconds: four sessions, three plays.
+        using var t = new TestDb("ai-plays");
+        long game = t.Db.UpsertApp("kickoff.exe", "Kickoff", @"C:\RigsightTestGames\Kickoff\kickoff.exe", AppCategory.Game);
+        long a = U(2026, 10, 17, 20);
+        foreach (var (from, to) in new[] { (a, a + 600), (a + 900, a + 1500), (a + 3600, a + 4200), (a + 7200, a + 7230) })
+            t.Db.InsertSession(Session(game, from, to, game: true));
+        var tools = Tools(t.Path);
+
+        Assert.Contains("Kickoff: 30m over 3 plays,", tools.Run("list_games", "{}"));
+        Assert.StartsWith("Kickoff: 30m in 3 plays.", tools.Run("get_game", """{"name":"Kickoff"}"""));
+    }
 }
