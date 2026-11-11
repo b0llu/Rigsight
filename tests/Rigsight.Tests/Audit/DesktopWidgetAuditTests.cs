@@ -43,4 +43,33 @@ public class DesktopWidgetAuditTests
         Assert.False(Usable(b));
         Assert.True(Usable(watcher.Now!.Cover!));
     }
+
+    [Fact]
+    public void A_click_on_the_note_being_typed_in_keeps_its_box()
+    {
+        // Typed into a note, then clicked on it again (to place the caret, say) within 400 ms: the box was opened again
+        // with the note as last saved, and the next save wrote that over what had been typed.
+        var typing = new WidgetRenderer.TypingNow("w", 1, "Buy milk and eg", 15, Adding: false);
+        var note = new WidgetRenderer.TileHit(1, WidgetRenderer.HitNote, 0, RectangleF.Empty);
+        Assert.True(WidgetManager.StillTyping(typing, "w", note));
+        // Another note, another widget, or the to-do line of the same tile: a box of its own.
+        Assert.False(WidgetManager.StillTyping(typing, "w", note with { Tile = 2 }));
+        Assert.False(WidgetManager.StillTyping(typing, "x", note));
+        Assert.False(WidgetManager.StillTyping(typing, "w", note with { Action = WidgetRenderer.HitTodoAdd }));
+        Assert.False(WidgetManager.StillTyping(null, "w", note));
+        // The to-do line being typed in, clicked again: kept, with what's typed and not added yet.
+        var adding = typing with { Adding = true, Text = "Call the" };
+        Assert.True(WidgetManager.StillTyping(adding, "w", note with { Action = WidgetRenderer.HitTodoAdd }));
+        // A to-do ticked while typing is a click of its own.
+        Assert.False(WidgetManager.StillTyping(adding, "w", note with { Action = WidgetRenderer.HitTodo }));
+    }
+
+    [Fact]
+    public void Clicks_go_through_the_typing_box_to_the_widget()
+    {
+        using var box = new TileTypingBox(new Rectangle(0, 0, 200, 40), "Note", multiline: true, (_, _) => { }, _ => { }, null);
+        var cp = (System.Windows.Forms.CreateParams)typeof(System.Windows.Forms.Control).GetProperty("CreateParams", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(box)!;
+        const int transparent = 0x20, layered = 0x80000;
+        Assert.Equal(transparent | layered, cp.ExStyle & (transparent | layered));
+    }
 }

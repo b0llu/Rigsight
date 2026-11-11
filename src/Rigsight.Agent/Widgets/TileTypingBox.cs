@@ -56,7 +56,22 @@ internal sealed class TileTypingBox : Form
         _box.KeyUp += (_, _) => Tell();
     }
 
-    private string Current => _box.Text.Replace("\r\n", "\n");
+    /// <summary>
+    /// Clicks go through it to the widget under it. It lies over the tile's first lines, and a click there went to the
+    /// box nobody sees, which put its caret where its own font has that spot, not where the widget draws the text: the
+    /// next keys went in somewhere else (the audit, 2026-11-11). It still takes the keys.
+    /// </summary>
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            var cp = base.CreateParams;
+            cp.ExStyle |= Rigsight.Agent.Native.Win32.WS_EX_LAYERED | Rigsight.Agent.Native.Win32.WS_EX_TRANSPARENT;
+            return cp;
+        }
+    }
+
+    private string Current =>_box.Text.Replace("\r\n", "\n");
 
     /// <summary>The caret's place in the text as the widget has it (one character a line break, not two).</summary>
     private int Caret => _box.Text[..Math.Min(_box.SelectionStart, _box.Text.Length)].Replace("\r\n", "\n").Length;

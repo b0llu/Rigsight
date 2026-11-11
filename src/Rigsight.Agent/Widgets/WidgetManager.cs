@@ -357,6 +357,12 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     {
         var cfg = form.Config;
         if (cfg.Tiles is not { } tiles || hit.Tile >= tiles.Count) return;
+        // The note or the line being typed in, clicked again: it keeps the keyboard as it is.
+        if (_typing is { IsDisposed: false } open && StillTyping(WidgetRenderer.Typing, cfg.Id, hit))
+        {
+            open.Activate();
+            return;
+        }
         string kind = tiles[hit.Tile].Kind, id = cfg.Id;
         int index = hit.Tile;
         void OnTile(Action<WidgetTile> change) => Mutate(id, c =>
@@ -391,6 +397,15 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
                 break;
         }
     }
+
+    /// <summary>
+    /// A click on the note or the to-do line that is being typed in. Opened again, its box started from the text as last
+    /// saved (every 400 ms, and taken by the widget a moment later), so what was typed just before the click was lost
+    /// with the next save (the audit, 2026-11-11).
+    /// </summary>
+    internal static bool StillTyping(WidgetRenderer.TypingNow? typing, string widgetId, WidgetRenderer.TileHit hit) =>
+        hit.Action is WidgetRenderer.HitNote or WidgetRenderer.HitTodoAdd && typing is { } t && t.WidgetId == widgetId && t.Tile == hit.Tile
+        && t.Adding == (hit.Action == WidgetRenderer.HitTodoAdd);
 
     private void OpenTyping(WidgetForm form, WidgetRenderer.TileHit hit, bool multiline, string text, Action<string>? changed, Action<string>? added)
     {
