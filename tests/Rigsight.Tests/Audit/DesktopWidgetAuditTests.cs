@@ -121,6 +121,47 @@ public class DesktopWidgetAuditTests
         Assert.False(WidgetManager.StaysInFront(IntPtr.Zero, browser, ours));
     }
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetGuiResources(IntPtr process, uint flags);
+
+    [Fact]
+    public void A_shortcuts_icon_leaves_no_window_handle_behind()
+    {
+        // Each icon read for a shortcut made a Windows icon handle that was copied to a bitmap and left for the garbage
+        // collector: one more of the agent's 10,000 for each icon read, until a collection came by.
+        var dir = Path.Combine(Path.GetTempPath(), "rigsight-tests", "icons-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var links = Enumerable.Range(0, 60).Select(i =>
+            {
+                var file = Path.Combine(dir, $"f{i}.txt");
+                File.WriteAllText(file, "x");
+                return new Rigsight.Core.Settings.TileLink { Path = file, Name = $"f{i}" };
+            }).ToList();
+            WidgetFiles.IconOf(links[0]); // the shell's own first-time handles, before counting
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            var me = System.Diagnostics.Process.GetCurrentProcess().Handle;
+            const uint user = 1;
+            uint before = GetGuiResources(me, user);
+            bool wasOn = GC.TryStartNoGCRegion(16 * 1024 * 1024);
+            try
+            {
+                foreach (var l in links.Skip(1)) WidgetFiles.IconOf(l);
+                Assert.True(GetGuiResources(me, user) - before < 20, $"{GetGuiResources(me, user) - before} icon handles left behind");
+            }
+            finally
+            {
+                if (wasOn && System.Runtime.GCSettings.LatencyMode == System.Runtime.GCLatencyMode.NoGCRegion) GC.EndNoGCRegion();
+            }
+        }
+        finally
+        {
+            try { Directory.Delete(dir, true); } catch (IOException) { }
+        }
+    }
+
     [Fact]
     public void A_shortcuts_tile_doesnt_ask_the_disk_at_every_drawing()
     {

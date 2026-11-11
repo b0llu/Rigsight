@@ -120,7 +120,12 @@ internal static class WidgetFiles
         if (link.IsWeb || Look(link.Path) is not { File: true }) return null;
         return Icons.Get(link.Path, p =>
         {
-            try { return Icon.ExtractAssociatedIcon(p)?.ToBitmap(); }
+            try
+            {
+                // The icon's own handle let go at once, the bitmap copied from it kept.
+                using var icon = Icon.ExtractAssociatedIcon(p);
+                return icon?.ToBitmap();
+            }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or System.Runtime.InteropServices.ExternalException) { return null; }
         });
     }
