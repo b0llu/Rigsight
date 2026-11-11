@@ -320,6 +320,25 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         }
     }
 
+    /// <summary>A path on a drive letter this program doesn't have (a network drive mapped for the person, seen from an elevated agent).</summary>
+    internal static bool DriveHidden(string path)
+    {
+        try
+        {
+            return Path.GetPathRoot(path) is { Length: 3 } root && char.IsAsciiLetter(root[0]) && root[1] == ':'
+                && new DriveInfo(root).DriveType == DriveType.NoRootDirectory;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Whether a shortcut is opened (for the tests): see <see cref="LinkStart"/>, with Explorer running.
+    /// </summary>
+    internal static bool Opens(TileLink link, bool elevated) => LinkStart(link, elevated, shellRunning: true, File.Exists, Directory.Exists) is not null;
+
     /// <summary>
     /// How a shortcut is started, or null when it may not be. The settings file is the person's own, writable without
     /// admin rights, and the agent may run as administrator, so what's in it is never handed to a shell as it is:
@@ -345,7 +364,10 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             string path = link.Path;
             if (path.Length == 0 || path.IndexOfAny(['"', '\0']) >= 0 || !Path.IsPathFullyQualified(path)
                 || path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.StartsWith(@"\\.\", StringComparison.Ordinal)) return null;
-            if (!fileExists(path) && !folderExists(path)) return null;
+            // From an agent run as administrator, a path on a drive letter it doesn't have is let through to Explorer:
+            // Windows keeps the person's mapped network drives apart from programs run as administrator, so a shortcut
+            // to Z:\ looked gone (the audit, 2026-11-11), while Explorer, which opens it with the person's rights, has Z:.
+            if (!fileExists(path) && !folderExists(path) && !(admin && DriveHidden(path))) return null;
             target = Path.TrimEndingDirectorySeparator(path);
         }
         if (!admin) return new System.Diagnostics.ProcessStartInfo(target) { UseShellExecute = true };

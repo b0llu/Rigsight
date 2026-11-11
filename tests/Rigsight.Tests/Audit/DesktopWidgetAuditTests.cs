@@ -86,4 +86,23 @@ public class DesktopWidgetAuditTests
         Assert.Null(WidgetForm.PutBack(new Point(100, 100), new Point(300, 50), new Point(300, 50)));
         Assert.Null(WidgetForm.PutBack(new Point(100, 100), null, new Point(100, 100)));
     }
+
+    [Fact]
+    public void A_shortcut_on_a_network_drive_opens_from_an_agent_run_as_administrator()
+    {
+        // Windows keeps the person's mapped network drives apart from programs run as administrator: to the agent, a
+        // shortcut to Z:\Projects looked gone, and wasn't opened, though Explorer (which opens it) has Z:.
+        char? free = null;
+        for (char c = 'Z'; c >= 'G'; c--)
+            if (new DriveInfo(c.ToString()).DriveType == DriveType.NoRootDirectory) { free = c; break; }
+        Assert.NotNull(free);
+        var onNetworkDrive = new Rigsight.Core.Settings.TileLink { Path = $@"{free}:\Projects\plan.xlsx", Name = "Plan" };
+        Assert.True(WidgetManager.Opens(onNetworkDrive, elevated: true));
+        // Without administrator rights the agent has the same drives as Explorer: one it can't see isn't there.
+        Assert.False(WidgetManager.Opens(onNetworkDrive, elevated: false));
+        // A file gone from a drive the agent does have: still not opened.
+        var gone = new Rigsight.Core.Settings.TileLink { Path = Path.Combine(Path.GetTempPath(), "rigsight-gone-" + Guid.NewGuid().ToString("N"), "a.txt"), Name = "Gone" };
+        Assert.False(WidgetManager.Opens(gone, elevated: true));
+        Assert.True(WidgetManager.Opens(new Rigsight.Core.Settings.TileLink { Path = "https://rigsight.app/?a=1&b=2", Name = "Site" }, elevated: true));
+    }
 }
