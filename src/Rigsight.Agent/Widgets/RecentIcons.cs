@@ -26,6 +26,12 @@ internal sealed class RecentIcons(int capacity = 16)
         get { lock (_lock) return _icons.Count; }
     }
 
+    /// <summary>Whether <paramref name="path"/>'s icon has been loaded and is still kept (null counts: none was found).</summary>
+    public bool Contains(string path)
+    {
+        lock (_lock) return _icons.ContainsKey(path);
+    }
+
     /// <summary>The icon of <paramref name="path"/>, loaded with <paramref name="load"/> the first time (null: none).</summary>
     public Bitmap? Get(string path, Func<string, Bitmap?> load)
     {

@@ -30,20 +30,63 @@ internal static class WidgetFiles
     {
         lock (FolderLock)
         {
-            if (Folders.TryGetValue(folder, out var known) && DateTime.UtcNow - known.Read < TimeSpan.FromMinutes(1)) return known.Files;
-            string[] files;
-            try
+            bool known = Folders.TryGetValue(folder, out var was);
+            if (known && DateTime.UtcNow - was.Read < TimeSpan.FromMinutes(1)) return was.Files;
+            // A folder on another PC is read in the background (see IsRemote): the list known so far meanwhile.
+            if (IsRemote(folder))
             {
-                files = [.. Directory.EnumerateFiles(folder).Where(f => PictureTypes.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
-                    .Order(StringComparer.OrdinalIgnoreCase)];
+                InBackground(folder, () =>
+                {
+                    var files = ListOf(folder);
+                    lock (FolderLock) Folders[folder] = (DateTime.UtcNow, files);
+                });
+                return known ? was.Files : [];
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
-            {
-                files = [];
-            }
-            Folders[folder] = (DateTime.UtcNow, files);
-            return files;
+            var list = ListOf(folder);
+            Folders[folder] = (DateTime.UtcNow, list);
+            return list;
         }
+    }
+
+    private static string[] ListOf(string folder)
+    {
+        try
+        {
+            return [.. Directory.EnumerateFiles(folder).Where(f => PictureTypes.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+                .Order(StringComparer.OrdinalIgnoreCase)];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return [];
+        }
+    }
+
+    // What's being read in the background (folders and pictures on another PC), and how many reads have come back: a
+    // photos tile's change key holds that count, so the tile is drawn again when one comes.
+    private static readonly HashSet<string> Waiting = new(StringComparer.OrdinalIgnoreCase);
+    private static int _arrived;
+
+    public static int Arrived => Volatile.Read(ref _arrived);
+
+    /// <summary>Whether a folder's list or a picture is still being read in the background.</summary>
+    public static bool IsWaiting(string path)
+    {
+        lock (FolderLock) return Waiting.Contains(path);
+    }
+
+    private static void InBackground(string path, Action read)
+    {
+        lock (FolderLock)
+            if (!Waiting.Add(path)) return;
+        Task.Run(() =>
+        {
+            try { read(); }
+            finally
+            {
+                lock (FolderLock) Waiting.Remove(path);
+                Interlocked.Increment(ref _arrived);
+            }
+        });
     }
 
     /// <summary>
@@ -74,14 +117,29 @@ internal static class WidgetFiles
     /// <summary>A picture, turned the way the camera held it and made no bigger than it needs to be; null when it can't be read.</summary>
     public static Bitmap? Picture(string path)
     {
-        var bmp = Pictures.Get(path, LoadPicture);
-        if (bmp is null)
-            lock (FolderLock)
+        // One on another PC is read in the background (see IsRemote), and is there from the drawing after it comes.
+        if (IsRemote(path) && !Pictures.Contains(path))
+        {
+            InBackground(path, () =>
             {
-                if (Unread.Count > 2000) Unread.Clear();
-                Unread[path] = DateTime.UtcNow;
-            }
+                var loaded = LoadPicture(path);
+                Pictures.Get(path, _ => loaded);
+                if (loaded is null) MarkUnreadable(path);
+            });
+            return null;
+        }
+        var bmp = Pictures.Get(path, LoadPicture);
+        if (bmp is null) MarkUnreadable(path);
         return bmp;
+    }
+
+    private static void MarkUnreadable(string path)
+    {
+        lock (FolderLock)
+        {
+            if (Unread.Count > 2000) Unread.Clear();
+            Unread[path] = DateTime.UtcNow;
+        }
     }
 
     private static Bitmap? LoadPicture(string path)

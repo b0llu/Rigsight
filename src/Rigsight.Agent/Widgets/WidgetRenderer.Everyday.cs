@@ -540,8 +540,11 @@ internal static partial class WidgetRenderer
         string? now = WidgetFiles.PictureNow(t, Now());
         Bitmap? picture = null;
         // One that can't be read is passed over from then on (see PictureNow): the next one in its place.
-        for (int tries = 0; tries < 5 && now is not null && (picture = WidgetFiles.Picture(now)) is null; tries++)
+        for (int tries = 0; tries < 5 && now is not null && (picture = WidgetFiles.Picture(now)) is null && !WidgetFiles.IsWaiting(now); tries++)
             now = WidgetFiles.PictureNow(t, Now());
+        // Still being read from another PC (the folder's list or this picture): the tile's icon alone until it comes,
+        // not a line saying there are none.
+        bool waiting = picture is null && (now is not null ? WidgetFiles.IsWaiting(now) : t.Folder is { } f0 && WidgetFiles.IsWaiting(f0));
         if (now is not null && picture is not null)
         {
             Cover(g, picture, r, FillRadius(9));
@@ -565,6 +568,7 @@ internal static partial class WidgetRenderer
         var inner = RectangleF.Inflate(tile, -10, -8);
         float icon = Math.Min(28, inner.Height - 24);
         if (icon >= 14) IconIn(g, "\uE91B", icon, p.Faint, new RectangleF(inner.Left, inner.Top, icon, icon));
+        if (waiting) return;
         string line = t.Folder is null ? Lang.T("Pick a folder in the editor.") : Lang.T("No pictures in this folder.");
         TextIn(g, line, 12.5f, p.Faint, RectangleF.FromLTRB(inner.Left, inner.Top + (icon >= 14 ? icon + 6 : 0), inner.Right, inner.Bottom));
     }
@@ -575,7 +579,7 @@ internal static partial class WidgetRenderer
         WidgetTiles.Media => d.Media is { } m ? $"{m.Title}|{m.Artist}|{m.App}|{m.Playing}|{m.Version}|{(int)m.PositionAt(Now()).TotalSeconds}|{(int)m.Length.TotalSeconds}" : "-",
         WidgetTiles.Weather => WeatherFeed.For(t) is { } w ? $"{t.Place}|{w.TempC}|{w.Symbol}|{w.HighC}|{w.LowC}|{w.Fetched.Ticks}|{Units.Fahrenheit}|{Now().Hour}" : $"{t.Place}|-",
         WidgetTiles.Shortcuts => string.Join("|", (t.Links ?? []).Select(l => l.Path + ">" + l.Name)),
-        WidgetTiles.Photos => $"{t.Folder}|{WidgetFiles.PictureNow(t, Now())}",
+        WidgetTiles.Photos => $"{t.Folder}|{WidgetFiles.PictureNow(t, Now())}|{WidgetFiles.Arrived}",
         _ => null,
     };
 }
