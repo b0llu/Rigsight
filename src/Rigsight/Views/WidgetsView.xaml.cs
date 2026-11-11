@@ -41,6 +41,21 @@ public partial class WidgetsView : UserControl
         };
         Map.Moved += (id, x, y) => _vm?.MoveWidget(id, x, y);
         PreviewKeyDown += RecordShortcut;
+        PreviewMouseDown += (_, e) => KeepTyped(e.OriginalSource as DependencyObject);
+    }
+
+    /// <summary>
+    /// A press anywhere but in a box that's saved when it's left (the name, a note, a short name) saves what was typed in
+    /// it first. Most buttons here don't take the keyboard, so the box was never left: a click on another tile in the list,
+    /// on Whole widget or on Back showed the next thing and what was typed was lost.
+    /// </summary>
+    private void KeepTyped(DependencyObject? pressed)
+    {
+        // A word in a text (a Run) isn't on the visual tree: the text it's in is.
+        while (pressed is not null and not Visual) pressed = LogicalTreeHelper.GetParent(pressed);
+        foreach (var box in new[] { NameBox, NoteBox, ShortNameBox })
+            if (box.GetBindingExpression(TextBox.TextProperty) is { IsDirty: true } typed && (pressed is null || !box.IsAncestorOf(pressed)))
+                typed.UpdateSource();
     }
 
     private void Watch(WidgetsViewModel? vm)

@@ -991,7 +991,7 @@
                                     </DockPanel>
                                     <DockPanel Style="{StaticResource EditRow}">
                                         <TextBlock Text="{ctl:T 'Short name'}" Style="{StaticResource EditLabel}" />
-                                        <TextBox DockPanel.Dock="Right" Width="150" Text="{Binding ShortName, UpdateSourceTrigger=LostFocus}" MaxLength="18" AutomationProperties.Name="{ctl:T 'Short name'}" />
+                                        <TextBox x:Name="ShortNameBox" DockPanel.Dock="Right" Width="150" Text="{Binding ShortName, UpdateSourceTrigger=LostFocus}" MaxLength="18" AutomationProperties.Name="{ctl:T 'Short name'}" />
                                     </DockPanel>
                                 </StackPanel>
                                 <!-- A line of readings or a graph -->
@@ -1042,7 +1042,7 @@
                                     <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding NoteSticky}" AutomationProperties.Name="{ctl:T 'Sticky note'}" />
                                 </DockPanel>
                                 <StackPanel Visibility="{Binding IsNotes, Converter={StaticResource Vis}}" Margin="16,4,16,6">
-                                    <TextBox Style="{StaticResource FieldArea}" Text="{Binding NoteText, UpdateSourceTrigger=LostFocus}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="96" MaxHeight="220"
+                                    <TextBox x:Name="NoteBox" Style="{StaticResource FieldArea}" Text="{Binding NoteText, UpdateSourceTrigger=LostFocus}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="96" MaxHeight="220"
                                              VerticalScrollBarVisibility="Auto" AutomationProperties.Name="{ctl:T 'Note'}" />
                                     <TextBlock Text="{ctl:T 'Or click the note on your desktop and type.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="2,6,0,0" TextWrapping="Wrap" />
                                 </StackPanel>

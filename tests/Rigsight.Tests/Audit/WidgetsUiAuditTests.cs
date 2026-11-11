@@ -633,4 +633,52 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
             Drop(id);
         }
     }
+    // Typed into a box that's saved when it's left (a note, a reading's short name, the widget's name), then a press
+    // somewhere that doesn't take the keyboard (another tile in the list, Whole widget, Back): what was typed is kept.
+    [Fact]
+    public void Typing_then_clicking_away_keeps_what_was_typed()
+    {
+        host.Show("widgets");
+        var cfg = EveryTile("Typed");
+        string id = AddWidget(cfg);
+        try
+        {
+            Ui.Run(() => host.Shell.Widgets.Edit(id));
+            Ui.Pump(400);
+            var ed = Ui.Run(() => host.Shell.Widgets.Editor!);
+            int Index(string kind) => Ui.Run(() => ed.TileBoxes.First(b => b.Glyph == WidgetEditorViewModel.GlyphOf(kind)).Index);
+            // Pressed on a button in the tile list (it doesn't take the keyboard), and its click.
+            void PressThenClick(int tile) => Ui.Run(() =>
+            {
+                var button = Visuals.Descendants<Button>(host.Window).First(b => b.DataContext is TileBox t && t.Index == tile && b.Command == ed.PickTileCommand);
+                button.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseDownEvent, Source = button });
+                button.Command.Execute(button.CommandParameter);
+            });
+            TextBox Box(Func<TextBox, bool> which) => Visuals.Descendants<TextBox>(host.Window).Single(t => t.IsVisible && which(t));
+
+            int notes = Index(WidgetTiles.Notes), reading = Index(WidgetTiles.Reading);
+            Ui.Run(() => ed.SelectTile(notes));
+            Ui.Pump(200);
+            Ui.Run(() => Box(t => t.AcceptsReturn).Text = "Typed into the note");
+            PressThenClick(reading);
+            Ui.Pump(200);
+            Assert.Equal("Typed into the note", Ui.Run(() => host.Shell.Settings.Current.Widgets.Single(w => w.Id == id).Tiles![notes].Text));
+
+            Ui.Run(() => Box(t => t.MaxLength == 18).Text = "Fast");
+            PressThenClick(notes);
+            Ui.Pump(200);
+            Assert.Equal("Fast", Ui.Run(() => host.Shell.Settings.Current.Widgets.Single(w => w.Id == id).Tiles![reading].Label));
+
+            Ui.Run(() => Box(t => t.Name == "NameBox").Text = "Renamed");
+            Ui.Run(() =>
+            {
+                var back = Visuals.Descendants<Button>(host.Window).First(b => b.Command == ed.BackCommand);
+                back.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseDownEvent, Source = back });
+                back.Command.Execute(null);
+            });
+            Ui.Pump(200);
+            Assert.Equal("Renamed", Ui.Run(() => host.Shell.Settings.Current.Widgets.Single(w => w.Id == id).Name));
+        }
+        finally { Drop(id); }
+    }
 }
