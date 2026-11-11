@@ -932,8 +932,15 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         set { if (value != _w.Grayscale) Change(w => w.Grayscale = value); }
     }
 
-    public IReadOnlyList<Choice> Sizes { get; } =
+    /// <summary>A widget's sizes, here and in the Widgets page's quick settings.</summary>
+    public static readonly IReadOnlyList<Choice> SizeList =
         [new("0.8", "S"), new("1", "M"), new("1.25", "L"), new("1.5", "XL"), new("2", "2XL"), new("2.5", "3XL")];
+
+    public IReadOnlyList<Choice> Sizes => SizeList;
+
+    /// <summary>Where a widget sits, here and in the Widgets page's quick settings.</summary>
+    public static IReadOnlyList<Choice> SitsList() =>
+        [new(nameof(WidgetSits.OnDesktop), Lang.T("On the desktop")), new(nameof(WidgetSits.OverWindows), Lang.T("Over windows"))];
 
     public string Size
     {
@@ -993,8 +1000,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
 
     // ── On the desktop ──────────────────────────────────────────────────
 
-    public IReadOnlyList<Choice> SitsChoices { get; } =
-        [new(nameof(WidgetSits.OnDesktop), Lang.T("On the desktop")), new(nameof(WidgetSits.OverWindows), Lang.T("Over windows"))];
+    public IReadOnlyList<Choice> SitsChoices { get; } = SitsList();
 
     public string Sits
     {

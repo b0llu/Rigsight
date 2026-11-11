@@ -8,9 +8,10 @@ using Rigsight.ViewModels;
 namespace Rigsight.Controls;
 
 /// <summary>
-/// The Widgets page's map of the screens (approved mock-up 8Bfo1Ce7KFJs4g1wxHQP1U): each screen to scale, as Windows has
-/// them side by side, with the widgets that are on drawn where they are. A widget dragged here moves on the desktop too,
-/// pulled onto the screen's edges and other widgets as on the desktop (Alt: placed freely); a click picks it.
+/// The Widgets page's map of the screens: each screen to scale, as Windows has them side by side, with the widgets that
+/// are on drawn where they are. A widget dragged here moves on the desktop too, pulled onto the screen's edges and other
+/// widgets as on the desktop (Alt: placed freely); a click picks it. Beside the list (approved mock-up
+/// UckKnwokm5kF7JjdjHZpqd), the picked widget is outlined and the others are dimmed.
 /// </summary>
 public sealed class WidgetScreens : FrameworkElement
 {
@@ -22,6 +23,18 @@ public sealed class WidgetScreens : FrameworkElement
 
     public static readonly DependencyProperty SnapProperty = DependencyProperty.Register(nameof(Snap), typeof(bool), typeof(WidgetScreens), new PropertyMetadata(true));
 
+    public static readonly DependencyProperty PickedProperty = DependencyProperty.Register(nameof(Picked), typeof(string), typeof(WidgetScreens),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+
+    public static readonly DependencyProperty MapHeightProperty = DependencyProperty.Register(nameof(MapHeight), typeof(double), typeof(WidgetScreens),
+        new FrameworkPropertyMetadata(300.0, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>The picked widget's identifier: outlined, the others dimmed; a click on another picks it.</summary>
+    public string? Picked { get => (string?)GetValue(PickedProperty); set => SetValue(PickedProperty, value); }
+
+    /// <summary>How tall the screens are drawn at most.</summary>
+    public double MapHeight { get => (double)GetValue(MapHeightProperty); set => SetValue(MapHeightProperty, value); }
+
     public List<ScreenChoice.Monitor>? Screens { get => (List<ScreenChoice.Monitor>?)GetValue(ScreensProperty); set => SetValue(ScreensProperty, value); }
     public List<WidgetSpot>? Spots { get => (List<WidgetSpot>?)GetValue(SpotsProperty); set => SetValue(SpotsProperty, value); }
     public bool Snap { get => (bool)GetValue(SnapProperty); set => SetValue(SnapProperty, value); }
@@ -29,14 +42,14 @@ public sealed class WidgetScreens : FrameworkElement
     /// <summary>A widget dropped somewhere new: its identifier and its panel's new top left, in screen pixels.</summary>
     public event Action<string, int, int>? Moved;
 
-    private const double MaxHeight_ = 300, LabelRoom = 30;
+    private const double LabelRoom = 30;
 
     private (double Scale, double OffsetX, double OffsetY, int MinX, int MinY) Frame(double width)
     {
         var screens = Screens;
         if (screens is not { Count: > 0 }) return (0, 0, 0, 0, 0);
         int minX = screens.Min(s => s.Left), minY = screens.Min(s => s.Top), maxX = screens.Max(s => s.Left + s.Width), maxY = screens.Max(s => s.Top + s.Height);
-        double scale = Math.Min((width - 8) / (maxX - minX), MaxHeight_ / (maxY - minY));
+        double scale = Math.Min((width - 8) / (maxX - minX), MapHeight / (maxY - minY));
         return (scale, (width - (maxX - minX) * scale) / 2, 4, minX, minY);
     }
 
@@ -50,7 +63,7 @@ public sealed class WidgetScreens : FrameworkElement
         return new Size(width, (maxY - minY) * f.Scale + 8 + LabelRoom);
     }
 
-    private string? _picked, _dragging;
+    private string? _dragging;
     private Point _from;
     private int _x0, _y0, _dx, _dy;
     private (double X, double Y)? _guide;
@@ -80,17 +93,22 @@ public sealed class WidgetScreens : FrameworkElement
             string name = s.IsMain ? Lang.T("Main screen") : Lang.T($"Screen {ScreenChoice.NumberOf(s.Device)}");
             var label = new FormattedText(name, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), 12.5, muted, dpi);
             var size = new FormattedText($"  {s.Width} × {s.Height}", CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), 11.5, faint, dpi);
-            double lx = r.Left + (r.Width - label.Width - size.Width) / 2, ly = r.Bottom + 8;
+            // A small screen on a small map keeps its name and leaves its size out.
+            bool both = label.Width + size.Width <= r.Width + 8;
+            double lx = r.Left + (r.Width - label.Width - (both ? size.Width : 0)) / 2, ly = r.Bottom + 8;
             dc.DrawText(label, new Point(lx, ly));
-            dc.DrawText(size, new Point(lx + label.Width, ly + 1));
+            if (both) dc.DrawText(size, new Point(lx + label.Width, ly + 1));
         }
         foreach (var spot in Spots ?? [])
         {
-            bool dragged = spot.Id == _dragging;
+            bool dragged = spot.Id == _dragging, picked = spot.Id == Picked;
             var r = SpotRect(spot, f, dragged ? _dx : 0, dragged ? _dy : 0);
+            bool dim = Picked is not null && !picked && !dragged;
+            if (dim) dc.PushOpacity(0.4);
             if (spot.Picture is { } pic) dc.DrawImage(pic, r);
             else dc.DrawRoundedRectangle(Brushes.Black, null, r, 3, 3);
-            if (spot.Id == _picked || dragged) dc.DrawRoundedRectangle(null, new Pen(Brushes.White, 1.5), Rect.Inflate(r, 2, 2), 4, 4);
+            if (dim) dc.Pop();
+            if (picked || dragged) dc.DrawRoundedRectangle(null, new Pen(Brushes.White, 1.5), Rect.Inflate(r, 2, 2), 4, 4);
         }
         if (_guide is { } g)
         {
@@ -167,8 +185,11 @@ public sealed class WidgetScreens : FrameworkElement
     internal bool PickUp(Point p)
     {
         var spot = SpotAt(p);
-        _picked = spot?.Id;
-        if (spot is not null) (_dragging, _from, _x0, _y0, _dx, _dy) = (spot.Id, p, spot.X, spot.Y, 0, 0);
+        if (spot is not null)
+        {
+            Picked = spot.Id;
+            (_dragging, _from, _x0, _y0, _dx, _dy) = (spot.Id, p, spot.X, spot.Y, 0, 0);
+        }
         InvalidateVisual();
         return spot is not null;
     }

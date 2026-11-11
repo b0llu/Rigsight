@@ -335,13 +335,16 @@ public sealed class SettingsPageTests
             Assert.Equal(3 + WidgetTiles.Kinds.Count, vm.Choices.Count);
             Assert.Equal(vm.Choices, vm.ChoicesShown);
             Assert.Equal(vm.Choices.Count, vm.Choices.Select(c => c.Title).Distinct().Count());
-            Assert.Equal(["All", "Ready-made", "Everyday", "Live", "Your day"], vm.Chips.Select(c => c.Key));
-
-            vm.PickChipCommand.Execute(vm.Chips.Single(c => c.Key == "Everyday"));
-            Assert.Equal(["Clock", "Date", "Calendar", "Notes", "To-do", "Timer"], vm.ChoicesShown.Select(c => c.Title));
-            vm.PickChipCommand.Execute(vm.Chips[0]);
+            // Listed under their groups; the first one is picked, shown beside the list with Add.
+            Assert.Equal(["READY-MADE", "EVERYDAY", "LIVE", "YOUR DAY"],
+                vm.ChoiceGroups.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(g => (string)g.Name));
+            Assert.Equal(["Clock", "Date", "Calendar", "Notes", "To-do", "Timer"], vm.ChoicesShown.Where(c => c.Group == "Everyday").Select(c => c.Title));
+            Assert.Same(vm.Choices[0], vm.PickedChoice);
             vm.ChoiceQuery = "calend";
             Assert.Equal("Calendar", Assert.Single(vm.ChoicesShown).Title);
+            Assert.Equal("Calendar", vm.PickedChoice!.Title);
+            vm.ChoiceQuery = "everyday"; // a group's name finds its widgets
+            Assert.Equal(6, vm.ChoicesShown.Count);
             vm.ChoiceQuery = "zzz";
             Assert.True(vm.NoChoices);
             Assert.Equal("Nothing matches “zzz”.", vm.NoChoicesText);
@@ -358,7 +361,11 @@ public sealed class SettingsPageTests
         Ui.Run(() =>
         {
             int before = vm.Cards.Count;
+            vm.Tab = "add";
             vm.Add(vm.Choices.Single(c => c.Title == "Clock"));
+            // Your widgets opens with it picked, so it's clear where it went.
+            Assert.Equal("mine", vm.Tab);
+            Assert.Equal(link.Settings.Current.Widgets[^1].Id, vm.PickedId);
             vm.Add(vm.Choices.Single(c => c.Title == "Clock")); // any number of a kind
             Assert.Equal(before + 2, vm.Cards.Count);
             var added = link.Settings.Current.Widgets.TakeLast(2).ToList();
@@ -741,20 +748,35 @@ public sealed class SettingsPageTests
             vm.MineQuery = "";
             Assert.Equal("", vm.NoMineText);
 
-            // Click-through from the card is the editor's Lock in place.
+            // The picked one's quick settings: Click-through is the editor's Lock in place; where it sits; its size.
             var second = vm.Cards[1];
-            second.Locked = true;
-            Assert.True(link.Settings.Current.Widgets[1].Locked);
+            vm.PickedRow = second;
+            Assert.Same(second, vm.Picked);
+            vm.Picked!.Locked = true;
+            vm.Picked.Sits = nameof(WidgetSits.OverWindows);
+            vm.Picked.Size = "1.5";
+            Assert.Equal((true, WidgetSits.OverWindows, 1.5), (link.Settings.Current.Widgets[1].Locked, link.Settings.Current.Widgets[1].Sits, link.Settings.Current.Widgets[1].Scale));
 
-            // Remove: gone from the settings at once, Undo in its place; Undo puts it back where it was, still locked.
-            string id = second.Id;
+            // A search that hides the picked one picks the first one it shows.
+            vm.MineQuery = "slim";
+            Assert.Equal("Slim bar", vm.Picked!.Title);
+            vm.MineQuery = "";
+            vm.PickedId = second.Id;
+
+            // Remove: gone from the settings at once, Undo in its place, the next one picked; Undo puts it back where
+            // it was, as it was, and picks it again.
+            string id = second.Id, next = vm.Cards[2].Id;
             second.RemoveCommand.Execute(null);
             Assert.DoesNotContain(link.Settings.Current.Widgets, w => w.Id == id);
             var removed = Assert.IsType<RemovedWidget>(vm.Grid[1]);
             Assert.EndsWith("removed.", removed.Line);
+            Assert.Equal(next, vm.PickedId);
+            vm.PickedRow = removed; // a removed one can't be picked
+            Assert.Equal(next, vm.PickedId);
             removed.UndoCommand.Execute(null);
             Assert.Equal(id, link.Settings.Current.Widgets[1].Id);
             Assert.True(link.Settings.Current.Widgets[1].Locked);
+            Assert.Equal(id, vm.PickedId);
             Assert.DoesNotContain(vm.Grid, o => o is RemovedWidget);
             Assert.Equal(id, Assert.IsType<WidgetCard>(vm.Grid[1]).Id);
         });

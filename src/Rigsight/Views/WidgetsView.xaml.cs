@@ -9,9 +9,10 @@ using Rigsight.ViewModels;
 namespace Rigsight.Views;
 
 /// <summary>
-/// The Widgets page and its editor (approved mock-up 8Bfo1Ce7KFJs4g1wxHQP1U). The page: the map of the screens, the
-/// widgets, the list to add from and the settings for all of them. The editor, a page of its own: tiles dragged and
-/// resized on the canvas by whole cells, the keyboard for the picked tile, and the shortcut keys recorded here.
+/// The Widgets page and its editor. The page, in two panes (approved mock-up UckKnwokm5kF7JjdjHZpqd): the list and the
+/// settings for all widgets on the left, the picked widget with its map of the screens on the right. The editor, a page
+/// of its own: tiles dragged and resized on the canvas by whole cells, the keyboard for the picked tile, and the shortcut
+/// keys recorded here.
 /// </summary>
 public partial class WidgetsView : UserControl
 {
@@ -48,6 +49,12 @@ public partial class WidgetsView : UserControl
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
+        // The picked widget's row is shown in the list (one just added, or picked on the map, may be below its end).
+        if (e.PropertyName is nameof(WidgetsViewModel.Picked) or nameof(WidgetsViewModel.Tab))
+        {
+            Dispatcher.BeginInvoke(() => { if (_vm?.Picked is { } picked) MineList.ScrollIntoView(picked); }, System.Windows.Threading.DispatcherPriority.Loaded);
+            return;
+        }
         if (e.PropertyName != nameof(WidgetsViewModel.Editor)) return;
         SetUpEditor();
         // The editor opens at its top, and the page comes back where it was.

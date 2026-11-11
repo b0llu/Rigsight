@@ -27,6 +27,46 @@ public sealed class WidgetEditorLookTests(AppHost host) : IClassFixture<AppHost>
         Ui.Run(() => host.Shell.Widgets.CloseEditorCommand.Execute(null));
     }
 
+    // The page in two panes, as in the approved mock-up UckKnwokm5kF7JjdjHZpqd (option C): Your widgets with one picked,
+    // then Add a widget; for comparing with the mock-up's board.
+    [Fact]
+    public void The_page_in_two_panes()
+    {
+        host.Show("widgets");
+        string id = "";
+        Ui.Run(() =>
+        {
+            var screen = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
+            var cfg = WidgetsViewModel.NewWidget("Desk",
+            [
+                new() { Kind = WidgetTiles.Clock, W = 6, H = 2 },
+                new() { Kind = WidgetTiles.Timer, X = 6, W = 6, H = 2 },
+                new() { Kind = WidgetTiles.Notes, Y = 2, W = 6, H = 4, Text = "BIOS update on Saturday\nReturn the spare fan" },
+                new() { Kind = WidgetTiles.Todo, X = 6, Y = 2, W = 6, H = 4, Todos = [new() { Text = "Clean the dust filters" }, new() { Text = "Update the graphics driver" }] },
+            ]);
+            (cfg.X, cfg.Y) = (screen.Right - 520, screen.Top + 40);
+            id = cfg.Id;
+            host.Shell.Settings.Update(s => { s.WidgetsShown = true; s.Widgets.Add(cfg); });
+            host.Shell.Widgets.Refresh();
+            host.Shell.Widgets.Tab = "mine";
+            host.Shell.Widgets.PickedId = id;
+            host.Shell.Widgets.LoadMap();
+        });
+        Ui.Pump(800);
+        Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "widgets-page-mine.png")));
+        Assert.Equal(id, Ui.Run(() => Visuals.Descendants<WidgetScreens>(host.Window).Single().Picked));
+        Ui.Run(() => host.Shell.Widgets.Tab = "add");
+        Ui.Pump(600);
+        Ui.Run(() => Ui.SavePng(host.Window, Path.Combine(Shots, "widgets-page-add.png")));
+        Ui.AssertNoProblems("the Widgets page");
+        Ui.Run(() =>
+        {
+            host.Shell.Widgets.Tab = "mine";
+            host.Shell.Settings.Update(s => s.Widgets.RemoveAll(w => w.Id == id));
+            host.Shell.Widgets.Refresh();
+        });
+    }
+
     // The editor as in the approved mock-up CqfxQo4cR6vCG3GxFx1VMT: nothing picked (the whole widget), the timer picked, the
     // to-do list picked; for comparing with the mock-up's boards.
     [Fact]
