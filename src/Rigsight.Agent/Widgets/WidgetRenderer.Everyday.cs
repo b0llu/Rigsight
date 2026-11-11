@@ -353,7 +353,7 @@ internal static partial class WidgetRenderer
         foreach (var day in w.Days)
         {
             if (top + 16 > r.Bottom) break;
-            string name = day.Date == DateTime.Today.AddDays(1) ? Lang.T("Tomorrow") : day.Date.ToString("dddd", Culture);
+            string name = WeatherDayName(day.Date);
             string span = Lang.T($"{Units.TempShort(day.LowC)} to {Units.TempShort(day.HighC)}");
             float rowCy = top + 8;
             Text(g, name, 11.5f, FontStyle.Regular, p.Muted, r.Left, TextTopFor(rowCy, 11.5f, FontStyle.Regular), maxWidth: r.Width * 0.4f);
@@ -362,6 +362,12 @@ internal static partial class WidgetRenderer
             top += 19;
         }
     }
+
+    /// <summary>
+    /// A day of the forecast: "Tomorrow", else its name with a capital as the clock writes it ("Viernes" in a Spanish
+    /// region, where Windows writes "viernes"), counted from the clock the tiles show.
+    /// </summary>
+    internal static string WeatherDayName(DateTime day) => day.Date == Now().Date.AddDays(1) ? Lang.T("Tomorrow") : DayName(day);
 
     /// <summary>
     /// The sky as an icon, drawn here (Windows' icon font has no weather icons): the sun or the moon in the accent, a
