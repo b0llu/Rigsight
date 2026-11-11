@@ -27,6 +27,33 @@ public sealed class WidgetEditorLookTests(AppHost host) : IClassFixture<AppHost>
         Ui.Run(() => host.Shell.Widgets.CloseEditorCommand.Execute(null));
     }
 
+    // Opening the page and picking widgets one after another changes nothing they have: the quick settings beside the list
+    // (Theme, Backdrop, Size) only show what's set until they're moved (settings survive updates, 2026-11-08).
+    [Fact]
+    public void Picking_widgets_changes_none_of_their_settings()
+    {
+        host.Show("home");
+        Ui.Run(() => host.Shell.Settings.Update(s =>
+        {
+            foreach (var w in s.Widgets) w.BackgroundOpacity = 1;
+            s.Widgets[0].BackgroundOpacity = 0.4;
+            s.Widgets[1].Scale = 1.25;
+            s.Widgets[2].Theme = WidgetTheme.Light;
+        }));
+        string Before() => System.Text.Json.JsonSerializer.Serialize(host.Shell.Settings.Current.Widgets);
+        string before = Ui.Run(Before);
+        host.Show("widgets");
+        Ui.Pump(800);
+        foreach (var id in Ui.Run(() => host.Shell.Widgets.Cards.Select(c => c.Id).ToList()))
+        {
+            Ui.Run(() => host.Shell.Widgets.PickedId = id);
+            Ui.Pump(250);
+        }
+        Ui.Run(() => host.Shell.Widgets.PickedId = host.Shell.Widgets.Cards[0].Id);
+        Ui.Pump(400);
+        Assert.Equal(before, Ui.Run(Before));
+    }
+
     // The page in two panes, as in the approved mock-up UckKnwokm5kF7JjdjHZpqd (option C): one widget picked, then the Add
     // widget pop-up (drawn on its own: a pop-up is a window of its own); for comparing with the mock-up's board.
     [Fact]
