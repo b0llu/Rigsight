@@ -66,6 +66,13 @@ internal static partial class WidgetRenderer
         IconIn(g, glyph, at.Width * 0.4f, main ? OnAccent(accent) : Lifted(p.Muted, hover, 0, p.Light), at);
     }
 
+    /// <summary>Whether a bitmap is still there to draw (one disposed of says so by throwing on its size).</summary>
+    private static bool Alive(Image image)
+    {
+        try { return image.Width > 0; }
+        catch (ArgumentException) { return false; }
+    }
+
     /// <summary>A picture filling a box with rounded corners, cut to fit (nothing squashed).</summary>
     private static void Cover(Graphics g, Image image, RectangleF box, float radius)
     {
@@ -186,6 +193,9 @@ internal static partial class WidgetRenderer
             if (line) TextIn(g, Lang.T("Play something in any app with media controls."), 11.5f, p.Faint, RectangleF.FromLTRB(tx0, cy0, r.Right, r.Bottom));
             return;
         }
+        // A cover the media watcher has let go of (it keeps the last two; these readings can be older after quick skips):
+        // drawn as no cover, where drawing it threw and the picture wasn't made.
+        if (m.Cover is { } held && !Alive(held)) m = m with { Cover = null };
         string title = m.Title.Length > 0 ? m.Title : Lang.C("media", "Playing");
         string by = m.Artist.Length > 0 && m.App.Length > 0 ? $"{m.Artist} · {m.App}" : m.Artist.Length > 0 ? m.Artist : m.App;
         if (large)
