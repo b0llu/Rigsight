@@ -234,6 +234,23 @@ public sealed partial class AiTools
         return $"RECORDING BEGAN {when}, so there's {history} of history; nothing was recorded before. {compare}{crashes}";
     }
 
+    /// <summary>
+    /// For a period that starts before RigSight's own records (a year's Rewind, crashes asked for months back): when they
+    /// begin, and that the crashes come from Windows' own logs, which reach further back. Null when the records cover the
+    /// period. Both dates were right when an answer said the history starts on 23 Sep while the crashes went back to 26 Jun
+    /// (real PC, 26 Oct 2026); no look-up said why they differ, so it read as a mistake.
+    /// </summary>
+    internal static string? RecordsFrom(RigsightDb db, DateTime from)
+    {
+        if (db.FirstDataTime() is not long data) return null;
+        // The first minute, when it's in the first hour of the app totals (as Began reads it).
+        var at = TimeUtil.FromUnix(db.FirstMinuteTime() is long m && m - data < 3600 ? m : data);
+        if (at <= from) return null;
+        string back = db.FirstCrashTime() is long c && TimeUtil.FromUnix(c) < at ? $", which on this PC go back to {TimeUtil.FromUnix(c):d MMM yyyy}" : "";
+        return $"RECORDS: RigSight's own records (time on, apps, games, temperatures, internet) begin {at:d MMM yyyy}, so they cover only part of this period. "
+            + $"Crashes, freezes and shut-offs come from Windows' own logs{back}. Say which records a figure comes from, and never call one date the start of the other's records.";
+    }
+
     /// <summary>"C: 81% full", the fullest drive by the last daily record, or null when none is recorded.</summary>
     private static string? Fullest(RigsightDb db)
     {
@@ -290,6 +307,7 @@ public sealed partial class AiTools
         var sb = new StringBuilder();
         bool soFar = to <= (year ? from.AddYears(1) : from.AddMonths(1)).AddDays(-1);
         sb.AppendLine($"Rewind of {Said(from, year)}{(soFar ? " so far" : "")} ({f.Days} days):");
+        if (RecordsFrom(db, from) is { } records) sb.AppendLine("  " + records);
         if (f.Time && On(Switch.Usage))
         {
             sb.AppendLine($"  On {Units.Duration(f.OnSec)}, in use {Units.Duration(f.ActiveSec)}, on {f.DaysOn} of {f.Days} days.");

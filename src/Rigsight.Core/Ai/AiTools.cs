@@ -244,7 +244,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         // Every one of them counted first, by kind and by RigSight's finding: the details below stop at the newest 15,
         // and a model left to count from those guesses (it once called 46 shut-offs, nearly all likely power cuts, a
         // failing power supply from the one it saw under load).
-        string summary = Summary(stories);
+        string summary = (RecordsFrom(db, from) is { } records ? records + "\n" : "") + Summary(stories);
         // The newest 30 at most, laid out without padding (2026-10-26: was 15 with each field padded to a column, and a
         // model asking again for the older ones pushed answers over their budget; about the same size now holds twice as many).
         int all = stories.Count;
