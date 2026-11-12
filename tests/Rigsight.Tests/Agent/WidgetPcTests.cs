@@ -110,7 +110,9 @@ public class WidgetPcTests : IDisposable
     [Fact]
     public void Only_the_tiles_from_the_records_ask_for_them()
     {
-        Assert.Equal(PcNeeds.None, PcFacts.NeedsOf([Box(new WidgetTile { Kind = WidgetTiles.Clock }, new WidgetTile { Kind = WidgetTiles.Fans }, new WidgetTile { Kind = WidgetTiles.TopCpu })]));
+        Assert.Equal(PcNeeds.None, PcFacts.NeedsOf([Box(new WidgetTile { Kind = WidgetTiles.Clock }, new WidgetTile { Kind = WidgetTiles.Drives }, new WidgetTile { Kind = WidgetTiles.TopCpu })]));
+        // Fans: which board headers have spun in the last 90 days, as the Fans page lists them.
+        Assert.Equal(PcNeeds.Fans, PcFacts.NeedsOf([Box(new WidgetTile { Kind = WidgetTiles.Clock }, new WidgetTile { Kind = WidgetTiles.Fans })]));
         Assert.Equal(PcNeeds.None, PcFacts.NeedsOf([new WidgetConfig { Style = WidgetStyle.Compact }]));
         Assert.Equal(PcNeeds.Internet | PcNeeds.Today | PcNeeds.Health,
             PcFacts.NeedsOf([Box(new WidgetTile { Kind = WidgetTiles.NetHours }), Box(new WidgetTile { Kind = WidgetTiles.Health }, new WidgetTile { Kind = WidgetTiles.NetDrops })]));

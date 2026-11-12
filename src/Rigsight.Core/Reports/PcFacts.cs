@@ -18,6 +18,7 @@ public enum PcNeeds
     Changes = 32,
     LastGame = 64,
     Internet = 128,
+    Fans = 256,
 }
 
 /// <summary>An app on a tile's list: its name and program (for its icon), its figure as written, and its share of the first one's (for a bar).</summary>
@@ -76,6 +77,9 @@ public sealed class PcFacts
     public bool[] Quarters { get; set; } = [];
     public List<(DateTime Start, DateTime End)> Drops { get; set; } = [];
 
+    /// <summary>The fans (their sensors) that spun in the last 90 days: the Fans page lists a board's or cooler's fan from then on.</summary>
+    public HashSet<string> FansSpun { get; set; } = [];
+
     // Kept from one reading to the next: what's slow to work out and changes rarely.
     internal Dictionary<DateTime, ChangeResult>? Results { get; set; }
     internal DateTime ResultsAt { get; set; }
@@ -107,6 +111,7 @@ public sealed class PcFacts
         WidgetTiles.Crashes => PcNeeds.Crashes,
         WidgetTiles.LastGame => PcNeeds.LastGame,
         WidgetTiles.NetToday or WidgetTiles.NetApps or WidgetTiles.NetHours or WidgetTiles.NetDrops => PcNeeds.Internet,
+        WidgetTiles.Fans => PcNeeds.Fans,
         _ => PcNeeds.None,
     };
 
@@ -202,6 +207,7 @@ public sealed class PcFacts
 
         if ((needs & PcNeeds.Crashes) != 0) ReadCrashes(db, s, now, f);
         if ((needs & PcNeeds.LastGame) != 0) ReadLastGame(db, s, now, f, before);
+        if ((needs & PcNeeds.Fans) != 0) f.FansSpun = FanList.SpunIn(db, now);
         if ((needs & PcNeeds.Internet) != 0)
             ReadInternet(report is not null && f.TodayAt == now && report.Net is { } fresh ? fresh : NetReportBuilder.Build(db, ReportRange.Day, today, apps, s), f);
         return f;

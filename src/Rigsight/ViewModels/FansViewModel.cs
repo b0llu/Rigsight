@@ -69,9 +69,8 @@ public sealed partial class FanCard : ObservableObject
     /// <summary>A chip counts as working hard from here, so a fan that should cool it and stands still needs a look.</summary>
     internal const double HotFrom = 70;
 
-    /// <summary>A fan turns from here: real fans don't go slower than about 200 rpm, and a header with nothing on it can
-    /// read a stray few rpm.</summary>
-    internal const double MinSpinRpm = 100;
+    /// <summary>A fan turns from here (see <see cref="FanList.MinSpinRpm"/>).</summary>
+    internal const double MinSpinRpm = FanList.MinSpinRpm;
 
     // None green, amber, orange or red: those say how a reading is doing, not which fan a line is.
     private static readonly string[] Colors = ["GpuColor", "PurpleColor", "PinkColor", "SkyColor"];
@@ -80,7 +79,7 @@ public sealed partial class FanCard : ObservableObject
     {
         Sensors = sensors;
         Sensor = sensors[0];
-        IsGpu = Sensor.HardwareType.StartsWith("Gpu", StringComparison.OrdinalIgnoreCase);
+        IsGpu = FanList.IsGpu(Sensor.HardwareType);
         Place = IsGpu ? "GPU" : Sensor.HardwareType == "Cooler" ? Sensor.HardwareName : Lang.T("Motherboard");
         Series = [.. sensors.Select((x, i) => new ChartSeries(x.DisplayName, x, IsGpu ? Colors[i % Colors.Length] : i == 0 ? "CpuColor" : Colors[i % Colors.Length]))];
     }
@@ -99,7 +98,7 @@ public sealed partial class FanCard : ObservableObject
     public string Place { get; internal set; }
 
     /// <summary>The row's name: a fan's own (or the name the user gave it), or "GPU fans" for a card's.</summary>
-    public string Title => IsGroup ? Lang.T("GPU fans") : Sensor.DisplayName;
+    public string Title => FanList.Title(Sensors.Count, Sensor.DisplayName);
 
     /// <summary>Under the name in the list: a warning first, then how many fans a card's row stands for, or the state.</summary>
     public string Note => HasAlert ? Lang.T("Needs a look")
@@ -107,9 +106,7 @@ public sealed partial class FanCard : ObservableObject
         : Facts?.Follows == FanFollows.Steady && State == FanState.Spinning ? Lang.T("Steady speed") : StateText;
 
     /// <summary>The speed now: a card's fans averaged (they turn together), one fan's as it reads.</summary>
-    public double? Value => (IsGroup
-        ? Sensors.Where(x => x.Value is not null).Select(x => x.Value!.Value).DefaultIfEmpty(double.NaN).Average() is double v && !double.IsNaN(v) ? v : null
-        : Sensor.Value) is double rpm ? (rpm < MinSpinRpm ? 0 : rpm) : null;
+    public double? Value => FanList.Speed(Sensors.Select(x => x.Value));
 
     public string ValueText => Units.Format(SensorKind.Fan, Value);
 
@@ -212,7 +209,7 @@ public sealed partial class FanCard : ObservableObject
 public sealed partial class FansViewModel : ObservableObject
 {
     /// <summary>How far back a header must have spun at least once to be shown.</summary>
-    internal const int SpunWithinDays = 90;
+    internal const int SpunWithinDays = FanList.SpunWithinDays;
 
     /// <summary>The days a fan's usual curve (the line on its temperature chart) is drawn from, before today.</summary>
     internal const int UsualDays = 30;
@@ -464,16 +461,12 @@ public sealed partial class FansViewModel : ObservableObject
         List<FanMinute> MinutesOf(SensorItem x) => bySensor.TryGetValue(x.Id, out var f) && byFan.TryGetValue(f, out var list) ? list : [];
 
         // A graphics card's fans always show, as one row per card (they stand still for days on a light load); a board
-        // or cooler header only once it has spun, now, today or in the recorded days.
+        // or cooler header only once it has spun, now, today or in the recorded days. The widgets' Fans tile lists the
+        // same rows (FanList).
         var sensors = Live.AllSensors.Where(x => x.Kind == SensorKind.Fan).ToList();
-        bool IsGpu(SensorItem x) => x.HardwareType.StartsWith("Gpu", StringComparison.OrdinalIgnoreCase);
         bool HasSpun(SensorItem x) => x.Value >= FanCard.MinSpinRpm || x.Max >= FanCard.MinSpinRpm || bySensor.TryGetValue(x.Id, out var f) && spun.Contains(f);
-        var rows = new List<IReadOnlyList<SensorItem>>();
-        rows.AddRange(sensors.Where(IsGpu).GroupBy(x => x.HardwareName).Select(g => (IReadOnlyList<SensorItem>)[.. g]));
-        var others = sensors.Where(x => !IsGpu(x)).ToList();
-        rows.AddRange(others.Where(x => x.HardwareType == "Cooler" && HasSpun(x)).Select(x => (IReadOnlyList<SensorItem>)[x]));
-        rows.AddRange(others.Where(x => x.HardwareType != "Cooler" && HasSpun(x)).Select(x => (IReadOnlyList<SensorItem>)[x]));
-        int empty = others.Count(x => !HasSpun(x));
+        var rows = FanList.Rows(sensors, x => x.HardwareType, x => x.HardwareName, HasSpun);
+        int empty = sensors.Count(x => !FanList.IsGpu(x.HardwareType) && !HasSpun(x));
 
         var shown = new List<FanCard>();
         foreach (var fans in rows)
