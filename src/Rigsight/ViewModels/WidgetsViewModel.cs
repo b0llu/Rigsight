@@ -307,7 +307,6 @@ public sealed partial class WidgetsViewModel : ObservableObject
         {
             OnPropertyChanged(nameof(Shown));
             OnPropertyChanged(nameof(Snap));
-            OnPropertyChanged(nameof(Fade));
             OnPropertyChanged(nameof(ShownHotkey));
             OnPropertyChanged(nameof(FrontHotkey));
             OnPropertyChanged(nameof(MapLine));
@@ -369,12 +368,6 @@ public sealed partial class WidgetsViewModel : ObservableObject
     {
         get => _settings.Current.WidgetSnap;
         set { if (value != Snap) _settings.Update(s => s.WidgetSnap = value); }
-    }
-
-    public bool Fade
-    {
-        get => _settings.Current.WidgetFade;
-        set { if (value != Fade) _settings.Update(s => s.WidgetFade = value); }
     }
 
     /// <summary>The shortcut for Desktop widgets as the person pressed it ("Ctrl+Alt+W"), or null.</summary>

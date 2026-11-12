@@ -771,9 +771,8 @@ public sealed class SettingsPageTests
         Ui.Run(() =>
         {
             vm.Snap = false;
-            vm.Fade = true;
             vm.Shown = false;
-            Assert.Equal((false, true, false), (link.Settings.Current.WidgetSnap, link.Settings.Current.WidgetFade, link.Settings.Current.WidgetsShown));
+            Assert.Equal((false, false), (link.Settings.Current.WidgetSnap, link.Settings.Current.WidgetsShown));
 
             Assert.False(vm.Record(0x57, HotkeyModifiers.Ctrl)); // nothing waiting for keys
             vm.RecordShortcutCommand.Execute("shown");

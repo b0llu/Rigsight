@@ -284,47 +284,8 @@ internal sealed class WidgetForm : Form
         Redraw();
     }
 
-    /// <summary>How solid the widget is: faded while the pointer is over a locked one, with that setting on.</summary>
-    private byte _opacity = 255;
-
-    private byte _fadeTo = 255, _fadeFrom = 255;
-    private long _fadeStart;
-    private System.Windows.Forms.Timer? _fadeTimer;
-
-    /// <summary>The fade's length: quick, and still seen as a fade (the user, 2026-11-10: it lagged, then jumped).</summary>
-    internal const int FadeMs = 120;
-
-    /// <summary>
-    /// Fades the widget out while the pointer is over it, and back when it leaves: over <see cref="FadeMs"/>, eased,
-    /// only the window's opacity changing (the picture isn't drawn again).
-    /// </summary>
-    public void SetFaded(bool faded)
-    {
-        byte target = !faded ? (byte)255 : Config.Locked ? (byte)30 : (byte)128;
-        if (target == _fadeTo) return;
-        (_fadeFrom, _fadeTo, _fadeStart) = (_opacity, target, Environment.TickCount64);
-        if (!IsHandleCreated || !Visible)
-        {
-            _opacity = target;
-            return;
-        }
-        if (_fadeTimer is null)
-        {
-            _fadeTimer = new System.Windows.Forms.Timer { Interval = 15 };
-            _fadeTimer.Tick += (_, _) => FadeStep();
-        }
-        _fadeTimer.Start();
-        FadeStep();
-    }
-
-    private void FadeStep()
-    {
-        double t = Math.Clamp((Environment.TickCount64 - _fadeStart) / (double)FadeMs, 0, 1);
-        double eased = 1 - Math.Pow(1 - t, 3); // quick at first, settling at the end
-        _opacity = (byte)Math.Round(_fadeFrom + (_fadeTo - _fadeFrom) * eased);
-        if (IsHandleCreated) Win32.SetLayeredAlpha(Handle, _opacity);
-        if (t >= 1) _fadeTimer?.Stop();
-    }
+    /// <summary>How solid the window is (the fade under the pointer was removed, the user, 2026-11-12).</summary>
+    private const byte Opacity = 255;
 
     public void Redraw()
     {
@@ -359,7 +320,7 @@ internal sealed class WidgetForm : Form
         var kept = StaysOnScreen(before, new Rectangle(panelAt, panel.Size), Screen.FromRectangle(before.IsEmpty ? new Rectangle(panelAt, panel.Size) : before).WorkingArea);
         if (Size != bmp.Size) Size = bmp.Size;
         Location = new Point(kept.X, kept.Y - Room);
-        Win32.SetLayeredBitmap(Handle, bmp, Location, _opacity); // opacity is in the bitmap (background and content apart)
+        Win32.SetLayeredBitmap(Handle, bmp, Location, Opacity); // opacity is in the bitmap (background and content apart)
         if (kept != panelAt)
         {
             Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} grew from {before.Width}x{before.Height} to {panel.Width}x{panel.Height} at {panelAt.X},{panelAt.Y}: moved to {kept.X},{kept.Y} to stay on its screen");
@@ -632,7 +593,6 @@ internal sealed class WidgetForm : Form
         if (disposing)
         {
             _hoverTimer.Dispose();
-            _fadeTimer?.Dispose();
             _anim?.Dispose();
         }
         base.Dispose(disposing);

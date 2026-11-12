@@ -299,14 +299,6 @@
                                     </Border>
                                     <Border Style="{StaticResource PaneRow}">
                                         <DockPanel>
-                                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Fade}" VerticalAlignment="Center"
-                                                      AutomationProperties.Name="{ctl:T 'Fade when the pointer is over them'}"
-                                                      ToolTip="{ctl:T 'Click-through widgets fade almost away, so you can click what\'s behind them. Others fade to half.'}" />
-                                            <TextBlock Text="{ctl:T 'Fade when the pointer is over them'}" Style="{StaticResource Body}" VerticalAlignment="Center" />
-                                        </DockPanel>
-                                    </Border>
-                                    <Border Style="{StaticResource PaneRow}">
-                                        <DockPanel>
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button Style="{StaticResource GhostButton}" Command="{Binding RecordShortcutCommand}" CommandParameter="shown" MinWidth="96"
                                                         AutomationProperties.Name="{ctl:T 'Set the shortcut for Desktop widgets'}">

@@ -114,9 +114,6 @@ public sealed class RigsightSettings
     /// </summary>
     public bool WidgetSnap { get; set; }
 
-    /// <summary>A widget fades while the pointer is over it: a click-through one almost away, so what's behind it can be read and clicked.</summary>
-    public bool WidgetFade { get; set; }
-
     /// <summary>The shortcut that turns <see cref="WidgetsShown"/> off and on ("Ctrl+Alt+W"); null: none.</summary>
     public string? WidgetsHotkey { get; set; }
 

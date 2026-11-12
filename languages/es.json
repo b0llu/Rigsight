@@ -5858,8 +5858,6 @@
     "FOR EVERY WIDGET": "PARA TODOS LOS WIDGETS",
     "Snap to edges and other widgets": "Ajustar a los bordes y a otros widgets",
     "Hold Alt while you drag to place one freely.": "Mantén Alt mientras arrastras para colocarlo libremente.",
-    "Fade when the pointer is over them": "Atenuar al pasar el puntero",
-    "Click-through widgets fade almost away, so you can click what's behind them. Others fade to half.": "Los widgets que dejan pasar los clics se atenúan casi del todo, así puedes hacer clic en lo que hay detrás. Los demás se atenúan a la mitad.",
     "Set the shortcut for Desktop widgets": "Definir el atajo para Widgets de escritorio",
     "Press the keys": "Pulsa las teclas",
     "Clear the shortcut for Desktop widgets": "Quitar el atajo para Widgets de escritorio",
@@ -7262,6 +7260,8 @@
     "Click-through": "Deja pasar los clics",
     "Add a widget": "Añadir un widget",
     "PLACE": "POSICIÓN",
-    "Weather from MET Norway, places from OpenStreetMap.": "El tiempo, de MET Norway; los lugares, de OpenStreetMap."
+    "Weather from MET Norway, places from OpenStreetMap.": "El tiempo, de MET Norway; los lugares, de OpenStreetMap.",
+    "Fade when the pointer is over them": "Atenuar al pasar el puntero",
+    "Click-through widgets fade almost away, so you can click what's behind them. Others fade to half.": "Los widgets que dejan pasar los clics se atenúan casi del todo, así puedes hacer clic en lo que hay detrás. Los demás se atenúan a la mitad."
   }
 }
