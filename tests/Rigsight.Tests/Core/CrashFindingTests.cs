@@ -63,9 +63,40 @@ public sealed class CrashFindingTests
         // 26 Oct 2026, 11:24 AM on the real PC: CPU 78°, GPU 53° at light load said "close to the 49° and 48° this PC sits at
         // when idle" and "it was cool".
         var f = CrashFindings.Judge(Input(ShutOff(), Idle(cpu: 78, gpu: 53) with { LastActive = TimeUtil.ToUnix(At) }) with { Rest = new LoadTemps(49, 48, 3700) });
-        Assert.Contains(f.RuledOut, p => p is { Title: "It wasn't overheating", Detail: "The CPU was at 78° and the GPU at 53°, under your alert limits." });
         Assert.DoesNotContain("cool", f.Text);
         Assert.DoesNotContain("cool", f.Line);
+        // Nor "it wasn't overheating" (12 Nov 2026): warm for doing little is said as that, against this PC's usual.
+        Assert.DoesNotContain(f.RuledOut, p => p.Title == "It wasn't overheating");
+        Assert.Contains(f.Points, p => p is { Title: "It was warm for what it was doing", Detail: "The CPU was at 78° while it was doing little, against the 49° this PC sits at when idle." });
+    }
+
+    [Fact]
+    public void With_no_usual_yet_a_cpu_doing_little_is_warm_from_80_and_not_known_below()
+    {
+        // 12 Nov 2026 on a real PC two hours after RigSight was installed: a Ryzen 5 5600X at 76° while 4% busy before a
+        // blue screen was "It wasn't overheating", and every sudden shut-off on it was left unexplained.
+        var hot = CrashFindings.Judge(Input(ShutOff(), Idle(cpu: 82, gpu: 44) with { LastActive = TimeUtil.ToUnix(At) }));
+        Assert.Contains(hot.Points, p => p is { Title: "It was warm for what it was doing", Detail: "The CPU was at 82° while it was doing little. That is warm for so light a load; this PC has no usual at rest yet to compare with." });
+        Assert.DoesNotContain(hot.RuledOut, p => p.Title == "It wasn't overheating");
+        var unsure = CrashFindings.Judge(Input(ShutOff(), Idle(cpu: 76, gpu: 43) with { LastActive = TimeUtil.ToUnix(At) }));
+        Assert.Contains(unsure.NotChecked, p => p is { Title: "Whether it was warm for what it was doing", Detail: "The CPU was at 76° while it was doing little, and this PC has no usual at rest yet to compare with." });
+        Assert.DoesNotContain(unsure.RuledOut, p => p.Title == "It wasn't overheating");
+        Assert.DoesNotContain("cool", unsure.Text);
+        // A cool one is still cleared, usual or not.
+        var cool = CrashFindings.Judge(Input(ShutOff(), Idle()));
+        Assert.Contains(cool.RuledOut, p => p.Title == "It wasn't overheating");
+    }
+
+    [Fact]
+    public void Came_back_on_is_windows_own_start_when_we_were_not_recording_before()
+    {
+        // 12 Nov 2026: a shut-off at 12:41 PM said "It came back on at 2:41 PM", the minute RigSight began recording after
+        // it was installed, with a blue screen at 2:17 PM in between. Windows' next start says when it really came back.
+        var f = CrashFindings.Judge(Input(ShutOff(), new CrashContext(null, null, null, null) { Minutes = 0, BackOn = TimeUtil.ToUnix(At.AddMinutes(120)) }));
+        Assert.Contains(f.Points, p => p is { Title: "It came back on at 10:26 AM", Detail: "5 minutes later." });
+        Assert.DoesNotContain(f.Points, p => p.Title == "It came back on at 12:21 PM");
+        // Recording before it, our own first minute after is still the one used.
+        Assert.Contains(CrashFindings.Judge(Input(ShutOff(), Idle())).Points, p => p.Title == "It came back on at 10:27 AM");
     }
 
     [Fact]

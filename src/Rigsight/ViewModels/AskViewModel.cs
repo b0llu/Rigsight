@@ -645,7 +645,27 @@ public sealed partial class AskViewModel : ObservableObject
     /// way, under an older answer, or after a problem. A quiet note under the answer (web search not working) doesn't hide them.
     /// </summary>
     public IReadOnlyList<string> NextQuestions =>
-        !IsAnswering && Current?.Messages.LastOrDefault(m => m is AskAnswer or AskQuestion or AskProblem) is AskAnswer last ? last.Suggestions : [];
+        !IsAnswering && Current?.Messages.LastOrDefault(m => m is AskAnswer or AskQuestion or AskProblem) is AskAnswer last ? Fresh(last, Current.Messages) : [];
+
+    /// <summary>
+    /// The latest answer's questions without any this conversation already asked or offered under an earlier answer:
+    /// tapping one only brought the same answer back (a blue-screen chat offered "Did the blue screens start after the
+    /// 11 Nov updates?" under two answers in a row, 12 Nov 2026).
+    /// </summary>
+    private static IReadOnlyList<string> Fresh(AskAnswer last, IEnumerable<AskMessage> messages)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var m in messages)
+        {
+            if (ReferenceEquals(m, last)) break;
+            if (m is AskQuestion q) seen.Add(SameWords(q.Text));
+            else if (m is AskAnswer a) foreach (var s in a.Suggestions) seen.Add(SameWords(s));
+        }
+        return seen.Count == 0 ? last.Suggestions : [.. last.Suggestions.Where(s => !seen.Contains(SameWords(s)))];
+    }
+
+    /// <summary>A question's words alone, so "Is the drive healthy?" and "is the drive healthy" are the same one.</summary>
+    private static string SameWords(string text) => string.Join(' ', text.Split([' ', '?', '!', '.', '¿', '¡', ','], StringSplitOptions.RemoveEmptyEntries));
     public bool HasNextQuestions => NextQuestions.Count > 0;
 
     public bool IsEmpty => Current is null || Current.Messages.Count == 0;

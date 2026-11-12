@@ -282,6 +282,25 @@ public sealed class AskAnswerTests
         });
     }
 
+    // A blue-screen chat (12 Nov 2026) offered the same question under two answers in a row: tapping it only brought the
+    // same answer back. One already offered, or already asked, isn't offered again.
+    [Fact]
+    public void A_question_already_offered_or_asked_is_not_offered_again()
+    {
+        Ui.Run(() =>
+        {
+            var window = new AskViewModel(Kit.OfflineSettings(new RigsightSettings()));
+            var talk = new AskConversation { Title = "t" };
+            window.Conversations.Add(talk);
+            window.Current = talk;
+            talk.Messages.Add(new AskQuestion("Explain this blue screen"));
+            talk.Messages.Add(AskViewModel.ToAnswer("A 0xEF.\nIt stopped.\nAsk next: Did it start after the updates? | Is the drive healthy?", []));
+            talk.Messages.Add(new AskQuestion("Is the drive healthy?"));
+            talk.Messages.Add(AskViewModel.ToAnswer("It's fine.\nGood health.\nAsk next: did it start after the updates | Is the drive healthy? | Was the CPU hot?", []));
+            Assert.Equal(["Was the CPU hot?"], window.NextQuestions);
+        });
+    }
+
     // Nothing but the one sentence: no box, no drawn numbers, and (alone) not a bold headline.
     private static void OnlyWords(AskAnswer answer, string text)
     {

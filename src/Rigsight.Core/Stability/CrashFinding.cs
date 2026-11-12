@@ -211,7 +211,11 @@ public static class CrashFindings
         // (no use in the four hours looked at, of which fewer may have been recorded: no figure is made up).
         int? idle = has && c!.LastActive is long last ? (int)Math.Max(0, (e.Ts - last - 60) / 60) : has ? int.MaxValue : null;
         string idleFor = idle == int.MaxValue ? Lang.T("some time") : Wording.Minutes(idle ?? 0);
-        int? backOn = c?.BackOn is long on && on - e.Ts <= 3 * 3600 ? (int)Math.Max(1, (on - e.Ts) / 60) : null;
+        // When it was back on: our first recorded minute after it only where we were recording before it; otherwise that
+        // minute is just when recording began (RigSight installed two hours later read as "came back on at 2:41 PM",
+        // with a blue screen at 2:17 PM in between: real PC, 12 Nov 2026), so Windows' own next start is used instead.
+        long? backAt = has ? c!.BackOn : f?.NextStart is long start0 && start0 > e.Ts ? start0 : null;
+        int? backOn = backAt is long on && on - e.Ts <= 3 * 3600 ? (int)Math.Max(1, (on - e.Ts) / 60) : null;
         string? front = x.FrontApp;
         string back = backOn is int b ? " " + Lang.T($"Back on {Wording.Minutes(b)} later.") : "";
         // What Windows itself noted about the power button; null where it noted nothing either way.
@@ -246,7 +250,7 @@ public static class CrashFindings
             else if (light) points.Add(new("pc", Lang.T("It wasn't doing much"), (inFront + loads).Trim()));
             else if (loads.Length > 0) points.Add(new("pc", Lang.T("It was working hard"), (inFront + loads + (c!.GpuPower is double w ? " " + Lang.T($"The GPU was drawing {w:0} W.") : "")).Trim()));
         }
-        if (backOn is int n) points.Add(new("clock", Lang.T($"It came back on at {TimeUtil.FromUnix(c!.BackOn!.Value):h:mm tt}"), Lang.T($"{Wording.Capital(Wording.Minutes(n))} later.")));
+        if (backOn is int n) points.Add(new("clock", Lang.T($"It came back on at {TimeUtil.FromUnix(backAt!.Value):h:mm tt}"), Lang.T($"{Wording.Capital(Wording.Minutes(n))} later.")));
         if (Before(x) is { } before) points.Add(before);
         points.AddRange(signs);
         if (heat.Hot) points.Add(new("warn", HotTitle, heat.Evidence.Detail)); else ruled.Add(heat.Evidence);
@@ -677,6 +681,18 @@ public static class CrashFindings
             if (c.CpuBefore is double cb && r.Cpu is double rc) { restCpu = Units.TempShort(rc); warmCpu = cb - rc > CloseToRest; }
             if (c.GpuBefore is double gb && r.Gpu is double rg) { restGpu = Units.TempShort(rg); warmGpu = gb - rg > CloseToRest; }
         }
+        // Warm for doing little is not "it wasn't overheating", though under the alert limits: a Ryzen 5 5600X at 76° to 89°
+        // while 2-21% busy was cleared that way, with every sudden shut-off unexplained (real PC, 12 Nov 2026). Against
+        // this PC's own usual at rest where that is known; with no usual yet, 80° or more is warm for so light a load, and
+        // a lower reading that a usual could still show warm is left as not known.
+        if (light && (warmCpu || warmGpu))
+            return (new("warn", WarmTitle, warmCpu
+                ? Lang.T($"The CPU was at {cpuT} while it was doing little, against the {restCpu} this PC sits at when idle.")
+                : Lang.T($"The GPU was at {gpuT} while it was doing little, against the {restGpu} this PC sits at when idle.")), false, true, false, now);
+        if (light && restCpu is null && c.CpuBefore is double idleCpu && idleCpu >= UnsureAtRest)
+            return idleCpu >= WarmAtRest
+                ? (new("warn", WarmTitle, Lang.T($"The CPU was at {cpuT} while it was doing little. That is warm for so light a load; this PC has no usual at rest yet to compare with.")), false, true, false, now)
+                : (new("unknown", Lang.T("Whether it was warm for what it was doing"), Lang.T($"The CPU was at {cpuT} while it was doing little, and this PC has no usual at rest yet to compare with.")), false, true, false, now);
         // Close to this PC's usual at rest only where that is known for every part that was read, and the reading really
         // is near it: 78° against 49° at rest was called "close" (real PC, 26 Oct 2026).
         bool close = (cpuT is null || restCpu is not null && !warmCpu) && (gpuT is null || restGpu is not null && !warmGpu);
@@ -697,6 +713,14 @@ public static class CrashFindings
 
     /// <summary>How far above its usual at rest a part may be and still be "close" to it (and the PC "cool").</summary>
     private const double CloseToRest = 10;
+
+    /// <summary>A CPU this warm while doing little is warm for its load, on a PC with no usual at rest yet.</summary>
+    private const double WarmAtRest = 80;
+
+    /// <summary>From here up to <see cref="WarmAtRest"/>, a CPU doing little on a PC with no usual at rest yet isn't called cool or warm.</summary>
+    private const double UnsureAtRest = 65;
+
+    public static string WarmTitle => Lang.T("It was warm for what it was doing");
 
     private static Evidence? Memory(CrashInput x)
     {
