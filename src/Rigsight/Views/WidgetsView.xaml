@@ -923,10 +923,6 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </DockPanel>
-                                <DockPanel Style="{StaticResource EditRow}">
-                                    <TextBlock Text="{ctl:T 'Lock in place (click-through)'}" Style="{StaticResource EditLabel}" />
-                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Locked}" AutomationProperties.Name="{ctl:T 'Lock in place (click-through)'}" />
-                                </DockPanel>
 
                                     </StackPanel>
                                 </StackPanel>

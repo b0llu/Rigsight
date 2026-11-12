@@ -593,7 +593,6 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         menu.Items.Add(size);
 
         menu.Items.Add(Check(Lang.T("Grayscale"), cfg.Grayscale, () => Mutate(cfg.Id, c => c.Grayscale = !c.Grayscale)));
-        menu.Items.Add(Check(Lang.T("Lock in place (click-through)"), cfg.Locked, () => Mutate(cfg.Id, c => c.Locked = !c.Locked)));
         menu.Items.Add(new ToolStripSeparator());
 
         // Another screen, at the same corner: only with two screens or more.
@@ -676,7 +675,6 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
             if (custom.Count > 0) root.DropDownItems.Add(new ToolStripSeparator());
             foreach (var cfg in custom) root.DropDownItems.Add(Toggle(cfg));
             root.DropDownItems.Add(new ToolStripSeparator());
-            root.DropDownItems.Add(Item(Lang.T("Unlock all widgets"), () => mutateSettings(s => s.Widgets.ForEach(w => w.Locked = false))));
             root.DropDownItems.Add(Item(Lang.T("Widget settings…"), () => openWidgetSettings(null)));
         };
         root.DropDownItems.Add("…"); // placeholder so the arrow shows

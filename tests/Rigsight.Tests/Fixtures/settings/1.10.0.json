@@ -133,7 +133,6 @@
       "BackgroundOpacity": 0.5,
       "ContentOpacity": 0.8,
       "Scale": 1.25,
-      "Locked": true,
       "Theme": "Light",
       "Grayscale": true,
       "Visibility": "HideInFullscreen",
@@ -151,7 +150,6 @@
       "BackgroundOpacity": 0.7,
       "ContentOpacity": 0.9,
       "Scale": 1.5,
-      "Locked": false,
       "Theme": "Grey",
       "Grayscale": false,
       "Visibility": "Always"
@@ -168,7 +166,6 @@
       "BackgroundOpacity": 0.94,
       "ContentOpacity": 1,
       "Scale": 1,
-      "Locked": false,
       "Theme": "System",
       "Grayscale": true,
       "Visibility": "Always"
@@ -185,7 +182,6 @@
       "BackgroundOpacity": 1,
       "ContentOpacity": 1,
       "Scale": 1,
-      "Locked": false,
       "Theme": "Dark",
       "Grayscale": false,
       "Visibility": "Always"
@@ -202,7 +198,6 @@
       "BackgroundOpacity": 0.94,
       "ContentOpacity": 0.94,
       "Scale": 1,
-      "Locked": false,
       "Theme": "Dark",
       "Grayscale": true,
       "Visibility": "Always"
@@ -219,7 +214,6 @@
       "BackgroundOpacity": 0.94,
       "ContentOpacity": 0.94,
       "Scale": 2,
-      "Locked": false,
       "Theme": "Dark",
       "Grayscale": true,
       "Visibility": "Always"
@@ -236,7 +230,6 @@
       "BackgroundOpacity": 0.3,
       "ContentOpacity": 1,
       "Scale": 0.8,
-      "Locked": true,
       "Theme": "Dark",
       "Grayscale": true,
       "Visibility": "Always"
@@ -266,7 +259,6 @@
       "BackgroundOpacity": 0.6,
       "ContentOpacity": 0.9,
       "Scale": 1.1,
-      "Locked": true,
       "Theme": "Light",
       "Grayscale": false,
       "Visibility": "HideInFullscreen"

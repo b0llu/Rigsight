@@ -8,7 +8,7 @@ namespace Rigsight.Agent.Widgets;
 
 /// <summary>
 /// A borderless, per-pixel-alpha window that shows one widget. It never takes focus (so it won't
-/// steal input from a game), can be dragged anywhere, and becomes click-through when locked.
+/// steal input from a game), and can be dragged anywhere.
 /// </summary>
 /// <remarks>
 /// The window is a little bigger than the widget, above and to the right of it: room for the badge with the cross that
@@ -246,7 +246,6 @@ internal sealed class WidgetForm : Form
             var cp = base.CreateParams;
             cp.ExStyle |= Win32.WS_EX_LAYERED | Win32.WS_EX_TOOLWINDOW | Win32.WS_EX_NOACTIVATE;
             // Called from the base constructor, before Config is assigned.
-            if (Config is { Locked: true }) cp.ExStyle |= Win32.WS_EX_TRANSPARENT;
             return cp;
         }
     }
@@ -265,7 +264,7 @@ internal sealed class WidgetForm : Form
         if (IsHandleCreated)
         {
             long ex = (long)Win32.GetWindowLongPtr(Handle, Win32.GWL_EXSTYLE);
-            ex = config.Locked ? ex | Win32.WS_EX_TRANSPARENT : ex & ~Win32.WS_EX_TRANSPARENT;
+            ex &= ~Win32.WS_EX_TRANSPARENT;
             Win32.SetWindowLongPtr(Handle, Win32.GWL_EXSTYLE, (IntPtr)ex);
         }
         Redraw();
@@ -349,8 +348,8 @@ internal sealed class WidgetForm : Form
         var before = _drawnOnce ? PanelBounds : Rectangle.Empty;
         _drawnOnce = true;
         Room = RoomFor(DeviceDpi);
-        WidgetRenderer.Pointer = Config.Locked ? null : PointerState();
-        // The hover isn't tied to the lock: a widget gets one whenever the pointer reaches it (a click-through one never does).
+        WidgetRenderer.Pointer = PointerState();
+        // Every widget answers the pointer: the lock (click-through) was taken out at the user's word, 2026-11-12.
         WidgetRenderer.Hover = _hoverOn;
         using var panel = WidgetRenderer.Render(Config, _data, scale, hover: false, out _);
         WidgetRenderer.Pointer = null;
@@ -369,7 +368,7 @@ internal sealed class WidgetForm : Form
             g.Clear(Color.Transparent);
             g.DrawImageUnscaled(panel, 0, Room);
             _closeRect = RectangleF.Empty;
-            if (_hover && !Config.Locked)
+            if (_hover)
             {
                 _closeRect = BadgeRect(panel.Size, scale);
                 DrawBadge(g, _closeRect, DeviceDpi / 96f);
@@ -576,20 +575,19 @@ internal sealed class WidgetForm : Form
         switch (m.Msg)
         {
             case WM_NCHITTEST:
-                if (Config.Locked) { m.Result = HTTRANSPARENT; return; }
                 var pt = PointToClient(new Point((short)((long)m.LParam & 0xFFFF), (short)(((long)m.LParam >> 16) & 0xFFFF)));
                 // The close badge and a tile's clickable places are clicked; anywhere else a press drags the widget.
                 m.Result = _closeRect.Contains(pt) || HitAt(pt) is not null ? HTCLIENT : HTCAPTION;
                 return;
 
-            case WM_SETCURSOR when !Config.Locked && HitAt(PointToClient(Cursor.Position)) is not null:
+            case WM_SETCURSOR when HitAt(PointToClient(Cursor.Position)) is not null:
                 Cursor.Current = Cursors.Hand;
                 m.Result = 1;
                 return;
 
-            case WM_MOUSEWHEEL when !Config.Locked:
+            case WM_MOUSEWHEEL:
                 // Over a tile that holds more than it shows (a note, a to-do list, a list of fans or apps…): scrolled (a
-                // notch down shows what's under). A click-through widget never gets the wheel: the pointer passes through.
+                // notch down shows what's under).
                 long lp = (long)m.LParam;
                 var wheelAt = PointToClient(new Point((short)(lp & 0xFFFF), (short)((lp >> 16) & 0xFFFF)));
                 if (ScrollTileAt(wheelAt) is int scrolled)
@@ -616,7 +614,7 @@ internal sealed class WidgetForm : Form
                     Redraw();
                 }
                 _hoverTimer.Start();
-                PointAt(m.Msg == WM_MOUSEMOVE && !Config.Locked ? HitAt(PointToClient(Cursor.Position)) : null);
+                PointAt(m.Msg == WM_MOUSEMOVE ? HitAt(PointToClient(Cursor.Position)) : null);
                 HoverAt(PointToClient(Cursor.Position));
                 if (m.Msg == WM_MOUSEMOVE && _press is { } from && (MouseButtons & MouseButtons.Left) != 0 && Moved(from, Cursor.Position))
                 {

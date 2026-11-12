@@ -232,9 +232,6 @@ public sealed class WidgetConfig
 
     public double Scale { get; set; } = 1.0;
 
-    /// <summary>Locked widgets can't be dragged and let clicks pass through to what's underneath.</summary>
-    public bool Locked { get; set; }
-
     public WidgetTheme Theme { get; set; } = WidgetTheme.Dark;
 
     /// <summary>Labels grey and readings white instead of coloured, as the overlay can.</summary>

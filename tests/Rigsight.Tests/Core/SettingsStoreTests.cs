@@ -67,7 +67,7 @@ public sealed class SettingsStoreTests
     public void A_removed_built_in_widget_stays_removed_from_v13_on()
     {
         const string widgets = """
-            "Widgets": [ { "Style": "Pill", "Enabled": true, "X": 40, "Y": 20, "Theme": "Light", "Locked": true },
+            "Widgets": [ { "Style": "Pill", "Enabled": true, "X": 40, "Y": 20, "Theme": "Light" },
                          { "Style": "Custom", "Id": "custom-1", "Name": "Desk", "Tiles": [ { "Kind": "clock", "W": 6, "H": 2 } ] } ]
             """;
         var old = SettingsStore.Deserialize($$"""{ "SettingsVersion": 12, {{widgets}} }""");
@@ -77,7 +77,7 @@ public sealed class SettingsStoreTests
         foreach (var s in new[] { old, now })
         {
             var pill = s.Widgets.Single(w => w.Style == WidgetStyle.Pill);
-            Assert.Equal((true, 40, 20, WidgetTheme.Light, true), (pill.Enabled, pill.X, pill.Y, pill.Theme, pill.Locked));
+            Assert.Equal((true, 40, 20, WidgetTheme.Light), (pill.Enabled, pill.X, pill.Y, pill.Theme));
             var desk = s.Widgets.Single(w => w.Id == "custom-1");
             Assert.Equal(("Desk", WidgetTiles.Clock), (desk.Name, Assert.Single(desk.Tiles!).Kind));
         }
@@ -309,7 +309,7 @@ public sealed class SettingsStoreTests
         s.Alerts.GpuHotSpotLimit = 95.5;
         s.Widgets[0].X = -1920;
         s.Widgets[0].Y = 40;
-        s.Widgets[0].Locked = true;
+        s.Widgets[0].Grayscale = true;
         s.Overlay.Sensors.Add(new OverlaySensor { Id = "/gpu/0/temp", Label = "Hot spot" });
         s.Overlay.Layout = OverlayLayout.Line;
         s.Overlay.Grayscale = true;

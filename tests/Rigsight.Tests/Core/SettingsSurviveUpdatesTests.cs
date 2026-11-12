@@ -20,6 +20,7 @@ public sealed class SettingsSurviveUpdatesTests
     private static readonly Dictionary<string, string> Removed = new()
     {
         ["WidgetFade"] = "the fade under the pointer was taken out at the user's word (2026-11-12): widgets stay solid, and hover boxes need them readable",
+        ["Widgets[].Locked"] = "lock in place (click-through) was taken out at the user\'s word (2026-11-12): every widget answers the pointer, for hover and scrolling; a widget saved locked comes back movable",
     };
 
     /// <summary>Parts of the file that aren't someone's settings, so they may change: the path and why.</summary>
@@ -100,10 +101,13 @@ public sealed class SettingsSurviveUpdatesTests
             + string.Join("\n  ", same) + "\nGive them another value there (in a new file for a coming release), or add them to MayBeDefault with why.");
     }
 
+    /// <summary>A path taken out for good; a list item's place doesn't matter ("Widgets[3].Locked" is "Widgets[].Locked").</summary>
+    private static bool IsRemoved(string path) => Removed.ContainsKey(System.Text.RegularExpressions.Regex.Replace(path, @"\[\d+\]", "[]"));
+
     /// <summary>Everything in <paramref name="before"/> must be in <paramref name="after"/> with the same value; what's new in after is fine.</summary>
     private static void Compare(JsonNode? before, JsonNode? after, string path, List<string> changed)
     {
-        if (Removed.ContainsKey(path) || NotSettings.ContainsKey(path)) return;
+        if (IsRemoved(path) || NotSettings.ContainsKey(path)) return;
         switch (before)
         {
             case JsonObject b:
@@ -111,7 +115,7 @@ public sealed class SettingsSurviveUpdatesTests
                 foreach (var (key, value) in b)
                 {
                     string at = Join(path, key);
-                    if (Removed.ContainsKey(at) || NotSettings.ContainsKey(at)) continue;
+                    if (IsRemoved(at) || NotSettings.ContainsKey(at)) continue;
                     if (!a.TryGetPropertyValue(key, out var now)) changed.Add($"{at}: gone (was {Text(value)})");
                     else Compare(value, now, at, changed);
                 }

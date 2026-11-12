@@ -13,7 +13,7 @@ namespace Rigsight.ViewModels;
 /// <summary>
 /// A widget the person has, on the Widgets page (approved mock-up UckKnwokm5kF7JjdjHZpqd, "Two panes"): a row in the list
 /// (its picture, name, the screen it's on, its switch) and, picked, the pane beside it (its picture at its size, where it
-/// is, and where it sits, Click-through and its size).
+/// is, and where it sits and its size).
 /// </summary>
 public sealed partial class WidgetCard : ObservableObject
 {
@@ -64,21 +64,6 @@ public sealed partial class WidgetCard : ObservableObject
             _page.CardsChanged();
         }
     }
-
-    /// <summary>Click-through: it can't be dragged and clicks go to what's behind it (the editor's "Lock in place").</summary>
-    public bool Locked
-    {
-        get => Config.Locked;
-        set
-        {
-            if (value == Locked) return;
-            _settings.Update(s => { if (s.Widgets.FirstOrDefault(w => w.Id == Id) is { } c) c.Locked = value; });
-            OnPropertyChanged(nameof(Locked));
-        }
-    }
-
-    [RelayCommand]
-    private void ToggleLocked() => Locked = !Locked;
 
     [RelayCommand]
     private void Remove() => _page.Remove(this);
@@ -197,7 +182,6 @@ public sealed partial class WidgetCard : ObservableObject
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Description));
         OnPropertyChanged(nameof(Enabled));
-        OnPropertyChanged(nameof(Locked));
         OnPropertyChanged(nameof(Where));
         OnPropertyChanged(nameof(Line));
         OnPropertyChanged(nameof(Theme));

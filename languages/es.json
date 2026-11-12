@@ -125,7 +125,6 @@
     "Large": "Grande",
     "Extra large": "Muy grande",
     "Grayscale": "Escala de grises",
-    "Lock in place (click-through)": "Fijar en su sitio (deja pasar los clics)",
     "Move to": "Mover a",
     "Main screen": "Pantalla principal",
     "Screen {0}": "Pantalla {0}",
@@ -139,7 +138,6 @@
     "Light": "Claro",
     "System": "Sistema",
     "Widgets": "Widgets",
-    "Unlock all widgets": "Desbloquear todos los widgets",
     "Widget settings…": "Ajustes de widgets…",
     "{0} o'clock": "{0} en punto",
     "Five past {0}": "{0} y cinco",
@@ -7283,6 +7281,8 @@
     "Weather from MET Norway, places from OpenStreetMap.": "El tiempo, de MET Norway; los lugares, de OpenStreetMap.",
     "Fade when the pointer is over them": "Atenuar al pasar el puntero",
     "Click-through widgets fade almost away, so you can click what's behind them. Others fade to half.": "Los widgets que dejan pasar los clics se atenúan casi del todo, así puedes hacer clic en lo que hay detrás. Los demás se atenúan a la mitad.",
-    "Short name": "Nombre corto"
+    "Short name": "Nombre corto",
+    "Lock in place (click-through)": "Fijar en su sitio (deja pasar los clics)",
+    "Unlock all widgets": "Desbloquear todos los widgets"
   }
 }

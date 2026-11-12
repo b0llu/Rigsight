@@ -329,7 +329,7 @@ internal static partial class WidgetRenderer
             if (!sharpText) Compose(final, content, panel, scale, pal.Bg, pal.Border, cfg.BackgroundOpacity, cfg.ContentOpacity);
             // The close button stays fully visible, whatever the opacity: it's how you get rid of the widget.
             var close = pill ? new RectangleF(w - 24, (h - 18) / 2, 18, 18) : new RectangleF(w - 26, 6, 20, 20);
-            if (hover && !cfg.Locked)
+            if (hover)
             {
                 final.SmoothingMode = SmoothingMode.AntiAlias;
                 final.ScaleTransform(scale, scale);

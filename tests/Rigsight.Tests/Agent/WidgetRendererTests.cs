@@ -113,7 +113,7 @@ public class WidgetRendererTests
     [InlineData(WidgetStyle.Compact)]
     [InlineData(WidgetStyle.Pill)]
     [InlineData(WidgetStyle.NowPlaying)]
-    public void The_close_button_shows_on_hover_unless_locked(WidgetStyle style)
+    public void The_close_button_shows_on_hover(WidgetStyle style)
     {
         var cfg = new WidgetConfig { Style = style };
         using var plain = WidgetRenderer.Render(cfg, Full(), 1.5f, hover: false, out var r1);
@@ -121,9 +121,6 @@ public class WidgetRendererTests
         Assert.False(SamePixels(plain, hover));
         Assert.Equal(r1, r2);
 
-        cfg.Locked = true;
-        using var locked = WidgetRenderer.Render(cfg, Full(), 1.5f, hover: true, out _);
-        Assert.True(SamePixels(plain, locked));
     }
 
     [Theory]

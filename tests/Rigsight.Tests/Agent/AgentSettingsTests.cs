@@ -72,15 +72,14 @@ public class AgentSettingsTests
     {
         var app = App();
         var pill = app.Widgets.Single(w => w.Style == WidgetStyle.Pill);
-        (pill.Enabled, pill.Theme, pill.Scale, pill.BackgroundOpacity, pill.ContentOpacity, pill.Locked, pill.Visibility, pill.X) =
-            (false, WidgetTheme.Light, 1.5, 0.3, 0.7, true, WidgetVisibility.HideInFullscreen, 5);
+        (pill.Enabled, pill.Theme, pill.Scale, pill.BackgroundOpacity, pill.ContentOpacity, pill.Visibility, pill.X) =
+            (false, WidgetTheme.Light, 1.5, 0.3, 0.7, WidgetVisibility.HideInFullscreen, 5);
         var merged = Merge(app, Agents()).Widgets.Single(w => w.Style == WidgetStyle.Pill);
         Assert.False(merged.Enabled);
         Assert.Equal(WidgetTheme.Light, merged.Theme);
         Assert.Equal(1.5, merged.Scale);
         Assert.Equal(0.3, merged.BackgroundOpacity);
         Assert.Equal(0.7, merged.ContentOpacity);
-        Assert.True(merged.Locked);
         Assert.Equal(WidgetVisibility.HideInFullscreen, merged.Visibility);
         Assert.Equal(100 + (int)WidgetStyle.Pill * 10, merged.X);
     }

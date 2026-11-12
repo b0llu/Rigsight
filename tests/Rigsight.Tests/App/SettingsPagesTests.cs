@@ -578,12 +578,11 @@ public sealed class SettingsPageTests
             ed.ContentPercent = 10; // never below 20%
             ed.Corners = nameof(WidgetCorners.Square);
             ed.TileBoxesOn = true;
-            ed.Locked = true;
             ed.Enabled = false;
             var w = Saved();
             Assert.Equal(("Desk", WidgetTheme.Light, "#22D3EE", "Bahnschrift", true, 1.5), (w.Name, w.Theme, w.Accent, w.Font, w.Grayscale, w.Scale));
             Assert.Equal((0.4, 0.2, WidgetCorners.Square, true, true), (Math.Round(w.BackgroundOpacity, 2), Math.Round(w.ContentOpacity, 2), w.Corners, w.TileBoxes, w.Gap != WidgetGap.None));
-            Assert.Equal((true, false), (w.Locked, w.Enabled));
+            Assert.False(w.Enabled);
             ed.Accent = "";
             Assert.Null(Saved().Accent);
             vm.CloseEditorCommand.Execute(null);
@@ -719,8 +718,8 @@ public sealed class SettingsPageTests
             link.Settings.Update(s => (s.Widgets.Single(w => w.Id == ed.Id).X, s.Widgets.Single(w => w.Id == ed.Id).Y) = (900, 40));
             ed.UndoCommand.Execute(null);
             Assert.Equal((900, 40, WidgetTheme.App), (Saved().X, Saved().Y, Saved().Theme));
-            ed.Locked = true;
-            Assert.Equal((900, 40, true), (Saved().X, Saved().Y, Saved().Locked));
+            ed.Grayscale = true;
+            Assert.Equal((900, 40, true), (Saved().X, Saved().Y, Saved().Grayscale));
             vm.CloseEditorCommand.Execute(null);
         });
     }
@@ -826,13 +825,12 @@ public sealed class SettingsPageTests
             vm.MineQuery = "";
             Assert.Equal("", vm.NoMineText);
 
-            // The picked one's quick settings: Click-through is the editor's Lock in place; its size.
+            // The picked one's quick settings: its size.
             var second = vm.Cards[1];
             vm.PickedRow = second;
             Assert.Same(second, vm.Picked);
-            vm.Picked!.Locked = true;
-            vm.Picked.Size = "1.5";
-            Assert.Equal((true, 1.5), (link.Settings.Current.Widgets[1].Locked, link.Settings.Current.Widgets[1].Scale));
+            vm.Picked!.Size = "1.5";
+            Assert.Equal(1.5, link.Settings.Current.Widgets[1].Scale);
 
             // A search that hides the picked one picks the first one it shows.
             vm.MineQuery = "slim";
@@ -855,7 +853,7 @@ public sealed class SettingsPageTests
             Assert.Null(vm.PickedId);
             removed.UndoCommand.Execute(null);
             Assert.Equal(id, link.Settings.Current.Widgets[1].Id);
-            Assert.True(link.Settings.Current.Widgets[1].Locked);
+            Assert.Equal(1.5, link.Settings.Current.Widgets[1].Scale);
             Assert.Equal(id, vm.PickedId);
             Assert.DoesNotContain(vm.Grid, o => o is RemovedWidget);
             Assert.Equal(id, Assert.IsType<WidgetCard>(vm.Grid[1]).Id);

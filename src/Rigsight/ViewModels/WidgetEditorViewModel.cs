@@ -148,7 +148,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     private void KeepSavedPlace()
     {
         if (_settings.Current.Widgets.FirstOrDefault(w => w.Id == Id) is not { } now) return;
-        (_w.X, _w.Y, _w.Enabled, _w.Locked) = (now.X, now.Y, now.Enabled, now.Locked);
+        (_w.X, _w.Y, _w.Enabled) = (now.X, now.Y, now.Enabled);
     }
 
     private void Commit()
@@ -1263,18 +1263,6 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     }
 
     // ── On the desktop ──────────────────────────────────────────────────
-
-    public bool Locked
-    {
-        get => _w.Locked;
-        set
-        {
-            if (value == _w.Locked) return;
-            TakeSaved();
-            _w.Locked = value;
-            Commit();
-        }
-    }
 
     /// <summary>How much bigger Fit shows a small widget, at most.</summary>
     public const double MaxFit = 2;

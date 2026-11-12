@@ -150,10 +150,10 @@ public class TrayMenuTests
     }
 
     [Fact]
-    public void The_widgets_submenu_turns_widgets_on_and_off_and_unlocks_them()
+    public void The_widgets_submenu_turns_widgets_on_and_off()
     {
         var settings = new RigsightSettings();
-        foreach (var w in settings.Widgets) (w.Enabled, w.Locked) = (w.Style == WidgetStyle.Pill, true);
+        foreach (var w in settings.Widgets) w.Enabled = w.Style == WidgetStyle.Pill;
         int opened = 0;
         var widgets = new WidgetManager(() => settings, change => change(settings), _ => opened++);
         var root = widgets.BuildTrayMenu();
@@ -164,7 +164,7 @@ public class TrayMenuTests
             // The FPS widget first, as on the app's Widgets page.
             var names = WidgetCatalog.Listed.Select(WidgetManager.DisplayName).ToList();
             Assert.Equal("FPS", names[0]);
-            Assert.Equal([.. names, "", "Unlock all widgets", "Widget settings…"],
+            Assert.Equal([.. names, "", "Widget settings…"],
                 root.DropDownItems.Cast<ToolStripItem>().Select(i => i is ToolStripSeparator ? "" : i.Text));
             Assert.Equal(["Slim bar"], root.DropDownItems.OfType<ToolStripMenuItem>().Where(i => i.Checked).Select(i => i.Text));
 
@@ -176,8 +176,6 @@ public class TrayMenuTests
             DropDownOpening(root);
             Assert.Equal(["Gauges"], root.DropDownItems.OfType<ToolStripMenuItem>().Where(i => i.Checked).Select(i => i.Text));
 
-            Find(root.DropDownItems, "Unlock all widgets").PerformClick();
-            Assert.All(settings.Widgets, w => Assert.False(w.Locked));
             Find(root.DropDownItems, "Widget settings…").PerformClick();
             Assert.Equal(1, opened);
         }

@@ -64,7 +64,6 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
         cfg.Corners = WidgetCorners.Slight;
         cfg.Gap = WidgetGap.Large;
         cfg.TileBoxes = true;
-        cfg.Locked = true;
         (cfg.X, cfg.Y) = (200, 150);
         WidgetTiles.Clean(cfg);
         return cfg;
