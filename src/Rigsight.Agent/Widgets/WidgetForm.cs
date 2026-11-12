@@ -24,6 +24,7 @@ internal sealed class WidgetForm : Form
     private const int WM_MOVING = 0x216, WM_WINDOWPOSCHANGING = 0x46, WM_SETCURSOR = 0x20, WM_LBUTTONDOWN = 0x201, WM_NCLBUTTONDOWN = 0xA1;
 
     [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
     /// <summary>Where a press on a clickable place began, while it may still be a click (null once it became a drag).</summary>
@@ -163,12 +164,62 @@ internal sealed class WidgetForm : Form
                 _hoverTimer.Stop();
                 PointAt(null);
                 Press(false);
+                _hoverOn = null;
+                _hoverKey = null;
+                Redraw();
+            }
+            // Esc puts a hover box away (the widget never takes the keyboard, so it's asked, only while a box shows).
+            else if (_tip is not null && (GetAsyncKeyState(0x1B) & 0x8001) != 0)
+            {
+                _hoverOn = null;
                 Redraw();
             }
         };
     }
 
     public WidgetConfig Config { get; private set; }
+
+    // ── Hover on bars and graphs (approved mock-up XcuVN6VYHFqAbEb33kYRYx) ──
+
+    /// <summary>Where the tiles' bars and graphs were as last drawn, in the widget's pixels at size M.</summary>
+    private List<WidgetRenderer.HoverArea> _hoverAreas = [];
+
+    /// <summary>The bar or moment the pointer is on, for the drawing; null: none, or put away with Esc.</summary>
+    private WidgetRenderer.HoverOn? _hoverOn;
+
+    /// <summary>What was last pointed at (tile, part, bar, and the pointer's band of height): the widget is drawn again only when it changes.</summary>
+    private (int Tile, int Part, int Index, int Band)? _hoverKey;
+
+    /// <summary>The hover box drawn now, and the widget under it, for its quick fade in.</summary>
+    private WidgetRenderer.HoverTip? _tip;
+    private Bitmap? _base;
+    private long _tipSince;
+    private System.Windows.Forms.Timer? _fade;
+
+    /// <summary>How long the box takes to fade in, and how far the pointer moves up or down before the box follows it.</summary>
+    internal const int TipFadeMs = 80, HoverBand = 24;
+
+    /// <summary>The hover for a pointer at <paramref name="client"/>: drawn again only when the bar or moment under it changes.</summary>
+    private void HoverAt(Point client)
+    {
+        if (_hitScale <= 0 || _dragging) return;
+        var at = new PointF(client.X / _hitScale, (client.Y - Room) / _hitScale);
+        var on = WidgetRenderer.HoverAt(_hoverAreas, at);
+        (int, int, int, int)? key = on is { } o ? (o.Tile, o.Part, o.Index, (int)(o.At.Y / HoverBand)) : null;
+        if (key == _hoverKey) return;
+        _hoverKey = key;
+        _hoverOn = on;
+        Redraw();
+    }
+
+    /// <summary>No hover any more (the pointer left, a drag began): drawn again without it.</summary>
+    private void EndHover()
+    {
+        if (_hoverKey is null && _hoverOn is null && _tip is null) return;
+        _hoverKey = null;
+        _hoverOn = null;
+        Redraw();
+    }
 
     /// <summary>The room above and to the right of the panel for the badge, in screen pixels.</summary>
     public int Room { get; private set; }
@@ -299,8 +350,15 @@ internal sealed class WidgetForm : Form
         _drawnOnce = true;
         Room = RoomFor(DeviceDpi);
         WidgetRenderer.Pointer = Config.Locked ? null : PointerState();
+        // The hover isn't tied to the lock: a widget gets one whenever the pointer reaches it (a click-through one never does).
+        WidgetRenderer.Hover = _hoverOn;
         using var panel = WidgetRenderer.Render(Config, _data, scale, hover: false, out _);
         WidgetRenderer.Pointer = null;
+        WidgetRenderer.Hover = null;
+        _hoverAreas = WidgetRenderer.HoverAreas?.ToList() ?? [];
+        var tip = WidgetRenderer.Tip;
+        if (tip is not null && _tip is null) _tipSince = Environment.TickCount64;
+        _tip = tip;
         // Where its tiles can be clicked (a to-do's box, a timer's Start), in the widget's own pixels.
         _hits = WidgetRenderer.Hits?.ToList() ?? [];
         _scrollAreas = WidgetRenderer.ScrollAreas?.ToList() ?? [];
@@ -320,13 +378,60 @@ internal sealed class WidgetForm : Form
         var kept = StaysOnScreen(before, new Rectangle(panelAt, panel.Size), Screen.FromRectangle(before.IsEmpty ? new Rectangle(panelAt, panel.Size) : before).WorkingArea);
         if (Size != bmp.Size) Size = bmp.Size;
         Location = new Point(kept.X, kept.Y - Room);
-        Win32.SetLayeredBitmap(Handle, bmp, Location, Opacity); // opacity is in the bitmap (background and content apart)
+        _widgetSize = new SizeF(panel.Width / scale, panel.Height / scale);
+        _drawScale = scale;
+        _base?.Dispose();
+        _base = null;
+        if (_tip is null)
+        {
+            _fade?.Stop();
+            Win32.SetLayeredBitmap(Handle, bmp, Location, Opacity); // opacity is in the bitmap (background and content apart)
+        }
+        else
+        {
+            _base = (Bitmap)bmp.Clone();
+            Present();
+        }
         if (kept != panelAt)
         {
             Rigsight.Core.Log.Write("widgets", $"{WidgetCatalog.Title(Config)} grew from {before.Width}x{before.Height} to {panel.Width}x{panel.Height} at {panelAt.X},{panelAt.Y}: moved to {kept.X},{kept.Y} to stay on its screen");
             // After this pass over the widgets, as saving goes round to the settings again.
             BeginInvoke(() => _manager.Mutate(Config.Id, c => (c.X, c.Y) = (kept.X, kept.Y)));
         }
+    }
+
+    private SizeF _widgetSize;
+    private float _drawScale = 1;
+
+    /// <summary>
+    /// Puts the widget on the screen as last drawn, with its hover box over it (faded in over its first few frames, the
+    /// box alone: the widget isn't drawn again for it).
+    /// </summary>
+    private void Present()
+    {
+        if (_base is null || _tip is null)
+        {
+            _fade?.Stop();
+            return;
+        }
+        float t = Math.Clamp((Environment.TickCount64 - _tipSince) / (float)TipFadeMs, 0, 1);
+        using var frame = (Bitmap)_base.Clone();
+        using (var g = Graphics.FromImage(frame))
+        {
+            g.TranslateTransform(0, Room);
+            WidgetRenderer.DrawTip(g, _tip, _drawScale, _widgetSize, t);
+        }
+        Win32.SetLayeredBitmap(Handle, frame, Location, Opacity); // opacity is in the bitmap (background and content apart)
+        if (t < 1)
+        {
+            if (_fade is null)
+            {
+                _fade = new System.Windows.Forms.Timer { Interval = 16 };
+                _fade.Tick += (_, _) => Present();
+            }
+            if (!_fade.Enabled) _fade.Start();
+        }
+        else _fade?.Stop();
     }
 
     /// <summary>
@@ -511,6 +616,7 @@ internal sealed class WidgetForm : Form
                 }
                 _hoverTimer.Start();
                 PointAt(m.Msg == WM_MOUSEMOVE && !Config.Locked ? HitAt(PointToClient(Cursor.Position)) : null);
+                HoverAt(PointToClient(Cursor.Position));
                 if (m.Msg == WM_MOUSEMOVE && _press is { } from && (MouseButtons & MouseButtons.Left) != 0 && Moved(from, Cursor.Position))
                 {
                     _press = null;
@@ -550,6 +656,7 @@ internal sealed class WidgetForm : Form
                 _dragFrom = PanelLocation;
                 _dragStart = Location;
                 _droppedAt = null;
+                EndHover(); // a drag takes the hover box away
                 KeepOnTop(); // picked up: over everything while it's dragged, the taskbar included
                 break;
 
@@ -594,6 +701,8 @@ internal sealed class WidgetForm : Form
         {
             _hoverTimer.Dispose();
             _anim?.Dispose();
+            _fade?.Dispose();
+            _base?.Dispose();
         }
         base.Dispose(disposing);
     }

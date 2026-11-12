@@ -32,7 +32,10 @@ public static class WidgetPictures
             [OverlayMetric.GpuHotSpot] = Recent(live.GpuHotSpot), [OverlayMetric.CpuLoad] = Recent(live.CpuLoad),
             [OverlayMetric.GpuLoad] = Recent(live.GpuLoad), [OverlayMetric.Ram] = Recent(live.RamLoad),
         };
-        foreach (var s in live.AllSensors) d.Readings[s.Id] = new OverlaySensorReading(s.Name, s.Kind, s.Value);
+        // By the name the agent gives them on the desktop: a person's own, else the sensor's in the language in use.
+        foreach (var s in live.AllSensors) d.Readings[s.Id] = new OverlaySensorReading(s.DisplayName, s.Kind, s.Value);
+        foreach (var m in Enum.GetValues<OverlayMetric>())
+            if (SensorOf(live, m)?.CustomLabel is { Length: > 0 } name) d.Names[m] = name;
         if (live.Activity is { } a) d.Activity = a;
         d.Today = live.Today;
         d.Pc = PcFrom(live);
@@ -40,12 +43,32 @@ public static class WidgetPictures
         return d;
     }
 
+    /// <summary>
+    /// The sensor a reading is read from, for the readings that are one sensor (see WidgetCatalog.KeyOf): its name is the
+    /// reading's name on widgets, and renaming the reading in the editor renames it.
+    /// </summary>
+    internal static SensorItem? SensorOf(LiveData? live, OverlayMetric m) => live is null ? null : WidgetCatalog.KeyOf(m) switch
+    {
+        KeySensors.CpuTemp => live.CpuTemp,
+        KeySensors.CpuLoad => live.CpuLoad,
+        KeySensors.CpuClock => live.CpuClock,
+        KeySensors.CpuPower => live.CpuPower,
+        KeySensors.GpuTemp => live.GpuTemp,
+        KeySensors.GpuHotSpot => live.GpuHotSpot,
+        KeySensors.GpuLoad => live.GpuLoad,
+        KeySensors.GpuClock => live.GpuClock,
+        KeySensors.GpuPower => live.GpuPower,
+        KeySensors.GpuVramUsed => live.GpuVramUsed,
+        KeySensors.RamLoad => live.RamLoad,
+        _ => null,
+    };
+
     /// <summary>The PC's live tiles from the app's readings, the same ones its pages show.</summary>
     private static PcNow PcFrom(LiveData live)
     {
         var pc = new PcNow
         {
-            Fans = [.. live.Fans.Select(f => new FanNow(f.DisplayName, f.Value))],
+            Fans = [.. live.Fans.Select(f => new FanNow(f.DisplayName, f.Value, f.Id))],
             Cores = [.. live.AllSensors.Where(s => s.HardwareType == "Cpu" && TrayParts.IsCoreLoad(s.Kind, s.Name)).Select(s => (float)Math.Clamp((s.Value ?? 0) / 100, 0, 1))],
             TopCpu = [.. live.Procs.OrderByDescending(p => p.Cpu).Take(8).Select(p => new TileApp(p.Name, p.Path, Units.AppCpu(p.Cpu)))],
             TopMemory = [.. live.Procs.OrderByDescending(p => p.MemMB).Take(8).Select(p => new TileApp(p.Name, p.Path, Units.Megabytes(p.MemMB)))],

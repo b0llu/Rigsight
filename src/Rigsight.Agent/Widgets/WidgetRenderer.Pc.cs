@@ -15,8 +15,8 @@ namespace Rigsight.Agent.Widgets;
 /// <summary>An app on a live list: its name, its program (for its icon) and its figure as written.</summary>
 internal sealed record TileApp(string Name, string? Path, string Value);
 
-/// <summary>A fan as the Fans tile lists it: its name and speed (null: not read yet).</summary>
-internal sealed record FanNow(string Name, double? Rpm);
+/// <summary>A fan as the Fans tile lists it: its name and speed (null: not read yet), and its sensor (a tile can leave it out).</summary>
+internal sealed record FanNow(string Name, double? Rpm, string? Id = null);
 
 /// <summary>A fixed drive: its letter, how full it is (0 to 1), its free bytes, and its temperature (null: none read).</summary>
 internal sealed record DriveNow(string Letter, double UsedShare, long Free, double? Temp);
@@ -39,6 +39,8 @@ internal sealed class PcNow
     /// <summary>The speeds now, in bytes a second (null: not read), and the last minute of them, oldest first.</summary>
     public double? NetDown, NetUp;
     public float[] DownHistory = [], UpHistory = [];
+    /// <summary>When each of those was read (Unix seconds), for the graph's hover; empty: one a second.</summary>
+    public long[] NetTimes = [];
 }
 
 // The PC's tiles (approved mock-up "PC tiles", 2026-11-11): live, internet, and the day from RigSight's records. Each is
@@ -307,10 +309,20 @@ internal static partial class WidgetRenderer
         }
     }
 
-    private static void FansTile(Graphics g, RectangleF r, WidgetData d, Palette p)
+    /// <summary>The fans a tile shows: all but those its switches leave out.</summary>
+    private static List<FanNow>? FansOf(WidgetTile t, WidgetData d) =>
+        d.Pc?.Fans is not { } fans ? null : t.FansHidden is { Count: > 0 } off ? [.. fans.Where(f => f.Id is null || !off.Contains(f.Id))] : fans;
+
+    /// <summary>The drives a tile shows: all but those its switches leave out.</summary>
+    private static List<DriveNow>? DrivesOf(WidgetTile t, WidgetData d) =>
+        d.Pc?.Drives is not { } drives ? null : t.DrivesHidden is { Count: > 0 } off ? [.. drives.Where(x => !off.Contains(x.Letter, StringComparer.OrdinalIgnoreCase))] : drives;
+
+    private static void FansTile(Graphics g, WidgetTile t, RectangleF r, WidgetData d, Palette p)
     {
         float y = r.Top + Cap(g, Lang.T("FANS"), r.Left, r.Top, p, r.Right);
-        if (d.Pc?.Fans is not { } fans) return;
+        if (FansOf(t, d) is not { } fans) return;
+        // Every fan switched off on this tile: its heading alone ("none reported" would say something untrue).
+        if (fans.Count == 0 && d.Pc!.Fans!.Count > 0) return;
         if (fans.Count == 0)
         {
             TextIn(g, Lang.T("No spinning fans reported."), Body, p.Muted, RectangleF.FromLTRB(r.Left, y + 2.5f, r.Right, r.Bottom));
@@ -325,10 +337,10 @@ internal static partial class WidgetRenderer
         }
     }
 
-    private static void DrivesTile(Graphics g, RectangleF r, WidgetData d, Palette p)
+    private static void DrivesTile(Graphics g, WidgetTile t, RectangleF r, WidgetData d, Palette p)
     {
         float y = r.Top + Cap(g, Lang.T("DRIVES"), r.Left, r.Top, p, r.Right);
-        if (d.Pc?.Drives is not { Count: > 0 } drives) return;
+        if (DrivesOf(t, d) is not { Count: > 0 } drives) return;
         int n = Math.Min(drives.Count, Fits(r.Height, 16, 31, drives.Count));
         var fill = Fill(DriveColor, p);
         for (int i = 0; i < n; i++)
@@ -339,10 +351,10 @@ internal static partial class WidgetRenderer
             float fw = TextRight(g, free, 11.5f, p.Muted, r.Right, line, BodyLine);
             float room = Math.Max(1, r.Width - fw - 10);
             TextLine(g, name, Body, p.Text, r.Left, line, BodyLine, maxWidth: room);
-            if (dr.Temp is double t)
+            if (dr.Temp is double temp)
             {
                 float x = r.Left + W(g, name, Body) + Space(Body);
-                if (x + W(g, Units.TempShort(t), Body) < r.Left + room) TextLine(g, Units.TempShort(t), Body, p.Faint, x, line, BodyLine);
+                if (x + W(g, Units.TempShort(temp), Body) < r.Left + room) TextLine(g, Units.TempShort(temp), Body, p.Faint, x, line, BodyLine);
             }
             Level(g, new RectangleF(r.Left, line + BodyLine + 3, r.Width, 4), dr.UsedShare, fill, p);
             y += 29.625f;
@@ -370,6 +382,14 @@ internal static partial class WidgetRenderer
             FillRound(g, bar, 2, p.Track);
             float h = Math.Max(2, MathF.Round(Math.Clamp(cores[i], 0, 1) * bh));
             FillRound(g, new RectangleF(bar.X, bar.Bottom - h, bw, h), 2, fill);
+        }
+        // Hover: the core's number and its load.
+        if (HoverIn(g, new RectangleF(r.Left, by, r.Width, bh), cores.Length, points: false) is int at)
+        {
+            float slot = r.Width / cores.Length;
+            HoverColumn(g, new RectangleF(r.Left + at * slot, by, slot, bh), p);
+            string coreLoad = float.IsFinite(cores[at]) ? Units.Short(SensorKind.Load, Math.Clamp(cores[at], 0, 1) * 100.0) : "—";
+            SetTip(g, p, r.Left + at * (bw + gap) + bw / 2, Lang.T($"Core {at + 1}"), new TipLine(Lang.T($"Load {coreLoad}"), fill));
         }
     }
 
@@ -426,6 +446,18 @@ internal static partial class WidgetRenderer
             if (upPts.Length > 1)
                 using (var pen = new Pen(p.Muted, 1.3f) { LineJoin = LineJoin.Round }) g.DrawLines(pen, upPts);
             g.SmoothingMode = smooth;
+            // Hover: how long ago, and both speeds then.
+            if (dp.Length > 1 && HoverIn(g, area, dp.Length, points: true) is int at)
+            {
+                float x = dp[at].X;
+                HoverGuide(g, x, area.Top, area.Bottom, p);
+                HoverDot(g, x, dp[at].Y, net, p);
+                if (at < upPts.Length) HoverDot(g, upPts[at].X, upPts[at].Y, p.Muted, p);
+                var times = pc!.NetTimes;
+                double ago = times.Length == downs.Length ? times[^1] - times[at] : downs.Length - 1 - at;
+                string Speed(float[] v) => at < v.Length && float.IsFinite(v[at]) ? Units.Speed(Math.Max(0, v[at])) : "—";
+                SetTip(g, p, x, AgoText(ago), new TipLine(Lang.T($"Down {Speed(downs)}"), net), new TipLine(Lang.T($"Up {Speed(ups)}"), p.Muted));
+            }
         }
         if (foot) TextRight(g, Lang.T("Last minute"), CapPx, p.Faint, r.Right, top + Math.Max(textH, gh) + 3, 13.125f);
     }
@@ -496,6 +528,26 @@ internal static partial class WidgetRenderer
                 using (var b = new SolidBrush(net)) g.FillRectangle(b, x0, y + bh - top, bw, top);
                 FillTopRound(g, new RectangleF(x0, y + bh - top - rest, bw, rest), 2, p.Muted);
             }
+            // Hover: the hour, what it used in all, its biggest app and the rest; nothing for an hour still to come.
+            if (HoverIn(g, new RectangleF(r.Left, y, r.Width, bh + 3 + 13.125f), 24, points: false) is int hh && hh <= Now().Hour)
+            {
+                int h = hh;
+                float slot = r.Width / 24;
+                HoverColumn(g, new RectangleF(r.Left + h * slot, y, slot, bh), p);
+                var hour = Now().Date.AddHours(h);
+                string title = Lang.T($"{HourText(hour)} to {HourText(hour.AddHours(1))}");
+                long top = f.HourTop[h], rest = f.HourRest[h];
+                string? app = f.HourApp.ElementAtOrDefault(h);
+                var lines = new List<TipLine>();
+                if (top + rest <= 0) lines.Add(new TipLine(f.HourOff.ElementAtOrDefault(h) ?? Lang.T("No internet use"), null));
+                else
+                {
+                    lines.Add(new TipLine(Lang.T($"{Units.Data(top + rest)} in all"), null));
+                    if (app is not null) lines.Add(new TipLine($"{app} {Units.Data(top)}", net));
+                    if (rest > 0 && app is not null) lines.Add(new TipLine(Lang.T($"Other apps {Units.Data(rest)}"), p.Muted));
+                }
+                SetTip(g, p, r.Left + h * (bw + gap) + bw / 2, title, [.. lines]);
+            }
         }
         using (var line = new Pen(p.Track, 1)) g.DrawLine(line, r.Left, y + bh + 0.5f, r.Right, y + bh + 0.5f);
         float ly = y + bh + 1 + 2;
@@ -540,6 +592,26 @@ internal static partial class WidgetRenderer
             }
         }
         g.Restore(state);
+        // Hover, on a drop only: when it started and how long it lasted.
+        if (f is { NetHasData: true, Drops.Count: > 0 } && strip.Width > 0)
+        {
+            var day = Now().Date;
+            var spans = new float[f.Drops.Count * 2];
+            for (int k = 0; k < f.Drops.Count; k++)
+            {
+                var (from, to) = f.Drops[k];
+                float a = (float)Math.Clamp((from - day).TotalMinutes / 1440, 0, 1), b = (float)Math.Clamp((to - day).TotalMinutes / 1440, 0, 1);
+                // At least 8 pixels wide, so a drop of a few seconds can still be pointed at.
+                float grace = Math.Max(0, 8 / strip.Width - Math.Max(0, b - a)) / 2;
+                (spans[k * 2], spans[k * 2 + 1]) = (a - grace, Math.Max(a, b) + grace);
+            }
+            if (HoverIn(g, RectangleF.Inflate(strip, 0, 8), f.Drops.Count, points: false, spans: spans) is int at)
+            {
+                var (from, to) = f.Drops[at];
+                SetTip(g, p, strip.X + (spans[at * 2] + spans[at * 2 + 1]) / 2 * strip.Width, Lang.T($"Dropped at {from.ToString(Rigsight.Core.TimeText.Fit("h:mm tt"), Culture)}"),
+                    new TipLine(Lang.T($"Back after {DropWords.Long((long)Math.Max(1, (to - from).TotalSeconds))}"), null));
+            }
+        }
     }
 
     // ── Your day ───────────────────────────────────────────────────────────
@@ -730,6 +802,34 @@ internal static partial class WidgetRenderer
             name = name.Length > 0 ? name[..1].ToUpper(Culture) : "";
             TextLine(g, name, CapPx, p.Faint, x0 + (bw - W(g, name, CapPx)) / 2, y + bh + 3, 13.125f);
         }
+        // Hover: the day, its active time, how long the PC was on, and the app used most (today's from the live count).
+        if (HoverIn(g, new RectangleF(r.Left, y, r.Width, bh + 3 + 13.125f), 7, points: false) is int at && (f is not null || at == 6))
+        {
+            float slot = r.Width / 7;
+            HoverColumn(g, new RectangleF(r.Left + at * slot, y, slot, bh), p);
+            var (title, lines) = WeekLines(at, days[at].Day, d, f);
+            SetTip(g, p, r.Left + at * (bw + gap) + bw / 2, title, [.. lines]);
+        }
+    }
+
+    /// <summary>What the last 7 days' hover box says of a day: "Today, so far" or its date, then its figures.</summary>
+    internal static (string Title, List<TipLine> Lines) WeekLines(int index, DateTime day, WidgetData d, PcFacts? f)
+    {
+        string title = index == 6 ? Lang.T("Today, so far") : $"{DayName(day)}, {DayMonth(day)}";
+        double active, on, topSec;
+        string? top;
+        if (index == 6) (active, on, top, topSec) = (d.Today.ActiveSec, d.Today.OnSec, d.Today.TopApp, d.Today.TopAppSec);
+        else if (f?.DayLines.FirstOrDefault(x => x.Day == day) is { } line) (active, on, top, topSec) = (line.ActiveSec, line.OnSec, line.TopApp, line.TopAppSec);
+        else (active, on, top, topSec) = (f?.Days.FirstOrDefault(x => x.Day == day).ActiveSec ?? 0, -1, null, 0);
+        var lines = new List<TipLine>();
+        if (on == 0 && active <= 0) lines.Add(new TipLine(Lang.T("Not recorded"), null));
+        else
+        {
+            lines.Add(new TipLine(Lang.T($"Active {Units.Duration(active)}"), null));
+            if (on > 0) lines.Add(new TipLine(Lang.T($"PC on {Units.Duration(on)}"), null));
+            if (!string.IsNullOrWhiteSpace(top)) lines.Add(new TipLine(Lang.T($"Mostly {top}, {Units.Duration(topSec)}"), null));
+        }
+        return (title, lines);
     }
 
     private static void LastGameTile(Graphics g, RectangleF r, WidgetData d, Palette p)
@@ -794,8 +894,8 @@ internal static partial class WidgetRenderer
         {
             case WidgetTiles.CpuGauge: GaugeTile(g, false, r, d, p); break;
             case WidgetTiles.GpuGauge: GaugeTile(g, true, r, d, p); break;
-            case WidgetTiles.Fans: FansTile(g, r, d, p); break;
-            case WidgetTiles.Drives: DrivesTile(g, r, d, p); break;
+            case WidgetTiles.Fans: FansTile(g, t, r, d, p); break;
+            case WidgetTiles.Drives: DrivesTile(g, t, r, d, p); break;
             case WidgetTiles.Cores: CoresTile(g, r, d, p); break;
             case WidgetTiles.TopCpu: AppList(g, Lang.T("TOP CPU USERS"), d.Pc?.TopCpu, r, p, WidgetTiles.RowsOf(t), null); break;
             case WidgetTiles.TopMemory: AppList(g, Lang.T("TOP MEMORY USERS"), d.Pc?.TopMemory, r, p, 8, null); break;
@@ -833,10 +933,10 @@ internal static partial class WidgetRenderer
         string Holds(PcNeeds need) => f is null || (f.Holds & need) == 0 ? "-" : "+";
         return t.Kind switch
         {
-            WidgetTiles.CpuGauge => $"{Units.TempShort(d.CpuTemp)}#{TempColor(d.CpuTemp, p).ToArgb()}|{Units.Short(SensorKind.Load, d.CpuLoad)}",
-            WidgetTiles.GpuGauge => $"{Units.TempShort(d.GpuTemp)}#{TempColor(d.GpuTemp, p).ToArgb()}|{Units.Short(SensorKind.Load, d.GpuLoad)}",
-            WidgetTiles.Fans => pc?.Fans is { } fans ? string.Join(";", fans.Select(x => x.Name + "=" + (x.Rpm is double v ? Units.Format(SensorKind.Fan, v) : "-"))) : "-",
-            WidgetTiles.Drives => pc?.Drives is { } drives ? string.Join(";", drives.Select(x => $"{x.Letter}={x.UsedShare:0.000}/{Units.Bytes(x.Free)}/{Units.TempShort(x.Temp)}")) : "-",
+            WidgetTiles.CpuGauge => $"{d.Names.GetValueOrDefault(OverlayMetric.CpuTemp)}|{Units.TempShort(d.CpuTemp)}#{TempColor(d.CpuTemp, p).ToArgb()}|{Units.Short(SensorKind.Load, d.CpuLoad)}",
+            WidgetTiles.GpuGauge => $"{d.Names.GetValueOrDefault(OverlayMetric.GpuTemp)}|{Units.TempShort(d.GpuTemp)}#{TempColor(d.GpuTemp, p).ToArgb()}|{Units.Short(SensorKind.Load, d.GpuLoad)}",
+            WidgetTiles.Fans => FansOf(t, d) is { } fans ? $"{pc!.Fans!.Count}|" + string.Join(";", fans.Select(x => x.Name + "=" + (x.Rpm is double v ? Units.Format(SensorKind.Fan, v) : "-"))) : "-",
+            WidgetTiles.Drives => DrivesOf(t, d) is { } drives ? string.Join(";", drives.Select(x => $"{x.Letter}={x.UsedShare:0.000}/{Units.Bytes(x.Free)}/{Units.TempShort(x.Temp)}")) : "-",
             WidgetTiles.Cores => $"{Units.Short(SensorKind.Load, d.CpuLoad)}|{Units.TempShort(d.CpuTemp)}#{TempColor(d.CpuTemp, p).ToArgb()}|"
                 + (pc?.Cores is { } cores ? string.Join(",", cores.Select(c => ((int)(c * 100)).ToString(CultureInfo.InvariantCulture))) : "-"),
             WidgetTiles.TopCpu => $"{t.Rows}|{Apps(pc?.TopCpu)}",
@@ -845,7 +945,7 @@ internal static partial class WidgetRenderer
             WidgetTiles.NetSpeed => $"{pc?.NetDown}|{pc?.NetUp}|{pc?.DownHistory.Length}|{string.Join(",", pc?.DownHistory.TakeLast(3) ?? [])}",
             WidgetTiles.NetNow => $"{pc?.NetPerApp}|{(pc is null ? "-" : Apps(pc.NetApps ?? []))}",
             WidgetTiles.NetToday or WidgetTiles.NetApps or WidgetTiles.NetHours or WidgetTiles.NetDrops => Holds(PcNeeds.Internet) + (f is null ? "" :
-                $"{f.NetHasData}|{f.NetDown}|{f.NetUp}|{f.NetBackground}|{Lines(f.NetApps)}|{string.Join(",", f.HourTop)}|{string.Join(",", f.HourRest)}|{string.Join("", f.Quarters.Select(q => q ? '1' : '0'))}|{string.Join(",", f.Drops.Select(x => x.Start.Ticks + "-" + x.End.Ticks))}|{Now().Date.Ticks}"),
+                $"{f.NetHasData}|{f.NetDown}|{f.NetUp}|{f.NetBackground}|{Lines(f.NetApps)}|{string.Join(",", f.HourTop)}|{string.Join(",", f.HourRest)}|{string.Join(",", f.HourApp)}|{Now().Hour}|{string.Join("", f.Quarters.Select(q => q ? '1' : '0'))}|{string.Join(",", f.Drops.Select(x => x.Start.Ticks + "-" + x.End.Ticks))}|{Now().Date.Ticks}"),
             WidgetTiles.TodaySoFar => $"{Units.Duration(d.Today.ActiveSec)}|{Units.Duration(d.Today.OnSec)}|{Units.Duration(d.Today.IdleSec)}",
             WidgetTiles.MostUsed => Holds(PcNeeds.Today) + Lines(f?.MostUsed),
             WidgetTiles.StandOut => Holds(PcNeeds.Today) + string.Join(";", f?.StandOut ?? []),
@@ -854,7 +954,8 @@ internal static partial class WidgetRenderer
             WidgetTiles.Crashes => Holds(PcNeeds.Crashes) + $"{f?.Crashes}|{f?.LatestCrash}",
             WidgetTiles.Health => Holds(PcNeeds.Health) + string.Join(";", f?.Health.Select(h => h.Icon + h.Text + h.NeedsLook) ?? []),
             WidgetTiles.Changed => Holds(PcNeeds.Changes) + string.Join(";", f?.Changes.Select(c => c.Text + "|" + c.When + "|" + c.Tone) ?? []),
-            WidgetTiles.Week => Holds(PcNeeds.Week) + string.Join(",", f?.Days.Select(x => (int)(x.ActiveSec / 60)) ?? []) + $"|{(int)(d.Today.ActiveSec / 60)}|{Now().Date.Ticks}",
+            WidgetTiles.Week => Holds(PcNeeds.Week) + string.Join(",", f?.Days.Select(x => (int)(x.ActiveSec / 60)) ?? []) + $"|{(int)(d.Today.ActiveSec / 60)}|{Now().Date.Ticks}"
+                + $"|{(int)(d.Today.OnSec / 60)}|{d.Today.TopApp}|{(int)(d.Today.TopAppSec / 60)}|{string.Join(",", f?.DayLines.Select(x => $"{(int)(x.OnSec / 60)}{x.TopApp}{(int)(x.TopAppSec / 60)}") ?? [])}",
             WidgetTiles.LastGame => Holds(PcNeeds.LastGame) + (f?.LastGame is { } lg ? $"{lg.Name}|{lg.Path}|{PlayedWhen(lg, Now())}|{lg.Fps:0}" : "-"),
             _ => null,
         };

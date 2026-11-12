@@ -61,6 +61,22 @@ internal sealed class KeyHistory
         }
     }
 
+    /// <summary>How long the last <paramref name="windowMs"/> of one key's readings cover, first to last, in milliseconds (a graph's hover says how long ago).</summary>
+    public long SpanMs(string key, long windowMs)
+    {
+        lock (_lock)
+        {
+            if (!_rings.TryGetValue(key, out var r) || r.Count < 2) return windowMs;
+            long last = r.Times[(r.Start + r.Count - 1) % Capacity];
+            for (int i = 0; i < r.Count; i++)
+            {
+                long t = r.Times[(r.Start + i) % Capacity];
+                if (t >= last - windowMs) return last - t;
+            }
+            return windowMs;
+        }
+    }
+
     /// <summary>Values from the last <paramref name="windowMs"/> of one key (for the graph widget).</summary>
     public float[] Recent(string key, long windowMs)
     {

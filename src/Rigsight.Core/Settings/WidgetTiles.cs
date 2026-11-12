@@ -348,6 +348,8 @@ public static class WidgetTiles
             if (PhotoSteps.All(s => s.Seconds != t.Every)) t.Every = 60;
             if (t.Kind == Notes && t.Look is not (null or Sticky)) t.Look = null;
             if (t.Rows is int rows && !RowChoices.Contains(rows)) t.Rows = null;
+            t.FansHidden = t.Kind == Fans && t.FansHidden?.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList() is { Count: > 0 } hidden ? hidden : null;
+            t.DrivesHidden = t.Kind == Drives && t.DrivesHidden?.Where(l => !string.IsNullOrWhiteSpace(l)).Distinct(StringComparer.OrdinalIgnoreCase).ToList() is { Count: > 0 } off ? off : null;
             t.Items = t.Items?.Where(i => i is not null && (WidgetCatalog.Metric(i.Id) is not null || WidgetCatalog.Sensor(i.Id) is not null)).DistinctBy(i => i.Id).ToList();
         }
         var placed = new List<WidgetTile>();

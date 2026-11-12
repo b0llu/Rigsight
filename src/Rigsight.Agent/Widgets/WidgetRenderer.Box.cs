@@ -146,7 +146,7 @@ internal static partial class WidgetRenderer
             case WidgetTiles.Reading: ReadingTile(g, t, inner, d, p, align); break;
             case WidgetTiles.Line: LineTile(g, t, inner, d, p); break;
             case WidgetTiles.Graph:
-                var readings = (t.Items ?? []).Select(i => Read(i, d, p)).ToList();
+                var readings = (t.Items ?? []).Where(i => !i.Hidden).Select(i => Read(i, d, p)).ToList();
                 Within(g, r, r.Width, r.Height, () => DrawGraph(g, readings, d, p, r.Width, r.Height));
                 break;
             case WidgetTiles.Fps:
@@ -613,6 +613,8 @@ internal static partial class WidgetRenderer
                 if (look == WidgetTiles.BarGraph) Bars(gg, history, area, color);
                 else if (look == WidgetTiles.LineGraph) Line(gg, history, area, color);
                 else Sparkline(gg, history, area, color);
+                if (look == WidgetTiles.BarGraph) HoverOnBars(gg, history, area, reading, color, d, p);
+                else HoverOnGraph(gg, history, area, reading, color, d, p);
             });
         }
         ink.Draw(g, r, align);
@@ -688,7 +690,7 @@ internal static partial class WidgetRenderer
     /// <summary>A line of readings, spread across the tile: dot, name, value for each.</summary>
     private static void LineTile(Graphics g, WidgetTile t, RectangleF r, WidgetData d, Palette p)
     {
-        var readings = (t.Items ?? []).Select(i => Read(i, d, p)).ToList();
+        var readings = (t.Items ?? []).Where(i => !i.Hidden).Select(i => Read(i, d, p)).ToList();
         if (readings.Count == 0) return;
         ReadingRow(g, readings, p, rd => PartColor(rd, p)).Draw(g, r, TileAlign.Center);
     }
@@ -1264,7 +1266,7 @@ internal static partial class WidgetRenderer
                         });
                     break;
                 case WidgetTiles.Line:
-                    foreach (var i in t.Items ?? [])
+                    foreach (var i in (t.Items ?? []).Where(i => !i.Hidden))
                     {
                         var x = Read(i, d, p);
                         sb.Append('|').Append(x.Label).Append('=').Append(x.Text).Append('#').Append(x.ValueColor.ToArgb());

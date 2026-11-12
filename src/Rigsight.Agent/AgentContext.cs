@@ -1042,6 +1042,22 @@ internal sealed partial class AgentContext : ApplicationContext
     }
 
     /// <summary>Five minutes of each reading a tile or graph shows beyond CPU and GPU temperature (which have their own).</summary>
+    /// <summary>
+    /// The names given to the readings that are one sensor (renamed in All sensors, or in a widget's editor), so widgets
+    /// say the same name as everywhere else; a reading whose sensor wasn't renamed keeps its usual short name.
+    /// </summary>
+    private Dictionary<OverlayMetric, string> WidgetNames(RigsightSettings settings)
+    {
+        var names = new Dictionary<OverlayMetric, string>();
+        if (settings.SensorLabels.Count == 0) return names;
+        foreach (var m in Enum.GetValues<OverlayMetric>())
+        {
+            if (WidgetCatalog.KeyOf(m) is not { } key || !_sensors.Keys.TryGetValue(key, out int i) || i < 0 || i >= _sensors.Ids.Length) continue;
+            if (settings.SensorLabels.GetValueOrDefault(_sensors.Ids[i]) is { Length: > 0 } name) names[m] = name;
+        }
+        return names;
+    }
+
     private Dictionary<OverlayMetric, float[]> WidgetHistories(HashSet<OverlayMetric> metrics)
     {
         var map = new Dictionary<OverlayMetric, float[]>();
@@ -1339,6 +1355,8 @@ internal sealed partial class AgentContext : ApplicationContext
             Sensors = OverlaySensors(settings),
             Readings = WidgetSensors(settings),
             Histories = WidgetHistories(historyOf),
+            HistorySeconds = historyOf.Count > 0 ? _history.SpanMs(KeySensors.CpuTemp, 300_000) / 1000.0 : 300,
+            Names = WidgetNames(settings),
             Pc = PcNowFor(settings),
             Facts = _facts,
         };

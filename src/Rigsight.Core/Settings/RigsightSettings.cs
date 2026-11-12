@@ -221,6 +221,9 @@ public sealed class RigsightSettings
     public List<string> TrayTileColors { get; set; } = [];
     public const int MaxTrayCustomColors = 30;
 
+    /// <summary>The colours made with the picker's "+" for a widget's background, in the order made, offered for every widget.</summary>
+    public List<string> WidgetBackgroundColors { get; set; } = [];
+
     /// <summary>Apps (exe names) whose crashes aren't counted, listed or notified about.</summary>
     public List<string> MutedCrashApps { get; set; } = [];
 

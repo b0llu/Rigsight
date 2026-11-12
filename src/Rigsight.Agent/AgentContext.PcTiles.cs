@@ -71,6 +71,7 @@ internal sealed partial class AgentContext
             {
                 pc.DownHistory = [.. _netHistory.Select(n => (float)n.Down)];
                 pc.UpHistory = [.. _netHistory.Select(n => (float)n.Up)];
+                pc.NetTimes = [.. _netHistory.Select(n => n.Time)];
             }
         }
         Measure("pc-tiles", t0);
@@ -106,7 +107,7 @@ internal sealed partial class AgentContext
     {
         if (_fansRead.Count == 0) return _sensorsReady ? [] : null;
         return [.. _fansRead.Values.Where(f => _fansSpun.Contains(f.Id))
-            .Select(f => new FanNow(settings.SensorLabels.GetValueOrDefault(f.Id) ?? SensorWords.Show(f.Name), f.Rpm))];
+            .Select(f => new FanNow(settings.SensorLabels.GetValueOrDefault(f.Id) ?? SensorWords.Show(f.Name), f.Rpm, f.Id))];
     }
 
     // ── Drives ───────────────────────────────────────────────────────────

@@ -26,6 +26,12 @@ public sealed record AppLine(string Name, string? Path, string Amount, double Sh
 /// <summary>A line of PC health: its icon (Windows' icon font), the statement, and whether it needs a look (said in amber).</summary>
 public sealed record HealthLine(string Icon, string Text, bool NeedsLook);
 
+/// <summary>
+/// One of the days before today as the last 7 days' hover box says it: its screen time, how long the PC was on (0: not
+/// recorded), and the app longest in front with its time (null: none for a minute or more), from Reports' day bars.
+/// </summary>
+public sealed record DayLine(DateTime Day, double ActiveSec, double OnSec, string? TopApp, double TopAppSec);
+
 /// <summary>The last game played: its name and program, when its play ended, how long it was in front, and its average frame rate.</summary>
 public sealed record LastPlayLine(string Name, string? Path, DateTime Ended, double ActiveSec, double? Fps);
 
@@ -54,6 +60,9 @@ public sealed class PcFacts
     /// <summary>The screen time of each of the 6 days before today, oldest first (today's comes live).</summary>
     public List<(DateTime Day, double ActiveSec)> Days { get; set; } = [];
 
+    /// <summary>The same 6 days with what the tile's hover box says of each (see <see cref="DayLine"/>), oldest first.</summary>
+    public List<DayLine> DayLines { get; set; } = [];
+
     // The last 30 days' crashes, as the Crashes page lists them, and the latest in a sentence.
     public int Crashes { get; set; }
     public string? LatestCrash { get; set; }
@@ -72,6 +81,9 @@ public sealed class PcFacts
     /// <summary>Each hour of today (24): what its biggest app used, and the rest of the hour's use.</summary>
     public long[] HourTop { get; set; } = new long[24];
     public long[] HourRest { get; set; } = new long[24];
+    /// <summary>Each hour's biggest app by name (null: none, or not named), and why an hour has nothing ("PC was off"), as the Network page's bars say.</summary>
+    public string?[] HourApp { get; set; } = new string?[24];
+    public string?[] HourOff { get; set; } = new string?[24];
     /// <summary>Today's quarter hours (96), each true when the PC was on and online in it (the Network page's strip).</summary>
     public bool[] Quarters { get; set; } = [];
     public List<(DateTime Start, DateTime End)> Drops { get; set; } = [];
@@ -191,11 +203,14 @@ public sealed class PcFacts
         }
         if ((needs & PcNeeds.Week) != 0)
         {
-            if (pastKept && (before!.Holds & PcNeeds.Week) != 0) f.Days = before.Days;
+            if (pastKept && (before!.Holds & PcNeeds.Week) != 0) (f.Days, f.DayLines) = (before.Days, before.DayLines);
             else
             {
                 var week = ReportBuilder.BuildRaw(db, ReportRange.Week, today.AddDays(-6), today, apps, s);
                 f.Days = [.. Enumerable.Range(0, 6).Select(i => today.AddDays(i - 6)).Select(d => (d, week.Days.FirstOrDefault(b => b.Day == d)?.ActiveSec ?? 0))];
+                f.DayLines = [.. f.Days.Select(x => week.Days.FirstOrDefault(b => b.Day == x.Day) is { } b
+                    ? new DayLine(x.Day, b.ActiveSec, b.OnSec, b.Front.FirstOrDefault()?.Name, b.Front.FirstOrDefault()?.Sec ?? 0)
+                    : new DayLine(x.Day, 0, 0, null, 0))];
             }
         }
         f.PastAt = pastKept ? before!.PastAt : now;
@@ -256,11 +271,14 @@ public sealed class PcFacts
         var used = net.Apps.Where(a => a.Use.Total >= 1 << 20).Take(ListMost).ToList();
         double most = Math.Max(1, used.FirstOrDefault()?.Use.Total ?? 1);
         f.NetApps = [.. used.Select(a => new AppLine(a.Name, a.Path, Units.Data(a.Use.Total), a.Use.Total / most))];
+        var names = net.Apps.GroupBy(a => a.Id).ToDictionary(g => g.Key, g => g.First().Name);
         for (int h = 0; h < Math.Min(24, net.Bins.Count); h++)
         {
             var bin = net.Bins[h];
             long top = bin.Apps.FirstOrDefault()?.Total ?? 0, all = Math.Max(bin.Total, top);
             (f.HourTop[h], f.HourRest[h]) = (top, all - top);
+            f.HourApp[h] = bin.Apps.FirstOrDefault() is { } first && top > 0 ? names.GetValueOrDefault(first.App) : null;
+            f.HourOff[h] = bin.OffWhy;
         }
         f.Quarters = net.Quarters;
         f.Drops = [.. net.Drops.Select(d => (TimeUtil.FromUnix(d.Start), TimeUtil.FromUnix(d.End)))];

@@ -275,6 +275,7 @@ public static class SettingsStore
             if (!Enum.IsDefined(w.Corners)) w.Corners = WidgetCorners.Round;
             if (!Enum.IsDefined(w.Gap)) w.Gap = WidgetGap.None;
             if (w.Accent is { } accent && !System.Text.RegularExpressions.Regex.IsMatch(accent, "^#[0-9A-Fa-f]{6}$")) w.Accent = null;
+            w.BackgroundColor = TrayColors.Parse(w.BackgroundColor) is { } bg ? TrayColors.Hex(bg.R, bg.G, bg.B) : null;
             if (string.IsNullOrWhiteSpace(w.Font)) w.Font = null;
             if (w.Theme == WidgetTheme.Black) w.Theme = WidgetTheme.Dark;
             w.BackgroundOpacity = Math.Clamp(w.BackgroundOpacity, 0, 1.0);
@@ -317,6 +318,7 @@ public static class SettingsStore
         s.TrayNumberColors = CustomColors(s.TrayNumberColors);
         s.TrayNameColors = CustomColors(s.TrayNameColors);
         s.TrayTileColors = CustomColors(s.TrayTileColors);
+        s.WidgetBackgroundColors = CustomColors(s.WidgetBackgroundColors);
         // 1.2: a graph behind a reading became one of its looks. Each reading that had one keeps it, as a filled graph
         // (what it drew). Only known looks are kept, and Number is the same as none.
         s.TrayLooks = new Dictionary<string, TrayLook>((s.TrayLooks ?? []).Where(kv => !string.IsNullOrWhiteSpace(kv.Key)
