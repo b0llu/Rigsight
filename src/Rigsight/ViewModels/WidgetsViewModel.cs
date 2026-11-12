@@ -146,7 +146,7 @@ public sealed partial class WidgetCard : ObservableObject
             {
                 _bigDrawn = true;
                 _shown ??= Shows();
-                _big = WidgetPictures.Draw(Config, _live, _settings.Current, 2f);
+                _big = WidgetPictures.Draw(Config, _live, _settings.Current, 2f, Again);
             }
             return _big;
         }
@@ -161,11 +161,17 @@ public sealed partial class WidgetCard : ObservableObject
             {
                 _drawn = true;
                 _shown ??= Shows();
-                _preview = WidgetPictures.Draw(Config, _live, _settings.Current, 1.5f);
+                _preview = WidgetPictures.Draw(Config, _live, _settings.Current, 1.5f, Again);
             }
             return _preview;
         }
     }
+
+    /// <summary>
+    /// Its tiles from the records (Most used, The last 7 days…) are read after its first drawing: drawn again when they're
+    /// in, else they stayed a heading until the widget was changed.
+    /// </summary>
+    private void Again() => System.Windows.Application.Current?.Dispatcher.BeginInvoke(Redraw);
 
     /// <summary>Draws it again (its settings or the readings changed), if it has been shown.</summary>
     public void Redraw()
@@ -173,11 +179,11 @@ public sealed partial class WidgetCard : ObservableObject
         _shown = Shows();
         if (_bigDrawn)
         {
-            _big = WidgetPictures.Draw(Config, _live, _settings.Current, 2f);
+            _big = WidgetPictures.Draw(Config, _live, _settings.Current, 2f, Again);
             OnPropertyChanged(nameof(BigPreview));
         }
         if (!_drawn) return;
-        _preview = WidgetPictures.Draw(Config, _live, _settings.Current, 1.5f);
+        _preview = WidgetPictures.Draw(Config, _live, _settings.Current, 1.5f, Again);
         OnPropertyChanged(nameof(Preview));
     }
 
@@ -672,7 +678,9 @@ public sealed partial class WidgetsViewModel : ObservableObject
         return list;
     }
 
-    internal ImageSource? Draw(WidgetConfig cfg, float scale = 1.5f) => WidgetPictures.Draw(cfg, _live, _settings.Current, scale);
+    // The map's pictures are drawn again too once the tiles from the records are in.
+    internal ImageSource? Draw(WidgetConfig cfg, float scale = 1.5f) =>
+        WidgetPictures.Draw(cfg, _live, _settings.Current, scale, () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(RedrawMap));
 
     /// <summary>
     /// Adds a widget from the pop-up: on, on the desktop, placed by the agent at the top right of the main screen; the
