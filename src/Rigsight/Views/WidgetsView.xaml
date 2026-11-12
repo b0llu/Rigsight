@@ -799,6 +799,23 @@
                                     <TextBlock Text="{ctl:T 'Theme'}" Style="{StaticResource EditLabel}" />
                                     <ComboBox DockPanel.Dock="Right" Width="160" ItemsSource="{Binding Themes}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Theme}" AutomationProperties.Name="{ctl:T 'Theme'}" />
                                 </DockPanel>
+                                <!-- One colour behind the whole widget (approved mock-up XcuVN6VYHFqAbEb33kYRYx): the theme's, or one picked as on the Taskbar page. -->
+                                <DockPanel Style="{StaticResource EditRow}">
+                                    <TextBlock Text="{Binding BackgroundLabel}" Style="{StaticResource EditLabel}" />
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" AutomationProperties.Name="{Binding BackgroundLabel}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'From the theme'}" GroupName="editor-background" IsChecked="{Binding BackgroundKind, Converter={StaticResource Equals}, ConverterParameter=theme}" />
+                                            <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'My color'}" GroupName="editor-background" IsChecked="{Binding BackgroundKind, Converter={StaticResource Equals}, ConverterParameter=own}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DockPanel>
+                                <DockPanel Style="{StaticResource EditRow}" Visibility="{Binding HasOwnBackground, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="{ctl:T 'Color'}" Style="{StaticResource EditLabel}" />
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource DropButton}" MinWidth="0" Padding="12,9,10,9" Click="BackgroundPick_Click"
+                                            AutomationProperties.Name="{ctl:T 'Background color'}" ToolTip="{Binding BackgroundColor}">
+                                        <Border Width="34" Height="14" CornerRadius="{x:Static ctl:Corner.Tag}" Background="{Binding BackgroundSwatch}" BorderThickness="1" BorderBrush="{DynamicResource StrokeBrush}" />
+                                    </Button>
+                                </DockPanel>
                                 <DockPanel Style="{StaticResource EditRow}">
                                     <TextBlock Text="{ctl:T 'Accent'}" Style="{StaticResource EditLabel}" />
                                     <ComboBox DockPanel.Dock="Right" Width="160" ItemsSource="{Binding Accents}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Accent}" AutomationProperties.Name="{ctl:T 'Accent'}" />
@@ -986,26 +1003,45 @@
                                         <TextBlock Text="{ctl:T 'Look'}" Style="{StaticResource EditLabel}" />
                                         <ComboBox DockPanel.Dock="Right" Width="190" ItemsSource="{Binding Looks}" DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Look}" AutomationProperties.Name="{ctl:T 'Look'}" />
                                     </DockPanel>
-                                    <DockPanel Style="{StaticResource EditRow}">
-                                        <TextBlock Text="{ctl:T 'Short name'}" Style="{StaticResource EditLabel}" />
-                                        <TextBox x:Name="ShortNameBox" DockPanel.Dock="Right" Width="150" Text="{Binding ShortName, UpdateSourceTrigger=LostFocus}" MaxLength="18" AutomationProperties.Name="{ctl:T 'Short name'}" />
-                                    </DockPanel>
                                 </StackPanel>
-                                <!-- A line of readings or a graph -->
-                                <StackPanel Visibility="{Binding HasReadings, Converter={StaticResource Vis}}">
-                                    <ItemsControl ItemsSource="{Binding TileReadings}" Focusable="False" Margin="16,2,16,4">
+                                <!-- The readings' names, each clicked to rename it (for the whole app where it's a sensor), and on a tile that lists
+                                     several, a switch for each (approved mock-up XcuVN6VYHFqAbEb33kYRYx's Fans rows). -->
+                                <StackPanel Visibility="{Binding HasNameRows, Converter={StaticResource Vis}}" Margin="16,2,16,4">
+                                    <TextBlock Text="{Binding NameRowsCaption}" Style="{StaticResource Caption}" Margin="0,6,0,4" />
+                                    <ItemsControl ItemsSource="{Binding NameRows}" Focusable="False">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <DockPanel Margin="0,2">
-                                                    <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" ToolTip="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat={ctl:T 'Remove {0}'}}"
-                                                            Command="{Binding DataContext.RemoveReadingCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
-                                                        <TextBlock Text="&#xE711;" />
-                                                    </Button>
-                                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                </DockPanel>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Group}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,6,0,2"
+                                                               Visibility="{Binding HasGroup, Converter={StaticResource Vis}}" />
+                                                    <DockPanel Margin="0,2">
+                                                        <Button DockPanel.Dock="Right" Style="{StaticResource DangerIconButton}" Width="26" Height="26" Margin="8,0,0,0" ToolTip="{ctl:T 'Remove'}"
+                                                                AutomationProperties.Name="{Binding RemoveLabel}" Command="{Binding RemoveCommand}" Visibility="{Binding CanRemove, Converter={StaticResource Vis}}">
+                                                            <TextBlock Text="&#xE711;" />
+                                                        </Button>
+                                                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding Shown}" VerticalAlignment="Center" Margin="10,0,0,0"
+                                                                  AutomationProperties.Name="{Binding SwitchLabel}" Visibility="{Binding HasSwitch, Converter={StaticResource Vis}}" />
+                                                        <Grid>
+                                                            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Field}" Padding="6,1,8,1"
+                                                                    HorizontalAlignment="Left" MinWidth="170" Visibility="{Binding CanRename, Converter={StaticResource Vis}}">
+                                                                <DockPanel>
+                                                                    <TextBlock DockPanel.Dock="Right" Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource FaintBrush}"
+                                                                               VerticalAlignment="Center" Margin="6,0,0,0" />
+                                                                    <TextBox Style="{StaticResource InlineEdit}" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" ToolTip="{Binding NameTip}"
+                                                                             KeyDown="RenameBox_KeyDown" AutomationProperties.Name="{Binding NameLabel}" />
+                                                                </DockPanel>
+                                                            </Border>
+                                                            <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                                       Visibility="{Binding CanRename, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                                        </Grid>
+                                                    </DockPanel>
+                                                </StackPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+                                </StackPanel>
+                                <!-- A line of readings or a graph -->
+                                <StackPanel Visibility="{Binding HasReadings, Converter={StaticResource Vis}}">
                                     <DockPanel Style="{StaticResource EditRow}">
                                         <TextBlock Text="{ctl:T 'Add a reading'}" Style="{StaticResource EditLabel}" />
                                         <Grid DockPanel.Dock="Right" Width="190">
@@ -1218,5 +1254,8 @@
                 </Grid>
             </StackPanel>
         </ScrollViewer>
+
+        <!-- A widget's own background colour, floating next to its button (takes no room on the page) -->
+        <ctl:ColorPicker x:Name="BackgroundPick" />
     </Grid>
 </UserControl>

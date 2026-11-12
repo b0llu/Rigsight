@@ -40,6 +40,8 @@ public partial class WidgetsView : UserControl
             Watch(null);
         };
         Map.Moved += (id, x, y) => _vm?.MoveWidget(id, x, y);
+        BackgroundPick.Changed += (color, _, _) => _vm?.Editor?.SetBackground(color);
+        BackgroundPick.CustomMade += (_, hex) => _vm?.Editor?.AddBackgroundCustom(hex);
         PreviewKeyDown += RecordShortcut;
         PreviewMouseDown += (_, e) => KeepTyped(e.OriginalSource as DependencyObject);
     }
@@ -53,7 +55,10 @@ public partial class WidgetsView : UserControl
     {
         // A word in a text (a Run) isn't on the visual tree: the text it's in is.
         while (pressed is not null and not Visual) pressed = LogicalTreeHelper.GetParent(pressed);
-        foreach (var box in new[] { NameBox, NoteBox, ShortNameBox })
+        // A reading's name in a tile's list too (see NameRow), when it's the one being typed in.
+        var boxes = new List<TextBox> { NameBox, NoteBox };
+        if (Keyboard.FocusedElement is TextBox focused && !boxes.Contains(focused)) boxes.Add(focused);
+        foreach (var box in boxes)
             if (box.GetBindingExpression(TextBox.TextProperty) is { IsDirty: true } typed && (pressed is null || !box.IsAncestorOf(pressed)))
                 typed.UpdateSource();
     }
@@ -99,6 +104,24 @@ public partial class WidgetsView : UserControl
         // The editor opens at its top, and the page comes back where it was.
         EditorScroll.ScrollToTop();
         if (_vm?.Editor is not null) Dispatcher.BeginInvoke(() => CanvasScroll.Focus(), System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    /// <summary>The widget's own background colour: the picker the Taskbar page uses, floating from its button.</summary>
+    private void BackgroundPick_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement button || _vm?.Editor is not { } ed) return;
+        BackgroundPick.OpenOne(button, ed.BackgroundLabel, ed.BackgroundColor, WidgetEditorViewModel.BackgroundColors, ed.BackgroundCustoms);
+    }
+
+    /// <summary>Enter in a reading's name keeps it; Esc puts back what it was (as on All sensors).</summary>
+    private void RenameBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not TextBox box) return;
+        if (e.Key == Key.Enter) box.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+        else if (e.Key == Key.Escape) box.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+        else return;
+        Keyboard.ClearFocus();
+        e.Handled = true;
     }
 
     /// <summary>The editor draws the widget pixel for pixel at this screen's scale, as wide as the canvas is.</summary>

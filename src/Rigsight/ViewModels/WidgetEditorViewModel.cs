@@ -968,15 +968,11 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         set { if (value is not null && value != Look) ChangeTile(t => t.Look = value); }
     }
 
+    /// <summary>A reading tile's name, as its row in the tile's settings shows it and renames it (see <see cref="NameRows"/>).</summary>
     public string ShortName
     {
-        get => Tile?.Label ?? "";
-        set
-        {
-            string label = (value ?? "").Trim();
-            if (label == ShortName) return;
-            ChangeTile(t => t.Label = label.Length == 0 ? null : label.Length > OverlaySettings.MaxLabelLength ? label[..OverlaySettings.MaxLabelLength] : label);
-        }
+        get => IsReading && NameRows.FirstOrDefault() is { } row ? row.Name : "";
+        set { if (IsReading && NameRows.FirstOrDefault() is { } row) row.Name = value; }
     }
 
     /// <summary>A line's or graph's readings, in order.</summary>
