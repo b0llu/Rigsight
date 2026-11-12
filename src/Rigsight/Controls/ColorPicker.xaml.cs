@@ -167,6 +167,8 @@ public partial class ColorPicker : UserControl
                 Foreground = Dark(c) ? Brushes.White : Brushes.Black,
             } : null,
         };
+        // A background's dark and light colours are edged, so the one like the picker's own still shows (the mock-up's swatches).
+        if (_one && !on) tile.SetResourceReference(BorderBrushProperty, "StrokeBrush");
         AutomationProperties.SetName(tile, name);
         tile.Click += (_, _) => Pick(kind, hex);
         return tile;

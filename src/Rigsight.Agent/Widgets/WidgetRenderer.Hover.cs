@@ -111,7 +111,7 @@ internal static partial class WidgetRenderer
     /// lighter edge (the mock-up's #1d1f23 and #3a3d44 on the dark theme), on a light one a white-ish box with a soft edge.
     /// </summary>
     private static (Color Box, Color Border, Color Text, Color Muted, Color Shadow) TipColors(Palette p) => p.Light
-        ? (Mix(p.Bg, Color.White, 0.6f), Mix(p.Bg, p.Text, 0.16f), p.Text, p.Muted, Color.FromArgb(46, 0, 0, 0))
+        ? (Mix(p.Bg, Color.White, 0.6f), Mix(p.Bg, p.Text, 0.16f), p.Text, p.Muted, Color.FromArgb(30, 0, 0, 0))
         : (Mix(p.Bg, p.Text, 0.08f), Mix(p.Bg, p.Text, 0.2f), Mix(p.Bg, p.Text, 0.93f), p.Muted, Color.FromArgb(102, 0, 0, 0));
 
     private static Color Mix(Color a, Color b, float t) =>

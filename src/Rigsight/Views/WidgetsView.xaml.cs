@@ -55,9 +55,18 @@ public partial class WidgetsView : UserControl
     {
         // A word in a text (a Run) isn't on the visual tree: the text it's in is.
         while (pressed is not null and not Visual) pressed = LogicalTreeHelper.GetParent(pressed);
-        // A reading's name in a tile's list too (see NameRow), when it's the one being typed in.
+        // The readings' names in a tile's settings too (see NameRow): each a box in the list of them.
         var boxes = new List<TextBox> { NameBox, NoteBox };
-        if (Keyboard.FocusedElement is TextBox focused && !boxes.Contains(focused)) boxes.Add(focused);
+        void Find(DependencyObject parent)
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is TextBox { DataContext: NameRow } box) boxes.Add(box);
+                else Find(child);
+            }
+        }
+        Find(NameRowsList);
         foreach (var box in boxes)
             if (box.GetBindingExpression(TextBox.TextProperty) is { IsDirty: true } typed && (pressed is null || !box.IsAncestorOf(pressed)))
                 typed.UpdateSource();

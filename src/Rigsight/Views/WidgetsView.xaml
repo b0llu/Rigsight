@@ -1008,7 +1008,7 @@
                                      several, a switch for each (approved mock-up XcuVN6VYHFqAbEb33kYRYx's Fans rows). -->
                                 <StackPanel Visibility="{Binding HasNameRows, Converter={StaticResource Vis}}" Margin="16,2,16,4">
                                     <TextBlock Text="{Binding NameRowsCaption}" Style="{StaticResource Caption}" Margin="0,6,0,4" />
-                                    <ItemsControl ItemsSource="{Binding NameRows}" Focusable="False">
+                                    <ItemsControl x:Name="NameRowsList" ItemsSource="{Binding NameRows}" Focusable="False">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel>

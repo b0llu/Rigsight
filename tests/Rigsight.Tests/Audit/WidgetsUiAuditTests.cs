@@ -142,6 +142,77 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
         host.Shell.Widgets.Refresh();
     });
 
+    // The editor's new rows as people see them, to set beside the mock-up XcuVN6VYHFqAbEb33kYRYx: a Fans tile's fans by name
+    // with their switches, a line of readings' names, and the Look tab's Background row with its colour row and picker.
+    // Saved under %TEMP%\rigsight-tests\hover\editor-*.png.
+    [Fact]
+    public void The_names_switches_and_background_rows_look_as_the_mock_up()
+    {
+        host.Show("widgets");
+        var dir = Path.Combine(Path.GetTempPath(), "rigsight-tests", "hover");
+        Directory.CreateDirectory(dir);
+        var cfg = WidgetsViewModel.NewWidget("Rows", [
+            new WidgetTile { Kind = WidgetTiles.Fans, W = 6, H = 4 },
+            new WidgetTile { Kind = WidgetTiles.Line, Y = 4, W = 8, H = 1, Items = WidgetCatalog.Items(OverlayMetric.CpuTemp, OverlayMetric.GpuLoad) },
+        ]);
+        cfg.Theme = WidgetTheme.Dark;
+        string id = AddWidget(cfg);
+        try
+        {
+            Ui.Run(() => host.Shell.Widgets.Edit(id));
+            Ui.Pump(400);
+            var ed = Ui.Run(() => host.Shell.Widgets.Editor!);
+            FrameworkElement Card() => Visuals.Ancestors<SmoothBorder>(Visuals.Descendants<ItemsControl>(host.Window).Single(i => i.Name == "NameRowsList")).First();
+            Ui.Run(() => ed.SelectTile(0));
+            Ui.Pump(300);
+            Ui.Run(() =>
+            {
+                Assert.NotEmpty(ed.NameRows);
+                Snap(Card(), Path.Combine(dir, "editor-fans-rows.png"));
+            });
+            Ui.Run(() => ed.SelectTile(1));
+            Ui.Pump(300);
+            Ui.Run(() => Snap(Card(), Path.Combine(dir, "editor-line-rows.png")));
+            Ui.Run(() =>
+            {
+                ed.SelectTile(-1);
+                ed.PanelTab = "look";
+                ed.BackgroundKind = "own";
+            });
+            Ui.Pump(300);
+            Ui.Run(() =>
+            {
+                var row = Visuals.Descendants<Button>(host.Window).Single(b => b.IsVisible && System.Windows.Automation.AutomationProperties.GetName(b) == "Background color");
+                Snap(Visuals.Ancestors<SmoothBorder>(row).First(), Path.Combine(dir, "editor-background-rows.png"));
+                var picker = Visuals.Descendants<ColorPicker>(host.Window).Single(p => p.Name == "BackgroundPick");
+                picker.OpenOne(row, ed.BackgroundLabel, ed.BackgroundColor, WidgetEditorViewModel.BackgroundColors, ed.BackgroundCustoms);
+            });
+            Ui.Pump(400);
+            Ui.Run(() =>
+            {
+                var picker = Visuals.Descendants<ColorPicker>(host.Window).Single(p => p.Name == "BackgroundPick");
+                var pop = (System.Windows.Controls.Primitives.Popup)picker.Content;
+                Snap((FrameworkElement)pop.Child, Path.Combine(dir, "editor-background-picker.png"));
+                picker.Close();
+            });
+        }
+        finally { Drop(id); }
+    }
+
+    /// <summary>An element as it shows, at twice the size, wherever it sits in the window.</summary>
+    private static void Snap(FrameworkElement e, string path)
+    {
+        var visual = new System.Windows.Media.DrawingVisual();
+        using (var dc = visual.RenderOpen())
+            dc.DrawRectangle(new System.Windows.Media.VisualBrush(e), null, new Rect(0, 0, e.ActualWidth, e.ActualHeight));
+        var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap((int)Math.Ceiling(e.ActualWidth * 2), (int)Math.Ceiling(e.ActualHeight * 2), 192, 192, System.Windows.Media.PixelFormats.Pbgra32);
+        bmp.Render(visual);
+        var png = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+        using var f = File.Create(path);
+        png.Save(f);
+    }
+
     // Opening the editor, picking every tile in turn, every tab, and closing it again changes nothing the widget has (the
     // combo boxes, segments, sliders and ready sizes only show what's set until they're moved).
     [Fact]
@@ -724,10 +795,19 @@ public sealed class WidgetsUiAuditTests(AppHost host) : IClassFixture<AppHost>
             Ui.Pump(200);
             Assert.Equal("Typed into the note", Ui.Run(() => host.Shell.Settings.Current.Widgets.Single(w => w.Id == id).Tiles![notes].Text));
 
-            Ui.Run(() => Box(t => t.MaxLength == 18).Text = "Fast");
+            // The reading's name (renamed for the whole app where it's a sensor, else on the tile).
+            Ui.Run(() => Box(t => t.DataContext is NameRow).Text = "Fast");
             PressThenClick(notes);
             Ui.Pump(200);
-            Assert.Equal("Fast", Ui.Run(() => host.Shell.Settings.Current.Widgets.Single(w => w.Id == id).Tiles![reading].Label));
+            Ui.Run(() =>
+            {
+                var s = host.Shell.Settings.Current;
+                Assert.True(s.Widgets.Single(w => w.Id == id).Tiles![reading].Label == "Fast" || s.SensorLabels.ContainsValue("Fast"));
+                // Back to its own name, for the tests after this one.
+                ed.SelectTile(reading);
+                ed.NameRows[0].Name = "";
+                Assert.DoesNotContain("Fast", host.Shell.Settings.Current.SensorLabels.Values);
+            });
 
             Ui.Run(() => Box(t => t.Name == "NameBox").Text = "Renamed");
             Ui.Run(() =>
