@@ -183,6 +183,13 @@ public sealed class NetLive
     /// <summary>Windows has stopped delivering network events though the network is in use, and the agent couldn't get
     /// them back: nothing is being recorded for now (it keeps trying).</summary>
     public bool Stalled { get; set; }
+    /// <summary>While <see cref="Stalled"/>: <see cref="Down"/> and <see cref="Up"/> are the whole PC's, from the network
+    /// cards' own counters, with no apps (issue #13: the speeds went blank with the apps).</summary>
+    public bool FromCards { get; set; }
+
+    /// <summary>Whether <see cref="Down"/> and <see cref="Up"/> are a real speed now (the apps' sum, or the cards').</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasSpeed => !Stalled || FromCards;
 }
 
 /// <summary>

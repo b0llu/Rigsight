@@ -59,7 +59,7 @@ internal sealed partial class AgentContext
             bool reading = _netTrace is not null || _cardsBefore is not null;
             var net = reading ? _tracker.NetNow : null;
             pc.NetPerApp = _netTrace is not null;
-            if (net is { Stalled: false })
+            if (net is { HasSpeed: true })
             {
                 (pc.NetDown, pc.NetUp) = (net.Down, net.Up);
                 // As the Network page lists them (NetTodayViewModel): the apps moving a kilobyte a second or more.

@@ -139,4 +139,27 @@ public class TraceWatchTests
         Assert.Equal(TraceRemedy.None, watch.Check(now += 60, 10 * MB, 4_000));  // a card's counters started over
         Assert.Equal(TraceRemedy.Restart, watch.Check(now += 60, 40 * MB, 4_000));
     }
+    // Issue #13 (a laptop, 11 Nov 2026): the trace went silent for hours and the taskbar's Down and Up showed dashes with
+    // it. While silent, the whole PC's speed comes from the network cards and still shows; the apps don't, and it travels
+    // to the app over the pipe.
+    [Fact]
+    public void While_the_trace_is_silent_the_cards_speed_still_shows()
+    {
+        Assert.True(new Rigsight.Core.Protocol.NetLive { Down = 5, Up = 1 }.HasSpeed);
+        Assert.False(new Rigsight.Core.Protocol.NetLive { Stalled = true }.HasSpeed);
+        var cards = new Rigsight.Core.Protocol.NetLive { Stalled = true, FromCards = true, Down = 2_500_000, Up = 40_000 };
+        Assert.True(cards.HasSpeed);
+        var back = System.Text.Json.JsonSerializer.Deserialize<Rigsight.Core.Protocol.NetLive>(System.Text.Json.JsonSerializer.Serialize(cards))!;
+        Assert.Equal((true, true, 2_500_000d), (back.Stalled, back.FromCards, back.Down));
+        Assert.Empty(back.Apps);
+    }
+
+    [Fact]
+    public void Every_running_trace_session_can_be_listed_for_the_log()
+    {
+        // Listing needs no admin rights on most PCs; it must never throw, whatever it finds.
+        var sessions = NetworkTrace.Running();
+        Assert.All(sessions, n => Assert.False(string.IsNullOrWhiteSpace(n)));
+    }
+
 }

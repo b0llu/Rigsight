@@ -1244,7 +1244,7 @@ internal sealed partial class AgentContext : ApplicationContext
             if (TrayParts.IsNet(id))
             {
                 var net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : null;
-                double? down = net is null || net.Stalled ? null : net.Down, up = net is null || net.Stalled ? null : net.Up;
+                double? down = net is { HasSpeed: true } ? net.Down : null, up = net is { HasSpeed: true } ? net.Up : null;
                 string name = own ?? SensorWords.Show(TrayParts.NetName(id));
                 reading = new TrayReading(id, name, SensorKind.Throughput, id == TrayParts.NetUp ? up : down, TrayPart.Network, SensorWords.Show(TrayParts.NetHardware),
                     own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel } o ? o : id == TrayParts.NetUp ? Lang.T("Up") : Lang.T("Down"),
@@ -1511,6 +1511,36 @@ internal sealed partial class AgentContext : ApplicationContext
 
     private static readonly NetLive NotRecording = new() { Stalled = true };
 
+    private bool _sessionsLogged;
+
+    // While the trace is silent: the network cards' own counters for the whole PC's speed right now, so the taskbar,
+    // widgets and Network page keep a speed (issue #13: they showed dashes for hours). Live only, never written to the
+    // history: a minute the trace comes back in would count twice.
+    private Dictionary<string, (long Received, long Sent)>? _stallCards;
+    private double _stallSeconds;
+    private (double Down, double Up)? _stallSpeed;
+
+    /// <summary>Sampler thread, each second while the trace is silent: the cards' speed, read every few seconds.</summary>
+    private (double Down, double Up)? CardSpeedWhileStalled(double seconds)
+    {
+        _stallSeconds += seconds;
+        if (_stallSeconds < CardEverySeconds && _stallCards is not null) return _stallSpeed;
+        var now = NetAdapters.CardTraffic();
+        var before = _stallCards;
+        double span = _stallSeconds;
+        _stallCards = now;
+        _stallSeconds = 0;
+        if (now is null || before is null || span <= 0) return _stallSpeed = null;
+        long down = 0, up = 0;
+        foreach (var (id, n) in now)
+            if (before.TryGetValue(id, out var b) && n.Received >= b.Received && n.Sent >= b.Sent)
+            {
+                down += n.Received - b.Received;
+                up += n.Sent - b.Sent;
+            }
+        return _stallSpeed = (down / span, up / span);
+    }
+
     /// <summary>
     /// Sampler thread, each minute: a trace that delivers nothing while megabytes go through the network cards is started
     /// again; if that doesn't help, traces left behind by test copies are stopped first (see <see cref="TraceWatch"/>).
@@ -1538,9 +1568,18 @@ internal sealed partial class AgentContext : ApplicationContext
                 break;
             case TraceRemedy.GiveUp:
                 Log.Write("network", $"App network use still isn't coming in: trying again in {TraceWatch.RetrySeconds / 60} minutes");
+                // Once a stall: which trace sessions are running, so the log names one that may hold the network events
+                // (issue #13: a network tool installed and removed left them silent until a restart; the log couldn't say).
+                if (!_sessionsLogged)
+                {
+                    _sessionsLogged = true;
+                    var sessions = NetworkTrace.Running();
+                    Log.Write("network", $"Trace sessions running now ({sessions.Count}): {string.Join(", ", sessions)}");
+                }
                 break;
             case TraceRemedy.Recovered:
                 Log.Write("network", "App network use is coming in again");
+                _sessionsLogged = false;
                 break;
         }
     }
@@ -1595,6 +1634,11 @@ internal sealed partial class AgentContext : ApplicationContext
             _tracker.OnNetwork(counts, _running, seconds);
             var now = _tracker.NetNow;
             now.Stalled = _traceWatch.Stalled;
+            now.FromCards = false;
+            if (now.Stalled && CardSpeedWhileStalled(seconds) is { } cards)
+                (now.Down, now.Up, now.FromCards) = (cards.Down, cards.Up, true);
+            else if (!now.Stalled)
+                (_stallCards, _stallSpeed) = (null, null);
             lock (_netHistoryLock)
             {
                 _netHistory.Enqueue(new NetLive { Time = now.Time, Down = now.Down, Up = now.Up });
