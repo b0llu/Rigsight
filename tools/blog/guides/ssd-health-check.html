@@ -1,48 +1,20 @@
 <!--meta
-{
- "slug": "ssd-health-check",
- "series": "guide",
- "published": "2026-10-26",
- "updated": "2026-10-26",
+{"slug": "ssd-health-check", "series": "guide", "published": "2026-10-26", "updated": "2026-11-12",
  "topic": "Storage",
  "keyword": "ssd health check windows 11",
- "also": [
-  "ssd health check software free",
-  "ssd health check",
-  "ssd health check tool",
-  "ssd health check windows 10",
-  "ssd health checker"
- ],
- "title": "SSD health check on Windows 11, with free ways to test your drive",
- "summary": "An SSD health check on Windows 11 takes a minute with the tools already on your PC. Here is where Windows shows drive health, the PowerShell commands that read SMART data, and free SSD health check software.",
- "short": "For an SSD health check on Windows 11, open Settings > System > Storage > Advanced storage settings > Disks & volumes, pick the drive and choose Properties to see its estimated remaining life. That works for NVMe SSDs only. For SATA SSDs, use PowerShell's Get-PhysicalDisk or free SSD health check software like CrystalDiskInfo.",
+ "also": ["how to check ssd health", "how to check ssd health windows 11", "check ssd health windows 11 powershell", "ssd health check software", "ssd health check", "is my ssd dying", "signs my ssd is dying", "ssd health check windows 10"],
+ "title": "SSD health check on Windows 11, and why mine says Healthy at 70%",
+ "summary": "The SSD Windows runs on in my PC says Healthy and has used 30% of its rated life. How to do an SSD health check on Windows 11, why Healthy and life left are two different readings, and what RigSight tells you when either one changes.",
+ "description": "For an SSD health check on Windows 11, use Disks & volumes in Settings or Get-PhysicalDisk in PowerShell. Healthy and life left are two separate readings.",
+ "short": "For an SSD health check on Windows 11, open Settings > System > Storage > Advanced storage settings > Disks & volumes and pick the drive. That only covers NVMe SSDs. For any drive, run Get-PhysicalDisk in PowerShell or use CrystalDiskInfo. Read both the health status and the life left, since a healthy drive can have used a lot of its life.",
  "faq": [
-  [
-   "How do I check my SSD health in Windows 11?",
-   "Open Settings > System > Storage > Advanced storage settings > Disks & volumes, pick the SSD and select Properties. Drive health shows estimated remaining life, available spare and temperature for NVMe SSDs. For other drives, run Get-PhysicalDisk in PowerShell or use CrystalDiskInfo."
-  ],
-  [
-   "What is the best free SSD health check software?",
-   "CrystalDiskInfo is the best known free SSD health checker and reads SMART data from almost any drive. Your SSD maker's own tool, like Samsung Magician, Sandisk Dashboard for WD and Sandisk drives, Crucial Storage Executive or Kingston SSD Manager, also shows health and can update the drive's firmware."
-  ],
-  [
-   "What is a good SSD health percentage?",
-   "Anything well above 10% is fine for daily use, and a home PC that mostly plays games and browses usually uses it up slowly. The number is the drive's own estimate of its rated write life left. When it gets low, keep a good backup and plan a replacement, but a drive at 0% doesn't stop working right away."
-  ],
-  [
-   "Can I still check SSD health with wmic?",
-   "Not on current Windows 11. Microsoft has removed the WMIC tool from supported versions of Windows 11, so wmic diskdrive get status no longer works there. Use Get-PhysicalDisk in PowerShell instead."
-  ],
-  [
-   "Does chkdsk check SSD health?",
-   "No. Chkdsk checks and repairs the file system, the way files are organised on the drive. It doesn't read the SSD's wear or SMART data, so use one of the checks in this post for drive health."
-  ]
+  ["How do I do an SSD health check on Windows 11?", "Open Settings > System > Storage > Advanced storage settings > Disks & volumes, pick the SSD and select Properties. Drive health shows estimated remaining life, available spare and temperature, for NVMe SSDs only. For SATA SSDs, run Get-PhysicalDisk in PowerShell or use CrystalDiskInfo."],
+  ["What is a good SSD health percentage?", "Anything well above 10% is fine for daily use. The number is the drive's own estimate of its rated write life left, and a home PC that mostly games and browses usually uses it up slowly. When it gets low, keep a good backup and plan a replacement. A drive at 0% doesn't stop working that day."],
+  ["What are the signs my SSD is dying?", "A health status of Warning or Bad, a growing count of reallocated, pending or uncorrectable sectors, files that won't open or copy, and the PC freezing on disk access. A low life left on its own means the drive has used most of its rated writes, which is a reason to keep a backup, not proof it's failing."],
+  ["What is the best free SSD health check software?", "CrystalDiskInfo is the best known free SSD health checker and reads SMART data from almost any drive. Your SSD maker's own tool, like Samsung Magician, Sandisk Dashboard, Crucial Storage Executive or Kingston SSD Manager, also shows health and can update the drive's firmware."],
+  ["Can I still check SSD health with wmic or chkdsk?", "Not with wmic on current Windows 11, because Microsoft has removed it. Use Get-PhysicalDisk in PowerShell instead. Chkdsk checks the file system, the way files are organised, and doesn't read the SSD's wear or SMART data."]
  ],
- "app": [
-  "Storage page drive health (from before 0.6.0; reasons for Caution added in 0.19.0; Storage rebuilt in 0.34.0)",
-  "Home's PC health card covering drives (0.21.0)",
-  "Readings that need admin rights listed in Settings (0.23.0)"
- ],
+ "app": ["Storage page Drive health card, Healthy, Early warning or Failing, with life left, hours on and bad sectors, and why when not Healthy (DriveSummary; Early warning at 10% life left or less, WornOut 10)", "Notifications since 1.7.0 under Drive health in Settings, on by default, said when a drive changes for the worse (NoticeChecks.Drives): 'Your X reports a failure' (urgent), 'reports early warning signs', 'reports bad sectors' with the count and the count before, 'reports most of its rated life used' at 10% or less", "Drive almost full notification since 1.7.0, under 5% and under 20 GB left, once a day (NoticeChecks.Space)", "Home's PC health card covers drives (0.21.0)", "Drive health needs RigSight running with admin rights (0.23.0)"],
  "sources": [
   "https://learn.microsoft.com/en-us/powershell/module/storage/get-storagereliabilitycounter",
   "https://learn.microsoft.com/en-us/windows-hardware/drivers/storage/msft-storagereliabilitycounter",
@@ -50,107 +22,91 @@
   "https://support.microsoft.com/en-us/topic/what-to-do-about-a-critical-warning-for-a-storage-device-258e0042-e091-277d-5fa6-3c710fba70d7",
   "https://blogs.windows.com/windows-insider/2020/09/30/announcing-windows-10-insider-preview-build-20226/",
   "https://learn.microsoft.com/en-us/powershell/module/storage/get-physicaldisk",
-  "https://learn.microsoft.com/en-us/windows-hardware/drivers/storage/msft-physicaldisk",
   "https://crystalmark.info/en/software/crystaldiskinfo/",
   "https://www.sandisk.com/en-us/topics/upgrades/drive-monitoring-sandisk-dashboard",
   "https://www.crucial.com/support/storage-executive",
-  "https://pureinfotech.com/check-hard-drive-health-windows-11/",
-  "https://www.elevenforum.com/t/check-drive-health-and-smart-status-in-windows-11.8778/",
-  "https://www.pcgamer.com/au/windows-10-nvme-ssd-check"
+  "https://www.elevenforum.com/t/check-drive-health-and-smart-status-in-windows-11.8778/"
  ],
- "cover_img": "pages/storage",
- "cover_crop": [
-  910,
-  616,
-  490,
-  308
- ],
- "cover_alt": "RigSight's Drive health card: a Samsung SSD 980 with 98% life left, a Kingston SSD with 70% life left and a Seagate hard drive with no bad sectors, all marked Healthy"
+ "cover_img": "pages/storage", "cover_crop": [910, 616, 490, 308],
+ "cover_alt": "RigSight's Drive health card on my PC: a Samsung SSD 980 with 98% life left, a Kingston SSD with 70% life left and a Seagate hard drive with no bad sectors, all marked Healthy"
 }
 -->
-<p>SSDs don't click or grind before they fail, so the only way to know how yours is doing is to ask it. Every SSD keeps a record of its own health, called SMART data, and Windows 11 can read some of it without installing anything. This SSD health check for Windows 11 takes a few minutes. It covers Windows Settings, PowerShell and free SSD health check software.</p>
+<p>My PC has three drives, and every health check I run calls all of them Healthy. But the Kingston SSD that Windows runs on reported 70% of its rated life left in October, after 11,886 hours on. The newer Samsung SSD my games sit on reported 98%. Both are Healthy, and they're in very different places. That's the thing to know before an SSD health check on Windows 11. It gives you two readings, and they answer different questions.</p>
 
-<h2>Check SSD health in Windows 11 Settings</h2>
+<h2>How RigSight caught it</h2>
 
-<p>Windows has a drive health page built in. It's the quickest check, but Microsoft says Windows only monitors NVMe SSDs here, which most small stick shaped drives in an M.2 slot are. SATA SSDs, including M.2 SATA ones, and hard drives don't show health here.</p>
+<p>RigSight's Storage page has a Drive health card with one row per drive. Each row shows the life left the SSD reports, how many hours it has been on, and for drives that report them, the bad sectors, or "No bad sectors". On the right is one word for its state, Healthy, Early warning or Failing.</p>
+
+<p>That word takes the worse of two things. One is SMART, the drive's own health check. The other is life left, because SMART can still say Good on an SSD that has used nearly all of its rated writes. An SSD at 10% life left or less shows Early warning, with "The drive reports almost all of its rated life used. Keep a backup of what's on it." Bad sectors give "Bad sectors are an early warning. Keep a backup, and watch whether the count grows." Only SMART reporting a failure makes a drive Failing.</p>
+
+<p>Since version 1.7.0, RigSight also tells you when a drive changes for the worse, so you don't have to remember to look. A failure comes as an urgent notification, "Your Samsung SSD 980 1TB reports a failure", telling you to back up now. Early warning signs, new or more bad sectors, and 10% life left or less each come once, and the bad sectors one gives the count and what it was before. You can turn these off with <b>Drive health</b> in Settings. A drive almost full has its own switch, <b>Drive almost full</b>.</p>
+
+<p>On my PC, RigSight's log shows it checking all three drives several times an hour, and they're still Good. It hasn't sent a single drive notification, which is how it should be. Drive health needs RigSight to run with admin rights, and RigSight is free and open source.</p>
+
+<h2>Healthy and life left are different readings</h2>
+
+<p>The health status is the drive's own pass or fail. It turns to Warning or Bad when something the drive tracks crosses the line its maker set, like errors it couldn't fix or spare memory running out.</p>
+
+<p>Life left is wear. SSDs wear a little with every write, and makers rate how much they can take. 70% left means the drive estimates it has used about 30% of that. It's an estimate, and drives often keep working past 0%. Most home PCs write far less than the rating, so this number usually falls slowly. My Windows drive took nearly 12,000 hours on to use its 30%, so at that pace it has years of use left.</p>
+
+<p>A drive can be Healthy at 70%, and a drive can fail at 98% without warning, from a controller fault for example. A health check makes a surprise less likely. Only a backup protects your files.</p>
+
+<h2>How to do an SSD health check on Windows 11 in Settings</h2>
+
+<p>Windows has a drive health page built in, but Microsoft says it only covers NVMe SSDs, which most of the small stick drives in an M.2 slot are. My Kingston is a SATA SSD, so this page has nothing to say about the drive Windows itself runs on. SATA SSDs, M.2 SATA drives and hard drives need PowerShell or software instead.</p>
 
 <ol>
   <li>Open <b>Settings</b> with <b>Windows+I</b>.</li>
   <li>Go to <b>System</b> &gt; <b>Storage</b>.</li>
   <li>Under <b>Storage management</b>, open <b>Advanced storage settings</b> &gt; <b>Disks &amp; volumes</b>.</li>
   <li>Pick your SSD and select <b>Properties</b>.</li>
-  <li>Look at the <b>Drive health</b> section.</li>
+  <li>Read the <b>Drive health</b> section.</li>
 </ol>
 
-<p>You'll see three readings.</p>
+<p>It shows estimated remaining life, available spare, which is the extra memory the drive keeps to replace worn cells, and the temperature. If the drive reports a problem, Windows shows a warning such as "Reliability is degraded" and asks you to back up. Windows 10 has the same page under <b>Settings</b> &gt; <b>System</b> &gt; <b>Storage</b> &gt; <b>Manage disks and volumes</b>.</p>
 
-<ul>
-  <li>Estimated remaining life is how much of its rated write life the SSD thinks it has left.</li>
-  <li>Available spare is the spare memory the drive keeps to replace cells that wear out.</li>
-  <li>Temperature is the drive's temperature right now.</li>
-</ul>
+<h2>Check SSD health in Windows 11 with PowerShell</h2>
 
-<p>If the drive reports a problem, Windows shows a warning such as "Reliability is degraded" and tells you to back up your data. Windows 10 has the same page under <b>Settings</b> &gt; <b>System</b> &gt; <b>Storage</b> &gt; <b>Manage disks and volumes</b>, then <b>Properties</b>.</p>
-
-<h2>Check SSD health with PowerShell</h2>
-
-<p>PowerShell reads any drive, SATA or NVMe, and gives a few more numbers. The old <code>wmic diskdrive get status</code> trick no longer works, because Microsoft has removed WMIC from current Windows 11.</p>
+<p>PowerShell reads any drive, SATA or NVMe. The old <code>wmic diskdrive get status</code> no longer works, because Microsoft has removed WMIC from current Windows 11.</p>
 
 <ol>
   <li>Right click the Start button and choose <b>Terminal (Admin)</b>.</li>
-  <li>For a quick yes or no, run this command.
+  <li>For the health status, run this.
     <pre><code>Get-PhysicalDisk | Select-Object FriendlyName, MediaType, HealthStatus, OperationalStatus</code></pre>
   </li>
-  <li>For wear and error counts, run this one.
+  <li>For wear and errors, run this one. It needs the admin window.
     <pre><code>Get-PhysicalDisk | Get-StorageReliabilityCounter | Select-Object DeviceId, Wear, Temperature, PowerOnHours, ReadErrorsUncorrected, WriteErrorsUncorrected</code></pre>
   </li>
 </ol>
 
-<p>HealthStatus should say <code>Healthy</code>. <code>Warning</code> or <code>Unhealthy</code> means back up now. In the second command, Wear is the percentage of the drive's rated wear already used, so it counts up. A new drive reads 0, and Microsoft describes 100 as the point where the estimated wear limit is reached. Some drives leave Wear empty. Uncorrected read or write errors should be 0. Anything above that, and growing, is a warning sign.</p>
+<p>HealthStatus should say <code>Healthy</code>, as all three of mine did today. <code>Warning</code> or <code>Unhealthy</code> means back up now. Wear counts up, so it's the opposite of life left. A new drive reads 0, and Microsoft describes 100 as the point where the rated wear is reached. Some drives leave it empty. The uncorrected error counts should be 0.</p>
 
 <h2>Free SSD health check software</h2>
 
-<p>A SMART tool shows everything the drive reports, in one window. Two kinds are worth having.</p>
+<p>CrystalDiskInfo is free, small and reads almost any drive. Each drive gets a box marked <b>Good</b>, <b>Caution</b> or <b>Bad</b>, with a percentage for SSDs, and below it the full SMART table, the hours on and the total data written.</p>
 
-<h3>CrystalDiskInfo</h3>
+<p>Most SSD makers also have a free tool for their own drives, such as Samsung Magician, Sandisk Dashboard for WD and Sandisk drives, Crucial Storage Executive and Kingston SSD Manager. They show health in the maker's own terms and can update the drive's firmware, which sometimes fixes bugs. Back up before a firmware update, and only update with the maker's own tool.</p>
 
-<p>CrystalDiskInfo is free, small and reads almost any drive. Install it, open it, and each drive gets a box at the top marked <b>Good</b>, <b>Caution</b> or <b>Bad</b>, with a percentage for SSDs. Below that is the full SMART table, power on hours and the total data written.</p>
-
-<h3>Your SSD maker's tool</h3>
-
-<p>Most SSD makers have a free tool for their own drives. Examples are Samsung Magician, Sandisk Dashboard for WD and Sandisk drives, which used to be called WD Dashboard, Crucial Storage Executive, Kingston SSD Manager and others. They show health in the maker's own terms, and they can update the SSD's firmware, which sometimes fixes bugs that affect speed or reliability. Back up before a firmware update, and only use the maker's tool for it.</p>
-
-<h2>What the readings mean</h2>
-
-<p>The names change between tools, but they come down to a few things.</p>
+<h2>Signs your SSD is dying</h2>
 
 <ul>
-  <li>Life left, health or percentage used. SSDs wear a little with every write, and the maker rates how much they can take. 90% left means it has used about a tenth of that. Most home PCs write far less than the rating, so this number usually drops slowly over years.</li>
-  <li>Total bytes written, or TBW. The data written so far. Compare it with the TBW rating on the drive's spec sheet.</li>
-  <li>Available spare. When it falls under the drive's threshold, the drive reports a warning.</li>
-  <li>Media errors, reallocated or pending sectors, and uncorrectable errors. These should be 0. A few that never change aren't an emergency. A count that keeps growing is the clearest sign a drive is on its way out.</li>
-  <li>Temperature. NVMe SSDs slow themselves down when they get too hot, often somewhere in the 70s or 80s °C, depending on the model. If yours runs that hot in games, a heatsink on the M.2 slot helps.</li>
+  <li>The health status says Warning, Caution, Bad or Unhealthy.</li>
+  <li>Reallocated, pending or uncorrectable sectors that keep growing. A few that never change aren't an emergency. A count that climbs is the clearest sign.</li>
+  <li>Available spare under the drive's threshold, which Windows reports as a warning.</li>
+  <li>Files that won't open or copy, and the PC freezing for seconds when it reads the drive.</li>
 </ul>
 
-<p>Two things to keep in mind. The life figure is an estimate, and a drive at 0% doesn't die that day. And a drive marked healthy can still fail without warning, from a controller fault for example. A health check makes a surprise less likely, but only a backup protects your files.</p>
+<p>Low life left with none of these means the drive has used most of its rated writes. Keep a backup and plan a replacement, but it isn't failing yet.</p>
 
 <h2>What to do if your SSD isn't healthy</h2>
 
 <ol>
-  <li>Back up what matters, now, to another drive or a cloud service.</li>
+  <li>Back up what matters now, to another drive or a cloud service.</li>
   <li>Check the maker's tool for a firmware update.</li>
-  <li>Check the warranty. Many SSD warranties cover a set number of years or a TBW figure, whichever comes first.</li>
-  <li>Plan to replace the drive, and check it again every week until you do.</li>
+  <li>Check the warranty. Many SSD warranties cover a set number of years or a written total, whichever comes first.</li>
+  <li>Plan to replace the drive, and check it every week until you do.</li>
 </ol>
 
-<p>If the drive is just full rather than worn, that's a different problem. <a href="what-is-taking-up-space-on-c-drive">What is taking up space on your C drive</a> helps with that.</p>
+<p>If the drive is just full, that's a different problem, and <a href="what-is-taking-up-space-on-c-drive">what is taking up space on your C drive</a> helps with that.</p>
 
-<h2>How RigSight keeps an eye on it</h2>
-
-<p>RigSight is a free, open source app that records your PC all day and keeps it as history. Its Storage page has a Drive health card that lists every drive with one word for its state, which is Healthy, Early warning or Failing. Under each name it shows the life left the SSD reports and the hours it has been on. Drives that report bad sectors, usually SATA ones, also show the count, or "No bad sectors".</p>
-
-<p>When a drive isn't healthy, RigSight says why on its card, in plain words. "Bad sectors are an early warning. Keep a backup, and watch whether the count grows." An SSD that reports 10% or less of its rated life left is marked Early warning, even when SMART says it's fine. The Home page's PC health card includes the drives, so you see a problem without going looking for it.</p>
-
-<p>Drive health needs RigSight to run with admin rights. On a standard Windows account, the card says so, and Storage still shows how full each drive is and how fast it's filling.</p>
-
-<p>Run the Settings check or the first PowerShell command today, and write down the life left. Checking it again in a few months tells you more than one reading ever can.</p>
+<p>Your next step is to run the first PowerShell command or the Settings check today, and write down each SSD's life left. Checking again in a few months tells you how fast it wears, which one reading never can.</p>
