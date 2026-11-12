@@ -40,7 +40,7 @@ internal sealed class WidgetForm : Form
     private List<WidgetRenderer.TileHit> _hits = [];
     private List<(int Tile, RectangleF Rect)> _scrollAreas = [];
 
-    /// <summary>The note or to-do list under a point of the window that scrolls with the wheel, if any.</summary>
+    /// <summary>The tile under a point of the window that scrolls with the wheel (a note, a list that holds more than it shows), if any.</summary>
     private int? ScrollTileAt(Point client)
     {
         if (_hitScale <= 0) return null;
@@ -588,7 +588,8 @@ internal sealed class WidgetForm : Form
                 return;
 
             case WM_MOUSEWHEEL when !Config.Locked:
-                // Over a note or a to-do list that holds more than it shows: scrolled (a notch down shows what's under).
+                // Over a tile that holds more than it shows (a note, a to-do list, a list of fans or apps…): scrolled (a
+                // notch down shows what's under). A click-through widget never gets the wheel: the pointer passes through.
                 long lp = (long)m.LParam;
                 var wheelAt = PointToClient(new Point((short)(lp & 0xFFFF), (short)((lp >> 16) & 0xFFFF)));
                 if (ScrollTileAt(wheelAt) is int scrolled)

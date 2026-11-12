@@ -442,7 +442,10 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         box.Show();
     }
 
-    /// <summary>The wheel over a note or a to-do list: scrolled by a row (a list) or three lines (a note) a notch.</summary>
+    /// <summary>
+    /// The wheel over a tile that holds more than it shows: scrolled by three lines a notch on a note, else by one of what
+    /// it holds (a row of a list, a line of a crash, a row of shortcuts, a reading of a line).
+    /// </summary>
     public void Scrolled(WidgetForm form, int tile, int notches)
     {
         if (form.Config.Tiles is not { } tiles || tile >= tiles.Count) return;

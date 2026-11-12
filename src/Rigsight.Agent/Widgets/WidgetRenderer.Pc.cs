@@ -246,6 +246,33 @@ internal static partial class WidgetRenderer
     /// <summary>How many rows fit under a heading (the mock-up's fitsN): one at least, <paramref name="most"/> at most.</summary>
     private static int Fits(float height, float head, float row, int most) => Math.Clamp((int)Math.Floor((height - head) / row), 1, Math.Max(1, most));
 
+    /// <summary>
+    /// A list's rows under its heading, from <paramref name="top"/> down, <paramref name="rowH"/> apart: all of them where
+    /// <paramref name="fit"/> rows fit, else that many from where the wheel has them, a row a notch, with the thin bar at
+    /// the right (the owner, 2026-11-12: "we should not show less readings cause the widget is small, we should add a
+    /// scroll"). Only whole rows are drawn, and never over the heading. <paramref name="draw"/> draws row i at its top in
+    /// the room it has (narrower beside the bar).
+    /// </summary>
+    private static void ListRows(Graphics g, RectangleF r, float top, int count, int fit, float rowH, Palette p, Action<int, float, RectangleF> draw)
+    {
+        if (count <= 0) return;
+        fit = Math.Max(1, fit);
+        int first = ScrollOf(count - fit);
+        NoteShown(first, Math.Min(fit, count), count);
+        if (count <= fit)
+        {
+            for (int i = 0; i < count; i++) draw(i, top + i * rowH, r);
+            return;
+        }
+        AddScrollArea(RectangleF.FromLTRB(r.Left, top, r.Right, Math.Max(top, r.Bottom)));
+        var room = RectangleF.FromLTRB(r.Left, r.Top, r.Right - 8, r.Bottom);
+        var state = g.Save();
+        g.IntersectClip(RectangleF.FromLTRB(r.Left - 2, top, r.Right + 2, r.Bottom + 8));
+        for (int k = 0; k < fit; k++) draw(first + k, top + k * rowH, room);
+        g.Restore(state);
+        ScrollBar(g, RectangleF.FromLTRB(r.Left, top, r.Right, top + fit * rowH), first, fit, count, p);
+    }
+
     /// <summary>An app's row: its icon and name on the left (cut with "…"), its figure on the right.</summary>
     private static void AppRow(Graphics g, TileApp app, float y, RectangleF r, Palette p, Color? valueColor = null)
     {
@@ -265,8 +292,8 @@ internal static partial class WidgetRenderer
             if (none is not null) TextIn(g, none, Body, p.Muted, RectangleF.FromLTRB(r.Left, y + 2.5f, r.Right, r.Bottom));
             return;
         }
-        int n = Math.Min(apps.Count, Fits(r.Height, 16, AppRowH, most));
-        for (int i = 0; i < n; i++, y += AppRowH) AppRow(g, apps[i], y, r, p);
+        int count = Math.Min(apps.Count, Math.Max(1, most));
+        ListRows(g, r, y, count, Fits(r.Height, 16, AppRowH, count), AppRowH, p, (i, top, room) => AppRow(g, apps[i], top, room, p));
     }
 
     /// <summary>Puts a block of <paramref name="height"/> in the middle of the tile, top to bottom (the mock-up's tiles that aren't "top").</summary>
@@ -328,37 +355,34 @@ internal static partial class WidgetRenderer
             TextIn(g, Lang.T("No spinning fans reported."), Body, p.Muted, RectangleF.FromLTRB(r.Left, y + 2.5f, r.Right, r.Bottom));
             return;
         }
-        int n = Math.Min(fans.Count, Fits(r.Height, 16, AppRowH, fans.Count));
-        for (int i = 0; i < n; i++, y += RowH)
+        ListRows(g, r, y, fans.Count, Fits(r.Height, 16, AppRowH, fans.Count), RowH, p, (i, top, room) =>
         {
             string rpm = fans[i].Rpm is double v ? Units.Format(SensorKind.Fan, v) : "—";
-            float vw = TextRight(g, rpm, Body, fans[i].Rpm is null ? p.Faint : p.Text, r.Right, y + 2.5f, BodyLine);
-            TextLine(g, fans[i].Name, Body, p.Text, r.Left, y + 2.5f, BodyLine, maxWidth: Math.Max(1, r.Width - vw - 10));
-        }
+            float vw = TextRight(g, rpm, Body, fans[i].Rpm is null ? p.Faint : p.Text, room.Right, top + 2.5f, BodyLine);
+            TextLine(g, fans[i].Name, Body, p.Text, room.Left, top + 2.5f, BodyLine, maxWidth: Math.Max(1, room.Width - vw - 10));
+        });
     }
 
     private static void DrivesTile(Graphics g, WidgetTile t, RectangleF r, WidgetData d, Palette p)
     {
         float y = r.Top + Cap(g, Lang.T("DRIVES"), r.Left, r.Top, p, r.Right);
         if (DrivesOf(t, d) is not { Count: > 0 } drives) return;
-        int n = Math.Min(drives.Count, Fits(r.Height, 16, 31, drives.Count));
         var fill = Fill(DriveColor, p);
-        for (int i = 0; i < n; i++)
+        ListRows(g, r, y, drives.Count, Fits(r.Height, 16, 31, drives.Count), 29.625f, p, (i, top, row) =>
         {
             var dr = drives[i];
-            float line = y + 1;
+            float line = top + 1;
             string name = Lang.T($"{dr.Letter} drive"), free = Lang.T($"{Units.Bytes(dr.Free)} free");
-            float fw = TextRight(g, free, 11.5f, p.Muted, r.Right, line, BodyLine);
-            float room = Math.Max(1, r.Width - fw - 10);
-            TextLine(g, name, Body, p.Text, r.Left, line, BodyLine, maxWidth: room);
+            float fw = TextRight(g, free, 11.5f, p.Muted, row.Right, line, BodyLine);
+            float room = Math.Max(1, row.Width - fw - 10);
+            TextLine(g, name, Body, p.Text, row.Left, line, BodyLine, maxWidth: room);
             if (dr.Temp is double temp)
             {
-                float x = r.Left + W(g, name, Body) + Space(Body);
-                if (x + W(g, Units.TempShort(temp), Body) < r.Left + room) TextLine(g, Units.TempShort(temp), Body, p.Faint, x, line, BodyLine);
+                float x = row.Left + W(g, name, Body) + Space(Body);
+                if (x + W(g, Units.TempShort(temp), Body) < row.Left + room) TextLine(g, Units.TempShort(temp), Body, p.Faint, x, line, BodyLine);
             }
-            Level(g, new RectangleF(r.Left, line + BodyLine + 3, r.Width, 4), dr.UsedShare, fill, p);
-            y += 29.625f;
-        }
+            Level(g, new RectangleF(row.Left, line + BodyLine + 3, row.Width, 4), dr.UsedShare, fill, p);
+        });
     }
 
     private static void CoresTile(Graphics g, RectangleF r, WidgetData d, Palette p)
@@ -653,17 +677,15 @@ internal static partial class WidgetRenderer
             TextIn(g, Lang.T("Nothing yet today."), Body, p.Muted, RectangleF.FromLTRB(r.Left, y + 2.5f, r.Right, r.Bottom));
             return;
         }
-        int n = Math.Min(f.MostUsed.Count, Fits(r.Height, 16, 31, f.MostUsed.Count));
-        for (int i = 0; i < n; i++)
+        ListRows(g, r, y, f.MostUsed.Count, Fits(r.Height, 16, 31, f.MostUsed.Count), 30, p, (i, top, room) =>
         {
             var a = f.MostUsed[i];
-            float row = y + 1;
-            float vw = TextRight(g, a.Amount, Body, p.Text, r.Right, row, 16);
-            AppIcon(g, a.Name, a.Path, new RectangleF(r.Left, row, 16, 16), p);
-            TextLine(g, a.Name, Body, p.Text, r.Left + 23, row, 16, maxWidth: Math.Max(1, r.Right - vw - 10 - r.Left - 23));
-            Level(g, new RectangleF(r.Left, row + 16 + 3, r.Width, 4), a.Share, Fill(IconColor(a.Path) ?? BoxAccentNow, p), p);
-            y += 30;
-        }
+            float row = top + 1;
+            float vw = TextRight(g, a.Amount, Body, p.Text, room.Right, row, 16);
+            AppIcon(g, a.Name, a.Path, new RectangleF(room.Left, row, 16, 16), p);
+            TextLine(g, a.Name, Body, p.Text, room.Left + 23, row, 16, maxWidth: Math.Max(1, room.Right - vw - 10 - room.Left - 23));
+            Level(g, new RectangleF(room.Left, row + 16 + 3, room.Width, 4), a.Share, Fill(IconColor(a.Path) ?? BoxAccentNow, p), p);
+        });
     }
 
     /// <summary>The accent of the box being drawn (for a bar with no colour of its own).</summary>
@@ -673,7 +695,9 @@ internal static partial class WidgetRenderer
     {
         var f = d.Facts is { } x && (x.Holds & PcNeeds.Today) != 0 ? x : null;
         var lines = f?.StandOut ?? [];
-        int n = f is null ? 0 : Math.Min(Math.Max(1, lines.Count), Fits(r.Height, 16, 22, Math.Max(1, lines.Count)));
+        // In the middle of the tile with the rows it shows; with more than fit, they scroll under the heading.
+        int fit = Fits(r.Height, 16, 22, Math.Max(1, lines.Count));
+        int n = f is null ? 0 : Math.Min(Math.Max(1, lines.Count), fit);
         float top = Middle(r, CapHeight + n * (BodyLine + 6));
         float y = top + Cap(g, Lang.T("WHAT STANDS OUT"), r.Left, top, p, r.Right);
         if (f is null) return;
@@ -682,17 +706,17 @@ internal static partial class WidgetRenderer
             TextLine(g, Lang.T("Highlights appear once there's a bit of today to talk about."), Body, p.Muted, r.Left, y + 3, BodyLine, maxWidth: r.Width);
             return;
         }
-        for (int i = 0; i < n; i++, y += BodyLine + 6)
+        ListRows(g, r, y, lines.Count, fit, BodyLine + 6, p, (i, row, room) =>
         {
             using (var dot = new SolidBrush(p.Muted))
             {
                 var smooth = g.SmoothingMode;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.FillEllipse(dot, r.Left, y + 3 + (BodyLine - 7) / 2, 7, 7);
+                g.FillEllipse(dot, room.Left, row + 3 + (BodyLine - 7) / 2, 7, 7);
                 g.SmoothingMode = smooth;
             }
-            TextLine(g, lines[i], Body, p.Text, r.Left + 16, y + 3, BodyLine, maxWidth: Math.Max(1, r.Width - 16));
-        }
+            TextLine(g, lines[i], Body, p.Text, room.Left + 16, row + 3, BodyLine, maxWidth: Math.Max(1, room.Width - 16));
+        });
     }
 
     private static void PeaksTile(Graphics g, RectangleF r, WidgetData d, Palette p)
@@ -721,9 +745,10 @@ internal static partial class WidgetRenderer
         }
         y += BigAndWords(g, Units.Duration(f.YesterdayActiveSec), Lang.T("active"), r.Left, y, p, r.Right) + 4;
         if (f.YesterdayApps.Count == 0) return;
-        int n = Math.Min(f.YesterdayApps.Count, Fits(r.Height, 46, AppRowH, f.YesterdayApps.Count));
-        for (int i = 0; i < n && y + AppRowH <= r.Bottom + 2; i++, y += AppRowH)
-            AppRow(g, new TileApp(f.YesterdayApps[i].Name, f.YesterdayApps[i].Path, f.YesterdayApps[i].Amount), y, r, p);
+        // The day's figure stays put; its apps scroll under it.
+        int fit = Math.Min(Fits(r.Height, 46, AppRowH, f.YesterdayApps.Count), (int)Math.Floor((r.Bottom + 2 - y) / AppRowH));
+        ListRows(g, r, y, f.YesterdayApps.Count, fit, AppRowH, p, (i, top, room) =>
+            AppRow(g, new TileApp(f.YesterdayApps[i].Name, f.YesterdayApps[i].Path, f.YesterdayApps[i].Amount), top, room, p));
     }
 
     private static void CrashesTile(Graphics g, RectangleF r, WidgetData d, Palette p)
@@ -732,12 +757,47 @@ internal static partial class WidgetRenderer
         var f = d.Facts is { } x && (x.Holds & PcNeeds.Crashes) != 0 ? x : null;
         if (f is null) return;
         y += BigAndWords(g, f.Crashes.ToString(CultureInfo.CurrentCulture), Lang.T("in the last 30 days"), r.Left, y, p, r.Right);
-        if (f.LatestCrash is not { } latest || y + 8 + CapHeight + 16 > r.Bottom + 4) return;
+        if (f.LatestCrash is not { } latest) return;
         y += 8;
-        y += Cap(g, Lang.T("LATEST"), r.Left, y, p, r.Right);
-        // The sentence over as many lines as there's room for, cut at a word with "…" where it runs out.
-        float lines = Math.Max(1, MathF.Floor((r.Bottom - y + 2) / 16.25f));
-        TextIn(g, latest, Body, p.Text, new RectangleF(r.Left, y + (16.25f - BodyLine) / 2 - 1, r.Width, lines * 16.25f + 2));
+        // The latest one under its own heading, the sentence whole: where the tile is too short for it, the two scroll
+        // under the count, a line a notch (it was cut with "…", or left out with its heading).
+        const float Line = 16.25f;
+        float room = r.Bottom + 2 - y;
+        if (room < 8) return;
+        float Height(float width) => CapHeight + (Line - BodyLine) / 2 - 1 + WrappedHeight(g, latest, Body, width) + 2;
+        void Latest(float top, float width)
+        {
+            float at = top + Cap(g, Lang.T("LATEST"), r.Left, top, p, r.Left + width);
+            TextIn(g, latest, Body, p.Text, new RectangleF(r.Left, at + (Line - BodyLine) / 2 - 1, width, Height(width) + Line));
+        }
+        if (Height(r.Width) <= room)
+        {
+            ScrollOf(0);
+            Latest(y, r.Width);
+            return;
+        }
+        // Scrolled by the sentence's own lines, its heading one of them, and only whole lines shown (no half line at the foot).
+        float width = r.Width - 8, unit = ForText(MakeFont(Body, FontStyle.Regular, false), latest).GetHeight(g);
+        int lines = 1 + Math.Max(1, (int)Math.Ceiling(WrappedHeight(g, latest, Body, width) / unit - 0.05f));
+        int shown = Math.Max(1, (int)Math.Floor(room / unit));
+        int first = ScrollOf(lines - shown);
+        NoteShown(first, Math.Min(shown, lines), lines);
+        AddScrollArea(RectangleF.FromLTRB(r.Left, y, r.Right, Math.Max(y, r.Bottom)));
+        var state = g.Save();
+        g.IntersectClip(RectangleF.FromLTRB(r.Left - 2, y, r.Right + 2, y + shown * unit));
+        g.TranslateTransform(0, -first * unit);
+        Cap(g, Lang.T("LATEST"), r.Left, y, p, r.Left + width);
+        TextIn(g, latest, Body, p.Text, new RectangleF(r.Left, y + unit, width, lines * unit + unit));
+        g.Restore(state);
+        ScrollBar(g, RectangleF.FromLTRB(r.Left, y, r.Right, y + shown * unit), first, shown, lines, p);
+    }
+
+    /// <summary>How tall <paramref name="text"/> comes out wrapped in <paramref name="width"/>, as <see cref="TextIn"/> draws it.</summary>
+    private static float WrappedHeight(Graphics g, string text, float px, float width)
+    {
+        var font = ForText(MakeFont(px, FontStyle.Regular, false), text);
+        using var fmt = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit };
+        return g.MeasureString(text, font, new SizeF(Math.Max(1, width), 100_000), fmt).Height;
     }
 
     private static void HealthTile(Graphics g, RectangleF r, WidgetData d, Palette p)
@@ -745,14 +805,13 @@ internal static partial class WidgetRenderer
         float y = r.Top + Cap(g, Lang.T("PC HEALTH"), r.Left, r.Top, p, r.Right);
         var f = d.Facts is { } x && (x.Holds & PcNeeds.Health) != 0 ? x : null;
         if (f is null || f.Health.Count == 0) return;
-        int n = Math.Min(f.Health.Count, Fits(r.Height, 16, 23, f.Health.Count));
-        for (int i = 0; i < n; i++, y += BodyLine + 7)
+        ListRows(g, r, y, f.Health.Count, Fits(r.Height, 16, 23, f.Health.Count), BodyLine + 7, p, (i, top, room) =>
         {
             var line = f.Health[i];
             var color = line.NeedsLook ? Warm(p) : p.Text;
-            if (line.Icon.Length > 0) IconIn(g, line.Icon, 12, line.NeedsLook ? color : p.Muted, new RectangleF(r.Left, y + 3.5f + (BodyLine - 14) / 2, 14, 14));
-            TextLine(g, line.Text, Body, color, r.Left + 23, y + 3.5f, BodyLine, maxWidth: Math.Max(1, r.Width - 23));
-        }
+            if (line.Icon.Length > 0) IconIn(g, line.Icon, 12, line.NeedsLook ? color : p.Muted, new RectangleF(room.Left, top + 3.5f + (BodyLine - 14) / 2, 14, 14));
+            TextLine(g, line.Text, Body, color, room.Left + 23, top + 3.5f, BodyLine, maxWidth: Math.Max(1, room.Width - 23));
+        });
     }
 
     private static void ChangedTile(Graphics g, RectangleF r, WidgetData d, Palette p)
@@ -765,14 +824,13 @@ internal static partial class WidgetRenderer
             TextLine(g, Lang.T("Nothing has changed in the last 30 days."), Body, p.Muted, r.Left, y + 2.5f, BodyLine, maxWidth: r.Width);
             return;
         }
-        int n = Math.Min(f.Changes.Count, Fits(r.Height, 16, 21, f.Changes.Count));
-        for (int i = 0; i < n; i++, y += RowH)
+        ListRows(g, r, y, f.Changes.Count, Fits(r.Height, 16, 21, f.Changes.Count), RowH, p, (i, top, room) =>
         {
             var c = f.Changes[i];
             var color = c.Tone is null ? p.Text : c.Tone == EffectTone.Worse ? Warm(p) : Good(p);
-            float ww = TextRight(g, c.When, Body, p.Muted, r.Right, y + 2.5f, BodyLine);
-            TextLine(g, c.Text, Body, color, r.Left, y + 2.5f, BodyLine, maxWidth: Math.Max(1, r.Width - ww - 10));
-        }
+            float ww = TextRight(g, c.When, Body, p.Muted, room.Right, top + 2.5f, BodyLine);
+            TextLine(g, c.Text, Body, color, room.Left, top + 2.5f, BodyLine, maxWidth: Math.Max(1, room.Width - ww - 10));
+        });
     }
 
     private static void WeekTile(Graphics g, RectangleF r, WidgetData d, Palette p, Color accent)

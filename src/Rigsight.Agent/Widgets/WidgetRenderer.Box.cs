@@ -687,13 +687,38 @@ internal static partial class WidgetRenderer
         return [.. pts];
     }
 
-    /// <summary>A line of readings, spread across the tile: dot, name, value for each.</summary>
+    /// <summary>
+    /// A line of readings, spread across the tile: dot, name, value for each. Longer than the tile, it shows whole readings
+    /// from where the wheel has them, a reading a notch, with a thin bar along its foot (the owner, 2026-11-12: a small
+    /// tile never shows fewer readings, it scrolls); its ends were cut off before.
+    /// </summary>
     private static void LineTile(Graphics g, WidgetTile t, RectangleF r, WidgetData d, Palette p)
     {
         var readings = (t.Items ?? []).Where(i => !i.Hidden).Select(i => Read(i, d, p)).ToList();
         if (readings.Count == 0) return;
-        ReadingRow(g, readings, p, rd => PartColor(rd, p)).Draw(g, r, TileAlign.Center);
+        Color Dot(Reading rd) => PartColor(rd, p);
+        var row = ReadingRow(g, readings, p, Dot);
+        if (row.Box.Width <= r.Width || readings.Count == 1)
+        {
+            ScrollOf(0);
+            row.Draw(g, r, TileAlign.Center);
+            return;
+        }
+        // Each reading's width; laid side by side they're as wide as the row (see ReadingRow: its gap between them).
+        var widths = readings.Select(rd => ReadingRow(g, [rd], p, Dot).Box.Width).ToList();
+        int last = readings.Count - 1;
+        float used = widths[last];
+        while (last > 0 && used + ReadingGap + widths[last - 1] <= r.Width) used += ReadingGap + widths[--last];
+        int first = ScrollOf(last), n = 1;
+        for (used = widths[first]; first + n < readings.Count && used + ReadingGap + widths[first + n] <= r.Width; n++) used += ReadingGap + widths[first + n];
+        NoteShown(first, n, readings.Count);
+        AddScrollArea(r);
+        ReadingRow(g, readings.GetRange(first, n), p, Dot).Draw(g, r, TileAlign.Left);
+        ScrollBar(g, RectangleF.FromLTRB(r.Left, r.Top, r.Right, r.Bottom - 2), first, readings.Count - last, readings.Count, p, across: true);
     }
+
+    /// <summary>The room between two readings of a row (<see cref="ReadingRow"/>).</summary>
+    private const float ReadingGap = 16;
 
     /// <summary>
     /// Readings in one row, laid out as a web page's flex row with its items centred both ways (the user, 2026-11-10:
@@ -703,7 +728,7 @@ internal static partial class WidgetRenderer
     /// </summary>
     private static Ink ReadingRow(Graphics g, List<Reading> readings, Palette? p, Func<Reading, Color> dot)
     {
-        const float Dot = 6, DotGap = 6, NameGap = 5, Gap = 16;
+        const float Dot = 6, DotGap = 6, NameGap = 5, Gap = ReadingGap;
         var row = new Ink(g);
         float x = 0;
         for (int i = 0; i < readings.Count; i++)
@@ -759,11 +784,27 @@ internal static partial class WidgetRenderer
 
     internal static TypingNow? Typing;
 
-    /// <summary>How far each note or to-do list is scrolled (rows of a list, lines of a note), by widget and tile; the agent's, kept while it runs.</summary>
+    /// <summary>
+    /// How far each tile that holds more than it shows is scrolled (rows of a list, lines of a note or a crash, links of
+    /// shortcuts, readings of a line), by widget and tile; the agent's, kept while it runs.
+    /// </summary>
     internal static readonly Dictionary<(string Widget, int Tile), int> Scrolls = [];
 
     /// <summary>The parts of the widget last drawn on this thread that scroll with the wheel, by tile.</summary>
     [ThreadStatic] internal static List<(int Tile, RectangleF Rect)>? ScrollAreas;
+
+    /// <summary>What a tile that scrolls showed of what it holds: from which, how many, of how many (rows, lines, links or readings).</summary>
+    internal readonly record struct ShownPart(int Tile, int First, int Shown, int Total);
+
+    /// <summary>What each such tile of the widget last drawn on this thread showed (the tests check every row can be reached).</summary>
+    [ThreadStatic] internal static List<ShownPart>? Shown;
+
+    // Once a tile, as its scroll area is.
+    private static void NoteShown(int first, int shown, int total)
+    {
+        if (Shown is null || Shown.Any(s => s.Tile == _tileIndex)) return;
+        Shown.Add(new ShownPart(_tileIndex, first, shown, total));
+    }
 
     private static TypingNow? TypingHere(bool adding) =>
         Typing is { } ty && ty.WidgetId == _widgetId && ty.Tile == _tileIndex && ty.Adding == adding ? ty : null;
@@ -786,14 +827,19 @@ internal static partial class WidgetRenderer
         ScrollAreas.Add((_tileIndex, r));
     }
 
-    /// <summary>A thin bar at a list's or a note's right edge, while it holds more than it shows.</summary>
-    private static void ScrollBar(Graphics g, RectangleF track, int first, int shown, int total, Palette p)
+    /// <summary>
+    /// A thin bar at a list's or a note's right edge, while it holds more than it shows; <paramref name="across"/>, along
+    /// the foot of a line of readings that moves sideways.
+    /// </summary>
+    private static void ScrollBar(Graphics g, RectangleF track, int first, int shown, int total, Palette p, bool across = false)
     {
-        if (total <= shown || track.Height < 12) return;
-        float h = Math.Max(10, track.Height * shown / total), y = track.Y + (track.Height - h) * first / Math.Max(1, total - shown);
+        float length = across ? track.Width : track.Height;
+        if (total <= shown || length < 12) return;
+        float size = Math.Max(10, length * shown / total), at = (length - size) * first / Math.Max(1, total - shown);
+        var thumb = across ? new RectangleF(track.X + at, track.Bottom - 3, size, 3) : new RectangleF(track.Right - 3, track.Y + at, 3, size);
         var smooth = g.SmoothingMode;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var path = RoundRect(new RectangleF(track.Right - 3, y, 3, h), 1.5f))
+        using (var path = RoundRect(thumb, 1.5f))
         using (var fill = new SolidBrush(p.Faint))
             g.FillPath(fill, path);
         g.SmoothingMode = smooth;
@@ -928,7 +974,6 @@ internal static partial class WidgetRenderer
         var area = sticky ? r : RectangleF.FromLTRB(r.Left, r.Top + 16, r.Right, r.Bottom);
         if (area.Height < 8) return;
         AddHit(HitNote, 0, area);
-        AddScrollArea(area);
         float px = WidgetTiles.TextPx(t);
         var typing = TypingHere(adding: false);
         string text = typing?.Text ?? t.Text ?? "";
@@ -962,6 +1007,8 @@ internal static partial class WidgetRenderer
         }
         int shown = Math.Max(1, (int)(body.Height / line));
         int first = ScrollOf(lines - shown);
+        if (lines > shown) AddScrollArea(area);
+        NoteShown(first, Math.Min(shown, lines), lines);
         // The caret, where the text has it: its line kept in sight while it's typed.
         RectangleF? caret = null;
         if (typing is not null)
@@ -984,7 +1031,8 @@ internal static partial class WidgetRenderer
             SetScroll(first);
         }
         var state = g.Save();
-        g.SetClip(area);
+        // Longer than the tile: whole lines only, no half line at its foot.
+        g.SetClip(lines > shown ? area with { Height = Math.Min(area.Height, body.Y - area.Y + shown * line) } : area);
         g.TranslateTransform(0, -first * line);
         using var shadow = TextShadow.A > 0 ? new SolidBrush(TextShadow) : null;
         float device = g.Transform.Elements[0];
@@ -1094,7 +1142,8 @@ internal static partial class WidgetRenderer
         int first = ScrollOf(total - fit);
         if (typing is not null && first < total - fit) SetScroll(first = Math.Max(0, total - fit));
         var list = RectangleF.FromLTRB(r.Left, top, r.Right, top + fit * row);
-        AddScrollArea(list);
+        if (total > fit) AddScrollArea(list);
+        NoteShown(first, Math.Min(fit, total), total);
         float right = total > fit ? r.Right - 8 : r.Right;
         var state = g.Save();
         g.SetClip(RectangleF.FromLTRB(r.Left - 2, top, r.Right + 2, r.Bottom));

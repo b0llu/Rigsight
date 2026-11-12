@@ -45,17 +45,17 @@
   "what-is-taking-up-space-on-c-drive": "2026-11-11",
   "three-ways-to-ask": "2026-11-11",
   "widgets-from-tiles": "2026-11-11",
-  "desktop-widgets-windows-11": "2026-11-11"
+  "desktop-widgets-windows-11": "2026-11-11",
+  "ssd-health-check": "2026-11-12",
+  "choosing-a-model-blind": "2026-11-12"
  },
  "queue": [
-  "choosing-a-model-blind",
   "testing-ai-on-fake-pcs",
   "vsync-fps-cap",
   "how-to-show-fps-overlay",
   "pc-fans-loud-while-gaming",
   "did-windows-update-cause-crashes",
   "power-plan-keeps-changing",
-  "ssd-health-check",
   "check-fan-speed-pc",
   "which-app-is-using-my-internet",
   "screen-time-on-pc"
@@ -68,7 +68,6 @@
   "pc-fans-loud-while-gaming",
   "power-plan-keeps-changing",
   "screen-time-on-pc",
-  "ssd-health-check",
   "vsync-fps-cap",
   "which-app-is-using-my-internet"
  ]
