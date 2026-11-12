@@ -85,7 +85,10 @@ public sealed partial class RigsightDb
         from -= from % 60;
         string vram = HasVram ? "max(vram_used), max(vram_total)" : "NULL, NULL";
         string fps = HasFps ? "AVG(fps), AVG(fps_low), COUNT(fps)" : "NULL, NULL, 0";
-        string own = HasFgVram ? "max(fg_vram)" : "NULL";
+        // Windows' per-app figure isn't held to the card's size: it counts memory the game only refers to, and once read
+        // 146 GB for Crimson Desert on a 12 GB card with 7.3 GB in use (real PC, 28 Oct 2026). One minute above the whole
+        // card means it can't be trusted for this play, so the play says the card's figure instead, as before 0.31.2.
+        string own = !HasFgVram ? "NULL" : HasVram ? "CASE WHEN max(fg_vram > vram_total) = 1 THEN NULL ELSE max(fg_vram) END" : "max(fg_vram)";
         using var cmd = Cmd($"""
             SELECT COUNT(*), AVG(gpu_temp), max(gpu_temp_max), AVG(cpu_temp), max(cpu_temp_max), max(gpu_hot_max), AVG(gpu_load),
                 AVG(gpu_power), AVG(CASE WHEN cpu_power IS NULL AND gpu_power IS NULL THEN NULL ELSE coalesce(cpu_power, 0) + coalesce(gpu_power, 0) END),

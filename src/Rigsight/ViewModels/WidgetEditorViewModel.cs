@@ -362,7 +362,9 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     {
         Layout();
         // Drawn at the size it's shown, so a widget shown bigger is as sharp as one shown at its size.
-        Picture = IsEmpty ? null : WidgetPictures.Draw(_w, _live, _settings.Current, (float)(ScreenScale * Math.Max(1, Zoom)));
+        // Drawn again once its tiles from the records are in (read after this first drawing).
+        Picture = IsEmpty ? null : WidgetPictures.Draw(_w, _live, _settings.Current, (float)(ScreenScale * Math.Max(1, Zoom)),
+            () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(Draw));
         MarkPlace();
         // A weather tile shows its weather once it has come (asked for at most every half hour a place).
         WeatherFeed.RefreshInBackground(_w.Tiles ?? [], () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(Draw));
@@ -569,6 +571,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         WidgetTiles.Weather => t.Place ?? "",
         WidgetTiles.Shortcuts when t.Links is { Count: > 0 } links => links.Count == 1 ? links[0].Name : Lang.T($"{links.Count} shortcuts"),
         WidgetTiles.Photos when t.Folder is { } folder => System.IO.Path.GetFileName(folder.TrimEnd('\\')) is { Length: > 0 } name ? name : folder,
+        WidgetTiles.TopCpu => Lang.T($"{WidgetTiles.RowsOf(t)} apps"),
         _ => "",
     };
 
@@ -591,8 +594,38 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         WidgetTiles.Photos => "\uE91B",
         WidgetTiles.Todo => "\uE9D5",
         WidgetTiles.Timer => "\uE916",
+        WidgetTiles.CpuGauge or WidgetTiles.GpuGauge => "\uE9CA",
+        WidgetTiles.Fans => "\uE9F5",
+        WidgetTiles.Drives => "\uEDA2",
+        WidgetTiles.Cores or WidgetTiles.TopCpu => "\uE950",
+        WidgetTiles.TopMemory => "\uE964",
+        WidgetTiles.NetSpeed or WidgetTiles.NetNow or WidgetTiles.NetToday or WidgetTiles.NetApps or WidgetTiles.NetDrops => "\uE839",
+        WidgetTiles.NetHours or WidgetTiles.Week => "\uE9D2",
+        WidgetTiles.TodaySoFar => "\uE823",
+        WidgetTiles.MostUsed or WidgetTiles.Yesterday => "\uE8A9",
+        WidgetTiles.StandOut => "\uE734",
+        WidgetTiles.Peaks => "\uE9CA",
+        WidgetTiles.Crashes => "\uE7BA",
+        WidgetTiles.Health => "\uE95E",
+        WidgetTiles.Changed => "\uE81C",
+        WidgetTiles.LastGame => "\uE7FC",
         _ => "\uE80A",
     };
+
+    // \u2500\u2500 Top CPU users \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+    public bool IsTopCpu => Tile?.Kind == WidgetTiles.TopCpu;
+
+    /// <summary>How many apps a Top CPU users tile lists at most ("3" or "5"), as its segments say.</summary>
+    public string TopRows
+    {
+        get => (Tile is { } t ? WidgetTiles.RowsOf(t) : WidgetTiles.RowChoices[0]).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        set
+        {
+            if (value == TopRows || !int.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out int n) || !WidgetTiles.RowChoices.Contains(n)) return;
+            ChangeTile(t => t.Rows = n == WidgetTiles.RowChoices[0] ? null : n);
+        }
+    }
 
     public string TileGlyph => Tile is { } t ? GlyphOf(t.Kind) : "";
 
@@ -878,14 +911,17 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         set { if (value != Align && Enum.TryParse<TileAlign>(value, out var a)) ChangeTile(t => t.Align = a); }
     }
 
-    /// <summary>Every reading a tile can show: the usual ones, then each sensor of this PC.</summary>
+    /// <summary>
+    /// Every reading a tile can show: the usual ones, then each sensor of this PC by the name it shows everywhere else
+    /// (the one given on All sensors, else its own in the language in use), as the list it's picked from names it.
+    /// </summary>
     public IReadOnlyList<ReadingChoice> Readings { get; }
 
     private List<ReadingChoice> MakeReadings()
     {
         var list = WidgetCatalog.Offered(WidgetLayout.Tiles).Select(m => new ReadingChoice(m.ToString(), WidgetCatalog.MetricName(m))).ToList();
         if (_live is not null)
-            list.AddRange(_live.AllSensors.Select(s => new ReadingChoice(WidgetCatalog.SensorPrefix + s.Id, $"{s.Name} ({s.HardwareShown})")));
+            list.AddRange(_live.AllSensors.Select(s => new ReadingChoice(WidgetCatalog.SensorPrefix + s.Id, $"{s.DisplayName} ({s.HardwareShown})")));
         return list;
     }
 
@@ -932,15 +968,11 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         set { if (value is not null && value != Look) ChangeTile(t => t.Look = value); }
     }
 
+    /// <summary>A reading tile's name, as its row in the tile's settings shows it and renames it (see <see cref="NameRows"/>).</summary>
     public string ShortName
     {
-        get => Tile?.Label ?? "";
-        set
-        {
-            string label = (value ?? "").Trim();
-            if (label == ShortName) return;
-            ChangeTile(t => t.Label = label.Length == 0 ? null : label.Length > OverlaySettings.MaxLabelLength ? label[..OverlaySettings.MaxLabelLength] : label);
-        }
+        get => IsReading && NameRows.FirstOrDefault() is { } row ? row.Name : "";
+        set { if (IsReading && NameRows.FirstOrDefault() is { } row) row.Name = value; }
     }
 
     /// <summary>A line's or graph's readings, in order.</summary>

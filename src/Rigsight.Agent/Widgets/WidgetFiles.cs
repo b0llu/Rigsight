@@ -18,7 +18,7 @@ internal static class WidgetFiles
 {
     private static readonly RecentIcons Icons = new(32);
     private static readonly RecentIcons Pictures = new(4);
-    private static readonly Dictionary<string, (DateTime Read, string[] Files)> Folders = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, (DateTime Read, string[] Files, bool Opened)> Folders = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Lock FolderLock = new();
     private static readonly string[] PictureTypes = [".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff"];
 
@@ -37,27 +37,36 @@ internal static class WidgetFiles
             {
                 InBackground(folder, () =>
                 {
-                    var files = ListOf(folder);
-                    lock (FolderLock) Folders[folder] = (DateTime.UtcNow, files);
+                    var (files, opened) = ListOf(folder);
+                    lock (FolderLock) Folders[folder] = (DateTime.UtcNow, files, opened);
                 });
                 return known ? was.Files : [];
             }
-            var list = ListOf(folder);
-            Folders[folder] = (DateTime.UtcNow, list);
+            var (list, ok) = ListOf(folder);
+            Folders[folder] = (DateTime.UtcNow, list, ok);
             return list;
         }
     }
 
-    private static string[] ListOf(string folder)
+    /// <summary>
+    /// Whether the folder couldn't be opened the last time it was read (gone, on a drive or PC that isn't there, not
+    /// allowed), so the tile doesn't say it has no pictures (the audit, 2026-11-11).
+    /// </summary>
+    public static bool CantOpen(string folder)
+    {
+        lock (FolderLock) return Folders.TryGetValue(folder, out var was) && !was.Opened;
+    }
+
+    private static (string[] Files, bool Opened) ListOf(string folder)
     {
         try
         {
-            return [.. Directory.EnumerateFiles(folder).Where(f => PictureTypes.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
-                .Order(StringComparer.OrdinalIgnoreCase)];
+            return ([.. Directory.EnumerateFiles(folder).Where(f => PictureTypes.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+                .Order(StringComparer.OrdinalIgnoreCase)], true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            return [];
+            return ([], false);
         }
     }
 

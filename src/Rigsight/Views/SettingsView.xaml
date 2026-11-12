@@ -242,18 +242,18 @@
             <Border x:Name="Row" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Field}" Margin="-8,0" Padding="4,3,8,3">
                 <DockPanel>
                     <Thumb DockPanel.Dock="Left" Style="{StaticResource Grip}"
-                           AutomationProperties.Name="{Binding Title, StringFormat='Move {0}: drag it, or use the arrow keys'}"
+                           AutomationProperties.Name="{Binding Title, StringFormat={ctl:T 'Move {0} by dragging it or with the arrow keys'}}"
                            DragStarted="Grip_DragStarted" DragDelta="Grip_DragDelta" DragCompleted="Grip_DragCompleted" PreviewKeyDown="Grip_PreviewKeyDown" />
                     <ContentPresenter x:Name="PageIcon" DockPanel.Dock="Left" Content="{Binding Icon, Converter={StaticResource NavIcon}}" Width="18" Margin="4,0,10,0" VerticalAlignment="Center"
                                       TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S15}" TextElement.Foreground="{DynamicResource MutedBrush}" />
                     <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding IsShown}" IsEnabled="{Binding CanHide}" Margin="8,0,0,0"
-                              VerticalAlignment="Center" AutomationProperties.Name="{Binding Title, StringFormat='Show {0}'}" />
+                              VerticalAlignment="Center" AutomationProperties.Name="{Binding Title, StringFormat={ctl:T 'Show {0}'}}" />
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="{Binding Title, StringFormat='Move {0} up'}"
+                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Move up'}" AutomationProperties.Name="{Binding Title, StringFormat={ctl:T 'Move {0} up'}}"
                                 Command="{Binding DataContext.MoveUpCommand, ElementName=EditorPanel}" CommandParameter="{Binding}"><TextBlock Text="&#xE70E;" FontSize="{x:Static ctl:IconSize.S11}" /></Button>
-                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Move down'}" AutomationProperties.Name="{Binding Title, StringFormat='Move {0} down'}"
+                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Move down'}" AutomationProperties.Name="{Binding Title, StringFormat={ctl:T 'Move {0} down'}}"
                                 Command="{Binding DataContext.MoveDownCommand, ElementName=EditorPanel}" CommandParameter="{Binding}"><TextBlock Text="&#xE70D;" FontSize="{x:Static ctl:IconSize.S11}" /></Button>
-                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Rename'}" AutomationProperties.Name="{Binding Title, StringFormat='Rename {0}'}"
+                        <Button Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Rename'}" AutomationProperties.Name="{Binding Title, StringFormat={ctl:T 'Rename {0}'}}"
                                 Command="{Binding ToggleRenameCommand}"><TextBlock Text="&#xE70F;" FontSize="{x:Static ctl:IconSize.S12}" /></Button>
                     </StackPanel>
                     <Grid VerticalAlignment="Center">
@@ -267,7 +267,7 @@
                         <TextBox x:Name="NameEdit" Style="{StaticResource NameBox}" Tag="{Binding BuiltInTitle}" Visibility="Collapsed"
                                  Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" IsVisibleChanged="NameEdit_IsVisibleChanged"
                                  KeyDown="NameEdit_KeyDown" LostKeyboardFocus="NameEdit_LostFocus"
-                                 AutomationProperties.Name="{Binding BuiltInTitle, StringFormat='Name of {0}'}" />
+                                 AutomationProperties.Name="{Binding BuiltInTitle, StringFormat={ctl:T 'Name of {0}'}}" />
                     </Grid>
                 </DockPanel>
             </Border>
@@ -292,10 +292,10 @@
             <StackPanel Margin="0,0,0,4">
                 <DockPanel Margin="0,12,0,4">
                     <Button x:Name="HeadingPencil" DockPanel.Dock="Right" Style="{StaticResource IconButton}" Width="28" Height="28" ToolTip="{ctl:T 'Rename, or hide the heading'}"
-                            AutomationProperties.Name="{Binding BuiltInName, StringFormat='Rename the {0} heading'}" Command="{Binding ToggleRenameCommand}"
+                            AutomationProperties.Name="{Binding BuiltInName, StringFormat={ctl:T 'Rename the {0} heading'}}" Command="{Binding ToggleRenameCommand}"
                             Visibility="{Binding HasHeading, Converter={StaticResource Vis}}"><TextBlock Text="&#xE70F;" FontSize="{x:Static ctl:IconSize.S12}" /></Button>
                     <CheckBox x:Name="HeadingSwitch" DockPanel.Dock="Right" Style="{StaticResource Switch}" IsChecked="{Binding ShowHeading}" VerticalAlignment="Center" Margin="0,0,8,0" Visibility="Collapsed"
-                              AutomationProperties.Name="{Binding BuiltInName, StringFormat='Show the {0} heading'}">
+                              AutomationProperties.Name="{Binding BuiltInName, StringFormat={ctl:T 'Show the {0} heading'}}">
                         <TextBlock Text="{ctl:T 'Heading'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
                     </CheckBox>
                     <Grid VerticalAlignment="Center">
@@ -304,7 +304,7 @@
                         <TextBox x:Name="HeadingEdit" Style="{StaticResource NameBox}" FontSize="{x:Static ctl:TextSize.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Visibility="Collapsed"
                                  CharacterCasing="Upper" Margin="-6,0,0,0" Tag="{Binding BuiltInHeading}" IsVisibleChanged="NameEdit_IsVisibleChanged" KeyDown="NameEdit_KeyDown"
                                  Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
-                                 AutomationProperties.Name="{Binding BuiltInName, StringFormat='Name of the {0} heading'}" />
+                                 AutomationProperties.Name="{Binding BuiltInName, StringFormat={ctl:T 'Name of the {0} heading'}}" />
                     </Grid>
                 </DockPanel>
                 <ItemsControl x:Name="Pages" ItemsSource="{Binding Pages}" ItemTemplate="{StaticResource SidebarRow}" Focusable="False" />
@@ -350,7 +350,7 @@
                     <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'Appearance'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=appearance}" />
                     <RadioButton Style="{StaticResource SettingsTab}" Content="{ctl:T 'Tracking'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=tracking}" />
                     <!-- A dot while something on Sensors needs a look. -->
-                    <RadioButton Style="{StaticResource SettingsTab}" AutomationProperties.Name="Sensors" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=sensors}">
+                    <RadioButton Style="{StaticResource SettingsTab}" AutomationProperties.Name="{ctl:T 'Sensors'}" IsChecked="{Binding Tab, Converter={StaticResource Equals}, ConverterParameter=sensors}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{ctl:T 'Sensors'}" />
                             <Ellipse Width="7" Height="7" Margin="8,1,0,0" VerticalAlignment="Center" Fill="{DynamicResource WarmBrush}"
@@ -379,7 +379,7 @@
                         <DockPanel Style="{StaticResource Row}">
                             <Grid DockPanel.Dock="Right" Width="190" VerticalAlignment="Center">
                                 <ComboBox ItemsSource="{Binding Options}" SelectedValuePath="Code" SelectedValue="{Binding Chosen}"
-                                          IsEnabled="{Binding CanPick}" AutomationProperties.Name="Language">
+                                          IsEnabled="{Binding CanPick}" AutomationProperties.Name="{ctl:T 'Language'}">
                                     <!-- The closed box: the language's name only. -->
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate>
@@ -610,7 +610,7 @@
                     </Border>
                     <DockPanel Style="{StaticResource Row}">
                         <ListBox DockPanel.Dock="Right" Style="{StaticResource ChipList}" ItemContainerStyle="{StaticResource Swatch}" VerticalAlignment="Center"
-                                 AutomationProperties.Name="Accent color" ItemsSource="{Binding AccentOptions}" SelectedValuePath="Key" SelectedValue="{Binding Accent}" />
+                                 AutomationProperties.Name="{ctl:T 'Accent color'}" ItemsSource="{Binding AccentOptions}" SelectedValuePath="Key" SelectedValue="{Binding Accent}" />
                         <TextBlock Text="{ctl:T 'Accent color'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <!-- Only once an accent is picked: from then on every part's colour is a shade of it, and this says
@@ -630,7 +630,7 @@
                          sidebar, so each change shows in the sidebar at once (approved mock-up, 2026-10-25). -->
                     <DockPanel Style="{StaticResource Row}" DataContext="{Binding Sidebar}">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Customize'}" Command="{Binding EditCommand}"
-                                VerticalAlignment="Center" Margin="16,0,0,0" AutomationProperties.Name="Customize the sidebar" />
+                                VerticalAlignment="Center" Margin="16,0,0,0" AutomationProperties.Name="{ctl:T 'Customize the sidebar'}" />
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{ctl:T 'Sidebar'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding ShownSummary, StringFormat='· {0}'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="8,0,0,0"
@@ -746,7 +746,7 @@
                          acknowledges it (so does changing the switch); until then Settings is pointed at. -->
                     <DockPanel Margin="0,0,0,10" Visibility="{Binding SensorPausedText, Converter={StaticResource Vis}}">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Got it'}" Command="{Binding AcknowledgePausedCommand}"
-                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Got it, sensors left out for other apps"
+                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{ctl:T 'Got it, sensors left out for other apps'}"
                                 Visibility="{Binding ShowPausedGotIt, Converter={StaticResource Vis}}" />
                         <TextBlock DockPanel.Dock="Left" Text="&#xE946;" Style="{StaticResource Icon}" Foreground="{DynamicResource MutedBrush}"
                                    VerticalAlignment="Center" Margin="0,0,10,0" />
@@ -760,10 +760,10 @@
                             CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource WarmSoftBrush}">
                         <DockPanel>
                             <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{Binding DriverButtonText}" Command="{Binding InstallDriverCommand}"
-                                    VerticalAlignment="Center" Margin="8,0,0,0" AutomationProperties.Name="Get the PawnIO driver"
+                                    VerticalAlignment="Center" Margin="8,0,0,0" AutomationProperties.Name="{ctl:T 'Get the PawnIO driver'}"
                                     Visibility="{Binding IsInstallingDriver, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Not now'}" Command="{Binding DismissDriverCommand}"
-                                    VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Not now, leave the PawnIO driver"
+                                    VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{ctl:T 'Not now, leave the PawnIO driver'}"
                                     Visibility="{Binding ShowDriverNotNow, Converter={StaticResource Vis}}" />
                             <ctl:Spinner DockPanel.Dock="Right" Margin="12,0,0,0" Visibility="{Binding IsInstallingDriver, Converter={StaticResource Vis}}" />
                             <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" Foreground="{DynamicResource WarmBrush}"
@@ -780,7 +780,7 @@
                             CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource WarmSoftBrush}">
                         <DockPanel>
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Try again'}" Command="{Binding RetrySensorsCommand}"
-                                    VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Try reading all sensors again" />
+                                    VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{ctl:T 'Try reading all sensors again'}" />
                             <!-- The hardware is being read again: a few seconds. -->
                             <ctl:Spinner DockPanel.Dock="Right" Margin="12,0,0,0" Visibility="{Binding IsRetryingSensors, Converter={StaticResource Vis}}" />
                             <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icon}" Foreground="{DynamicResource WarmBrush}"
@@ -1037,7 +1037,7 @@
             <StackPanel DataContext="{Binding Ai}">
                 <!-- The first visit: what the helper sends, as a warning to read, put away with its close button. -->
                 <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Tile}" Padding="16,14,44,14" Margin="0,0,0,14" Background="{DynamicResource WarmSoftBrush}"
-                                  BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1" AutomationProperties.Name="What the AI helper sends"
+                                  BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1" AutomationProperties.Name="{ctl:T 'What the AI helper sends'}"
                                   Visibility="{Binding ShowSendingNote, Converter={StaticResource Vis}}">
                     <Grid>
                         <StackPanel>
@@ -1075,7 +1075,7 @@
 
                 <!-- My own key or Ollama: what they miss without RigSight AI, mostly web search, until closed. -->
                 <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Tile}" Padding="16,14,44,14" Margin="0,14,0,0" Background="{DynamicResource WarmSoftBrush}"
-                                  BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1" AutomationProperties.Name="Web search"
+                                  BorderBrush="{DynamicResource WarmBrush}" BorderThickness="1" AutomationProperties.Name="{ctl:T 'Web search'}"
                                   Visibility="{Binding ShowWebNote, Converter={StaticResource Vis}}">
                     <Grid>
                         <StackPanel>
@@ -1096,7 +1096,7 @@
                 <!-- RigSight AI: your plan (Free with its week's count, or a paid one with everything about it up front: the
                      plans mock-up of 2026-10-23), then the licence key. Choosing and changing a plan opens the Plans screen. -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,16" Margin="0,14,0,0" Visibility="{Binding IsRigSight, Converter={StaticResource Vis}}"
-                                  AutomationProperties.Name="Your RigSight AI plan">
+                                  AutomationProperties.Name="{ctl:T 'Your RigSight AI plan'}">
                     <StackPanel>
                         <!-- Asking the relay where this PC stands: the shared spinner, never Free as a guess. -->
                         <StackPanel Orientation="Horizontal" MinHeight="44" Visibility="{Binding Plans.Loading, Converter={StaticResource Vis}}">
@@ -1300,7 +1300,7 @@
                                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                                                             <Button Style="{StaticResource KeyBoxButton}" Content="{ctl:T 'Use'}" Margin="0,0,6,0" Visibility="{Binding CanUse, Converter={StaticResource Vis}}"
                                                                     Command="{Binding DataContext.UseKeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
-                                                            <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat='Remove {0}'}"
+                                                            <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Remove'}" AutomationProperties.Name="{Binding Name, StringFormat={ctl:T 'Remove {0}'}}"
                                                                     Command="{Binding DataContext.AskRemoveKeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
                                                         </StackPanel>
                                                         <Border DockPanel.Dock="Left" Style="{StaticResource Badge}" Background="{Binding BadgeColor}" Margin="0,0,12,0">
@@ -2229,7 +2229,7 @@
                                Visibility="{Binding TrackingSince, Converter={StaticResource Vis}}" />
                     <WrapPanel Margin="0,10,0,12">
                         <!-- Everything that can be saved as a file is in one box over the window (see ExportCard). -->
-                        <Button Style="{StaticResource GhostButton}" Command="{Binding ExportCommand}" Margin="0,0,8,8" AutomationProperties.Name="Export">
+                        <Button Style="{StaticResource GhostButton}" Command="{Binding ExportCommand}" Margin="0,0,8,8" AutomationProperties.Name="{ctl:T 'Export'}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" />
                                 <TextBlock Text="{ctl:T 'Export…'}" />
@@ -2253,13 +2253,13 @@
                         </Button>
                     </WrapPanel>
                     <!-- The history file: its health, a check or repair on request, and the damaged copies a repair kept. -->
-                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,4" AutomationProperties.Name="History file">
+                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,4" AutomationProperties.Name="{ctl:T 'History file'}">
                         <StackPanel>
                             <DockPanel>
                                 <Grid DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0">
                                     <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Check now'}" Command="{Binding CheckHistoryCommand}"
                                             Visibility="{Binding HistoryDamaged, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                    <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Repair'}" Command="{Binding RepairHistoryCommand}" AutomationProperties.Name="Repair history"
+                                    <Button Style="{StaticResource AccentButton}" Content="{ctl:T 'Repair'}" Command="{Binding RepairHistoryCommand}" AutomationProperties.Name="{ctl:T 'Repair history'}"
                                             Visibility="{Binding HistoryDamaged, Converter={StaticResource Vis}}" />
                                 </Grid>
                                 <StackPanel>
@@ -2281,7 +2281,7 @@
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Open folder'}" Margin="0,0,8,0"
                                                         Command="{Binding DataContext.OpenDataFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                                <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Delete'}" AutomationProperties.Name="{Binding Name, StringFormat='Delete {0}'}"
+                                                <Button Style="{StaticResource DangerButton}" Content="{ctl:T 'Delete'}" AutomationProperties.Name="{Binding Name, StringFormat={ctl:T 'Delete {0}'}}"
                                                         Command="{Binding DataContext.DeleteDamagedCopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
                                             </StackPanel>
                                             <StackPanel VerticalAlignment="Center">
@@ -2409,20 +2409,20 @@
                                                 <TextBlock Text="&#xE787;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{Binding Hue}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Button Style="{StaticResource GhostButton}" Command="{Binding WatchCommand}" Margin="0,0,6,0" AutomationProperties.Name="Watch">
+                                                <Button Style="{StaticResource GhostButton}" Command="{Binding WatchCommand}" Margin="0,0,6,0" AutomationProperties.Name="{ctl:T 'Watch'}">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE768;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,6,0" /><TextBlock Text="{ctl:T 'Watch'}" /></StackPanel>
                                                 </Button>
-                                                <Button Style="{StaticResource GhostButton}" Command="{Binding ShareCommand}" Margin="0,0,6,0" AutomationProperties.Name="Share">
+                                                <Button Style="{StaticResource GhostButton}" Command="{Binding ShareCommand}" Margin="0,0,6,0" AutomationProperties.Name="{ctl:T 'Share'}">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,6,0" /><TextBlock Text="{ctl:T 'Share'}" /></StackPanel>
                                                 </Button>
-                                                <Button Style="{StaticResource GhostButton}" Command="{Binding RecreateCommand}" IsEnabled="{Binding CanRecreate}" Margin="0,0,6,0" AutomationProperties.Name="Recreate"
+                                                <Button Style="{StaticResource GhostButton}" Command="{Binding RecreateCommand}" IsEnabled="{Binding CanRecreate}" Margin="0,0,6,0" AutomationProperties.Name="{ctl:T 'Recreate'}"
                                                         ToolTip="{ctl:T 'Made again with the settings below, in place of this one'}">
                                                     <StackPanel Orientation="Horizontal">
                                                         <ctl:Spinner Width="16" Height="16" StrokeThickness="2" Margin="0,0,6,0" Visibility="{Binding Recreating, Converter={StaticResource Vis}}" />
                                                         <TextBlock Text="{ctl:T 'Recreate'}" />
                                                     </StackPanel>
                                                 </Button>
-                                                <Button Style="{StaticResource DangerIconButton}" Command="{Binding RemoveCommand}" AutomationProperties.Name="Remove" ToolTip="{ctl:T 'Remove'}">
+                                                <Button Style="{StaticResource DangerIconButton}" Command="{Binding RemoveCommand}" AutomationProperties.Name="{ctl:T 'Remove'}" ToolTip="{ctl:T 'Remove'}">
                                                     <TextBlock Text="&#xE74D;" />
                                                 </Button>
                                             </StackPanel>
@@ -2453,7 +2453,7 @@
                 </DockPanel>
             </ctl:SmoothBorder>
             <UniformGrid Columns="4" Margin="0,0,-8,0">
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Month}" AutomationProperties.Name="Every month">
+                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Month}" AutomationProperties.Name="{ctl:T 'Every month'}">
                     <DockPanel>
                         <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
                             <TextBlock Text="&#xE787;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2463,7 +2463,7 @@
                         </StackPanel>
                     </DockPanel>
                 </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Quarter}" IsEnabled="{Binding CanQuarter}" AutomationProperties.Name="Every 3 months">
+                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Quarter}" IsEnabled="{Binding CanQuarter}" AutomationProperties.Name="{ctl:T 'Every 3 months'}">
                     <DockPanel>
                         <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
                             <TextBlock Text="&#xE787;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource GpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2473,7 +2473,7 @@
                         </StackPanel>
                     </DockPanel>
                 </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Half}" IsEnabled="{Binding CanHalf}" AutomationProperties.Name="Every 6 months">
+                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Half}" IsEnabled="{Binding CanHalf}" AutomationProperties.Name="{ctl:T 'Every 6 months'}">
                     <DockPanel>
                         <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
                             <TextBlock Text="&#xE787;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource PurpleBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2483,7 +2483,7 @@
                         </StackPanel>
                     </DockPanel>
                 </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Year}" IsEnabled="{Binding CanYear}" AutomationProperties.Name="Every year">
+                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Year}" IsEnabled="{Binding CanYear}" AutomationProperties.Name="{ctl:T 'Every year'}">
                     <DockPanel>
                         <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
                             <TextBlock Text="&#xE787;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource PinkBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2497,7 +2497,7 @@
 
             <TextBlock Text="{ctl:T 'What goes in'}" Style="{StaticResource SubHead}" Margin="2,16,0,10" />
             <UniformGrid Columns="3" Margin="0,0,-8,0">
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Time}" AutomationProperties.Name="Time on the PC">
+                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Time}" AutomationProperties.Name="{ctl:T 'Time on the PC'}">
                     <DockPanel>
                         <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
                             <TextBlock Text="&#xE7F4;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource SkyBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2508,7 +2508,7 @@
                         </StackPanel>
                     </DockPanel>
                 </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Games}" AutomationProperties.Name="Games">
+                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Games}" AutomationProperties.Name="{ctl:T 'Games'}">
                     <DockPanel>
                         <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
                             <TextBlock Text="&#xE7FC;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource PurpleBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2519,7 +2519,7 @@
                         </StackPanel>
                     </DockPanel>
                 </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Internet}" AutomationProperties.Name="Internet">
+                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Internet}" AutomationProperties.Name="{ctl:T 'Internet'}">
                     <DockPanel>
                         <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
                             <TextBlock Text="&#xE774;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2530,7 +2530,7 @@
                         </StackPanel>
                     </DockPanel>
                 </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Heat}" AutomationProperties.Name="How hot it got">
+                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Heat}" AutomationProperties.Name="{ctl:T 'How hot it got'}">
                     <DockPanel>
                         <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
                             <TextBlock Text="&#xE9CA;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource GpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2541,7 +2541,7 @@
                         </StackPanel>
                     </DockPanel>
                 </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Changes}" AutomationProperties.Name="What changed">
+                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Changes}" AutomationProperties.Name="{ctl:T 'What changed'}">
                     <DockPanel>
                         <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
                             <TextBlock Text="&#xE81C;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2552,7 +2552,7 @@
                         </StackPanel>
                     </DockPanel>
                 </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Problems}" AutomationProperties.Name="Problems">
+                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Problems}" AutomationProperties.Name="{ctl:T 'Problems'}">
                     <DockPanel>
                         <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
                             <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource PinkBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2723,7 +2723,7 @@
                 <StackPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Quit…'}" Command="{Binding QuitAgentCommand}"
-                                VerticalAlignment="Center" AutomationProperties.Name="Quit background agent" />
+                                VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Quit background agent'}" />
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'Background agent'}" Style="{StaticResource Title}" />
                             <TextBlock Text="{ctl:T 'Records your history and runs the widgets, overlay and notifications.'}" Style="{StaticResource Hint}" />
@@ -2747,12 +2747,12 @@
                     <DockPanel Style="{StaticResource Row}">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'See all updates'}"
                                 Command="{Binding SeeAllUpdatesCommand}"
-                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="See all updates" />
+                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{ctl:T 'See all updates'}" />
                         <TextBlock Text="{ctl:T 'What\'s new'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{Binding ReportBugText}" Command="{Binding ReportBugCommand}"
-                                VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="Report a bug" />
+                                VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="{ctl:T 'Report a bug'}" />
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'Report a bug'}" Style="{StaticResource Title}" />
                             <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
@@ -2762,18 +2762,18 @@
                     <!-- Contact support: Gmail in the browser, the email already written; the address shown, to copy by hand. -->
                     <DockPanel Style="{StaticResource Row}">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Email support'}" Command="{Binding ContactSupportCommand}"
-                                VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="Email support" />
+                                VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="{ctl:T 'Email support'}" />
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'Contact support'}" Style="{StaticResource Title}" />
                             <!-- The address as text that can be selected and copied by hand too. -->
                             <TextBox Text="{Binding SupportAddressText, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" Background="Transparent" Padding="0"
-                                     Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,2,0,0" AutomationProperties.Name="Support address" />
+                                     Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,2,0,0" AutomationProperties.Name="{ctl:T 'Support address'}" />
                         </StackPanel>
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <!-- The button itself says "Copied" for a moment: no line of text appears under the row. -->
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{Binding CopyLogsText}" Command="{Binding CopyProblemReportCommand}"
-                                VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="Copy logs" />
+                                VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="{ctl:T 'Copy logs'}" />
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'Logs'}" Style="{StaticResource Title}" />
                             <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Text="{ctl:T 'RigSight\'s recent log, with its version and your hardware, to paste into the bug form or wherever you ask for help.'}" />
@@ -2782,7 +2782,7 @@
                     <DockPanel Style="{StaticResource Row}">
                         <!-- Buy Me a Coffee's own yellow, the same in every theme. -->
                         <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Background="#FFDD00" Foreground="#000000" Content="{ctl:T 'Buy me a coffee'}" Command="{Binding SupportCommand}"
-                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="Buy me a coffee" />
+                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{ctl:T 'Buy me a coffee'}" />
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'Support RigSight'}" Style="{StaticResource Title}" />
                             <TextBlock Text="{ctl:T 'RigSight is free and made by one person.'}" Style="{StaticResource Hint}" />
@@ -2790,7 +2790,7 @@
                     </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'View'}" Command="{Binding OpenNoticesCommand}"
-                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="View open-source notices" />
+                                VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{ctl:T 'View open-source notices'}" />
                         <StackPanel>
                             <TextBlock Text="{ctl:T 'Open-source notices'}" Style="{StaticResource Title}" />
                             <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
@@ -2816,11 +2816,11 @@
         <Grid x:Name="EditorLayer" Visibility="Collapsed" Opacity="0">
             <Border x:Name="EditorScrim" Background="#B8000000" MouseLeftButtonDown="EditorScrim_MouseLeftButtonDown" />
             <Border x:Name="EditorPanel" Width="560" MaxHeight="780" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" DataContext="{Binding Sidebar}"
-                    Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" AutomationProperties.Name="Customize the sidebar"
+                    Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" AutomationProperties.Name="{ctl:T 'Customize the sidebar'}"
                     CornerRadius="{x:Static ctl:Corner.Card}" BorderThickness="1.5" BorderBrush="{DynamicResource HoverBrush}" Background="{DynamicResource SurfaceBrush}">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="24,22,18,8">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close the editor"
+                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close the editor'}"
                                 Command="{Binding CloseEditorCommand}" VerticalAlignment="Top">
                             <TextBlock Text="&#xE711;" />
                         </Button>

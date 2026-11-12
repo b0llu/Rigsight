@@ -34,6 +34,17 @@ internal sealed class WidgetData
     public TodayInfo Today = new();
     /// <summary>What's playing on the PC (the Media tile), from the agent; null: nothing, or not known here.</summary>
     public MediaNow? Media;
+    /// <summary>How many seconds the histories above cover, oldest to newest (a graph's hover says how long ago a moment was).</summary>
+    public double HistorySeconds = 300;
+    /// <summary>
+    /// The names given to the readings that are one sensor (CPU, GPU load…), by renaming that sensor: in All sensors, or as
+    /// the reading's name in a widget's editor (see WidgetCatalog.KeyOf). A reading not named here has its usual name.
+    /// </summary>
+    public Dictionary<OverlayMetric, string> Names = [];
+    /// <summary>What the PC's live tiles show (fans, drives, cores, top apps, the internet now); null: none is on a widget.</summary>
+    public PcNow? Pc;
+    /// <summary>What the tiles from RigSight's records show, read about once a minute; null: none is on a widget, or not read yet.</summary>
+    public Rigsight.Core.Reports.PcFacts? Facts;
 
     public WidgetData Copy() => (WidgetData)MemberwiseClone();
 }
@@ -73,6 +84,52 @@ internal static partial class WidgetRenderer
         WidgetTheme.App => AppPalette(),
         _ => DarkPalette,
     };
+
+    /// <summary>A widget's palette: its theme's, on its own background colour when it has one.</summary>
+    private static Palette PaletteOf(WidgetConfig cfg)
+    {
+        var theme = For(cfg.Theme);
+        if (TrayColors.Parse(cfg.BackgroundColor) is not { } c) return theme;
+        var bg = Color.FromArgb(c.R, c.G, c.B);
+        var (text, muted, faint, track, border, light) = ColorsOn(bg);
+        // The theme's own part colours and accent were made for its own background: kept only on one as light or dark.
+        bool same = light == theme.Light;
+        return new Palette(bg, border, text, muted, faint, track, light)
+        {
+            CpuColor = same ? theme.CpuColor : null, GpuColor = same ? theme.GpuColor : null, AccentColor = same ? theme.AccentColor : null,
+        };
+    }
+
+    /// <summary>
+    /// The text and lines on a widget's own background colour: black text on a light one and white on a dark one, whichever
+    /// stands out more from it (WCAG contrast); the muted text at least 4.5:1 against it (small text), the faint at least
+    /// 3:1, each as close to the themes' own shares of the text colour as that allows; the tracks and the edge a shade off it.
+    /// </summary>
+    internal static (Color Text, Color Muted, Color Faint, Color Track, Color Border, bool Light) ColorsOn(Color bg)
+    {
+        double back = Luminance(bg);
+        bool light = Contrast(back, 0) > Contrast(back, 1);
+        var text = light ? Color.Black : Color.White;
+        Color Toward(float share, double need)
+        {
+            for (float t = share; t < 1; t += 0.02f)
+            {
+                var c = Mix(bg, text, t);
+                if (Contrast(Luminance(c), back) >= need) return c;
+            }
+            return text;
+        }
+        return (text, Toward(0.64f, 4.5), Toward(0.42f, 3), Mix(bg, text, 0.11f), Mix(bg, text, 0.14f), light);
+    }
+
+    /// <summary>A colour's relative luminance (WCAG).</summary>
+    internal static double Luminance(Color c)
+    {
+        static double Lin(int v) => v / 255.0 <= 0.03928 ? v / 255.0 / 12.92 : Math.Pow((v / 255.0 + 0.055) / 1.055, 2.4);
+        return 0.2126 * Lin(c.R) + 0.7152 * Lin(c.G) + 0.0722 * Lin(c.B);
+    }
+
+    internal static double Contrast(double a, double b) => (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
 
     // Widgets redraw every second or so: read Windows' app mode at most every few seconds.
     private static bool _windowsLight;
@@ -123,6 +180,8 @@ internal static partial class WidgetRenderer
         FontName = cfg.Tiles is null ? null : cfg.Font;
         Hits = [];
         ScrollAreas = [];
+        HoverAreas = [];
+        Tip = null;
         _widgetId = cfg.Id;
         try
         {
@@ -144,7 +203,7 @@ internal static partial class WidgetRenderer
     public static string? ChangeKey(WidgetConfig cfg, WidgetData? data)
     {
         var d = data ?? new WidgetData();
-        var p = For(cfg.Theme);
+        var p = PaletteOf(cfg);
         Gray = cfg.Grayscale;
         try
         {
@@ -179,8 +238,9 @@ internal static partial class WidgetRenderer
 
     private static Bitmap RenderStyle(WidgetConfig cfg, WidgetData? data, float scale, bool hover, out RectangleF closeRect)
     {
-        var pal = For(cfg.Theme);
+        var pal = PaletteOf(cfg);
         TextShadow = ShadowFor(cfg.BackgroundOpacity, pal.Light);
+        _drawScale = scale;
         var d = data ?? new WidgetData();
         var layout = WidgetCatalog.LayoutOf(cfg);
         var readings = WidgetCatalog.ShownItems(cfg).Select(i => Read(i, d, pal)).ToList();
@@ -207,6 +267,7 @@ internal static partial class WidgetRenderer
                 DrawBox(g, cfg, d, pal);
                 return;
             }
+            _tileIndex = 0; // the whole widget is its one tile, for a hover on its graph
             switch (layout)
             {
                 case WidgetLayout.Bar: DrawBar(g, readings, pal, w, h); break;
@@ -330,7 +391,7 @@ internal static partial class WidgetRenderer
             };
             bool words = m is OverlayMetric.Clock or OverlayMetric.Date or OverlayMetric.TopApp or OverlayMetric.InFront;
             Color color = kind == SensorKind.Temperature ? TempColor(value, p) : value is null && !(words && text != "—") ? p.Faint : p.Text;
-            return new Reading(item.Label ?? WidgetCatalog.ShortLabel(m), accent, text, color, value, kind, m);
+            return new Reading(item.Label ?? d.Names.GetValueOrDefault(m) ?? WidgetCatalog.ShortLabel(m), accent, text, color, value, kind, m);
         }
         var sensor = WidgetCatalog.Sensor(item.Id) is { } id ? d.Readings.GetValueOrDefault(id) : null;
         var sensorKind = sensor?.Kind ?? SensorKind.Factor;
@@ -390,7 +451,12 @@ internal static partial class WidgetRenderer
             Text(g, r.Text, 26, FontStyle.Bold, r.ValueColor, x - 1, y + 12, semibold: true, maxWidth: colW);
             if (Detail(r, d) is { } detail) Text(g, detail, 11, FontStyle.Regular, p.Muted, x, y + 46, maxWidth: colW);
             var history = History(r, d);
-            if (history.Length > 1) Sparkline(g, history, new RectangleF(x, y + 65, colW, 15), Gray ? p.Text : r.Accent);
+            if (history.Length > 1)
+            {
+                var spark = new RectangleF(x, y + 65, colW, 15);
+                Sparkline(g, history, spark, Gray ? p.Text : r.Accent);
+                HoverOnGraph(g, history, spark, r, Gray ? p.Text : r.Accent, d, p, part: i);
+            }
         }
     }
 
@@ -484,6 +550,27 @@ internal static partial class WidgetRenderer
             Text(g, $"{lo + (hi - lo) * i / 2:0}{(temps ? "°" : "")}", 9, FontStyle.Regular, p.Faint, chart.Left + 1, y - 13);
         }
         for (int i = 0; i < readings.Count; i++) Line(readings[i], LineColor(readings[i], p, i));
+
+        // Hover: the moment nearest the pointer, a guide down the chart and a dot on each line, each reading then.
+        var series = readings.Select(r => History(r, d)).ToList();
+        int n = series.Count == 0 ? 0 : series.Max(s => s.Length);
+        if (n > 1 && HoverIn(g, chart, n, points: true) is int at)
+        {
+            float x = chart.Left + chart.Width * at / (n - 1);
+            HoverGuide(g, x, chart.Top, chart.Bottom, p);
+            var lines = new List<TipLine>();
+            for (int i = 0; i < readings.Count; i++)
+            {
+                var values = series[i];
+                if (values.Length < 2) continue;
+                int k = Nearest(values, (int)Math.Round((double)at * (values.Length - 1) / (n - 1)));
+                if (k < 0) continue;
+                var color = LineColor(readings[i], p, i);
+                HoverDot(g, chart.Left + chart.Width * k / (values.Length - 1), chart.Bottom - (Value(readings[i], values[k]) - lo) / (hi - lo) * chart.Height, color, p);
+                lines.Add(new TipLine($"{readings[i].Label} {Units.Short(readings[i].Kind, values[k])}", color));
+            }
+            if (lines.Count > 0) SetTip(g, p, x, AgoText(AgoOf(at, n, d.HistorySeconds)), [.. lines]);
+        }
 
         void Line(Reading r, Color color)
         {
@@ -717,10 +804,49 @@ internal static partial class WidgetRenderer
         return font;
     }
 
+    private static readonly Dictionary<(float Size, FontStyle Style, GraphicsUnit Unit), Font?> EmojiFonts = [];
+
+    /// <summary>
+    /// The font to draw a text in: its own, or Segoe UI Emoji when the text has an emoji. Windows draws emoji only from
+    /// Segoe UI Emoji and GDI+ never goes looking for it, so a 🎮 typed in a note came out as an empty box (the audit,
+    /// 2026-11-11). Segoe UI Emoji's letters are Segoe UI's, with the same widths and line height, so the words don't
+    /// move; the emoji come out in the text's colour (GDI+ draws no colour fonts). A text without one is left as it was.
+    /// </summary>
+    internal static Font ForText(Font font, string text)
+    {
+        if (!HasEmoji(text) || font.Name == "Segoe UI Emoji") return font;
+        var key = (font.Size, font.Style, font.Unit);
+        if (!EmojiFonts.TryGetValue(key, out var emoji))
+        {
+            try
+            {
+                emoji = new Font("Segoe UI Emoji", font.Size, font.Style, font.Unit);
+                // A PC without it gets another font by that name from GDI+: the text's own is better then.
+                if (emoji.Name != "Segoe UI Emoji") { emoji.Dispose(); emoji = null; }
+            }
+            catch (ArgumentException) { emoji = null; }
+            EmojiFonts[key] = emoji;
+        }
+        return emoji ?? font;
+    }
+
+    /// <summary>Whether a text has an emoji (or a part of one: the joiner, the picture form's selector, a keycap).</summary>
+    internal static bool HasEmoji(string text)
+    {
+        foreach (var rune in text.EnumerateRunes())
+        {
+            int c = rune.Value;
+            if (c is >= 0x1F000 and <= 0x1FAFF or 0xFE0F or 0x200D or 0x20E3 or >= 0x2600 and <= 0x27BF
+                or >= 0x2B00 and <= 0x2BFF or >= 0x2300 and <= 0x23FF or >= 0xE0020 and <= 0xE007F)
+                return true;
+        }
+        return false;
+    }
+
     private static void Text(Graphics g, string text, float px, FontStyle style, Color color, float x, float y,
         bool semibold = false, float maxWidth = 0)
     {
-        var font = MakeFont(px, style, semibold);
+        var font = ForText(MakeFont(px, style, semibold), text);
         using var fmt = (StringFormat)StringFormat.GenericTypographic.Clone();
         fmt.FormatFlags |= StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces;
         if (maxWidth > 0) fmt.Trimming = StringTrimming.EllipsisCharacter;
@@ -749,7 +875,7 @@ internal static partial class WidgetRenderer
 
     private static float Measure(Graphics g, string text, float px, FontStyle style, bool semibold = false)
     {
-        var font = MakeFont(px, style, semibold);
+        var font = ForText(MakeFont(px, style, semibold), text);
         return g.MeasureString(text, font, int.MaxValue, StringFormat.GenericTypographic).Width;
     }
 

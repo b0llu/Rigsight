@@ -182,7 +182,7 @@
                                     <TextBlock Grid.Column="4" Text="{Binding DiskCell}" Style="{StaticResource FigDisk}" />
                                     <Grid Grid.Column="5" Width="28" Height="24" HorizontalAlignment="Right">
                                         <Button x:Name="More" Style="{StaticResource IconButton}" Height="24" Click="ProcessMore_Click" Visibility="Hidden"
-                                                ToolTip="{ctl:T 'More'}" AutomationProperties.Name="{Binding Label, StringFormat='Actions for {0}'}">
+                                                ToolTip="{ctl:T 'More'}" AutomationProperties.Name="{Binding Label, StringFormat={ctl:T 'Actions for {0}'}}">
                                             <TextBlock Text="&#xE712;" />
                                         </Button>
                                         <ctl:Spinner HorizontalAlignment="Center" Visibility="{Binding IsEnding, Converter={StaticResource Vis}}" />
@@ -354,7 +354,7 @@
                                                     <!-- The dots show on the row under the pointer, picked, or reached with the keyboard; a spinner in their place while it is being ended. -->
                                                     <Grid Grid.Column="5" Width="28" Height="28" HorizontalAlignment="Right">
                                                         <Button x:Name="More" Style="{StaticResource IconButton}" Click="AppMore_Click" Visibility="Hidden"
-                                                                ToolTip="{ctl:T 'More'}" AutomationProperties.Name="{Binding Name, StringFormat='Actions for {0}'}">
+                                                                ToolTip="{ctl:T 'More'}" AutomationProperties.Name="{Binding Name, StringFormat={ctl:T 'Actions for {0}'}}">
                                                             <TextBlock Text="&#xE712;" />
                                                         </Button>
                                                         <ctl:Spinner HorizontalAlignment="Center" Visibility="{Binding IsEnding, Converter={StaticResource Vis}}" />

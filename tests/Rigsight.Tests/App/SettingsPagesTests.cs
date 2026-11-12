@@ -340,6 +340,31 @@ public sealed class SettingsPageTests
         });
     }
 
+    // At the most RigSight keeps, Add widget and Create widget are off and a line under them says why (the audit,
+    // 2026-11-11: Add widget opened its list and a click on any of it did nothing, with no word).
+    [Fact]
+    public void At_the_most_widgets_adding_is_off_and_the_page_says_why()
+    {
+        using var link = new AgentLink();
+        link.Settings.Update(s =>
+        {
+            while (s.Widgets.Count(w => w.Style == WidgetStyle.Custom) < WidgetCatalog.MaxCustom)
+                s.Widgets.Add(new WidgetConfig { Style = WidgetStyle.Custom, Id = WidgetCatalog.NewId(), Name = "Mine", Tiles = [] });
+        });
+        var vm = WidgetsPage(link);
+        Ui.Run(() =>
+        {
+            Assert.True(vm.AtLimit);
+            Assert.False(vm.OpenAddListCommand.CanExecute(null));
+            Assert.False(vm.CreateCommand.CanExecute(null));
+            Assert.Equal("You have 200 widgets, the most RigSight keeps. Remove one to add another.", WidgetsViewModel.LimitLine);
+            vm.Remove(vm.Cards.Last(c => c.Style == WidgetStyle.Custom));
+            Assert.False(vm.AtLimit);
+            Assert.True(vm.OpenAddListCommand.CanExecute(null));
+            Assert.True(vm.CreateCommand.CanExecute(null));
+        });
+    }
+
     [Fact]
     public void The_page_has_a_card_for_every_widget_and_a_list_to_add_from()
     {
@@ -361,7 +386,7 @@ public sealed class SettingsPageTests
             Assert.Equal(vm.Choices, vm.ChoicesShown);
             Assert.Equal(vm.Choices.Count, vm.Choices.Select(c => c.Title).Distinct().Count());
             // Listed under their groups in the Add widget pop-up.
-            Assert.Equal(["READY-MADE", "EVERYDAY", "LIVE", "YOUR DAY"],
+            Assert.Equal(["READY-MADE", "EVERYDAY", "LIVE", "INTERNET", "YOUR DAY"],
                 vm.ChoiceGroups.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(g => (string)g.Name));
             Assert.Equal(["Clock", "Date", "Calendar", "Notes", "To-do", "Timer", "Media", "Weather", "Shortcuts", "Photos"], vm.ChoicesShown.Where(c => c.Group == "Everyday").Select(c => c.Title));
             vm.ChoiceQuery = "calend";
@@ -645,6 +670,35 @@ public sealed class SettingsPageTests
         });
     }
 
+    // A sensor on a tile goes by the name it has everywhere else, as in the list it was picked from: the one given on
+    // All sensors, else its own as shown (it went by the hardware library's English name, 2026-11-11).
+    [Fact]
+    public void A_tiles_sensor_goes_by_the_name_it_shows_everywhere()
+    {
+        var start = new RigsightSettings();
+        start.SensorLabels["/ram/load/0"] = "My RAM";
+        start.Widgets.Add(new WidgetConfig
+        {
+            Style = WidgetStyle.Custom, Id = "custom-names", Name = "Names",
+            Tiles = [new WidgetTile { Kind = WidgetTiles.Reading, Item = WidgetCatalog.SensorPrefix + "/ram/load/0" },
+                     new WidgetTile { Kind = WidgetTiles.Reading, Item = WidgetCatalog.SensorPrefix + "/vram/load/0" }],
+        });
+        var (settings, live) = Kit.Greeted(start);
+        Ui.Run(() =>
+        {
+            var ed = new WidgetEditorViewModel("custom-names", settings, live, () => { });
+            try
+            {
+                Assert.Equal(["My RAM (Total Memory)", "Virtual Memory (Virtual Memory)"], ed.TileBoxes.Select(b => b.Name));
+                ed.PickTileCommand.Execute(ed.TileBoxes[0]);
+                Assert.Equal("My RAM (Total Memory)", ed.ReadingShown);
+                ed.OpenReadingPickerCommand.Execute("tile");
+                Assert.Equal("My RAM", ed.ReadingRows.Single(r => r.Id == WidgetCatalog.SensorPrefix + "/ram/load/0").Name);
+            }
+            finally { ed.Close(); }
+        });
+    }
+
     // While the editor is open the widget can be dragged on the desktop or on the map: a change in the editor, or its
     // Undo, never puts it back where it was when the editor opened (the user, 2026-11-10: a calendar kept going back).
     [Fact]
@@ -717,9 +771,8 @@ public sealed class SettingsPageTests
         Ui.Run(() =>
         {
             vm.Snap = false;
-            vm.Fade = true;
             vm.Shown = false;
-            Assert.Equal((false, true, false), (link.Settings.Current.WidgetSnap, link.Settings.Current.WidgetFade, link.Settings.Current.WidgetsShown));
+            Assert.Equal((false, false), (link.Settings.Current.WidgetSnap, link.Settings.Current.WidgetsShown));
 
             Assert.False(vm.Record(0x57, HotkeyModifiers.Ctrl)); // nothing waiting for keys
             vm.RecordShortcutCommand.Execute("shown");

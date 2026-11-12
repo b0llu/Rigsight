@@ -139,6 +139,27 @@ public static class WidgetCatalog
     public static OverlayMetric? Metric(string id) =>
         Enum.TryParse<OverlayMetric>(id, out var m) && Enum.IsDefined(m) && !int.TryParse(id, out _) ? m : null;
 
+    /// <summary>
+    /// The key sensor (<see cref="KeySensors"/>) a reading is read from, for the readings that are one sensor: renaming
+    /// that sensor (All sensors, or the reading's name in a widget's editor) names the reading on widgets too. Null for
+    /// those worked out by RigSight (frame rate, peaks, screen time, the time of day).
+    /// </summary>
+    public static string? KeyOf(OverlayMetric m) => m switch
+    {
+        OverlayMetric.CpuTemp => KeySensors.CpuTemp,
+        OverlayMetric.CpuLoad => KeySensors.CpuLoad,
+        OverlayMetric.CpuClock => KeySensors.CpuClock,
+        OverlayMetric.CpuPower => KeySensors.CpuPower,
+        OverlayMetric.GpuTemp => KeySensors.GpuTemp,
+        OverlayMetric.GpuHotSpot => KeySensors.GpuHotSpot,
+        OverlayMetric.GpuLoad => KeySensors.GpuLoad,
+        OverlayMetric.GpuClock => KeySensors.GpuClock,
+        OverlayMetric.GpuPower => KeySensors.GpuPower,
+        OverlayMetric.GpuMemory => KeySensors.GpuVramUsed,
+        OverlayMetric.Ram => KeySensors.RamLoad,
+        _ => null,
+    };
+
     /// <summary>The sensor an item is ("sensor:…"), if it's one.</summary>
     public static string? Sensor(string id) => id.StartsWith(SensorPrefix, StringComparison.Ordinal) && id.Length > SensorPrefix.Length ? id[SensorPrefix.Length..] : null;
 

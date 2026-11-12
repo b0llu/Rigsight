@@ -1721,7 +1721,7 @@
             </Border.Effect>
         </Border>
         <ctl:SmoothBorder x:Name="Panel" HorizontalAlignment="Left" VerticalAlignment="Top" CornerRadius="{x:Static ctl:Corner.Panel}" Background="{DynamicResource SurfaceBrush}"
-                          BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1" AutomationProperties.Name="Ask RigSight">
+                          BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1" AutomationProperties.Name="{ctl:T 'Ask RigSight'}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition />

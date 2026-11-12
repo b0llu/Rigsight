@@ -49,7 +49,7 @@ public sealed partial class NetTodayViewModel : ObservableObject
     private void UpdateLive()
     {
         var net = Live.Net;
-        HasLive = net is not null && !net.Stalled;
+        HasLive = net is { HasSpeed: true };
         if (net is null) return;
         DownNow = Units.Speed(net.Down);
         UpNow = Units.Speed(net.Up);

@@ -146,7 +146,7 @@ internal static partial class WidgetRenderer
             case WidgetTiles.Reading: ReadingTile(g, t, inner, d, p, align); break;
             case WidgetTiles.Line: LineTile(g, t, inner, d, p); break;
             case WidgetTiles.Graph:
-                var readings = (t.Items ?? []).Select(i => Read(i, d, p)).ToList();
+                var readings = (t.Items ?? []).Where(i => !i.Hidden).Select(i => Read(i, d, p)).ToList();
                 Within(g, r, r.Width, r.Height, () => DrawGraph(g, readings, d, p, r.Width, r.Height));
                 break;
             case WidgetTiles.Fps:
@@ -161,6 +161,7 @@ internal static partial class WidgetRenderer
             case WidgetTiles.Weather: WeatherTile(g, t, inner, p, accent); break;
             case WidgetTiles.Shortcuts: ShortcutsTile(g, t, inner, p); break;
             case WidgetTiles.Photos: PhotosTile(g, t, r, p); break;
+            default: PcTile(g, t, inner, d, p, accent); break;
         }
     }
 
@@ -192,7 +193,7 @@ internal static partial class WidgetRenderer
         var key = (text, FontName ?? "", px, style, semibold, scale);
         if (InkCache.TryGetValue(key, out var ink)) return ink;
         if (InkCache.Count > 600) InkCache.Clear();
-        var font = MakeFont(px, style, semibold);
+        var font = ForText(MakeFont(px, style, semibold), text);
         using var fmt = (StringFormat)StringFormat.GenericTypographic.Clone();
         fmt.FormatFlags |= StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces;
         int pad = (int)Math.Ceiling(px * scale);
@@ -612,6 +613,8 @@ internal static partial class WidgetRenderer
                 if (look == WidgetTiles.BarGraph) Bars(gg, history, area, color);
                 else if (look == WidgetTiles.LineGraph) Line(gg, history, area, color);
                 else Sparkline(gg, history, area, color);
+                if (look == WidgetTiles.BarGraph) HoverOnBars(gg, history, area, reading, color, d, p);
+                else HoverOnGraph(gg, history, area, reading, color, d, p);
             });
         }
         ink.Draw(g, r, align);
@@ -687,7 +690,7 @@ internal static partial class WidgetRenderer
     /// <summary>A line of readings, spread across the tile: dot, name, value for each.</summary>
     private static void LineTile(Graphics g, WidgetTile t, RectangleF r, WidgetData d, Palette p)
     {
-        var readings = (t.Items ?? []).Select(i => Read(i, d, p)).ToList();
+        var readings = (t.Items ?? []).Where(i => !i.Hidden).Select(i => Read(i, d, p)).ToList();
         if (readings.Count == 0) return;
         ReadingRow(g, readings, p, rd => PartColor(rd, p)).Draw(g, r, TileAlign.Center);
     }
@@ -833,7 +836,7 @@ internal static partial class WidgetRenderer
     /// <summary>Text over several lines in a box, cut at a word with "…" where it runs out; with the shadow other text has.</summary>
     private static void TextIn(Graphics g, string text, float px, Color color, RectangleF box, FontStyle style = FontStyle.Regular)
     {
-        var font = MakeFont(px, style, false);
+        var font = ForText(MakeFont(px, style, false), text);
         using var fmt = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit };
         if (TextShadow.A > 0)
         {
@@ -951,7 +954,7 @@ internal static partial class WidgetRenderer
             int end = text.IndexOf('\n', start);
             string part = end < 0 ? text[start..] : text[start..end];
             if (part.EndsWith('\r')) part = part[..^1]; // a note written in the app has Windows' line breaks
-            int n = LinesOf(g, part, font, body.Width, fmt, line);
+            int n = LinesOf(g, part, ForText(font, part), body.Width, fmt, line);
             paragraphs.Add((start, part, n));
             lines += n;
             if (end < 0) break;
@@ -968,7 +971,7 @@ internal static partial class WidgetRenderer
             {
                 if (at <= start + part.Length)
                 {
-                    var c = CaretAt(g, part, Math.Clamp(at - start, 0, part.Length), font, body, fmt, line);
+                    var c = CaretAt(g, part, Math.Clamp(at - start, 0, part.Length), ForText(font, part), body, fmt, line);
                     caret = c with { Y = c.Y + above * line };
                     break;
                 }
@@ -994,8 +997,9 @@ internal static partial class WidgetRenderer
                 if (row + n > first && row <= first + shown && part.Length > 0)
                 {
                     var box = new RectangleF(body.X, body.Y + row * line, body.Width, n * line + line);
-                    if (shadow is not null) g.DrawString(part, font, shadow, new RectangleF(box.X + o, box.Y + o, box.Width, box.Height), fmt);
-                    g.DrawString(part, font, brush, box, fmt);
+                    var pf = ForText(font, part);
+                    if (shadow is not null) g.DrawString(part, pf, shadow, new RectangleF(box.X + o, box.Y + o, box.Width, box.Height), fmt);
+                    g.DrawString(part, pf, brush, box, fmt);
                 }
                 row += n;
             }
@@ -1025,7 +1029,9 @@ internal static partial class WidgetRenderer
         }
         _noteLinesChars += part.Length;
         float height = part.Length == 0 ? line : g.MeasureString(part, font, new SizeF(width, 1_000_000), fmt).Height;
-        n = Math.Max(1, (int)Math.Round(height / line));
+        // Counted in the paragraph's own font's lines: one with an emoji is in Segoe UI Emoji (see ForText), whose lines
+        // are shorter than a handwriting font's.
+        n = Math.Max(1, (int)Math.Round(height / (part.Length == 0 ? line : font.GetHeight(g))));
         NoteLines[key] = n;
         return n;
     }
@@ -1136,7 +1142,7 @@ internal static partial class WidgetRenderer
                 // What's typed, and the caret after the part before it. Longer than the line, it moves along as a text
                 // box does, so the caret and the letters by it stay in sight (it was cut with "…" and the caret sat past
                 // it, what was typed unseen).
-                float at = typing.Caret > 0 ? g.MeasureString(typing.Text[..Math.Min(typing.Text.Length, typing.Caret)], MakeFont(px, FontStyle.Regular, false), int.MaxValue, CaretFormat).Width : 0;
+                float at = typing.Caret > 0 ? g.MeasureString(typing.Text[..Math.Min(typing.Text.Length, typing.Caret)], ForText(MakeFont(px, FontStyle.Regular, false), typing.Text), int.MaxValue, CaretFormat).Width : 0;
                 float room = right - tx - 2, shift = Math.Max(0, at - room);
                 if (shift > 0)
                 {
@@ -1260,7 +1266,7 @@ internal static partial class WidgetRenderer
                         });
                     break;
                 case WidgetTiles.Line:
-                    foreach (var i in t.Items ?? [])
+                    foreach (var i in (t.Items ?? []).Where(i => !i.Hidden))
                     {
                         var x = Read(i, d, p);
                         sb.Append('|').Append(x.Label).Append('=').Append(x.Text).Append('#').Append(x.ValueColor.ToArgb());
@@ -1277,7 +1283,7 @@ internal static partial class WidgetRenderer
                     sb.Append('|').Append(WidgetTimer.KindOf(t)).Append(WidgetTimer.Running(t)).Append(WidgetTimer.Shown(t, NowMs())).Append(t.Until?.Ticks).Append(now.Date.Ticks);
                     break;
                 default:
-                    if (EverydayKey(t, d) is not { } key) return null;
+                    if ((EverydayKey(t, d) ?? PcKey(t, d, p)) is not { } key) return null;
                     sb.Append('|').Append(key);
                     break;
             }

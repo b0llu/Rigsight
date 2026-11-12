@@ -490,7 +490,7 @@ internal static partial class WidgetRenderer
             if (DirectWriteText.Draw(g, text, font, color, x, (int)MathF.Round(y + Ascent(font)), outlined ? Halo : null)) return;
             using var brush = new SolidBrush(color);
             var (sx, sy) = Snap(font, x, y);
-            g.DrawString(text, font, brush, sx, sy, _format);
+            g.DrawString(text, ForText(font, text), brush, sx, sy, _format);
         }
 
         /// <summary>

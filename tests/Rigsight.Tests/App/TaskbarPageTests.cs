@@ -138,9 +138,10 @@ public sealed class TaskbarPageTests
             var items = page.PartnerItems(page.Spots[0], "");
             Assert.Equal("None", items[0].Name);
             Assert.True(items[0].Selected);
-            // Two readings named "Memory" on this PC (RAM's and virtual memory's): the one in the taskbar says so, the other
-            // its hardware, so the two can be told apart.
-            Assert.Equal(["In the taskbar", "Virtual Memory"], items.Where(i => i.IsChoice && i.Name == live.RamLoad!.DisplayName).Select(i => i.Detail));
+            // RAM's load and virtual memory's each have a name of their own (the library calls both "Memory", 2026-11-11):
+            // one line goes by RAM's name, the one in the taskbar, and virtual memory's goes by its own.
+            Assert.Equal(["In the taskbar"], items.Where(i => i.IsChoice && i.Name == live.RamLoad!.DisplayName).Select(i => i.Detail));
+            Assert.Equal("Virtual Memory", items.Single(i => i.IsChoice && i.Id == live.VirtualLoad!.Id).Name);
             Assert.DoesNotContain(items, i => i.IsChoice && i.Name == live.CpuTemp!.DisplayName); // not itself
             Assert.All(page.PartnerItems(page.Spots[0], "GPU").Where(i => i.IsChoice), i => Assert.NotEqual("None", i.Name)); // typing: no None
 

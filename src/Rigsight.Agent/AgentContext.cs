@@ -497,7 +497,9 @@ internal sealed partial class AgentContext : ApplicationContext
                     long unixMs = TimeUtil.NowUnixMs();
                     _history.Add(unixMs, _sensors);
                     _tracker.OnSensors(SystemState.With(keys));
-                    _tracker.OnFans(_sensors.ReadFans());
+                    var fansRead = _sensors.ReadFans();
+                    _tracker.OnFans(fansRead);
+                    if (fansRead.Count > 0) NoteFans(fansRead);
                     _closeUps.Tick();
                     var values = _sensors.ReadAll();
                     ObserveExtremes(values);
@@ -1026,8 +1028,11 @@ internal sealed partial class AgentContext : ApplicationContext
     }
 
     /// <summary>The sensors on shown widgets (kept live while they show, as the overlay's are).</summary>
-    private static IEnumerable<string> WidgetSensorIds(RigsightSettings settings) =>
-        settings.Widgets.Where(w => w.Enabled).SelectMany(WidgetCatalog.ItemsOf).Select(i => WidgetCatalog.Sensor(i.Id)).OfType<string>().Distinct();
+    // A box's sensors are its tiles' (a reading's, a line's): its own reading list is the default one, with none, so a
+    // sensor on a Reading or Line tile was never read and the desktop said "Sensor —" where the app's picture had it.
+    internal static IEnumerable<string> WidgetSensorIds(RigsightSettings settings) =>
+        settings.Widgets.Where(w => w.Enabled).SelectMany(w => w.Tiles is null ? WidgetCatalog.ItemsOf(w) : WidgetCatalog.ShownItems(w))
+            .Select(i => WidgetCatalog.Sensor(i.Id)).OfType<string>().Distinct();
 
     /// <summary>The widgets' sensors: the name given on All sensors, else the sensor's own (a widget's own short name wins when drawn).</summary>
     private Dictionary<string, OverlaySensorReading> WidgetSensors(RigsightSettings settings)
@@ -1040,6 +1045,22 @@ internal sealed partial class AgentContext : ApplicationContext
     }
 
     /// <summary>Five minutes of each reading a tile or graph shows beyond CPU and GPU temperature (which have their own).</summary>
+    /// <summary>
+    /// The names given to the readings that are one sensor (renamed in All sensors, or in a widget's editor), so widgets
+    /// say the same name as everywhere else; a reading whose sensor wasn't renamed keeps its usual short name.
+    /// </summary>
+    private Dictionary<OverlayMetric, string> WidgetNames(RigsightSettings settings)
+    {
+        var names = new Dictionary<OverlayMetric, string>();
+        if (settings.SensorLabels.Count == 0) return names;
+        foreach (var m in Enum.GetValues<OverlayMetric>())
+        {
+            if (WidgetCatalog.KeyOf(m) is not { } key || !_sensors.Keys.TryGetValue(key, out int i) || i < 0 || i >= _sensors.Ids.Length) continue;
+            if (settings.SensorLabels.GetValueOrDefault(_sensors.Ids[i]) is { Length: > 0 } name) names[m] = name;
+        }
+        return names;
+    }
+
     private Dictionary<OverlayMetric, float[]> WidgetHistories(HashSet<OverlayMetric> metrics)
     {
         var map = new Dictionary<OverlayMetric, float[]>();
@@ -1242,7 +1263,7 @@ internal sealed partial class AgentContext : ApplicationContext
             if (TrayParts.IsNet(id))
             {
                 var net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : null;
-                double? down = net is null || net.Stalled ? null : net.Down, up = net is null || net.Stalled ? null : net.Up;
+                double? down = net is { HasSpeed: true } ? net.Down : null, up = net is { HasSpeed: true } ? net.Up : null;
                 string name = own ?? SensorWords.Show(TrayParts.NetName(id));
                 reading = new TrayReading(id, name, SensorKind.Throughput, id == TrayParts.NetUp ? up : down, TrayPart.Network, SensorWords.Show(TrayParts.NetHardware),
                     own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel } o ? o : id == TrayParts.NetUp ? Lang.T("Up") : Lang.T("Down"),
@@ -1337,6 +1358,10 @@ internal sealed partial class AgentContext : ApplicationContext
             Sensors = OverlaySensors(settings),
             Readings = WidgetSensors(settings),
             Histories = WidgetHistories(historyOf),
+            HistorySeconds = historyOf.Count > 0 ? _history.SpanMs(KeySensors.CpuTemp, 300_000) / 1000.0 : 300,
+            Names = WidgetNames(settings),
+            Pc = PcNowFor(settings),
+            Facts = _facts,
         };
         _lastToday = data.Today;
 
@@ -1507,6 +1532,36 @@ internal sealed partial class AgentContext : ApplicationContext
 
     private static readonly NetLive NotRecording = new() { Stalled = true };
 
+    private bool _sessionsLogged;
+
+    // While the trace is silent: the network cards' own counters for the whole PC's speed right now, so the taskbar,
+    // widgets and Network page keep a speed (issue #13: they showed dashes for hours). Live only, never written to the
+    // history: a minute the trace comes back in would count twice.
+    private Dictionary<string, (long Received, long Sent)>? _stallCards;
+    private double _stallSeconds;
+    private (double Down, double Up)? _stallSpeed;
+
+    /// <summary>Sampler thread, each second while the trace is silent: the cards' speed, read every few seconds.</summary>
+    private (double Down, double Up)? CardSpeedWhileStalled(double seconds)
+    {
+        _stallSeconds += seconds;
+        if (_stallSeconds < CardEverySeconds && _stallCards is not null) return _stallSpeed;
+        var now = NetAdapters.CardTraffic();
+        var before = _stallCards;
+        double span = _stallSeconds;
+        _stallCards = now;
+        _stallSeconds = 0;
+        if (now is null || before is null || span <= 0) return _stallSpeed = null;
+        long down = 0, up = 0;
+        foreach (var (id, n) in now)
+            if (before.TryGetValue(id, out var b) && n.Received >= b.Received && n.Sent >= b.Sent)
+            {
+                down += n.Received - b.Received;
+                up += n.Sent - b.Sent;
+            }
+        return _stallSpeed = (down / span, up / span);
+    }
+
     /// <summary>
     /// Sampler thread, each minute: a trace that delivers nothing while megabytes go through the network cards is started
     /// again; if that doesn't help, traces left behind by test copies are stopped first (see <see cref="TraceWatch"/>).
@@ -1534,9 +1589,18 @@ internal sealed partial class AgentContext : ApplicationContext
                 break;
             case TraceRemedy.GiveUp:
                 Log.Write("network", $"App network use still isn't coming in: trying again in {TraceWatch.RetrySeconds / 60} minutes");
+                // Once a stall: which trace sessions are running, so the log names one that may hold the network events
+                // (issue #13: a network tool installed and removed left them silent until a restart; the log couldn't say).
+                if (!_sessionsLogged)
+                {
+                    _sessionsLogged = true;
+                    var sessions = NetworkTrace.Running();
+                    Log.Write("network", $"Trace sessions running now ({sessions.Count}): {string.Join(", ", sessions)}");
+                }
                 break;
             case TraceRemedy.Recovered:
                 Log.Write("network", "App network use is coming in again");
+                _sessionsLogged = false;
                 break;
         }
     }
@@ -1591,6 +1655,11 @@ internal sealed partial class AgentContext : ApplicationContext
             _tracker.OnNetwork(counts, _running, seconds);
             var now = _tracker.NetNow;
             now.Stalled = _traceWatch.Stalled;
+            now.FromCards = false;
+            if (now.Stalled && CardSpeedWhileStalled(seconds) is { } cards)
+                (now.Down, now.Up, now.FromCards) = (cards.Down, cards.Up, true);
+            else if (!now.Stalled)
+                (_stallCards, _stallSpeed) = (null, null);
             lock (_netHistoryLock)
             {
                 _netHistory.Enqueue(new NetLive { Time = now.Time, Down = now.Down, Up = now.Up });

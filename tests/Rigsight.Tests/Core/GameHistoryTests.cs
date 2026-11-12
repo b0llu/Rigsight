@@ -125,6 +125,32 @@ public class GameHistoryTests
     }
 
     [Fact]
+    public void Rewind_counts_a_games_plays_and_longest_play_as_the_games_page_does()
+    {
+        // Real PC, October 2026: Rewind counted each session of a minute or more as a play, 27 of Dota 2 where the Games
+        // page had 22. Here two matches with five minutes of menu between, one more, a launch of 30 seconds, and two
+        // more joined: six sessions, five of a minute or more, four plays.
+        using var t = new TestDb("rewind-plays");
+        long game = t.Db.UpsertApp("kickoff.exe", "Kickoff", @"C:\RigsightTestGames\Kickoff\kickoff.exe", AppCategory.Game);
+        long a = U(2026, 10, 10, 20), b = U(2026, 10, 12, 20), c = U(2026, 10, 15, 20);
+        foreach (var (from, to) in new[] { (a, a + 1800), (a + 2100, a + 3600), (b, b + 2400), (b + 7200, b + 7230), (c, c + 1200), (c + 1500, c + 2700) })
+            t.Db.InsertSession(Session(game, from, to, game: true));
+        foreach (var hour in new[] { a, b, b + 7200, c })
+            t.Db.AddAppHour(Hour(hour, game, fg: 1800));
+        var settings = Settings();
+
+        var facts = Rigsight.Core.Rewind.RewindBuilder.Build(t.Db, Rigsight.Core.Rewind.RewindKind.Month, new DateTime(2026, 10, 1), new DateTime(2026, 11, 1), settings, new DateTime(2026, 11, 1, 9, 0, 0));
+        var story = GameHistory.Story(t.Db, GameHistory.Library(t.Db, [], settings).Single(e => e.Name == "Kickoff"), settings, new DateTime(2026, 11, 1, 9, 0, 0));
+
+        Assert.Equal(4, story.Plays.Count);
+        Assert.Equal(story.Plays.Count, facts.Plays);
+        Assert.Equal(story.Plays.Count, Assert.Single(facts.TopGames).Count);
+        // The longest play is the two matches together (55 minutes), not the longest session in it (40).
+        Assert.Equal(story.Longest!.ActiveSec, facts.LongestGame!.Value);
+        Assert.Equal((L(a), L(a + 3600)), (facts.LongestStart, facts.LongestEnd));
+    }
+
+    [Fact]
     public void A_games_only_play_with_frames_brings_its_minutes_for_the_chart()
     {
         using var t = new TestDb("game-one-play");

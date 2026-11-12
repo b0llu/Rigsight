@@ -343,7 +343,7 @@ public sealed class SidebarPresetAccentTests
                 var grips = Visuals.Descendants<System.Windows.Controls.Primitives.Thumb>(panel).Where(t => t.DataContext is NavEntry).ToList();
                 Assert.Equal(16, grips.Count);
                 Assert.All(grips, g => Assert.True(g.Focusable && g.ActualHeight > 0));
-                Assert.Contains(grips, g => NameOf(g) == "Move Memory: drag it, or use the arrow keys");
+                Assert.Contains(grips, g => NameOf(g) == "Move Memory by dragging it or with the arrow keys");
                 // Names show as text: no box until the pencil; headings' switches only while renaming them.
                 Assert.Empty(Visuals.Descendants<System.Windows.Controls.TextBox>(panel).Where(b => b.IsVisible));
                 var switches = Visuals.Descendants<System.Windows.Controls.CheckBox>(panel).Where(c => c.IsVisible).Select(NameOf).ToList();

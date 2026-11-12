@@ -543,7 +543,7 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Button Style="{StaticResource QuickChip}" Content="{Binding Label}" AutomationProperties.Name="{Binding Label, StringFormat=Add {0}}"
+                                                <Button Style="{StaticResource QuickChip}" Content="{Binding Label}" AutomationProperties.Name="{Binding Label, StringFormat={ctl:T 'Add {0}'}}"
                                                         Command="{Binding DataContext.AddQuickCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -571,7 +571,7 @@
                                                 <TextBlock Text="{Binding Heading}" Style="{StaticResource Caption}" Margin="6,10,0,4"
                                                            Visibility="{Binding IsHeading, Converter={StaticResource Vis}}" />
                                                 <Button Style="{StaticResource ListChoice}" Padding="8,6" Visibility="{Binding IsHeading, Converter={StaticResource Vis}, ConverterParameter=Invert}"
-                                                        IsEnabled="{Binding CanAdd}" AutomationProperties.Name="{Binding Sensor.DisplayName, StringFormat=Add {0}}"
+                                                        IsEnabled="{Binding CanAdd}" AutomationProperties.Name="{Binding Sensor.DisplayName, StringFormat={ctl:T 'Add {0}'}}"
                                                         Command="{Binding DataContext.AddReadingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Sensor}">
                                                     <DockPanel>
                                                         <TextBlock DockPanel.Dock="Right" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{DynamicResource MutedBrush}" Width="16"

@@ -64,6 +64,8 @@
     <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.cs" Link="TaskbarDrawing\WidgetRenderer.cs" />
     <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Box.cs" Link="TaskbarDrawing\WidgetRenderer.Box.cs" />
     <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Everyday.cs" Link="TaskbarDrawing\WidgetRenderer.Everyday.cs" />
+    <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Pc.cs" Link="TaskbarDrawing\WidgetRenderer.Pc.cs" />
+    <Compile Include="..\Rigsight.Agent\Widgets\WidgetRenderer.Hover.cs" Link="TaskbarDrawing\WidgetRenderer.Hover.cs" />
     <Compile Include="..\Rigsight.Agent\Widgets\WidgetFiles.cs" Link="TaskbarDrawing\WidgetFiles.cs" />
     <Compile Include="..\Rigsight.Agent\Widgets\RecentIcons.cs" Link="TaskbarDrawing\RecentIcons.cs" />
     <Compile Include="..\Rigsight.Agent\Widgets\FrameStats.cs" Link="TaskbarDrawing\FrameStats.cs" />

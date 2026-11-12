@@ -17,7 +17,7 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     // in front. Made on first use, on the UI thread.
     private GlobalHotkey? _shownKey, _frontKey, _escKey;
     private string? _shownKeyText, _frontKeyText;
-    private System.Windows.Forms.Timer? _fadeTimer, _frontTimer;
+    private System.Windows.Forms.Timer? _frontTimer;
     private IntPtr _frontOver;
 
     /// <summary>The widgets on the desktop are in front of the windows for now (their shortcut), until Esc or a click elsewhere.</summary>
@@ -62,7 +62,6 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         }
         UpdateVisibility();
         ApplyShortcuts(settings);
-        ApplyFade(settings);
     }
 
     // ── The shortcuts ─────────────────────────────────────────────────────
@@ -142,34 +141,6 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     /// </summary>
     internal static bool StaysInFront(IntPtr now, IntPtr frontOver, IEnumerable<IntPtr> ours) =>
         now == frontOver || now != IntPtr.Zero && ours.Contains(now);
-
-    // ── Fading under the pointer ──────────────────────────────────────────
-
-    /// <summary>Widgets fade while the pointer is over them: where the pointer is, 25 times a second, only with the setting on.</summary>
-    private void ApplyFade(RigsightSettings settings)
-    {
-        bool wanted = settings.WidgetFade && _forms.Count > 0;
-        if (!wanted)
-        {
-            _fadeTimer?.Stop();
-            foreach (var f in _forms.Values) f.SetFaded(false);
-            return;
-        }
-        if (_fadeTimer is null)
-        {
-            // 25 times a second, so the fade starts as the pointer arrives: a click-through widget gets no mouse
-            // messages, so where the pointer is gets looked at (a quick check, with nothing drawn unless it changed).
-            _fadeTimer = new System.Windows.Forms.Timer { Interval = 40 };
-            _fadeTimer.Tick += (_, _) =>
-            {
-                var at = Cursor.Position;
-                // Every widget the pointer is over (the user, 2026-11-10: "widgets are not fading"): a click-through one
-                // almost away, so what's behind can be read and clicked; another to half, so it can still be grabbed.
-                foreach (var f in _forms.Values) f.SetFaded(f.Visible && f.PanelBounds.Contains(at));
-            };
-        }
-        _fadeTimer.Start();
-    }
 
     // ── Snapping while dragged ────────────────────────────────────────────
 

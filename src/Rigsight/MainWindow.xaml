@@ -102,10 +102,10 @@
         <DataTemplate x:Key="WhatsNewCard">
                     <ctl:SmoothBorder Width="680" MaxHeight="780" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
                                       Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Card}"
-                                      AutomationProperties.Name="What's new">
+                                      AutomationProperties.Name="{ctl:T 'What\'s new'}">
                         <DockPanel>
                             <DockPanel DockPanel.Dock="Top" Margin="28,22,16,8">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close" VerticalAlignment="Top">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close'}" VerticalAlignment="Top">
                                     <TextBlock Text="&#xE711;" />
                                 </Button>
                                 <StackPanel>
@@ -310,10 +310,10 @@
         <DataTemplate x:Key="PresetPicker">
             <ctl:SmoothBorder Width="820" MaxHeight="760" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center"
                               Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Card}"
-                              AutomationProperties.Name="New dashboard">
+                              AutomationProperties.Name="{ctl:T 'New dashboard'}">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="28,22,16,4">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close'}">
                             <TextBlock Text="&#xE711;" />
                         </Button>
                         <TextBlock Text="{ctl:T 'New dashboard'}" FontSize="{x:Static ctl:TextSize.FigureLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
@@ -779,9 +779,9 @@
                     </ControlTemplate>
                 </Button.Template>
             </Button>
-            <Button x:Name="MinButton" Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="Minimize_Click" AutomationProperties.Name="Minimize" />
-            <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" Click="Maximize_Click" AutomationProperties.Name="Maximize" />
-            <Button x:Name="CloseButton" Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" Click="Close_Click" AutomationProperties.Name="Close" />
+            <Button x:Name="MinButton" Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="Minimize_Click" AutomationProperties.Name="{ctl:T 'Minimize'}" />
+            <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" Click="Maximize_Click" AutomationProperties.Name="{ctl:T 'Maximize'}" />
+            <Button x:Name="CloseButton" Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" Click="Close_Click" AutomationProperties.Name="{ctl:T 'Close'}" />
         </StackPanel>
     </Grid>
     <!-- The recent notifications, under the bell, its right edge on the bell's: the last 30 days by day, newest first; a row
@@ -1100,7 +1100,7 @@
                                 <TextBlock Text="{ctl:T 'Standard account'}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" VerticalAlignment="Center" />
                             </DockPanel>
                             <TextBlock Text="{ctl:T 'CPU temperature and a few other readings are off here.'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,10" />
-                            <Button Style="{StaticResource GhostButton}" Command="{Binding OpenAdminRightsCommand}" HorizontalAlignment="Stretch" AutomationProperties.Name="See what's off">
+                            <Button Style="{StaticResource GhostButton}" Command="{Binding OpenAdminRightsCommand}" HorizontalAlignment="Stretch" AutomationProperties.Name="{ctl:T 'See what\'s off'}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'See what\'s off'}" />
                                     <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,1,0,0" VerticalAlignment="Center" />
@@ -1110,7 +1110,7 @@
                     </ctl:SmoothBorder>
 
                     <!-- The history file: damage the check confirmed, a repair waiting, or what a repair kept (see HistoryRepair). -->
-                    <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Tile}" Padding="12" Margin="0,0,0,10" BorderThickness="1" AutomationProperties.Name="History file"
+                    <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Tile}" Padding="12" Margin="0,0,0,10" BorderThickness="1" AutomationProperties.Name="{ctl:T 'History file'}"
                                       DataContext="{Binding HistoryCard}" Visibility="{Binding Converter={StaticResource Vis}}">
                         <ctl:SmoothBorder.Style>
                             <Style TargetType="ctl:SmoothBorder">
@@ -1138,13 +1138,13 @@
                             <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,8" />
                             <!-- Equal halves, one height (a lone button takes the whole width): collapsed buttons take no cell. -->
                             <UniformGrid Rows="1" Margin="-3,0">
-                                <Button Style="{StaticResource AccentButton}" Margin="3,0" HorizontalAlignment="Stretch" Content="{ctl:T 'Repair'}" AutomationProperties.Name="Repair history"
+                                <Button Style="{StaticResource AccentButton}" Margin="3,0" HorizontalAlignment="Stretch" Content="{ctl:T 'Repair'}" AutomationProperties.Name="{ctl:T 'Repair history'}"
                                         Command="{Binding DataContext.RepairHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                         Visibility="{Binding CanRepair, Converter={StaticResource Vis}}" />
-                                <Button Style="{StaticResource AccentButton}" Margin="3,0" HorizontalAlignment="Stretch" Content="{ctl:T 'Try again'}" AutomationProperties.Name="Try the history repair again"
+                                <Button Style="{StaticResource AccentButton}" Margin="3,0" HorizontalAlignment="Stretch" Content="{ctl:T 'Try again'}" AutomationProperties.Name="{ctl:T 'Try the history repair again'}"
                                         Command="{Binding DataContext.RepairHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                         Visibility="{Binding CanRetry, Converter={StaticResource Vis}}" />
-                                <Button Style="{StaticResource GhostButton}" Margin="3,0" Padding="6,8" HorizontalAlignment="Stretch" Content="{ctl:T 'Open folder'}" AutomationProperties.Name="Open the history folder"
+                                <Button Style="{StaticResource GhostButton}" Margin="3,0" Padding="6,8" HorizontalAlignment="Stretch" Content="{ctl:T 'Open folder'}" AutomationProperties.Name="{ctl:T 'Open the history folder'}"
                                         Command="{Binding DataContext.OpenHistoryFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                         Visibility="{Binding CanOpenFolder, Converter={StaticResource Vis}}" />
                                 <Button Style="{StaticResource GhostButton}" Margin="3,0" Padding="6,8" HorizontalAlignment="Stretch" Content="{Binding DismissText}"
@@ -1194,7 +1194,7 @@
                             <TextBlock Text="{ctl:T 'Some new words show in English until it\'s downloaded.'}" FontSize="{x:Static ctl:TextSize.Label}"
                                        Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,8" />
                             <Button Style="{StaticResource AccentButton}" Command="{Binding ActCommand}" HorizontalAlignment="Stretch"
-                                    AutomationProperties.Name="Try the language pack again">
+                                    AutomationProperties.Name="{ctl:T 'Try the language pack again'}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" />
                                     <TextBlock Text="{ctl:T 'Try again'}" />
@@ -1209,10 +1209,10 @@
                          reporting a bug); the menu floats, so nothing moves. Marked like a page while Settings is open. -->
                     <!-- Ask, when Settings › Ask RigSight puts its button in the sidebar instead of the top bar. -->
                     <RadioButton Style="{StaticResource NavItem}" GroupName="AskSide" Tag="{StaticResource AiIcon}" Content="{ctl:T 'Ask'}" Command="{Binding Ask.ToggleCommand}"
-                                 IsChecked="{Binding Ask.IsOpen, Mode=OneWay}" AutomationProperties.Name="Ask RigSight" Margin="0,0,0,4"
+                                 IsChecked="{Binding Ask.IsOpen, Mode=OneWay}" AutomationProperties.Name="{ctl:T 'Ask RigSight'}" Margin="0,0,0,4"
                                  Visibility="{Binding Ask.InSidebar, Converter={StaticResource Vis}}" />
                     <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="12,4,12,10" />
-                    <ToggleButton x:Name="SettingsRow" AutomationProperties.Name="Settings and more" Cursor="Hand" Focusable="False"
+                    <ToggleButton x:Name="SettingsRow" AutomationProperties.Name="{ctl:T 'Settings and more'}" Cursor="Hand" Focusable="False"
                                   HorizontalAlignment="Stretch" Foreground="{DynamicResource MutedBrush}"
                                   Tag="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}">
                         <!-- While the menu is open, a press on the row only closes it: the menu shuts on that press, and the
@@ -1325,7 +1325,7 @@
                                         <Setter Property="Background" Value="{DynamicResource StrokeBrush}" />
                                     </Style>
                                 </StackPanel.Resources>
-                                <Button Tag="&#xE713;" Content="{ctl:T 'Settings'}" Command="{Binding GoCommand}" CommandParameter="settings" AutomationProperties.Name="Settings" />
+                                <Button Tag="&#xE713;" Content="{ctl:T 'Settings'}" Command="{Binding GoCommand}" CommandParameter="settings" AutomationProperties.Name="{ctl:T 'Settings'}" />
                                 <!-- Checking for an update keeps the menu open, and the line itself becomes the answer
                                      ("Checking…", then "Up to date" with a tick) until the menu closes: see the code
                                      behind. Every other line closes the menu. -->
@@ -1479,7 +1479,7 @@
                                                 <StackPanel>
                                                     <TextBlock Text="{Binding Heading}" Style="{StaticResource Caption}" Margin="10,6,10,4" />
                                                     <ItemsControl ItemsSource="{Binding ShownPages}" ItemTemplate="{StaticResource FlyoutEntry}" Focusable="False" />
-                                                    <Button Click="RailNewDashboard_Click" AutomationProperties.Name="New dashboard" Cursor="Hand" Focusable="True" Foreground="{DynamicResource FaintBrush}"
+                                                    <Button Click="RailNewDashboard_Click" AutomationProperties.Name="{ctl:T 'New dashboard'}" Cursor="Hand" Focusable="True" Foreground="{DynamicResource FaintBrush}"
                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Visibility="{Binding OffersNewDashboard, Converter={StaticResource Vis}}">
                                                         <Button.Template>
                                                             <ControlTemplate TargetType="Button">
@@ -1517,7 +1517,7 @@
                     </Button>
                     <!-- The user's dashboards, and any page moved in among them; a dashboard moved out is in the group it was put in. -->
                     <ItemsControl ItemsSource="{Binding DashboardsGroup.Pages}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
-                    <Button Command="{Binding DataContext.Presets.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}" AutomationProperties.Name="New dashboard"
+                    <Button Command="{Binding DataContext.Presets.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}" AutomationProperties.Name="{ctl:T 'New dashboard'}"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4"
                             ToolTip="{ctl:T 'Start from a preset or a blank page'}" ToolTipService.Placement="Right"
                             Visibility="{Binding ShowNewDashboard, Converter={StaticResource Vis}}">
@@ -1599,7 +1599,7 @@
         <!-- Pages (created on first visit, then kept), with a note at the top of one that couldn't read part of its history. -->
         <DockPanel Grid.Column="1">
             <Border DockPanel.Dock="Top" Margin="28,14,28,0" Padding="14,10" CornerRadius="{x:Static ctl:Corner.Control}" Background="{DynamicResource WarmSoftBrush}"
-                    AutomationProperties.Name="Part of this page can't be read" Visibility="{Binding PageUnreadable, Converter={StaticResource Vis}}">
+                    AutomationProperties.Name="{ctl:T 'Part of this page can\'t be read'}" Visibility="{Binding PageUnreadable, Converter={StaticResource Vis}}">
                 <DockPanel>
                     <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="{ctl:T 'Repair'}" Command="{Binding RepairHistoryCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
                     <Ellipse Width="8" Height="8" Fill="{DynamicResource WarmBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
@@ -1616,7 +1616,7 @@
              over the page (nothing moves), until "Got it". On the darker surface, so its filled button shows. -->
         <ctl:SmoothBorder Grid.Column="1" DataContext="{Binding Tips}" Visibility="{Binding IsPageTip, Converter={StaticResource Vis}}"
                           HorizontalAlignment="Left" VerticalAlignment="Top" Margin="28,96,0,0" Width="380" Padding="16,14" CornerRadius="{x:Static ctl:Corner.Tile}"
-                          Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1.5" AutomationProperties.Name="Page tip">
+                          Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1.5" AutomationProperties.Name="{ctl:T 'Page tip'}">
             <StackPanel>
                 <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" TextWrapping="Wrap" />
                 <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
@@ -1626,7 +1626,7 @@
         <!-- "Asking happens here": once, under the top bar's Ask box, when the welcome ended with Later. -->
         <ctl:SmoothBorder Grid.ColumnSpan="2" DataContext="{Binding Tips}" Visibility="{Binding IsAskTip, Converter={StaticResource Vis}}"
                           HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,8,0,0" Width="420" Padding="16,14" CornerRadius="{x:Static ctl:Corner.Tile}"
-                          Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AiStrokeBrush}" BorderThickness="1.5" AutomationProperties.Name="Ask tip">
+                          Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AiStrokeBrush}" BorderThickness="1.5" AutomationProperties.Name="{ctl:T 'Ask tip'}">
             <StackPanel>
                 <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" />
                 <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
@@ -1668,7 +1668,7 @@
             </Border>
             <ctl:SmoothBorder x:Name="SupportCard" Width="420" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="28,28,28,22"
                               Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1.5" CornerRadius="{x:Static ctl:Corner.Card}"
-                              AutomationProperties.Name="Support RigSight">
+                              AutomationProperties.Name="{ctl:T 'Support RigSight'}">
                 <StackPanel>
                     <Border Width="52" Height="52" CornerRadius="{x:Static ctl:Corner.Panel}" Background="#FFDD00" HorizontalAlignment="Center">
                         <Grid>
@@ -1687,12 +1687,12 @@
                                    FontSize="{x:Static ctl:TextSize.BodyPlus}" LineHeight="21" Foreground="{DynamicResource TextBrush}" Opacity="0.85" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0" />
                         <Button Style="{StaticResource AccentButton}" Background="#FFDD00" Foreground="#000000" Content="{ctl:T 'Buy me a coffee'}"
                                 Command="{Binding CoffeeCommand}" HorizontalAlignment="Stretch" Margin="0,18,0,0" Padding="14,10" FontSize="{x:Static ctl:TextSize.Lead}"
-                                AutomationProperties.Name="Buy me a coffee" />
+                                AutomationProperties.Name="{ctl:T 'Buy me a coffee'}" />
                         <UniformGrid Columns="2" Margin="-4,8,-4,0">
                             <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Maybe later'}" Command="{Binding LaterCommand}" Margin="4,0" Padding="12,9"
-                                    HorizontalAlignment="Stretch" AutomationProperties.Name="Maybe later" />
+                                    HorizontalAlignment="Stretch" AutomationProperties.Name="{ctl:T 'Maybe later'}" />
                             <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Don\'t show again'}" Command="{Binding NeverCommand}" Margin="4,0" Padding="12,9"
-                                    HorizontalAlignment="Stretch" AutomationProperties.Name="Don't show again" />
+                                    HorizontalAlignment="Stretch" AutomationProperties.Name="{ctl:T 'Don\'t show again'}" />
                         </UniformGrid>
                     </StackPanel>
                     <!-- After the coffee button -->
@@ -1715,7 +1715,7 @@
             <ContentControl.ContentTemplate>
                 <DataTemplate>
                 <Grid x:Name="PagesLayer"
-                      AutomationProperties.Name="Welcome to RigSight">
+                      AutomationProperties.Name="{ctl:T 'Welcome to RigSight'}">
                     <Border Background="#B8000000" />
                     <ctl:SmoothBorder x:Name="WelcomeCard" Width="640" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="28,28,28,20" BorderThickness="1.5" CornerRadius="{x:Static ctl:Corner.Card}">
                         <ctl:SmoothBorder.Style>
@@ -1805,7 +1805,7 @@
                             </StackPanel.Resources>
 
                             <!-- 1 · What RigSight is -->
-                            <StackPanel Visibility="{Binding IsAbout, Converter={StaticResource Vis}}" AutomationProperties.Name="What RigSight is">
+                            <StackPanel Visibility="{Binding IsAbout, Converter={StaticResource Vis}}" AutomationProperties.Name="{ctl:T 'What RigSight is'}">
                                 <TextBlock Text="{ctl:T 'Welcome to RigSight'}" FontSize="{x:Static ctl:TextSize.FigureLarge}" FontWeight="SemiBold" HorizontalAlignment="Center" />
                                 <TextBlock Text="{ctl:T 'From now on, RigSight keeps your PC\'s history, even with this window closed.'}"
                                            FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,22" />
@@ -1848,12 +1848,12 @@
                             </StackPanel>
 
                             <!-- 2 · The pages for the sidebar -->
-                            <StackPanel Visibility="{Binding IsPages, Converter={StaticResource Vis}}" AutomationProperties.Name="Pick the pages">
+                            <StackPanel Visibility="{Binding IsPages, Converter={StaticResource Vis}}" AutomationProperties.Name="{ctl:T 'Pick the pages'}">
                                 <TextBlock Text="{ctl:T 'How much should RigSight show?'}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" HorizontalAlignment="Center" />
                                 <TextBlock Text="{ctl:T 'Pick the pages for your sidebar. RigSight records the same either way.'}"
                                            FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,22" />
                                 <UniformGrid Columns="2" Margin="-7,0">
-                                    <Button Style="{StaticResource PagesChoice}" Tag="{Binding BasicPicked}" Command="{Binding PickCommand}" CommandParameter="basic" AutomationProperties.Name="The basics">
+                                    <Button Style="{StaticResource PagesChoice}" Tag="{Binding BasicPicked}" Command="{Binding PickCommand}" CommandParameter="basic" AutomationProperties.Name="{ctl:T 'The basics'}">
                                         <StackPanel>
                                             <Border Style="{StaticResource TileBox}">
                                                 <ItemsControl ItemsSource="{Binding BasicTiles}" ItemTemplate="{StaticResource PageTileT}" Focusable="False">
@@ -1870,7 +1870,7 @@
                                                        TextWrapping="Wrap" MinHeight="38" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Button>
-                                    <Button Style="{StaticResource PagesChoice}" Tag="{Binding FullPicked}" Command="{Binding PickCommand}" CommandParameter="full" AutomationProperties.Name="Everything">
+                                    <Button Style="{StaticResource PagesChoice}" Tag="{Binding FullPicked}" Command="{Binding PickCommand}" CommandParameter="full" AutomationProperties.Name="{ctl:T 'Everything'}">
                                         <StackPanel>
                                             <Border Style="{StaticResource TileBox}">
                                                 <ItemsControl ItemsSource="{Binding FullTiles}" ItemTemplate="{StaticResource PageTileT}" Focusable="False">
@@ -1897,7 +1897,7 @@
                             </StackPanel>
 
                             <!-- 3 · Ask RigSight, with its trial in the What's new card's words -->
-                            <StackPanel Visibility="{Binding IsAsk, Converter={StaticResource Vis}}" AutomationProperties.Name="Ask RigSight">
+                            <StackPanel Visibility="{Binding IsAsk, Converter={StaticResource Vis}}" AutomationProperties.Name="{ctl:T 'Ask RigSight'}">
                                 <Border Width="62" Height="62" CornerRadius="{x:Static ctl:Corner.Panel}" HorizontalAlignment="Center" Margin="0,0,0,12">
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
@@ -1953,7 +1953,7 @@
                                         Visibility="{Binding IsPages, Converter={StaticResource Vis}}" />
                                 <Button Style="{StaticResource ActionButton}" Content="{ctl:T 'Later'}" Command="{Binding LaterCommand}" HorizontalAlignment="Left"
                                         Visibility="{Binding IsAsk, Converter={StaticResource Vis}}" />
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" AutomationProperties.Name="Step">
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Step'}">
                                     <Ellipse>
                                         <Ellipse.Style>
                                             <Style TargetType="Ellipse" BasedOn="{StaticResource StepDot}">
@@ -2248,7 +2248,7 @@
         <!-- Updating: over the whole window from the moment someone presses Update now until the installer closes it (see
              UpdateViewModel.ShowOverlay). Opaque, so nothing on the pages behind it can be clicked meanwhile. -->
         <Grid Grid.ColumnSpan="2" DataContext="{Binding Update}" Background="{DynamicResource BgBrush}"
-              Visibility="{Binding ShowOverlay, Converter={StaticResource Vis}}" AutomationProperties.Name="Updating RigSight">
+              Visibility="{Binding ShowOverlay, Converter={StaticResource Vis}}" AutomationProperties.Name="{ctl:T 'Updating RigSight'}">
             <StackPanel Width="440" HorizontalAlignment="Center" VerticalAlignment="Center"
                         Visibility="{Binding OverlayFailed, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                 <!-- The full-size picture, scaled down: the .ico's nearest frame is 48 px, which stretched to 56 looked soft. -->

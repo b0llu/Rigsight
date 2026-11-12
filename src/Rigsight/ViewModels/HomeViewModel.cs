@@ -97,7 +97,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         OnPropertyChanged(nameof(YesterdayTopApps));
     }
 
-    private static List<AppStat> TopApps(Report? r, int count = 3) => r?.Apps.Where(a => a.ActiveSec >= 60 && a.Category != AppCategory.System).Take(count).ToList() ?? [];
+    private static List<AppStat> TopApps(Report? r, int count = 3) => HomeCards.TopApps(r, count);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowLearning), nameof(ShowRecapEmpty), nameof(ShowNoInsights), nameof(ShowNoChanges))]
@@ -248,18 +248,18 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     public string DateText => DateTime.Now.ToString("dddd, d MMMM");
 
     public bool HasTodayData => Today is { HasData: true };
-    public List<AppStat> TodayTopApps => Today?.Apps.Where(a => a.ActiveSec >= 30 && a.Category != AppCategory.System).Take(6).ToList() ?? [];
+    public List<AppStat> TodayTopApps => HomeCards.TopToday(Today);
     public double TodayTopMax => Math.Max(1, TodayTopApps.FirstOrDefault()?.ActiveSec ?? 1);
-    // Home already shows the time totals and the most-used apps, so those lines are left out here.
+    // Home already shows the time totals and the most-used apps, so those lines are left out here (HomeCards).
     private static readonly HashSet<string> ShownElsewhere = ["screen", "top-app"];
 
     // Today's internet in a line is for looking back (the recap), not news while the day goes on. What PC health says
     // (a game hotter than usual, the PC's problems, a fan) isn't said here again: one fact, one line on Home. Each line is
     // read as its one statement (Insight.Line), opening a page only where it has more.
     private static readonly HashSet<string> InHealth = ["usual-heat", "usual-problems", "usual-power", "fan-stopped", "fan-slower", "fan-older"];
-    public List<Insight> TodayInsights => Today?.Insights.Where(i => !ShownElsewhere.Contains(i.Key) && !InHealth.Contains(i.Key) && i.Key != "net-recap").Take(5).ToList() ?? [];
+    public List<Insight> TodayInsights => HomeCards.HomeStandOut(Today, InHealth);
     /// <summary>A dashboard's highlights: today's lines with what PC health says on Home (a dashboard has no PC health).</summary>
-    public List<Insight> DashboardInsights => Today?.Insights.Where(i => !ShownElsewhere.Contains(i.Key) && i.Key != "net-recap").Take(5).ToList() ?? [];
+    public List<Insight> DashboardInsights => HomeCards.StandOut(Today);
 
     public bool RecapHasData => Recap is { HasData: true };
     /// <summary>The most apps and lines the recap card lists (it shows as many of them as fit its height).</summary>
@@ -384,64 +384,42 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     private async Task LoadCardsAsync()
     {
         var now = DateTime.Now;
-        var read = await reports.QueryAsync((db, s) =>
-        {
-            long from = TimeUtil.ToUnix(now.Date.AddDays(-30)), to = TimeUtil.ToUnix(now.AddDays(1));
-            var changes = db.GetChanges(from, to);
-            changes.AddRange(StorageChanges.From(db.GetDriveDays(from - 86400)).Where(c => c.Time >= now.Date.AddDays(-30)));
-            var crashes = db.GetCrashes(TimeUtil.ToUnix(now.Date.AddDays(-6)), to).Where(e => !s.IsCrashMuted(e.AppExe)).ToList();
-            // A shut-off that looks like the power is no fault of the PC's: counted, and said, apart (PcUsual.ShutOffOf).
-            var found = CrashCases.Of(db, crashes, s);
-            bool Mains(CrashEvent e) => PcUsual.LooksLikePower(e, found.GetValueOrDefault(e.Id));
-            return (Changes: changes, Problems: crashes.Where(e => PcUsual.CountsAsPcProblem(e, found.GetValueOrDefault(e.Id))).Select(e => e.Kind).ToList(), Mains: crashes.Count(Mains),
-                MainsLikely: crashes.Count(e => PcUsual.ShutOffOf(e, found.GetValueOrDefault(e.Id)) == ShutOff.PowerLikely));
-        });
+        var read = await reports.QueryAsync((db, s) => HomeCards.Read(db, s, now));
         var results = await reports.ChangeResultsAsync();
-        var changeLines = HomeChangeLines(read.Changes ?? [], now.Date, results);
+        var changeLines = HomeChangeLines(read?.Changes ?? [], now.Date, results);
         // One fact, one line: a change that made things worse, on top of "What changed lately", isn't said again here.
         var worse = WorseLine(results, now.Date);
         if (worse is not null && changeLines.Any(l => l.ChangeDay == worse.ChangeDay)) worse = null;
         Changes = Kept.Or(Changes, changeLines);
-        Health = Kept.Or(Health, HealthLines(Today, read.Problems ?? [], read.Mains, Live.Drives, FullestVolume(), worse, read.MainsLikely));
+        Health = Kept.Or(Health, HealthLines(Today, read?.Problems ?? [], read?.Mains ?? 0, Live.Drives, HomeCards.Fullest(), worse, read?.MainsLikely));
     }
 
     /// <summary>How long the latest change that made a difference stays on top of "What changed lately".</summary>
-    internal const int PinDays = Core.Reports.ChangeEffects.WindowDays;
+    internal const int PinDays = HomeCards.PinDays;
 
     /// <summary>
     /// PC health's line for a change that made things worse, when it's likely the change and still recent: the only
     /// result Home calls out on its own.
     /// </summary>
     internal static HomeLine? WorseLine(IReadOnlyDictionary<DateTime, Core.Reports.ChangeResult> results, DateTime today) =>
-        results.Values.Where(r => r is { Tone: Core.Reports.EffectTone.Worse, Sure: Confidence.Likely } && r.Day >= today.AddDays(-PinDays)).MaxBy(r => r.Day) is { } r
+        HomeCards.Worse(results, today) is { } r
             ? new HomeLine("\uE7BA", "WarmBrush", r.Said) { ChangeDay = r.Day, TextBrush = "WarmBrush" }
             : null;
 
     /// <summary>
-    /// "What changed lately" as Home reads it: each change in a few words with when at the right; the latest big change
-    /// that made something better or worse stays on top for two weeks as what it did ("Crimson Desert runs 10° hotter on the GPU
-    /// since driver 618.10"), opening its before and after.
+    /// "What changed lately" as Home reads it (worked out in <see cref="HomeCards.Changes"/>): each change in a few words
+    /// with when at the right; the latest big change that made something better or worse stays on top for two weeks as
+    /// what it did, opening its before and after.
     /// </summary>
-    internal static List<HomeLine> HomeChangeLines(IEnumerable<SystemChange> changes, DateTime today, IReadOnlyDictionary<DateTime, Core.Reports.ChangeResult> results)
-    {
-        var list = changes.ToList();
-        var pinned = results.Values.Where(r => r.Day >= today.AddDays(-PinDays) && list.Contains(r.Main)).MaxBy(r => r.Day);
-        // Shortened on the saved English, then shown in the language in use.
-        var rest = ChangeLines(list.Where(c => c != pinned?.Main), pinned is null ? CardLines : CardLines - 1, c => DayWord(c.Time.Date, today),
-                text: c => SavedText.Show(Brief(c.Title)))
-            .Select((line, i) => line with { Detail = null, When = line.Detail }).ToList();
-        if (pinned is null) return rest;
-        var top = ChangeLines([pinned.Main], 1, c => DayWord(c.Time.Date, today))[0] with
+    internal static List<HomeLine> HomeChangeLines(IEnumerable<SystemChange> changes, DateTime today, IReadOnlyDictionary<DateTime, Core.Reports.ChangeResult> results) =>
+        [.. HomeCards.Changes(changes, today, results, CardLines).Select(l => ChangeLines([l.Change], 1, _ => "")[0] with
         {
-            Text = pinned.Said, Detail = null, When = DayWord(pinned.Day, today), ChangeDay = pinned.Day,
-            TextBrush = pinned.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush",
-        };
-        return [top, .. rest];
-    }
+            Text = l.Text, Detail = null, When = l.When, ChangeDay = l.ChangeDay,
+            TextBrush = l.Tone is null ? null : l.Tone == Core.Reports.EffectTone.Worse ? "WarmBrush" : "GoodBrush",
+        })];
 
     /// <summary>A change in a few words: an app update without its version ("Google Chrome updated").</summary>
-    internal static string Brief(string title) =>
-        title.IndexOf(" updated to ", StringComparison.Ordinal) is > 0 and var at ? title[..(at + " updated".Length)] : title;
+    internal static string Brief(string title) => HomeCards.Brief(title);
 
     /// <summary>Opens a change's before and after on the Timeline.</summary>
     public Action<DateTime>? OpenChange { get; set; }
@@ -513,35 +491,9 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         })];
 
     /// <summary>"Today", "Yesterday", the day's name within a week, else its date.</summary>
-    internal static string DayWord(DateTime day, DateTime today) => (today - day).Days switch
-    {
-        <= 0 => Lang.T("Today"),
-        1 => Lang.T("Yesterday"),
-        < 7 => day.ToString("dddd"),
-        _ => day.ToString("d MMM"),
-    };
+    internal static string DayWord(DateTime day, DateTime today) => HomeCards.DayWord(day, today);
 
-    /// <summary>The fixed drive that is fullest by share, in words ("the C drive is 58% full"); null if none can be read.</summary>
-    private static string? FullestVolume()
-    {
-        try
-        {
-            var fullest = DriveInfo.GetDrives().Where(d => d is { DriveType: DriveType.Fixed, IsReady: true, TotalSize: > 0 })
-                .MaxBy(d => 1 - (double)d.TotalFreeSpace / d.TotalSize);
-            return fullest is null ? null : FullText(fullest.Name, fullest.TotalSize - fullest.TotalFreeSpace, fullest.TotalSize);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
-
-    internal static string FullText(string root, long usedBytes, long totalBytes)
-    {
-        string letter = root.TrimEnd('\\').TrimEnd(':');
-        double share = Math.Round(100.0 * usedBytes / totalBytes);
-        return Lang.T($"the {letter} drive is {share:0}% full");
-    }
+    internal static string FullText(string root, long usedBytes, long totalBytes) => HomeCards.FullText(root, usedBytes, totalBytes);
 
     /// <summary>
     /// PC health, a statement a line: the PC's own parts against its usual, worded once in Core (UsualLines.Health, the
@@ -552,32 +504,12 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// <param name="mainsLikely">Of <paramref name="mains"/>, the likely power cuts (the rest were possibly the power); null: all of them.</param>
     internal static List<HomeLine> HealthLines(Report? today, IReadOnlyCollection<CrashKind> problems, int mains, IEnumerable<DriveSummary> drives, string? fullest, HomeLine? worseChange, int? mainsLikely = null)
     {
-        var parts = UsualLines.Health(today, problems, mains, mainsLikely);
-
-        // Drives: one that needs a look, else healthy and the fullest.
-        var known = drives.Where(d => d.HasHealth).ToList();
-        if (known.FirstOrDefault(d => d.HealthReason is not null) is { } unwell)
-            parts.Add(new Insight("", Lang.T($"{unwell.Name} needs a look"), InsightTone.Warn, "drive-unwell"));
-        else if (known.Count > 0)
-            parts.Add(new Insight("", DrivesHealthy(known.Count, fullest), InsightTone.Good, "drives"));
-        else if (fullest is not null)
-            parts.Add(new Insight("", Wording.Capital(fullest), InsightTone.Neutral, "drives"));
-
-        var lines = InsightLinks.Apply(parts).Select(i => new HomeLine(i.Icon, InsightBrushConverter.KeyOf(i), i.Line)
-            { TextBrush = i.Tone is InsightTone.Warn or InsightTone.Hot ? "WarmBrush" : null, Opens = i.Opens, Key = i.Key, Game = i.Game }).ToList();
-        if (worseChange is not null && !parts.Any(i => i is { Key: "usual-heat", Tone: InsightTone.Warn })) lines.Insert(0, worseChange);
-        // What needs a look first, in the order above.
-        return [.. lines.Where(l => l.TextBrush == "WarmBrush"), .. lines.Where(l => l.TextBrush != "WarmBrush")];
+        // The lines and their order are worked out in Core (HomeCards), where the widgets' PC health tile reads them too.
+        var parts = HomeCards.Health(today, problems, mains, [.. drives.Select(d => new DriveCheck(d.Name, d.HasHealth, d.HealthReason is not null))], fullest, mainsLikely);
+        var lines = parts.Select(i => new HomeLine(i.Icon, InsightBrushConverter.KeyOf(i), i.Line)
+            { TextBrush = HomeCards.NeedsLook(i) ? "WarmBrush" : null, Opens = i.Opens, Key = i.Key, Game = i.Game }).ToList();
+        return HomeCards.HealthOrder(lines, worseChange, HomeCards.HeatSaid(parts), l => l.TextBrush == "WarmBrush");
     }
-
-    /// <summary>"The drive is healthy" / "Drives healthy", with the fullest drive after it when it's known.</summary>
-    private static string DrivesHealthy(int count, string? fullest) => (count == 1, fullest) switch
-    {
-        (true, null) => Lang.T("The drive is healthy"),
-        (true, _) => Lang.T($"The drive is healthy; {fullest}"),
-        (false, null) => Lang.T("Drives healthy"),
-        _ => Lang.T($"Drives healthy; {fullest}"),
-    };
 
     /// <summary>The picked period's report, built once a day and kept; only the latest pick's result is shown.</summary>
     private async Task LoadRecapAsync()

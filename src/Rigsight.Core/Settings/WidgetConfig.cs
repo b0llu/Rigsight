@@ -46,6 +46,9 @@ public sealed class WidgetItem
 {
     public string Id { get; set; } = "";
     public string? Label { get; set; }
+
+    /// <summary>Left off a line of readings or a graph by its switch in the editor, kept in the list to switch back on.</summary>
+    public bool Hidden { get; set; }
 }
 
 /// <summary>
@@ -143,15 +146,28 @@ public sealed class WidgetTile
     /// <summary>How often a photos tile moves on to the next picture, in seconds (<see cref="WidgetTiles.PhotoSteps"/>).</summary>
     public int Every { get; set; } = 60;
 
+    /// <summary>How many apps a Top CPU users tile lists at most (<see cref="WidgetTiles.RowChoices"/>); null: three.</summary>
+    public int? Rows { get; set; }
+
+    /// <summary>
+    /// The fans a Fans tile leaves out, by sensor identifier (the editor's switch for each fan); null or empty: every
+    /// fan, as before the choice came, so a fan that turns up later shows too.
+    /// </summary>
+    public List<string>? FansHidden { get; set; }
+
+    /// <summary>The drives a Drives tile leaves out, by letter; null or empty: every drive.</summary>
+    public List<string>? DrivesHidden { get; set; }
+
     public WidgetTile Copy() => new()
     {
         Kind = Kind, X = X, Y = Y, W = W, H = H, Align = Align, Item = Item, Label = Label, Look = Look,
-        Items = Items?.Select(i => new WidgetItem { Id = i.Id, Label = i.Label }).ToList(), Style = Style, Hours24 = Hours24,
+        Items = Items?.Select(i => new WidgetItem { Id = i.Id, Label = i.Label, Hidden = i.Hidden }).ToList(), Style = Style, Hours24 = Hours24,
         Seconds = Seconds, ShowDate = ShowDate, Text = Text, TextSize = TextSize,
         Todos = Todos?.Select(t => new TodoItem { Text = t.Text, Done = t.Done }).ToList(),
         TimerKind = TimerKind, Minutes = Minutes, RunningSince = RunningSince, RunMs = RunMs, Until = Until,
         Place = Place, Lat = Lat, Lon = Lon, Links = Links?.Select(l => new TileLink { Path = l.Path, Name = l.Name }).ToList(),
-        Folder = Folder, Every = Every,
+        Folder = Folder, Every = Every, Rows = Rows, FansHidden = FansHidden is null ? null : [.. FansHidden],
+        DrivesHidden = DrivesHidden is null ? null : [.. DrivesHidden],
     };
 }
 
@@ -233,6 +249,12 @@ public sealed class WidgetConfig
 
     /// <summary>The colour that marks things on the widget (today on a calendar, a clock's second hand), as #RRGGBB; null: the theme's.</summary>
     public string? Accent { get; set; }
+
+    /// <summary>
+    /// The colour behind the whole widget, as #RRGGBB; null: the theme's (what every widget had before it could be
+    /// picked, so none changes). Its text and lines turn dark on a light colour and light on a dark one.
+    /// </summary>
+    public string? BackgroundColor { get; set; }
 
     /// <summary>The font of everything on the widget; null: Segoe UI, as Windows' own.</summary>
     public string? Font { get; set; }

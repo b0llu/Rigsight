@@ -50,7 +50,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
             Def("get_report", "RigSight's report for a period: time on, peaks for CPU and GPU temperature, what stood out, this period against the PC's own usual (temperatures, fans, problems), apps used with their peaks, crashes, and the electricity the CPU and graphics card used (kWh, average and highest watts). Dates are the user's local dates.", Dates()),
             Def("get_crashes", "Every crash, hang, graphics driver reset, blue screen and sudden shut-off in a period, each with what was going on (app in front, loads, temperatures, power), RigSight's finding with how sure it is, and changes in the 7 days before.", Dates()),
             Def("get_changes", "What changed on the PC in a period: drivers, Windows updates, hardware, BIOS/firmware, settings, fan settings, apps installed or updated.", Dates()),
-            Def("list_games", "The games played on this PC with hours played, sessions, launcher and how hard each works the graphics card. With from and to: only the games played in that period, with the time played in it. Without them: all of RigSight's history, not any one day.", new JsonObject
+            Def("list_games", "The games played on this PC with hours played, plays, launcher and how hard each works the graphics card. With from and to: only the games played in that period, with the time played in it. Without them: all of RigSight's history, not any one day.", new JsonObject
             {
                 ["type"] = "object",
                 ["properties"] = new JsonObject
@@ -197,8 +197,24 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         Trim(report);
         string title = from == to ? from.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture) : $"{from:d MMM yyyy} to {to:d MMM yyyy}";
         string start = began && Began(db, from, to.AddDays(1), report.Usual) is { } b ? b + "\n" : "";
-        return start + WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports), tight: true)) + Energy(report, from, to)
+        return start + WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports), tight: true)) + UsualDays(report) + Energy(report, from, to)
             + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
+    }
+
+    /// <summary>
+    /// Which days "Against your usual" was set against. A month's report and a week's compare with different days, and
+    /// without them "shut-offs that look like the power: usually none" in one and "about 4 a week" in the other were told
+    /// as a contradiction (real PC, 26 Oct 2026): the month's usual was the 3 days recorded before it, 23 to 25 Sep, the
+    /// week's 23 Sep to 18 Oct. Empty when the report has no such rows.
+    /// </summary>
+    internal static string UsualDays(Report report)
+    {
+        if (report.Usual is not { } u || PcUsual.CardRows(report).Count == 0) return "";
+        var last = u.From.Date.AddDays(-1);
+        if (last < u.UsualSince.Date) return "";
+        int days = (int)Math.Round((u.From.Date - u.UsualSince.Date).TotalDays);
+        return $"\nUSUAL: \"Against your usual\" compares with {u.UsualSince:d MMM} to {last:d MMM yyyy} ({days} {(days == 1 ? "day" : "days")}, {u.UsualHours:0} hours of use). "
+            + "Another period's report compares with other days, so two reports' usuals can differ: say which days a usual covers when setting two against each other.\n";
     }
 
     /// <summary>
@@ -244,7 +260,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         // Every one of them counted first, by kind and by RigSight's finding: the details below stop at the newest 15,
         // and a model left to count from those guesses (it once called 46 shut-offs, nearly all likely power cuts, a
         // failing power supply from the one it saw under load).
-        string summary = Summary(stories);
+        string summary = (RecordsFrom(db, from) is { } records ? records + "\n" : "") + Summary(stories);
         // The newest 30 at most, laid out without padding (2026-10-26: was 15 with each field padded to a column, and a
         // model asking again for the older ones pushed answers over their budget; about the same size now holds twice as many).
         int all = stories.Count;
@@ -398,13 +414,18 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var sb = new StringBuilder();
         // Said first: a model asked about one day once took the busiest games of all time for that day's.
         sb.AppendLine($"Every game in the whole history ({games.Min(g => g.FirstPlayed):d MMM yyyy} to {games.Max(g => g.LastPlayed):d MMM yyyy}), not any one day or week. For a period, ask with from and to.");
+        // Plays as get_game and the Games page count them, not the sessions under them (see GameHistory.Spans).
+        var stops = GameHistory.Stops(db, settings);
         foreach (var g in games)
-            sb.AppendLine($"{g.Name}: {Units.Duration(g.ActiveSec)} over {g.Sessions} sessions, first {g.FirstPlayed:d MMM yyyy}, last {g.LastPlayed:d MMM yyyy}"
+        {
+            int plays = GameHistory.Spans(db, g.AppIds, stops).Count;
+            sb.AppendLine($"{g.Name}: {Units.Duration(g.ActiveSec)} over {plays} {(plays == 1 ? "play" : "plays")}, first {g.FirstPlayed:d MMM yyyy}, last {g.LastPlayed:d MMM yyyy}"
                 + (g.Launcher is { } l ? $", {l}" : "") + (g.GpuLoad is double gpu ? $", graphics card {gpu:0}% busy on average" : ""));
+        }
         return sb.ToString();
     }
 
-    /// <summary>Only the games played in the period, with the time played in it (from each game's plays).</summary>
+    /// <summary>Only the games played in the period, with the time played in it (see <see cref="PlayedIn"/>).</summary>
     private string GamesIn(RigsightDb db, DateTime from, DateTime to)
     {
         if (to < from) (from, to) = (to, from);
@@ -414,19 +435,28 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         foreach (var (g, sec, plays) in PlayedIn(db, from, to))
             sb.AppendLine($"{g.Name}: {Units.Duration(sec)} in {plays} {(plays == 1 ? "play" : "plays")}"
                 + (g.Launcher is { } l ? $", {l}" : "") + (g.GpuLoad is double gpu ? $", graphics card {gpu:0}% busy on average (over all its plays)" : ""));
-        return sb.Length == 0 ? $"No games played on {period}." : $"Games played on {period} (only these were played then):\n" + sb;
+        return sb.Length == 0 ? $"No games played on {period}."
+            : $"Games played on {period} (only these were played then), with the time in front inside the period, as get_report counts it. A play that ran across its start or end is one of its plays, with only its time inside:\n" + sb;
     }
 
-    /// <summary>The games played from one day to another (both included), with the time in front and the plays then.</summary>
+    /// <summary>
+    /// The games played from one day to another (both included): the time in front inside those days, and the plays that
+    /// ran in them. The time is the hours' own, as get_report and get_apps count it: a play's whole time was added before,
+    /// so one from 11:34 PM the night before brought its first half-hour in, and REMATCH had 1h 56m in the week where the
+    /// report said 1h 33m (real PC, 18 to 24 Oct 2026).
+    /// </summary>
     private List<(GameEntry Game, double Sec, int Plays)> PlayedIn(RigsightDb db, DateTime from, DateTime to)
     {
         if (to < from) (from, to) = (to, from);
         DateTime end = to.AddDays(1);
+        long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(end);
+        var stops = GameHistory.Stops(db, settings);
         var list = new List<(GameEntry, double, int)>();
         foreach (var g in Played(db).Where(g => g.FirstPlayed is not { } first || g.LastPlayed is not { } last || (first < end && last >= from)))
         {
-            var plays = GameHistory.Story(db, g, settings, DateTime.Now).Plays.Where(p => p.StartTime < end && p.EndTime >= from).ToList();
-            if (plays.Count > 0) list.Add((g, plays.Sum(p => p.ActiveSec), plays.Count));
+            int plays = GameHistory.Spans(db, g.AppIds, stops).Count(p => p.Start < t && p.End >= f);
+            double sec = g.AppIds.Sum(id => db.GetAppFrontSec(id, f, t));
+            if (plays > 0 && sec > 0) list.Add((g, sec, plays));
         }
         return [.. list.OrderByDescending(x => x.Item2)];
     }

@@ -165,7 +165,16 @@ internal sealed unsafe class NetworkTrace : IDisposable
     /// Stops the traces test copies of Rigsight left running (every "Rigsight Network.…" but <paramref name="own"/>): a
     /// test agent that was killed leaves its session behind with nobody reading it. Returns the names stopped.
     /// </summary>
-    public static List<string> StopOthers(string own)
+    public static List<string> StopOthers(string own) => Sessions(own, stop: true);
+
+    /// <summary>
+    /// The names of every trace session running on the PC, for the log when app network use stays silent: another
+    /// program's session can leave Windows' network events with nobody else getting them (issue #13: they stopped
+    /// minutes after a network tool was installed and removed, until a restart), and only its name says which.
+    /// </summary>
+    public static List<string> Running() => Sessions(null, stop: false);
+
+    private static List<string> Sessions(string? own, bool stop)
     {
         const int max = 64, nameBytes = 512, fileBytes = 2048, size = 120 + nameBytes + fileBytes;
         var stopped = new List<string>();
@@ -186,6 +195,11 @@ internal sealed unsafe class NetworkTrace : IDisposable
             for (int i = 0; i < Math.Min(count, max); i++)
             {
                 string? name = Marshal.PtrToStringUni((IntPtr)((byte*)block + i * size + 120));
+                if (!stop)
+                {
+                    if (!string.IsNullOrEmpty(name)) stopped.Add(name);
+                    continue;
+                }
                 if (name is null || !name.StartsWith(TestPrefix, StringComparison.OrdinalIgnoreCase) || name.Equals(own, StringComparison.OrdinalIgnoreCase)) continue;
                 new Span<byte>((void*)props, PropertiesSize).Clear();
                 *(uint*)props = PropertiesSize;

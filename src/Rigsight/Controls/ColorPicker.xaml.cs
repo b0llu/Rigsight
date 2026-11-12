@@ -23,6 +23,8 @@ public partial class ColorPicker : UserControl
     private double _hue = 220, _sat = 0.64, _val = 1;
     private bool _typing;
     private List<string> _numberCustoms = [], _nameCustoms = [], _tileCustoms = [];
+    private IReadOnlyList<(string Name, string Hex)> _quick = TrayColors.Palette;
+    private bool _one;
 
     public ColorPicker() => InitializeComponent();
 
@@ -41,6 +43,10 @@ public partial class ColorPicker : UserControl
         IReadOnlyList<string> numberCustoms, IReadOnlyList<string> nameCustoms, IReadOnlyList<string> tileCustoms,
         bool showName = true, bool showTile = true, string? nameCaption = null)
     {
+        _quick = TrayColors.Palette;
+        _one = false;
+        NumberCaption.Visibility = DefaultRow.Visibility = Visibility.Visible;
+        NumberScroll.Margin = new Thickness(0);
         var nameShows = showName ? Visibility.Visible : Visibility.Collapsed;
         NameCaption.Visibility = NameScroll.Visibility = nameShows;
         NameCaption.Text = nameCaption ?? Lang.T("NAME");
@@ -64,6 +70,21 @@ public partial class ColorPicker : UserControl
         Pop.IsOpen = true;
     }
 
+    /// <summary>
+    /// Opens under <paramref name="target"/> for one colour (a widget's background): <paramref name="quick"/> as the quick
+    /// colours, then those made with "+" and "+" itself, as the Taskbar page's picker has them. A pick comes as the
+    /// number's colour in <see cref="Changed"/>; one made with "+" as the number's in <see cref="CustomMade"/>.
+    /// </summary>
+    public void OpenOne(FrameworkElement target, string heading, string? selected, IReadOnlyList<(string Name, string Hex)> quick, IReadOnlyList<string> customs)
+    {
+        Open(target, heading, false, selected, null, null, "#949494", "", customs, [], [], showName: false, showTile: false);
+        _quick = quick;
+        _one = true;
+        NumberCaption.Visibility = DefaultRow.Visibility = Visibility.Collapsed;
+        NumberScroll.Margin = new Thickness(0, 12, 0, 0);
+        Refresh();
+    }
+
     public void Close() => Pop.IsOpen = false;
 
     /// <summary>The number's colour in use (by heat when nothing was picked for a temperature).</summary>
@@ -80,7 +101,7 @@ public partial class ColorPicker : UserControl
         Fill(NameTiles, NameShown, "name");
         Fill(TileTiles, _tile, "tile");
         Custom.Visibility = _customFor is null ? Visibility.Collapsed : Visibility.Visible;
-        CustomHeading.Text = _customFor switch
+        CustomHeading.Text = _one ? Lang.T("Custom color") : _customFor switch
         {
             "name" => Lang.T("Custom color for the name"),
             "tile" => Lang.T("Custom color for the tile"),
@@ -109,9 +130,9 @@ public partial class ColorPicker : UserControl
             auto.Click += (_, _) => Pick("tile", null);
             tiles.Children.Add(auto);
         }
-        foreach (var (name, hex) in TrayColors.Palette) tiles.Children.Add(Tile(Lang.T(name), hex, selected, kind));
-        var made = CustomsOf(kind).Where(c => TrayColors.Palette.All(p => !Same(p.Hex, c))).ToList();
-        if (selected is not null && selected != TrayColors.Heat && TrayColors.Palette.All(p => !Same(p.Hex, selected)) && made.All(c => !Same(c, selected)))
+        foreach (var (name, hex) in _quick) tiles.Children.Add(Tile(Lang.T(name), hex, selected, kind));
+        var made = CustomsOf(kind).Where(c => _quick.All(p => !Same(p.Hex, c))).ToList();
+        if (selected is not null && selected != TrayColors.Heat && _quick.All(p => !Same(p.Hex, selected)) && made.All(c => !Same(c, selected)))
             made.Add(selected);
         foreach (var hex in made) tiles.Children.Add(Tile($"{Lang.T("Custom color")} {hex}", hex, selected, kind));
         var add = new Button { Style = (Style)Resources["AddSwatch"], Tag = _customFor == kind ? "on" : null, ToolTip = Lang.T("Custom color") };
@@ -146,6 +167,8 @@ public partial class ColorPicker : UserControl
                 Foreground = Dark(c) ? Brushes.White : Brushes.Black,
             } : null,
         };
+        // A background's dark and light colours are edged, so the one like the picker's own still shows (the mock-up's swatches).
+        if (_one && !on) tile.SetResourceReference(BorderBrushProperty, "StrokeBrush");
         AutomationProperties.SetName(tile, name);
         tile.Click += (_, _) => Pick(kind, hex);
         return tile;
@@ -178,7 +201,7 @@ public partial class ColorPicker : UserControl
         string hex = HexOf(_hue, _sat, _val);
         // Kept with the others made for this row, the newest last (one made before stays where it is).
         var customs = CustomsOf(kind);
-        if (customs.All(c => !Same(c, hex)) && TrayColors.Palette.All(p => !Same(p.Hex, hex)))
+        if (customs.All(c => !Same(c, hex)) && _quick.All(p => !Same(p.Hex, hex)))
         {
             customs.Add(hex);
             CustomMade?.Invoke(kind, hex);

@@ -243,7 +243,9 @@ public static class RewindCards
                 Tiles =
                 [
                     new(f.AppCrashes == 1 ? Lang.T("time an app or game crashed") : Lang.T("times an app or game crashed"), f.AppCrashes.ToString(CultureInfo.CurrentCulture), Purple),
-                    new(f.ShutOffs == 1 ? Lang.T("sudden shut-off") : Lang.T("sudden shut-offs"), f.ShutOffs.ToString(CultureInfo.CurrentCulture), Blue),
+                    // The blue screens are in this number (as in the Crashes page's tile for both), so it's named for both:
+                    // "sudden shut-offs" alone said 55 where the crash list counted 58 (real PC, 26 Oct 2026).
+                    new(f.ShutOffs == 1 ? Lang.T("blue screen or sudden shut-off") : Lang.T("blue screens and sudden shut-offs"), f.ShutOffs.ToString(CultureInfo.CurrentCulture), Blue),
                 ],
             });
         }

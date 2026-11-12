@@ -1139,14 +1139,8 @@ public sealed partial class NetworkViewModel : ObservableObject
     internal static (string Title, string Note) DropsText(NetReport r, string periodWord)
     {
         var drops = r.Drops;
-        // "No drops", never "online all day": a day still going on, or one the PC was off for half of, wasn't that.
-        string title = drops.Count switch
-        {
-            0 => Lang.T("No drops"),
-            1 => Lang.T("Dropped once"),
-            2 => Lang.T("Dropped twice"),
-            var n => Lang.T($"Dropped {n} times"),
-        };
+        // "No drops", never "online all day" (said once in Core, where the widgets' Connection today says it too).
+        string title = DropWords.Count(drops.Count);
         var parts = new List<string>();
         if (drops.Count > 0)
         {

@@ -34,6 +34,18 @@ public static class DropWords
                 : Lang.T($"Your network disconnected {times} times in the last 10 minutes.")
             : Lang.T($"Your internet dropped {times} times in the last 10 minutes."));
 
+    /// <summary>
+    /// How often a period's internet dropped, as the Network page's Connection card and the widgets' Connection today
+    /// say it: "No drops", never "online all day" (a day still going on, or one the PC was off for half of, wasn't that).
+    /// </summary>
+    public static string Count(int drops) => drops switch
+    {
+        0 => Lang.T("No drops"),
+        1 => Lang.T("Dropped once"),
+        2 => Lang.T("Dropped twice"),
+        var n => Lang.T($"Dropped {n} times"),
+    };
+
     /// <summary>A drop on the Network page ("Your internet was down for 50 seconds"), and what broke, in the past tense.</summary>
     public static string WasDown(long seconds) => Lang.T($"Your internet was down for {Long(seconds)}");
 

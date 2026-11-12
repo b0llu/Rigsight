@@ -117,6 +117,68 @@ public sealed class RunsChart : FrameworkElement
         if (Zoom <= 0.001 && _hover >= 0 && Points is { } pts && _hover < pts.Count && pts[_hover].CanOpen) Opened?.Invoke(pts[_hover]);
     }
 
+    /// <summary>The least room between two dates under the chart.</summary>
+    private const double DateGap = 6;
+
+    /// <summary>
+    /// The dates under the plays on a chart <paramref name="width"/> wide, oldest first (each drawn at <see cref="DateX"/>,
+    /// <paramref name="measure"/> saying how wide its text is): past two months the months (every one, or every 2nd, 3rd,
+    /// 6th or 12th as they fit), else the days at noon counted back from the last (every one with its weekday, or every
+    /// 2nd, 5th, 7th, 10th, 14th or 30th). The first month has its year, and so does each one where the year turns: with
+    /// every 2nd month or more January is often skipped, and "Dec" left of "Oct" with no year read as out of order
+    /// (2026-11-11). A date that would touch the one before it is left out; the first, pushed in off the chart's edge onto
+    /// the next, goes instead, and the next becomes the first (with the year). Day and month names in the language in use.
+    /// </summary>
+    internal static List<(DateTime At, string Text)> DateTicks(DateTime from, DateTime to, double width, Func<string, double> measure)
+    {
+        double room = width - Left - Right;
+        double span = (Math.Max(to.Ticks, from.Ticks + TimeSpan.TicksPerHour) - from.Ticks) / (double)TimeSpan.TicksPerDay;
+        bool months = span > 62;
+        var dates = new List<DateTime>();
+        string fmt;
+        if (months)
+        {
+            int step = new[] { 1, 2, 3, 6 }.FirstOrDefault(s => room / (span / 30.4 / s) >= 56, 12);
+            for (var d = new DateTime(from.Year, from.Month, 1).AddMonths(1); d < to; d = d.AddMonths(step)) dates.Add(d);
+            fmt = "MMM";
+        }
+        else
+        {
+            int step = new[] { 1, 2, 5, 7, 10, 14 }.FirstOrDefault(s => room / (span / s) >= (s == 1 ? 96 : 64), 30);
+            fmt = step == 1 ? "ddd d MMM" : "d MMM";
+            for (var d = to.Date; d >= from.Date; d = d.AddDays(-step))
+                if (d.AddHours(12) >= from && d.AddHours(12) <= to) dates.Insert(0, d.AddHours(12));
+        }
+
+        var kept = new List<(DateTime At, string Text, double X, double W)>();
+        foreach (var at in dates)
+        {
+            var label = Place(at, kept.Count > 0 ? kept[^1].At : null);
+            if (kept.Count > 0 && label.X - label.W / 2 < kept[^1].X + kept[^1].W / 2 + DateGap)
+            {
+                if (kept.Count > 1 || Math.Abs(kept[0].X - DateX(kept[0].At, from, to, width, clamp: false)) < 0.5) continue;
+                kept.Clear();
+                label = Place(at, null);
+            }
+            kept.Add(label);
+        }
+        return [.. kept.Select(k => (k.At, k.Text))];
+
+        (DateTime At, string Text, double X, double W) Place(DateTime at, DateTime? before)
+        {
+            string text = at.ToString(months && (before is not { } b || b.Year != at.Year) ? "MMM yyyy" : fmt);
+            return (at, text, DateX(at, from, to, width), measure(text));
+        }
+    }
+
+    /// <summary>Where a date's label is centred on a chart <paramref name="width"/> wide: at its time, kept clear of the edges.</summary>
+    internal static double DateX(DateTime at, DateTime from, DateTime to, double width, bool clamp = true)
+    {
+        double f = from.Ticks, t = Math.Max(to.Ticks, from.Ticks + TimeSpan.TicksPerHour);
+        double x = Left + (at.Ticks - f) / (t - f) * (width - Left - Right);
+        return clamp ? Math.Clamp(x, Left + 28, width - Right - 28) : x;
+    }
+
     protected override void OnRender(DrawingContext dc)
     {
         double w = ActualWidth, h = ActualHeight;
@@ -260,25 +322,8 @@ public sealed class RunsChart : FrameworkElement
 
         void DateLabels()
         {
-            double span = (to - from) / TimeSpan.TicksPerDay, room = w - Left - Right;
-            var ticks = new List<(DateTime At, string Text)>();
-            if (span > 62)
-            {
-                int step = new[] { 1, 2, 3, 6 }.FirstOrDefault(s => room / (span / 30.4 / s) >= 56, 12);
-                for (var d = new DateTime(From.Year, From.Month, 1).AddMonths(1); d < To; d = d.AddMonths(step)) ticks.Add((d, d.ToString(d.Month == 1 ? "MMM yyyy" : "MMM")));
-            }
-            else
-            {
-                int step = new[] { 1, 2, 5, 7, 10, 14 }.FirstOrDefault(s => room / (span / s) >= (s == 1 ? 96 : 64), 30);
-                string fmt = step == 1 ? "ddd d MMM" : "d MMM";
-                for (var d = To.Date; d >= From.Date; d = d.AddDays(-step))
-                    if (d.AddHours(12) >= From && d.AddHours(12) <= To) ticks.Insert(0, (d.AddHours(12), d.ToString(fmt)));
-            }
-            foreach (var (at, text) in ticks)
-            {
-                double x = Math.Clamp(X(at), Left + 28, w - Right - 28);
-                ChartPaint.Text(dc, this, text, new Point(x, h - 6), 11, ChartPaint.Label, ChartPaint.Align.Center);
-            }
+            foreach (var (at, text) in DateTicks(From, To, w, t => ChartPaint.Width(this, t, 11, ChartPaint.Label)))
+                ChartPaint.Text(dc, this, text, new Point(DateX(at, From, To, w), h - 6), 11, ChartPaint.Label, ChartPaint.Align.Center);
         }
 
         void DrawPlay()

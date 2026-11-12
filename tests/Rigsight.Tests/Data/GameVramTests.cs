@@ -35,6 +35,24 @@ public sealed class GameVramTests
         Assert.Equal("up to 11.2 of 12 GB · whole GPU, all apps", GamesViewModel.GraphicsMemory(stats));
     }
 
+    // Real PC, 28 Oct 2026: Crimson Desert's own memory read 146 GB on a 12 GB card with 7.3 GB in use (Windows' per-app
+    // figure counts memory the game only refers to). The play shows the whole card's figure, said as that.
+    [Fact]
+    public void A_reading_above_the_whole_card_is_not_taken_as_the_games()
+    {
+        using var t = new TestDb();
+        long game = t.Db.UpsertApp("CrimsonDesert.exe", "Crimson Desert", null, AppCategory.Game);
+        for (int i = 0; i < 10; i++)
+            t.Db.WriteMinute(new SystemMinute
+            {
+                Ts = TimeUtil.ToUnix(Start.AddMinutes(i)), FgApp = game, ActiveSec = 60,
+                VramUsed = 7_000 + i, VramTotal = 12288, FgVram = i < 2 ? 2_900 : 149_000,
+            });
+        var stats = t.Db.GetPlayStats(game, TimeUtil.ToUnix(Start), TimeUtil.ToUnix(Start.AddHours(1)));
+        Assert.Null(stats.VramOwnMax);
+        Assert.Equal("up to 6.8 of 12 GB · whole GPU, all apps", GamesViewModel.GraphicsMemory(stats));
+    }
+
     [Fact]
     public void A_play_from_now_on_shows_the_games_own_memory()
     {

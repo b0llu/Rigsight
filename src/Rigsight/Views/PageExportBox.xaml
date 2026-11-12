@@ -56,7 +56,7 @@
         <StackPanel>
             <DockPanel>
                 <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" VerticalAlignment="Top"
-                        ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="Close the export">
+                        ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close the export'}">
                     <TextBlock Text="&#xE8BB;" FontSize="{x:Static ctl:IconSize.S11}" />
                 </Button>
                 <StackPanel>
@@ -94,7 +94,7 @@
                             </Style.Triggers>
                         </Style>
                     </ScrollViewer.Style>
-                    <ItemsControl ItemsSource="{Binding Items}" Focusable="False" AutomationProperties.Name="What to export">
+                    <ItemsControl ItemsSource="{Binding Items}" Focusable="False" AutomationProperties.Name="{ctl:T 'What to export'}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <CheckBox Style="{StaticResource ItemCheck}" IsChecked="{Binding IsOn}" Margin="0,0,0,2" AutomationProperties.Name="{Binding Name}"
@@ -182,7 +182,7 @@
                         <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
                     </Border.Effect>
                     <StackPanel>
-                        <Calendar x:Name="Cal" SelectionMode="SingleRange" FirstDayOfWeek="Monday" AutomationProperties.Name="Days to export" />
+                        <Calendar x:Name="Cal" SelectionMode="SingleRange" FirstDayOfWeek="Monday" AutomationProperties.Name="{ctl:T 'Days to export'}" />
                         <TextBlock x:Name="RangeHint" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="8,2,8,4" />
                     </StackPanel>
                 </ctl:SmoothBorder>
@@ -193,8 +193,8 @@
             <DockPanel Margin="0,14,0,14" IsEnabled="{Binding CanChange}">
                 <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                        <RadioButton Style="{StaticResource Segment}" GroupName="PageExportFormat" Content="{ctl:T 'Text'}" IsChecked="{Binding AsText}" AutomationProperties.Name="Text files" />
-                        <RadioButton Style="{StaticResource Segment}" GroupName="PageExportFormat" Content="{ctl:T 'Spreadsheet (CSV)'}" IsChecked="{Binding AsCsv}" AutomationProperties.Name="Spreadsheet files" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="PageExportFormat" Content="{ctl:T 'Text'}" IsChecked="{Binding AsText}" AutomationProperties.Name="{ctl:T 'Text files'}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="PageExportFormat" Content="{ctl:T 'Spreadsheet (CSV)'}" IsChecked="{Binding AsCsv}" AutomationProperties.Name="{ctl:T 'Spreadsheet files'}" />
                     </StackPanel>
                 </Border>
                 <StackPanel VerticalAlignment="Center">
@@ -206,7 +206,7 @@
             <Border Height="1" Background="{DynamicResource StrokeBrush}" />
             <DockPanel Margin="0,14,0,14">
                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Change…'}" Command="{Binding ChangeFolderCommand}" IsEnabled="{Binding CanChange}"
-                        VerticalAlignment="Center" Margin="16,0,0,0" AutomationProperties.Name="Change the folder" />
+                        VerticalAlignment="Center" Margin="16,0,0,0" AutomationProperties.Name="{ctl:T 'Change the folder'}" />
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="{ctl:T 'Save to'}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                     <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Folder}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextTrimming="CharacterEllipsis" />
@@ -217,7 +217,7 @@
             <DockPanel Margin="0,16,0,0">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Cancel'}" Command="{Binding CloseCommand}" IsEnabled="{Binding CanChange}" Margin="0,0,8,0" />
-                    <Button Style="{StaticResource AccentButton}" Command="{Binding ExportCommand}" IsEnabled="{Binding CanExport}" IsDefault="True" AutomationProperties.Name="Export the files">
+                    <Button Style="{StaticResource AccentButton}" Command="{Binding ExportCommand}" IsEnabled="{Binding CanExport}" IsDefault="True" AutomationProperties.Name="{ctl:T 'Export the files'}">
                         <StackPanel Orientation="Horizontal">
                             <Grid Width="12" Margin="0,0,8,0">
                                 <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" HorizontalAlignment="Center"

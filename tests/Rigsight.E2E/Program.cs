@@ -1300,13 +1300,23 @@ internal sealed class AppUi(Process app)
 
     public bool Has(string name) => ByName(name) is not null;
 
+    /// <summary>Something in the window by its name (see <see cref="Named"/>).</summary>
+    private AutomationElement? ByName(string name) => Root.FindFirst(TreeScope.Descendants, Named(name));
+
     /// <summary>
-    /// Something in the window by its name: as the window shows it in the run's language, else as written (names
-    /// meant only for screen readers and tests, like "Settings and more", stay English in every language).
+    /// A name as the window shows it in the run's language, or as written (names meant only for screen readers and
+    /// tests, like "Settings and more" and the menu's "Settings", stay English in every language): both in one
+    /// condition, so one search finds either. Asked one after the other, a name the window doesn't have ("Ajustes" for
+    /// the menu's Settings line) made the app describe every control on the page before the second search found it,
+    /// and Settings' first visit counted all of it: 438 ms in Spanish against 125 in English at the 2026-11-11 gate,
+    /// over its budget at every Spanish gate. The page itself costs about the same in both.
     /// </summary>
-    private AutomationElement? ByName(string name) =>
-        Root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, Say(name)))
-        ?? (Lang.Translating ? Root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name)) : null);
+    private static Condition Named(string name)
+    {
+        string said = Say(name);
+        var shown = new PropertyCondition(AutomationElement.NameProperty, said);
+        return said == name ? shown : new OrCondition(shown, new PropertyCondition(AutomationElement.NameProperty, name));
+    }
 
     /// <summary>Names a person typed themselves: the app shows them as they are in every language.</summary>
     private static readonly HashSet<string> AsTyped = ["Everything"];
@@ -1358,12 +1368,11 @@ internal sealed class AppUi(Process app)
     public void Press(string name)
     {
         // The first by that name that can be pressed: in another language a label can share a button's words ("Ajustes").
-        AutomationElement? Find(string n) => Pressable(Say(n)) ?? (Lang.Translating ? Pressable(n) : null);
         // One search that stops at the first match, asked in a single condition. Listing every element of that name and
         // then asking each for its patterns made the app build an automation peer for every control on the page, which
         // the page's first-visit CPU then counted: about twice the baseline on every page from 0.30.0 on (2026-10-19).
-        AutomationElement? Pressable(string n) => Root.FindFirst(TreeScope.Descendants, new AndCondition(
-            new PropertyCondition(AutomationElement.NameProperty, n),
+        AutomationElement? Find(string n) => Root.FindFirst(TreeScope.Descendants, new AndCondition(
+            Named(n),
             new OrCondition(
                 new PropertyCondition(AutomationElement.IsSelectionItemPatternAvailableProperty, true),
                 new PropertyCondition(AutomationElement.IsInvokePatternAvailableProperty, true),

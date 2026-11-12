@@ -1,4 +1,5 @@
 ﻿using Rigsight.Core.Data;
+using Rigsight.Core.Games;
 using Rigsight.Core.Reports;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
@@ -91,16 +92,21 @@ public static class RewindBuilder
                 f.Months.Add(new RewindMonth(m, hours, item));
             }
         }
-        f.Plays = sessions.Count;
-        var plays = sessions.GroupBy(s => s.AppId).ToDictionary(g => g.Key, g => g.Count());
+        // Plays as the Games page counts them (sessions joined, see GameHistory.Spans), each in the period it began in: a
+        // session of a minute or more each was a play here, 27 of Dota 2 in October 2026 where the Games page had 22.
+        long pFrom = TimeUtil.ToUnix(from), pTo = TimeUtil.ToUnix(to);
+        var stops = GameHistory.Stops(db, settings);
+        var plays = games.ToDictionary(g => g.Id, g => GameHistory.Spans(db, [g.Id], stops).Where(p => p.Start >= pFrom && p.Start < pTo).ToList());
+        f.Plays = plays.Values.Sum(p => p.Count);
         f.TopGames = [.. games.Where(g => !r.IsLeftOut(g.Exe)).OrderByDescending(g => g.ActiveSec).Take(5)
-            .Select(g => new RewindItem(g.Name, g.Exe, g.Path, g.ActiveSec, plays.GetValueOrDefault(g.Id)))];
-        if (sessions.Where(s => apps.TryGetValue(s.AppId, out var a) && !r.IsLeftOut(a.Exe)).MaxBy(s => s.ActiveSec) is { } longest
-            && apps.TryGetValue(longest.AppId, out var app))
+            .Select(g => new RewindItem(g.Name, g.Exe, g.Path, g.ActiveSec, plays[g.Id].Count))];
+        var longest = plays.Where(x => apps.TryGetValue(x.Key, out var a) && !r.IsLeftOut(a.Exe))
+            .SelectMany(x => x.Value.Select(p => (App: x.Key, Play: p))).OrderByDescending(x => x.Play.Active).FirstOrDefault();
+        if (longest.Play.Active > 0 && apps.TryGetValue(longest.App, out var app))
         {
-            f.LongestGame = new RewindItem(ReportBuilder.NameOf(apps, settings, longest.AppId), app.Exe, app.Path, longest.ActiveSec);
-            f.LongestStart = TimeUtil.FromUnix(longest.Start);
-            f.LongestEnd = TimeUtil.FromUnix(longest.End);
+            f.LongestGame = new RewindItem(ReportBuilder.NameOf(apps, settings, longest.App), app.Exe, app.Path, longest.Play.Active);
+            f.LongestStart = TimeUtil.FromUnix(longest.Play.Start);
+            f.LongestEnd = TimeUtil.FromUnix(longest.Play.End);
         }
         Spread(sessions, f.PlayHours);
         double night = sessions.Where(s => TimeUtil.FromUnix(s.Start).Hour is >= 21 or < 5).Sum(s => s.ActiveSec);

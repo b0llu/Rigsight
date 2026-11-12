@@ -114,9 +114,6 @@ public sealed class RigsightSettings
     /// </summary>
     public bool WidgetSnap { get; set; }
 
-    /// <summary>A widget fades while the pointer is over it: a click-through one almost away, so what's behind it can be read and clicked.</summary>
-    public bool WidgetFade { get; set; }
-
     /// <summary>The shortcut that turns <see cref="WidgetsShown"/> off and on ("Ctrl+Alt+W"); null: none.</summary>
     public string? WidgetsHotkey { get; set; }
 
@@ -223,6 +220,9 @@ public sealed class RigsightSettings
     public List<string> TrayNameColors { get; set; } = [];
     public List<string> TrayTileColors { get; set; } = [];
     public const int MaxTrayCustomColors = 30;
+
+    /// <summary>The colours made with the picker's "+" for a widget's background, in the order made, offered for every widget.</summary>
+    public List<string> WidgetBackgroundColors { get; set; } = [];
 
     /// <summary>Apps (exe names) whose crashes aren't counted, listed or notified about.</summary>
     public List<string> MutedCrashApps { get; set; } = [];
