@@ -19,6 +19,7 @@ public sealed class SettingsSurviveUpdatesTests
     /// <summary>Settings taken out for good: their path ("Alerts.CardSeconds") and why. Only these may be missing after loading.</summary>
     private static readonly Dictionary<string, string> Removed = new()
     {
+        ["WidgetFade"] = "the fade under the pointer was taken out at the user's word (2026-11-12): widgets stay solid, and hover boxes need them readable",
     };
 
     /// <summary>Parts of the file that aren't someone's settings, so they may change: the path and why.</summary>
