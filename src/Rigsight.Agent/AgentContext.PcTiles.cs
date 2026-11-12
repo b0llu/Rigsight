@@ -111,13 +111,16 @@ internal sealed partial class AgentContext
 
     // ── Drives ───────────────────────────────────────────────────────────
 
-    private (long At, List<VolumeSpace> Volumes) _volumes = (long.MinValue, []);
+    // Read at the first look: "never read" is 30 s before the clock's start. long.MinValue was here, and now minus it ran
+    // over to a negative, so the drives were never read and the tile stayed empty (the user's test copy, 2026-11-12).
+    private (long At, List<VolumeSpace> Volumes) _volumes = (-DrivesEveryMs, []);
+    private const long DrivesEveryMs = 30_000;
 
     /// <summary>The fixed drives, how full (asked of Windows every 30 seconds) and their temperature (read with the drives' own).</summary>
     private List<DriveNow> DrivesNow()
     {
         long now = Environment.TickCount64;
-        if (now - _volumes.At >= 30_000) _volumes = (now, DriveSpace.Fixed());
+        if (now - _volumes.At >= DrivesEveryMs) _volumes = (now, DriveSpace.Fixed());
         var temps = DiskTemperatures();
         return [.. _volumes.Volumes.Select(v => new DriveNow(v.Letter, v.UsedShare, v.Free, v.Disk is int disk ? temps.GetValueOrDefault(disk) : null))];
     }

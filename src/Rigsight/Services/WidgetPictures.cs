@@ -67,7 +67,8 @@ public static class WidgetPictures
         return pc;
     }
 
-    private static (long At, List<VolumeSpace> List) _volumes = (long.MinValue, []);
+    // "Never read" is 30 s before the clock's start: long.MinValue made now minus it run over, so it was never read.
+    private static (long At, List<VolumeSpace> List) _volumes = (-30_000, []);
 
     // What the tiles from RigSight's records show, read in the background as the agent reads it (PcFacts), about once
     // a minute while a widget has such a tile; the page draws the widget again when it has come.
