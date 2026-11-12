@@ -180,6 +180,7 @@ internal static partial class WidgetRenderer
         FontName = cfg.Tiles is null ? null : cfg.Font;
         Hits = [];
         ScrollAreas = [];
+        Shown = [];
         HoverAreas = [];
         Tip = null;
         _widgetId = cfg.Id;

@@ -500,16 +500,29 @@ internal static partial class WidgetRenderer
         if (rows > 1) s = 40;
         int cols = Math.Max(1, (int)((r.Width + gap) / (s + gap)));
         rows = Math.Max(1, Math.Min(rows, (int)((r.Height + gap) / (s + (names ? name : 0) + gap))));
-        int n = Math.Min(links.Count, cols * rows);
-        int usedCols = Math.Min(cols, n), usedRows = (n + cols - 1) / cols;
+        // More than fit: a row of them a notch, with the thin bar at the right (they were left out before).
+        bool scrolls = links.Count > cols * rows;
+        var room = scrolls ? RectangleF.FromLTRB(r.Left, r.Top, r.Right - 8, r.Bottom) : r;
+        if (scrolls) cols = Math.Max(1, (int)((room.Width + gap) / (s + gap)));
+        int lines = (links.Count + cols - 1) / cols;
+        int firstLine = ScrollOf(lines - rows), start = firstLine * cols;
+        int n = Math.Min(links.Count - start, cols * rows);
+        NoteShown(start, n, links.Count);
+        int usedCols = scrolls ? cols : Math.Min(cols, n), usedRows = scrolls ? rows : (n + cols - 1) / cols;
         float cellH = s + (names ? name : 0);
-        float left = r.Left + (r.Width - (usedCols * s + (usedCols - 1) * gap)) / 2;
+        float left = room.Left + (room.Width - (usedCols * s + (usedCols - 1) * gap)) / 2;
         float top = r.Top + (r.Height - (usedRows * cellH + (usedRows - 1) * gap)) / 2;
-        for (int i = 0; i < n; i++)
+        if (scrolls)
         {
+            AddScrollArea(r);
+            ScrollBar(g, r, firstLine, rows, lines, p);
+        }
+        for (int k = 0; k < n; k++)
+        {
+            int i = start + k;
             var l = links[i];
             var (hover, press) = StateOf(HitOpen, i);
-            var box = PressedIn(new RectangleF(left + i % cols * (s + gap), top + i / cols * (cellH + gap), s, s), press);
+            var box = PressedIn(new RectangleF(left + k % cols * (s + gap), top + k / cols * (cellH + gap), s, s), press);
             using (var path = RoundRect(box, s * 0.24f))
             using (var fill = new SolidBrush(Lifted(p.Track, hover, press, p.Light)))
                 g.FillPath(fill, path);
