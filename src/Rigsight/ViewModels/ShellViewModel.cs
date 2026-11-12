@@ -1110,7 +1110,11 @@ public sealed partial class ShellViewModel : ObservableObject
         if (msg.OverlayVisible is bool visible) Overlay.IsVisible = visible;
         if (msg.OverlayHotkeyTaken is bool taken) Overlay.HotkeyTaken = taken;
         if (msg.AskHotkeyTaken is bool askTaken && SettingsPage.Ai is { } ai) ai.ShortcutTaken = askTaken;
-        if (msg.RtssState is { } rtss) Overlay.RtssState = rtss;
+        if (msg.RtssState is { } rtss)
+        {
+            Overlay.RtssState = rtss;
+            WidgetPictures.RtssRunning = rtss == "running";
+        }
     }
 
     private void OnMessage(AgentMessage msg)
@@ -1120,6 +1124,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "hello":
                 StandardAccount = msg.StandardAccount;
                 AgentIsAdmin = msg.IsAdmin;
+                WidgetPictures.AgentIsAdmin = msg.IsAdmin;
                 OtherAgentVersion = OtherVersion(msg.Version, AppVersion, RigsightPaths.IsTestInstance);
                 // Without admin the agent can't read CPU temps, fans or voltages: offer the UAC prompt once per launch.
                 // Not on a standard account, where the prompt asks for a password the person doesn't have.

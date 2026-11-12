@@ -98,16 +98,28 @@ internal sealed partial class AgentContext
         foreach (var f in fans)
         {
             _fansRead[f.Id] = f;
-            if (f.Rpm > 0) _fansSpun.Add(f.Id);
+            if (f.Rpm >= FanList.MinSpinRpm) _fansSpun.Add(f.Id);
         }
     }
 
-    /// <summary>Every fan that spins, or has (a fan stopped at idle stays), by the name All sensors gives it; null until the first are read.</summary>
+    /// <summary>
+    /// The Fans page's rows (<see cref="FanList"/>): each graphics card's fans, spinning or not, then the cooler's and
+    /// the board's fans that have spun (now, since the agent started, or in the records' last 90 days), by the names the
+    /// page gives them; null until the first speeds are read.
+    /// </summary>
     private List<FanNow>? FansNow(RigsightSettings settings)
     {
-        if (_fansRead.Count == 0) return _sensorsReady ? [] : null;
-        return [.. _fansRead.Values.Where(f => _fansSpun.Contains(f.Id))
-            .Select(f => new FanNow(settings.SensorLabels.GetValueOrDefault(f.Id) ?? SensorWords.Show(f.Name), f.Rpm, f.Id))];
+        if (!_sensorsReady) return null;
+        var fans = _sensors.Schema.SelectMany(hw => hw.Sensors.Where(s => s.Kind == SensorKind.Fan).Select(s => (Hw: hw, Sensor: s))).ToList();
+        if (fans.Count > 0 && _fansRead.Count == 0) return null;
+        var facts = _facts is { } f && (f.Holds & PcNeeds.Fans) != 0 ? f : null;
+        double? Rpm(SensorMeta s) => _fansRead.TryGetValue(s.Id, out var r) ? r.Rpm : null;
+        var rows = FanList.Rows(fans, x => x.Hw.Type, x => x.Hw.Name,
+            x => Rpm(x.Sensor) >= FanList.MinSpinRpm || _fansSpun.Contains(x.Sensor.Id) || facts?.FansSpun.Contains(x.Sensor.Id) == true);
+        // None to list before the records are read: a fan that spun yesterday may yet be one, so not "none" yet.
+        if (rows.Count == 0 && fans.Count > 0 && facts is null) return null;
+        return [.. rows.Select(r => new FanNow(FanList.Title(r.Count, settings.SensorLabels.GetValueOrDefault(r[0].Sensor.Id) ?? SensorWords.Show(r[0].Sensor.Name)),
+            FanList.Speed(r.Select(x => Rpm(x.Sensor))), r[0].Sensor.Id))];
     }
 
     // ── Drives ───────────────────────────────────────────────────────────

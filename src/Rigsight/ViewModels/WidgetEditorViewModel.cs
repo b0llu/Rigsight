@@ -362,7 +362,9 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
     {
         Layout();
         // Drawn at the size it's shown, so a widget shown bigger is as sharp as one shown at its size.
-        Picture = IsEmpty ? null : WidgetPictures.Draw(_w, _live, _settings.Current, (float)(ScreenScale * Math.Max(1, Zoom)));
+        // Drawn again once its tiles from the records are in (read after this first drawing).
+        Picture = IsEmpty ? null : WidgetPictures.Draw(_w, _live, _settings.Current, (float)(ScreenScale * Math.Max(1, Zoom)),
+            () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(Draw));
         MarkPlace();
         // A weather tile shows its weather once it has come (asked for at most every half hour a place).
         WeatherFeed.RefreshInBackground(_w.Tiles ?? [], () => System.Windows.Application.Current?.Dispatcher.BeginInvoke(Draw));

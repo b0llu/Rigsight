@@ -1028,8 +1028,11 @@ internal sealed partial class AgentContext : ApplicationContext
     }
 
     /// <summary>The sensors on shown widgets (kept live while they show, as the overlay's are).</summary>
-    private static IEnumerable<string> WidgetSensorIds(RigsightSettings settings) =>
-        settings.Widgets.Where(w => w.Enabled).SelectMany(WidgetCatalog.ItemsOf).Select(i => WidgetCatalog.Sensor(i.Id)).OfType<string>().Distinct();
+    // A box's sensors are its tiles' (a reading's, a line's): its own reading list is the default one, with none, so a
+    // sensor on a Reading or Line tile was never read and the desktop said "Sensor —" where the app's picture had it.
+    internal static IEnumerable<string> WidgetSensorIds(RigsightSettings settings) =>
+        settings.Widgets.Where(w => w.Enabled).SelectMany(w => w.Tiles is null ? WidgetCatalog.ItemsOf(w) : WidgetCatalog.ShownItems(w))
+            .Select(i => WidgetCatalog.Sensor(i.Id)).OfType<string>().Distinct();
 
     /// <summary>The widgets' sensors: the name given on All sensors, else the sensor's own (a widget's own short name wins when drawn).</summary>
     private Dictionary<string, OverlaySensorReading> WidgetSensors(RigsightSettings settings)

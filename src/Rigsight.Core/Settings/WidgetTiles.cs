@@ -59,7 +59,7 @@ public static class WidgetTiles
         new(CpuGauge, Lang.Key("CPU temperature"), Lang.Key("A big gauge, colored by how hot it is."), Lang.Key("Live"), 3, 4, 3, 3, TileAlign.Center),
         new(GpuGauge, Lang.Key("GPU temperature"), Lang.Key("A big gauge, colored by how hot it is."), Lang.Key("Live"), 3, 4, 3, 3, TileAlign.Center),
         new(Graph, Lang.Key("Temperature graph"), Lang.Key("CPU and GPU temperatures over the last five minutes."), Lang.Key("Live"), 8, 4, 6, 3),
-        new(Fans, Lang.Key("Fans"), Lang.Key("Every spinning fan and its speed."), Lang.Key("Live"), 6, 3, 5, 2),
+        new(Fans, Lang.Key("Fans"), Lang.Key("Every fan and its speed."), Lang.Key("Live"), 6, 3, 5, 2),
         new(Drives, Lang.Key("Drives"), Lang.Key("How full each drive is, and its temperature."), Lang.Key("Live"), 6, 4, 5, 2),
         new(Cores, Lang.Key("CPU cores"), Lang.Key("The load on each core of the CPU."), Lang.Key("Live"), 6, 3, 5, 2),
         new(TopCpu, Lang.Key("Top CPU users"), Lang.Key("The apps using the most CPU right now."), Lang.Key("Live"), 6, 3, 5, 2),
