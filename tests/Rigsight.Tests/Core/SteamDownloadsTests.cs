@@ -121,6 +121,10 @@ public class SteamDownloadsTests
     {
         var day = SteamDownloads.Read(new DateTime(2026, 10, 29), new DateTime(2026, 10, 30));
         if (!day.Any(d => d.AppId == "4115450")) return; // another PC, or Steam's log has moved on
+        // Named only while Steam still has it installed (uninstalled by 13 Nov 2026: the log keeps the download, no name).
+        var logs = SteamDownloads.LogFiles();
+        string steam = Path.GetDirectoryName(Path.GetDirectoryName(logs[0])!)!;
+        if (!Rigsight.Core.Games.GameLibrary.ReadSteam([steam]).Any(g => g.Key == "steam:4115450")) return;
         var pbz = day.Single(d => d.AppId == "4115450");
         Assert.Equal(("Phantom Blade Zero", true, DownloadEnd.Finished), (pbz.Name, pbz.NewInstall, pbz.How));
         // Nothing from months before is still "running" on that day.

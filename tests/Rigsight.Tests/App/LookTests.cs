@@ -533,7 +533,7 @@ public sealed class LookTests
                 string[][] own =
                 [
                     ["Temperature unit"], ["Accent color"], ["Pause tracking", "Privacy", "Apps that are never recorded"], ["Read sensors every"],
-                    ["Daily recap"], ["AI helper"], ["Keep history for"], ["Rewinds to make", "What goes in"], ["Updates", "Update automatically", "Background agent", "Open-source notices"],
+                    ["Daily recap"], ["AI helper"], ["Keep history for"], ["Your rewinds"], ["Updates", "Update automatically", "Background agent", "Open-source notices"],
                 ];
                 for (int i = 0; i < tabs.Count; i++)
                 {
