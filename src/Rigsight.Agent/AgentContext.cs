@@ -2399,8 +2399,20 @@ internal sealed partial class AgentContext : ApplicationContext
         }
         try
         {
-            // Launch through Explorer so the app runs with normal (non-admin) rights.
-            if (_isAdmin) Process.Start(RigsightPaths.Explorer, $"\"{exe}\"");
+            if (_isAdmin)
+            {
+                // The desktop's own Explorer opens it, so the window runs with normal (non-admin) rights; explorer.exe as
+                // before when it can't be asked (that way cost 280-650 ms more on every open, see DesktopShell).
+                Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
+                var asked = Stopwatch.StartNew();
+                if (DesktopShell.Open(exe, null, out var why))
+                    Log.Write("agent", $"Opening the window (the desktop's Explorer took it in {asked.ElapsedMilliseconds} ms)");
+                else
+                {
+                    Log.Write("agent", $"The desktop's Explorer couldn't be asked to open the window ({why}): through explorer.exe instead");
+                    Process.Start(RigsightPaths.Explorer, $"\"{exe}\"");
+                }
+            }
             else Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
         }
         catch (Exception ex)

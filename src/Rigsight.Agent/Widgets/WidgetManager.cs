@@ -275,8 +275,9 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     private MediaWatcher? _media;
 
     /// <summary>
-    /// Opens a shortcut's app, file, folder or web address with normal rights: through Explorer when the agent runs
-    /// as administrator, so nothing opened from a widget gets the agent's rights (see <see cref="LinkStart"/>).
+    /// Opens a shortcut's app, file, folder or web address with normal rights: by the desktop's own Explorer when the
+    /// agent runs as administrator (through explorer.exe if it can't be asked), so nothing opened from a widget gets the
+    /// agent's rights (see <see cref="LinkStart"/>).
     /// </summary>
     private static void OpenLink(TileLink link)
     {
@@ -290,6 +291,16 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
                     ? $"A shortcut to {kind} wasn't opened: Windows' desktop (Explorer) isn't running, and without it it would open with admin rights"
                     : $"A shortcut to {kind} wasn't opened: it isn't a web address, or a full path to a file or folder that's there");
                 return;
+            }
+            if (admin && LinkTarget(link, admin, File.Exists, Directory.Exists) is { } target)
+            {
+                Native.Win32.AllowSetForegroundWindow(Native.Win32.ASFW_ANY);
+                if (Native.DesktopShell.Open(target, null, out var why))
+                {
+                    Log.Write("widgets", $"A shortcut opened {kind}");
+                    return;
+                }
+                Log.Write("widgets", $"The desktop's Explorer couldn't be asked to open a shortcut ({why}): through explorer.exe instead");
             }
             System.Diagnostics.Process.Start(start)?.Dispose();
             Log.Write("widgets", $"A shortcut opened {kind}");
@@ -332,30 +343,32 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
     /// </summary>
     internal static System.Diagnostics.ProcessStartInfo? LinkStart(TileLink link, bool admin, bool shellRunning, Func<string, bool> fileExists, Func<string, bool> folderExists)
     {
-        string target;
-        if (link.IsWeb)
-        {
-            if (!Uri.TryCreate(link.Path.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https") || uri.Host.Length == 0) return null;
-            target = uri.AbsoluteUri;
-            if (target.IndexOfAny(['"', ' ']) >= 0) return null; // AbsoluteUri escapes both; never trusted blindly
-        }
-        else
-        {
-            string path = link.Path;
-            if (path.Length == 0 || path.IndexOfAny(['"', '\0']) >= 0 || !Path.IsPathFullyQualified(path)
-                || path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.StartsWith(@"\\.\", StringComparison.Ordinal)) return null;
-            // From an agent run as administrator, a path on a drive letter it doesn't have is let through to Explorer:
-            // Windows keeps the person's mapped network drives apart from programs run as administrator, so a shortcut
-            // to Z:\ looked gone (the audit, 2026-11-11), while Explorer, which opens it with the person's rights, has Z:.
-            if (!fileExists(path) && !folderExists(path) && !(admin && DriveHidden(path))) return null;
-            target = Path.TrimEndingDirectorySeparator(path);
-        }
+        if (LinkTarget(link, admin, fileExists, folderExists) is not { } target) return null;
         if (!admin) return new System.Diagnostics.ProcessStartInfo(target) { UseShellExecute = true };
         if (!shellRunning) return null;
         // In quotes, as one argument. A path still ending in \ is a root ("D:\", "\\nas\share\"): quoted it would end
         // in \", so it goes without quotes, or without its last \ when it has a space.
         string argument = !target.EndsWith('\\') ? $"\"{target}\"" : target.Contains(' ') ? $"\"{target.TrimEnd('\\')}\"" : target;
         return new System.Diagnostics.ProcessStartInfo(RigsightPaths.Explorer, argument) { UseShellExecute = false };
+    }
+
+    /// <summary>What a shortcut opens, checked as <see cref="LinkStart"/> says (an escaped web address, or a full path that's there); null when it may not be opened.</summary>
+    internal static string? LinkTarget(TileLink link, bool admin, Func<string, bool> fileExists, Func<string, bool> folderExists)
+    {
+        if (link.IsWeb)
+        {
+            if (!Uri.TryCreate(link.Path.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https") || uri.Host.Length == 0) return null;
+            string address = uri.AbsoluteUri;
+            return address.IndexOfAny(['"', ' ']) >= 0 ? null : address; // AbsoluteUri escapes both; never trusted blindly
+        }
+        string path = link.Path;
+        if (path.Length == 0 || path.IndexOfAny(['"', '\0']) >= 0 || !Path.IsPathFullyQualified(path)
+            || path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.StartsWith(@"\\.\", StringComparison.Ordinal)) return null;
+        // From an agent run as administrator, a path on a drive letter it doesn't have is let through to Explorer:
+        // Windows keeps the person's mapped network drives apart from programs run as administrator, so a shortcut
+        // to Z:\ looked gone (the audit, 2026-11-11), while Explorer, which opens it with the person's rights, has Z:.
+        if (!fileExists(path) && !folderExists(path) && !(admin && DriveHidden(path))) return null;
+        return Path.TrimEndingDirectorySeparator(path);
     }
 
     /// <summary>

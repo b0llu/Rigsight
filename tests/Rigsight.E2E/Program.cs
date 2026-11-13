@@ -56,6 +56,7 @@ internal static class Program
         // --language <pack.json>: the test copy runs in that language (a release-form pack, as people download it),
         // measured against the same budgets and baseline as English, so another language can't cost more unseen.
         string? languagePack = Arg("--language") is { } lp ? Path.GetFullPath(lp) : null;
+        AppEnv = Arg("--app-env") ?? "";
         if (real && !File.Exists(realDb))
         {
             Console.WriteLine("  --real-data: no history of this PC's own was found; using the made-up year.");
@@ -181,6 +182,31 @@ internal static class Program
             }
             else Fail("The app didn't log how long opening took (\"Opened on\")");
             if (!WaitFor(() => ui.HasLiveReadings(), 20_000)) Fail("Home never showed a live reading (no data from the agent?)");
+
+            // --probe Games,Timeline: only those pages, each opened once and then again from Home a few times, for
+            // speed work (no baseline, no report): the run ends here.
+            if (Arg("--probe") is { } probe)
+            {
+                string[] probed = [.. probe.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
+                Probe(app!, ui, probed, int.TryParse(Arg("--visits"), out int visits) ? visits : 5, args.Contains("--scroll"));
+                // --reopen: the app closed and opened again on the same data, each page's first visit once more (what a
+                // page keeps between starts, as Storage's folder sizes, shows here).
+                if (args.Contains("--reopen"))
+                {
+                    ui.Close();
+                    app!.WaitForExit(10_000);
+                    Step("The app opened again on the same data");
+                    var reopened = OpenToHome(appExe, bin);
+                    (app, ui) = (reopened.App, reopened.Ui);
+                    Probe(app, ui, probed, 0, false);
+                }
+                ui.Close();
+                app!.WaitForExit(10_000);
+                if (admin) SendToAgent("quit");
+                else using (var quit = EventWaitHandle.OpenExisting(RigsightPaths.AgentQuitEvent)) quit.Set();
+                agent!.WaitForExit(15_000);
+                return 0;
+            }
 
             // The page on screen is read again once a minute. Left to its own clock that work fell inside a 20 s look at
             // the app on one run and outside it on the next (the Memory page read 0.4% of a core, or 2.3%). The test
@@ -583,6 +609,49 @@ internal static class Program
 
     /// <summary>CPU time used so far, read with the least access Windows grants (works for elevated processes too).</summary>
     /// <summary>Until the app has gone quiet (under 40 ms of CPU in half a second), at most 15 seconds: how long it took.</summary>
+    /// <summary>
+    /// Each page opened from Home: once (its first visit), then <paramref name="visits"/> more times. For each: how long
+    /// until the window answered, the window thread's CPU, the whole app's CPU until it was quiet again (work the page
+    /// left running counts), and the longest the window froze meanwhile. With <paramref name="scroll"/>, the page is
+    /// then scrolled to its end in small steps (a fresh visit each time), timing the freezes as it goes.
+    /// </summary>
+    private static void Probe(Process app, AppUi ui, string[] pages, int visits, bool scroll)
+    {
+        IntPtr window = app.MainWindowHandle;
+        foreach (var page in pages)
+        {
+            Step($"{page}: the first visit, then {visits} more from Home");
+            var nav = ui.NavItem(page);
+            var home = ui.NavItem("Home");
+            for (int v = 0; v <= visits; v++)
+            {
+                home.Select();
+                Thread.Sleep(1500);
+                Settle(app);
+                var threads = ThreadCpu.Take(app);
+                double before = CpuMs(app);
+                var watch = new WindowWatch(window);
+                var t = Stopwatch.GetTimestamp();
+                nav.Select();
+                WindowWatch.Answer(window);
+                double answered = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+                Thread.Sleep(2000);
+                var waits = watch.Stop();
+                var after = ThreadCpu.Take(app);
+                double opened = CpuMs(app) - before;
+                Settle(app);
+                double total = CpuMs(app) - before;
+                Console.WriteLine($"  {(v == 0 ? "first" : $"again {v}"),-8} answered {answered,5:0} ms   window {ThreadCpu.WindowMs(threads, after, app),5:0} ms CPU   " +
+                                  $"app {opened,5:0} in 2 s, {total,5:0} until quiet   longest freeze {waits.Max(),4:0} ms   by thread: {ThreadCpu.Spent(threads, after, app)}");
+                if (scroll && v < 2)
+                {
+                    var waitsScroll = ui.ScrollInSteps(window, 40, 50);
+                    Console.WriteLine($"           scrolled in 40 steps: longest freeze {waitsScroll.Max(),4:0} ms, over 33 ms {waitsScroll.Count(w => w > 33)} of {waitsScroll.Count} answers");
+                }
+            }
+        }
+    }
+
     private static TimeSpan Settle(Process p)
     {
         var started = Stopwatch.StartNew();
@@ -628,6 +697,11 @@ internal static class Program
         var sw = Stopwatch.StartNew();
         var start = new ProcessStartInfo(appExe) { UseShellExecute = false, WorkingDirectory = bin };
         start.Environment["RIGSIGHT_REFRESH_ON_SIGNAL"] = "1"; // the minute's refresh when asked, not by the clock: see RefreshOf
+        // --app-env "NAME=value;NAME2=value": for the app alone (not this program, not the agent); {open} is 1 for the
+        // first open, 2 for the next... (speed work: DOTNET_JitStdOutFile=...\jit-{open}.txt;DOTNET_JitDisasmSummary=1).
+        _opens++;
+        foreach (var pair in AppEnv.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (pair.IndexOf('=') is var eq and > 0) start.Environment[pair[..eq]] = pair[(eq + 1)..].Replace("{open}", _opens.ToString(CultureInfo.InvariantCulture));
         if (slowMs > 0) start.Environment["RIGSIGHT_SLOW_HISTORY_MS"] = slowMs.ToString(System.Globalization.CultureInfo.InvariantCulture);
         Process.Start(start)!.Dispose();
         // Rigsight.exe starts itself again with its GC setting (see Program.cs in the app): find that copy.
@@ -654,6 +728,10 @@ internal static class Program
         empties.ExceptWith(texts);
         return (app!, ui, shown < 0 ? filled : shown, filled, [.. empties], looks);
     }
+
+    /// <summary>What --app-env gave, and how many times the app was opened so far.</summary>
+    private static string AppEnv = "";
+    private static int _opens;
 
     /// <summary>The app icons kept in the data folder, each with when it was written.</summary>
     private static Dictionary<string, DateTime> KeptIcons() =>
@@ -1211,6 +1289,14 @@ internal static class ThreadCpu
         return result;
     }
 
+    /// <summary>What the window's own thread used between two looks.</summary>
+    public static double WindowMs(Dictionary<int, (string Name, double Ms)> before, Dictionary<int, (string Name, double Ms)> after, Process p)
+    {
+        int ui = 0;
+        try { ui = (int)GetWindowThreadProcessId(p.MainWindowHandle, out _); } catch (InvalidOperationException) { }
+        return after.TryGetValue(ui, out var now) ? now.Ms - (before.TryGetValue(ui, out var was) ? was.Ms : 0) : 0;
+    }
+
     /// <summary>What was used between two looks, by thread name, most first ("window" is the thread the window runs on).</summary>
     public static string Spent(Dictionary<int, (string Name, double Ms)> before, Dictionary<int, (string Name, double Ms)> after, Process p)
     {
@@ -1412,6 +1498,26 @@ internal sealed class AppUi(Process app)
         var biggest = scrollers.Cast<AutomationElement>().OrderByDescending(e => e.Current.BoundingRectangle.Height).FirstOrDefault();
         if (biggest?.GetCurrentPattern(ScrollPattern.Pattern) is ScrollPattern { Current.VerticallyScrollable: true } scroll)
             scroll.SetScrollPercent(ScrollPattern.NoScroll, 100);
+    }
+
+    /// <summary>
+    /// The page's biggest scrolling area moved to its end in <paramref name="steps"/> even steps, one every
+    /// <paramref name="everyMs"/>, while the window is asked for an answer every 20 ms: the answers' times.
+    /// </summary>
+    public List<double> ScrollInSteps(IntPtr window, int steps, int everyMs)
+    {
+        var scrollers = Root.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.IsScrollPatternAvailableProperty, true));
+        var biggest = scrollers.Cast<AutomationElement>().OrderByDescending(e => e.Current.BoundingRectangle.Height).FirstOrDefault();
+        if (biggest?.GetCurrentPattern(ScrollPattern.Pattern) is not ScrollPattern { Current.VerticallyScrollable: true } scroll) return [0];
+        var watch = new WindowWatch(window);
+        for (int i = 1; i <= steps; i++)
+        {
+            try { scroll.SetScrollPercent(ScrollPattern.NoScroll, Math.Min(100, 100.0 * i / steps)); }
+            catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or COMException) { }
+            Thread.Sleep(everyMs);
+        }
+        Thread.Sleep(500);
+        return watch.Stop();
     }
 
     public void MoveOffScreen() => MoveWindow(app.MainWindowHandle, -32000, -32000, 1440, 900, true);

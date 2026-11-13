@@ -110,6 +110,9 @@ public readonly record struct DiskEntry(string Name, FileAttributes Attributes, 
     public bool IsFolder => (Attributes & FileAttributes.Directory) != 0;
 }
 
+/// <summary>A folder's size as counted: its last-change time then (ticks), when it was counted (Unix seconds) and the space under it.</summary>
+public sealed record KeptFolder(long Write, long At, long Size);
+
 /// <summary>
 /// Walks a drive or folder and totals the space each folder takes on the drive, keeping the biggest items. The space a
 /// file really takes, not its size: OneDrive's cloud-only files, compressed files and the many Windows files kept under
@@ -333,6 +336,42 @@ public static class StorageScanner
                 }
                 else if (e.OnDisk > 0 && (filter is null || filter(e)) && seen.Add(e.Id)) total += e.OnDisk;
             }
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// The space under <paramref name="path"/>, as <see cref="FolderSize(string, Func{DiskEntry, bool}?)"/> counts it, but a
+    /// folder directly in it is taken from <paramref name="kept"/> when its last-change time (which Windows moves when
+    /// something is added to it, removed or renamed) is what it was and it was counted less than
+    /// <paramref name="keepFor"/> ago; the others are counted. The files directly in it are always added up afresh.
+    /// <paramref name="counted"/> gets every folder's figure, kept or new, to keep for next time.
+    /// Why: a %TEMP% of 15,000 small folders, 14 of them changed in the hour, took 2-4 s of a core to add up on every
+    /// first visit of Storage (2026-11-12); opening each folder is what costs. What it can't see: a file that grows in
+    /// place, and anything two or more folders down (those change no time up here), until the folder is counted again.
+    /// A file under two names in two of those folders counts twice.
+    /// </summary>
+    public static long FolderSize(string path, IReadOnlyDictionary<string, KeptFolder>? kept, Dictionary<string, KeptFolder> counted, DateTime now, TimeSpan keepFor)
+    {
+        if (!Directory.Exists(path)) return 0;
+        var top = new List<DiskEntry>();
+        Read(path, top, fileNames: false);
+        long total = 0, at = Rigsight.Core.Data.TimeUtil.ToUnix(now);
+        var seen = new HashSet<long>();
+        foreach (var e in top)
+        {
+            if (!e.IsFolder)
+            {
+                if (e.OnDisk > 0 && seen.Add(e.Id)) total += e.OnDisk;
+                continue;
+            }
+            if ((e.Attributes & FileAttributes.ReparsePoint) != 0) continue;
+            long write = e.LastWrite.Ticks;
+            var mine = kept is not null && kept.TryGetValue(e.Name, out var k) && write != 0 && k.Write == write && k.At <= at && at - k.At < keepFor.TotalSeconds
+                ? k
+                : new KeptFolder(write, at, FolderSize(System.IO.Path.Combine(path, e.Name)));
+            counted[e.Name] = mine;
+            total += mine.Size;
         }
         return total;
     }

@@ -368,16 +368,31 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     private static List<CleanupItem> FindCleanupItems(bool fresh)
     {
         var list = new List<CleanupItem>();
-        var kept = fresh ? null : CleanupSizes.Load(DateTime.Now);
-        var counted = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        var now = DateTime.Now;
+        var started = Stopwatch.StartNew();
+        var kept = fresh ? null : CleanupSizes.Load(now);
+        var whole = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        var folders = new Dictionary<string, Dictionary<string, KeptFolder>>(StringComparer.OrdinalIgnoreCase);
         string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
         string downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
 
         void Add(string title, string description, string path, Func<DiskEntry, bool>? filter = null)
         {
-            long size = kept is not null && kept.TryGetValue(path, out var known) ? known : StorageScanner.FolderSize(path, filter);
-            counted[path] = size;
+            long size;
+            if (filter is not null)
+            {
+                // What a filter keeps changes with the clock and with every file opened, not with the folders: the whole
+                // place is kept for an hour, as before.
+                size = kept?.Whole is { } sizes && sizes.TryGetValue(path, out var known) ? known : StorageScanner.FolderSize(path, filter);
+                whole[path] = size;
+            }
+            else
+            {
+                var mine = new Dictionary<string, KeptFolder>(StringComparer.OrdinalIgnoreCase);
+                size = StorageScanner.FolderSize(path, kept?.Folders.GetValueOrDefault(path), mine, now, CleanupSizes.FoldersKeptFor);
+                folders[path] = mine;
+            }
             if (size >= 50L << 20) list.Add(new CleanupItem(title, description, size, path, false));
         }
 
@@ -392,8 +407,13 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         Add(Lang.T("Crash dumps"), Lang.T("Memory dumps from crashed apps."), Path.Combine(local, "CrashDumps"));
         Add(Lang.T("Previous Windows installation"), Lang.T("Left after a Windows upgrade. Remove it with Disk Cleanup."), Path.Combine(Path.GetPathRoot(windows)!, "Windows.old"));
 
-        // Counted now, kept for the next first visit (the Recycle Bin is asked each time: Windows knows it at once).
-        if (kept is null) CleanupSizes.Save(counted, DateTime.Now);
+        // Kept for the next first visit (the Recycle Bin is asked each time: Windows knows it at once). The whole places
+        // keep when they were counted; each folder says its own.
+        CleanupSizes.Save(whole, kept?.Whole is not null ? kept.WholeAt : now, folders);
+        int all = folders.Sum(p => p.Value.Count);
+        int reused = folders.Sum(p => kept?.Folders.GetValueOrDefault(p.Key) is { } before ? p.Value.Count(f => before.TryGetValue(f.Key, out var k) && ReferenceEquals(k, f.Value)) : 0);
+        Log.Write("storage", $"Space you could free added up in {started.ElapsedMilliseconds} ms{(fresh ? " (all counted again: Refresh)" : "")}: " +
+                             $"{all - reused} of {all} folders counted, {reused} kept from before{(kept?.Whole is not null ? "; Downloads kept from before" : "")}");
         var (binSize, binItems) = StorageScanner.RecycleBin();
         if (binSize > 0)
             list.Add(new CleanupItem(Lang.T("Recycle Bin"), binItems == 1 ? Lang.T("1 deleted item.") : Lang.T($"{binItems:N0} deleted items."), binSize, null, true));
@@ -737,28 +757,47 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
 }
 
 /// <summary>
-/// "Space you could free"'s folder sizes, kept between starts for <see cref="KeepFor"/>: adding up a %TEMP% of 22,000
-/// folders took 2.2 s of a core on every first visit of Storage (2026-11-05), and opening each folder is what costs,
-/// not how it's read (opening by the parent's handle was no faster). The page's Refresh counts them again.
+/// "Space you could free"'s sizes, kept between starts. Adding up a %TEMP% of 22,000 folders took 2.2 s of a core on
+/// every first visit of Storage (2026-11-05), and opening each folder is what costs, not how it's read (opening by the
+/// parent's handle was no faster). Two kinds:
+/// <list type="bullet">
+/// <item>each folder directly inside a place (%TEMP%, the shader caches), counted again when Windows says something in
+/// it was added or removed, or after <see cref="FoldersKeptFor"/> (see StorageScanner.FolderSize with kept folders);
+/// with only an hour for the whole place, nearly every visit counted all 15,000 again (2026-11-12);</item>
+/// <item>a place counted whole through a filter (Downloads' "untouched for 90 days"), for <see cref="KeepFor"/>.</item>
+/// </list>
+/// The page's Refresh counts everything again.
 /// </summary>
 internal static class CleanupSizes
 {
     public static readonly TimeSpan KeepFor = TimeSpan.FromHours(1);
+    public static readonly TimeSpan FoldersKeptFor = TimeSpan.FromDays(1);
     internal static string File => Path.Combine(RigsightPaths.DataDir, "cleanup-sizes.json");
 
-    private sealed record Kept(long At, Dictionary<string, long> Sizes);
+    /// <summary>As written: Sizes for the whole places, counted at At; Folders by place, then folder name (none in a file an older version wrote).</summary>
+    private sealed record Stored(long At, Dictionary<string, long> Sizes, Dictionary<string, Dictionary<string, KeptFolder>>? Folders = null);
 
-    /// <summary>The sizes kept, when counted within <see cref="KeepFor"/> of <paramref name="now"/>; null otherwise.</summary>
-    public static Dictionary<string, long>? Load(DateTime now)
+    /// <summary>What was kept: the whole places' sizes (null once over <see cref="KeepFor"/> old) and every place's folders.</summary>
+    internal sealed record Counts(Dictionary<string, long>? Whole, DateTime WholeAt, Dictionary<string, Dictionary<string, KeptFolder>> Folders);
+
+    private static Stored? Read()
+    {
+        if (!System.IO.File.Exists(File)) return null;
+        return System.Text.Json.JsonSerializer.Deserialize<Stored>(System.IO.File.ReadAllText(File));
+    }
+
+    /// <summary>What was kept, as of <paramref name="now"/>; null when nothing was (or the file can't be read).</summary>
+    public static Counts? Load(DateTime now)
     {
         try
         {
-            if (!System.IO.File.Exists(File)) return null;
-            var kept = System.Text.Json.JsonSerializer.Deserialize<Kept>(System.IO.File.ReadAllText(File));
-            if (kept?.Sizes is null) return null;
+            if (Read() is not { } kept) return null;
             var at = TimeUtil.FromUnix(kept.At);
-            if (at > now || now - at > KeepFor) return null;
-            return new Dictionary<string, long>(kept.Sizes, StringComparer.OrdinalIgnoreCase);
+            var whole = kept.Sizes is not null && at <= now && now - at <= KeepFor ? new Dictionary<string, long>(kept.Sizes, StringComparer.OrdinalIgnoreCase) : null;
+            var folders = new Dictionary<string, Dictionary<string, KeptFolder>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (place, list) in kept.Folders ?? [])
+                if (list is not null) folders[place] = new Dictionary<string, KeptFolder>(list, StringComparer.OrdinalIgnoreCase);
+            return new Counts(whole, at, folders);
         }
         catch (Exception ex)
         {
@@ -767,17 +806,18 @@ internal static class CleanupSizes
         }
     }
 
-    /// <summary>Drops one folder's kept size (it was opened to be cleaned), keeping the others and when they were counted.</summary>
+    /// <summary>Drops one place's kept sizes (it was opened to be cleaned), keeping the others and when they were counted.</summary>
     public static void Forget(string path)
     {
         try
         {
-            if (!System.IO.File.Exists(File)) return;
-            var kept = System.Text.Json.JsonSerializer.Deserialize<Kept>(System.IO.File.ReadAllText(File));
-            if (kept?.Sizes is null) return;
-            var sizes = new Dictionary<string, long>(kept.Sizes, StringComparer.OrdinalIgnoreCase);
-            if (!sizes.Remove(path)) return;
-            System.IO.File.WriteAllText(File, System.Text.Json.JsonSerializer.Serialize(kept with { Sizes = sizes }));
+            if (Read() is not { } kept) return;
+            var sizes = new Dictionary<string, long>(kept.Sizes ?? [], StringComparer.OrdinalIgnoreCase);
+            var folders = new Dictionary<string, Dictionary<string, KeptFolder>>(kept.Folders ?? [], StringComparer.OrdinalIgnoreCase);
+            bool dropped = sizes.Remove(path);
+            dropped |= folders.Remove(path);
+            if (!dropped) return;
+            System.IO.File.WriteAllText(File, System.Text.Json.JsonSerializer.Serialize(new Stored(kept.At, sizes, folders)));
         }
         catch (Exception ex)
         {
@@ -785,11 +825,13 @@ internal static class CleanupSizes
         }
     }
 
-    public static void Save(Dictionary<string, long> sizes, DateTime now)
+    /// <param name="whole">The places counted whole, as of <paramref name="wholeAt"/>.</param>
+    /// <param name="folders">Each place's folders, each with when it was counted.</param>
+    public static void Save(Dictionary<string, long> whole, DateTime wholeAt, Dictionary<string, Dictionary<string, KeptFolder>> folders)
     {
         try
         {
-            System.IO.File.WriteAllText(File, System.Text.Json.JsonSerializer.Serialize(new Kept(TimeUtil.ToUnix(now), sizes)));
+            System.IO.File.WriteAllText(File, System.Text.Json.JsonSerializer.Serialize(new Stored(TimeUtil.ToUnix(wholeAt), whole, folders)));
         }
         catch (Exception ex)
         {

@@ -245,8 +245,13 @@ internal sealed class OverlayManager : IDisposable
             }
             else
             {
-                // Outside Program Files: through Explorer, with the user's rights (Windows asks if RivaTuner wants admin).
-                Process.Start(RigsightPaths.Explorer, $"\"{exe}\"")?.Dispose();
+                // Outside Program Files: by the desktop's Explorer, with the user's rights (Windows asks if RivaTuner wants
+                // admin); through explorer.exe when it can't be asked.
+                if (!Native.DesktopShell.Open(exe, null, out var why))
+                {
+                    Log.Write("overlay", $"The desktop's Explorer couldn't be asked to start RivaTuner ({why}): through explorer.exe instead");
+                    Process.Start(RigsightPaths.Explorer, $"\"{exe}\"")?.Dispose();
+                }
                 Log.Write("overlay", $"Started RivaTuner from {exe} with the user's rights (not in Program Files)");
             }
         }

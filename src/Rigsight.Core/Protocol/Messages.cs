@@ -300,6 +300,17 @@ public sealed class UiMessage
     public string? Arg { get; set; }
 }
 
+/// <summary>
+/// The messages' JSON code, made when the app is built. Read by reflection, the agent's first message to a window
+/// just opened (its hello, with every setting in it) had .NET make a setter for each field as the window opened: about
+/// 850 of the 1,750 methods compiled while opening (2026-11-12).
+/// </summary>
+[JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals, UseStringEnumConverter = true)]
+[JsonSerializable(typeof(AgentMessage))]
+[JsonSerializable(typeof(UiMessage))]
+[JsonSerializable(typeof(ProcInfo))]
+internal sealed partial class ProtocolJsonContext : JsonSerializerContext;
+
 public static class ProtocolJson
 {
     public static readonly JsonSerializerOptions Options = new()
@@ -307,6 +318,17 @@ public static class ProtocolJson
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
         Converters = { new JsonStringEnumConverter() },
+        // The generated code for the messages; anything else asked of it still by reflection.
+        TypeInfoResolver = System.Text.Json.Serialization.Metadata.JsonTypeInfoResolver.Combine(ProtocolJsonContext.Default, new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver()),
+    };
+
+    /// <summary>The same options by reflection only, as before the generated code (for the tests: both must write the same).</summary>
+    internal static readonly JsonSerializerOptions ByReflection = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+        Converters = { new JsonStringEnumConverter() },
+        TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),
     };
 
     public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Options);

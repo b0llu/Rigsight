@@ -129,6 +129,56 @@ public sealed class StorageScanTests
         Assert.Equal(K, StorageScanner.FolderSize(root));
     }
 
+    [Fact]
+    public void A_folder_kept_from_before_is_taken_while_its_last_change_is_the_same()
+    {
+        // %TEMP% held 15,000 small folders and 14 had changed in the hour, yet all were opened again on nearly every
+        // first visit of Storage (2026-11-12).
+        var root = TestEnvironment.NewFolder("kept");
+        var a = Directory.CreateDirectory(Path.Combine(root, "a")).FullName;
+        var b = Directory.CreateDirectory(Path.Combine(root, "b")).FullName;
+        File.WriteAllBytes(Path.Combine(a, "x.bin"), new byte[K]);
+        File.WriteAllBytes(Path.Combine(b, "y.bin"), new byte[2 * K]);
+        File.WriteAllBytes(Path.Combine(root, "top.bin"), new byte[3 * K]);
+        // Set by hand: Windows writes a folder's new time into its parent's list a moment after the change (seen
+        // 2026-11-12), and the test can't wait on that moment.
+        Directory.SetLastWriteTime(a, new DateTime(2026, 1, 1));
+        Directory.SetLastWriteTime(b, new DateTime(2026, 1, 1));
+        var now = new DateTime(2026, 11, 12, 14, 0, 0);
+        var day = TimeSpan.FromDays(1);
+
+        var first = new Dictionary<string, KeptFolder>();
+        Assert.Equal(6 * K, StorageScanner.FolderSize(root, null, first, now, day));
+        Assert.Equal(K, first["a"].Size);
+        Assert.Equal(2 * K, first["b"].Size);
+
+        // Unchanged: taken as kept (a made-up figure shows it wasn't counted again); the files right in the place are
+        // always added up.
+        var kept = new Dictionary<string, KeptFolder>(first) { ["a"] = first["a"] with { Size = 100 * K } };
+        File.WriteAllBytes(Path.Combine(root, "top2.bin"), new byte[K]);
+        var second = new Dictionary<string, KeptFolder>();
+        Assert.Equal(100 * K + 2 * K + 4 * K, StorageScanner.FolderSize(root, kept, second, now.AddHours(5), day));
+        Assert.Same(kept["a"], second["a"]);
+
+        // b changed (its time moved), c is new, a is gone: b and c are counted, a is no more.
+        File.WriteAllBytes(Path.Combine(b, "z.bin"), new byte[K]);
+        Directory.SetLastWriteTime(b, new DateTime(2026, 2, 2));
+        Directory.Delete(a, recursive: true);
+        var c = Directory.CreateDirectory(Path.Combine(root, "c")).FullName;
+        File.WriteAllBytes(Path.Combine(c, "w.bin"), new byte[K]);
+        Directory.SetLastWriteTime(c, new DateTime(2026, 3, 3));
+        var third = new Dictionary<string, KeptFolder>();
+        Assert.Equal(3 * K + K + 4 * K, StorageScanner.FolderSize(root, second, third, now.AddHours(6), day));
+        Assert.Equal(["b", "c"], third.Keys.Order());
+
+        // A day after its count a folder is counted again, changed or not; and with the clock set back before it.
+        var made = new Dictionary<string, KeptFolder>(third) { ["c"] = third["c"] with { Size = 50 * K } };
+        Assert.Equal(8 * K, StorageScanner.FolderSize(root, made, new(), now.AddHours(6).AddDays(1), day));
+        Assert.Equal(8 * K, StorageScanner.FolderSize(root, made, new(), now.AddHours(5), day));
+        Assert.Equal(57 * K, StorageScanner.FolderSize(root, made, new(), now.AddHours(7), day));
+        Assert.Equal(0, StorageScanner.FolderSize(Path.Combine(root, "missing"), made, new(), now, day));
+    }
+
     private static List<FolderNode> Folder(params long[] sizes)
     {
         var parent = new FolderNode { Name = "C:\\", Path = "C:\\" };

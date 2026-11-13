@@ -47,6 +47,24 @@ public sealed class ProtocolTests
     };
 
     [Fact]
+    public void The_generated_code_writes_and_reads_every_message_as_reflection_did()
+    {
+        // Since 2026-11-12 the messages' JSON is made when the app is built (opening compiled ~850 methods without it);
+        // what goes over the pipe must stay the same, with an agent or app of another version too.
+        var message = Full();
+        message.Settings = new RigsightSettings { UseFahrenheit = true, Theme = "light", Language = "es" };
+        string generated = ProtocolJson.Serialize(message), reflected = System.Text.Json.JsonSerializer.Serialize(message, ProtocolJson.ByReflection);
+        Assert.Equal(reflected, generated);
+        Assert.Equal(reflected, System.Text.Json.JsonSerializer.Serialize(ProtocolJson.Deserialize<AgentMessage>(reflected), ProtocolJson.ByReflection));
+        Assert.Equal(generated, ProtocolJson.Serialize(System.Text.Json.JsonSerializer.Deserialize<AgentMessage>(generated, ProtocolJson.ByReflection)));
+
+        var ui = new UiMessage { T = "settings", Settings = new RigsightSettings { Theme = "dark" }, Cmd = "pause", Arg = "15" };
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(ui, ProtocolJson.ByReflection), ProtocolJson.Serialize(ui));
+        // The messages are read by the generated code, not by reflection.
+        Assert.Same(ProtocolJsonContext.Default, ProtocolJson.Options.GetTypeInfo(typeof(AgentMessage)).OriginatingResolver);
+    }
+
+    [Fact]
     public void An_agent_message_with_every_field_survives_the_pipe()
     {
         var sent = Full();
