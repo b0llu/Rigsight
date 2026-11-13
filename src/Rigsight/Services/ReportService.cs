@@ -402,7 +402,7 @@ public sealed class ReportService(SettingsModel settings)
             {
                 var week = db.GetChanges(ts - 7 * 86400, ts + 120);
                 foreach (var c in week.Where(c => c.IsSystemLevel).OrderByDescending(c => c.Time).Take(6))
-                    changes.Add(new Models.CaseLine(c.Shown, c.Detail, $"{(c.IsApproximate ? "~" : "")}{TimeText.At(c.Time, "ddd d MMM, h:mm tt")}"));
+                    changes.Add(new Models.CaseLine(c.Shown, c.Detail, TimeText.At(c.Time, "ddd d MMM, h:mm tt")));
                 var others = week.Where(c => c.Kind is Core.Stability.ChangeKind.AppInstalled or Core.Stability.ChangeKind.AppUpdated or Core.Stability.ChangeKind.AppRemoved).ToList();
                 if (others.Count > 0)
                 {
@@ -411,7 +411,7 @@ public sealed class ReportService(SettingsModel settings)
                     int more = names.Count - 4;
                     changes.Add(new Models.CaseLine(others.Count == 1 ? others[0].Shown : Lang.T($"{others.Count} apps installed, updated or removed"),
                         others.Count == 1 ? null : names.Count > 4 ? Lang.T($"{shown} and {more} more") : shown,
-                        others.Count == 1 ? $"~{TimeText.At(others[0].Time, "ddd d MMM, h:mm tt")}" : Lang.T($"{others.Min(c => c.Time):d MMM} to {others.Max(c => c.Time):d MMM}")));
+                        others.Count == 1 ? TimeText.At(others[0].Time, "ddd d MMM, h:mm tt") : Lang.T($"{others.Min(c => c.Time):d MMM} to {others.Max(c => c.Time):d MMM}")));
                 }
                 if (changes.Count == 0) noChanges = Lang.T("Nothing changed on the PC in the 7 days before.");
             }

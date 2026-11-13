@@ -32,7 +32,7 @@ public sealed class ChangeCase(ChangeResult result, IReadOnlyList<DriverLine> dr
 
     /// <summary>"NVIDIA graphics driver 617.42 · was 616.92 · Wed 7 Oct, 5:40 PM"; several changes: each of them.</summary>
     public string Under => string.Join("  ·  ", Result.Changes.Select(c => c.Shown + (c.Was is { Length: > 0 } was ? Lang.T($", was {was}") : "")))
-        + $"  ·  {Result.Main.Time:ddd d MMM}, {(Result.Main.IsApproximate ? "~" : "")}{TimeText.At(Result.Main.Time, "h:mm tt")}";
+        + $"  ·  {Result.Main.Time:ddd d MMM}, {TimeText.At(Result.Main.Time, "h:mm tt")}";
 
     public string Context => Result.Context;
     public string Chip => Result.Chip;

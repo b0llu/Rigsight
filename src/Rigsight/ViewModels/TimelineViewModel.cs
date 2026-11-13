@@ -20,7 +20,7 @@ public sealed partial class TimelineEntry : ObservableObject
 {
     public string TimeText { get; init; } = "";
 
-    /// <summary>Said on hover when the time isn't the exact moment ("~7:20 PM").</summary>
+    /// <summary>Said on hover when the time isn't the exact moment ("Between 7:10 PM and 7:20 PM").</summary>
     public string? TimeTip { get; init; }
     public string Icon { get; init; } = "";
     public string Title { get; init; } = "";
@@ -563,10 +563,11 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     /// <summary>
     /// When it happened, as exactly as it's known: a drive's space is compared day to day ("All day"); a change found
-    /// by a check of the PC happened in the minutes before that check ("~7:20 PM"); the rest is to the minute.
+    /// by a check of the PC happened in the minutes before that check, and shows the check's time with the window on hover
+    /// (no "~" in front, the user 2026-11-13); the rest is to the minute.
     /// </summary>
     private static string TimeOf(SystemChange c) =>
-        c.Kind == ChangeKind.Storage ? Lang.T("All day") : c.IsApproximate ? $"~{TimeText.At(c.Time, "h:mm tt")}" : c.Time.ToString(TimeText.Fit("h:mm tt"));
+        c.Kind == ChangeKind.Storage ? Lang.T("All day") : TimeText.Time(c.Time);
 
     private static string? TipOf(SystemChange c)
     {

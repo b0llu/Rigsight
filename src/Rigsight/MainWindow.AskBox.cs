@@ -23,6 +23,7 @@ public partial class MainWindow
         // Hangs from the box: its top on the box's, centred on it, from the sizes Windows gives as they are on screen (2026-10-27:
         // worked out by hand from the zoom, it was only centred at 100%).
         AskDrop.CustomPopupPlacementCallback = DropPlacement;
+        NoticesDrop.CustomPopupPlacementCallback = NoticesPlacement;
         PreviewMouseDown += (_, e) => { if (AskDrop.IsOpen && !AskDropRoot.IsMouseOver && !AskBox.IsMouseOver) CloseDrop(); };
         Deactivated += (_, _) => { if (AskDrop.IsOpen) CloseDrop(instant: true); };
         LocationChanged += (_, _) => { if (AskDrop.IsOpen) CloseDrop(instant: true); };
@@ -60,6 +61,19 @@ public partial class MainWindow
     /// </summary>
     internal static CustomPopupPlacement[] DropPlacement(Size popup, Size target, Point offset) =>
         [new CustomPopupPlacement(new Point((target.Width - popup.Width) / 2, 0), PopupPrimaryAxis.None)];
+
+    /// <summary>
+    /// The notifications list just under the bell, the drawn list's right edge on the bell's. Worked out from the sizes as
+    /// they are on screen, like the ask box's drop: a fixed offset in the XAML (2026-11-13) left it well to the left of
+    /// the bell once the pages were zoomed or Windows scaled, since the list is zoomed and the title bar isn't.
+    /// </summary>
+    private CustomPopupPlacement[] NoticesPlacement(Size popup, Size target, Point offset)
+    {
+        var m = NoticesDropRoot.Margin;
+        double laidOut = NoticesDropRoot.Width + m.Left + m.Right;
+        double scale = laidOut > 0 ? popup.Width / laidOut : 1;
+        return [new CustomPopupPlacement(new Point(target.Width - popup.Width + m.Right * scale, target.Height + 4 * scale), PopupPrimaryAxis.Horizontal)];
+    }
 
     /// <summary>
     /// A zoom change while it's open: opened again in place, at once, so it's measured and placed at the new zoom (2026-10-27:

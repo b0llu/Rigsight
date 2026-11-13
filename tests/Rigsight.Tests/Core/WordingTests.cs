@@ -48,6 +48,8 @@ public sealed class WordingTests
         (Ci(@"\bhit an unhandled\b"), "\"crashed with a …\""),
         (Ci(@"\bcolours?\b"), "\"color\" (US spelling across the app)"),
         (Ci(@"\blicence\b"), "\"license\" (US spelling across the app)"),
+        // The user, 2026-11-13: a time that isn't exact is shown alone, its window said on hover.
+        (Cs(@"~(\d{1,2}:\d{2}|\{[^}]*Time)"), "the time alone, \"7:42 AM\" (the window on hover)"),
     ];
 
     /// <summary>

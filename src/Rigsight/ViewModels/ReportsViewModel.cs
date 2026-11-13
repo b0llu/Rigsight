@@ -356,7 +356,7 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     private IReadOnlyList<HomeLine> ChangeLines(IEnumerable<Core.Stability.SystemChange> changes) =>
         HomeViewModel.ChangeLines(changes, ChangesShown, c =>
             c.Kind == Core.Stability.ChangeKind.Storage ? IsDay ? Lang.T("All day") : c.Time.ToString("ddd d MMM")
-            : IsDay ? (c.IsApproximate ? "~" : "") + c.Time.ToString(TimeText.Fit("h:mm tt")) : c.Time.ToString(TimeText.Fit("ddd d MMM, h:mm tt")));
+            : IsDay ? c.Time.ToString(TimeText.Fit("h:mm tt")) : c.Time.ToString(TimeText.Fit("ddd d MMM, h:mm tt")));
 
     partial void OnShowBackgroundAppsChanged(bool value) => SyncApps();
 

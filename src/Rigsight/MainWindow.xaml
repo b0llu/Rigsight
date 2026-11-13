@@ -784,11 +784,11 @@
             <Button x:Name="CloseButton" Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" Click="Close_Click" AutomationProperties.Name="{ctl:T 'Close'}" />
         </StackPanel>
     </Grid>
-    <!-- The recent notifications, under the bell, its right edge on the bell's: the last 30 days by day, newest first; a row
-         opens what it's about, as its card would have. Closed by a click elsewhere or a page change. -->
-    <Popup x:Name="NoticesDrop" PlacementTarget="{Binding ElementName=BellButton}" Placement="Bottom" HorizontalOffset="-424" VerticalOffset="4"
+    <!-- The recent notifications, under the bell, its right edge on the bell's (NoticesPlacement): the last 30 days by day,
+         newest first; a row opens what it's about, as its card would have. Closed by a click elsewhere or a page change. -->
+    <Popup x:Name="NoticesDrop" PlacementTarget="{Binding ElementName=BellButton}" Placement="Custom"
            AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade" IsOpen="{Binding Notices.IsOpen, Mode=TwoWay}">
-        <Border Width="440" Margin="14,0,14,20" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
+        <Border x:Name="NoticesDropRoot" Width="440" Margin="14,0,14,20" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
                 CornerRadius="{x:Static ctl:Corner.Tile}" AutomationProperties.Name="{ctl:T 'Notifications'}">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="24" ShadowDepth="8" Opacity="0.5" Color="Black" />

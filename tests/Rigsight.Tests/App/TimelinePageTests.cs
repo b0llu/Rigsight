@@ -157,16 +157,16 @@ public sealed class TimelinePageTests
         Ui.Run(() =>
         {
             var entries = vm.Days[0].Entries;
-            Assert.Equal(["~8:00 PM", "7:15 PM", "~9:00 AM", "All day"], entries.Select(e => e.TimeText));
+            Assert.Equal(["8:00 PM", "7:15 PM", "9:00 AM", "All day"], entries.Select(e => e.TimeText)); // never a "~" in front
             Assert.Equal("Between 7:50 PM and 8:00 PM", entries[0].TimeTip); // the ten minutes between two checks
             Assert.Null(entries[1].TimeTip); // exact: nothing to explain
             Assert.NotNull(entries[3].TimeTip);
 
             // A folded line carries the time of its newest update, approximate like it; so does each one under it.
             var folded = Assert.Single(vm.Days[1].Entries);
-            Assert.Equal(("3 apps updated", "~12:00 PM"), (folded.Title, folded.TimeText));
+            Assert.Equal(("3 apps updated", "12:00 PM"), (folded.Title, folded.TimeText));
             Assert.NotNull(folded.TimeTip);
-            Assert.All(folded.Children, c => Assert.StartsWith("~", c.TimeText));
+            Assert.All(folded.Children, c => Assert.NotNull(c.TimeTip));
         });
 
         // The check before is known: the range is the real one, with its day when the PC was off in between.

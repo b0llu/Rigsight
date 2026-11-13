@@ -244,13 +244,15 @@ public partial class MainWindow : Window
         double used = Core.Settings.AppZoom.Used(_vm.Settings.Current.Zoom, room);
         if (Body.LayoutTransform is not System.Windows.Media.ScaleTransform current ? used != 1 : current.ScaleX != used)
             Body.LayoutTransform = used == 1 ? System.Windows.Media.Transform.Identity : new System.Windows.Media.ScaleTransform(used, used);
-        // The title bar and the ask box's drop too (2026-10-27: they stayed at 100% while everything else grew).
+        // The title bar and the ask box's drop too (2026-10-27: they stayed at 100% while everything else grew), and the
+        // bell's list (2026-11-13: it stayed at 100% under a zoomed bell).
         if (used != _barZoom)
         {
             _barZoom = used;
             var scale = used == 1 ? System.Windows.Media.Transform.Identity : new System.Windows.Media.ScaleTransform(used, used);
             TitleBar.LayoutTransform = scale;
             AskDropRoot.LayoutTransform = scale;
+            NoticesDropRoot.LayoutTransform = scale;
             FitFrame();
             PlaceDrop();
         }
