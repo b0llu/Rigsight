@@ -187,6 +187,15 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.11.0", 11, 13,
+            better: [Lang.T("Opening RigSight from the tray, a notification or a widget no longer waits up to a second first, and neither do widget shortcuts."),
+                Lang.T("Storage lists Space you could free sooner, counting again only the folders that changed since the last count."),
+                Lang.T("RigSight opens a little faster, and so do Games and Timeline the first time you visit them."),
+                Lang.T("Every rewind now covers everything, and the settings for which are made, what goes in, what's left out and full screen are gone."),
+                Lang.T("Settings → Rewind lists your rewinds to watch or share again, and shared pictures use RigSight's own colors."),
+                Lang.T("Ask's next-question buttons skip questions the chat already asked or offered.")],
+            fixedBugs: [Lang.T("A crash no longer says the CPU wasn't overheating when it sat well above its usual while doing little."),
+                Lang.T("When RigSight started recording after a sudden shut-off, the crash says when Windows came back on, not when recording began.")]),
         V("1.10.0", 11, 12,
             feature: new(Lang.T("Your PC on widgets"), Lang.T("23 new tiles put fans, drives, internet use, crashes, PC health and your day on the desktop."),
                 [Lang.T("Point at a graph or its bars to see that day, hour, core or moment in detail."),
