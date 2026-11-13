@@ -63,8 +63,13 @@ def load_posts():
     posts.sort(key=lambda p: (p["happened"], p.get("order", 0)))
     ALL_SLUGS.update(p["slug"] for p in posts)
     for s in SERIES:
+        # Counted over released parts only, so a live post never says "part 5 of 6" while part 6 waits in the queue.
         part = [p for p in posts if p["series"] == s]
-        for i, p in enumerate(part, 1):
+        live = [p for p in part if p["slug"] in RELEASED]
+        held = [p for p in part if p["slug"] not in RELEASED]
+        for i, p in enumerate(live, 1):
+            p["part"], p["of"] = i, len(live)
+        for i, p in enumerate(held, len(live) + 1):
             p["part"], p["of"] = i, len(part)
     return posts
 
