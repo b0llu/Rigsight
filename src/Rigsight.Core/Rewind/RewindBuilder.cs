@@ -42,16 +42,15 @@ public static class RewindBuilder
 
     public static string IdOf(RewindKind kind, DateTime from) => $"{from:yyyy-MM}-{kind.ToString().ToLowerInvariant()}";
 
-    /// <summary>The period's facts with today's settings (what goes in, what is left out).</summary>
+    /// <summary>The period's facts, every topic in (choosing topics and leaving games out were removed 2026-11-13).</summary>
     public static RewindFacts Build(RigsightDb db, RewindKind kind, DateTime from, DateTime to, RigsightSettings settings, DateTime now)
     {
-        var r = settings.Rewind;
         var report = ReportBuilder.BuildCustom(db, from, to, settings);
         var apps = db.LoadApps().ToDictionary(a => a.Id);
         var f = new RewindFacts
         {
             Id = IdOf(kind, from), Kind = kind, From = from, To = to, Made = now,
-            Time = r.Time, Games = r.Games, Internet = r.Internet, Heat = r.Heat, Changes = r.Changes, Problems = r.Problems,
+            Time = true, Games = true, Internet = true, Heat = true, Changes = true, Problems = true,
             OnSec = report.OnSec, ActiveSec = report.ActiveSec,
             Days = (int)Math.Round((to - from).TotalDays),
         };
@@ -71,7 +70,7 @@ public static class RewindBuilder
         var allSessions = db.GetSessions(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to));
         var sessions = allSessions.Where(s => ReportBuilder.CategoryOf(apps, settings, s.AppId) == AppCategory.Game && s.ActiveSec >= 60).ToList();
         // Apps, for a PC used for more than games (or for no games at all): the most used, and when in the day.
-        f.TopApps = [.. report.Apps.Where(a => a.Category is not (AppCategory.Game or AppCategory.System) && a.ActiveSec >= 300 && !r.IsLeftOut(a.Exe))
+        f.TopApps = [.. report.Apps.Where(a => a.Category is not (AppCategory.Game or AppCategory.System) && a.ActiveSec >= 300)
             .OrderByDescending(a => a.ActiveSec).Take(5).Select(a => new RewindItem(a.Name, a.Exe, a.Path, a.ActiveSec, a.SessionCount))];
         Spread(allSessions, f.UseHours);
 
@@ -85,7 +84,7 @@ public static class RewindBuilder
             {
                 var end = m.AddMonths(1) < to ? m.AddMonths(1) : to;
                 double hours = Enumerable.Range((int)(m - from).TotalDays, (int)(end - m).TotalDays).Where(d => d < f.DayHours.Count).Sum(d => f.DayHours[d]);
-                var top = pool.Where(s => TimeUtil.FromUnix(s.Start) >= m && TimeUtil.FromUnix(s.Start) < end && apps.TryGetValue(s.AppId, out var a) && !r.IsLeftOut(a.Exe))
+                var top = pool.Where(s => TimeUtil.FromUnix(s.Start) >= m && TimeUtil.FromUnix(s.Start) < end && apps.TryGetValue(s.AppId, out var a))
                     .GroupBy(s => s.AppId).Select(g => (Id: g.Key, Sec: g.Sum(s => s.ActiveSec))).OrderByDescending(g => g.Sec).FirstOrDefault();
                 RewindItem? item = top.Sec > 0 && apps.TryGetValue(top.Id, out var topApp)
                     ? new RewindItem(ReportBuilder.NameOf(apps, settings, top.Id), topApp.Exe, topApp.Path, top.Sec) : null;
@@ -98,9 +97,9 @@ public static class RewindBuilder
         var stops = GameHistory.Stops(db, settings);
         var plays = games.ToDictionary(g => g.Id, g => GameHistory.Spans(db, [g.Id], stops).Where(p => p.Start >= pFrom && p.Start < pTo).ToList());
         f.Plays = plays.Values.Sum(p => p.Count);
-        f.TopGames = [.. games.Where(g => !r.IsLeftOut(g.Exe)).OrderByDescending(g => g.ActiveSec).Take(5)
+        f.TopGames = [.. games.OrderByDescending(g => g.ActiveSec).Take(5)
             .Select(g => new RewindItem(g.Name, g.Exe, g.Path, g.ActiveSec, plays[g.Id].Count))];
-        var longest = plays.Where(x => apps.TryGetValue(x.Key, out var a) && !r.IsLeftOut(a.Exe))
+        var longest = plays.Where(x => apps.TryGetValue(x.Key, out var a))
             .SelectMany(x => x.Value.Select(p => (App: x.Key, Play: p))).OrderByDescending(x => x.Play.Active).FirstOrDefault();
         if (longest.Play.Active > 0 && apps.TryGetValue(longest.App, out var app))
         {
@@ -113,9 +112,8 @@ public static class RewindBuilder
         double all = sessions.Sum(s => s.ActiveSec);
         f.NightShare = all > 0 ? night / all : 0;
 
-        // Heat: the period's highest readings, with what was in front then (a left-out app isn't named).
-        RewindHeat? Heat(Peak? p) => p is null ? null : new RewindHeat(p.Value, p.Time, Named(p.App), IsGame(p.App));
-        string? Named(string? name) => name is null || apps.Values.Any(a => r.IsLeftOut(a.Exe) && ReportBuilder.NameOf(apps, settings, a.Id) == name) ? null : name;
+        // Heat: the period's highest readings, with what was in front then.
+        RewindHeat? Heat(Peak? p) => p is null ? null : new RewindHeat(p.Value, p.Time, p.App, IsGame(p.App));
         bool IsGame(string? name) => name is not null && games.Any(g => g.Name == name);
         f.CpuHot = Heat(report.CpuTempPeak);
         f.GpuHot = Heat(report.GpuTempPeak);
@@ -125,23 +123,23 @@ public static class RewindBuilder
         var changes = db.GetChanges(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to));
         if (changes.Where(c => c.IsGraphicsDriver).MaxBy(c => c.Time) is { } driver)
             (f.NewDriver, f.NewDriverAt) = (driver.Now, driver.Time);
-        f.Installed = changes.Count(c => c.Kind == ChangeKind.AppInstalled && !r.IsLeftOut(c.Subject));
-        f.Updated = changes.Count(c => c.Kind == ChangeKind.AppUpdated && !r.IsLeftOut(c.Subject));
-        f.Removed = changes.Count(c => c.Kind == ChangeKind.AppRemoved && !r.IsLeftOut(c.Subject));
+        f.Installed = changes.Count(c => c.Kind == ChangeKind.AppInstalled);
+        f.Updated = changes.Count(c => c.Kind == ChangeKind.AppUpdated);
+        f.Removed = changes.Count(c => c.Kind == ChangeKind.AppRemoved);
 
         // Internet: the days' totals, as the Network page adds them up (a custom period's report has no internet part);
         // the apps that took in the most.
         long uFrom = TimeUtil.ToUnix(from), uTo = TimeUtil.ToUnix(to);
         var netDays = db.GetNetDays(uFrom, uTo);
         (f.Down, f.Up) = (netDays.Sum(d => d.Down), netDays.Sum(d => d.Up));
-        f.TopInternet = [.. db.GetNetAppTotals(uFrom, uTo).Where(u => u.Down > 0 && apps.TryGetValue(u.App, out var a) && !r.IsLeftOut(a.Exe))
+        f.TopInternet = [.. db.GetNetAppTotals(uFrom, uTo).Where(u => u.Down > 0 && apps.TryGetValue(u.App, out var a))
             .OrderByDescending(u => u.Down).Take(3)
             .Select(u => new RewindItem(ReportBuilder.NameOf(apps, settings, u.App), apps[u.App].Exe, apps[u.App].Path, u.Down))];
 
         // Problems: counted as the Crashes page counts them.
-        f.AppCrashes = report.Crashes.Count(c => c.Kind is CrashKind.AppCrash or CrashKind.AppHang && !r.IsLeftOut(c.AppExe));
+        f.AppCrashes = report.Crashes.Count(c => c.Kind is CrashKind.AppCrash or CrashKind.AppHang);
         bool IsShutOff(Stability.CrashEvent c) => c.Kind == CrashKind.SystemCrash || c is { Kind: CrashKind.UnexpectedShutdown } && c.Moment != PowerMoment.ShuttingDown;
-        bool IsAppCrash(Stability.CrashEvent c) => c.Kind is CrashKind.AppCrash or CrashKind.AppHang && !r.IsLeftOut(c.AppExe);
+        bool IsAppCrash(Stability.CrashEvent c) => c.Kind is CrashKind.AppCrash or CrashKind.AppHang;
         f.ShutOffs = report.Crashes.Count(IsShutOff);
         int DayOf(Stability.CrashEvent c) => (int)(c.Time.Date - from.Date).TotalDays;
         f.CrashesByDay = [.. Enumerable.Range(0, dayCount).Select(k => report.Crashes.Count(c => IsAppCrash(c) && DayOf(c) == k))];

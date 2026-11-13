@@ -1735,6 +1735,7 @@ internal sealed partial class AgentContext : ApplicationContext
         var now = DateTime.Now;
         if (now - _rewindsChecked < TimeSpan.FromMinutes(30)) return;
         _rewindsChecked = now;
+        if (Core.Rewind.RewindStore.Quiet) return;
         var settings = _settings;
         List<Core.Rewind.RewindFacts> made;
         try { made = Core.Rewind.RewindStore.MakeDue(_db, settings, now); }

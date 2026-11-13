@@ -55,7 +55,7 @@ public partial class RewindLayer : UserControl
                 DrawCard();
                 break;
             case nameof(RewindViewModel.IsSharing):
-                if (_vm.IsSharing) DrawShare(); else { PreviewHost.Child = null; AccentSwatches.Children.Clear(); DrawCard(); }
+                if (_vm.IsSharing) DrawShare(); else { PreviewHost.Child = null; DrawCard(); }
                 break;
             case nameof(RewindViewModel.Previewed):
                 DrawPreview();
@@ -163,8 +163,7 @@ public partial class RewindLayer : UserControl
     {
         if (_vm is null || !_vm.IsSharing) return;
         DrawPreview();
-        DrawSwatches();
-        // The small pictures follow the look: built again.
+        // The small pictures follow the shape: built again.
         var source = PickList.ItemsSource;
         PickList.ItemsSource = null;
         PickList.ItemsSource = source;
@@ -193,37 +192,5 @@ public partial class RewindLayer : UserControl
     {
         if (_vm?.Watched is not { } f || sender is not Border box || box.Tag is not SharePick p) return;
         box.Child = new Viewbox { Stretch = Stretch.Fill, Child = RewindPainter.Card(p.Card, f, p.Index, _vm.Cards.Count, "story", _vm.Look, 1080, 1920) };
-    }
-
-    /// <summary>The accents, RigSight's own colours first: a ring on the one in use.</summary>
-    private void DrawSwatches()
-    {
-        if (_vm is null) return;
-        var look = _vm.Look;
-        AccentSwatches.Children.Clear();
-        foreach (var a in Accents.All)
-        {
-            Brush fill = a.Key == Accents.Mono
-                ? new LinearGradientBrush(Color.FromRgb(0x5B, 0x8C, 0xFF), Color.FromRgb(0xF4, 0x72, 0xB6), 45)
-                : new SolidColorBrush(a.OnDark);
-            string key = a.Key;
-            AccentSwatches.Children.Add(Swatch(16, fill, look.Accent == key, key == Accents.Mono ? Core.Lang.T("RigSight colors") : Core.Lang.T(a.Name), () => _vm.SetAccent(key)));
-        }
-    }
-
-    private static Button Swatch(double size, Brush fill, bool on, string name, Action pick)
-    {
-        var dot = new Border { Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Background = fill };
-        var ring = new Border
-        {
-            Padding = new Thickness(2), CornerRadius = new CornerRadius(size / 2 + 4), BorderThickness = new Thickness(on ? 2 : 0), Child = dot,
-        };
-        ring.SetResourceReference(Border.BorderBrushProperty, "TextBrush");
-        var b = new Button { Content = ring, Margin = new Thickness(2, 0, 2, 0), Cursor = Cursors.Hand, Focusable = false, ToolTip = name };
-        b.Template = (ControlTemplate)System.Windows.Markup.XamlReader.Parse(
-            "<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='Button'><Border Background='Transparent'><ContentPresenter /></Border></ControlTemplate>");
-        System.Windows.Automation.AutomationProperties.SetName(b, name);
-        b.Click += (_, _) => pick();
-        return b;
     }
 }

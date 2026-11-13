@@ -35,7 +35,7 @@ public static class SharedData
     public static RigsightSettings ResetSettings()
     {
         var settings = SeedData.QuietSettings();
-        settings.Rewind.FullScreen = false;
+        File.WriteAllText(Rigsight.Core.Rewind.RewindStore.QuietFile, "");
         settings.CustomPages.Add(AppUi.AppHost.Dashboard());
         SettingsStore.Save(settings);
         return settings;

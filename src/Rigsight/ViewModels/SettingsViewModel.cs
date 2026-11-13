@@ -365,7 +365,6 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
                 }
             }
             Set(s => s.Tracking.KeepHistoryDays = value);
-            Rewind?.HistoryChanged();
         }
     }
 

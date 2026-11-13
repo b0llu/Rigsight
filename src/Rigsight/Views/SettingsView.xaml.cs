@@ -26,28 +26,17 @@ public partial class SettingsView : UserControl
         // Each time Settings is opened (the page is kept between visits), and when something new needs a look while it's
         // open: go straight to that section.
         IsVisibleChanged += (_, e) => { if (e.NewValue is true) ScrollToAttention(); };
-        // A list dropped from a search box closes on a click anywhere else. The popup's own closing can't be relied on:
-        // the box takes the mouse on the press and lets it go on the release, after the list opened, and from then on
-        // a click outside never reached the popup.
-        PreviewMouseDown += (_, e) => ClosePickers(e.OriginalSource as DependencyObject);
-        // Signed up while the page is in a window, and off again as it leaves: the window outlives the page (a theme change
-        // builds a new one), and a handler left on it kept every old Settings page in memory (MemoryLeakTests).
-        Window? watched = null;
-        // The same for the key boxes' view model, which outlives the page too.
+        // The key boxes' view model outlives the page (a theme change builds a new one): signed up while the page is
+        // shown and off again as it leaves, or every old Settings page stays in memory (MemoryLeakTests).
         AiSettingsViewModel? keys = null;
         Loaded += (_, _) =>
         {
-            if (watched is not null) watched.Deactivated -= OnWindowDeactivated;
-            watched = Window.GetWindow(this);
-            if (watched is not null) watched.Deactivated += OnWindowDeactivated;
             if (keys is not null) { keys.PasteCleared -= OnPasteCleared; keys.ModelCardWanted -= OnModelCardWanted; }
             keys = (DataContext as SettingsViewModel)?.Ai;
             if (keys is not null) { keys.PasteCleared += OnPasteCleared; keys.ModelCardWanted += OnModelCardWanted; }
         };
         Unloaded += (_, _) =>
         {
-            if (watched is not null) watched.Deactivated -= OnWindowDeactivated;
-            watched = null;
             if (keys is not null) { keys.PasteCleared -= OnPasteCleared; keys.ModelCardWanted -= OnModelCardWanted; }
             keys = null;
         };
@@ -329,32 +318,6 @@ public partial class SettingsView : UserControl
         return null;
     }
 
-    private void OnWindowDeactivated(object? sender, EventArgs e) => ClosePickers(null);
-
-    /// <summary>Closes each open drop-down list unless the click was on the box that opened it (which keeps it open).</summary>
-    private void ClosePickers(DependencyObject? clicked)
-    {
-        // A click on words in a line (a Run, as each model's name and size are) comes from the words, not a Visual:
-        // taken from the line they are in, or it would count as a click outside and close the list before the pick.
-        while (clicked is FrameworkContentElement words) clicked = words.Parent;
-        bool On(FrameworkElement box) => clicked is Visual v && (v == box || box.IsAncestorOf(v));
-        if (DataContext is not SettingsViewModel vm) return;
-        // A click inside an open list (a popup, its own window) reaches here too: it is a pick, so the list stays open
-        // until the pick closes it (closing it on the press lost every pick).
-        if (clicked is Visual inside && PresentationSource.FromVisual(inside) is { } source && source != PresentationSource.FromVisual(this)) return;
-        if (vm.Rewind is { IsPicking: true } rewind && !(Named("LeaveSearchBox") is { } box && On(box))) rewind.IsPicking = false;
-    }
-
-    /// <summary>Settings → Rewind's "Never show": the list opens as the click on the search box lets go, or as it gets the keyboard.</summary>
-    private void LeaveSearch_Open(object sender, System.Windows.Input.InputEventArgs e) =>
-        (DataContext as ViewModels.SettingsViewModel)?.Rewind?.OpenPickerCommand.Execute(null);
-
-    /// <summary>Reached with the keyboard, the list opens too; a click's own focus waits for the click to end.</summary>
-    private void LeaveSearch_Focus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
-    {
-        if (System.Windows.Input.Mouse.LeftButton == System.Windows.Input.MouseButtonState.Released) LeaveSearch_Open(sender, e);
-    }
-
     /// <summary>Settings › Ask RigSight → Your API key: what's pasted goes to the view model (a PasswordBox can't be bound).</summary>
     private void ApiKey_Changed(object sender, System.Windows.RoutedEventArgs e)
     {
@@ -398,12 +361,5 @@ public partial class SettingsView : UserControl
             if (Find(child, name) is { } deeper) return deeper;
         }
         return null;
-    }
-
-    private void LeaveSearch_Key(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        if (DataContext is not ViewModels.SettingsViewModel { Rewind: { } rewind }) return;
-        if (e.Key == System.Windows.Input.Key.Escape) { rewind.IsPicking = false; e.Handled = true; }
-        else rewind.OpenPickerCommand.Execute(null);
     }
 }

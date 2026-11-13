@@ -21,35 +21,19 @@ public sealed partial class RewindEntry(RewindFacts facts, RewindViewModel owner
     public string Hue => RewindCards.KindHue(Facts.Kind);
     public bool IsNew => !Facts.Seen;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Line))]
-    private bool _recreating;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Line))]
-    private bool _recreated;
-
-    public bool CanRecreate => RewindStore.CanRecreate(Facts, owner.KeepDays, DateTime.Now);
-
     public string Line
     {
         get
         {
             int cards = RewindCards.Of(Facts).Count;
             string made = Lang.T($"made {Facts.Made.ToString("d MMMM", System.Globalization.CultureInfo.CurrentCulture)}");
-            string line = $"{RewindCards.KindName(Facts.Kind)} · {(cards == 1 ? Lang.T("1 card") : Lang.T($"{cards} cards"))} · {made}";
-            if (Recreated) return Lang.T("Recreated just now");
-            return CanRecreate ? line : $"{line} · {Lang.T("too old to recreate")}";
+            return $"{RewindCards.KindName(Facts.Kind)} · {(cards == 1 ? Lang.T("1 card") : Lang.T($"{cards} cards"))} · {made}";
         }
     }
 
-    /// <summary>History's length changed: whether it can be recreated, and its line, may have too.</summary>
-    public void Refresh() { OnPropertyChanged(nameof(CanRecreate)); OnPropertyChanged(nameof(Line)); }
-
+    // Watching and sharing are all a rewind does (the user, 2026-11-13: Recreate, Remove and every setting removed).
     [RelayCommand] private void Watch() => owner.Watch(Facts);
     [RelayCommand] private void Share() => owner.Watch(Facts, toShare: true);
-    [RelayCommand] private Task Recreate() => owner.RecreateAsync(this);
-    [RelayCommand] private void Remove() => owner.Remove(this);
 }
 
 /// <summary>A card in Share's list: ticked to go in the pictures, and the one previewed.</summary>
@@ -97,8 +81,6 @@ public sealed partial class RewindViewModel : ObservableObject
     /// <summary>New rewinds that waited because another card showed this start: the sidebar's line now, full screen next start.</summary>
     private readonly HashSet<string> _waitingTurn = [];
 
-    public Action? OpenSettings { get; set; }
-    public int KeepDays => _settings.Current.Tracking.KeepHistoryDays;
     private Core.Settings.RewindSettings S => _settings.Current.Rewind;
 
     private void OnPropertyChanged(params string[] names)
@@ -127,8 +109,9 @@ public sealed partial class RewindViewModel : ObservableObject
     private void RaiseWaiting() => OnPropertyChanged(nameof(Waiting), nameof(HasWaiting), nameof(WaitingTitle), nameof(WaitingLine));
 
     /// <summary>
-    /// At start: makes what has finished since, then shows the biggest new one full screen (when that's wanted). A test
-    /// copy can be asked to make the month so far (RIGSIGHT_REWIND_THIS_MONTH), to try it before a month ends.
+    /// At start: makes what has finished since, then shows the biggest new one full screen. A test copy can be asked to
+    /// make the month so far (RIGSIGHT_REWIND_THIS_MONTH), to try it before a month ends, or to make and show none
+    /// (<see cref="RewindStore.Quiet"/>).
     /// </summary>
     /// <param name="waitTurn">Another big card showed this start (the welcome, What's new): new ones wait as the sidebar's
     /// line and open full screen next start, once (2026-10-30: from 1 Nov, What's new and the first rewind stacked).</param>
@@ -136,6 +119,7 @@ public sealed partial class RewindViewModel : ObservableObject
     public async Task StartAsync(bool waitTurn = false, Action? shown = null)
     {
         var now = DateTime.Now;
+        if (RewindStore.Quiet) return;
         await EnsureGamesAsync();
         bool thisMonth = RigsightPaths.IsTestInstance && Environment.GetEnvironmentVariable("RIGSIGHT_REWIND_THIS_MONTH") == "1";
         await _reports.QueryAsync((db, s) =>
@@ -174,7 +158,8 @@ public sealed partial class RewindViewModel : ObservableObject
         // Everything new is announced now: the biggest full screen, the rest in the list.
         foreach (var e in fresh) { e.Facts.Announced = true; RewindStore.Save(e.Facts); }
         var biggest = fresh.OrderByDescending(e => e.Facts.To).ThenByDescending(e => e.Facts.Kind).First();
-        if (S.FullScreen) { Reveal(biggest.Facts); shown?.Invoke(); }
+        Reveal(biggest.Facts);
+        shown?.Invoke();
         RaiseWaiting();
     }
 
@@ -194,7 +179,6 @@ public sealed partial class RewindViewModel : ObservableObject
     [ObservableProperty] private RewindFacts? _revealed;
     [ObservableProperty] private string _revealTitle = "";
     [ObservableProperty] private string _revealSub = "";
-    [ObservableProperty] private bool _askedNoFullScreen;
     partial void OnIsRevealingChanged(bool value) { RaiseWaiting(); OnPropertyChanged(nameof(IsOpen)); }
 
     /// <summary>The layer is over the window: the full screen, or a rewind being watched.</summary>
@@ -212,30 +196,11 @@ public sealed partial class RewindViewModel : ObservableObject
             _ => RewindCards.KindName(f.Kind),
         };
         RevealSub = $"{length} · {(n == 1 ? Lang.T("1 card") : Lang.T($"{n} cards"))}";
-        AskedNoFullScreen = false;
         IsRevealing = true;
     }
 
     [RelayCommand] private void WatchRevealed() { if (Revealed is { } f) { IsRevealing = false; Watch(f); } }
     [RelayCommand] private void Later() => IsRevealing = false;
-
-    [RelayCommand]
-    private void NoFullScreen()
-    {
-        _settings.Update(s => s.Rewind.FullScreen = false);
-        AskedNoFullScreen = true;
-        OnPropertyChanged(nameof(FullScreen));
-    }
-
-    [RelayCommand]
-    private void UndoNoFullScreen()
-    {
-        _settings.Update(s => s.Rewind.FullScreen = true);
-        AskedNoFullScreen = false;
-        OnPropertyChanged(nameof(FullScreen));
-    }
-
-    [RelayCommand] private void RevealSettings() { IsRevealing = false; OpenSettings?.Invoke(); }
 
     // ── Watching ─────────────────────────────────────────────────────────
     [ObservableProperty] private bool _isWatching;
@@ -288,21 +253,16 @@ public sealed partial class RewindViewModel : ObservableObject
     [ObservableProperty] private SharePick? _previewed;
     public string Shape { get => S.ShareShape is "story" or "post" or "wide" ? S.ShareShape : "story"; set { _settings.Update(s => s.Rewind.ShareShape = value); OnPropertyChanged(); OnPropertyChanged(nameof(ShapeSize)); LookChanged?.Invoke(); } }
     public string ShapeSize => RewindPainter.Sizes[Shape] is var (w, h) ? $"{w} × {h}" : "";
-    /// <summary>RigSight's own colours for the cards; an accent picked in Share recolours them all.</summary>
+    /// <summary>RigSight's own colours for the cards, watched and shared alike (Share's colours removed 2026-11-13).</summary>
     public RewindLook Own => new(Accents.Mono);
-    public RewindLook Look => new(S.ShareAccent.Length > 0 ? Accents.Normalize(S.ShareAccent) : Accents.Mono);
-    public bool LookIsApps => Look == Own;
+    public RewindLook Look => Own;
     public string ShareTitle => Watched is { } f ? Lang.T($"Share your {RewindCards.Title(f)} rewind") : "";
     public int IncludedCount => Picks.Count(p => p.Included);
     public string PickCount => Lang.T($"{IncludedCount} of {Picks.Count}");
     public string CopyText => IncludedCount == 1 ? Lang.T("Copy 1 picture") : Lang.T($"Copy {IncludedCount} pictures");
 
-    /// <summary>The view redraws the preview and the small pictures when the shape or look changes.</summary>
+    /// <summary>The view redraws the preview and the small pictures when the shape changes.</summary>
     public event Action? LookChanged;
-
-    public void SetAccent(string key) { _settings.Update(s => s.Rewind.ShareAccent = key == Accents.Mono ? "" : key); RaiseLook(); }
-    [RelayCommand] private void SameAsApp() { _settings.Update(s => { s.Rewind.ShareAccent = ""; }); RaiseLook(); }
-    private void RaiseLook() { OnPropertyChanged(nameof(Look), nameof(LookIsApps)); LookChanged?.Invoke(); }
 
     [RelayCommand]
     private void OpenShare()
@@ -315,7 +275,7 @@ public sealed partial class RewindViewModel : ObservableObject
             Picks.Add(p);
         }
         Preview(Picks.FirstOrDefault());
-        OnPropertyChanged(nameof(ShareTitle), nameof(IncludedCount), nameof(PickCount), nameof(CopyText), nameof(Shape), nameof(ShapeSize), nameof(Look), nameof(LookIsApps));
+        OnPropertyChanged(nameof(ShareTitle), nameof(IncludedCount), nameof(PickCount), nameof(CopyText), nameof(Shape), nameof(ShapeSize));
         IsSharing = true;
     }
 
@@ -402,114 +362,5 @@ public sealed partial class RewindViewModel : ObservableObject
         Toast = text;
         await Task.Delay(3500);
         if (ask == _toastAsk) Toast = "";
-    }
-
-    // ── Settings → Rewind ────────────────────────────────────────────────
-    public bool Month { get => S.Month; set { _settings.Update(s => s.Rewind.Month = value); OnPropertyChanged(); } }
-    public bool Quarter { get => S.Quarter; set { _settings.Update(s => s.Rewind.Quarter = value); OnPropertyChanged(); } }
-    public bool Half { get => S.Half && CanHalf; set { _settings.Update(s => s.Rewind.Half = value); OnPropertyChanged(); } }
-    public bool Year { get => S.Year && CanYear; set { _settings.Update(s => s.Rewind.Year = value); OnPropertyChanged(); } }
-    public bool CanQuarter => RewindStore.HistoryAllows(RewindKind.Quarter, KeepDays);
-    public bool CanHalf => RewindStore.HistoryAllows(RewindKind.Half, KeepDays);
-    public bool CanYear => RewindStore.HistoryAllows(RewindKind.Year, KeepDays);
-    public bool HistoryTooShort => !CanYear;
-    public string HistoryNote => !CanQuarter ? Lang.T("History is kept for less than 3 months, so only monthly rewinds can be made.")
-        : !CanHalf ? Lang.T("History is kept for 3 months, so 6-month and yearly rewinds can’t be made.")
-        : Lang.T("History is kept for less than a year, so yearly rewinds can’t be made.");
-
-    public bool Time { get => S.Time; set { _settings.Update(s => s.Rewind.Time = value); OnPropertyChanged(); } }
-    public bool Games { get => S.Games; set { _settings.Update(s => s.Rewind.Games = value); OnPropertyChanged(); } }
-    public bool Internet { get => S.Internet; set { _settings.Update(s => s.Rewind.Internet = value); OnPropertyChanged(); } }
-    public bool Heat { get => S.Heat; set { _settings.Update(s => s.Rewind.Heat = value); OnPropertyChanged(); } }
-    public bool Changes { get => S.Changes; set { _settings.Update(s => s.Rewind.Changes = value); OnPropertyChanged(); } }
-    public bool Problems { get => S.Problems; set { _settings.Update(s => s.Rewind.Problems = value); OnPropertyChanged(); } }
-    public bool FullScreen { get => S.FullScreen; set { _settings.Update(s => s.Rewind.FullScreen = value); OnPropertyChanged(); } }
-    public bool Notify { get => S.Notify; set { _settings.Update(s => s.Rewind.Notify = value); OnPropertyChanged(); } }
-
-    /// <summary>Settings → History changed: what can be made, and what can be recreated, may have too.</summary>
-    public void HistoryChanged()
-    {
-        OnPropertyChanged(nameof(Half), nameof(Year), nameof(CanQuarter), nameof(CanHalf), nameof(CanYear), nameof(HistoryTooShort), nameof(HistoryNote));
-        foreach (var e in Entries) e.Refresh();
-    }
-
-    public async Task RecreateAsync(RewindEntry entry)
-    {
-        if (entry.Recreating || !entry.CanRecreate) return;
-        entry.Recreating = true;
-        var old = entry.Facts;
-        var fresh = await _reports.QueryAsync((db, s) => RewindStore.Recreate(db, s, old, DateTime.Now));
-        entry.Recreating = false;
-        if (fresh is null) return;
-        entry.Facts = fresh;
-        entry.Recreated = true;
-        if (Watched?.Id == fresh.Id) { Watched = fresh; Cards = RewindCards.Of(fresh); }
-    }
-
-    public void Remove(RewindEntry entry)
-    {
-        RewindStore.Remove(entry.Facts.Id);
-        Entries.Remove(entry);
-        OnPropertyChanged(nameof(HasEntries));
-        RaiseWaiting();
-    }
-
-    // ── Never show in a rewind ───────────────────────────────────────────
-    public sealed record LeaveOption(string Exe, string Name, string? Path, string Time, bool IsLeftOut);
-
-    [ObservableProperty] private IReadOnlyList<LeaveOption> _leaveOptions = [];
-    [ObservableProperty] private string _leaveSearch = "";
-    [ObservableProperty] private bool _isPicking;
-    private List<(string Exe, string Name, string? Path, double Sec)> _used = [];
-
-    public IReadOnlyList<LeaveOption> LeftOut => [.. S.LeftOut.Select(exe =>
-        _used.FirstOrDefault(u => string.Equals(u.Exe, exe, StringComparison.OrdinalIgnoreCase)) is { Exe: not null } u
-            ? new LeaveOption(u.Exe, u.Name, u.Path, "", true)
-            : new LeaveOption(exe, Path.GetFileNameWithoutExtension(exe), null, "", true))];
-    public bool HasLeftOut => S.LeftOut.Count > 0;
-
-    partial void OnLeaveSearchChanged(string value) => FilterLeave();
-
-    /// <summary>The most used games and apps of the last month, for the picker.</summary>
-    public async Task LoadUsedAsync()
-    {
-        var to = DateTime.Now;
-        var report = await _reports.QueryAsync((db, s) => Core.Reports.ReportBuilder.BuildAppTotals(db, to.AddDays(-30), to,
-            db.LoadApps().ToDictionary(a => a.Id), s));
-        _used = report is null ? [] : [.. report.Apps.Where(a => a.ActiveSec >= 60).OrderByDescending(a => a.ActiveSec).Select(a => (a.Exe, a.Name, a.Path, a.ActiveSec))];
-        FilterLeave();
-        OnPropertyChanged(nameof(LeftOut));
-    }
-
-    private void FilterLeave()
-    {
-        var words = TextMatch.Words(LeaveSearch);
-        LeaveOptions = [.. _used.Where(u => words.Length == 0 || TextMatch.Has(words, u.Name, u.Exe)).Take(30)
-            .Select(u => new LeaveOption(u.Exe, u.Name, u.Path, Units.Duration(u.Sec), S.IsLeftOut(u.Exe)))];
-    }
-
-    [RelayCommand]
-    private async Task OpenPicker()
-    {
-        IsPicking = true;
-        if (_used.Count == 0) await LoadUsedAsync();
-    }
-
-    [RelayCommand]
-    private void LeaveOut(LeaveOption? o)
-    {
-        if (o is null || S.IsLeftOut(o.Exe)) return;
-        _settings.Update(s => s.Rewind.LeftOut.Add(o.Exe));
-        FilterLeave();
-        OnPropertyChanged(nameof(LeftOut), nameof(HasLeftOut));
-    }
-
-    [RelayCommand]
-    private void ShowAgain(LeaveOption? o)
-    {
-        if (o is null) return;
-        _settings.Update(s => s.Rewind.LeftOut.RemoveAll(x => string.Equals(x, o.Exe, StringComparison.OrdinalIgnoreCase)));
-        FilterLeave();
-        OnPropertyChanged(nameof(LeftOut), nameof(HasLeftOut));
     }
 }

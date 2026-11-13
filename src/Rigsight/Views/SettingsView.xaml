@@ -56,38 +56,6 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <!-- Settings → Rewind: a switch as a tile (a coloured icon, its name and a short line, a tick), so a few of them
-             sit side by side instead of one tall row each. Off: the icon greys and the name dims. -->
-        <Style x:Key="RewindTile" TargetType="CheckBox">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="0,0,8,8" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="CheckBox">
-                        <ctl:SmoothBorder x:Name="Bd" CornerRadius="{x:Static ctl:Corner.Field}" Padding="12,10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1">
-                            <DockPanel>
-                                <Border x:Name="Tick" DockPanel.Dock="Right" Width="18" Height="18" CornerRadius="{x:Static ctl:Corner.Chip}" VerticalAlignment="Center" Margin="10,0,0,0"
-                                        BorderThickness="1" BorderBrush="{DynamicResource FaintBrush}">
-                                    <TextBlock x:Name="TickMark" Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S11}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource OnAccentBrush}" Visibility="Collapsed" />
-                                </Border>
-                                <ContentPresenter x:Name="Body" VerticalAlignment="Center" />
-                            </DockPanel>
-                        </ctl:SmoothBorder>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" /></Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Tick" Property="Background" Value="{DynamicResource AccentBrush}" />
-                                <Setter TargetName="Tick" Property="BorderThickness" Value="0" />
-                                <Setter TargetName="TickMark" Property="Visibility" Value="Visible" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="False"><Setter TargetName="Body" Property="Opacity" Value="0.5" /></Trigger>
-                            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Opacity" Value="0.45" /></Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
         <!-- A heading inside a tab that holds two groups (Privacy under Tracking, Updates and About): bold and white. -->
         <Style x:Key="SubHead" TargetType="TextBlock">
             <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Heading}" />
@@ -2391,16 +2359,18 @@
             </ctl:SmoothBorder>
             </StackPanel>
 
-            <!-- Rewind: the rewinds made (fixed height, scrolling inside), what is made, what goes in, how one is announced,
-                 and what is never shown. Compact: tiles side by side, not a tall row for each switch. -->
+            <!-- Rewind: the rewinds made (fixed height, scrolling inside), each to watch or share. Nothing else: which are
+                 made, what goes in, full screen and what is never shown were removed at the user's word (2026-11-13). -->
             <ctl:LazyTab Shown="{Binding IsRewind}"><ctl:LazyTab.Body><DataTemplate>
             <StackPanel>
             <StackPanel DataContext="{Binding Rewind}">
             <TextBlock Text="{ctl:T 'Your rewinds'}" Style="{StaticResource SubHead}" Margin="2,0,0,10" />
-            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Height="250">
+            <!-- As tall as its rows, scrolling once it passes 440: alone on the tab now, a fixed 250 left it mostly empty.
+                 The last row's line goes under the card's own edge (the card clips it). -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" MaxHeight="440">
                 <Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding HasEntries, Converter={StaticResource Vis}}">
-                        <ItemsControl ItemsSource="{Binding Entries}">
+                        <ItemsControl ItemsSource="{Binding Entries}" Margin="0,0,0,-1">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="14,10">
@@ -2414,16 +2384,6 @@
                                                 </Button>
                                                 <Button Style="{StaticResource GhostButton}" Command="{Binding ShareCommand}" Margin="0,0,6,0" AutomationProperties.Name="{ctl:T 'Share'}">
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,6,0" /><TextBlock Text="{ctl:T 'Share'}" /></StackPanel>
-                                                </Button>
-                                                <Button Style="{StaticResource GhostButton}" Command="{Binding RecreateCommand}" IsEnabled="{Binding CanRecreate}" Margin="0,0,6,0" AutomationProperties.Name="{ctl:T 'Recreate'}"
-                                                        ToolTip="{ctl:T 'Made again with the settings below, in place of this one'}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <ctl:Spinner Width="16" Height="16" StrokeThickness="2" Margin="0,0,6,0" Visibility="{Binding Recreating, Converter={StaticResource Vis}}" />
-                                                        <TextBlock Text="{ctl:T 'Recreate'}" />
-                                                    </StackPanel>
-                                                </Button>
-                                                <Button Style="{StaticResource DangerIconButton}" Command="{Binding RemoveCommand}" AutomationProperties.Name="{ctl:T 'Remove'}" ToolTip="{ctl:T 'Remove'}">
-                                                    <TextBlock Text="&#xE74D;" />
                                                 </Button>
                                             </StackPanel>
                                             <StackPanel VerticalAlignment="Center">
@@ -2440,199 +2400,9 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
-                    <TextBlock Text="{ctl:T 'No rewinds yet. The first one is made when a month ends.'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <TextBlock Text="{ctl:T 'No rewinds yet. The first one is made when a month ends.'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16,28"
                                Visibility="{Binding HasEntries, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                 </Grid>
-            </ctl:SmoothBorder>
-
-            <TextBlock Text="{ctl:T 'Rewinds to make'}" Style="{StaticResource SubHead}" />
-            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="14,10" Margin="0,0,0,10" Visibility="{Binding HistoryTooShort, Converter={StaticResource Vis}}">
-                <DockPanel>
-                    <TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,10,0" />
-                    <TextBlock Text="{Binding HistoryNote}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                </DockPanel>
-            </ctl:SmoothBorder>
-            <UniformGrid Columns="4" Margin="0,0,-8,0">
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Month}" AutomationProperties.Name="{ctl:T 'Every month'}">
-                    <DockPanel>
-                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
-                            <TextBlock Text="&#xE787;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Every month'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Quarter}" IsEnabled="{Binding CanQuarter}" AutomationProperties.Name="{ctl:T 'Every 3 months'}">
-                    <DockPanel>
-                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
-                            <TextBlock Text="&#xE787;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource GpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Every 3 months'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Half}" IsEnabled="{Binding CanHalf}" AutomationProperties.Name="{ctl:T 'Every 6 months'}">
-                    <DockPanel>
-                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
-                            <TextBlock Text="&#xE787;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource PurpleBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Every 6 months'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Year}" IsEnabled="{Binding CanYear}" AutomationProperties.Name="{ctl:T 'Every year'}">
-                    <DockPanel>
-                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
-                            <TextBlock Text="&#xE787;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource PinkBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Every year'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </CheckBox>
-            </UniformGrid>
-
-            <TextBlock Text="{ctl:T 'What goes in'}" Style="{StaticResource SubHead}" Margin="2,16,0,10" />
-            <UniformGrid Columns="3" Margin="0,0,-8,0">
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Time}" AutomationProperties.Name="{ctl:T 'Time on the PC'}">
-                    <DockPanel>
-                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
-                            <TextBlock Text="&#xE7F4;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource SkyBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Time on the PC'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{ctl:T 'PC on for, busiest day'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Games}" AutomationProperties.Name="{ctl:T 'Games'}">
-                    <DockPanel>
-                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
-                            <TextBlock Text="&#xE7FC;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource PurpleBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Games'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{ctl:T 'Most played, longest sitting'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Internet}" AutomationProperties.Name="{ctl:T 'Internet'}">
-                    <DockPanel>
-                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
-                            <TextBlock Text="&#xE774;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Internet'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{ctl:T 'What you downloaded'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Heat}" AutomationProperties.Name="{ctl:T 'How hot it got'}">
-                    <DockPanel>
-                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
-                            <TextBlock Text="&#xE9CA;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource GpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'How hot it got'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{ctl:T 'Hottest moments'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Changes}" AutomationProperties.Name="{ctl:T 'What changed'}">
-                    <DockPanel>
-                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
-                            <TextBlock Text="&#xE81C;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource CpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'What changed'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{ctl:T 'Drivers and apps'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </CheckBox>
-                <CheckBox Style="{StaticResource RewindTile}" IsChecked="{Binding Problems}" AutomationProperties.Name="{ctl:T 'Problems'}">
-                    <DockPanel>
-                        <Border Width="30" Height="30" CornerRadius="{x:Static ctl:Corner.Field}" Margin="0,0,12,0" Background="{DynamicResource HoverBrush}">
-                            <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource PinkBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{ctl:T 'Problems'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{ctl:T 'Crashes and shutdowns'}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DockPanel>
-                </CheckBox>
-            </UniformGrid>
-
-            <TextBlock Text="{ctl:T 'When one is ready'}" Style="{StaticResource SubHead}" Margin="2,16,0,10" />
-            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="16,2">
-                <StackPanel>
-                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding FullScreen}" Margin="0,10">
-                        <TextBlock Text="{ctl:T 'Show it full screen when RigSight opens'}" Style="{StaticResource Title}" />
-                    </CheckBox>
-                </StackPanel>
-            </ctl:SmoothBorder>
-
-            <TextBlock Text="{ctl:T 'Never show in a rewind'}" Style="{StaticResource SubHead}" Margin="2,16,0,10" />
-            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="12">
-                <StackPanel>
-                    <Grid>
-                        <!-- The box is the search: clicked or typed in, the list opens under it and narrows as you type. -->
-                        <TextBox x:Name="LeaveSearchBox" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search your games and apps…'}"
-                                 AutomationProperties.Name="{ctl:T 'Search your games and apps'}" ctl:Debounce.Text="{Binding LeaveSearch}"
-                                 GotKeyboardFocus="LeaveSearch_Focus" PreviewMouseLeftButtonUp="LeaveSearch_Open" PreviewKeyDown="LeaveSearch_Key" />
-                        <!-- Floats over what is under it: nothing moves when it opens. Clicking the box itself doesn't close it. -->
-                        <Popup x:Name="LeavePopup" IsOpen="{Binding IsPicking}" PlacementTarget="{Binding ElementName=LeaveSearchBox}" Placement="Bottom" StaysOpen="False"
-                               AllowsTransparency="True" Width="{Binding ActualWidth, ElementName=LeaveSearchBox}" MinWidth="420" VerticalOffset="6">
-                            <ctl:SmoothBorder CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource Surface2Brush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" Padding="4">
-                                <DockPanel>
-                                    <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'MOST USED THIS MONTH'}" Style="{StaticResource Caption}" Margin="8,4,8,4" />
-                                    <ScrollViewer MaxHeight="236" VerticalScrollBarVisibility="Auto">
-                                        <ItemsControl ItemsSource="{Binding LeaveOptions}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <DockPanel Margin="4,2" Height="36">
-                                                        <Image DockPanel.Dock="Left" Source="{Binding Path, Converter={StaticResource ExeIcon}}" Width="22" Height="22" Margin="4,0,12,0" />
-                                                        <Grid DockPanel.Dock="Right" Width="96">
-                                                            <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Leave out'}" HorizontalAlignment="Right"
-                                                                    Command="{Binding DataContext.LeaveOutCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
-                                                                    Visibility="{Binding IsLeftOut, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                                            <TextBlock Text="{ctl:T 'Left out'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
-                                                                       Visibility="{Binding IsLeftOut, Converter={StaticResource Vis}}" />
-                                                        </Grid>
-                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Time}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="8,0" />
-                                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                    </DockPanel>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </ScrollViewer>
-                                </DockPanel>
-                            </ctl:SmoothBorder>
-                        </Popup>
-                    </Grid>
-                    <ItemsControl ItemsSource="{Binding LeftOut}" Margin="0,10,0,0" Visibility="{Binding HasLeftOut, Converter={StaticResource Vis}}">
-                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border CornerRadius="{x:Static ctl:Corner.Small}" Background="{DynamicResource Surface2Brush}" Padding="4" Margin="0,0,6,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Width="20" Height="20" Margin="2,0,8,0" />
-                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Detail}" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
-                                        <Button Style="{StaticResource IconButton}" Width="22" Height="22" Margin="4,0,0,0"
-                                                Command="{Binding DataContext.ShowAgainCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
-                                                AutomationProperties.Name="{Binding Name}" ToolTip="{ctl:T 'Show it again'}">
-                                            <TextBlock Text="&#xE711;" FontSize="{x:Static ctl:IconSize.S10}" />
-                                        </Button>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Text="{ctl:T 'Nothing left out. Any game or app you used can appear.'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="2,10,0,0"
-                               Visibility="{Binding HasLeftOut, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                </StackPanel>
             </ctl:SmoothBorder>
             </StackPanel>
             </StackPanel>

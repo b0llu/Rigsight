@@ -50,21 +50,6 @@
                     </Button>
                 </StackPanel>
             </StackPanel>
-            <!-- Bottom left: not full screen next time (it says where they'll wait instead, with a way back). -->
-            <StackPanel HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="24,0,0,20" Orientation="Horizontal">
-                <Button Style="{StaticResource ActionButton}" Command="{Binding NoFullScreenCommand}" Content="{ctl:T 'Don’t show rewinds full screen'}"
-                        Visibility="{Binding AskedNoFullScreen, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                <StackPanel Orientation="Horizontal" Visibility="{Binding AskedNoFullScreen, Converter={StaticResource Vis}}">
-                    <TextBlock Text="{ctl:T 'Rewinds will wait in Settings → Rewind instead.'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                    <Button Style="{StaticResource GhostButton}" Command="{Binding UndoNoFullScreenCommand}" Content="{ctl:T 'Undo'}" Margin="10,0,0,0" />
-                </StackPanel>
-            </StackPanel>
-            <Button Style="{StaticResource ActionButton}" Command="{Binding RevealSettingsCommand}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,20">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE713;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,6,0" />
-                    <TextBlock Text="{ctl:T 'Rewind settings'}" />
-                </StackPanel>
-            </Button>
         </Grid>
 
         <!-- Watching: the title on top; the tall card (click or → for the next) with the ones before and after peeking at
@@ -166,10 +151,6 @@
                                     </StackPanel>
                                 </Border>
                                 <TextBlock Text="{Binding ShapeSize}" Width="96" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,0,0" />
-                                <Border Width="1" Height="22" Background="{DynamicResource StrokeBrush}" Margin="4,0,10,0" />
-                                <StackPanel x:Name="AccentSwatches" Orientation="Horizontal" VerticalAlignment="Center" />
-                                <Button Style="{StaticResource ActionButton}" Command="{Binding SameAsAppCommand}" Content="{ctl:T 'RigSight colors'}" Margin="10,0,0,0" VerticalAlignment="Center"
-                                        Visibility="{Binding LookIsApps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             </StackPanel>
                             <Grid x:Name="PreviewBox" Margin="18" ClipToBounds="False">
                                 <Border x:Name="PreviewFrame" CornerRadius="{x:Static ctl:Corner.Control}" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">

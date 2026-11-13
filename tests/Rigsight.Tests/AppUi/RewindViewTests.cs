@@ -106,8 +106,8 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         var seen = RewindStore.Get(own) ?? October();
         (seen.Id, seen.Announced, seen.Seen) = (own, true, true);
         RewindStore.Save(seen);
-        // The window tests start with it off (see SharedData.ResetSettings): on, as people have it.
-        Ui.Run(() => host.Shell.Settings.Update(s => s.Rewind.FullScreen = true));
+        // The window tests make and show none (see SharedData.ResetSettings): as people have it here.
+        File.Delete(RewindStore.QuietFile);
         try
         {
             Ui.Run(() => vm.StartAsync(waitTurn: true), 30_000);
@@ -123,7 +123,7 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         finally
         {
             Ui.Run(() => { if (vm.IsOpen) vm.LaterCommand.Execute(null); });
-            Ui.Run(() => host.Shell.Settings.Update(s => s.Rewind.FullScreen = false));
+            File.WriteAllText(RewindStore.QuietFile, "");
             File.Delete(Path.Combine(RewindStore.Folder, f.Id + ".json"));
             if (ownBefore is null) File.Delete(ownFile);
             else File.WriteAllText(ownFile, ownBefore);
@@ -164,13 +164,11 @@ public sealed class RewindViewTests(AppHost host) : IClassFixture<AppHost>
         for (int i = 0; i < n; i++) { Ui.Run(() => vm.NextCommand.Execute(null)); Ui.Pump(40); }
         Ui.Pump(200);
         AssertEnd(n, "rewind-end-again");
-        // Share, a shape and a look changed (settings saved and sent back by the agent), then closed.
+        // Share, a shape changed (saved and sent back by the agent), then closed.
         Ui.Run(() => vm.OpenShareCommand.Execute(null));
         Ui.Pump(200);
-        Ui.Run(() => { vm.Shape = "post"; vm.SetAccent("pink"); });
+        Ui.Run(() => vm.Shape = "post");
         Ui.Pump(600);
-        Ui.Run(() => vm.SameAsAppCommand.Execute(null));
-        Ui.Pump(400);
         Ui.Run(() => vm.CloseShareCommand.Execute(null));
         Ui.Pump(200);
         AssertEnd(n, "rewind-end-after-share");

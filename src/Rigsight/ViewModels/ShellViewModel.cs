@@ -97,7 +97,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Notices = new NoticesViewModel(Reports, Settings) { OpenSettings = () => { SettingsPage.Tab = "notifications"; CurrentPage = "settings"; } };
         Notices.Open = Navigate;
         _ = Notices.LoadAsync();
-        Rewind = new global::Rigsight.Rewind.RewindViewModel(Reports, Settings) { OpenSettings = () => { SettingsPage.Tab = "rewind"; CurrentPage = "settings"; } };
+        Rewind = new global::Rigsight.Rewind.RewindViewModel(Reports, Settings);
         SettingsPage.Rewind = Rewind;
         Support = new SupportViewModel(Settings, Reports);
         // (A rewind watched to its end no longer asks for support: never on a day a big card showed, 2026-10-30.)

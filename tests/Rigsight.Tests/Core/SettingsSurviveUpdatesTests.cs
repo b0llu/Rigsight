@@ -21,6 +21,22 @@ public sealed class SettingsSurviveUpdatesTests
     {
         ["WidgetFade"] = "the fade under the pointer was taken out at the user's word (2026-11-12): widgets stay solid, and hover boxes need them readable",
         ["Widgets[].Locked"] = "lock in place (click-through) was taken out at the user\'s word (2026-11-12): every widget answers the pointer, for hover and scrolling; a widget saved locked comes back movable",
+        // Rewind (the user, 2026-11-13: "only thing people will be able to do is watch a rewind and share it"): every kind
+        // is made, every topic goes in, nothing is left out, a finished one shows full screen, and Share uses RigSight's colours.
+        ["Rewind.Month"] = "Rewind settings removed at the user's word (2026-11-13): every kind is made",
+        ["Rewind.Quarter"] = "Rewind settings removed at the user's word (2026-11-13): every kind is made",
+        ["Rewind.Half"] = "Rewind settings removed at the user's word (2026-11-13): every kind is made",
+        ["Rewind.Year"] = "Rewind settings removed at the user's word (2026-11-13): every kind is made",
+        ["Rewind.Time"] = "Rewind settings removed at the user's word (2026-11-13): every topic goes in",
+        ["Rewind.Games"] = "Rewind settings removed at the user's word (2026-11-13): every topic goes in",
+        ["Rewind.Internet"] = "Rewind settings removed at the user's word (2026-11-13): every topic goes in",
+        ["Rewind.Heat"] = "Rewind settings removed at the user's word (2026-11-13): every topic goes in",
+        ["Rewind.Changes"] = "Rewind settings removed at the user's word (2026-11-13): every topic goes in",
+        ["Rewind.Problems"] = "Rewind settings removed at the user's word (2026-11-13): every topic goes in",
+        ["Rewind.LeftOut"] = "Rewind settings removed at the user's word (2026-11-13): nothing is left out of a rewind",
+        ["Rewind.LeftOut[]"] = "Rewind settings removed at the user's word (2026-11-13): nothing is left out of a rewind",
+        ["Rewind.FullScreen"] = "Rewind settings removed at the user's word (2026-11-13): a finished one shows full screen (Later puts it off)",
+        ["Rewind.ShareAccent"] = "Rewind settings removed at the user's word (2026-11-13): Share uses RigSight's own colours",
     };
 
     /// <summary>Parts of the file that aren't someone's settings, so they may change: the path and why.</summary>

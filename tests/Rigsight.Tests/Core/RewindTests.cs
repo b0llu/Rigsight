@@ -74,8 +74,7 @@ public class RewindTests
         Assert.Equal((new DateTime(2027, 4, 1), new DateTime(2027, 7, 1)), (due[1].From, due[1].To));
         Assert.Equal((new DateTime(2027, 6, 1), new DateTime(2027, 7, 1)), (due[2].From, due[2].To));
 
-        // Switched off, or history kept for 3 months: not made.
-        settings.Rewind.Half = false;
+        // History kept for 3 months: no 6-month or yearly rewind.
         settings.Tracking.KeepHistoryDays = 90;
         Assert.Equal([RewindKind.Quarter, RewindKind.Month], RewindStore.Due(t.Db, settings, new DateTime(2027, 7, 1, 9, 0, 0)).Select(d => d.Kind));
     }
@@ -90,7 +89,6 @@ public class RewindTests
             t.Exec("INSERT INTO system_day(day, minutes, active_sec, idle_sec, cpu_temp_sum, cpu_temp_n, gpu_temp_sum, gpu_temp_n, cpu_load_sum, cpu_load_n, gpu_load_sum, gpu_load_n) " +
                    "VALUES($d, 60, 3600, 0, 0, 0, 0, 0, 0, 0, 0, 0)", ("$d", U(2027, 6, day)));
         var settings = Settings();
-        settings.Rewind.Quarter = settings.Rewind.Half = settings.Rewind.Year = false;
         Assert.Empty(RewindStore.Due(t.Db, settings, new DateTime(2027, 7, 1, 9, 0, 0)));
     }
 

@@ -6,7 +6,7 @@ using Rigsight.Core.Settings;
 namespace Rigsight.Core.Rewind;
 
 /// <summary>
-/// The rewinds made, one file each in the data folder's "rewinds" (kept until removed from Settings → Rewind), and
+/// The rewinds made, one file each in the data folder's "rewinds" (kept for good), and
 /// which are due. Both programs make them: the agent when one finishes (to announce it while RigSight is closed),
 /// the app when it opens. The same period gives the same file, so whichever is first, the other finds it made.
 /// </summary>
@@ -18,6 +18,16 @@ internal sealed partial class RewindJson : JsonSerializerContext;
 public static class RewindStore
 {
     private static readonly object Gate = new();
+
+    /// <summary>
+    /// A test copy whose data folder holds a "rewinds-off" file makes no rewind and shows none full screen: the window
+    /// tests and the end-to-end check, where last month's rewind would be made while timed and cover the window. Their
+    /// own switches did this until every setting but the notification was removed (2026-11-13); the end-to-end check's
+    /// agent runs as administrator, so only its data folder reaches it.
+    /// </summary>
+    public static bool Quiet => RigsightPaths.IsTestInstance && File.Exists(QuietFile);
+
+    public static string QuietFile => Path.Combine(RigsightPaths.DataDir, "rewinds-off");
 
     public static string Folder => Path.Combine(RigsightPaths.DataDir, "rewinds");
 
@@ -82,16 +92,16 @@ public static class RewindStore
     public static bool HistoryAllows(RewindKind kind, int keepDays) => keepDays <= 0 || keepDays >= Months(kind) * 30;
 
     /// <summary>
-    /// The rewinds finished by <paramref name="now"/> and not made yet: for each kind switched on, the last period of
-    /// it that has ended, when the PC was used on enough of its days. Only the last one: nothing is made for the
-    /// months before RigSight was first given the feature.
+    /// The rewinds finished by <paramref name="now"/> and not made yet: for each kind the history reaches, the last
+    /// period of it that has ended, when the PC was used on enough of its days. Only the last one: nothing is made for
+    /// the months before RigSight was first given the feature.
     /// </summary>
     public static List<(RewindKind Kind, DateTime From, DateTime To)> Due(RigsightDb db, RigsightSettings settings, DateTime now)
     {
         var due = new List<(RewindKind, DateTime, DateTime)>();
         foreach (var kind in new[] { RewindKind.Year, RewindKind.Half, RewindKind.Quarter, RewindKind.Month })
         {
-            if (!settings.Rewind.Makes(kind) || !HistoryAllows(kind, settings.Tracking.KeepHistoryDays)) continue;
+            if (!HistoryAllows(kind, settings.Tracking.KeepHistoryDays)) continue;
             var (from, to) = PeriodOf(kind, now.Date);
             (from, to) = (from.AddMonths(-Months(kind)), from);
             if (to < FirstEnd) continue;
@@ -121,16 +131,4 @@ public static class RewindStore
         }
         return made;
     }
-
-    /// <summary>Made again with today's settings (what goes in, what is left out), in place of the saved one.</summary>
-    public static RewindFacts Recreate(RigsightDb db, RigsightSettings settings, RewindFacts old, DateTime now)
-    {
-        var f = RewindBuilder.Build(db, old.Kind, old.From, old.To, settings, now);
-        (f.Seen, f.Announced) = (old.Seen, true);
-        Save(f);
-        return f;
-    }
-
-    /// <summary>The history needed to recreate it is still kept.</summary>
-    public static bool CanRecreate(RewindFacts f, int keepDays, DateTime now) => keepDays <= 0 || f.From >= now.Date.AddDays(-keepDays);
 }
