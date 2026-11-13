@@ -233,7 +233,9 @@ internal static class Program
             }
 
             Step("Visiting every page");
-            string[] pages = ["Home", "Reports", "Apps", "Processes", "Crashes", "Everything", "Temperatures", "Fans", "Memory", "Storage", "Network", "All sensors", "Widgets", "Overlay", "Taskbar", "Settings"];
+            // Games and Timeline since 2026-11-13: never visited before, so their first-visit cost could grow unseen (Games once
+            // cost 310-420 ms on every visit, Timeline paused while scrolling). Adding them needed fresh baselines (-NewBaseline).
+            string[] pages = ["Home", "Reports", "Apps", "Games", "Processes", "Crashes", "Timeline", "Everything", "Temperatures", "Fans", "Memory", "Storage", "Network", "All sensors", "Widgets", "Overlay", "Taskbar", "Settings"];
             var pageCpu = new Dictionary<string, double>();
             double scrolling = 0;
             var others = new OtherLoad("visiting every page", app!, agent);
