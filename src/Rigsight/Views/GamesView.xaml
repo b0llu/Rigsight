@@ -352,7 +352,10 @@
                 </StackPanel>
 
                 <!-- ═════════════ One game ═════════════ -->
-                <StackPanel Visibility="{Binding IsGame, Converter={StaticResource Vis}}">
+                <!-- Built the first time a game is opened (as Settings' tabs): two thirds of the page, hidden until then, was built and
+                     bound on every first visit of the library (2026-11-13). Its named parts are found when it loads (Game_Loaded). -->
+                <ctl:LazyTab Shown="{Binding IsGame}"><ctl:LazyTab.Body><DataTemplate>
+                <StackPanel Loaded="Game_Loaded">
                     <Grid Height="300" ClipToBounds="True">
                         <Image Source="{Binding GameBanner}" Stretch="UniformToFill" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
                         <Border Style="{StaticResource IconTile}" Width="150" Height="150" CornerRadius="34" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,44,28,0"
@@ -985,6 +988,7 @@
                         </ctl:SmoothBorder>
                     </StackPanel>
                 </StackPanel>
+                </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
             </Grid>
         </ScrollViewer>
     </Grid>

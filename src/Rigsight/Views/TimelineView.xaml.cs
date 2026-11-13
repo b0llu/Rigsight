@@ -41,8 +41,14 @@ public partial class TimelineView : UserControl
         };
     }
 
-    /// <summary>A change opened: its page starts at the top.</summary>
-    private void OnChangeOpened() => ChangeScroller.ScrollToTop();
+    /// <summary>A change opened: its page starts at the top (the first one opened is built new, at its top already).</summary>
+    private void OnChangeOpened() => _changeScroller?.ScrollToTop();
+
+    // An opened change's view is built the first time one opens (a LazyTab): its scroller is found as it loads.
+    private ScrollViewer? _changeScroller;
+
+    private void Change_Loaded(object sender, RoutedEventArgs e) =>
+        _changeScroller ??= (sender as FrameworkElement)?.FindName("ChangeScroller") as ScrollViewer;
 
     private void OnDaysChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => FillAhead();
 

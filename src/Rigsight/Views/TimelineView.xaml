@@ -428,7 +428,10 @@
 
     <!-- An opened change: what it made better or worse, every reading before and since, day by day, how sure, the problems
          counted, and (a graphics driver) the drivers before it. In place of the list until Back. -->
-    <Grid Visibility="{Binding IsChangeOpen, Converter={StaticResource Vis}}">
+    <!-- Built the first time a change is opened (as Settings' tabs): over a third of the page, hidden until then, was
+         built and bound on every first visit (2026-11-13). Its scroller is found when it loads (Change_Loaded). -->
+    <ctl:LazyTab Shown="{Binding IsChangeOpen}"><ctl:LazyTab.Body><DataTemplate>
+    <Grid Loaded="Change_Loaded">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition />
@@ -674,5 +677,6 @@
             </StackPanel>
         </ScrollViewer>
     </Grid>
+    </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
     </Grid>
 </UserControl>

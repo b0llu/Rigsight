@@ -18,12 +18,38 @@ public partial class GamesView : UserControl
             if (e.OldValue is ViewModels.GamesViewModel old) { old.PropertyChanged -= OnChanged; old.RunsRangeEditRequested -= OpenRunsRangeEditor; }
             if (e.NewValue is ViewModels.GamesViewModel vm) { vm.PropertyChanged += OnChanged; vm.RunsRangeEditRequested += OpenRunsRangeEditor; }
         };
+    }
+
+    // ── One game: built the first time a game opens (a LazyTab), so its named parts are found as it loads ──
+    private FrameworkElement? _game;
+    private DatePager? RunsPager;
+    private System.Windows.Controls.Primitives.Popup? RunsMenu;
+    private RangeEditor? RunsRangeEditor;
+    private ScrollViewer? SettingsScroll;
+    private ItemsControl? SettingsList;
+    private Button? SettingsMore;
+    private TextBlock? SettingsMoreText;
+
+    private void Game_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Loaded again on every return to the page: wired once.
+        if (sender is not FrameworkElement root || root == _game) return;
+        _game = root;
+        T? Part<T>(string name) where T : class => root.FindName(name) as T;
+        RunsPager = Part<DatePager>("RunsPager");
+        RunsMenu = Part<System.Windows.Controls.Primitives.Popup>("RunsMenu");
+        RunsRangeEditor = Part<RangeEditor>("RunsRangeEditor");
+        SettingsScroll = Part<ScrollViewer>("SettingsScroll");
+        SettingsList = Part<ItemsControl>("SettingsList");
+        SettingsMore = Part<Button>("SettingsMore");
+        SettingsMoreText = Part<TextBlock>("SettingsMoreText");
         // "How it runs": the range menu and editor as on Temperatures, and a play or week clicked on the chart.
-        RunsPager.LabelCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(OpenRunsMenu);
-        RunsMenu.CustomPopupPlacementCallback = (popup, target, _) =>
-            [new System.Windows.Controls.Primitives.CustomPopupPlacement(new Point(target.Width - popup.Width + 8, target.Height + 6), System.Windows.Controls.Primitives.PopupPrimaryAxis.Horizontal)];
-        RunsRangeEditor.Applied += (from, to) => (DataContext as ViewModels.GamesViewModel)?.SetRunsCustom(from, to);
-        Runs.Opened += point => (DataContext as ViewModels.GamesViewModel)?.OpenFromChart(point);
+        if (RunsPager is not null) RunsPager.LabelCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(OpenRunsMenu);
+        if (RunsMenu is not null)
+            RunsMenu.CustomPopupPlacementCallback = (popup, target, _) =>
+                [new System.Windows.Controls.Primitives.CustomPopupPlacement(new Point(target.Width - popup.Width + 8, target.Height + 6), System.Windows.Controls.Primitives.PopupPrimaryAxis.Horizontal)];
+        if (RunsRangeEditor is not null) RunsRangeEditor.Applied += (from, to) => (DataContext as ViewModels.GamesViewModel)?.SetRunsCustom(from, to);
+        if (Part<RunsChart>("Runs") is { } runs) runs.Opened += point => (DataContext as ViewModels.GamesViewModel)?.OpenFromChart(point);
     }
 
     private long _runsMenuClosedAt;
@@ -31,18 +57,18 @@ public partial class GamesView : UserControl
     private void OpenRunsMenu()
     {
         // In a play the label only says which play; a click on it while the menu is open closes it and must not open it again.
-        if (DataContext is not ViewModels.GamesViewModel { FramesView: false }) return;
+        if (DataContext is not ViewModels.GamesViewModel { FramesView: false } || RunsMenu is null) return;
         if (Environment.TickCount64 - _runsMenuClosedAt < 250) return;
         RunsMenu.IsOpen = true;
     }
 
     private void RunsMenu_Closed(object? sender, EventArgs e) => _runsMenuClosedAt = Environment.TickCount64;
 
-    private void RunsMenu_Click(object sender, RoutedEventArgs e) => RunsMenu.IsOpen = false;
+    private void RunsMenu_Click(object sender, RoutedEventArgs e) { if (RunsMenu is not null) RunsMenu.IsOpen = false; }
 
     private void OpenRunsRangeEditor()
     {
-        if (DataContext is not ViewModels.GamesViewModel vm) return;
+        if (DataContext is not ViewModels.GamesViewModel vm || RunsRangeEditor is null || RunsPager is null) return;
         var (from, to) = (vm.RunsFrom, vm.RunsTo);
         Dispatcher.BeginInvoke(() => RunsRangeEditor.Open(RunsPager, from, to, vm.RunsHistoryStart), System.Windows.Threading.DispatcherPriority.Loaded);
     }
@@ -117,7 +143,13 @@ public partial class GamesView : UserControl
     /// </summary>
     private void SettingsScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        var box = SettingsScroll;
+        // Its first layout can come before the section's Loaded: its parts found here then.
+        if (sender is not ScrollViewer box) return;
+        SettingsScroll = box;
+        SettingsList ??= box.FindName("SettingsList") as ItemsControl;
+        SettingsMore ??= box.FindName("SettingsMore") as Button;
+        SettingsMoreText ??= box.FindName("SettingsMoreText") as TextBlock;
+        if (SettingsList is null || SettingsMore is null || SettingsMoreText is null) return;
         double cut = SettingsTallest;
         int below = 0;
         for (int i = 0; i < SettingsList.Items.Count; i++)
@@ -151,6 +183,7 @@ public partial class GamesView : UserControl
     /// <summary>The button fades in and out (pop-ins fade only).</summary>
     private void ShowSettingsMore(bool show)
     {
+        if (SettingsMore is null) return;
         bool shown = SettingsMore.Visibility == Visibility.Visible && SettingsMore.Tag is not "hiding";
         if (show == shown) return;
         var fade = new System.Windows.Media.Animation.DoubleAnimation(show ? 1 : 0, TimeSpan.FromMilliseconds(150));
@@ -165,7 +198,7 @@ public partial class GamesView : UserControl
 
     /// <summary>On by most of a box, so the line that was cut in half is whole at the top.</summary>
     private void SettingsMore_Click(object sender, RoutedEventArgs e) =>
-        SettingsScroll.ScrollToVerticalOffset(SettingsScroll.VerticalOffset + Math.Max(SettingsScroll.ViewportHeight - 60, 40));
+        SettingsScroll?.ScrollToVerticalOffset(SettingsScroll.VerticalOffset + Math.Max(SettingsScroll.ViewportHeight - 60, 40));
 
     private static CoverGrid? FindGrid(DependencyObject root)
     {

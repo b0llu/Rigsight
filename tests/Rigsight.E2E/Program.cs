@@ -57,6 +57,7 @@ internal static class Program
         // measured against the same budgets and baseline as English, so another language can't cost more unseen.
         string? languagePack = Arg("--language") is { } lp ? Path.GetFullPath(lp) : null;
         AppEnv = Arg("--app-env") ?? "";
+        TraceDir = Arg("--trace") is { } td ? Path.GetFullPath(td) : null;
         if (real && !File.Exists(realDb))
         {
             Console.WriteLine("  --real-data: no history of this PC's own was found; using the made-up year.");
@@ -628,6 +629,15 @@ internal static class Program
                 home.Select();
                 Thread.Sleep(1500);
                 Settle(app);
+                // --trace <folder>: the first visit recorded by dotnet-trace (sampled threads), for where the window's time goes.
+                Process? trace = null;
+                if (v == 0 && TraceDir is { } dir)
+                {
+                    Directory.CreateDirectory(dir);
+                    trace = Process.Start(new ProcessStartInfo("dotnet-trace", ["collect", "-p", app.Id.ToString(CultureInfo.InvariantCulture), "--profile", "dotnet-sampled-thread-time",
+                        "--duration", "00:00:00:06", "-o", Path.Combine(dir, $"{Key(page)}.nettrace")]) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true });
+                    Thread.Sleep(2500);
+                }
                 var threads = ThreadCpu.Take(app);
                 double before = CpuMs(app);
                 var watch = new WindowWatch(window);
@@ -641,6 +651,7 @@ internal static class Program
                 double opened = CpuMs(app) - before;
                 Settle(app);
                 double total = CpuMs(app) - before;
+                if (trace is not null) { trace.WaitForExit(20_000); Console.WriteLine($"  traced: {trace.StandardOutput.ReadToEnd().Trim().Split('\n').LastOrDefault()}"); }
                 Console.WriteLine($"  {(v == 0 ? "first" : $"again {v}"),-8} answered {answered,5:0} ms   window {ThreadCpu.WindowMs(threads, after, app),5:0} ms CPU   " +
                                   $"app {opened,5:0} in 2 s, {total,5:0} until quiet   longest freeze {waits.Max(),4:0} ms   by thread: {ThreadCpu.Spent(threads, after, app)}");
                 if (scroll && v < 2)
@@ -731,6 +742,7 @@ internal static class Program
 
     /// <summary>What --app-env gave, and how many times the app was opened so far.</summary>
     private static string AppEnv = "";
+    private static string? TraceDir;
     private static int _opens;
 
     /// <summary>The app icons kept in the data folder, each with when it was written.</summary>

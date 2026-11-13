@@ -502,6 +502,8 @@ public sealed class TimelinePageTests
             {
                 vm.Apply(new TimelineData([driver], [], []) { Results = new() { [day] = result } });
                 Ui.Pump(300);
+                // An opened change's view is built the first time one opens, not with the page (2026-11-13).
+                Assert.Empty(Visuals.Descendants<Controls.ChangeChart>(window));
                 Assert.True(vm.OpenChange(day));
                 Ui.Pump(300);
                 var chart = Assert.Single(Visuals.Descendants<Controls.ChangeChart>(window));
