@@ -47,12 +47,12 @@
   "widgets-from-tiles": "2026-11-11",
   "desktop-widgets-windows-11": "2026-11-11",
   "ssd-health-check": "2026-11-12",
-  "choosing-a-model-blind": "2026-11-12"
+  "choosing-a-model-blind": "2026-11-12",
+  "how-to-show-fps-overlay": "2026-11-13",
+  "testing-ai-on-fake-pcs": "2026-11-13"
  },
  "queue": [
-  "testing-ai-on-fake-pcs",
   "vsync-fps-cap",
-  "how-to-show-fps-overlay",
   "pc-fans-loud-while-gaming",
   "did-windows-update-cause-crashes",
   "power-plan-keeps-changing",
@@ -64,7 +64,6 @@
  "rework": [
   "check-fan-speed-pc",
   "did-windows-update-cause-crashes",
-  "how-to-show-fps-overlay",
   "pc-fans-loud-while-gaming",
   "power-plan-keeps-changing",
   "screen-time-on-pc",
