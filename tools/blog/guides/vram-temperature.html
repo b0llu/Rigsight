@@ -1,0 +1,68 @@
+<!--meta
+{"slug": "vram-temperature", "series": "guide", "published": "2026-11-13", "updated": "2026-11-13",
+ "topic": "Temperatures",
+ "keyword": "vram temperature",
+ "also": ["gpu memory temperature", "gpu memory temperature while gaming", "vram temperature range", "vram temperature max", "gpu memory temperature normal", "vram temperature 3080", "gpu memory junction temperature", "vram temperature monitor"],
+ "title": "VRAM temperature while gaming, and what's normal for GPU memory",
+ "summary": "My RTX 3080 Ti's memory averaged 78°C over about 100 hours of heavy gaming and never went above 84°C. What VRAM temperature is normal, where it gets too hot, how to check it, and how to bring it down.",
+ "description": "Normal VRAM temperature while gaming is often 70 to 90°C, and GDDR6X cards run hotter, with slowdowns reported near 110°C. How to check it and cool it.",
+ "short": "VRAM temperature, also called GPU memory or memory junction temperature, is often 70 to 90°C while gaming. Cards with GDDR6X memory run hotter, and RTX 3080 and 3090 cards are reported to slow their memory near 110°C. Readings that stay above 100°C are worth fixing with better airflow or new thermal pads.",
+ "faq": [
+  ["What is a normal VRAM temperature while gaming?", "Often somewhere between 70 and 90°C. Memory usually runs warmer than the GPU core next to it. GDDR6X cards like the RTX 3080 and 3090 can read in the 90s and close to 100°C in heavy games and still work as designed. My RTX 3080 Ti averaged 78°C."],
+  ["What is the max VRAM temperature?", "It depends on the memory. GDDR6X is commonly reported to slow itself at about 110°C, and Micron's rated range for it is often quoted up to 95°C or a little more. Treat readings that stay above 100°C as too hot, even if nothing slows down yet."],
+  ["How do I check GPU memory temperature?", "Task Manager doesn't show it. Free tools like HWiNFO and GPU-Z show it on cards that report it, often as Memory Junction Temperature or Memory Temperature. RigSight records it every minute as GPU memory, so you can look back at a whole session."],
+  ["Is GPU memory temperature the same as hot spot?", "No. The hot spot is the warmest point on the GPU chip itself. Memory temperature is the memory chips around it. Both run above the core temperature, and each has its own limit."]
+ ],
+ "cover_tiles": [["GPU memory, heavy gaming", "78°C", "on average, RTX 3080 Ti"], ["Highest in 7 weeks", "84°C", "never higher, since 23 September"]],
+ "app": ["GPU memory temperature recorded every minute (memory junction, NVIDIA via NVAPI, Tracker GpuMemMax / gpu_mem_max, since 0.4.5)", "Temperatures page draws GPU memory as its own line (LiveData series 'GPU memory')", "Any sensor to the taskbar, overlay, a widget or a dashboard from its row on All sensors; Dashboard tile 'GPU memory temperature'"],
+ "sources": ["https://www.tomshardware.com/news/hwinfo64-adds-gddr6x-temp-monitoring-rtx30series", "https://www.pcgameshardware.de/Geforce-RTX-3080-Grafikkarte-276730/News/GDDR6X-100-Grad-heiss-Temperatur-1358476/", "https://www.igorslab.de/gddr6x-am-limit-ueber-100-grad-bei-der-geforce-rtx-3080-fe-im-chip-gemessen/", "https://forums.tomshardware.com/threads/gddr6x-in-3080-and-3090-hits-110c-while-mining-ethereum.3683309"]}
+-->
+<p>Since 23 September, RigSight has recorded my RTX 3080 Ti's memory temperature every minute. In about 100 hours of heavy gaming, with the GPU 80% busy or more, the memory averaged about 78°C. The highest it reached was 84°C, on 30 September in a game that kept the GPU 99% busy. That card uses GDDR6X, the memory known for running hot, so I expected worse. Here's what VRAM temperature is normal while gaming, where it gets too hot, and how to check yours.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records three GPU temperatures each minute, the core, the hot spot and the memory, and keeps the highest of each minute so a short peak doesn't get averaged away. On the Temperatures page, GPU memory has its own line next to the others. You can also put it in the taskbar, the overlay, a widget or a dashboard from its row on All sensors.</p>
+
+<p>Seeing it next to the core is what makes the number useful. In those heavy minutes my GPU core averaged 69°C and the memory 78°C, so the memory ran about 9° above the core. With the GPU nearly idle, the core sat around 48°C and the memory around 53°C. In the heavy minutes, the memory's highest stayed between 68 and 84°C, and none reached 85. RigSight is free and open source.</p>
+
+<h2>What VRAM temperature is normal</h2>
+
+<p>VRAM is the GPU's own memory, the chips around the GPU on the card. They get warm because games keep them busy, and they sit under the same cooler as the GPU, often with less of it touching them. That's why memory usually reads warmer than the core.</p>
+
+<ul>
+  <li>Somewhere around 70 to 90°C while gaming is common for many cards.</li>
+  <li>GDDR6X cards, like the RTX 3080, 3080 Ti, 3090 and 3090 Ti, run hotter. Reviewers measured an RTX 3080 Founders Edition at about 102°C in a heavy game at 4K, and 3090 owners report the 90s and 100°C.</li>
+  <li>Idle memory is usually in the 40s to 50s.</li>
+</ul>
+
+<p>The number depends on the card's cooler, the case's airflow and the room, so two owners of the same card can see 15° apart.</p>
+
+<h2>VRAM temperature max, and when it's too hot</h2>
+
+<p>For GDDR6X, Tom's Hardware reported that RTX 3080 and 3090 cards only slow their memory at about 110°C. The memory's rated range is often quoted up to 95°C, a little higher in some readings of Micron's sheets, and the sensor reads the hottest spot inside the chip, so the two numbers aren't measured the same way.</p>
+
+<p>A practical line is this. In the 80s and low 90s, nothing to do. Staying above 100°C for long sessions is worth fixing, even before anything slows down, because heat over years is what wears parts. Near 110°C the card is protecting itself.</p>
+
+<h2>How to check GPU memory temperature</h2>
+
+<p>Task Manager shows the GPU's temperature, not its memory's. For memory you need a tool that reads the card's own sensor.</p>
+
+<ol>
+  <li>Install HWiNFO or GPU-Z, both free.</li>
+  <li>In HWiNFO, open <b>Sensors</b> and find your GPU. Look for <b>GPU Memory Junction Temperature</b>. In GPU-Z, open the <b>Sensors</b> tab and look for <b>Memory Temperature</b>.</li>
+  <li>Play your heaviest game for at least 20 minutes, then read the maximum, not the current value.</li>
+</ol>
+
+<p>Not every card reports it. Many older and smaller cards have no memory sensor, so the line is missing.</p>
+
+<h2>How to lower VRAM temperature</h2>
+
+<ol>
+  <li>Improve the case's airflow first. Make sure front fans pull air in and the back and top fans push it out, and clean dust off filters and the GPU's fins.</li>
+  <li>Raise the GPU's fan curve in MSI Afterburner or your card maker's tool. Memory often follows the fans more than the core does.</li>
+  <li>Cap the frame rate a little below your monitor's refresh rate. Fewer frames means less work for the memory.</li>
+  <li>Lower the memory clock if you overclocked it.</li>
+  <li>On an older card, new thermal pads on the memory can drop it a lot. This means opening the card, which can affect its warranty, so check that first or ask the maker.</li>
+</ol>
+
+<p>Your next step is to check your memory's highest reading after a long game. If it's in the 80s or low 90s, leave it alone. If it stays above 100°C, start with airflow and the fan curve. For the GPU chip itself, see <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a> and <a href="gpu-hotspot-temperature">GPU hot spot temperature</a>.</p>

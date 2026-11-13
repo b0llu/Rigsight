@@ -52,6 +52,13 @@
   "testing-ai-on-fake-pcs": "2026-11-13"
  },
  "queue": [
+  "vram-temperature",
+  "tray-open-speed",
+  "normal-gpu-usage-while-gaming",
+  "numbers-that-couldnt-be-true",
+  "normal-cpu-usage-while-gaming",
+  "normal-ram-usage-while-gaming",
+  "normal-cpu-temp-idle",
   "vsync-fps-cap",
   "pc-fans-loud-while-gaming",
   "did-windows-update-cause-crashes",

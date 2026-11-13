@@ -1,0 +1,73 @@
+<!--meta
+{"slug": "normal-ram-usage-while-gaming", "series": "guide", "published": "2026-11-13", "updated": "2026-11-13",
+ "topic": "Storage and memory",
+ "keyword": "normal ram usage while gaming",
+ "also": ["how much ram do games use", "how much ram do games actually use", "is 80 ram usage normal while gaming", "what percentage of ram usage is normal while gaming", "average ram usage while gaming", "how much ram should be used while gaming", "is 16gb ram enough for gaming"],
+ "title": "Normal RAM usage while gaming, and how much games really use",
+ "summary": "On my 16 GB PC, Phantom Blade Zero used about 4 GB of memory itself, while the whole PC sat at nearly 14 GB. What normal RAM usage while gaming looks like, how much games use, and when it's too much.",
+ "description": "Normal RAM usage while gaming is often 60 to 90% of your memory, and a game itself uses 2 to 8 GB. When high RAM usage is a problem and how to free some.",
+ "short": "Normal RAM usage while gaming is often 60 to 90% of your total memory. The game itself usually takes 2 to 8 GB, and Windows, browsers and other apps take the rest. High usage alone is fine, since Windows uses spare memory on purpose. It's a problem when the PC stutters or Windows' committed memory gets close to its limit.",
+ "faq": [
+  ["What is normal RAM usage while gaming?", "Often 60 to 90% of your memory, so 80% is normal on a 16 GB PC with a browser open. Windows and games use memory that would otherwise sit empty. It's only a problem if you get stutters, long pauses when switching apps, or a warning that the PC is low on memory."],
+  ["How much RAM do games actually use?", "The game itself usually uses 2 to 8 GB. On my PC, Slay the Spire 2 used about 1 GB, Risk of Rain 2 about 2 GB, and Phantom Blade Zero about 4 GB on average and up to 6.8 GB. The rest of what Task Manager shows is Windows and your other apps."],
+  ["Is 16 GB of RAM enough for gaming?", "For most games, yes, but with little to spare if you keep a browser and other apps open. On my 16 GB PC, a big game plus my usual apps took the PC to 14 to 15.7 GB, close to full. 32 GB gives room for both."],
+  ["How do I lower RAM usage while gaming?", "Close browsers and apps you don't need, especially ones with many tabs or video, turn off apps that start with Windows, and restart the PC before a long session. Leave the page file on, set to be managed by Windows."]
+ ],
+ "cover_tiles": [["Phantom Blade Zero itself", "4.1 GB", "on average, up to 6.8 GB"], ["The whole PC meanwhile", "13.8 GB", "of 16 GB, on average"]],
+ "app": ["Memory page with each app's memory and its usual, apps that keep growing (0.20.0)", "Per-app memory each minute (app_minute.mem) and the PC's total (system_minute.ram_used)", "Stutters bunched in 15 minutes named 'while Windows was nearly out of memory' when committed memory reached 90% (StutterCauses, CommitPct)", "Notification '<app> keeps using more memory' (1.7.0, off at first)"],
+ "sources": ["https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/introduction-to-the-page-file", "https://learn.microsoft.com/en-us/windows/win32/memory/memory-performance-information", "https://support.microsoft.com/en-us/windows/tips-to-improve-pc-performance-in-windows-b3b3ef5b-5953-fb6a-2528-4bbed82fba96"]}
+-->
+<p>My PC has 16 GB of memory. While I played Phantom Blade Zero, the game itself used about 4 GB on average and 6.8 GB at its highest. The whole PC meanwhile sat at 13.8 GB on average and reached 15.6 GB. So the game was well under half of what Task Manager showed. The rest was Windows and the apps I keep open. That gap is the first thing to understand about normal RAM usage while gaming.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records memory every minute twice, once for the whole PC and once for each app. That's what splits the 13.8 GB into the game's own 4 GB and everything else. The Memory page lists each app's memory next to its usual, so an app holding more than it normally does stands out.</p>
+
+<p>It also watches Windows' committed memory, which is what apps have asked for, against the limit of memory plus the page file. During Phantom Blade Zero mine averaged 94% of that limit. When stutters bunch up, five or more within 15 minutes, while committed memory is at 90% or more, RigSight names that as what was going on, "while Windows was nearly out of memory". Since 1.7.0 it can also tell you when an app keeps growing in memory for hours, under <b>Apps that keep growing in memory</b> in Settings, off at first. RigSight is free and open source.</p>
+
+<h2>How much RAM do games use?</h2>
+
+<p>Here's each game's own memory on my PC, and the whole PC's at the same time.</p>
+
+<ul>
+  <li>Slay the Spire 2 used about 1 GB, with the PC at 9.5 GB.</li>
+  <li>Risk of Rain 2 used about 2 GB, up to 4.9, with the PC at 11 GB.</li>
+  <li>Dota 2 used about 2.9 GB, with the PC at 12.9 GB.</li>
+  <li>Phantom Blade Zero used about 4.1 GB, up to 6.8, with the PC at 13.8 GB.</li>
+  <li>Crimson Desert used about 4.6 GB, up to 5.8, with the PC at 14.5 GB.</li>
+</ul>
+
+<p>With no game running, my PC sits around 9 GB. Big open-world and new games can use 8 GB or more of their own, and some recommend 32 GB on their store pages.</p>
+
+<h2>Normal RAM usage while gaming, in percent</h2>
+
+<p>60 to 90% is common, and on a 16 GB PC with a browser open, 80 to 90% is ordinary. High usage alone isn't a problem. Windows keeps recently used files in spare memory to load them faster, and gives that memory back the moment a game needs it.</p>
+
+<p>It becomes a problem when there's nothing left to give back. Then Windows moves data to the page file on the drive, which is far slower, and you feel it.</p>
+
+<ul>
+  <li>Stutters or long hitches, especially when you turn into a new area.</li>
+  <li>Alt-tabbing out takes seconds, and the game is slow to come back.</li>
+  <li>A Windows warning that the PC is low on memory, or a game closing on its own.</li>
+</ul>
+
+<h2>How to check RAM usage while gaming</h2>
+
+<ol>
+  <li>Open Task Manager with <b>Ctrl + Shift + Esc</b> and go to <b>Performance</b> &gt; <b>Memory</b>.</li>
+  <li><b>In use</b> is the PC's total. <b>Committed</b> shows two numbers, what apps have asked for and the limit. When the first gets close to the second, Windows is nearly out of memory.</li>
+  <li>On the <b>Processes</b> tab, sort by <b>Memory</b> to see the game's own share and what else is holding memory.</li>
+</ol>
+
+<h2>How to lower RAM usage while gaming</h2>
+
+<ol>
+  <li>Close browsers and apps you don't need while you play. Browsers with many tabs or video are often the biggest after the game.</li>
+  <li>Turn off apps that start with Windows under <b>Settings</b> &gt; <b>Apps</b> &gt; <b>Startup</b>.</li>
+  <li>Restart the PC before a long session, which clears apps that grew over the day.</li>
+  <li>Leave the page file on, managed by Windows. Turning it off makes running out of memory worse, not better.</li>
+  <li>Lower texture quality if the game also fills the GPU's memory, since some spills into the PC's memory.</li>
+  <li>If you're always near full, more memory is the real fix. Going from 16 to 32 GB is the usual step for gaming now.</li>
+</ol>
+
+<p>Your next step is to check <b>Committed</b> in Task Manager during your heaviest game. If it stays well below its limit, your memory is fine, however high <b>In use</b> looks. If it gets close and the game stutters, close apps first. For what's holding memory on the desktop, see <a href="what-is-using-my-ram">what is using my RAM</a>.</p>

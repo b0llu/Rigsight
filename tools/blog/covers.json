@@ -242,5 +242,35 @@
    700
   ],
   "alt": "Three RigSight widgets built from tiles, a clock with the date, the weather and the music playing, a sticky note with a to-do list, and CPU and GPU rings beside a temperature graph"
+ },
+ "tray-open-speed": {
+  "colour": "hot",
+  "tiles": [
+   [
+    "Tray open, before",
+    "1,150 ms",
+    "at worst, as administrator"
+   ],
+   [
+    "Tray open, 1.11.0",
+    "23 ms",
+    "at best on my PC"
+   ]
+  ]
+ },
+ "numbers-that-couldnt-be-true": {
+  "colour": "hot",
+  "tiles": [
+   [
+    "GPU memory, one game",
+    "146 GB",
+    "on a 12 GB card"
+   ],
+   [
+    "RAM in use",
+    "20.8 GB",
+    "on a 16 GB PC"
+   ]
+  ]
  }
 }

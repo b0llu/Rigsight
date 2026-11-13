@@ -1,0 +1,61 @@
+<!--meta
+{"slug": "normal-cpu-temp-idle", "series": "guide", "published": "2026-11-13", "updated": "2026-11-13",
+ "topic": "Temperatures",
+ "keyword": "normal cpu temp idle",
+ "also": ["normal gpu temp idle", "average cpu temp idle", "average gpu temp idle", "normal cpu and gpu temps idle", "ideal cpu temp idle", "cpu temp idle 50c", "high cpu temp at idle", "normal cpu idle temp ryzen 7 5800x"],
+ "title": "Normal CPU temp at idle, and the GPU's, from 150 hours of mine",
+ "summary": "Idle, my Ryzen 7 5700X3D sat at about 48°C and my RTX 3080 Ti at about 48°C too, over about 150 hours of minutes. What a normal CPU and GPU temp at idle is, why it jumps around, and when a warm idle is worth fixing.",
+ "description": "A normal CPU temp at idle is about 35 to 55°C, and a GPU's is about 30 to 50°C, higher if its fans stop. Why idle temps jump, and when warm is too warm.",
+ "short": "A normal CPU temp at idle is roughly 35 to 55°C for most desktop CPUs, and some AMD Ryzen chips sit in the 40s and 50s. A normal GPU temp at idle is roughly 30 to 50°C, and cards whose fans stop when cool often idle in the high 40s or 50s. Short jumps of 10 to 20° when you open something are normal.",
+ "faq": [
+  ["What is a normal CPU temp at idle?", "Roughly 35 to 55°C for most desktop CPUs. Ryzen CPUs often idle a little higher than Intel ones, in the 40s or 50s, because they boost briefly even at light load. My Ryzen 7 5700X3D idles at about 48°C, and 9 in 10 idle minutes stay under 53°C."],
+  ["What is a normal GPU temp at idle?", "Roughly 30 to 50°C. Many modern cards stop their fans while cool, so they idle warmer, often in the high 40s or low 50s, and the fans start once the card warms past a set point. My RTX 3080 Ti idles at about 48°C with its fans mostly stopped."],
+  ["Is 50°C idle bad for a CPU?", "No. 50°C at idle is normal for many CPUs, especially Ryzen chips and small cases. It's worth a look if the idle temperature climbs over weeks, or if it sits above about 60°C with nothing running."],
+  ["Why does my CPU temperature jump at idle?", "Opening an app, a background task starting or Windows checking for updates makes the CPU boost for a moment, and its temperature follows within a second. Jumps of 10 to 20° that fall back quickly are normal. What matters is where it settles."]
+ ],
+ "cover_tiles": [["CPU at idle, Ryzen 7 5700X3D", "48°C", "about 9 in 10 minutes under 53°C"], ["GPU at idle, RTX 3080 Ti", "48°C", "fans mostly stopped"]],
+ "app": ["Temperatures page 'At rest, last 30 days' card: each chip's temperature at idle, today against its usual, a line of the days, warmer than usual marked (0.21.0)", "Card text: 'Taken while the PC sits idle. A flat line means the cooling is holding. A slow climb can come from dust or aging thermal paste, and a warmer room raises these too.'", "Temperatures page Highest each minute keeps short jumps (0.18.0)", "CPU temperature needs admin rights"],
+ "sources": ["https://www.amd.com/en/support/kb/faq/cpu-temp", "https://www.intel.com/content/www/us/en/support/articles/000005597/processors.html", "https://www.amd.com/en/resources/support-articles/faqs/DH3-020.html"]}
+-->
+<p>RigSight has about 150 hours of minutes where my PC sat nearly idle, with the CPU and GPU both under 10% busy while I was at the desk. In those minutes my Ryzen 7 5700X3D averaged 48°C, and 9 in 10 of them stayed under 53°C. My RTX 3080 Ti averaged 48°C too, with most minutes between 45 and 50°C. That's a normal CPU temp at idle and a normal GPU one, and it's warmer than many people expect.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records the CPU and GPU temperature every minute along with how busy each was, so it can pick out the minutes when the PC was resting. On the Temperatures page, the <b>At rest, last 30 days</b> card shows each chip's temperature at idle, today's next to its usual, and a line of the last 30 days. RigSight marks a chip that's warmer at rest than usual.</p>
+
+<p>The resting temperature is more useful than the gaming one for spotting slow changes, because the load is the same every time. As the card puts it, a flat line means the cooling is holding, and a slow climb can come from dust or aging thermal paste, while a warmer room raises these too. CPU temperature needs RigSight to run with admin rights. RigSight is free and open source.</p>
+
+<h2>Normal CPU temp at idle</h2>
+
+<p>For most desktop CPUs, somewhere around 35 to 55°C at idle is normal. Where yours sits depends on a few things.</p>
+
+<ul>
+  <li>The CPU. Many AMD Ryzen chips idle in the 40s or 50s because they boost to high clocks for a moment even at light load. Intel chips often idle a little cooler.</li>
+  <li>The cooler. A big air cooler or a liquid cooler holds idle lower than the small cooler that came in the box.</li>
+  <li>The room. A room 5° warmer makes the idle about 5° warmer.</li>
+  <li>The fans. Quiet fan curves let the CPU sit warmer at idle on purpose.</li>
+</ul>
+
+<p>My 5700X3D's idle minutes spread from the low 40s up to about 60°C. One in 10 was under 43°C, and only 1 in 100 reached 60.</p>
+
+<h2>Normal GPU temp at idle</h2>
+
+<p>Roughly 30 to 50°C. Many current cards stop their fans when cool and start them once the GPU passes a set point, often around 50 to 60°C. A card like that idles warmer, in the high 40s or low 50s, because nothing is moving air until it needs to. That's why my GPU's idle is so steady at 45 to 50°C. Its fans sit still below about 52°C. <a href="gpu-fan-not-spinning">GPU fan not spinning</a> has more on that.</p>
+
+<p>Two screens, a high refresh rate or video playing can keep a GPU's memory clock up at idle, which adds a few degrees.</p>
+
+<h2>Why idle temperatures jump</h2>
+
+<p>Open a browser, and the CPU jumps 10 or 20° within a second, then falls back. Background tasks do the same thing on their own, like Windows Update, antivirus scans, indexing and app updaters. The CPU's temperature follows its boost almost instantly, so a tool that refreshes every second shows a jumpy line. What counts is where it settles. <a href="normal-cpu-temperature-while-gaming">Normal CPU temperature while gaming</a> covers the jumps under load.</p>
+
+<h2>When a warm idle is worth fixing</h2>
+
+<ul>
+  <li>The CPU sits above about 60°C, or the GPU above about 60°C, with nothing running.</li>
+  <li>The idle temperature has climbed over weeks or months at the same room temperature.</li>
+  <li>Fans run loud at idle to hold the temperature.</li>
+</ul>
+
+<p>If so, check Task Manager for an app keeping the CPU busy first. Then clean dust from the filters, the CPU cooler and the GPU, check that the case fans pull air in at the front and push it out at the back, and set Windows to the <b>Balanced</b> power plan. If it still idles hot on an older PC, new thermal paste on the CPU often helps.</p>
+
+<p>Your next step is to note your idle temperatures today, with nothing running. That number is your own normal, and it's the one to compare against in a few months.</p>
