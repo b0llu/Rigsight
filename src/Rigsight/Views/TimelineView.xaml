@@ -305,8 +305,10 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <ScrollViewer Grid.Column="2" Style="{StaticResource GutterScroll}">
-                <StackPanel Margin="0,0,0,24">
+            <!-- 6 px of room each side, given back inside: the month's arrows sit 6 px out to line up with the days, and
+                 the scroller cut their hover square at its edges (2026-11-13). -->
+            <ScrollViewer Grid.Column="2" Style="{StaticResource GutterScroll}" Margin="-6,0,-6,0">
+                <StackPanel Margin="6,0,6,24">
                     <!-- Jump to a day: one month, or (a click on its name) the year's months. -->
                     <TextBlock Text="{ctl:T 'JUMP TO A DAY'}" Style="{StaticResource PanelHead}" />
                     <DockPanel Margin="-6,0,-6,4">
