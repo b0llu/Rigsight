@@ -351,6 +351,42 @@
         <Setter Property="Background" Value="{DynamicResource Surface2Brush}" />
     </Style>
 
+    <!-- A line of the "Over the months" tile (wear and drive details, approved mock-up 2026-11-14), the same on every page
+         that shows wear: the part's icon, one statement (amber when it moved), a grey detail, and a bar a week with that
+         week's text on hover. -->
+    <DataTemplate x:Key="WearTileRowTemplate">
+        <!-- A line between rows, none above the first or under the last (mock-up 2026-11-14). -->
+        <Border x:Name="Row" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="0,12">
+            <DockPanel>
+                <ctl:WearBars DockPanel.Dock="Right" Width="84" Height="32" Margin="14,2,0,0" VerticalAlignment="Top"
+                              Weeks="{Binding Weeks}" Base="{Binding Base}" MinSpan="{Binding MinSpan}" Fill="{Binding Fill}" LastFill="{Binding LastFill}" Tips="{Binding Tips}"
+                              Visibility="{Binding HasChart, Converter={StaticResource Vis}}" />
+                <HeaderedContentControl Style="{StaticResource IconRow}" Padding="12,0,0,0">
+                    <HeaderedContentControl.Header>
+                        <Border Style="{StaticResource IconBox}" Width="34" Height="34">
+                            <Grid>
+                                <TextBlock Text="{Binding Glyph}" Style="{DynamicResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{Binding IconBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding HasGlyph, Converter={StaticResource Vis}}" />
+                                <ContentControl Content="{StaticResource FanIcon}" Foreground="{Binding IconBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                Focusable="False" Visibility="{Binding IsFan, Converter={StaticResource Vis}}" />
+                            </Grid>
+                        </Border>
+                    </HeaderedContentControl.Header>
+                    <StackPanel>
+                        <TextBlock Text="{Binding Statement}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{Binding StatementBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
+                                   Visibility="{Binding HasDetail, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                </HeaderedContentControl>
+            </DockPanel>
+        </Border>
+        <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
+                <Setter TargetName="Row" Property="BorderThickness" Value="0" />
+            </DataTrigger>
+        </DataTemplate.Triggers>
+    </DataTemplate>
+
     <Style x:Key="AppIcon" TargetType="Image">
         <Setter Property="Width" Value="28" />
         <Setter Property="Height" Value="28" />

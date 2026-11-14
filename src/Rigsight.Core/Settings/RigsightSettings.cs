@@ -473,6 +473,15 @@ public sealed class AlertSettings
     public bool WorseChanges { get; set; } = true;
     /// <summary>Worth knowing: a drive with under 5% and under 20 GB left.</summary>
     public bool DriveFull { get; set; } = true;
+
+    // Wear and drive details (2026-11-14, option A): on for everyone; a setting already chosen keeps its value.
+
+    /// <summary>Problems: a drive at or past its own warning temperature, once a day.</summary>
+    public bool DriveTemperature { get; set; } = true;
+    /// <summary>Worth knowing: a CPU or GPU that runs hotter under the same load than in its first weeks, at most once a month.</summary>
+    public bool PartsChanged { get; set; } = true;
+    /// <summary>Worth knowing: an SSD passing half and a quarter of its rated life.</summary>
+    public bool DriveLifeMilestones { get; set; } = true;
     /// <summary>Recaps: the last 7 days, the first use each Monday. Off at first (the daily recap covers each day).</summary>
     public bool WeeklyRecap { get; set; }
     /// <summary>Recaps: an app whose memory keeps growing for hours without coming back down. Off at first.</summary>

@@ -48,6 +48,9 @@ public static partial class DriveSpace
         return [.. list.OrderBy(v => v.Root, StringComparer.OrdinalIgnoreCase)];
     }
 
+    /// <summary>The physical drive (Windows' number) a letter's volume is on, asked once a root; null when Windows wouldn't say.</summary>
+    public static int? Disk(string root) => Disks.GetOrAdd(root, DiskOf);
+
     /// <summary>The physical drive a sensor's hardware is ("/nvme/2/temperature/0" is drive 2); null when its id doesn't say.</summary>
     public static int? DiskOfSensor(string id) =>
         SensorDisk().Match(id) is { Success: true } m && int.TryParse(m.Groups[1].Value, out int disk) ? disk : null;

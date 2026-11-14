@@ -113,9 +113,23 @@ internal sealed partial class AgentContext
 
             // Drives: their own health check, and space.
             var life = DriveLife();
-            var drives = NoticeChecks.Drives(_sensors.DriveHealth, life, a, SaidOf);
-            Log.Write("notice", $"Checked {_sensors.DriveHealth.Count} drives' health ({string.Join(", ", _sensors.DriveHealth.Select(d => $"{d.Name} {d.Status}"))}): {drives.Count} to say");
-            foreach (var c in drives) Notify(c);
+            var drives = NoticeChecks.Drives(_sensors.DriveHealth, life, a, SaidOf, now, DrivePace);
+            Log.Write("notice", $"Checked {_sensors.DriveHealth.Count} drives' health ({string.Join(", ", _sensors.DriveHealth.Select(d => $"{d.Name} {d.Status}, {(d.Temperature is double t ? $"{t:0}" : "no")} C against {(d.TemperatureWarning is double w ? $"{w:0}" : "no")} warning, life {(d.Life is double l ? $"{l:0}%" : "not reported")}"))}): {drives.Count(c => !c.Quiet)} to say, {drives.Count(c => c.Quiet)} noted");
+            foreach (var c in drives)
+                if (c.Quiet) _db.MarkSaid(c.Key, now, c.Value);
+                else Notify(c);
+
+            // A CPU or GPU that runs hotter under the same load than in its first weeks: worked out once a day (the weeks
+            // change by the week, and it reads a year of minutes).
+            if (a.PartsChanged && _wearCheckedDay != now.Date)
+            {
+                heavy = true;
+                _wearCheckedDay = now.Date;
+                var cooling = new[] { Wear.Cooling(_db, false, now.Date), Wear.Cooling(_db, true, now.Date) };
+                var hotter = NoticeChecks.Cooling(cooling, a, SaidOf, now);
+                Log.Write("notice", $"Checked the cooling over the months: {string.Join(", ", cooling.Select(r => $"{r.Name} {r.State} {(r.Now is double n ? $"{n:0.0}" : "-")} against {(r.Then is double t ? $"{t:0.0}" : "-")}, {r.History.Count} weeks"))}; {hotter.Count} to say");
+                foreach (var c in hotter) Notify(c);
+            }
             var space = DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Fixed && d.IsReady)
                 .Select(d => (Letter: d.Name[0], Free: d.AvailableFreeSpace, Total: d.TotalSize)).ToList();
             char windows = (Environment.GetFolderPath(Environment.SpecialFolder.Windows) is { Length: > 0 } w ? w[0] : 'C');
@@ -168,6 +182,16 @@ internal sealed partial class AgentContext
             MemoryAt("notice checks");
             CompactMemory();
         }
+    }
+
+    /// <summary>The day the cooling over the months was last checked.</summary>
+    private DateTime _wearCheckedDay;
+
+    /// <summary>A drive's share of rated life used a year at the pace its daily record shows (null until 4 weeks of it).</summary>
+    private double? DrivePace(string key)
+    {
+        try { return Wear.Drive(_db, key, key, DateTime.Today).LifePerYear; }
+        catch (Exception ex) { Log.Error("notice", ex); return null; }
     }
 
     /// <summary>Each drive's rated life left (an SSD's "Life" or "Remaining Life" reading), by its name.</summary>

@@ -92,6 +92,42 @@ public sealed class DriveHealthInfo
     public long? ReallocatedSectors { get; set; }
     public long? PendingSectors { get; set; }
     public long? UncorrectableSectors { get; set; }
+
+    // The rest of what the drive reports (wear and drive details, 2026-11-14), read by the same SMART read.
+
+    /// <summary>The drive's lasting name (see <see cref="Rigsight.Core.Storage.DriveKey"/>): what its daily record and its reads and writes are kept under.</summary>
+    public string? Key { get; set; }
+    /// <summary>Windows' number for the drive (\\.\PhysicalDriveN), which <see cref="VolumeSpace.Disk"/> gives each letter.</summary>
+    public int? DiskNumber { get; set; }
+    public bool IsNvme { get; set; }
+    public bool IsSsd { get; set; }
+    /// <summary>"NVMe", "SATA", "USB"… as Windows reports the connection.</summary>
+    public string? Bus { get; set; }
+    public ulong SizeBytes { get; set; }
+    /// <summary>Life left, 100 new to 0 (SSDs; null for a hard drive).</summary>
+    public double? Life { get; set; }
+    /// <summary>Everything the drive says it has read and written in its life, in GB.</summary>
+    public double? ReadGb { get; set; }
+    public double? WrittenGb { get; set; }
+    public long? PowerOnHours { get; set; }
+    public long? PowerOnCount { get; set; }
+    public double? Temperature { get; set; }
+    /// <summary>The temperature the drive itself warns at (an NVMe drive's WCTEMP), when it says.</summary>
+    public double? TemperatureWarning { get; set; }
+    public double? TemperatureCritical { get; set; }
+    /// <summary>Every attribute it reports, as CrystalDiskInfo lists them (NVMe drives' health log is given the same shape).</summary>
+    public List<DriveAttribute>? Attributes { get; set; }
+}
+
+/// <summary>One SMART attribute: its number and the maker's name for it, the drive's own score now, its worst and the score it calls failing at, and the raw count.</summary>
+public sealed class DriveAttribute
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public int Current { get; set; }
+    public int Worst { get; set; }
+    public int Threshold { get; set; }
+    public ulong Raw { get; set; }
 }
 
 /// <summary>Sensors the agent isn't reading right now, and why (hello). Nothing skipped: no parts, no safe mode.</summary>
@@ -222,7 +258,7 @@ public sealed class NetAppLive
 /// <summary>Agent → app.</summary>
 public sealed class AgentMessage
 {
-    /// <summary>hello · tick · procs · settings · navigate · overlay · update · scanned (the answer to "scan-now") · history-cleared</summary>
+    /// <summary>hello · tick · procs · settings · navigate · overlay · update · scanned (the answer to "scan-now") · history-cleared · drives (each time the drives are read, in <see cref="Drives"/>)</summary>
     public string T { get; set; } = "";
 
     // hello

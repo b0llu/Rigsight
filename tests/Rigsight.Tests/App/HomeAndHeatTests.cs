@@ -178,34 +178,6 @@ public sealed class HomeAndHeatTests
         Assert.Equal("Thu 7 PM · No reading", HeatGrid.TipOf(hour, new HeatHour(hour, null, null, "Idle")));
     }
 
-    // ── At rest, as lines ──
-
-    [Fact]
-    public void A_chip_at_rest_carries_its_last_month_day_by_day()
-    {
-        var (_, live) = Kit.Greeted();
-        var today = DateTime.Today;
-        HeatDay Rest(int daysAgo, double cpu, double gpu, int minutes = 60) => new(TimeUtil.ToUnix(today.AddDays(-daysAgo)), 0, minutes, gpu * minutes, minutes, cpu * minutes, minutes, 0, 0);
-        Ui.Run(() =>
-        {
-            live.LoadRest([Rest(0, 45, 41), Rest(1, 44, 40), Rest(3, 43, 40), Rest(5, 99, 99, minutes: RestTemps.MinMinutes - 1)]);
-            var cpu = live.Rest[0];
-            // From the first day with any rest (three days back) to today.
-            Assert.Equal(("CPU", "CpuBrush", 4), (cpu.Part, cpu.Brush, cpu.Days.Count));
-            Assert.Equal([43.0, null, 44.0, 45.0], cpu.Days); // a day with too little rest has no point (and doesn't start the line)
-            Assert.True(cpu.HasLine);
-            Assert.Equal(cpu.Days.Count, cpu.Tips.Count);
-            Assert.Equal($"{today:d MMM} · 45°", cpu.Tips[^1]);
-            Assert.Equal($"{today.AddDays(-2):d MMM} · No rest recorded", cpu.Tips[^3]);
-            Assert.Equal(41.0, live.Rest[1].Days[^1]);
-            Assert.Equal("GpuBrush", live.Rest[1].Brush);
-
-            // One day only: a figure, and nothing to draw a line through.
-            live.LoadRest([Rest(0, 45, 41)]);
-            Assert.False(live.Rest[0].HasLine);
-        });
-    }
-
     // ── Motherboard and drives ──
 
     [Fact]

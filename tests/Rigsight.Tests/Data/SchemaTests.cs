@@ -43,6 +43,7 @@ public sealed class SchemaTests
         ["crash_signs"] = ["ts", "kind", "detail"],
         ["close_up"] = ["ts", "exe", "kind", "done", "data"],
         ["drive_day"] = ["day", "drive", "used_gb", "total_gb"],
+        ["drive_health_day"] = ["day", "drive", "name", "life", "hours", "power_ons", "read_gb", "written_gb", "temp_max", "temp_sum", "temp_n", "reallocated", "pending", "uncorrectable", "status"],
         ["net_minute"] = ["ts", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "lan", "steady", "app"],
         ["net_day"] = ["day", "minutes", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "lan", "best", "best_ts"],
         ["net_app_hour"] = ["ts", "app", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "game_down", "lan"],
@@ -57,6 +58,9 @@ public sealed class SchemaTests
         // The recent notifications and what each was about (2026-11-07, the bell).
         ["notice"] = ["id", "ts", "kind", "level", "title", "body", "page", "arg", "icon", "key", "shown"],
         ["notice_said"] = ["key", "ts", "value"],
+        // What each app read and wrote on each physical drive (2026-11-14), the drive by its key.
+        ["disk_app_hour"] = ["ts", "app", "disk", "read", "write"],
+        ["disk_app_day"] = ["day", "app", "disk", "read", "write"],
     };
 
     public static readonly Dictionary<string, string> Indexes = new()
@@ -112,6 +116,7 @@ public sealed class SchemaTests
     [InlineData("sessions", "id")]
     [InlineData("crashes", "id")]
     [InlineData("drive_day", "day,drive")]
+    [InlineData("drive_health_day", "day,drive")]
     [InlineData("meta", "key")]
     [InlineData("fans", "id")]
     [InlineData("fan_minute", "ts,fan")]
@@ -126,6 +131,8 @@ public sealed class SchemaTests
     [InlineData("net_drop", "start")]
     [InlineData("net_ping", "ts")]
     [InlineData("net_ping_switch", "ts")]
+    [InlineData("disk_app_hour", "ts,app,disk")]
+    [InlineData("disk_app_day", "day,app,disk")]
     [InlineData("changes", "id")]
     [InlineData("inventory", "kind,key")]
     public void Tables_are_keyed_as_the_queries_expect(string table, string key)

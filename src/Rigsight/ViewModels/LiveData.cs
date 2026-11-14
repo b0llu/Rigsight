@@ -121,26 +121,31 @@ public sealed partial class LiveData : ObservableObject
     public ObservableCollection<SensorItem> Fans { get; } = [];
     public ObservableCollection<SensorItem> BoardTemps { get; } = [];
 
-    /// <summary>The Temperatures page's "At rest" rows: each chip settled and idle today, against its usual (see <see cref="Core.Reports.RestTemps"/>).</summary>
-    public ObservableCollection<RestRow> Rest { get; } = [];
+    /// <summary>The Temperatures page's "Over the months": the CPU's (and GPU's) cooling gap week by week (see <see cref="Core.Reports.Wear.Cooling"/>).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCooling))]
+    private IReadOnlyList<CoolingPart> _cooling = [];
+    public bool HasCooling => Cooling.Count > 0;
 
-    /// <summary>Fills <see cref="Rest"/> from the days' temperatures at rest (heat_day).</summary>
-    public void LoadRest(IEnumerable<Core.Data.HeatDay> days)
+    /// <summary>"Over the months" by week ("Weeks") or by month ("Months"): the card's switch, for as long as the app runs.</summary>
+    [ObservableProperty] private string _coolingPeriod = "Weeks";
+
+    private (Core.Reports.WearRow Cpu, Core.Reports.WearRow Gpu)? _coolingRows;
+
+    partial void OnCoolingPeriodChanged(string value) => BuildCooling();
+
+    /// <summary>Fills <see cref="Cooling"/>: the GPU's part only on a PC with a GPU, or one that had one.</summary>
+    public void LoadCooling(Core.Reports.WearRow cpu, Core.Reports.WearRow gpu)
     {
-        var all = days.ToList();
-        var today = DateTime.Today;
-        var (cpu, gpu) = Core.Reports.RestTemps.Of(all, today);
-        // Each day's own rest, for the line beside the figure.
-        var rest = all.Where(d => d.App == 0 && d.N >= Core.Reports.RestTemps.MinMinutes).GroupBy(d => d.Day).ToDictionary(g => g.Key, g => g.First());
-        // From the first day there is any rest for: a PC recorded for two weeks has a line across the card, not one
-        // squeezed into its right half.
-        int first = rest.Count == 0 ? 0 : Math.Clamp((int)(today - Core.Data.TimeUtil.FromUnix(rest.Keys.Min()).Date).TotalDays, 0, Core.Reports.RestTemps.LookBackDays);
-        List<double?> Line(Func<Core.Data.HeatDay, (double Sum, int N)> pick) =>
-            [.. Enumerable.Range(0, first + 1).Select(i =>
-                rest.TryGetValue(Core.Data.TimeUtil.ToUnix(today.AddDays(i - first)), out var d) && pick(d) is { N: > 0 } p ? p.Sum / p.N : (double?)null)];
-        Rest.Clear();
-        Rest.Add(new RestRow("CPU", cpu) { Days = Line(d => (d.CpuSum, d.CpuN)), LastDay = today, Brush = "CpuBrush" });
-        if (Gpus.Count > 0 || gpu.Today is not null || gpu.UsualLow is not null) Rest.Add(new RestRow("GPU", gpu) { Days = Line(d => (d.GpuSum, d.GpuN)), LastDay = today, Brush = "GpuBrush" });
+        _coolingRows = (cpu, gpu);
+        BuildCooling();
+    }
+
+    private void BuildCooling()
+    {
+        if (_coolingRows is not { } rows) return;
+        var gpu = Gpus.Count > 0 || rows.Gpu.History.Count > 0 ? rows.Gpu : null;
+        Cooling = CoolingCard.Of(rows.Cpu, gpu, CoolingPeriod == "Months");
     }
 
     /// <summary>The Temperatures page's week, hour by hour (see <see cref="Controls.HeatGrid"/>).</summary>
@@ -154,9 +159,13 @@ public sealed partial class LiveData : ObservableObject
 
     /// <summary>The Temperatures page's "Motherboard": the board's temperature sensors as tiles, grouped by the chip they're read from.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasBoardTemps), nameof(HasPartTemps))]
+    [NotifyPropertyChangedFor(nameof(HasBoardTemps), nameof(HasPartTemps), nameof(BoardName), nameof(BoardColumns))]
     private IReadOnlyList<BoardChip> _boardChips = [];
     public bool HasBoardTemps => BoardChips.Count > 0;
+    /// <summary>The board's name, beside the Motherboard card's title (each chip's column names only its chip).</summary>
+    public string BoardName => BoardChips.FirstOrDefault(c => c.HasBoard)?.Board ?? "";
+    /// <summary>A column a chip, two at the most: a lone chip takes the card's width.</summary>
+    public int BoardColumns => Math.Clamp(BoardChips.Count, 1, 2);
 
     /// <summary>Either card has something; with neither (no admin rights) one card across the row says why.</summary>
     public bool HasPartTemps => HasDriveTemps || HasBoardTemps;
@@ -199,6 +208,7 @@ public sealed partial class LiveData : ObservableObject
         BoardChips = Models.Kept.Or(BoardChips,
             [.. Hardware.Where(n => n.Type is "SuperIO" or "Motherboard" or "EmbeddedController" or "Cooler")
                 .Select(n => (Name: BoardChip.Split(n.Name), Tiles: (IReadOnlyList<PartTemp>)[.. n.Sensors.Where(t => BoardTemps.Contains(t) && !t.IsHidden)
+                    .OrderByDescending(t => t.Value ?? double.MinValue) // warmest first, as the list is made (it isn't sorted again as readings change)
                     .Select(t => new PartTemp(t.DisplayName, t, "40,60,80"))]))
                 .Where(g => g.Tiles.Count > 0)
                 .Select(g => new BoardChip(g.Name.Chip, g.Name.Board, g.Tiles))],
@@ -537,6 +547,20 @@ public sealed partial class LiveData : ObservableObject
             Tick++;
         }
     }
+
+    /// <summary>The drives were read again (the agent sends them each time, every 10 s while the app is open).</summary>
+    public void UpdateDriveHealth(List<DriveHealthInfo> drives)
+    {
+        _driveHealth = drives;
+        foreach (var drive in Drives) drive.Health = _driveHealth.FirstOrDefault(h => h.Name == drive.Name);
+        DriveHealthUpdated?.Invoke();
+    }
+
+    /// <summary>Raised when the drives' readings change (the Storage page and an opened drive follow them).</summary>
+    public event Action? DriveHealthUpdated;
+
+    /// <summary>Every drive's latest readings, as the agent last sent them.</summary>
+    public IReadOnlyList<DriveHealthInfo> DriveHealth => _driveHealth;
 
     private void Build(AgentMessage hello)
     {

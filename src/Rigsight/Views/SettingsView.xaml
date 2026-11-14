@@ -868,6 +868,12 @@
                             <TextBlock Text="{ctl:T 'A failure at once; bad sectors and wear when you\'re not playing.'}" Style="{StaticResource Hint}" />
                         </StackPanel>
                     </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DriveTemperature}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Drive temperature'}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Drive temperature'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'A drive reaching its own warning point.'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
                 </StackPanel>
             </ctl:SmoothBorder>
 
@@ -891,6 +897,18 @@
                     </CheckBox>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding MoreProblems}" Margin="0,10" AutomationProperties.Name="{ctl:T 'More PC problems than usual'}">
                         <TextBlock Text="{ctl:T 'More PC problems than usual'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding PartsChanged}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Parts running differently than before'}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Parts running differently than before'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'A CPU or GPU hotter under the same load than in its first weeks, at most once a month.'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DriveLifeMilestones}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Drive life milestones'}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Drive life milestones'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'An SSD reaching half and a quarter of its rated life.'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
                     </CheckBox>
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding WorseChanges}" Margin="0,10" AutomationProperties.Name="{ctl:T 'A change made a game worse'}">
                         <StackPanel>

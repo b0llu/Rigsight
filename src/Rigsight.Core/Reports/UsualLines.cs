@@ -104,7 +104,7 @@ public static class UsualLines
     /// <paramref name="cutsLikely"/> likely a power cut, null: all of them).
     /// Where each opens is <see cref="InsightLinks"/>'s to say.
     /// </summary>
-    public static List<Insight> Health(Report? today, IReadOnlyCollection<CrashKind> problems, int cuts, int? cutsLikely = null)
+    public static List<Insight> Health(Report? today, IReadOnlyCollection<CrashKind> problems, int cuts, int? cutsLikely = null, Insight? wear = null)
     {
         var usual = today?.Usual;
         var insights = today?.Insights ?? [];
@@ -112,6 +112,8 @@ public static class UsualLines
         var list = new List<Insight>();
 
         if (insights.FirstOrDefault(i => i.Key == "usual-heat") is { } heat) list.Add(heat);
+        // Hotter at the same load than in its first weeks (Wear): in the place of "as usual", while it's true.
+        else if (wear is not null) list.Add(wear);
         else if (usual?.HasHeat == true) list.Add(new Insight(IconTemp, Lang.T("Temperatures as usual"), InsightTone.Neutral, "temps-usual"));
 
         if (insights.FirstOrDefault(i => i.Key is "fan-stopped" or "fan-slower" or "fan-older") is { } fan) list.Add(fan);

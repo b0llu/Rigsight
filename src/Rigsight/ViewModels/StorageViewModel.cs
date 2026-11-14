@@ -18,6 +18,8 @@ public sealed record VolumeRow(string Root, string Label, long Total, long Free,
 {
     /// <summary>"fixed", "usb" or "network": USB and network drives are a small group of their own under the others.</summary>
     public string Kind { get; init; } = "fixed";
+    /// <summary>Windows' number for the physical drive it's on (null for a network drive, or when Windows wouldn't say).</summary>
+    public int? Disk { get; init; }
     /// <summary>What sort of drive, under its name: "USB drive", the network path.</summary>
     public string Sub { get; init; } = "";
     public bool HasSub => Sub.Length > 0;
@@ -74,7 +76,7 @@ public sealed record VolumeRow(string Root, string Label, long Total, long Free,
     }
 
     /// <summary>The same drive with the same figures (read again every few minutes: an unchanged row isn't redrawn).</summary>
-    public bool SameAs(VolumeRow other) => Root == other.Root && Label == other.Label && Total == other.Total && Free == other.Free && Growth == other.Growth && Kind == other.Kind;
+    public bool SameAs(VolumeRow other) => Root == other.Root && Label == other.Label && Total == other.Total && Free == other.Free && Growth == other.Growth && Kind == other.Kind && Disk == other.Disk;
 }
 
 public sealed record CleanupItem(string Title, string Description, long Size, string? Path, bool IsRecycleBin) : System.ComponentModel.INotifyPropertyChanged
@@ -209,6 +211,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         await Task.Run(DriveScans.LoadSaved);
         await RefreshAsync();
         ShowPicked();
+        await LoadDiskUseAsync();
     }
 
     public async Task RefreshAsync()
@@ -238,6 +241,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         if (PickedRoot is null && Result is null && !IsScanning && Volumes.FirstOrDefault() is { } fullest) PickedRoot = fullest.Root;
         foreach (var v in DriveTabs) v.IsPicked = string.Equals(v.Root, PickedRoot, StringComparison.OrdinalIgnoreCase);
         CleanupChanged();
+        BuildGroups();
     }
 
     /// <summary>The list made like <paramref name="rows"/>, changing only what changed (it was cleared and rebuilt every five minutes, which flickered).</summary>
@@ -298,7 +302,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
                 "network" => NetworkPath(d.Name) is { } unc ? unc : Lang.T("Network drive"),
                 _ => "",
             };
-            rows.Add(new VolumeRow(d.Name, label, total, free, growth, up) { Kind = kind, Sub = sub });
+            rows.Add(new VolumeRow(d.Name, label, total, free, growth, up) { Kind = kind, Sub = sub, Disk = kind == "network" ? null : DriveSpace.Disk(d.Name) });
         }
         return rows;
     }
@@ -628,6 +632,8 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
 
     /// <summary>What the drive picked has to free: the system drive's places, the drive's Recycle Bin, and what its scan found.</summary>
     public IReadOnlyList<CleanupItem> CleanupShown { get; private set; } = [];
+    /// <summary>The letters a drive opened has (its tabs above What fills it and Space you could free on it).</summary>
+    public IReadOnlyList<VolumeRow> OpenedTabs => Opened?.Letters.OrderBy(l => l.Root, StringComparer.OrdinalIgnoreCase).ToList() ?? [];
     public bool CleanupEmpty => CleanupRead && CleanupShown.Count == 0 && !HasCleanupHint;
 
     /// <summary>A drive not scanned yet: its big old files show once it is.</summary>
@@ -638,23 +644,30 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
 
     private void CleanupChanged()
     {
+        CleanupShown = ItemsFor(CleanupRoot);
+        foreach (var v in Volumes) v.IsCleanupPicked = string.Equals(v.Root, CleanupRoot, StringComparison.OrdinalIgnoreCase);
+        foreach (var name in new[] { nameof(CleanupShown), nameof(CleanupHint), nameof(HasCleanupHint), nameof(CleanupEmpty), nameof(CleanupTitle) }) OnPropertyChanged(name);
+        BuildCleanupLines();
+    }
+
+    /// <summary>What a drive has to free: the system drive's places, the drive's Recycle Bin, and what its scan found.</summary>
+    private List<CleanupItem> ItemsFor(string root)
+    {
         var list = new List<CleanupItem>();
-        bool system = string.Equals(CleanupRoot, SystemRoot, StringComparison.OrdinalIgnoreCase);
+        bool system = string.Equals(root, SystemRoot, StringComparison.OrdinalIgnoreCase);
         if (system) list.AddRange(Cleanup);
-        else if (!_binsRead.TryGetValue(CleanupRoot, out var bin)) _ = ReadBinAsync(CleanupRoot);
+        else if (!_binsRead.TryGetValue(root, out var bin)) _ = ReadBinAsync(root);
         else if (bin.Size > 0)
-            list.Add(new CleanupItem(Lang.T("Recycle Bin"), bin.Items == 1 ? Lang.T($"1 deleted item on {CleanupRoot.TrimEnd('\\')}.") : Lang.T($"{bin.Items:N0} deleted items on {CleanupRoot.TrimEnd('\\')}."),
-                bin.Size, null, true) { BinRoot = CleanupRoot });
-        if (DriveScans.Letter(CleanupRoot) is { } letter && DriveScans.Get(letter) is { } kept)
+            list.Add(new CleanupItem(Lang.T("Recycle Bin"), bin.Items == 1 ? Lang.T($"1 deleted item on {root.TrimEnd('\\')}.") : Lang.T($"{bin.Items:N0} deleted items on {root.TrimEnd('\\')}."),
+                bin.Size, null, true) { BinRoot = root });
+        if (DriveScans.Letter(root) is { } letter && DriveScans.Get(letter) is { } kept)
         {
             var old = kept.Result.LargestFiles.Where(f => f.LastWrite > DateTime.MinValue && f.LastWrite < DateTime.Now.AddYears(-1)).ToList();
             if (old.Count > 0 && old.Sum(f => f.Size) >= 50L << 20)
                 list.Add(new CleanupItem(Lang.T("Big files unchanged for a year"),
-                    old.Count == 1 ? Lang.T("1 file · from the scan") : Lang.T($"{old.Count} files · from the scan"), old.Sum(f => f.Size), null, false) { ReviewRoot = CleanupRoot });
+                    old.Count == 1 ? Lang.T("1 file · from the scan") : Lang.T($"{old.Count} files · from the scan"), old.Sum(f => f.Size), null, false) { ReviewRoot = root });
         }
-        CleanupShown = [.. list.OrderByDescending(i => i.Size)];
-        foreach (var v in Volumes) v.IsCleanupPicked = string.Equals(v.Root, CleanupRoot, StringComparison.OrdinalIgnoreCase);
-        foreach (var name in new[] { nameof(CleanupShown), nameof(CleanupHint), nameof(HasCleanupHint), nameof(CleanupEmpty), nameof(CleanupTitle) }) OnPropertyChanged(name);
+        return [.. list.OrderByDescending(i => i.Size)];
     }
 
     private readonly Dictionary<string, (long Size, long Items)> _binsRead = new(StringComparer.OrdinalIgnoreCase);

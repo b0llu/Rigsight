@@ -228,6 +228,8 @@ public sealed partial class RigsightDb : IDisposable
         EnsureChangesSchema();
         EnsureSteamDownloadSchema();
         EnsureNoticeSchema();
+        EnsureDiskSchema();
+        EnsureDriveHealthSchema();
     }
 
     private const string FansFreshKey = "fans_fresh";
@@ -967,16 +969,19 @@ public sealed partial class RigsightDb : IDisposable
         using (var c5c = Cmd("DELETE FROM close_up WHERE ts < $t", ("$t", before))) c5c.ExecuteNonQuery();
         using (var c6 = Cmd("DELETE FROM frame_minute WHERE ts < $t; DELETE FROM stutter WHERE ts_ms < $t * 1000", ("$t", before))) c6.ExecuteNonQuery();
         PruneNetwork(before);
+        PruneDisk(before);
+        PruneDriveHealth(before);
         PruneChanges(before);
         if (HasSteamDownloads) using (var c7 = Cmd("DELETE FROM steam_download WHERE ended < $t", ("$t", before))) c7.ExecuteNonQuery();
     }
 
     public void ClearHistory()
     {
-        Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM crashes; DELETE FROM crash_signs; DELETE FROM close_up;"
+        Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM drive_health_day; DELETE FROM crashes; DELETE FROM crash_signs; DELETE FROM close_up;"
             + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM app_minute;"
             + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop; DELETE FROM net_ping; DELETE FROM net_ping_switch;"
-            + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter; DELETE FROM steam_download;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new
+            + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter; DELETE FROM steam_download;"
+            + " DELETE FROM disk_app_hour; DELETE FROM disk_app_day;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new
         Exec("VACUUM");
     }
 

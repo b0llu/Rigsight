@@ -351,9 +351,9 @@
                 </DockPanel>
             </ctl:SmoothBorder>
 
-            <!-- Drives, and the motherboard, right under the graph (fans have their own page): two cards side by side, one
-                 above the other on a narrow window, and one across the row when only it has readings (see CardPair). -->
-            <ctl:CardPair Margin="0,18,0,0" Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}}">
+            <!-- Drives, and the cooling over the months, right under the graph (fans have their own page): two cards side by
+                 side, one above the other on a narrow window (see CardPair). -->
+            <ctl:CardPair Margin="0,18,0,0">
                 <!-- A row a drive, against its own limit: a drive at 45° may be fine or near its limit, and the bar says which. -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasDriveTemps, Converter={StaticResource Vis}}">
                     <DockPanel>
@@ -432,86 +432,91 @@
                     </DockPanel>
                 </ctl:SmoothBorder>
 
-                <!-- The board's sensors as tiles, grouped by the chip they're read from and named as All sensors names it:
-                     two chips each have a "Temperature #1". Every tile shows (no box to scroll): a PC has a dozen at most. -->
-                <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasBoardTemps, Converter={StaticResource Vis}}">
+                <!-- No drive gives a temperature (the agent has no admin rights, or the PC gives none): the card says so in
+                     its place, so the drives' temperatures don't read as taken off the page. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasDriveTemps, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                     <StackPanel>
-                        <DockPanel Margin="0,0,0,12">
-                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now, against today\'s range'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="{ctl:T Motherboard}" Style="{StaticResource H2}" />
+                        <TextBlock Text="{ctl:T Drives}" Style="{StaticResource H2}" Margin="0,0,0,12" />
+                        <TextBlock Text="{ctl:T 'No drive temperatures are being read right now. They need RigSight to run with admin rights.'}"
+                                   Style="{StaticResource Muted}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- How far each chip climbs above its rest under the same load, week by week or month by month, against its
+                     usual band from its first weeks (approved mock-up, 2026-11-14). Both lines share one scale. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}">
+                    <StackPanel>
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="CoolingPeriod" Content="{ctl:T Weeks}"
+                                                 IsChecked="{Binding CoolingPeriod, Converter={StaticResource Equals}, ConverterParameter=Weeks}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="CoolingPeriod" Content="{ctl:T Months}"
+                                                 IsChecked="{Binding CoolingPeriod, Converter={StaticResource Equals}, ConverterParameter=Months}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="{ctl:T 'Over the months'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
-                        <ItemsControl ItemsSource="{Binding BoardChips}" Focusable="False">
+                        <TextBlock Text="{ctl:T 'How far each part climbs above its resting temperature under the same load.'}" FontSize="{x:Static ctl:TextSize.Small}"
+                                   Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,60"
+                                     Visibility="{Binding HasCooling, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <ItemsControl ItemsSource="{Binding Cooling}" Focusable="False">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <StackPanel x:Name="Group" Margin="0,18,0,0">
-                                        <DockPanel Margin="0,0,0,8">
-                                            <TextBlock DockPanel.Dock="Left" Text="{Binding ChipCaps}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Board}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
-                                                       VerticalAlignment="Center" Margin="8,0,0,0" Visibility="{Binding HasBoard, Converter={StaticResource Vis}}" />
-                                        </DockPanel>
-                                        <ItemsControl ItemsSource="{Binding Tiles}" Focusable="False">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <!-- Narrower than the page's other tiles: three across in half the row. -->
-                                                    <ctl:TileWrap MinTileWidth="150" />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border Style="{StaticResource Tile}">
-                                                        <StackPanel>
-                                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" />
-                                                            <TextBlock Text="{Binding Sensor.ShortValue, FallbackValue='—'}" FontSize="{x:Static ctl:TextSize.Title}" FontWeight="SemiBold" Margin="0,3,0,0">
-                                                                <TextBlock.Foreground>
-                                                                    <MultiBinding Converter="{StaticResource ScaledTempBrush}">
-                                                                        <Binding Path="Sensor.Value" />
-                                                                        <Binding Path="Steps" />
-                                                                    </MultiBinding>
-                                                                </TextBlock.Foreground>
-                                                            </TextBlock>
-                                                            <ProgressBar Style="{StaticResource Bar}" Height="4" Margin="0,7,0,5" Maximum="100" Value="{Binding Sensor.RangeShare, Mode=OneWay}">
-                                                                <ProgressBar.Foreground>
-                                                                    <MultiBinding Converter="{StaticResource ScaledTempBrush}">
-                                                                        <Binding Path="Sensor.Value" />
-                                                                        <Binding Path="Steps" />
-                                                                    </MultiBinding>
-                                                                </ProgressBar.Foreground>
-                                                            </ProgressBar>
-                                                            <TextBlock Text="{Binding Sensor.RangeText}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
-                                                        </StackPanel>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
+                                    <StackPanel>
+                                        <Border x:Name="Rule" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Margin="0,16,0,0" />
+                                        <Grid Margin="0,16,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="150" />
+                                                <ColumnDefinition Width="18" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <Grid HorizontalAlignment="Left">
+                                                    <Border CornerRadius="5" Background="{Binding Brush, Converter={StaticResource ResourceBrush}}" Opacity="0.16" />
+                                                    <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Bold" Margin="8,2"
+                                                               Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                                                </Grid>
+                                                <TextBlock x:Name="Big" Text="{Binding BigText}" FontSize="{x:Static ctl:TextSize.Hero}" FontWeight="SemiBold" Margin="0,8,0,0" />
+                                                <TextBlock FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0">
+                                                    <Run x:Name="Lead" Text="{Binding LeadText, Mode=OneWay}" /><Run Text="{Binding TailText, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <ctl:WearLine Grid.Column="2" Height="110" Weeks="{Binding Points}" BandLow="{Binding Row.BandLow}" BandHigh="{Binding Row.BandHigh}"
+                                                          ScaleLow="{Binding ScaleLow}" ScaleSpan="{Binding ScaleSpan}" Stroke="{Binding Brush, Converter={StaticResource ResourceBrush}}"
+                                                          Moved="{Binding IsWarmer}" FirstLabel="{Binding FirstLabel}" LastLabel="{Binding LastLabel}" Tips="{Binding Tips}"
+                                                          AutomationProperties.Name="{Binding ChartName}" />
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Margin="168,8,0,0" Visibility="{Binding HasFacts, Converter={StaticResource Vis}}">
+                                            <TextBlock Text="{Binding LoadText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,22,0" />
+                                            <TextBlock Text="{Binding RestText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                        </StackPanel>
                                     </StackPanel>
                                     <DataTemplate.Triggers>
                                         <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
-                                            <Setter TargetName="Group" Property="Margin" Value="0" />
+                                            <Setter TargetName="Rule" Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsWarmer}" Value="True">
+                                            <Setter TargetName="Big" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                            <Setter TargetName="Lead" Property="Foreground" Value="{DynamicResource WarmBrush}" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <TextBlock Text="{ctl:T 'A warmer room lifts load and rest together, so this gap shows the cooling itself. A slow climb can come from dust or aging thermal paste.'}"
+                                   FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,16,0,0" />
                     </StackPanel>
                 </ctl:SmoothBorder>
             </ctl:CardPair>
 
-            <!-- Neither has readings (the agent has no admin rights, or the PC gives none): one card across the row says so
-                 instead of the cards going, which read as the drives' temperatures having been taken off the page. -->
-            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding HasPartTemps, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                <StackPanel>
-                    <TextBlock Text="{ctl:T 'Motherboard and drives'}" Style="{StaticResource H2}" Margin="0,0,0,12" />
-                    <TextBlock Text="{ctl:T 'No motherboard or drive temperatures are being read right now. They need RigSight to run with admin rights.'}"
-                               Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,2" />
-                </StackPanel>
-            </ctl:SmoothBorder>
-
-            <!-- The week by hour, and each chip at rest over the last month. -->
+            <!-- The week by hour, and the motherboard's sensors. -->
             <Grid Margin="0,18,0,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="3*" />
+                    <ColumnDefinition Width="5*" />
                     <ColumnDefinition Width="18" />
-                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="4*" />
                 </Grid.ColumnDefinitions>
                 <ctl:SmoothBorder Style="{StaticResource Card}">
                     <DockPanel>
@@ -522,38 +527,68 @@
                         <ctl:HeatGrid Height="170" Hours="{Binding HeatWeek}" AutomationProperties.Name="{ctl:T 'The last seven days, hour by hour'}" />
                     </DockPanel>
                 </ctl:SmoothBorder>
-                <!-- Idle and settled: the same load every day, so what changes is the room and the cooling. One line a
-                     chip: its figure, its usual, and its last month drawn beside them. -->
+                <!-- The board's sensors, short (mock-up 2026-11-14): a column a chip, warmest first, each with a mark where it
+                     is now on its range today. Over seven rows the list scrolls, the last row cut in half. -->
                 <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'At rest, last 30 days'}" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                        <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Taken while the PC sits idle. A flat line means the cooling is holding. A slow climb can come from dust or aging thermal paste, and a warmer room raises these too.'}"
-                                   FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
-                        <ItemsControl ItemsSource="{Binding Rest}" VerticalAlignment="Center" Focusable="False">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,7">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40" />
-                                            <ColumnDefinition Width="58" />
-                                            <ColumnDefinition Width="Auto" MinWidth="86" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Part}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Text="{Binding TodayText}" FontSize="{x:Static ctl:TextSize.FigureLarge}" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                   Foreground="{Binding Today, Converter={StaticResource TempBrush}}" />
-                                        <TextBlock Grid.Column="2" Text="{Binding UsualText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,14,0" />
-                                        <ctl:TrendLine Grid.Column="3" Height="34" Values="{Binding Days}" Tips="{Binding Tips}" Stroke="{Binding Brush, Converter={StaticResource ResourceBrush}}"
-                                                       Visibility="{Binding HasLine, Converter={StaticResource Vis}}" />
-                                        <!-- Warmer at rest than usual: ask why (hidden while the AI is off). -->
-                                        <Border Grid.Column="4" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="{Binding IsWarmer, Converter={StaticResource Vis}}">
-                                            <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Why is it warmer?'}" CommandParameter="{Binding Ask}" AutomationProperties.Name="{ctl:T 'Why is it warmer?'}" />
-                                        </Border>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock DockPanel.Dock="Right" ctl:TrimmedText.ToolTip="True" Text="{Binding BoardName}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}"
+                                       TextTrimming="CharacterEllipsis" MaxWidth="260" VerticalAlignment="Center" Margin="12,0,0,0" />
+                            <TextBlock Text="{ctl:T Motherboard}" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <TextBlock DockPanel.Dock="Bottom" Text="{ctl:T 'Each mark is now, on that sensor\'s range today.'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}"
+                                   TextWrapping="Wrap" Margin="0,10,0,0" Visibility="{Binding HasBoardTemps, Converter={StaticResource Vis}}" />
+                        <Grid>
+                            <TextBlock Text="{ctl:T 'No motherboard temperatures are being read right now. They need RigSight to run with admin rights.'}" Style="{StaticResource Muted}" TextWrapping="Wrap"
+                                       Visibility="{Binding HasBoardTemps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            <ScrollViewer MaxHeight="252" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                                          Visibility="{Binding HasBoardTemps, Converter={StaticResource Vis}}">
+                                <ItemsControl ItemsSource="{Binding BoardChips}" Focusable="False" Margin="0,0,-22,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="{Binding BoardColumns}" VerticalAlignment="Top" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,22,0" VerticalAlignment="Top">
+                                                <TextBlock Text="{Binding ChipCaps}" Style="{StaticResource Caption}" Margin="0,0,0,2" />
+                                                <ItemsControl ItemsSource="{Binding Tiles}" Focusable="False">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Height="31" Background="Transparent" ToolTip="{Binding Sensor.RangeText}">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="42" />
+                                                                    <ColumnDefinition Width="52" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding Sensor.ShortValue, FallbackValue='—'}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0">
+                                                                    <TextBlock.Foreground>
+                                                                        <MultiBinding Converter="{StaticResource ScaledTempBrush}">
+                                                                            <Binding Path="Sensor.Value" />
+                                                                            <Binding Path="Steps" />
+                                                                        </MultiBinding>
+                                                                    </TextBlock.Foreground>
+                                                                </TextBlock>
+                                                                <ctl:RangeMark Grid.Column="2" VerticalAlignment="Center" Share="{Binding Sensor.RangeShare, Mode=OneWay}">
+                                                                    <ctl:RangeMark.Mark>
+                                                                        <MultiBinding Converter="{StaticResource ScaledTempBrush}">
+                                                                            <Binding Path="Sensor.Value" />
+                                                                            <Binding Path="Steps" />
+                                                                        </MultiBinding>
+                                                                    </ctl:RangeMark.Mark>
+                                                                </ctl:RangeMark>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
                     </DockPanel>
                 </ctl:SmoothBorder>
             </Grid>

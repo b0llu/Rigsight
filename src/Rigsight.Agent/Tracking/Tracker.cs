@@ -1,5 +1,6 @@
 ﻿using Rigsight.Agent.Network;
 using Rigsight.Agent.Sensors;
+using Rigsight.Agent.Storage;
 using Rigsight.Core;
 using Rigsight.Core.Data;
 using Rigsight.Core.Games;
@@ -190,6 +191,18 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
     /// <summary>The internet over the last second: the whole connection's speed and each app's.</summary>
     public NetLive NetNow => _net.Live;
+
+    // What each app reads and writes on each drive (see DiskTracker); processes are named the way the network's are.
+    private readonly DiskTracker _disk = new(db);
+
+    /// <summary>The drives as they are now, by their number in Windows → key; true when that changed.</summary>
+    public bool SetDiskMap(IReadOnlyDictionary<int, string> numberToKey) => _disk.SetDiskMap(numberToKey);
+
+    /// <summary>The drive numbers with a key.</summary>
+    public IEnumerable<int> DiskNumbers => _disk.Disks;
+
+    /// <summary>For the log: bytes on the drives counted and not counted since the last call (see <see cref="DiskTracker.TakeSummary"/>).</summary>
+    public (long Counted, long NoProcess, long NoApp, long NoDrive) TakeDiskSummary() => _disk.TakeSummary();
     private double? _lastGpuLoad;
 
     /// <summary>What each app asked of the CPU and the GPU, sample by sample, over the last <see cref="LoadWindowSeconds"/>.</summary>
@@ -791,6 +804,29 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             a => AppResolver.DisplayName(a, _settings), wholePc: true);
     }
 
+    /// <summary>
+    /// What each process read and wrote on each drive over the last second, from the disk trace; <paramref name="running"/>
+    /// names the processes (the last process sample's). The system process is Windows' own app ("System"), whose disk
+    /// use is what the file cache did for the apps; apps left out of tracking get no record.
+    /// </summary>
+    public void OnDisk(Dictionary<DiskIoKey, DiskCounts> byPidAndDisk, IReadOnlyDictionary<int, string> running)
+    {
+        if (Paused) return;
+        var counts = new List<(int, AppInfo?, int, DiskCounts)>(byPidAndDisk.Count);
+        foreach (var (key, c) in byPidAndDisk)
+        {
+            if (c.IsEmpty) continue;
+            AppInfo? app = null;
+            if (!DiskTracker.NoProcess(key.Pid))
+            {
+                app = _netApps.Of(key.Pid, running, Excluded);
+                if (app is not null && Excluded(app.Exe)) app = null;
+            }
+            counts.Add((key.Pid, app, key.Disk, c));
+        }
+        _disk.OnSecond(counts);
+    }
+
     /// <summary>A time the internet dropped (see ConnectionWatch).</summary>
     public void OnDrop(NetDrop drop)
     {
@@ -888,6 +924,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
             // The minute's hour, counted back from the minute itself (at an hour's first minute the clock is already past it).
             _net.Write(_minuteTs, _minuteTs - TimeUtil.FromUnix(_minuteTs).Minute * 60, closing: closeAllSessions);
+            _disk.Write(_minuteTs - TimeUtil.FromUnix(_minuteTs).Minute * 60);
 
             foreach (var session in _sessions.Values.ToList())
             {
@@ -1047,6 +1084,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         _deltas.Clear();
         _sessions.Clear();
         _net.Clear();
+        _disk.Clear();
         Ring.Clear();
         _today = new TodayState { Day = LocalToday };
     }

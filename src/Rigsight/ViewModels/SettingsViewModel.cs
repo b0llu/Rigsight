@@ -727,6 +727,9 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool MoreProblems { get => S.Alerts.MoreProblems; set => Set(s => s.Alerts.MoreProblems = value); }
     public bool WorseChanges { get => S.Alerts.WorseChanges; set => Set(s => s.Alerts.WorseChanges = value); }
     public bool DriveFull { get => S.Alerts.DriveFull; set => Set(s => s.Alerts.DriveFull = value); }
+    public bool DriveTemperature { get => S.Alerts.DriveTemperature; set => Set(s => s.Alerts.DriveTemperature = value); }
+    public bool PartsChanged { get => S.Alerts.PartsChanged; set => Set(s => s.Alerts.PartsChanged = value); }
+    public bool DriveLifeMilestones { get => S.Alerts.DriveLifeMilestones; set => Set(s => s.Alerts.DriveLifeMilestones = value); }
     public bool WeeklyRecap { get => S.Alerts.WeeklyRecap; set => Set(s => s.Alerts.WeeklyRecap = value); }
     public bool MemoryGrowth { get => S.Alerts.MemoryGrowth; set => Set(s => s.Alerts.MemoryGrowth = value); }
     public bool NewStartupApps { get => S.Alerts.NewStartupApps; set => Set(s => s.Alerts.NewStartupApps = value); }

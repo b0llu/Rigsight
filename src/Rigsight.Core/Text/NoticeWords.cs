@@ -239,6 +239,31 @@ public static class NoticeWords
     public static NoticeText DriveWorn(string drive, double left) =>
         new(Lang.T($"Your {drive} reports most of its rated life used"), Lang.T($"It has {left:0}% of its rated life left. Keep a backup of what's on it."));
 
+    /// <summary>A drive at or past its own warning temperature: "Your Samsung SSD 980 is running hot" / "It reached 72°C, above its own 70°C warning point."</summary>
+    public static NoticeText DriveHot(string drive, double temp, double warning) =>
+        new(Lang.T($"Your {drive} is running hot"), temp > warning
+            ? Lang.T($"It reached {Temp(temp)}, above its own {Temp(warning)} warning point.")
+            : Lang.T($"It reached {Temp(warning)}, its own warning point."));
+
+    /// <summary>
+    /// An SSD passing half or a quarter of its rated life: "Your KINGSTON SA400 has half its rated life left" / "It uses about
+    /// 8% a year, so at this pace that's around 6 more years." (without a pace yet: how much it has left).
+    /// </summary>
+    public static NoticeText DriveLife(string drive, int mark, double left, double? perYear) =>
+        new(mark == 50 ? Lang.T($"Your {drive} has half its rated life left") : Lang.T($"Your {drive} has a quarter of its rated life left"),
+            perYear is double p && p >= 0.5
+                ? Lang.T($"It uses about {p:0}% a year, so at this pace that's around {Math.Max(1, Math.Round(left / p)):0} more years.")
+                : Lang.T($"It has {left:0}% of its rated life left, by its own count."));
+
+    /// <summary>
+    /// A chip that sits further above its rest under the same load than in its first weeks (Wear): "Your CPU runs hotter
+    /// under load than it used to" / "At the same load it now sits 18°C above its resting temperature, against 14°C in late
+    /// September."
+    /// </summary>
+    public static NoticeText RunsHotter(string part, double gapNow, double gapThen, string when) =>
+        new(Lang.T($"Your {part} runs hotter under load than it used to"),
+            Lang.T($"At the same load it now sits {Units.TempGap(gapNow)}{(Units.Fahrenheit ? "F" : "C")} above its resting temperature, against {Units.TempGap(gapThen)}{(Units.Fahrenheit ? "F" : "C")} in {when}."));
+
     /// <summary>
     /// A drive almost full: "Your C drive is almost full" / "It has 8 GB left of 476 GB." The Windows drive also says why
     /// that matters there (updates need room); other drives don't, since it isn't true of them.

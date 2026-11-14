@@ -681,6 +681,8 @@ internal sealed class SensorHost
                     bool badSectors = reallocated > 0 || pending > 0 || uncorrectable > 0;
                     status = failing ? "Bad" : badSectors ? "Caution" : "Good";
                 }
+                var storage = device.Storage;
+                ulong size = Convert.ToUInt64(storage.TotalSize);
                 list.Add(new DriveHealthInfo
                 {
                     Name = hw.Name,
@@ -688,6 +690,29 @@ internal sealed class SensorHost
                     ReallocatedSectors = reallocated,
                     PendingSectors = pending,
                     UncorrectableSectors = uncorrectable,
+                    Key = Core.Storage.DriveKey.Of(storage.Model ?? hw.Name, storage.SerialNumber, size),
+                    DiskNumber = Convert.ToInt32(storage.DriveNumber),
+                    IsNvme = storage.IsNVMe,
+                    IsSsd = storage.IsSSD,
+                    Bus = storage.BusType.ToString(),
+                    SizeBytes = size,
+                    Life = Num(smart.Life),
+                    ReadGb = Num(smart.HostReads),
+                    WrittenGb = Num(smart.HostWrites),
+                    PowerOnHours = smart.MeasuredPowerOnHours > 0 ? (long)smart.MeasuredPowerOnHours : smart.DetectedPowerOnHours > 0 ? (long)smart.DetectedPowerOnHours : null,
+                    PowerOnCount = smart.PowerOnCount > 0 ? (long)smart.PowerOnCount : null,
+                    Temperature = Num(smart.Temperature),
+                    TemperatureWarning = Num(smart.TemperatureWarning),
+                    TemperatureCritical = Num(smart.TemperatureCritical),
+                    Attributes = smart.SmartAttributes?.Select(a => new DriveAttribute
+                    {
+                        Id = a.Info.ID,
+                        Name = a.Info.Name ?? "",
+                        Current = a.Attribute.CurrentValue,
+                        Worst = a.Attribute.WorstValue,
+                        Threshold = a.Attribute.Threshold,
+                        Raw = a.Attribute.RawValueULong,
+                    }).ToList(),
                 });
             }
             catch (Exception ex)
@@ -696,6 +721,41 @@ internal sealed class SensorHost
             }
         }
         return list;
+    }
+
+    /// <summary>
+    /// Each physical drive the library found: its number in Windows (\\.\PhysicalDriveN, the number disk events carry),
+    /// its key in the history (<see cref="Rigsight.Core.Storage.DriveKey"/>), model and letters. Sampler thread only (the library
+    /// isn't thread-safe); a drive that can't be read is left out and logged.
+    /// </summary>
+    public List<Rigsight.Agent.Storage.PhysicalDisk> ReadDiskMap()
+    {
+        var list = new List<Rigsight.Agent.Storage.PhysicalDisk>();
+        foreach (var (hw, _) in _hardware)
+        {
+            if (hw is not LibreHardwareMonitor.Hardware.Storage.StorageDevice device) continue;
+            try
+            {
+                if (device.Storage is not { } s) continue;
+                var letters = s.Partitions?.Where(p => p.DriveLetter is not null).Select(p => char.ToUpperInvariant(p.DriveLetter!.Value) + ":")
+                    .Distinct().Order().ToList() ?? [];
+                string model = string.IsNullOrWhiteSpace(s.Model) ? hw.Name : s.Model.Trim();
+                list.Add(new Rigsight.Agent.Storage.PhysicalDisk(s.DriveNumber, Rigsight.Core.Storage.DriveKey.Of(model, s.SerialNumber, s.TotalSize), model, letters));
+            }
+            catch (Exception ex)
+            {
+                Log.Write("disk", $"Expected {hw.Name}'s drive number, model and serial for disk use, found {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+        return list;
+    }
+
+    /// <summary>A reading the drive may not give (the library's numbers come in several types): null when it gives none, or a nonsense value.</summary>
+    private static double? Num(object? value)
+    {
+        if (value is null) return null;
+        double d = Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
+        return double.IsFinite(d) && d >= 0 ? d : null;
     }
 
     /// <summary>Some hardware didn't answer on the last <see cref="Update"/> (see <see cref="SensorHealth"/>).</summary>

@@ -187,6 +187,21 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.12.0", 11, 14,
+            feature: new(Lang.T("Your drives, up close"), Lang.T("Storage lists every drive with its health, and opens one to show everything it reports."),
+                [Lang.T("Open a drive to see its life left, data written, hours on and every reading it gives."),
+                    Lang.T("See which apps read and write the most, over a day, a week or a month."),
+                    Lang.T("A drive that needs a look sits on top, with what happened in plain words.")],
+                "storage", "\uEDA2", isPage: false) { OpenText = Lang.T("Open Storage") },
+            added: [Lang.T("Temperatures shows how far the CPU and GPU climb above rest under the same load, week by week or month by month."),
+                Lang.T("Fans shows whether each fan still spins as fast for the same heat as in its first weeks."),
+                Lang.T("PC health on Home says when the CPU or GPU runs hotter at the same load than it used to."),
+                Lang.T("A month or a year on Reports notes a chip running hotter than before, and a drive's life or bad sectors changing."),
+                Lang.T("A notification tells you when a drive reaches its own warning temperature, or an SSD has half or a quarter of its life left."),
+                Lang.T("A notification says when the CPU or GPU runs hotter under load than it used to, at most once a month.")],
+            better: [Lang.T("Temperatures lists the motherboard's sensors warmest first, each marked on today's range, where the At rest card was."),
+                Lang.T("A drive's notification opens that drive on Storage.")],
+            fixedBugs: [Lang.T("The bell's list opens right under the bell at any zoom.")]),
         V("1.11.0", 11, 13,
             better: [Lang.T("Opening RigSight from the tray, a notification or a widget no longer waits up to a second first, and neither do widget shortcuts."),
                 Lang.T("Storage lists Space you could free sooner, counting again only the folders that changed since the last count."),

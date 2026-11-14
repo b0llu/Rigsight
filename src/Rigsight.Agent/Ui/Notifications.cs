@@ -111,7 +111,7 @@ internal static class NoticeLevels
         ("fan", _) => NoticeKind.Fans,
         ("drive", Core.Notices.NoticeLevel.Problem) => NoticeKind.DriveFailing,
         ("drive", _) => NoticeKind.Drive,
-        ("hotter" or "problems", _) => NoticeKind.Usual,
+        ("hotter" or "problems" or "wear", _) => NoticeKind.Usual,
         ("slowed", _) => NoticeKind.Slowed,
         ("change", _) => NoticeKind.Change,
         ("storage", _) => NoticeKind.Space,

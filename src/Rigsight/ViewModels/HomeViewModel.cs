@@ -391,7 +391,7 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         var worse = WorseLine(results, now.Date);
         if (worse is not null && changeLines.Any(l => l.ChangeDay == worse.ChangeDay)) worse = null;
         Changes = Kept.Or(Changes, changeLines);
-        Health = Kept.Or(Health, HealthLines(Today, read?.Problems ?? [], read?.Mains ?? 0, Live.Drives, HomeCards.Fullest(), worse, read?.MainsLikely));
+        Health = Kept.Or(Health, HealthLines(Today, read?.Problems ?? [], read?.Mains ?? 0, Live.Drives, HomeCards.Fullest(), worse, read?.MainsLikely, read?.Wear));
     }
 
     /// <summary>How long the latest change that made a difference stays on top of "What changed lately".</summary>
@@ -502,10 +502,10 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// change itself is in "What changed lately", and saying it twice here would be the same fact again.
     /// </summary>
     /// <param name="mainsLikely">Of <paramref name="mains"/>, the likely power cuts (the rest were possibly the power); null: all of them.</param>
-    internal static List<HomeLine> HealthLines(Report? today, IReadOnlyCollection<CrashKind> problems, int mains, IEnumerable<DriveSummary> drives, string? fullest, HomeLine? worseChange, int? mainsLikely = null)
+    internal static List<HomeLine> HealthLines(Report? today, IReadOnlyCollection<CrashKind> problems, int mains, IEnumerable<DriveSummary> drives, string? fullest, HomeLine? worseChange, int? mainsLikely = null, Insight? wear = null)
     {
         // The lines and their order are worked out in Core (HomeCards), where the widgets' PC health tile reads them too.
-        var parts = HomeCards.Health(today, problems, mains, [.. drives.Select(d => new DriveCheck(d.Name, d.HasHealth, d.HealthReason is not null))], fullest, mainsLikely);
+        var parts = HomeCards.Health(today, problems, mains, [.. drives.Select(d => new DriveCheck(d.Name, d.HasHealth, d.HealthReason is not null))], fullest, mainsLikely, wear);
         var lines = parts.Select(i => new HomeLine(i.Icon, InsightBrushConverter.KeyOf(i), i.Line)
             { TextBrush = HomeCards.NeedsLook(i) ? "WarmBrush" : null, Opens = i.Opens, Key = i.Key, Game = i.Game }).ToList();
         return HomeCards.HealthOrder(lines, worseChange, HomeCards.HeatSaid(parts), l => l.TextBrush == "WarmBrush");

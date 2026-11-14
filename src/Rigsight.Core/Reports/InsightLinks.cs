@@ -16,13 +16,13 @@ public static class InsightLinks
         "usual-problems" => i.Tone == InsightTone.Warn ? InsightOpens.Crashes : InsightOpens.Usual,
         // PC health: problems that happened (as usual) are still events to look at; "none" and "as usual" are complete.
         "pc-problems" or "usual-power" => InsightOpens.Crashes,
-        "drive-unwell" => InsightOpens.Storage,
+        "drive-unwell" or Wear.DriveKey => InsightOpens.Storage,
         // Moved against the usual, with the figures behind it.
         // A game hotter than its usual: that game's plays against its usual, on the Games page.
         "usual-heat" => i.Game is null ? InsightOpens.Usual : InsightOpens.Game,
         "drift" => InsightOpens.Usual,
         // Warnings with more to see where they're measured.
-        "over-limit" or "throttle" or "hotspot" => InsightOpens.Temperatures,
+        "over-limit" or "throttle" or "hotspot" or Wear.HealthKey => InsightOpens.Temperatures,
         "peak" => i.Tone is InsightTone.Warn or InsightTone.Hot ? InsightOpens.Temperatures : InsightOpens.None,
         "fan-stopped" or "fan-slower" or "fan-older" => InsightOpens.Fans,
         // Far outside an app's own usual, or the connection itself dropping.

@@ -180,7 +180,7 @@ public sealed class PcFacts
             {
                 var worse = HomeCards.Worse(f.Results, today);
                 if (worse is not null && HomeCards.Changes(records.Changes, today, f.Results).Any(l => l.ChangeDay == worse.Day)) worse = null;
-                var parts = HomeCards.Health(report, records.Problems, records.Mains, drives ?? [], fullest, records.MainsLikely);
+                var parts = HomeCards.Health(report, records.Problems, records.Mains, drives ?? [], fullest, records.MainsLikely, records.Wear);
                 var health = parts.Select(i => new HealthLine(i.Icon, i.Line, HomeCards.NeedsLook(i))).ToList();
                 f.Health = HomeCards.HealthOrder(health, worse is null ? null : new HealthLine("", worse.Said, true), HomeCards.HeatSaid(parts), l => l.NeedsLook);
             }

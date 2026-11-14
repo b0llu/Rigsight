@@ -396,6 +396,38 @@ public sealed partial class FansViewModel : ObservableObject
 
     public bool HasToday => LoudestHour is not null || StartsText is not null || SilentText is not null;
 
+    // The "Over the months" tile under the list (every period: it's about the weeks, not the period picked).
+
+    /// <summary>A line a fan row: its speed at the same heat now against its first weeks (see <see cref="Core.Reports.Wear.Fans"/>).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasWear))]
+    private IReadOnlyList<WearTileRow> _wearRows = [];
+    public bool HasWear => WearRows.Count > 0;
+
+    /// <summary>"Against late September": the first weeks the lines compare with.</summary>
+    [ObservableProperty] private string _wearAgainst = "";
+
+    /// <summary>Every fan's weeks, read once a day (they change by the week).</summary>
+    private (DateTime Day, List<Core.Reports.WearRow> Rows)? _fanWear;
+
+    private async Task LoadWearAsync(int id, IReadOnlyList<FanCard> cards, IReadOnlyDictionary<string, long> bySensor)
+    {
+        if (_fanWear?.Day != DateTime.Today && await _reports.FanWearAsync() is { } rows) _fanWear = (DateTime.Today, rows);
+        if (id != _load || _fanWear is not { } wear) return;
+        var byId = wear.Rows.ToDictionary(r => r.Part);
+        var fans = new List<WearTiles.FanWear>();
+        foreach (var card in cards)
+        {
+            // A card's fans together: the one with the most weeks speaks for them (they turn as one).
+            var mine = card.Sensors.Select(x => bySensor.TryGetValue(x.Id, out var f) && byId.TryGetValue($"fan:{f}", out var r) ? r : null)
+                .OfType<Core.Reports.WearRow>().MaxBy(r => r.History.Count);
+            if (mine is null) continue;
+            fans.Add(new WearTiles.FanWear(card.Title, card.IsGroup, mine, card.Series.Count > 0 ? card.Series[0].Brush : (System.Windows.Media.Brush)System.Windows.Application.Current.FindResource("MutedBrush")));
+        }
+        WearRows = WearTiles.Fans(fans);
+        WearAgainst = WearTiles.Against(fans.Where(f => f.Wear.State is Core.Reports.WearState.Moved or Core.Reports.WearState.Steady).Select(f => f.Wear.ThenDate).Where(d => d is not null).Min());
+    }
+
     private void OnLiveChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(LiveData.ReadingsPending))
@@ -533,6 +565,8 @@ public sealed partial class FansViewModel : ObservableObject
         else SummariseToday(shown, MinutesOf, minutes, apps, s);
         Selected = picked is not null && Fans.Contains(picked) ? picked : Fans.FirstOrDefault();
         OnPropertyChanged(nameof(ChartSeries));
+        await LoadWearAsync(id, shown, bySensor);
+        if (id != _load) return;
         _loadedPast = IncludesToday ? null : (Unit, from);
         Loaded = true;
     }

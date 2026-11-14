@@ -505,16 +505,3 @@ public sealed class FansPageTests
         Assert.Same(a, FanCard.Merge([a]));
     }
 }
-
-/// <summary>The Temperatures page's "At rest" rows.</summary>
-public sealed class RestRowTests
-{
-    [Fact]
-    public void A_row_shows_today_and_the_usual_range()
-    {
-        Assert.Equal(("47°", "usually 44–45°"), (new RestRow("CPU", new RestReading(47.2, 60, 44.1, 45.4)).TodayText,
-            new RestRow("CPU", new RestReading(47.2, 60, 44.1, 45.4)).UsualText));
-        Assert.Equal("usually 36°", new RestRow("GPU", new RestReading(48, 60, 36.1, 36.3)).UsualText);
-        Assert.Equal(("—", ""), (new RestRow("GPU", new RestReading(null, 0, null, null)).TodayText, new RestRow("GPU", new RestReading(null, 0, null, null)).UsualText));
-    }
-}

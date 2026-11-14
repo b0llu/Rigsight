@@ -801,7 +801,7 @@ public sealed partial class ShellViewModel : ObservableObject
         }
         // A zoom up to now gains its newest points too.
         if (id == _historyLoad && Live.ChartDetail is { } detail && detail.To > DateTime.Now.AddMinutes(-2)) await LoadZoomHistoryAsync();
-        if (id == _historyLoad && CurrentPage == "temperatures" && await Reports.RestDaysAsync(DateTime.Today) is { } rest) Live.LoadRest(rest);
+        if (id == _historyLoad && CurrentPage == "temperatures" && await Reports.CoolingWearAsync() is { } cooling) Live.LoadCooling(cooling.Cpu, cooling.Gpu);
         if (id == _historyLoad && CurrentPage == "temperatures" && await Reports.HeatWeekAsync(DateTime.Today) is { } week) Live.HeatWeek = Models.Kept.Or(Live.HeatWeek, week);
     }
 
@@ -983,6 +983,9 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             case "storage" when focus is { Length: 1 }:
                 _ = Storage.ScanCommand.ExecuteAsync(focus + @":\");
+                break;
+            case "storage" when focus?.StartsWith(Core.Notices.NoticeChecks.DriveArg, StringComparison.Ordinal) == true:
+                Storage.OpenKey(focus[Core.Notices.NoticeChecks.DriveArg.Length..]);
                 break;
             case "games" when focus is { Length: > 0 }:
                 _ = Games.OpenKeyAsync(focus);
@@ -1202,6 +1205,9 @@ public sealed partial class ShellViewModel : ObservableObject
                 break;
             case "history-cleared":
                 SettingsPage.OnHistoryCleared();
+                break;
+            case "drives":
+                if (msg.Drives is not null) Live.UpdateDriveHealth(msg.Drives);
                 break;
         }
     }

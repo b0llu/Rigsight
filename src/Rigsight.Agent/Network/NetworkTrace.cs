@@ -167,6 +167,9 @@ internal sealed unsafe class NetworkTrace : IDisposable
     /// </summary>
     public static List<string> StopOthers(string own) => Sessions(own, stop: true);
 
+    /// <summary>The same for another trace of ours whose test copies' names start with <paramref name="prefix"/> (the disk trace's).</summary>
+    internal static List<string> StopOthers(string own, string prefix) => Sessions(own, stop: true, prefix);
+
     /// <summary>
     /// The names of every trace session running on the PC, for the log when app network use stays silent: another
     /// program's session can leave Windows' network events with nobody else getting them (issue #13: they stopped
@@ -174,7 +177,7 @@ internal sealed unsafe class NetworkTrace : IDisposable
     /// </summary>
     public static List<string> Running() => Sessions(null, stop: false);
 
-    private static List<string> Sessions(string? own, bool stop)
+    private static List<string> Sessions(string? own, bool stop, string prefix = TestPrefix)
     {
         const int max = 64, nameBytes = 512, fileBytes = 2048, size = 120 + nameBytes + fileBytes;
         var stopped = new List<string>();
@@ -200,7 +203,7 @@ internal sealed unsafe class NetworkTrace : IDisposable
                     if (!string.IsNullOrEmpty(name)) stopped.Add(name);
                     continue;
                 }
-                if (name is null || !name.StartsWith(TestPrefix, StringComparison.OrdinalIgnoreCase) || name.Equals(own, StringComparison.OrdinalIgnoreCase)) continue;
+                if (name is null || !name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) || name.Equals(own, StringComparison.OrdinalIgnoreCase)) continue;
                 new Span<byte>((void*)props, PropertiesSize).Clear();
                 *(uint*)props = PropertiesSize;
                 *(uint*)((byte*)props + 116) = 120;

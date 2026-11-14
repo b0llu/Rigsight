@@ -13,15 +13,19 @@
             <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
         </Style>
         <!-- A list row's share of its folder, as a shade behind it (no track). -->
-        <Style x:Key="Shade" TargetType="ProgressBar">
+        <!-- A folder's share of what's listed, as a thin bar along the bottom of its row in the folder's own colour (the
+             user, 2026-11-14: the full-height shade it replaced read like a hover that got stuck). -->
+        <Style x:Key="ShareLine" TargetType="ProgressBar">
             <Setter Property="Maximum" Value="100" />
             <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Height" Value="3" />
+            <Setter Property="VerticalAlignment" Value="Bottom" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ProgressBar">
                         <Grid>
                             <Border x:Name="PART_Track" Background="Transparent" />
-                            <Border x:Name="PART_Indicator" Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Small}" HorizontalAlignment="Left" />
+                            <Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}" CornerRadius="1.5" HorizontalAlignment="Left" />
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -87,7 +91,7 @@
                 <TextBlock Grid.Column="4" Text="{Binding Growth}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 <Grid Grid.Column="5" VerticalAlignment="Center" MinWidth="70">
                     <Button x:Name="ScanBtn" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" Content="{ctl:T Scan}" HorizontalAlignment="Right"
-                            Command="{Binding DataContext.ScanCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Command="{Binding DataContext.ScanLetterCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                             CommandParameter="{Binding Root}" AutomationProperties.Name="{Binding ScanName}" />
                     <!-- While this drive is being scanned: how far along, and the shared spinner. -->
                     <StackPanel x:Name="Scanning" Orientation="Horizontal" HorizontalAlignment="Right" Visibility="Collapsed">
@@ -103,374 +107,780 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
+
+        <!-- The columns every drive table shares, its header and its rows (wear and drive details, approved mock-up 2026-11-14). -->
+        <Style x:Key="DriveColumns" TargetType="Grid">
+            <Setter Property="Margin" Value="12,0" />
+        </Style>
+
+        <!-- A drive that needs a look: a card of its own above the table, the whole card opens it ("Open drive" says so). -->
+        <DataTemplate x:Key="LookCard">
+            <Button Cursor="Hand" Margin="0,0,18,18" Command="{Binding DataContext.OpenDriveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                    AutomationProperties.Name="{Binding Name}" FocusVisualStyle="{x:Null}">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Tile}" Padding="22,20,22,18">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource TextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,2,0,0">
+                            <Ellipse Width="8" Height="8" Fill="{Binding HealthBrush}" VerticalAlignment="Center" Margin="0,0,7,0" />
+                            <TextBlock Text="{Binding HealthWord}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" Foreground="{Binding HealthBrush}" />
+                        </StackPanel>
+                        <Border Style="{StaticResource IconBox}" Width="40" Height="40" Margin="0,0,12,0" VerticalAlignment="Top">
+                            <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S16}" Foreground="{DynamicResource PinkBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding OpenedSub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+                    <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Choice}" Height="40" Margin="0,14,0,0" Padding="16,0,14,0">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{ctl:T 'Open drive'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
+                    <Grid DockPanel.Dock="Bottom" Margin="0,16,0,0" DataContext="{Binding MainLetter}" Visibility="{Binding Converter={StaticResource Vis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="30" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding Letter}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                        <Grid Grid.Column="1" Height="6" VerticalAlignment="Center" Margin="0,0,10,0">
+                            <Border CornerRadius="{x:Static ctl:Corner.Mark}" Background="{DynamicResource Surface2Brush}" />
+                            <ProgressBar Style="{StaticResource Bar}" Height="6" Value="{Binding UsedPercent, Mode=OneWay}" />
+                        </Grid>
+                        <TextBlock Grid.Column="2" Text="{Binding FullText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                    </Grid>
+                    <StackPanel>
+                        <TextBlock Text="{Binding WhatLine}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{Binding HealthBrush}" TextWrapping="Wrap" Margin="0,16,0,0" />
+                        <TextBlock Text="{Binding Reason}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    </StackPanel>
+                </DockPanel>
+            </Button>
+        </DataTemplate>
+
+        <!-- A drive in the table: its own row (opens it), its letters under it with their bars and Scan. -->
+        <DataTemplate x:Key="DriveTableRow">
+            <StackPanel>
+                <Button Style="{StaticResource FlatRowButton}" Command="{Binding DataContext.OpenDriveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                        AutomationProperties.Name="{Binding Name}">
+                    <Grid Style="{StaticResource DriveColumns}" MinHeight="58">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="24" />
+                        </Grid.ColumnDefinitions>
+                        <DockPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                            <Border Style="{StaticResource IconBox}" Width="36" Height="36" Margin="0,0,12,0">
+                                <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource PinkBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding KindText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse Width="8" Height="8" Fill="{Binding HealthBrush}" VerticalAlignment="Center" Margin="0,0,7,0" />
+                            <TextBlock Text="{Binding HealthWord}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{Binding HealthTextBrush}" FontWeight="{Binding HealthWeight}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Visibility="{Binding HasReading, Converter={StaticResource Vis}}">
+                            <TextBlock Text="{Binding LifeText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{Binding LifeBrush}" />
+                            <TextBlock Text="{Binding LifeSub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Visibility="{Binding LifeSub, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" VerticalAlignment="Center" Visibility="{Binding HasReading, Converter={StaticResource Vis}}">
+                            <TextBlock Text="{Binding TempText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{Binding TempBrush}" />
+                            <TextBlock Text="{Binding TempSub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Visibility="{Binding TempSub, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="4" Text="{Binding WrittenText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center"
+                                   Visibility="{Binding HasReading, Converter={StaticResource Vis}}" />
+                        <!-- No reading (a network drive, a USB adapter, no admin rights): why, across the health columns. -->
+                        <TextBlock Grid.Column="2" Grid.ColumnSpan="3" Text="{Binding Note}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Visibility="{Binding HasReading, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <TextBlock Grid.Column="5" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                </Button>
+                <ItemsControl ItemsSource="{Binding Letters}" ItemTemplate="{StaticResource DriveRow}" Focusable="False" Margin="60,0,12,0" />
+                <TextBlock Text="{ctl:T 'No drive letter'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="60,4,0,8"
+                           Visibility="{Binding NoLetter, Converter={StaticResource Vis}}" />
+                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Margin="0,6" />
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- The header over a drive table, its columns the rows'. -->
+        <DataTemplate x:Key="DriveTableHeader">
+            <Grid Style="{StaticResource DriveColumns}" Height="32">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="140" />
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="140" />
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="24" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{ctl:T 'DRIVE'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{ctl:T 'HEALTH'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{ctl:T 'LIFE LEFT'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Text="{ctl:T 'TEMPERATURE'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="4" Text="{ctl:T 'WRITTEN, 7 DAYS'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- A line of "What reads and writes": its reads and writes as one bar in two colours, the figure beside it. -->
+        <DataTemplate x:Key="DiskUseLineTemplate">
+            <Grid Height="38" Background="Transparent" ToolTip="{Binding ToolTip}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="120" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsWindows}" Value="True"><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <!-- Read then written as one bar, rounded only at its ends (see SplitBar). -->
+                <ctl:SplitBar Grid.Column="1" Height="8" Margin="12,0" VerticalAlignment="Center" First="{Binding ReadShare}" Second="{Binding WriteShare}"
+                              FirstBrush="{DynamicResource PurpleBrush}" SecondBrush="{DynamicResource PinkBrush}" Track="{DynamicResource Surface2Brush}" />
+                <TextBlock Grid.Column="2" Text="{Binding Figure}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- A group of Every reading in plain words, a column of its own: its name over its lines (Now and the month-ago heading
+             only when there's a month-ago reading); the Now and month-ago columns share their widths down the column. -->
+        <DataTemplate x:Key="PlainReadingsColumn">
+            <StackPanel Grid.IsSharedSizeScope="True" Margin="0,0,40,0" VerticalAlignment="Top">
+                <Grid Height="30">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="Now" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="Then" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Title}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{ctl:T NOW}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="24,0,0,0"
+                               Visibility="{Binding DataContext.HasReadingsThen, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Vis}}" />
+                    <TextBlock Grid.Column="2" Text="{Binding DataContext.ReadingsThenTitle, RelativeSource={RelativeSource AncestorType=UserControl}}" Style="{StaticResource Caps}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="24,0,0,0"
+                               Visibility="{Binding DataContext.HasReadingsThen, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Vis}}" />
+                </Grid>
+                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" />
+                <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border x:Name="Line" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Height="38">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Now" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Then" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="8" Height="8" Fill="{Binding Dot}" Margin="0,0,10,0" VerticalAlignment="Center" Visibility="{Binding HasDot, Converter={StaticResource Vis}}" />
+                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding Now}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="24,0,0,0" />
+                                    <TextBlock Grid.Column="2" Text="{Binding Then}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="24,0,0,0"
+                                               Visibility="{Binding DataContext.HasReadingsThen, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Vis}}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- The Day, Week and Month switch over "What reads and writes". -->
+        <DataTemplate x:Key="UsePeriodSwitch">
+            <Border Style="{StaticResource SegmentHost}">
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource Tab}" Content="{ctl:T Day}" Tag="{Binding UseDay}" Command="{Binding PickUsePeriodCommand}" CommandParameter="Day" />
+                    <Button Style="{StaticResource Tab}" Content="{ctl:T Week}" Tag="{Binding UseWeek}" Command="{Binding PickUsePeriodCommand}" CommandParameter="Week" />
+                    <Button Style="{StaticResource Tab}" Content="{ctl:T Month}" Tag="{Binding UseMonth}" Command="{Binding PickUsePeriodCommand}" CommandParameter="Month" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <ScrollViewer x:Name="Page" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
-            <DockPanel Margin="0,0,0,18">
-                <Button Style="{StaticResource PageExportButton}" />
-                <!-- The page's own question for the AI (mock-up board 5), left of Export. -->
-                <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'What can I free up?'}" CommandParameter="{x:Static svc:PageAsks.Storage}" AutomationProperties.Name="{ctl:T 'What can I free up?'}" />
-                <!-- Everything on the page again: drives, cleanup, and the open scan (after deleting something, say). -->
-                <Button DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource GhostButton}" Command="{Binding RefreshAllCommand}"
-                        AutomationProperties.Name="{ctl:T Refresh}" ToolTip="{ctl:T 'Check the drives, the cleanup list and the scan again'}">
+        <Grid Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
+
+            <!-- ═══ The overview: the drives that need a look, every drive with its letters, what reads and writes, what could be freed ═══ -->
+            <StackPanel Visibility="{Binding IsDriveOpen, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                <DockPanel Margin="0,0,0,18">
+                    <Button Style="{StaticResource PageExportButton}" />
+                    <!-- The page's own question for the AI (mock-up board 5), left of Export. -->
+                    <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'What can I free up?'}" CommandParameter="{x:Static svc:PageAsks.Storage}" AutomationProperties.Name="{ctl:T 'What can I free up?'}" />
+                    <!-- Everything on the page again: drives, cleanup, and the open scan (after deleting something, say). -->
+                    <Button DockPanel.Dock="Right" VerticalAlignment="Top" Style="{StaticResource GhostButton}" Command="{Binding RefreshAllCommand}"
+                            AutomationProperties.Name="{ctl:T Refresh}" ToolTip="{ctl:T 'Check the drives, the cleanup list and the scan again'}">
+                        <StackPanel Orientation="Horizontal">
+                            <Grid Width="12" Margin="0,0,8,0">
+                                <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" HorizontalAlignment="Center"
+                                           Visibility="{Binding RefreshAllCommand.IsRunning, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                <ctl:Spinner Visibility="{Binding RefreshAllCommand.IsRunning, Converter={StaticResource Vis}}" />
+                            </Grid>
+                            <TextBlock Text="{ctl:T Refresh}" />
+                        </StackPanel>
+                    </Button>
+                    <StackPanel>
+                        <TextBlock Text="{ctl:T Storage}" Style="{StaticResource H1}" />
+                        <TextBlock Text="{ctl:T 'Your drives, what fills them, and how they hold up.'}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- 1. Needs a look: cards, failing first, as many a row as there are (three at most). -->
+                <StackPanel Visibility="{Binding HasLooks, Converter={StaticResource Vis}}">
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
+                        <TextBlock Text="{ctl:T 'NEEDS A LOOK'}" Style="{StaticResource Caps}" Foreground="{DynamicResource WarmBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding LooksSummary}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding Looks}" ItemTemplate="{StaticResource LookCard}" Focusable="False" Margin="0,0,-18,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><UniformGrid Columns="{Binding DataContext.LooksColumns, RelativeSource={RelativeSource AncestorType=UserControl}}" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- 2. Inside the PC: a row a drive, its letters under it; past six drives the table scrolls in its own box. -->
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,12">
+                    <TextBlock Text="{ctl:T 'INSIDE THE PC'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding InsideSummary}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+                <ctl:SmoothBorder Style="{StaticResource Card}" Padding="12,10,12,6">
+                    <StackPanel>
+                        <ContentPresenter ContentTemplate="{StaticResource DriveTableHeader}" />
+                        <ScrollViewer x:Name="InsideBox" Style="{StaticResource GutterScroll}" VerticalScrollBarVisibility="Auto" CanContentScroll="False" ctl:WheelChain.Enabled="True">
+                            <ItemsControl x:Name="InsideList" ItemsSource="{Binding Inside}" ItemTemplate="{StaticResource DriveTableRow}" Focusable="False" />
+                        </ScrollViewer>
+                        <TextBlock Margin="12,4,12,10" TextWrapping="Wrap" Visibility="{Binding StandardAccountHealth, Converter={StaticResource Vis}}"
+                                   Text="{ctl:T 'Drive health needs admin rights on this PC.'}" Style="{StaticResource Muted}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- 3. USB and network, while they're connected. -->
+                <StackPanel Visibility="{Binding HasOthers, Converter={StaticResource Vis}}">
+                    <StackPanel Orientation="Horizontal" Margin="0,26,0,12">
+                        <TextBlock Text="{ctl:T 'USB AND NETWORK'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Shown while they\'re connected'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Padding="12,10,12,6">
+                        <StackPanel>
+                            <ContentPresenter ContentTemplate="{StaticResource DriveTableHeader}" />
+                            <ItemsControl ItemsSource="{Binding Others}" ItemTemplate="{StaticResource DriveTableRow}" Focusable="False" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                </StackPanel>
+
+                <!-- 4. What reads and writes the most, every drive together; and the space each letter could free. -->
+                <Grid Margin="0,26,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.2*" />
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ctl:SmoothBorder Style="{StaticResource Card}">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,10">
+                                <ContentPresenter DockPanel.Dock="Right" Content="{Binding}" ContentTemplate="{StaticResource UsePeriodSwitch}" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'What reads and writes the most'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource PurpleBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="{ctl:T Read}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,16,0" />
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource PinkBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="{ctl:T Written}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding DiskUse}" ItemTemplate="{StaticResource DiskUseLineTemplate}" Focusable="False" />
+                            <TextBlock Text="{ctl:T 'Not recorded'}" Style="{StaticResource Muted}" Margin="0,8,0,0" Visibility="{Binding DiskUseEmpty, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                    <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Space you could free'}" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                            <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,30"
+                                         Visibility="{Binding CleanupRead, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            <ItemsControl ItemsSource="{Binding CleanupLines}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource FlatRowButton}" Command="{Binding DataContext.OpenCleanupLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                            <DockPanel Margin="8,10">
+                                                <Border DockPanel.Dock="Left" Width="28" Height="26" CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" Margin="0,0,14,0">
+                                                    <TextBlock Text="{Binding Letter}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Size}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                                <Border DockPanel.Dock="Right" Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Choice}" Padding="12,5" VerticalAlignment="Center"
+                                                        Visibility="{Binding NeedsScan, Converter={StaticResource Vis}}">
+                                                    <TextBlock Text="{ctl:T Scan}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource TextBrush}" />
+                                                </Border>
+                                                <TextBlock Text="{Binding What}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            </DockPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{ctl:T 'Nothing here is deleted automatically. It shows where the space is, and you decide.'}"
+                                       FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                       Visibility="{Binding CleanupRead, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                </Grid>
+            </StackPanel>
+
+            <!-- ═══ A drive opened: its figures, how it holds up, what reads and writes it, what fills it, what could be freed, every reading ═══ -->
+            <StackPanel Visibility="{Binding IsDriveOpen, Converter={StaticResource Vis}}">
+                <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Padding="10,5" Command="{Binding BackCommand}" AutomationProperties.Name="{ctl:T 'Back to Storage'}">
                     <StackPanel Orientation="Horizontal">
-                        <Grid Width="12" Margin="0,0,8,0">
-                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" HorizontalAlignment="Center"
-                                       Visibility="{Binding RefreshAllCommand.IsRunning, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                            <ctl:Spinner Visibility="{Binding RefreshAllCommand.IsRunning, Converter={StaticResource Vis}}" />
-                        </Grid>
-                        <TextBlock Text="{ctl:T Refresh}" />
+                        <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T Storage}" />
                     </StackPanel>
                 </Button>
-                <StackPanel>
-                    <TextBlock Text="{ctl:T Storage}" Style="{StaticResource H1}" />
-                    <TextBlock Text="{ctl:T 'Your drives, what fills them, and what you could free.'}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
-                </StackPanel>
-            </DockPanel>
-
-            <!-- 1. The drives: one row each, the fullest first; past five, "Show N more"; USB and network under them. -->
-            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="20,14,20,12">
-                <StackPanel>
-                    <DockPanel Margin="0,0,0,8">
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding DrivesSummary}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="{ctl:T 'DRIVES · FULLEST FIRST'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
-                    </DockPanel>
-                    <ItemsControl ItemsSource="{Binding ShownVolumes}" ItemTemplate="{StaticResource DriveRow}" Focusable="False" />
-                    <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Padding="10,4" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,4,0,0"
-                            Content="{Binding MoreDrivesText}" Command="{Binding ToggleDrivesCommand}" Visibility="{Binding HasMoreDrives, Converter={StaticResource Vis}}" />
-                    <StackPanel Visibility="{Binding HasOtherVolumes, Converter={StaticResource Vis}}">
-                        <TextBlock Text="{ctl:T 'USB AND NETWORK'}" Style="{StaticResource Caps}" Margin="0,12,0,6" />
-                        <ItemsControl ItemsSource="{Binding OtherVolumes}" ItemTemplate="{StaticResource DriveRow}" Focusable="False" />
+                <DockPanel Margin="0,14,0,0" DataContext="{Binding Opened}">
+                    <Button Style="{StaticResource PageExportButton}" />
+                    <Button Style="{StaticResource PageAiButton}" Content="{ctl:T 'Is this drive okay?'}" CommandParameter="{Binding Ask}" AutomationProperties.Name="{ctl:T 'Is this drive okay?'}" />
+                    <Border Style="{StaticResource IconBox}" Width="46" Height="46" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <TextBlock Text="&#xEDA2;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S20}" Foreground="{DynamicResource PinkBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource H1}" />
+                            <Ellipse Width="8" Height="8" Fill="{Binding HealthBrush}" VerticalAlignment="Center" Margin="16,4,7,0" />
+                            <TextBlock Text="{Binding HealthWord}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{Binding HealthTextBrush}" FontWeight="{Binding HealthWeight}" VerticalAlignment="Center" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding OpenedSub}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding Reason}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{Binding HealthBrush}" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="{Binding Reason, Converter={StaticResource Vis}}" />
                     </StackPanel>
-                </StackPanel>
-            </ctl:SmoothBorder>
+                </DockPanel>
 
-            <!-- 2. What fills a drive: second on the page, a tab per drive, each drive's scan kept for the session. -->
-            <ctl:SmoothBorder x:Name="Scanner" Style="{StaticResource Card}" Margin="0,18,0,0">
-                <StackPanel>
-                    <DockPanel Margin="0,0,0,12">
-                        <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0">
-                            <Border Style="{StaticResource SegmentHost}" Margin="0,0,0,4">
-                                <StackPanel Orientation="Horizontal">
-                                    <ItemsControl ItemsSource="{Binding DriveTabs}" Focusable="False">
-                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Button Style="{StaticResource Tab}" Content="{Binding Letter}" Tag="{Binding IsPicked}" AutomationProperties.Name="{Binding Title}"
-                                                        Command="{Binding DataContext.PickDriveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Root}" />
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <Button Style="{StaticResource Tab}" Command="{Binding ChooseFolderCommand}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="{ctl:T 'Pick a folder…'}" />
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
-                            </Border>
-                        </WrapPanel>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{ctl:T 'What fills a drive'}" Style="{StaticResource H2}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0" Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
-                                <TextBlock Text="{Binding ScanStatus}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" />
-                                <Button Style="{StaticResource GhostButton}" Padding="8,2" FontSize="{x:Static ctl:TextSize.Small}" Margin="8,0,0,0" Content="{ctl:T 'Scan again'}" Command="{Binding ScanAgainCommand}"
-                                        Visibility="{Binding IsScanning, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                                <Button Style="{StaticResource GhostButton}" Padding="8,2" FontSize="{x:Static ctl:TextSize.Small}" Margin="8,0,0,0" Content="{ctl:T Cancel}" Command="{Binding CancelScanCommand}"
-                                        Visibility="{Binding IsScanning, Converter={StaticResource Vis}}" />
+                <!-- Its four figures. -->
+                <UniformGrid Columns="4" Margin="0,22,-16,0" DataContext="{Binding Opened}" Visibility="{Binding HasReading, Converter={StaticResource Vis}}">
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,16,0" Padding="18,16">
+                        <StackPanel>
+                            <TextBlock Text="{Binding TileLifeLabel}" Style="{StaticResource Caps}" />
+                            <TextBlock Text="{Binding TileLifeValue}" FontSize="{x:Static ctl:TextSize.DisplayLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding TileLifeSub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,16,0" Padding="18,16">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T WRITTEN}" Style="{StaticResource Caps}" />
+                            <TextBlock Text="{Binding TileWritten}" FontSize="{x:Static ctl:TextSize.DisplayLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding TileWrittenSub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,16,0" Padding="18,16">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'HOURS ON'}" Style="{StaticResource Caps}" />
+                            <TextBlock Text="{Binding TileHours}" FontSize="{x:Static ctl:TextSize.DisplayLarge}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding TileHoursSub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,16,0" Padding="18,16">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T TEMPERATURE}" Style="{StaticResource Caps}" />
+                            <TextBlock Text="{Binding TileTemp}" FontSize="{x:Static ctl:TextSize.DisplayLarge}" FontWeight="SemiBold" Foreground="{Binding TempBrush}" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding TileTempSub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                </UniformGrid>
+
+                <!-- How it holds up over the months, and what reads and writes it. -->
+                <Grid Margin="0,18,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="1.25*" />
+                    </Grid.ColumnDefinitions>
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding HasOpenedTile, Converter={StaticResource Vis}}">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,4">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding OpenedAgainst}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'Over the months'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding OpenedTile}" ItemTemplate="{StaticResource WearTileRowTemplate}" Focusable="False" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                    <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,10">
+                                <ContentPresenter DockPanel.Dock="Right" Content="{Binding}" ContentTemplate="{StaticResource UsePeriodSwitch}" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'What reads and writes it'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource PurpleBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="{ctl:T Read}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,16,0" />
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource PinkBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="{ctl:T Written}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                             </StackPanel>
+                            <ItemsControl ItemsSource="{Binding DiskUse}" ItemTemplate="{StaticResource DiskUseLineTemplate}" Focusable="False" />
+                            <TextBlock Text="{ctl:T 'Not recorded'}" Style="{StaticResource Muted}" Margin="0,8,0,0" Visibility="{Binding DiskUseEmpty, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="{Binding DiskUseNote}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" Visibility="{Binding DiskUseNote, Converter={StaticResource Vis}}" />
                         </StackPanel>
-                    </DockPanel>
+                    </ctl:SmoothBorder>
+                </Grid>
 
-                    <!-- Where the list and map are, and what can be done there. -->
-                    <DockPanel Margin="0,0,0,10" Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Style="{StaticResource GhostButton}" Padding="10,5" FontSize="{x:Static ctl:TextSize.Small}" Command="{Binding UpCommand}" IsEnabled="{Binding CanGoUp}" Margin="0,0,6,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE74A;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="{ctl:T Up}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Padding="10,5" FontSize="{x:Static ctl:TextSize.Small}" Command="{Binding ShowFilesCommand}" Margin="0,0,6,0">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                                        <Setter Property="Content" Value="{ctl:T 'Largest files'}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ShowingFiles}" Value="True"><Setter Property="Content" Value="{ctl:T 'Folders'}" /></DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                            <Button Style="{StaticResource GhostButton}" Padding="10,5" FontSize="{x:Static ctl:TextSize.Small}" Command="{Binding RevealCommand}" CommandParameter="{Binding Current.Path}"
-                                    ToolTip="{ctl:T 'Open the folder shown here in Explorer'}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{ctl:T 'Open in Explorer'}" />
-                                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                        <!-- The path: every folder up to the one shown, cut short when deep (the start of a long path wraps away). -->
-                        <TextBlock Text="{Binding FilesTitle}" Style="{StaticResource Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                   Visibility="{Binding ShowingFiles, Converter={StaticResource Vis}}" />
-                        <ItemsControl ItemsSource="{Binding Breadcrumbs}" VerticalAlignment="Center" AlternationCount="1000" ClipToBounds="True"
-                                      Visibility="{Binding ShowingFiles, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
+                <!-- What fills it: a tab per letter of the drive opened, each letter's scan kept for the session. -->
+                <ctl:SmoothBorder x:Name="Scanner" Style="{StaticResource Card}" Margin="0,18,0,0">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,12">
+                            <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="16,0,0,0">
+                                <Border Style="{StaticResource SegmentHost}" Margin="0,0,0,4">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock x:Name="Arrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S9}" Foreground="{DynamicResource FaintBrush}" Margin="2,0" VerticalAlignment="Center" />
-                                        <Button Style="{StaticResource IconButton}" Width="Auto" Padding="4,0" MaxWidth="220"
-                                                Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                                            <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="{x:Static ctl:TextSize.Body}" Margin="4,0" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                        </Button>
-                                    </StackPanel>
-                                    <DataTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
-                                            <Setter TargetName="Arrow" Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </DataTemplate.Triggers>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </DockPanel>
-
-                        <!-- The drive picked isn't scanned yet. -->
-                        <StackPanel HorizontalAlignment="Center" MaxWidth="460" Margin="0,18,0,22" Visibility="{Binding ShowNotScanned, Converter={StaticResource Vis}}">
-                            <TextBlock Text="{Binding NotScannedText}" Style="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" />
-                            <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Center" Margin="0,14,0,0" Command="{Binding ScanCommand}" CommandParameter="{Binding PickedRoot}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding ScanPickedText}" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-
-                    <!-- The box keeps one height whatever it holds, so nothing below moves. -->
-                    <Grid ctl:Roomy.Height="420" Visibility="{Binding ShowNotScanned, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                        <!-- Scanning: how far, how much, where it is now, and Cancel. -->
-                        <StackPanel VerticalAlignment="Center" Margin="40,0" Visibility="{Binding ShowScanLoader, Converter={StaticResource Vis}}">
-                            <DockPanel Margin="0,0,0,8">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding ScanCounts}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" />
-                                <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}">
-                                    <Run Text="{Binding ScanPercent, StringFormat='{}{0:0}%', Mode=OneWay}" FontWeight="SemiBold" />
-                                </TextBlock>
-                            </DockPanel>
-                            <ProgressBar Style="{StaticResource Bar}" Value="{Binding ScanPercent, Mode=OneWay}" />
-                            <DockPanel Margin="0,8,0,0">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,4" FontSize="{x:Static ctl:TextSize.Small}" Content="{ctl:T Cancel}" Command="{Binding CancelScanCommand}" Margin="12,0,0,0" />
-                                <TextBlock Text="{Binding ScanFolder}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                            </DockPanel>
-                        </StackPanel>
-
-                        <!-- The list and the map side by side, linked: pointing at one lights the other. -->
-                        <Grid Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
-                            <Grid Visibility="{Binding ShowingFiles, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="14" />
-                                    <ColumnDefinition Width="1.15*" />
-                                </Grid.ColumnDefinitions>
-                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Control}" ClipToBounds="True">
-                                    <ScrollViewer x:Name="ListBox" Style="{StaticResource GutterScroll}" CanContentScroll="False">
-                                        <ItemsControl ItemsSource="{Binding CurrentItems}" Focusable="False">
+                                        <ItemsControl ItemsSource="{Binding OpenedTabs}" Focusable="False">
+                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Button Style="{StaticResource FlatRowButton}" IsEnabled="{Binding CanOpen}" MouseEnter="Row_Enter" MouseLeave="Row_Leave"
-                                                            Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
-                                                            AutomationProperties.Name="{Binding Name}">
-                                                        <Grid>
-                                                            <!-- The row's share of the folder, as a shade behind it. -->
-                                                            <ProgressBar Style="{StaticResource Shade}" Value="{Binding Share, Mode=OneWay}" />
-                                                            <Border x:Name="HotLine" BorderBrush="{DynamicResource TextBrush}" BorderThickness="1.5" CornerRadius="{x:Static ctl:Corner.Small}" Visibility="Collapsed" />
-                                                            <Grid Margin="10,8">
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="18" />
-                                                                    <ColumnDefinition Width="*" />
-                                                                    <ColumnDefinition Width="80" />
-                                                                    <ColumnDefinition Width="46" />
-                                                                </Grid.ColumnDefinitions>
-                                                                <Border Width="10" Height="10" CornerRadius="{x:Static ctl:Corner.Mark}" Background="{Binding KindBrush}" VerticalAlignment="Center" HorizontalAlignment="Left" />
-                                                                <TextBlock Grid.Column="1" ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" />
-                                                                <TextBlock Grid.Column="2" Text="{Binding Size, Converter={StaticResource Bytes}}" FontSize="{x:Static ctl:TextSize.Detail}" HorizontalAlignment="Right" Foreground="{DynamicResource TextBrush}" />
-                                                                <TextBlock Grid.Column="3" Text="{Binding Share, StringFormat='{}{0:0}%'}" FontSize="{x:Static ctl:TextSize.Small}" HorizontalAlignment="Right" Foreground="{DynamicResource FaintBrush}" />
-                                                            </Grid>
-                                                        </Grid>
-                                                    </Button>
-                                                    <DataTemplate.Triggers>
-                                                        <DataTrigger Binding="{Binding IsHot}" Value="True"><Setter TargetName="HotLine" Property="Visibility" Value="Visible" /></DataTrigger>
-                                                    </DataTemplate.Triggers>
+                                                    <Button Style="{StaticResource Tab}" Content="{Binding Letter}" Tag="{Binding IsPicked}" AutomationProperties.Name="{Binding Title}"
+                                                            Command="{Binding DataContext.PickDriveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Root}" />
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                    </ScrollViewer>
+                                        <Button Style="{StaticResource Tab}" Command="{Binding ChooseFolderCommand}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{ctl:T 'Pick a folder…'}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
                                 </Border>
-                                <DockPanel Grid.Column="2">
-                                    <!-- The key: only the kinds this folder has. -->
-                                    <ItemsControl DockPanel.Dock="Bottom" ItemsSource="{Binding Kinds}" Margin="0,8,0,0" Focusable="False">
-                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            </WrapPanel>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{ctl:T 'What fills it'}" Style="{StaticResource H2}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0" Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="{Binding ScanStatus}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" />
+                                    <Button Style="{StaticResource GhostButton}" Padding="8,2" FontSize="{x:Static ctl:TextSize.Small}" Margin="8,0,0,0" Content="{ctl:T 'Scan again'}" Command="{Binding ScanAgainCommand}"
+                                            Visibility="{Binding IsScanning, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                    <Button Style="{StaticResource GhostButton}" Padding="8,2" FontSize="{x:Static ctl:TextSize.Small}" Margin="8,0,0,0" Content="{ctl:T Cancel}" Command="{Binding CancelScanCommand}"
+                                            Visibility="{Binding IsScanning, Converter={StaticResource Vis}}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- Where the list and map are, and what can be done there. -->
+                        <DockPanel Margin="0,0,0,10" Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource GhostButton}" Padding="10,5" FontSize="{x:Static ctl:TextSize.Small}" Command="{Binding UpCommand}" IsEnabled="{Binding CanGoUp}" Margin="0,0,6,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE74A;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{ctl:T Up}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Padding="10,5" FontSize="{x:Static ctl:TextSize.Small}" Command="{Binding ShowFilesCommand}" Margin="0,0,6,0">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                            <Setter Property="Content" Value="{ctl:T 'Largest files'}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ShowingFiles}" Value="True"><Setter Property="Content" Value="{ctl:T 'Folders'}" /></DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Style="{StaticResource GhostButton}" Padding="10,5" FontSize="{x:Static ctl:TextSize.Small}" Command="{Binding RevealCommand}" CommandParameter="{Binding Current.Path}"
+                                        ToolTip="{ctl:T 'Open the folder shown here in Explorer'}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{ctl:T 'Open in Explorer'}" />
+                                        <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                            <!-- The path: every folder up to the one shown, cut short when deep (the start of a long path wraps away). -->
+                            <TextBlock Text="{Binding FilesTitle}" Style="{StaticResource Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding ShowingFiles, Converter={StaticResource Vis}}" />
+                            <ItemsControl ItemsSource="{Binding Breadcrumbs}" VerticalAlignment="Center" AlternationCount="1000" ClipToBounds="True"
+                                          Visibility="{Binding ShowingFiles, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock x:Name="Arrow" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S9}" Foreground="{DynamicResource FaintBrush}" Margin="2,0" VerticalAlignment="Center" />
+                                            <Button Style="{StaticResource IconButton}" Width="Auto" Padding="4,0" MaxWidth="220"
+                                                    Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                                <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="{x:Static ctl:TextSize.Body}" Margin="4,0" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                            </Button>
+                                        </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
+                                                <Setter TargetName="Arrow" Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </DockPanel>
+
+                            <!-- The drive picked isn't scanned yet. -->
+                            <StackPanel HorizontalAlignment="Center" MaxWidth="460" Margin="0,18,0,22" Visibility="{Binding ShowNotScanned, Converter={StaticResource Vis}}">
+                                <TextBlock Text="{Binding NotScannedText}" Style="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" />
+                                <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Center" Margin="0,14,0,0" Command="{Binding ScanCommand}" CommandParameter="{Binding PickedRoot}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding ScanPickedText}" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                        <!-- The box keeps one height whatever it holds, so nothing below moves. -->
+                        <Grid ctl:Roomy.Height="420" Visibility="{Binding ShowNotScanned, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                            <!-- Scanning: how far, how much, where it is now, and Cancel. -->
+                            <StackPanel VerticalAlignment="Center" Margin="40,0" Visibility="{Binding ShowScanLoader, Converter={StaticResource Vis}}">
+                                <DockPanel Margin="0,0,0,8">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding ScanCounts}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" />
+                                    <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}">
+                                        <Run Text="{Binding ScanPercent, StringFormat='{}{0:0}%', Mode=OneWay}" FontWeight="SemiBold" />
+                                    </TextBlock>
+                                </DockPanel>
+                                <ProgressBar Style="{StaticResource Bar}" Value="{Binding ScanPercent, Mode=OneWay}" />
+                                <DockPanel Margin="0,8,0,0">
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,4" FontSize="{x:Static ctl:TextSize.Small}" Content="{ctl:T Cancel}" Command="{Binding CancelScanCommand}" Margin="12,0,0,0" />
+                                    <TextBlock Text="{Binding ScanFolder}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </StackPanel>
+
+                            <!-- The list and the map side by side, linked: pointing at one lights the other. -->
+                            <Grid Visibility="{Binding ShowResult, Converter={StaticResource Vis}}">
+                                <Grid Visibility="{Binding ShowingFiles, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="1.15*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Control}" ClipToBounds="True">
+                                        <ScrollViewer x:Name="ListBox" Style="{StaticResource GutterScroll}" CanContentScroll="False" ctl:WheelChain.Enabled="True">
+                                            <ItemsControl ItemsSource="{Binding CurrentItems}" Focusable="False">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Style="{StaticResource FlatRowButton}" IsEnabled="{Binding CanOpen}" MouseEnter="Row_Enter" MouseLeave="Row_Leave"
+                                                                Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                                                                AutomationProperties.Name="{Binding Name}">
+                                                            <Grid>
+                                                                <!-- The row's share of the folder, as a thin bar along its bottom in the folder's colour. -->
+                                                                <ProgressBar Style="{StaticResource ShareLine}" Value="{Binding Share, Mode=OneWay}" Foreground="{Binding KindBrush}" Margin="10,0,10,2" />
+                                                                <Border x:Name="HotLine" BorderBrush="{DynamicResource TextBrush}" BorderThickness="1.5" CornerRadius="{x:Static ctl:Corner.Small}" Visibility="Collapsed" />
+                                                                <Grid Margin="10,8">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="18" />
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="80" />
+                                                                        <ColumnDefinition Width="46" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Border Width="10" Height="10" CornerRadius="{x:Static ctl:Corner.Mark}" Background="{Binding KindBrush}" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                                                                    <TextBlock Grid.Column="1" ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" />
+                                                                    <TextBlock Grid.Column="2" Text="{Binding Size, Converter={StaticResource Bytes}}" FontSize="{x:Static ctl:TextSize.Detail}" HorizontalAlignment="Right" Foreground="{DynamicResource TextBrush}" />
+                                                                    <TextBlock Grid.Column="3" Text="{Binding Share, StringFormat='{}{0:0}%'}" FontSize="{x:Static ctl:TextSize.Small}" HorizontalAlignment="Right" Foreground="{DynamicResource FaintBrush}" />
+                                                                </Grid>
+                                                            </Grid>
+                                                        </Button>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsHot}" Value="True"><Setter TargetName="HotLine" Property="Visibility" Value="Visible" /></DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+                                    <DockPanel Grid.Column="2">
+                                        <!-- The key: only the kinds this folder has. -->
+                                        <ItemsControl DockPanel.Dock="Bottom" ItemsSource="{Binding Kinds}" Margin="0,8,0,0" Focusable="False">
+                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,14,2">
+                                                        <Border Width="9" Height="9" CornerRadius="{x:Static ctl:Corner.Mark}" Background="{Binding Brush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <ctl:Treemap x:Name="Map" Items="{Binding CurrentItems}" Hot="{Binding Hot}" />
+                                    </DockPanel>
+                                </Grid>
+
+                                <!-- Largest files of the whole scan. -->
+                                <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                              Visibility="{Binding ShowingFiles, Converter={StaticResource Vis}}">
+                                    <ItemsControl ItemsSource="{Binding Result.LargestFiles}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <StackPanel Orientation="Horizontal" Margin="0,0,14,2">
-                                                    <Border Width="9" Height="9" CornerRadius="{x:Static ctl:Corner.Mark}" Background="{Binding Brush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                    <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource MutedBrush}" />
-                                                </StackPanel>
+                                                <DockPanel Margin="0,5">
+                                                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Show in Explorer'}"
+                                                            Command="{Binding DataContext.RevealCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Path}">
+                                                        <TextBlock Text="&#xE8A7;" />
+                                                    </Button>
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Size, Converter={StaticResource Bytes}}" Style="{StaticResource Body}" FontWeight="SemiBold"
+                                                               VerticalAlignment="Center" Margin="12,0" />
+                                                    <StackPanel>
+                                                        <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
+                                                        <TextBlock Text="{Binding Folder}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </DockPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                    <ctl:Treemap x:Name="Map" Items="{Binding CurrentItems}" Hot="{Binding Hot}" />
-                                </DockPanel>
+                                </ScrollViewer>
                             </Grid>
-
-                            <!-- Largest files of the whole scan. -->
-                            <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                          Visibility="{Binding ShowingFiles, Converter={StaticResource Vis}}">
-                                <ItemsControl ItemsSource="{Binding Result.LargestFiles}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <DockPanel Margin="0,5">
-                                                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" ToolTip="{ctl:T 'Show in Explorer'}"
-                                                        Command="{Binding DataContext.RevealCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Path}">
-                                                    <TextBlock Text="&#xE8A7;" />
+                        </Grid>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+                    <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,8">
+                                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Margin="12,0,0,0">
+                                    <ItemsControl ItemsSource="{Binding OpenedTabs}" Focusable="False">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource Tab}" Content="{Binding Letter}" Tag="{Binding IsCleanupPicked}" AutomationProperties.Name="{Binding Title}"
+                                                        Command="{Binding DataContext.PickCleanupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Root}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+                                <TextBlock Text="{Binding CleanupTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <!-- The shared loader until the list has been read the first time. -->
+                            <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,40,0,40"
+                                         Visibility="{Binding CleanupRead, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            <ItemsControl ItemsSource="{Binding CleanupShown}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8">
+                                            <DockPanel>
+                                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" Margin="12,0,0,0" VerticalAlignment="Center" MinWidth="64"
+                                                        Command="{Binding DataContext.CleanupActionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <!-- The word keeps its room while the spinner takes its place: the button doesn't change size. -->
+                                                    <Grid>
+                                                        <TextBlock x:Name="Word" Text="{Binding ActionText}" />
+                                                        <ctl:Spinner x:Name="Busy" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
+                                                    </Grid>
                                                 </Button>
-                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Size, Converter={StaticResource Bytes}}" Style="{StaticResource Body}" FontWeight="SemiBold"
-                                                           VerticalAlignment="Center" Margin="12,0" />
-                                                <StackPanel>
-                                                    <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
-                                                    <TextBlock Text="{Binding Folder}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+                                                <!-- Whether it's safe to delete, asked of the AI (hidden while it's off). -->
+                                                <Button DockPanel.Dock="Right" Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Is it safe?'}" CommandParameter="{Binding Ask}"
+                                                        VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{ctl:T 'Is it safe to delete?'}" />
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding SizeText}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+                                                <StackPanel Margin="0,0,12,0">
+                                                    <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBlock Text="{Binding Description}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
                                                 </StackPanel>
                                             </DockPanel>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Busy}" Value="True">
+                                                <Setter TargetName="Word" Property="Visibility" Value="Hidden" />
+                                                <Setter TargetName="Busy" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{ctl:T 'Nothing found here to free.'}" Style="{StaticResource Muted}" Margin="0,10,0,0"
+                                       Visibility="{Binding CleanupEmpty, Converter={StaticResource Vis}}" />
+                            <DockPanel Margin="0,10,0,0" Visibility="{Binding HasCleanupHint, Converter={StaticResource Vis}}">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" Content="{ctl:T Scan}" Command="{Binding ScanCleanupDriveCommand}"
+                                        VerticalAlignment="Center" Margin="12,0,0,0" />
+                                <TextBlock Text="{Binding CleanupHint}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <TextBlock Text="{ctl:T 'Nothing here is deleted automatically. It shows where the space is, and you decide.'}"
+                                       FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                       Visibility="{Binding CleanupRead, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+
+                <!-- Every reading the drive gives: in plain words with a month ago beside it, or as the drive names them. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding Opened.HasReading, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,8">
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Style="{StaticResource Tab}" Content="{ctl:T 'In plain words'}" Tag="{Binding PlainNames}" Command="{Binding PickNamesCommand}" CommandParameter="plain" />
+                                    <Button Style="{StaticResource Tab}" Content="{ctl:T 'As the drive reports'}" Tag="{Binding OwnNames}" Command="{Binding PickNamesCommand}" CommandParameter="own" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="{ctl:T 'Every reading'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <!-- Plain words: each group in a column of its own under its name (option A, the user 2026-11-14), each line
+                             the reading, now, and a month ago when kept. -->
+                        <ItemsControl ItemsSource="{Binding ReadingGroups}" ItemTemplate="{StaticResource PlainReadingsColumn}" Focusable="False" Margin="0,0,-40,0"
+                                      Visibility="{Binding OwnNames, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="{Binding ReadingColumns}" VerticalAlignment="Top" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <!-- The drive's own: its number, its name, score now, worst, limit and the raw count. The headings keep
+                             clear of the list's scroll bar, so each sits over its column (StorageView.xaml.cs). -->
+                        <StackPanel Visibility="{Binding OwnNames, Converter={StaticResource Vis}}">
+                            <Grid x:Name="OwnHead" Height="30">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="60" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="150" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{ctl:T ID}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{ctl:T READING}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="{ctl:T NOW}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="3" Text="{ctl:T WORST}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="4" Text="{ctl:T LIMIT}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="5" Text="{ctl:T COUNT}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" />
+                            <!-- A long list scrolls in its box, its last line cut through so the scroll shows. -->
+                            <ScrollViewer x:Name="ReadingsBox" Style="{StaticResource GutterScroll}" MaxHeight="361" CanContentScroll="False" ctl:WheelChain.Enabled="True">
+                                <ItemsControl ItemsSource="{Binding Readings}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Height="38">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="60" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="80" />
+                                                        <ColumnDefinition Width="80" />
+                                                        <ColumnDefinition Width="80" />
+                                                        <ColumnDefinition Width="150" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Id}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Current}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding Worst}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBlock Grid.Column="4" Text="{Binding Threshold}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBlock Grid.Column="5" Text="{Binding Now}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+                                                </Grid>
+                                            </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
-                        </Grid>
-                    </Grid>
-                </StackPanel>
-            </ctl:SmoothBorder>
-
-            <!-- 3. What could be freed on the drive picked, and the disks' health. -->
-            <Grid Margin="0,18,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.3*" />
-                    <ColumnDefinition Width="18" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <ctl:SmoothBorder Style="{StaticResource Card}">
-                    <StackPanel>
-                        <DockPanel Margin="0,0,0,8">
-                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Margin="12,0,0,0">
-                                <ItemsControl ItemsSource="{Binding CleanupTabs}" Focusable="False">
-                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Button Style="{StaticResource Tab}" Content="{Binding Letter}" Tag="{Binding IsCleanupPicked}" AutomationProperties.Name="{Binding Title}"
-                                                    Command="{Binding DataContext.PickCleanupCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Root}" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </Border>
-                            <TextBlock Text="{Binding CleanupTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
-                        </DockPanel>
-                        <!-- The shared loader until the list has been read the first time. -->
-                        <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,40,0,40"
-                                     Visibility="{Binding CleanupRead, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                        <ItemsControl ItemsSource="{Binding CleanupShown}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8">
-                                        <DockPanel>
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" Margin="12,0,0,0" VerticalAlignment="Center" MinWidth="64"
-                                                    Command="{Binding DataContext.CleanupActionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <!-- The word keeps its room while the spinner takes its place: the button doesn't change size. -->
-                                                <Grid>
-                                                    <TextBlock x:Name="Word" Text="{Binding ActionText}" />
-                                                    <ctl:Spinner x:Name="Busy" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
-                                                </Grid>
-                                            </Button>
-                                            <!-- Whether it's safe to delete, asked of the AI (hidden while it's off). -->
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Is it safe?'}" CommandParameter="{Binding Ask}"
-                                                    VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.Name="{ctl:T 'Is it safe to delete?'}" />
-                                            <TextBlock DockPanel.Dock="Right" Text="{Binding SizeText}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
-                                            <StackPanel Margin="0,0,12,0">
-                                                <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" />
-                                                <TextBlock Text="{Binding Description}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
-                                            </StackPanel>
-                                        </DockPanel>
-                                    </Border>
-                                    <DataTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding Busy}" Value="True">
-                                            <Setter TargetName="Word" Property="Visibility" Value="Hidden" />
-                                            <Setter TargetName="Busy" Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </DataTemplate.Triggers>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Text="{ctl:T 'Nothing found here to free.'}" Style="{StaticResource Muted}" Margin="0,10,0,0"
-                                   Visibility="{Binding CleanupEmpty, Converter={StaticResource Vis}}" />
-                        <DockPanel Margin="0,10,0,0" Visibility="{Binding HasCleanupHint, Converter={StaticResource Vis}}">
-                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" Content="{ctl:T Scan}" Command="{Binding ScanCleanupDriveCommand}"
-                                    VerticalAlignment="Center" Margin="12,0,0,0" />
-                            <TextBlock Text="{Binding CleanupHint}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                        </DockPanel>
-                        <TextBlock Text="{ctl:T 'Nothing here is deleted automatically. It shows where the space is, and you decide.'}"
-                                   FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
-                                   Visibility="{Binding CleanupRead, Converter={StaticResource Vis}}" />
+                        </StackPanel>
                     </StackPanel>
                 </ctl:SmoothBorder>
-
-                <!-- The disks' health: a word for the state (Healthy, Early warning, Failing) in its colour, and why when it isn't healthy. -->
-                <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="{ctl:T 'Drive health'}" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                        <ItemsControl ItemsSource="{Binding Live.Drives}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8" Background="Transparent" ToolTip="{Binding HealthToolTip}">
-                                        <DockPanel>
-                                            <TextBlock DockPanel.Dock="Right" Text="{Binding StateWord}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" Foreground="{Binding HealthBrush}"
-                                                       VerticalAlignment="Top" Margin="12,0,0,0" />
-                                            <Ellipse DockPanel.Dock="Left" Width="7" Height="7" Fill="{Binding HealthBrush}" VerticalAlignment="Top" Margin="0,6,8,0"
-                                                     Visibility="{Binding HasHealth, Converter={StaticResource Vis}}" />
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Details}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0"
-                                                           Visibility="{Binding Details, Converter={StaticResource Vis}}" />
-                                                <!-- Why it isn't healthy, in the colour of its dot (today's wording, kept). -->
-                                                <TextBlock Text="{Binding HealthReason}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{Binding HealthBrush}" Margin="0,3,0,0" TextWrapping="Wrap"
-                                                           Visibility="{Binding HealthReason, Converter={StaticResource Vis}}" />
-                                                <!-- Not healthy: what it means, asked of the AI (hidden while it's off). -->
-                                                <Border HorizontalAlignment="Left" Margin="0,6,0,0" Visibility="{Binding HealthReason, Converter={StaticResource Vis}}">
-                                                    <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'What does this mean?'}" CommandParameter="{Binding HealthAsk}"
-                                                            AutomationProperties.Name="{ctl:T 'What does this mean?'}" />
-                                                </Border>
-                                            </StackPanel>
-                                        </DockPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <!-- The box stays on a standard account, so the person sees the feature is there and why it is empty. -->
-                        <TextBlock TextWrapping="Wrap" Visibility="{Binding Live.Drives.Count, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
-                                    <Setter Property="Text" Value="{ctl:T 'Drive health appears once RigSight runs with admin rights.'}" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Live.StandardAccount}" Value="True">
-                                            <Setter Property="Text" Value="{ctl:T 'Drive health needs admin rights on this PC.'}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </StackPanel>
-                </ctl:SmoothBorder>
-            </Grid>
-        </StackPanel>
+            </StackPanel>
+        </Grid>
     </ScrollViewer>
 </UserControl>

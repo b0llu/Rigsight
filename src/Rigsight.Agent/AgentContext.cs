@@ -405,6 +405,7 @@ internal sealed partial class AgentContext : ApplicationContext
         Step("drives", RecordDrives);
         Step("extremes", RestoreExtremes);
         Step("network", StartNetwork);
+        Step("disk use", StartDiskUse);
 
         var clock = Stopwatch.StartNew();
         // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
@@ -466,12 +467,16 @@ internal sealed partial class AgentContext : ApplicationContext
                 {
                     nextTraceCheck = now + 60_000;
                     CheckNetworkTrace();
+                    CheckDiskTrace();
                 }
                 // Once a second (a pass woken early for other work leaves it be: a few milliseconds' bytes say nothing of a speed).
                 if (lastNet == 0 || now - lastNet >= 900)
                 {
                     SampleNetwork(lastNet == 0 ? 1 : Math.Min((now - lastNet) / 1000.0, 60));
                     lastNet = now;
+                    long td = Stopwatch.GetTimestamp();
+                    SampleDiskUse();
+                    Measure("disk use", td);
                 }
                 Measure("network", t0);
 
@@ -503,7 +508,11 @@ internal sealed partial class AgentContext : ApplicationContext
                     _closeUps.Tick();
                     var values = _sensors.ReadAll();
                     ObserveExtremes(values);
-                    if (_sensors.DrivesUpdated) _driveHistory.Add(unixMs, _sensors);
+                    if (_sensors.DrivesUpdated)
+                    {
+                        _driveHistory.Add(unixMs, _sensors);
+                        OnDrivesRead();
+                    }
 
                     var alert = _alerts.Check(keys, _tracker.Activity.Name, settings.Alerts, now);
                     // A fixed limit says it's hot, not whether that's new: the game's usual says that (from the research, 2026-11-07).
@@ -634,6 +643,7 @@ internal sealed partial class AgentContext : ApplicationContext
         Step("extremes", () => SaveExtremes(force: true));
         Step("crash watch", () => _appCrashWatch?.Dispose());
         Step("network trace", () => _netTrace?.Dispose());
+        Step("disk trace", () => _diskTrace?.Dispose());
         Step("line check", () => _line?.Dispose());
         NetworkChange.NetworkAddressChanged -= OnAddressChanged;
         NetworkChange.NetworkAvailabilityChanged -= OnAvailabilityChanged;
@@ -1438,6 +1448,33 @@ internal sealed partial class AgentContext : ApplicationContext
                     Processes = a.Processes is { } processes ? _procLabels.Describe(a.Exe, name, processes, ref titles, marked) : null,
                 };
             })];
+    }
+
+    private bool _drivesLogged;
+
+    /// <summary>
+    /// The drives were just read: today's health row for each (see RigsightDb.UpsertDriveHealth), and their readings to
+    /// an open app (the Storage page and an opened drive show them as they are, not as they were when the app connected).
+    /// </summary>
+    private void OnDrivesRead()
+    {
+        var drives = _sensors.DriveHealth;
+        try
+        {
+            long day = TimeUtil.ToUnix(DateTime.Today);
+            foreach (var d in drives) _db.UpsertDriveHealth(day, d);
+            if (!_drivesLogged)
+            {
+                _drivesLogged = true;
+                Log.Write("drives", $"Keeping each drive's daily health: {string.Join("; ", drives.Select(d =>
+                    $"{d.Name} key={(string.IsNullOrEmpty(d.Key) ? "none (not kept)" : d.Key)} disk={d.DiskNumber} bus={d.Bus} life={d.Life} hours={d.PowerOnHours} written={d.WrittenGb} GB attributes={d.Attributes?.Count ?? 0} warns at={d.TemperatureWarning}"))}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("drives", ex);
+        }
+        _pipe.Broadcast(new AgentMessage { T = "drives", Drives = drives });
     }
 
     private void RecordDrives()

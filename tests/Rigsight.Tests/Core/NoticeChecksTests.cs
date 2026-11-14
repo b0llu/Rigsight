@@ -112,9 +112,64 @@ public sealed class NoticeChecksTests
     public void A_healthy_drive_says_nothing_and_a_worn_ssd_is_said_once()
     {
         var good = new DriveHealthInfo { Name = "Samsung SSD 990 PRO", Status = "Good" };
-        Assert.Empty(NoticeChecks.Drives([good], new Dictionary<string, double> { ["Samsung SSD 990 PRO"] = 87 }, new AlertSettings(), Never));
-        var worn = Assert.Single(NoticeChecks.Drives([good], new Dictionary<string, double> { ["Samsung SSD 990 PRO"] = 8 }, new AlertSettings(), Never));
+        // Its first life reading is only noted (where it stands), not said.
+        var first = Assert.Single(NoticeChecks.Drives([good], new Dictionary<string, double> { ["Samsung SSD 990 PRO"] = 87 }, new AlertSettings(), Never));
+        Assert.True(first.Quiet);
+        Assert.Equal(("drive-life|Samsung SSD 990 PRO", "100"), (first.Key, first.Value));
+        var worn = Assert.Single(NoticeChecks.Drives([good], new Dictionary<string, double> { ["Samsung SSD 990 PRO"] = 8 }, new AlertSettings(), Never), c => !c.Quiet);
         Assert.Equal("It has 8% of its rated life left. Keep a backup of what's on it.", worn.Text.Body);
+    }
+
+    [Fact]
+    public void An_ssd_passing_half_and_a_quarter_of_its_life_is_said_once_each_and_opens_the_drive()
+    {
+        var ssd = new DriveHealthInfo { Name = "KINGSTON SA400", Status = "Good", Key = "50026B77", Life = 49 };
+        var said = new Dictionary<string, (DateTime, string?)> { ["drive-life|KINGSTON SA400"] = (Now.AddDays(-40), "100") };
+        var half = Assert.Single(NoticeChecks.Drives([ssd], new Dictionary<string, double>(), new AlertSettings(), SaidOnly(said), Now, _ => 8));
+        Assert.False(half.Quiet);
+        Assert.Equal("Your KINGSTON SA400 has half its rated life left", half.Text.Title);
+        Assert.Equal("It uses about 8% a year, so at this pace that's around 6 more years.", half.Text.Body);
+        Assert.Equal(("drive:50026B77", "50"), (half.Arg, half.Value));
+        said[half.Key] = (Now, half.Value);
+        Assert.Empty(NoticeChecks.Drives([ssd], new Dictionary<string, double>(), new AlertSettings(), SaidOnly(said), Now));
+        var quarter = Assert.Single(NoticeChecks.Drives([new DriveHealthInfo { Name = "KINGSTON SA400", Status = "Good", Life = 24 }], new Dictionary<string, double>(),
+            new AlertSettings(), SaidOnly(said), Now));
+        Assert.Equal("Your KINGSTON SA400 has a quarter of its rated life left", quarter.Text.Title);
+        Assert.Equal("It has 24% of its rated life left, by its own count.", quarter.Text.Body);
+        Assert.Empty(NoticeChecks.Drives([ssd], new Dictionary<string, double>(), new AlertSettings { DriveLifeMilestones = false }, SaidOnly(said), Now));
+    }
+
+    [Fact]
+    public void A_drive_at_its_own_warning_point_is_a_problem_once_a_day()
+    {
+        var hot = new DriveHealthInfo { Name = "Samsung SSD 980", Status = "Good", Temperature = 72, TemperatureWarning = 70 };
+        var c = Assert.Single(NoticeChecks.Drives([hot], new Dictionary<string, double>(), new AlertSettings(), Never, Now));
+        Assert.Equal(NoticeLevel.Problem, c.Level);
+        Assert.Equal(("Your Samsung SSD 980 is running hot", "It reached 72°C, above its own 70°C warning point."), (c.Text.Title, c.Text.Body));
+        var said = new Dictionary<string, (DateTime, string?)> { [c.Key] = (Now, null) };
+        Assert.Empty(NoticeChecks.Drives([hot], new Dictionary<string, double>(), new AlertSettings(), SaidOnly(said), Now));
+        Assert.Single(NoticeChecks.Drives([hot], new Dictionary<string, double>(), new AlertSettings(), SaidOnly(said), Now.AddDays(1)));
+        // Under its warning point, or a drive that gives none: nothing.
+        Assert.Empty(NoticeChecks.Drives([new DriveHealthInfo { Name = "A", Status = "Good", Temperature = 69, TemperatureWarning = 70 }], new Dictionary<string, double>(), new AlertSettings(), Never, Now));
+        Assert.Empty(NoticeChecks.Drives([new DriveHealthInfo { Name = "B", Status = "Good", Temperature = 90 }], new Dictionary<string, double>(), new AlertSettings(), Never, Now));
+        Assert.Empty(NoticeChecks.Drives([hot], new Dictionary<string, double>(), new AlertSettings { DriveTemperature = false }, Never, Now));
+    }
+
+    [Fact]
+    public void A_chip_that_runs_hotter_than_it_used_to_is_said_at_most_once_a_month_and_only_further_up()
+    {
+        var row = new WearRow { Part = "cpu", Name = "CPU", State = WearState.Moved, Now = 18, Then = 14, ThenDate = new DateTime(2026, 9, 28) };
+        var c = Assert.Single(NoticeChecks.Cooling([row, new WearRow { Part = "gpu", Name = "GPU", State = WearState.Steady, Now = 21, Then = 20 }], new AlertSettings(), Never, Now));
+        Assert.Equal("Your CPU runs hotter under load than it used to", c.Text.Title);
+        Assert.Equal("At the same load it now sits 18°C above its resting temperature, against 14°C in late September.", c.Text.Body);
+        Assert.Equal(("temperatures", "wear|cpu", "18.0"), (c.Page, c.Key, c.Value));
+        var said = new Dictionary<string, (DateTime, string?)> { [c.Key] = (Now, c.Value) };
+        Assert.Empty(NoticeChecks.Cooling([row with { Now = 22 }], new AlertSettings(), SaidOnly(said), Now.AddDays(10)));
+        Assert.Empty(NoticeChecks.Cooling([row with { Now = 19 }], new AlertSettings(), SaidOnly(said), Now.AddDays(40)));
+        Assert.Single(NoticeChecks.Cooling([row with { Now = 21 }], new AlertSettings(), SaidOnly(said), Now.AddDays(40)));
+        // Cooler than it used to: not a card.
+        Assert.Empty(NoticeChecks.Cooling([row with { Now = 10 }], new AlertSettings(), Never, Now));
+        Assert.Empty(NoticeChecks.Cooling([row], new AlertSettings { PartsChanged = false }, Never, Now));
     }
 
     [Fact]

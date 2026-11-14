@@ -169,6 +169,44 @@ public sealed class ReportService(SettingsModel settings)
     public Task<List<DriveDay>?> DriveHistoryAsync(int days) =>
         Run(db => db.GetDriveDays(TimeUtil.ToUnix(DateTime.Today.AddDays(-days))));
 
+    /// <summary>
+    /// The apps that read and wrote the most on the drives in the last <paramref name="days"/> days (one drive by its key, or
+    /// all), most first, by name. What Windows' file cache wrote for them is said as "Windows, for apps".
+    /// </summary>
+    public Task<List<Models.DiskUseLine>?> DiskUseAsync(int days, string? disk, int top) => Run(db =>
+    {
+        // A day is the last 24 hours, hour by hour; a week or a month whole days, today's included.
+        bool hours = days <= 1;
+        long from = hours ? TimeUtil.ToUnix(DateTime.Now.AddHours(-24)) : TimeUtil.ToUnix(DateTime.Today.AddDays(-(days - 1)));
+        long to = hours ? TimeUtil.ToUnix(DateTime.Now) + 3600 : TimeUtil.ToUnix(DateTime.Today.AddDays(1));
+        var apps = db.LoadApps().ToDictionary(a => a.Id);
+        var rows = hours ? db.GetDiskAppHours(from, to) : db.GetDiskAppDays(from, to);
+        return rows.Where(u => disk is null || u.Disk == disk).GroupBy(u => u.App)
+            .Select(g =>
+            {
+                var app = apps.GetValueOrDefault(g.Key);
+                bool system = string.Equals(app?.Exe, "System", StringComparison.OrdinalIgnoreCase);
+                // The drive it used most, for the line's letter.
+                string? main = g.GroupBy(u => u.Disk).MaxBy(d => d.Sum(u => u.Read + u.Write))?.Key;
+                return new Models.DiskUseLine(system ? Lang.T("Windows, for apps") : app?.Name ?? Lang.T("An app"), system, main, g.Sum(u => u.Read), g.Sum(u => u.Write));
+            })
+            .Where(l => l.Read + l.Write > 0).OrderByDescending(l => l.Read + l.Write).Take(top).ToList();
+    });
+
+    /// <summary>Every drive's daily health rows for the last <paramref name="days"/> days (all drives together).</summary>
+    public Task<List<DriveHealthDay>?> DriveHealthDaysAsync(int days) =>
+        Run(db => db.GetDriveHealthDays(TimeUtil.ToUnix(DateTime.Today.AddDays(-days))));
+
+    /// <summary>A drive's "Over the months" row (life left and its pace, bad sectors).</summary>
+    public Task<Core.Reports.WearRow?> DriveWearAsync(string key, string name) => Run(db => Core.Reports.Wear.Drive(db, key, name, DateTime.Today));
+
+    /// <summary>The CPU's and GPU's cooling against their first weeks (Temperatures' "Over the months").</summary>
+    public Task<(Core.Reports.WearRow Cpu, Core.Reports.WearRow Gpu)?> CoolingWearAsync() =>
+        Run<(Core.Reports.WearRow, Core.Reports.WearRow)?>(db => (Core.Reports.Wear.Cooling(db, false, DateTime.Today), Core.Reports.Wear.Cooling(db, true, DateTime.Today)));
+
+    /// <summary>Every recorded fan's speed at the same heat against its first weeks (Fans' "Over the months").</summary>
+    public Task<List<Core.Reports.WearRow>?> FanWearAsync() => Run(db => Core.Reports.Wear.Fans(db, DateTime.Today));
+
     /// <summary>Minute-by-minute system history for [from, to) (Unix seconds).</summary>
     public Task<List<SystemMinute>?> MinutesAsync(long from, long to) => Run(db => db.GetMinutes(from, to));
 
@@ -219,10 +257,6 @@ public sealed class ReportService(SettingsModel settings)
             }).ToList();
         });
     }
-
-    /// <summary>Temperatures at rest per day, for today and the days before it (heat_day).</summary>
-    public Task<List<HeatDay>?> RestDaysAsync(DateTime today) => Run(db =>
-        db.GetHeatDays(TimeUtil.ToUnix(today.AddDays(-Core.Reports.RestTemps.LookBackDays)), TimeUtil.ToUnix(today.AddDays(1))));
 
     /// <summary>
     /// Crashes in a range, explained, with what was going on just before (temperatures, the app in front, how long it had

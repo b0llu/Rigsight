@@ -187,6 +187,9 @@ public static class ReportBuilder
                 foreach (var app in report.Apps)
                     if (net.Apps.FirstOrDefault(n => n.Id == app.Id) is { } used) app.NetBytes = used.Use.Down + used.Use.Up;
         report.Insights = InsightEngine.Generate(report, previous, usual, settings.Alerts, context);
+        // Wear, for a month or a year only: a day or a week is too short to say anything about it.
+        if (range is ReportRange.Month or ReportRange.Year && Wear.ReportLines(db, from, to, DateTime.Today) is { Count: > 0 } wear)
+            report.Insights = InsightLinks.Apply([.. report.Insights.Concat(wear).OrderByDescending(i => i.Priority)]);
         return report;
     }
 

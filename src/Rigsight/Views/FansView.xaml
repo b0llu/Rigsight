@@ -367,15 +367,18 @@
                     </Grid>
                 </ctl:SmoothBorder>
 
-                <!-- ── Two even cards: whichever of these the fan and the period have ── -->
+                <!-- ── Even cards: Over the months, and whichever of these the fan and the period have ── -->
                 <UniformGrid Rows="1" Margin="-9,0" Visibility="{Binding HasSelection, Converter={StaticResource Vis}}">
-                    <!-- A year: its speed at one temperature month by month (falling bars: a slower fan). -->
-                    <ctl:SmoothBorder Style="{StaticResource RowCard}" Visibility="{Binding Selected.Detail.HasTrend, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
+                    <!-- Each fan's speed at the same heat now against its first weeks (approved mock-up, 2026-11-14), in every
+                         period: it's about the weeks, not the period picked. -->
+                    <ctl:SmoothBorder Style="{StaticResource RowCard}" Visibility="{Binding HasWear, Converter={StaticResource Vis}}">
                         <StackPanel>
-                            <TextBlock Text="{Binding Selected.Detail.TrendTitle}" Style="{StaticResource Caption}" Margin="0,0,0,4" />
-                            <TextBlock Text="{ctl:T 'At the same heat each month, lower bars mean a slower fan.'}" Style="{StaticResource TileNote}" Margin="0,0,0,10" />
-                            <ctl:FanDaysChart ctl:Roomy.Height="180" Days="{Binding Selected.Detail.Trend}" Monthly="True" ValueLabel="{Binding Selected.Detail.TrendLabel}"
-                                              Brush="{Binding Selected.Series[0].Brush}" />
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding WearAgainst}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
+                                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                                <TextBlock Text="{ctl:T 'Over the months'}" Style="{StaticResource H2}" />
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding WearRows}" ItemTemplate="{StaticResource WearTileRowTemplate}" Focusable="False" Margin="0,2,0,-12" />
                         </StackPanel>
                     </ctl:SmoothBorder>
 

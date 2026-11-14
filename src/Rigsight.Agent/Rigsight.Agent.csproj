@@ -45,6 +45,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Rigsight.Tests" />
+    <!-- tools\Rigsight.DiskTraceProbe: measures the disk trace on its own. -->
+    <InternalsVisibleTo Include="Rigsight.DiskTraceProbe" />
   </ItemGroup>
 
 </Project>

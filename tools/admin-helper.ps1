@@ -6,8 +6,8 @@
 # a data folder in the end-to-end check's temp folder. Anything else asked of it is refused. Requests and answers are
 # files in %LOCALAPPDATA%\RigsightTestAdmin (see tests\Rigsight.E2E, StartElevated).
 #
-# It also stops the network traces test agents leave behind ("Rigsight Network.<hash>", never the installed agent's
-# "Rigsight Network"): when it starts, before each agent it starts, and when it stops. A test agent that is killed
+# It also stops the network and disk traces test agents leave behind ("Rigsight Network.<hash>", "Rigsight Disk.<hash>",
+# never the installed agent's "Rigsight Network" or "Rigsight Disk"): when it starts, before each agent it starts, and when it stops. A test agent that is killed
 # (a run that died or was stopped) can't stop its own, and a trace nobody reads silences every other network trace
 # on the PC once its file is full: the installed Rigsight lost seven hours of network history that way (5 Oct 2026).
 param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Temp, [int]$IdleMinutes = 120)
@@ -25,7 +25,7 @@ function Under([string]$path, [string]$folder) { $path.StartsWith($folder, [Stri
 function Stop-TestTraces {
     try {
         foreach ($line in (logman query -ets 2>$null)) {
-            if ($line -match '^(Rigsight Network\.[0-9A-Fa-f]+)\s') { logman stop $Matches[1] -ets 2>$null | Out-Null }
+            if ($line -match '^(Rigsight (Network|Disk)\.[0-9A-Fa-f]+)\s') { logman stop $Matches[1] -ets 2>$null | Out-Null }
         }
     }
     catch { }

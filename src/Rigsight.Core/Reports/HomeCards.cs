@@ -23,7 +23,11 @@ public static class HomeCards
     public const int PinDays = ChangeEffects.WindowDays;
 
     /// <summary>What the cards read from the records: the last 30 days' changes, and the last 7 days' problems.</summary>
-    public sealed record Records(List<SystemChange> Changes, List<CrashKind> Problems, int Mains, int MainsLikely);
+    public sealed record Records(List<SystemChange> Changes, List<CrashKind> Problems, int Mains, int MainsLikely)
+    {
+        /// <summary>A chip running hotter at the same load than in its first weeks (<see cref="Wear.HealthLine(RigsightDb, DateTime)"/>).</summary>
+        public Insight? Wear { get; init; }
+    }
 
     public static Records Read(RigsightDb db, RigsightSettings s, DateTime now)
     {
@@ -35,7 +39,10 @@ public static class HomeCards
         var found = CrashCases.Of(db, crashes, s);
         return new Records(changes, [.. crashes.Where(e => PcUsual.CountsAsPcProblem(e, found.GetValueOrDefault(e.Id))).Select(e => e.Kind)],
             crashes.Count(e => PcUsual.LooksLikePower(e, found.GetValueOrDefault(e.Id))),
-            crashes.Count(e => PcUsual.ShutOffOf(e, found.GetValueOrDefault(e.Id)) == ShutOff.PowerLikely));
+            crashes.Count(e => PcUsual.ShutOffOf(e, found.GetValueOrDefault(e.Id)) == ShutOff.PowerLikely))
+        {
+            Wear = Reports.Wear.HealthLine(db, now.Date),
+        };
     }
 
     /// <summary>"Today", "Yesterday", the day's name within a week, else its date.</summary>
@@ -80,9 +87,10 @@ public static class HomeCards
     public const string DriveIcon = "";
 
     /// <param name="mainsLikely">Of <paramref name="mains"/>, the likely power cuts (the rest were possibly the power); null: all of them.</param>
-    public static List<Insight> Health(Report? today, IReadOnlyCollection<CrashKind> problems, int mains, IReadOnlyCollection<DriveCheck> drives, string? fullest, int? mainsLikely = null)
+    /// <param name="wear">A chip running hotter at the same load than in its first weeks: said in place of "Temperatures as usual".</param>
+    public static List<Insight> Health(Report? today, IReadOnlyCollection<CrashKind> problems, int mains, IReadOnlyCollection<DriveCheck> drives, string? fullest, int? mainsLikely = null, Insight? wear = null)
     {
-        var parts = UsualLines.Health(today, problems, mains, mainsLikely);
+        var parts = UsualLines.Health(today, problems, mains, mainsLikely, wear);
         var known = drives.Where(d => d.HasHealth).ToList();
         if (known.FirstOrDefault(d => d.NeedsLook) is { } unwell)
             parts.Add(new Insight(DriveIcon, Lang.T($"{unwell.Name} needs a look"), InsightTone.Warn, "drive-unwell"));

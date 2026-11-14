@@ -82,6 +82,12 @@ public static class Units
 
     public static string TempShort(double? celsius) => Short(SensorKind.Temperature, celsius);
 
+    /// <summary>A difference between two temperatures in the unit picked (a gap of 10°C is 18°F, with no offset).</summary>
+    public static double TempSpan(double celsius) => Fahrenheit ? celsius * 9 / 5 : celsius;
+
+    /// <summary>A difference between two temperatures, "4°" (or "4.5°" with a format of "0.0").</summary>
+    public static string TempGap(double celsius, string format = "0") => $"{TempSpan(celsius).ToString(format, System.Globalization.CultureInfo.CurrentCulture)}°";
+
     /// <summary>
     /// A reading as short as it can be and still say the number: at most about three characters, since a tray icon is
     /// 16 px square at normal scaling. Units are left out (the tooltip has them): 62 (°), 45 (%), 1.2k (RPM), 4.4 (GHz).
@@ -204,6 +210,16 @@ public static class Units
         >= 1L << 20 => $"{bytes / (1L << 20):0} MB",
         >= 1L << 10 => $"{bytes / (1L << 10):0} KB",
         _ => $"{bytes:0} B",
+    };
+
+    /// <summary>A drive's size or what it has written, the way drives are sold and report it (1 GB = 1,000,000,000 bytes): "480 GB", "9.8 TB".</summary>
+    public static string DiskBytes(double bytes) => bytes switch
+    {
+        >= 1e12 => $"{bytes / 1e12:0.#} TB",
+        >= 100e9 => $"{bytes / 1e9:0} GB",
+        >= 1e9 => $"{bytes / 1e9:0.#} GB",
+        >= 1e6 => $"{bytes / 1e6:0} MB",
+        _ => $"{bytes / 1e3:0} KB",
     };
 
     public static string Megabytes(double mb) => mb >= 1024 ? $"{mb / 1024:0.0} GB" : $"{mb:0} MB";

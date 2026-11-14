@@ -212,6 +212,26 @@ public sealed class DriveDay
     public double TotalGb { get; set; }
 }
 
+/// <summary>A physical drive's health on one day (see RigsightDb.UpsertDriveHealth): the counters as last read that day.</summary>
+public sealed class DriveHealthDay
+{
+    public long Day { get; set; }
+    /// <summary>The drive's lasting key (DriveKey).</summary>
+    public string Drive { get; set; } = "";
+    public string Name { get; set; } = "";
+    public double? Life { get; set; }
+    public long? Hours { get; set; }
+    public long? PowerOns { get; set; }
+    public double? ReadGb { get; set; }
+    public double? WrittenGb { get; set; }
+    public double? TempMax { get; set; }
+    public double? TempAvg { get; set; }
+    public long? Reallocated { get; set; }
+    public long? Pending { get; set; }
+    public long? Uncorrectable { get; set; }
+    public string Status { get; set; } = "";
+}
+
 public static class TimeUtil
 {
     public static long ToUnix(DateTime local) => new DateTimeOffset(local).ToUnixTimeSeconds();

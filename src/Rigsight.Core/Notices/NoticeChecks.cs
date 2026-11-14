@@ -11,7 +11,8 @@ namespace Rigsight.Core.Notices;
 /// day in it where it may be said again the next day). <see cref="Value"/>: what's kept with the key to compare next time
 /// (a drive's bad sector count).
 /// </summary>
-public sealed record NoticeCandidate(string Kind, NoticeLevel Level, NoticeText Text, string? Page, string? Arg, string Key, string? Value = null);
+/// <paramref name="Quiet"/>: only noted as said, not sent (a drive's first life reading sets where it stands).
+public sealed record NoticeCandidate(string Kind, NoticeLevel Level, NoticeText Text, string? Page, string? Arg, string Key, string? Value = null, bool Quiet = false);
 
 /// <summary>
 /// The notifications round's checks (2026-11-07, mock-up LWycKU9ZC8jzeVH8bVjPWm): each turns something RigSight already
@@ -105,17 +106,43 @@ public static class NoticeChecks
     /// rated life used (worth knowing). A drive is said when it changes for the worse: its first reading only sets where it
     /// stands, unless that is already a failure or bad sectors (then it's said once).
     /// </summary>
+    /// <param name="paceOf">A drive's share of rated life used a year at the pace seen (by its key), asked only when a life card is sent.</param>
     public static List<NoticeCandidate> Drives(IEnumerable<DriveHealthInfo> drives, IReadOnlyDictionary<string, double> lifeLeft, AlertSettings s,
-        Func<string, (DateTime At, string? Value)?> said)
+        Func<string, (DateTime At, string? Value)?> said, DateTime? now = null, Func<string, double?>? paceOf = null)
     {
         var list = new List<NoticeCandidate>();
-        if (!s.DriveHealth) return list;
+        var today = (now ?? DateTime.Now).Date;
         foreach (var d in drives.Where(d => d.Name.Length > 0))
         {
             string name = d.Name;
+            // A click opens the drive itself on Storage (by its key), or Storage when it has none.
+            string? arg = d.Key is { Length: > 0 } k ? DriveArg + k : null;
+            double? left = d.Life ?? (lifeLeft.TryGetValue(name, out double l) ? l : null);
+
+            // Its own warning temperature reached: a problem, said at once, once a day (option A, 2026-11-14).
+            if (s.DriveTemperature && d.Temperature is double temp && d.TemperatureWarning is double warning && warning > 0 && temp >= warning
+                && said($"drive-hot|{name}|{Day(today)}") is null)
+                list.Add(new("drive", NoticeLevel.Problem, NoticeWords.DriveHot(name, temp, warning), "storage", arg, $"drive-hot|{name}|{Day(today)}"));
+
+            // Half and a quarter of its rated life left (10% is the health card's "most of its rated life used"). The first
+            // reading only sets where it stands: a drive already at 40% isn't said to have just reached half.
+            if (s.DriveLifeMilestones && left is double life)
+            {
+                int mark = life <= 25 ? 25 : life <= 50 ? 50 : 100;
+                var before = said($"drive-life|{name}");
+                int? was = before?.Value is { } v && int.TryParse(v, out int m) ? m : null;
+                string value = mark.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                var quiet = new NoticeText("", "");
+                if (before is null || was is null || mark > was)
+                    list.Add(new("drive", NoticeLevel.Worth, quiet, "storage", arg, $"drive-life|{name}", value, Quiet: true)); // where it stands, or a newer drive
+                else if (mark < was && life > WornOut)
+                    list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveLife(name, mark, life, d.Key is { } key ? paceOf?.Invoke(key) : null), "storage", arg, $"drive-life|{name}", value));
+            }
+
+            if (!s.DriveHealth) continue;
             if (d.Status == "Bad")
             {
-                if (said($"drive-bad|{name}") is null) list.Add(new("drive", NoticeLevel.Problem, NoticeWords.DriveFailing(name), "storage", null, $"drive-bad|{name}"));
+                if (said($"drive-bad|{name}") is null) list.Add(new("drive", NoticeLevel.Problem, NoticeWords.DriveFailing(name), "storage", arg, $"drive-bad|{name}"));
                 continue;
             }
             long sectors = (d.ReallocatedSectors ?? 0) + (d.PendingSectors ?? 0) + (d.UncorrectableSectors ?? 0);
@@ -124,13 +151,40 @@ public static class NoticeChecks
                 var before = said($"drive-sectors|{name}");
                 long? was = before?.Value is { } v && long.TryParse(v, out long n) ? n : null;
                 if (before is null || sectors > (was ?? 0))
-                    list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveSectors(name, SectorWords(d), before is null ? null : was ?? 0), "storage", null,
+                    list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveSectors(name, SectorWords(d), before is null ? null : was ?? 0), "storage", arg,
                         $"drive-sectors|{name}", sectors.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             }
             else if (d.Status == "Caution" && said($"drive-caution|{name}") is null)
-                list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveCaution(name), "storage", null, $"drive-caution|{name}"));
-            if (lifeLeft.TryGetValue(name, out double left) && left <= WornOut && said($"drive-worn|{name}") is null)
-                list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveWorn(name, left), "storage", null, $"drive-worn|{name}"));
+                list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveCaution(name), "storage", arg, $"drive-caution|{name}"));
+            if (left is double worn && worn <= WornOut && said($"drive-worn|{name}") is null)
+                list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveWorn(name, worn), "storage", arg, $"drive-worn|{name}"));
+        }
+        return list;
+    }
+
+    /// <summary>A drive card's argument before the drive's key: Storage opens that drive.</summary>
+    public const string DriveArg = "drive:";
+
+    /// <summary>How long before a part that runs hotter than it used to may be said again (and only further up).</summary>
+    public static readonly TimeSpan WearAgain = TimeSpan.FromDays(30);
+
+    /// <summary>
+    /// A chip that sits further above its rest under the same load than in its first weeks, for two weeks running (Wear):
+    /// worth knowing, at most once a month each, and again only when it climbed another Wear.CoolingMoved degrees.
+    /// </summary>
+    public static List<NoticeCandidate> Cooling(IEnumerable<WearRow> parts, AlertSettings s, Func<string, (DateTime At, string? Value)?> said, DateTime now)
+    {
+        var list = new List<NoticeCandidate>();
+        if (!s.PartsChanged) return list;
+        foreach (var r in parts)
+        {
+            if (r is not { State: WearState.Moved, Now: double gap, Then: double then, ThenDate: DateTime since } || gap <= then) continue;
+            string key = $"wear|{r.Part}";
+            var before = said(key);
+            double? was = before?.Value is { } v && double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double x) ? x : null;
+            if (before is { } b && (now - b.At < WearAgain || was is null || gap < was + Wear.CoolingMoved)) continue;
+            list.Add(new("wear", NoticeLevel.Worth, NoticeWords.RunsHotter(r.Name, gap, then, Wear.WhenSaid(since)), "temperatures", null, key,
+                gap.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)));
         }
         return list;
     }
