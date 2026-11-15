@@ -202,26 +202,36 @@ public sealed class FanStrip : FrameworkElement
         }
         dc.DrawRoundedRectangle(Track, null, new Rect(0, Base - 2, w, 2), 1, 1);
 
-        // A minute's bar, a hair wider than its slot so neighbours join; one geometry a level.
-        double bw = Math.Max(0.9, w / span + 0.35), full = Base - BarTop;
+        // One bar for each run of minutes at the same level, ending where the next run starts: a sliver a minute (840 of
+        // them overlapping, a day 8 AM to 10 PM) took 295 ms to draw again on each hovered minute, and striped the strip.
+        double full = Base - BarTop;
+        var runs = new StreamGeometry[4];
+        var open = new StreamGeometryContext?[4];
+        for (int m = 0; m < span;)
+        {
+            if (d.Levels[m] is not FanLevel l)
+            {
+                m++;
+                continue;
+            }
+            int end = m + 1;
+            while (end < span && d.Levels[end] == l) end++;
+            int lv = (int)l;
+            if (open[lv] is null) open[lv] = (runs[lv] = new StreamGeometry()).Open();
+            double x1 = X(m), x2 = Math.Max(X(end), x1 + 0.9), bh = full * Tall[lv];
+            var ctx = open[lv]!;
+            ctx.BeginFigure(new Point(x1, Base), true, true);
+            ctx.LineTo(new Point(x2, Base), false, false);
+            ctx.LineTo(new Point(x2, Base - bh), false, false);
+            ctx.LineTo(new Point(x1, Base - bh), false, false);
+            m = end;
+        }
         for (int lv = 0; lv < 4; lv++)
         {
-            var g = new StreamGeometry();
-            bool any = false;
-            using (var ctx = g.Open())
-                for (int m = 0; m < span; m++)
-                {
-                    if (d.Levels[m] is not FanLevel l || (int)l != lv) continue;
-                    double x = X(m), bh = full * Tall[lv];
-                    ctx.BeginFigure(new Point(x, Base), true, true);
-                    ctx.LineTo(new Point(x + bw, Base), false, false);
-                    ctx.LineTo(new Point(x + bw, Base - bh), false, false);
-                    ctx.LineTo(new Point(x, Base - bh), false, false);
-                    any = true;
-                }
-            if (!any) continue;
-            g.Freeze();
-            dc.DrawGeometry(Level((FanLevel)lv), null, g);
+            if (open[lv] is not { } ctx) continue;
+            ctx.Close();
+            runs[lv].Freeze();
+            dc.DrawGeometry(Level((FanLevel)lv), null, runs[lv]);
         }
 
         // The marks above: each start, dimmed outside a hovered fact's stretch.

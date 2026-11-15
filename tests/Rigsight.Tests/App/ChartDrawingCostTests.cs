@@ -97,6 +97,22 @@ public sealed class ChartDrawingCostTests
             double timelineMs = ControlTests.Median(() => { timeline.InvalidateVisual(); Draw.Render(timeline, 1400, 220); });
             results.Add($"day timeline 1440: {timelineMs:0.0} ms");
 
+            // The Fans page's day strip, 8 AM to 10 PM: a level a minute, changing often, and the fans starting up 80 times.
+            var fans = new FanStrip
+            {
+                Data = new FanStripData
+                {
+                    IsDay = true, From = DateTime.Today.AddHours(8), HourStep = 2,
+                    Levels = [.. Enumerable.Range(0, 840).Select(i => (FanLevel?)(i % 7 == 0 ? FanLevel.Busy : i % 53 == 0 ? FanLevel.Quiet : FanLevel.Loud))],
+                    Ticks = [.. Enumerable.Range(0, 80).Select(i => i * 10 + 3)],
+                },
+            };
+            double fansMs = ControlTests.Median(() => { fans.InvalidateVisual(); Draw.Render(fans, 1550, 112); });
+            results.Add($"fan strip day 840, drawn and rasterized: {fansMs:0.0} ms");
+            Draw.Set(fans, "_hover", 400);
+            double fansHover = ControlTests.Median(() => { fans.InvalidateVisual(); fans.UpdateLayout(); });
+            results.Add($"fan strip hover: {fansHover:0.0} ms");
+
             // Budgets: about three times what they took on the development PC (Ryzen 7 5700X3D; in brackets), at least 25 ms.
             void Budget(string what, double ms, double budget) { if (ms > budget) over.Add($"{what} {ms:0.0} ms > {budget} ms"); }
             Budget("line chart", line, 115);            // (37)
@@ -108,6 +124,8 @@ public sealed class ChartDrawingCostTests
             Budget("crash strip", stripMs, 35);         // (11)
             Budget("treemap", mapMs, 400);              // (135)
             Budget("day timeline", timelineMs, 135);    // (45)
+            Budget("fan strip day", fansMs, 90);        // (29; 295 in 1.13.0, a sliver a minute)
+            Budget("fan strip hover", fansHover, 25);   // (0.4)
             File.WriteAllLines(Path.Combine(TestEnvironment.DataDir, "perf-controls.txt"), results);
         });
         return over.Count == 0 ? null : string.Join("; ", over) + " | measured: " + string.Join("; ", results);
