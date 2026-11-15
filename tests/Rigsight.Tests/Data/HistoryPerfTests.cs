@@ -200,6 +200,6 @@ public sealed class HistoryPerfTests(HeavyHistory heavy)
         Record($"{"Cleared file",-40} {cleared / 1024.0,9:0.0} KB");
         Assert.True(cleared < 360 * 1024, $"the cleared database is still {cleared / 1024} KB"); // measured 120 KB
         using var check = TestDb.At(path);
-        Assert.Equal(300, check.Count("apps"));
+        Assert.Equal(0, check.Count("apps")); // clearing history takes the apps list too
     }
 }
