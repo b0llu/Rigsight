@@ -56,9 +56,19 @@ public static partial class AiConversations
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException or NotSupportedException)
         {
-            // Unreadable: kept aside (not overwritten by the next save) and started again, said in the log.
-            Log.Write("ask", $"Conversations couldn't be read ({ex.Message}); kept as {Path.GetFileName(path)}.bad, starting with none");
+            // Unreadable: kept aside (not overwritten by the next save), and the copy the save before kept is used when it reads.
             try { System.IO.File.Copy(path, path + ".bad", overwrite: true); } catch (IOException) { }
+            try
+            {
+                if (System.IO.File.Exists(SafeFile.BackupOf(path))
+                    && JsonSerializer.Deserialize(System.IO.File.ReadAllText(SafeFile.BackupOf(path)), ConversationsJson.Default.FileShape) is { } kept)
+                {
+                    Log.Write("ask", $"Conversations couldn't be read ({ex.Message}); kept as {Path.GetFileName(path)}.bad, using the copy from the save before ({kept.Conversations.Count})");
+                    return [.. kept.Conversations];
+                }
+            }
+            catch (Exception again) when (again is IOException or JsonException or UnauthorizedAccessException or NotSupportedException) { }
+            Log.Write("ask", $"Conversations couldn't be read ({ex.Message}); kept as {Path.GetFileName(path)}.bad, starting with none");
             return [];
         }
     }
@@ -71,10 +81,7 @@ public static partial class AiConversations
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                string temp = path + ".tmp";
-                System.IO.File.WriteAllText(temp, json);
-                System.IO.File.Move(temp, path, overwrite: true);
+                SafeFile.WriteText(path, json);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

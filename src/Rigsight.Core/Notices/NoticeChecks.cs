@@ -112,52 +112,61 @@ public static class NoticeChecks
     {
         var list = new List<NoticeCandidate>();
         var today = (now ?? DateTime.Now).Date;
-        foreach (var d in drives.Where(d => d.Name.Length > 0))
+        var shown = drives.Where(d => d.Name.Length > 0).ToList();
+        // Two drives of one model share a name: what was said is kept by each drive's own key, or one drive's mark would be
+        // read as the other's and the same card sent over and over. Before 1.13 it was kept by name: read once when the
+        // drive's own isn't there yet, so nothing said is said again after the update.
+        var sameName = shown.GroupBy(d => d.Name, StringComparer.Ordinal).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var d in shown)
         {
             string name = d.Name;
+            string id = d.Key is { Length: > 0 } dk ? dk : name;
+            string Key(string what) => $"drive-{what}|{id}";
+            (DateTime At, string? Value)? Said(string what) => said(Key(what)) ?? (id != name ? said($"drive-{what}|{name}") : null);
             // A click opens the drive itself on Storage (by its key), or Storage when it has none.
             string? arg = d.Key is { Length: > 0 } k ? DriveArg + k : null;
-            double? left = d.Life ?? (lifeLeft.TryGetValue(name, out double l) ? l : null);
+            // The life sensor's reading is found by name: only for a name no other drive has.
+            double? left = d.Life ?? (!sameName.Contains(name) && lifeLeft.TryGetValue(name, out double l) ? l : null);
 
             // Its own warning temperature reached: a problem, said at once, once a day (option A, 2026-11-14).
             if (s.DriveTemperature && d.Temperature is double temp && d.TemperatureWarning is double warning && warning > 0 && temp >= warning
-                && said($"drive-hot|{name}|{Day(today)}") is null)
-                list.Add(new("drive", NoticeLevel.Problem, NoticeWords.DriveHot(name, temp, warning), "storage", arg, $"drive-hot|{name}|{Day(today)}"));
+                && said($"{Key("hot")}|{Day(today)}") is null)
+                list.Add(new("drive", NoticeLevel.Problem, NoticeWords.DriveHot(name, temp, warning), "storage", arg, $"{Key("hot")}|{Day(today)}"));
 
             // Half and a quarter of its rated life left (10% is the health card's "most of its rated life used"). The first
             // reading only sets where it stands: a drive already at 40% isn't said to have just reached half.
             if (s.DriveLifeMilestones && left is double life)
             {
                 int mark = life <= 25 ? 25 : life <= 50 ? 50 : 100;
-                var before = said($"drive-life|{name}");
+                var before = Said("life");
                 int? was = before?.Value is { } v && int.TryParse(v, out int m) ? m : null;
                 string value = mark.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 var quiet = new NoticeText("", "");
                 if (before is null || was is null || mark > was)
-                    list.Add(new("drive", NoticeLevel.Worth, quiet, "storage", arg, $"drive-life|{name}", value, Quiet: true)); // where it stands, or a newer drive
+                    list.Add(new("drive", NoticeLevel.Worth, quiet, "storage", arg, Key("life"), value, Quiet: true)); // where it stands, or a newer drive
                 else if (mark < was && life > WornOut)
-                    list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveLife(name, mark, life, d.Key is { } key ? paceOf?.Invoke(key) : null), "storage", arg, $"drive-life|{name}", value));
+                    list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveLife(name, mark, life, d.Key is { } key ? paceOf?.Invoke(key) : null), "storage", arg, Key("life"), value));
             }
 
             if (!s.DriveHealth) continue;
             if (d.Status == "Bad")
             {
-                if (said($"drive-bad|{name}") is null) list.Add(new("drive", NoticeLevel.Problem, NoticeWords.DriveFailing(name), "storage", arg, $"drive-bad|{name}"));
+                if (Said("bad") is null) list.Add(new("drive", NoticeLevel.Problem, NoticeWords.DriveFailing(name), "storage", arg, Key("bad")));
                 continue;
             }
             long sectors = (d.ReallocatedSectors ?? 0) + (d.PendingSectors ?? 0) + (d.UncorrectableSectors ?? 0);
             if (sectors > 0)
             {
-                var before = said($"drive-sectors|{name}");
+                var before = Said("sectors");
                 long? was = before?.Value is { } v && long.TryParse(v, out long n) ? n : null;
                 if (before is null || sectors > (was ?? 0))
                     list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveSectors(name, SectorWords(d), before is null ? null : was ?? 0), "storage", arg,
-                        $"drive-sectors|{name}", sectors.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                        Key("sectors"), sectors.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             }
-            else if (d.Status == "Caution" && said($"drive-caution|{name}") is null)
-                list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveCaution(name), "storage", arg, $"drive-caution|{name}"));
-            if (left is double worn && worn <= WornOut && said($"drive-worn|{name}") is null)
-                list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveWorn(name, worn), "storage", arg, $"drive-worn|{name}"));
+            else if (d.Status == "Caution" && Said("caution") is null)
+                list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveCaution(name), "storage", arg, Key("caution")));
+            if (left is double worn && worn <= WornOut && Said("worn") is null)
+                list.Add(new("drive", NoticeLevel.Worth, NoticeWords.DriveWorn(name, worn), "storage", arg, Key("worn")));
         }
         return list;
     }

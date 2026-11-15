@@ -70,6 +70,29 @@ public static class RigsightPaths
 
     public static string TaskScheduler { get; } = Path.Combine(Environment.SystemDirectory, "schtasks.exe");
 
+    /// <summary>
+    /// Deletes the files matching <paramref name="pattern"/> straight in <paramref name="folder"/> (not below it); one in use is
+    /// left, said in the log under <paramref name="area"/>. Returns how many went.
+    /// </summary>
+    public static int DeleteFiles(string folder, string pattern, string area)
+    {
+        if (!Directory.Exists(folder)) return 0;
+        int gone = 0;
+        foreach (var file in Directory.GetFiles(folder, pattern, SearchOption.TopDirectoryOnly))
+        {
+            try
+            {
+                File.Delete(file);
+                gone++;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Write(area, $"Couldn't remove {Path.GetFileName(file)}: {ex.Message}");
+            }
+        }
+        return gone;
+    }
+
     /// <summary>Finds a sibling executable (the agent and app are deployed side by side).</summary>
     public static string Sibling(string exeName) => Path.Combine(AppContext.BaseDirectory, exeName);
 }

@@ -191,6 +191,25 @@ public class GameHistoryTests
     }
 
     [Fact]
+    public void A_shut_off_after_a_reset_in_the_same_play_is_at_the_plays_end()
+    {
+        // A graphics driver reset at 20:30, then the PC went off as the play ended at 21:00: the shut-off is said at 21:00,
+        // not at the reset's time.
+        using var t = new TestDb("game-reset-then-off");
+        long game = t.Db.UpsertApp("rematch.exe", "REMATCH", null, AppCategory.Game);
+        long a = U(2026, 10, 14, 20), end = a + 3600;
+        t.Db.InsertSession(Session(game, a, end, game: true));
+        t.Db.InsertCrashes([
+            new CrashEvent { Ts = a + 1800, Kind = CrashKind.GpuDriverReset },
+            new CrashEvent { Ts = end + 60, Kind = CrashKind.UnexpectedShutdown },
+        ]);
+        var entry = GameHistory.Library(t.Db, [], Settings()).Single();
+        var story = GameHistory.Story(t.Db, entry, Settings(), L(end + 86400));
+        Assert.Equal(PlayEnd.ShutOff, Assert.Single(story.Plays).Ending);
+        Assert.Equal(TimeUtil.FromUnix(end), Assert.Single(story.ShutOffTimes));
+    }
+
+    [Fact]
     public void A_games_freeze_before_it_was_ever_a_play_still_counts()
     {
         // Real PC, 19 Oct 2026: REMATCH froze 19 seconds after it started, with no play recorded then, and the game said

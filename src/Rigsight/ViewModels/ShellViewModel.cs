@@ -1210,6 +1210,13 @@ public sealed partial class ShellViewModel : ObservableObject
                 _scanned?.TrySetResult();
                 break;
             case "history-cleared":
+                // The rewinds made, the games' frame times and what the drive scans found go with the history: deleted here,
+                // with the person's own rights.
+                int rewinds = Core.Rewind.RewindStore.RemoveAll(), frames = Core.Games.FrameStore.RemoveAll(), scans = Services.DriveScans.RemoveAll();
+                try { if (System.IO.File.Exists(CleanupSizes.File)) System.IO.File.Delete(CleanupSizes.File); }
+                catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { Log.Write("history", $"Couldn't remove the folder sizes kept: {ex.Message}"); }
+                Log.Write("history", $"History cleared: {rewinds} rewinds, {frames} frame time files and {scans} drive scans removed");
+                Rewind.Reload();
                 SettingsPage.OnHistoryCleared();
                 break;
             case "drives":

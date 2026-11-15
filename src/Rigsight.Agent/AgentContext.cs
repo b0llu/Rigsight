@@ -84,6 +84,8 @@ internal sealed partial class AgentContext : ApplicationContext
     private LineCheck? _line;
     private readonly TraceWatch _traceWatch = new();
     private readonly SensorHealth _sensorHealth = new();
+    // A part of the sampler's pass or the tick's drawing that failed: noted, not repeated in the log every second.
+    private readonly RepeatedErrors _errors = new("sampler");
     private readonly DisplayDriverWatch _displayWatch = new();
     private bool _gpusPaused, _restarting; // sampler thread
     private readonly string[] _args;
@@ -417,20 +419,29 @@ internal sealed partial class AgentContext : ApplicationContext
         bool wasLive = false;
         long compactAt = long.MaxValue;
 
+        // Each part of a pass on its own: one that fails (a full disk under a new app's first row, one widget) is noted and
+        // the others go on. A part whose turn is timed has its next turn set before it runs, so a failing part is tried
+        // again at its own pace, not on every pass.
         while (!_stopping)
         {
             try
             {
-                while (_samplerWork.TryDequeue(out var work)) work();
+                while (_samplerWork.TryDequeue(out var work))
+                    try { work(); }
+                    catch (Exception ex) { _errors.Failed("queued work", ex); }
 
                 // The RAM sticks, found in the background since the sensors opened: into the list, and tell the app.
-                if (_sensors.TakeMemory())
+                try
                 {
-                    Log.Write("sensors", $"Now {_sensors.SensorCount} sensors");
-                    MemoryAt("RAM sticks in");
-                    CompactMemory();
-                    if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
+                    if (_sensors.TakeMemory())
+                    {
+                        Log.Write("sensors", $"Now {_sensors.SensorCount} sensors");
+                        MemoryAt("RAM sticks in");
+                        CompactMemory();
+                        if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
+                    }
                 }
+                catch (Exception ex) { _errors.Failed("RAM sticks", ex); }
 
                 long now = clock.ElapsedMilliseconds;
                 var settings = _settings;
@@ -450,102 +461,126 @@ internal sealed partial class AgentContext : ApplicationContext
                 double dt = ActivityStep(lastActivity, now);
                 lastActivity = now;
                 long t0 = Stopwatch.GetTimestamp();
-                var sample = _activity.Sample();
-                _presentNow = !sample.Locked && (sample.IdleMs < settings.Tracking.IdleMinutes * 60_000L
-                                                 || sample.Fullscreen && settings.Tracking.FullscreenCountsAsActive);
-                _tracker.OnActivity(sample, dt);
+                bool fullscreen = false;
+                try
+                {
+                    var sample = _activity.Sample();
+                    fullscreen = sample.Fullscreen;
+                    _presentNow = !sample.Locked && (sample.IdleMs < settings.Tracking.IdleMinutes * 60_000L
+                                                     || sample.Fullscreen && settings.Tracking.FullscreenCountsAsActive);
+                    _tracker.OnActivity(sample, dt);
+                }
+                catch (Exception ex) { _errors.Failed("activity", ex); }
                 Measure("activity", t0);
 
                 t0 = Stopwatch.GetTimestamp();
-                if (_addressesChanged || now >= nextAddresses)
+                try
                 {
-                    _addressesChanged = false;
-                    _addresses = AddressBook.Read();
-                    nextAddresses = now + 60_000;
+                    if (_addressesChanged || now >= nextAddresses)
+                    {
+                        _addressesChanged = false;
+                        nextAddresses = now + 60_000;
+                        _addresses = AddressBook.Read();
+                    }
+                    if (now >= nextTraceCheck)
+                    {
+                        nextTraceCheck = now + 60_000;
+                        CheckNetworkTrace();
+                        CheckDiskTrace();
+                    }
+                    // Once a second (a pass woken early for other work leaves it be: a few milliseconds' bytes say nothing of a speed).
+                    if (lastNet == 0 || now - lastNet >= 900)
+                    {
+                        double seconds = lastNet == 0 ? 1 : Math.Min((now - lastNet) / 1000.0, 60);
+                        lastNet = now;
+                        SampleNetwork(seconds);
+                        long td = Stopwatch.GetTimestamp();
+                        SampleDiskUse();
+                        Measure("disk use", td);
+                    }
                 }
-                if (now >= nextTraceCheck)
-                {
-                    nextTraceCheck = now + 60_000;
-                    CheckNetworkTrace();
-                    CheckDiskTrace();
-                }
-                // Once a second (a pass woken early for other work leaves it be: a few milliseconds' bytes say nothing of a speed).
-                if (lastNet == 0 || now - lastNet >= 900)
-                {
-                    SampleNetwork(lastNet == 0 ? 1 : Math.Min((now - lastNet) / 1000.0, 60));
-                    lastNet = now;
-                    long td = Stopwatch.GetTimestamp();
-                    SampleDiskUse();
-                    Measure("disk use", td);
-                }
+                catch (Exception ex) { _errors.Failed("network", ex); }
                 Measure("network", t0);
 
                 if (now >= nextSensor || _sensorsNow)
                 {
                     _sensorsNow = false;
-                    t0 = Stopwatch.GetTimestamp();
-                    // Sensors on the overlay stay live in games (the app is usually closed then).
-                    // And those in the taskbar, which are always on show.
-                    _sensors.Watch([.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. _settings.TrayLookFrom.Values,
-                        .. WidgetSensorIds(_settings)]);
-                    CheckDisplayDriver();
-                    _sensors.Update(everything: live, now);
-                    if (_sensorHealth.Check(_sensors.Unwell, now))
-                    {
-                        Log.Write("sensors", "Some hardware has stopped answering (a driver updated, or a device unplugged): finding the sensors again");
-                        OpenSensors();
-                        _sensors.Update(everything: live, now);
-                    }
-                    Measure("sensors", t0);
-                    t0 = Stopwatch.GetTimestamp();
-                    var keys = _sensors.ReadKeys();
-                    long unixMs = TimeUtil.NowUnixMs();
-                    _history.Add(unixMs, _sensors);
-                    _tracker.OnSensors(SystemState.With(keys));
-                    var fansRead = _sensors.ReadFans();
-                    _tracker.OnFans(fansRead);
-                    if (fansRead.Count > 0) NoteFans(fansRead);
-                    _closeUps.Tick();
-                    var values = _sensors.ReadAll();
-                    ObserveExtremes(values);
-                    if (_sensors.DrivesUpdated)
-                    {
-                        _driveHistory.Add(unixMs, _sensors);
-                        OnDrivesRead();
-                    }
-
-                    var alert = _alerts.Check(keys, _tracker.Activity.Name, settings.Alerts, now);
-                    // A fixed limit says it's hot, not whether that's new: the game's usual says that (from the research, 2026-11-07).
-                    if (alert is { } a && UsualForAlert(_tracker.Activity.Exe, _alerts.LastParts) is { } usual) alert = (a.Title, $"{a.Body} {usual}");
-                    PublishToUi(keys, sample.Fullscreen, alert);
-                    Measure("track+publish", t0);
-
-                    if (live)
-                    {
-                        // A newly connected app gets every range once; after that, only what changed.
-                        bool full = _sendAllExtremes;
-                        _sendAllExtremes = false;
-                        _pipe.Broadcast(new AgentMessage
-                        {
-                            T = "tick",
-                            Time = unixMs,
-                            Values = values,
-                            Activity = _tracker.Activity,
-                            Today = _lastToday,
-                            Extremes = full ? _extremes.Snapshot() : _extremes.TakeChanges(),
-                            ExtremesDay = _extremes.Day,
-                            ExtremesFull = full,
-                            // No trace on an agent that should have one, after the remedies: the page says it isn't recording.
-                            Net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : _isAdmin && _traceWatch.Stalled ? NotRecording : null,
-                            Line = _line?.Live(),
-                            TrayWaiting = _trayWaiting is { Count: > 0 } waiting ? [.. waiting] : null,
-                        });
-                    }
-
                     int interval = live ? Math.Min(settings.LiveRefreshMs, settings.Tracking.SensorIntervalMs) : settings.Tracking.SensorIntervalMs;
                     // The overlay is read mid-game: keep it to the second.
                     if (_overlayVisible) interval = Math.Min(interval, 1000);
                     nextSensor = now + interval;
+                    t0 = Stopwatch.GetTimestamp();
+                    try
+                    {
+                        // Sensors on the overlay stay live in games (the app is usually closed then).
+                        // And those in the taskbar, which are always on show.
+                        _sensors.Watch([.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. _settings.TrayLookFrom.Values,
+                            .. WidgetSensorIds(_settings)]);
+                        CheckDisplayDriver();
+                        _sensors.Update(everything: live, now);
+                        if (_sensorHealth.Check(_sensors.Unwell, now))
+                        {
+                            Log.Write("sensors", "Some hardware has stopped answering (a driver updated, or a device unplugged): finding the sensors again");
+                            OpenSensors();
+                            _sensors.Update(everything: live, now);
+                        }
+                        Measure("sensors", t0);
+                        t0 = Stopwatch.GetTimestamp();
+                        var keys = _sensors.ReadKeys();
+                        long unixMs = TimeUtil.NowUnixMs();
+                        _history.Add(unixMs, _sensors);
+                        // What's written to history on its own: the readings still reach the taskbar, widgets, alerts and app.
+                        try
+                        {
+                            _tracker.OnSensors(SystemState.With(keys));
+                            var fansRead = _sensors.ReadFans();
+                            _tracker.OnFans(fansRead);
+                            if (fansRead.Count > 0) NoteFans(fansRead);
+                        }
+                        catch (Exception ex) { _errors.Failed("readings into history", ex); }
+                        try { _closeUps.Tick(); }
+                        catch (Exception ex) { _errors.Failed("crash close-ups", ex); }
+                        var values = _sensors.ReadAll();
+                        ObserveExtremes(values);
+                        if (_sensors.DrivesUpdated)
+                        {
+                            try
+                            {
+                                _driveHistory.Add(unixMs, _sensors);
+                                OnDrivesRead();
+                            }
+                            catch (Exception ex) { _errors.Failed("drives", ex); }
+                        }
+
+                        var alert = _alerts.Check(keys, _tracker.Activity.Name, settings.Alerts, now);
+                        // A fixed limit says it's hot, not whether that's new: the game's usual says that (from the research, 2026-11-07).
+                        if (alert is { } a && UsualForAlert(_tracker.Activity.Exe, _alerts.LastParts) is { } usual) alert = (a.Title, $"{a.Body} {usual}");
+                        PublishToUi(keys, fullscreen, alert);
+                        Measure("track+publish", t0);
+
+                        if (live)
+                        {
+                            // A newly connected app gets every range once; after that, only what changed.
+                            bool full = _sendAllExtremes;
+                            _sendAllExtremes = false;
+                            _pipe.Broadcast(new AgentMessage
+                            {
+                                T = "tick",
+                                Time = unixMs,
+                                Values = values,
+                                Activity = _tracker.Activity,
+                                Today = _lastToday,
+                                Extremes = full ? _extremes.Snapshot() : _extremes.TakeChanges(),
+                                ExtremesDay = _extremes.Day,
+                                ExtremesFull = full,
+                                // No trace on an agent that should have one, after the remedies: the page says it isn't recording.
+                                Net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : _isAdmin && _traceWatch.Stalled ? NotRecording : null,
+                                Line = _line?.Live(),
+                                TrayWaiting = _trayWaiting is { Count: > 0 } waiting ? [.. waiting] : null,
+                            });
+                        }
+                    }
+                    catch (Exception ex) { _errors.Failed("sensors", ex); }
                 }
 
                 if (now >= nextProc || _procsNow)
@@ -553,79 +588,87 @@ internal sealed partial class AgentContext : ApplicationContext
                     _procsNow = false;
                     double pdt = lastProc == 0 ? settings.Tracking.ProcessIntervalSeconds : ProcessStep(lastProc, now, settings.Tracking.ProcessIntervalSeconds);
                     lastProc = now;
-                    t0 = Stopwatch.GetTimestamp();
-                    bool firstProcs = !_procsSampled;
-                    _procsSampled = true;
-                    if (firstProcs) MemoryAt("before the first process sample");
-                    var snapshot = _procSampler.Sample();
-                    if (firstProcs) MemoryAt("processes sampled");
-                    snapshot.Gpu = _gpuSampler.Sample(snapshot);
-                    snapshot.GpuMemMb = _gpuMemory.Sample(snapshot);
-                    if (firstProcs) MemoryAt("GPU use by app sampled");
-                    Measure("processes", t0);
-                    t0 = Stopwatch.GetTimestamp();
-                    _running = snapshot.PidToExe;
-                    _lastProcs = snapshot;
-                    _activity.UpdateProcessMap(snapshot.PidToExe);
-                    var windows = _activity.ScanWindows();
-                    _tracker.OnProcesses(snapshot, windows, pdt);
-                    Measure("windows+apps", t0);
-                    if (live) _pipe.Broadcast(new AgentMessage { T = "procs", Procs = BuildProcs(snapshot, windows), Disk = Math.Round(snapshot.Disk) });
                     nextProc = now + (live ? 2000 : settings.Tracking.ProcessIntervalSeconds * 1000);
+                    t0 = Stopwatch.GetTimestamp();
+                    try
+                    {
+                        bool firstProcs = !_procsSampled;
+                        _procsSampled = true;
+                        if (firstProcs) MemoryAt("before the first process sample");
+                        var snapshot = _procSampler.Sample();
+                        if (firstProcs) MemoryAt("processes sampled");
+                        snapshot.Gpu = _gpuSampler.Sample(snapshot);
+                        snapshot.GpuMemMb = _gpuMemory.Sample(snapshot);
+                        if (firstProcs) MemoryAt("GPU use by app sampled");
+                        Measure("processes", t0);
+                        t0 = Stopwatch.GetTimestamp();
+                        _running = snapshot.PidToExe;
+                        _lastProcs = snapshot;
+                        _activity.UpdateProcessMap(snapshot.PidToExe);
+                        var windows = _activity.ScanWindows();
+                        _tracker.OnProcesses(snapshot, windows, pdt);
+                        Measure("windows+apps", t0);
+                        if (live) _pipe.Broadcast(new AgentMessage { T = "procs", Procs = BuildProcs(snapshot, windows), Disk = Math.Round(snapshot.Disk) });
+                    }
+                    catch (Exception ex) { _errors.Failed("processes", ex); }
                 }
 
                 if (now >= nextMinuteCheck)
                 {
                     nextMinuteCheck = now + 60_000;
-                    MaybeShowDailyRecap();
-                    MaybeMakeRewinds();
-                    MaybeCheckNotices();
-                    SaveExtremes();
-                    RetryWaitingRepair();
+                    _errors.Run("daily recap", MaybeShowDailyRecap);
+                    _errors.Run("Rewinds", MaybeMakeRewinds);
+                    _errors.Run("notice checks", MaybeCheckNotices);
+                    _errors.Run("extremes", () => SaveExtremes());
+                    _errors.Run("waiting repair", RetryWaitingRepair);
                 }
 
                 if (now >= nextHardwareApps)
                 {
                     nextHardwareApps = now + 30_000;
-                    CheckHardwareApps();
+                    _errors.Run("hardware apps", CheckHardwareApps);
                 }
 
                 if (Environment.TickCount64 >= _driverCheckAt)
                 {
                     _driverCheckAt = Environment.TickCount64 + 5 * 60_000;
-                    CheckDriver();
+                    _errors.Run("driver check", CheckDriver);
                 }
 
                 if (now >= nextCrashScan)
                 {
                     nextCrashScan = now + 10 * 60_000;
                     bool long_ = !_crashesScanned || _crashFillDue;
-                    MemoryAt("before the crash scan");
-                    ScanCrashes();
-                    // The one-time catch-up of crashes stored by earlier versions is the next scan's, two minutes on:
-                    // a PC that has just started has enough to do.
-                    if (_crashFillDue) nextCrashScan = now + 2 * 60_000;
-                    // A long scan (the first after starting, the catch-up) reads days to months of Windows' logs:
-                    // thousands of short-lived records, which the agent would otherwise sit on for as long as it
-                    // runs (26 MB more in Task Manager than the version before, measured on the first start after updating).
-                    if (long_)
+                    try
                     {
-                        MemoryAt("long crash scan done");
-                        CompactMemory();
-                        MemoryAt("handed back");
+                        MemoryAt("before the crash scan");
+                        ScanCrashes();
+                        // The one-time catch-up of crashes stored by earlier versions is the next scan's, two minutes on:
+                        // a PC that has just started has enough to do.
+                        if (_crashFillDue) nextCrashScan = now + 2 * 60_000;
+                        // A long scan (the first after starting, the catch-up) reads days to months of Windows' logs:
+                        // thousands of short-lived records, which the agent would otherwise sit on for as long as it
+                        // runs (26 MB more in Task Manager than the version before, measured on the first start after updating).
+                        if (long_)
+                        {
+                            MemoryAt("long crash scan done");
+                            CompactMemory();
+                            MemoryAt("handed back");
+                        }
                     }
+                    catch (Exception ex) { _errors.Failed("crash scan", ex); }
                 }
 
                 if (now >= nextChangeScan)
                 {
                     nextChangeScan = now + Inventory.CheckMinutes * 60_000;
-                    ScanChanges();
+                    _errors.Run("change scan", ScanChanges);
                 }
 
                 if (now >= nextDrives)
                 {
                     nextDrives = now + 6 * 3600_000L;
-                    RecordDrives();
+                    _errors.Run("drive record", RecordDrives);
                 }
 
                 // Sleep until the next whole second (or until woken for work).
@@ -633,7 +676,8 @@ internal sealed partial class AgentContext : ApplicationContext
             }
             catch (Exception ex)
             {
-                Log.Error("sampler", ex);
+                // What no part caught on its own (the pass itself).
+                _errors.Failed("the pass", ex);
                 _wake.WaitOne(2000);
             }
         }
@@ -1396,27 +1440,41 @@ internal sealed partial class AgentContext : ApplicationContext
         _ui.Post(_ =>
         {
             long t0 = Stopwatch.GetTimestamp();
-            _tray.Update(tip, health);
+            // Each part on its own: one that fails (a widget, the tray) must not take the rest with it, least of all the
+            // temperature alert at the end, which is worked out once and not again.
+            try { _tray.Update(tip, health); }
+            catch (Exception ex) { _errors.Failed("tray", ex); }
             // In the taskbar, drawn by RigSight in any style, where it can be (Windows 11); else as Windows' own tray icons.
             bool inStrip = _taskbarStrip.Update(trayReadings, settings.TrayGrayscale, settings.TraySide, settings.TrayStyle, settings.TrayTiles, settings.TrayWidth,
                 settings.TrayLetterNames, settings.TraySpeedBits, settings.TrayGap);
-            // Windows 10's own tray icons: an icon per part as before 1.3, or with any pair saved since.
-            _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped || settings.TrayPairs is { Count: > 0 }, settings.TrayGrayscale, settings.TrayTiles);
-            _trayWaiting = _taskbarStrip.Waiting;
-            if (cardKey is not null && cardSections is { Count: > 0 }) _card.Renew(cardKey, cardSections);
-            // Asked of Windows here, on this tick and for the same window, so Alt+Enter between windowed and borderless
-            // is caught on the next tick (only with a game in front: a few cheap calls, no new polling).
-            var front = gameInFront ? Win32.GetForegroundWindow() : IntPtr.Zero;
-            bool fillsScreen = gameInFront && Tracking.ActivityMonitor.IsFullscreen(front);
-            var gameMonitor = gameInFront ? Win32.MonitorFromWindow(front, 2 /* MONITOR_DEFAULTTONEAREST */) : IntPtr.Zero;
-            // Overlay planes are asked of Windows once a screen, and only when a game fills it.
-            _widgets.Update(data, gameInFront, fillsScreen,
-                exclusive: gameInFront && OverlayManager.IsExclusiveFullscreen(),
-                overlayPlanes: fillsScreen && OverlayPlanes.On(gameMonitor),
-                gameMonitor);
-            _overlay.Update(data);
-            _notices.SetFullscreen(otherFullscreen);
-            CheckRivaTunerOff(settings);
+            try
+            {
+                // Windows 10's own tray icons: an icon per part as before 1.3, or with any pair saved since.
+                _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped || settings.TrayPairs is { Count: > 0 }, settings.TrayGrayscale, settings.TrayTiles);
+                _trayWaiting = _taskbarStrip.Waiting;
+                if (cardKey is not null && cardSections is { Count: > 0 }) _card.Renew(cardKey, cardSections);
+            }
+            catch (Exception ex) { _errors.Failed("tray readings", ex); }
+            try
+            {
+                // Asked of Windows here, on this tick and for the same window, so Alt+Enter between windowed and borderless
+                // is caught on the next tick (only with a game in front: a few cheap calls, no new polling).
+                var front = gameInFront ? Win32.GetForegroundWindow() : IntPtr.Zero;
+                bool fillsScreen = gameInFront && Tracking.ActivityMonitor.IsFullscreen(front);
+                var gameMonitor = gameInFront ? Win32.MonitorFromWindow(front, 2 /* MONITOR_DEFAULTTONEAREST */) : IntPtr.Zero;
+                // Overlay planes are asked of Windows once a screen, and only when a game fills it.
+                _widgets.Update(data, gameInFront, fillsScreen,
+                    exclusive: gameInFront && OverlayManager.IsExclusiveFullscreen(),
+                    overlayPlanes: fillsScreen && OverlayPlanes.On(gameMonitor),
+                    gameMonitor);
+            }
+            catch (Exception ex) { _errors.Failed("widgets", ex); }
+            try { _overlay.Update(data); }
+            catch (Exception ex) { _errors.Failed("overlay", ex); }
+            try { _notices.SetFullscreen(otherFullscreen); }
+            catch (Exception ex) { _errors.Failed("held notices", ex); }
+            try { CheckRivaTunerOff(settings); }
+            catch (Exception ex) { _errors.Failed("RivaTuner check", ex); }
             if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
             if (alert is { } hot)
                 Notify(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true));
@@ -2280,7 +2338,11 @@ internal sealed partial class AgentContext : ApplicationContext
                 RunOnSampler(() =>
                 {
                     _tracker.ClearHistory();
+                    _extremes.Clear();
+                    _sendAllExtremes = true;
                     _pipe.Broadcast(new AgentMessage { T = "history-cleared" });
+                    // The apps list went too, and much here points at its rows: start again, fresh (the app reconnects by itself).
+                    _ui.Post(_ => Restart("history cleared"), null);
                 });
                 break;
             // Without admin rights there is no task to switch: where the PC starts Rigsight for everyone, this person's

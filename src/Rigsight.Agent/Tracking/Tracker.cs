@@ -855,6 +855,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     /// <summary>Writes the finished minute and hour deltas, closes stale sessions, and rolls the day.</summary>
     public void Flush(bool closeAllSessions)
     {
+        // History was just cleared and the agent starts again: what it held from before (the apps it knew, by rows now
+        // gone) isn't written back.
+        if (_cleared) return;
         long now = NowUnix();
         bool saved = false;
         try
@@ -997,6 +1000,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             GpuTempMax = session.GpuMax,
             IsGame = AppResolver.Category(session.App, _settings) == AppCategory.Game,
         };
+        if (_cleared) return row;
         try { session.Row = db.SaveSession(row, session.Row); }
         catch (Exception ex) { Log.Error("tracker", ex); HistoryRepair.Report(ex); }
         return row;
@@ -1077,8 +1081,16 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         return app is null ? null : AppResolver.DisplayName(app, _settings);
     }
 
+    /// <summary>History was cleared: from then on nothing is written, until the agent has started again (see ClearHistory).</summary>
+    private bool _cleared;
+
+    /// <summary>
+    /// Every recorded day goes, the apps list too. The agent starts again straight after (its caller does that): much it
+    /// holds in memory points at app rows that are gone, so from here on nothing more is written by this one.
+    /// </summary>
     public void ClearHistory()
     {
+        _cleared = true;
         db.ClearHistory();
         _minute = new MinuteAcc();
         _deltas.Clear();

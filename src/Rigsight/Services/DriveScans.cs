@@ -22,6 +22,13 @@ public static class DriveScans
     /// </summary>
     internal static string Folder { get; set; } = Path.Combine(RigsightPaths.DataDir, "drive-scans");
 
+    /// <summary>Clear history: every drive's saved scan goes, from memory and from the disk. Returns how many files went.</summary>
+    public static int RemoveAll()
+    {
+        lock (Gate) Last.Clear();
+        return RigsightPaths.DeleteFiles(Folder, "*.json.gz", "storage");
+    }
+
     /// <summary>Keeps a whole drive's scan ("E:\"), and saves it off the caller's thread; a folder's scan isn't a drive's.</summary>
     public static void Keep(string root, ScanResult result) => _ = Keep(root, result, DateTime.Now);
 

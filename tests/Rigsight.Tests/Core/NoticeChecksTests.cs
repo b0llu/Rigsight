@@ -140,6 +140,33 @@ public sealed class NoticeChecksTests
     }
 
     [Fact]
+    public void Two_drives_of_one_model_each_keep_their_own_mark_so_nothing_repeats()
+    {
+        // Two "Samsung SSD 980 1TB" side by side, one at 40% of its life, the other at 80%: by name they shared one mark, and
+        // the half-life card came back every other check, for ever.
+        var a = new DriveHealthInfo { Name = "Samsung SSD 980 1TB", Status = "Good", Key = "S64DNF0R1", Life = 40 };
+        var b = new DriveHealthInfo { Name = "Samsung SSD 980 1TB", Status = "Good", Key = "S64DNF0R2", Life = 80 };
+        var said = new Dictionary<string, (DateTime, string?)>();
+        int cards = 0;
+        for (int round = 0; round < 6; round++)
+            foreach (var c in NoticeChecks.Drives([a, b], new Dictionary<string, double>(), new AlertSettings(), SaidOnly(said), Now.AddMinutes(10 * round)))
+            {
+                if (!c.Quiet) cards++;
+                said[c.Key] = (Now.AddMinutes(10 * round), c.Value);
+            }
+        Assert.Equal(0, cards); // both only noted where they stand
+        Assert.Equal(("50", "100"), (said["drive-life|S64DNF0R1"].Item2, said["drive-life|S64DNF0R2"].Item2));
+
+        // One of them passing half later is said once.
+        b.Life = 49;
+        Assert.Single(NoticeChecks.Drives([a, b], new Dictionary<string, double>(), new AlertSettings(), SaidOnly(said), Now.AddHours(2)), c => !c.Quiet);
+        // A life reading found only by name isn't given to either of two drives of that name.
+        var c1 = new DriveHealthInfo { Name = "KINGSTON SA400", Status = "Good", Key = "K1" };
+        var c2 = new DriveHealthInfo { Name = "KINGSTON SA400", Status = "Good", Key = "K2" };
+        Assert.Empty(NoticeChecks.Drives([c1, c2], new Dictionary<string, double> { ["KINGSTON SA400"] = 8 }, new AlertSettings(), Never, Now));
+    }
+
+    [Fact]
     public void A_drive_at_its_own_warning_point_is_a_problem_once_a_day()
     {
         var hot = new DriveHealthInfo { Name = "Samsung SSD 980", Status = "Good", Temperature = 72, TemperatureWarning = 70 };

@@ -9,6 +9,8 @@ namespace Rigsight.Agent.Widgets;
 internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<Action<RigsightSettings>> mutateSettings, Action<string?> openWidgetSettings)
 {
     private readonly Dictionary<string, WidgetForm> _forms = [];
+    // One widget that can't draw (a tile's data, a picture) must not stop the others drawing.
+    private readonly RepeatedErrors _errors = new("widgets");
     private WidgetData? _data;
     private readonly WidgetsOverGames _overGames = new();
     private IntPtr _gameMonitor;
@@ -531,7 +533,8 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         if (log is not null && _forms.Count > 0) Rigsight.Core.Log.Write("widgets", log);
         UpdateVisibility();
         foreach (var form in _forms.Values)
-            form.UpdateData(data);
+            try { form.UpdateData(data); }
+            catch (Exception ex) { _errors.Failed($"widget {form.Config.Name ?? form.Config.Id}", ex); }
     }
 
     /// <summary>Whether a widget shows anything from RivaTuner (frame rate, frame time, 1% low).</summary>

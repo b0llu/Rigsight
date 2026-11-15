@@ -12,17 +12,53 @@ internal static class Program
 {
     private const string Gen0Variable = "DOTNET_GCgen0size";
     private const string Gen0Size = "0x400000"; // 4 MB, as the app has
+    private const string DataDirVariable = "RIGSIGHT_DATA_DIR";
+
+    /// <summary>Exit code: started with admin rights and RIGSIGHT_DATA_DIR but no --data-dir, from a folder anyone can change.</summary>
+    internal const int DataDirRefused = 7;
+
+    /// <summary>Exit code: with admin rights, a data folder that couldn't be made safe to work in (see DataFolderGuard).</summary>
+    internal const int DataDirUnsafe = 8;
+
+    private static bool RunsElevated()
+    {
+        using var me = WindowsIdentity.GetCurrent();
+        return new WindowsPrincipal(me).IsInRole(WindowsBuiltInRole.Administrator);
+    }
 
     [STAThread]
     private static void Main(string[] args)
     {
+        // With admin rights, another data folder only from the agent's own command line (--data-dir: a test agent started
+        // through UAC, the test copy's keeper or the test runner's admin helper), never from RIGSIGHT_DATA_DIR alone: any
+        // program the person runs can set that variable for every program started after it, and this agent writes, moves
+        // and deletes files in its data folder. Installed where only an admin can change it, the variable is let go (the
+        // real data folder); a build anywhere else stops, rather than take the real folder for a test's.
+        bool dataDirIgnored = false;
+        if (Environment.GetEnvironmentVariable(DataDirVariable) is { Length: > 0 } && Array.IndexOf(args, "--data-dir") < 0 && RunsElevated())
+        {
+            if (!MachineSetup.OnlyAdminsCanChange(AppContext.BaseDirectory)) Environment.Exit(DataDirRefused);
+            Environment.SetEnvironmentVariable(DataDirVariable, null);
+            dataDirIgnored = true;
+        }
         // A test copy started elevated (through UAC, which doesn't pass the environment on) is told its data folder
-        // here; the same as RIGSIGHT_DATA_DIR, which anyone can already set. Must come before anything reads RigsightPaths.
+        // here. Must come before anything reads RigsightPaths.
         if (Array.IndexOf(args, "--data-dir") is var d and >= 0 && d + 1 < args.Length)
-            Environment.SetEnvironmentVariable("RIGSIGHT_DATA_DIR", args[d + 1]);
-        Log.Rotates = true; // the agent keeps the shared log to size (see Log.Rotates)
+            Environment.SetEnvironmentVariable(DataDirVariable, args[d + 1]);
         bool setupStep = args.Any(a => a is "--install-rtss" or "--install-pawnio" or "--register-startup" or "--everyone" or "--updater" or "--quit" or "--start-in-sessions" or "--forget-tasks");
         if (setupStep && Account.ElevatedAsSomeoneElse) Log.Muted = true;
+        // With admin rights, the data folder is made safe to work in before anything is written there (see DataFolderGuard);
+        // not for another account's setup step, which writes nothing there.
+        List<string> guardNotes = [];
+        if (!Log.Muted && RunsElevated())
+        {
+            // Nothing is written to the log then: the log is in that folder.
+            try { guardNotes = DataFolderGuard.Secure(RigsightPaths.DataDir) ?? throw new IOException("not safe"); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Environment.Exit(DataDirUnsafe); }
+        }
+        Log.Rotates = true; // the agent keeps the shared log to size (see Log.Rotates)
+        if (dataDirIgnored) Log.Write("agent", $"{DataDirVariable} is set, but an agent with admin rights takes its data folder only from --data-dir: using {RigsightPaths.DataDir}");
+        foreach (var note in guardNotes) Log.Write("agent", note);
 
         bool isAdmin = Account.Kind == AccountKind.Admin;
 

@@ -64,7 +64,7 @@ public static class SettingsStore
         return Normalize(new RigsightSettings());
     }
 
-    internal const string BackupSuffix = ".bak";
+    internal const string BackupSuffix = SafeFile.BackupSuffix;
     internal const string BadSuffix = ".bad";
 
     /// <summary>The settings in <paramref name="path"/>, or null when it can't be read. A file in use for a moment (being saved, scanned) is tried again.</summary>
@@ -95,22 +95,7 @@ public static class SettingsStore
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-            var tmp = path + ".tmp";
-            File.WriteAllText(tmp, Serialize(settings));
-            if (File.Exists(path))
-            {
-                try
-                {
-                    File.Replace(tmp, path, path + BackupSuffix);
-                    return;
-                }
-                catch (IOException)
-                {
-                    // The copy can't be kept right now (in use): saving matters more.
-                }
-            }
-            File.Move(tmp, path, overwrite: true);
+            SafeFile.WriteText(path, Serialize(settings));
         }
         catch (Exception ex)
         {

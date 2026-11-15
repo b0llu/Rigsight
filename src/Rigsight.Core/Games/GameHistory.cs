@@ -190,7 +190,9 @@ public static class GameHistory
         {
             var ending = PlayEnd.Closed;
             long endedAt = end;
-            foreach (var c in crashes)
+            // Oldest first (they're read newest first), so what came last says how the play ended: a reset at 20:30, then
+            // the PC off at 21:01, ended in the shut-off.
+            foreach (var c in Enumerable.Reverse(crashes))
             {
                 // The game's own crash or hang as it ended; the PC's problems while it ran or just after.
                 if (c.Kind is CrashKind.AppCrash or CrashKind.AppHang && exes.Contains(c.AppExe) && c.Ts >= start && c.Ts <= end + 120)
@@ -201,8 +203,9 @@ public static class GameHistory
                 }
                 else if (c.Kind == CrashKind.GpuDriverReset && c.Ts >= start && c.Ts <= end + 120) (ending, endedAt) = (PlayEnd.DriverReset, c.Ts);
                 else if (c.Kind == CrashKind.SystemCrash && c.Ts >= start && c.Ts <= end + 600) (ending, endedAt) = (PlayEnd.BlueScreen, c.Ts);
+                // At the play's end, not an earlier problem's time in the same play (a reset at 20:30, then off at 21:01).
                 else if (c.Kind == CrashKind.UnexpectedShutdown && c.Ts >= end - 120 && c.Ts <= end + 600)
-                    ending = PcUsual.LooksLikePower(c, verdicts.GetValueOrDefault(c.Id)) ? PlayEnd.PowerCut : PlayEnd.ShutOff;
+                    (ending, endedAt) = (PcUsual.LooksLikePower(c, verdicts.GetValueOrDefault(c.Id)) ? PlayEnd.PowerCut : PlayEnd.ShutOff, end);
             }
             var at = TimeUtil.FromUnix(endedAt);
             switch (ending)

@@ -76,6 +76,14 @@ internal sealed class DailyExtremes
         Dirty = true;
     }
 
+    /// <summary>Clear history: today's ranges go too (the app is sent them whole again, empty).</summary>
+    public void Clear()
+    {
+        _values.Clear();
+        _changed.Clear();
+        Dirty = true;
+    }
+
     public Dictionary<string, double[]> Snapshot()
     {
         RollDay();

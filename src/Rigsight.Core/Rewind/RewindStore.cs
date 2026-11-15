@@ -50,10 +50,8 @@ public static class RewindStore
     {
         lock (Gate)
         {
-            Directory.CreateDirectory(Folder);
-            string path = Path.Combine(Folder, f.Id + ".json"), temp = path + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(f, RewindJson.Default.RewindFacts));
-            File.Move(temp, path, overwrite: true);
+            // Made again when it's missing, so no copy is kept; flushed before it's swapped in, so it's never left empty.
+            SafeFile.WriteText(Path.Combine(Folder, f.Id + ".json"), JsonSerializer.Serialize(f, RewindJson.Default.RewindFacts), backup: false);
         }
     }
 
@@ -64,6 +62,12 @@ public static class RewindStore
             try { File.Delete(Path.Combine(Folder, id + ".json")); }
             catch (IOException ex) { Log.Write("rewind", $"Couldn't remove {id}: {ex.Message}"); }
         }
+    }
+
+    /// <summary>Clear history: every rewind made goes with it. Deleted by the app, with the person's own rights.</summary>
+    public static int RemoveAll()
+    {
+        lock (Gate) return RigsightPaths.DeleteFiles(Folder, "*.json", "rewind");
     }
 
     public static bool Exists(string id) => File.Exists(Path.Combine(Folder, id + ".json"));

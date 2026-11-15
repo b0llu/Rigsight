@@ -344,6 +344,13 @@ public class TrackerDayTests
         Assert.Null(today.TopApp);
         Assert.Null(today.CpuPeak);
 
+        // Nothing more from this tracker (what it holds points at app rows that are gone): the agent starts again.
+        rig.Use("chrome.exe", 60);
+        rig.Tracker.Flush(closeAllSessions: true);
+        Assert.Empty(rig.Minutes());
+        Assert.Empty(rig.Sessions());
+
+        rig.Restart();
         rig.Use("chrome.exe", 150);
         rig.Tracker.Flush(closeAllSessions: true);
         Assert.Equal(150, rig.HoursOf("chrome.exe").FgSec);
@@ -352,11 +359,13 @@ public class TrackerDayTests
     }
 
     [Fact]
-    public void Clear_history_keeps_the_apps()
+    public void Clear_history_takes_the_apps_list_too()
     {
+        // Every program seen, where it is and when it was first seen: recorded history like the rest (the user, 2026-11-15:
+        // "clearing history means everything").
         using var rig = new TrackerRig();
         rig.Use("code.exe", 60);
         rig.Tracker.ClearHistory();
-        Assert.True(rig.HasApp("code.exe"));
+        Assert.False(rig.HasApp("code.exe"));
     }
 }

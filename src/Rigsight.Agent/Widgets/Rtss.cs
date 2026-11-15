@@ -41,7 +41,21 @@ internal static unsafe class Rtss
     /// <summary>RivaTuner's process is there: once found, asked of that process (no search of every process each time).</summary>
     public static bool IsRunning()
     {
-        lock (Gate) return StillRunning();
+        // Not known to run and no shared memory at all: it isn't running, said without a search of every process (the
+        // watch asks every few seconds all day, RivaTuner installed or not). The memory alone doesn't say it runs (a hooked
+        // game keeps it alive), so when it's there the process is still looked for.
+        lock (Gate) return _process is null && _view is null && !MemoryExists() ? false : StillRunning();
+    }
+
+    private static bool MemoryExists()
+    {
+        try
+        {
+            using var map = MemoryMappedFile.OpenExisting(MapName, MemoryMappedFileRights.Read);
+            return true;
+        }
+        catch (FileNotFoundException) { return false; }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { return true; } // there, just not ours to open
     }
 
     /// <summary>Shows <paramref name="text"/> in games (RTSS's own tags allowed). Returns false if RTSS isn't running.</summary>

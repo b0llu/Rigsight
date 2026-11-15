@@ -111,6 +111,22 @@ public sealed class JustPasteCoreTests
     }
 
     [Fact]
+    public void A_keys_file_left_empty_by_a_power_cut_comes_back_from_the_copy()
+    {
+        using var keys = Folder(out _);
+        SavedKeys.Add("OpenRouter", "", "sk-or-v1-firstfirst", "", "");
+        SavedKeys.Add("Anthropic", "", "sk-ant-usr-secondsecond", "", "");
+        // Cut off mid-save in the old way: the file is there and empty.
+        File.WriteAllBytes(SavedKeys.File, []);
+        // The copy holds the keys as they were at the save before.
+        Assert.Equal("OpenRouter", Assert.Single(SavedKeys.All()).Service);
+        Assert.True(File.Exists(SavedKeys.File + ".bad"));
+        // The next save writes them back whole.
+        SavedKeys.Add("Anthropic", "", "sk-ant-usr-secondsecond", "", "");
+        Assert.Equal(2, SavedKeys.All().Count);
+    }
+
+    [Fact]
     public void The_one_old_key_moves_into_the_saved_keys()
     {
         using var keys = Folder(out var dir);

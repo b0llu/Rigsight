@@ -24,6 +24,9 @@ public static class FrameStore
 
     public static string Folder => Path.Combine(RigsightPaths.DataDir, "frames");
 
+    /// <summary>Clear history: every game's frame times go with it. Deleted by the app, with the person's own rights.</summary>
+    public static int RemoveAll() => RigsightPaths.DeleteFiles(Folder, "*.bin", "frames");
+
     private static string FileOf(string folder, DateTime day, long app) => Path.Combine(folder, $"{day:yyyyMMdd}-{app}.bin");
 
     /// <summary>Adds a game's frames, the last ending at <paramref name="endMs"/>. Never throws (frames are a nice-to-have).</summary>

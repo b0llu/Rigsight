@@ -1083,14 +1083,32 @@ public sealed partial class RigsightDb : IDisposable
         if (HasSteamDownloads) using (var c7 = Cmd("DELETE FROM steam_download WHERE ended < $t", ("$t", before))) c7.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Everything recorded, all at once or not at all (one transaction), then the file shrunk: every day's readings and
+    /// apps, the apps list itself (each program seen, where it is and when it was first seen), what's installed, the
+    /// notifications and which were sent. What's installed is read again as it is now, without listing it all as new
+    /// (its kinds are forgotten too). Only the one-time catch-ups stay done, so the crashes in Windows' log aren't read
+    /// back in. The agent starts again after this (see the tracker's ClearHistory).
+    /// </summary>
     public void ClearHistory()
+    {
+        using (var tx = BeginTransaction())
+        {
+            Exec("DELETE FROM notice; DELETE FROM notice_said; DELETE FROM apps; DELETE FROM inventory;");
+            Exec($"DELETE FROM meta WHERE key IN ('extremes', '{InventoryKindsKey}', '{InventoryOwnerKey}');");
+            ClearHistoryTables();
+            tx.Commit();
+        }
+        Exec("VACUUM");
+    }
+
+    private void ClearHistoryTables()
     {
         Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM drive_health_day; DELETE FROM crashes; DELETE FROM crash_signs; DELETE FROM close_up;"
             + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM fan_level_day; DELETE FROM app_minute;"
             + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop; DELETE FROM net_ping; DELETE FROM net_ping_switch;"
             + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter; DELETE FROM steam_download;"
-            + " DELETE FROM disk_app_hour; DELETE FROM disk_app_day;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new
-        Exec("VACUUM");
+            + " DELETE FROM disk_app_hour; DELETE FROM disk_app_day;");
     }
 
     // ── Reader ────────────────────────────────────────────────────────────

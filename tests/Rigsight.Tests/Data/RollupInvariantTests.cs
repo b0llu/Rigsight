@@ -344,17 +344,22 @@ public sealed class RollupInvariantTests
     }
 
     [Fact]
-    public void Clearing_history_empties_every_history_table_but_keeps_apps_and_meta()
+    public void Clearing_history_empties_everything_but_the_one_time_markers()
     {
         using var t = new TestDb();
         History.Sample().WriteFresh(t.Db);
         t.Db.UpsertDriveDay(new DriveDay { Day = U(2025, 1, 1), Drive = "C:\\", UsedGb = 1, TotalGb = 2 });
         t.Db.SetMeta("extremes", "x");
+        t.Db.SetMeta("crash_facts_filled", "1");
+        t.Db.SaveNotice(new Rigsight.Core.Notices.NoticeRecord(new DateTime(2025, 1, 1, 20, 0, 0), "Crash", Rigsight.Core.Notices.NoticeLevel.Problem,
+            "Dota 2 crashed", "", null, null, null, null, true));
+        t.Db.MarkSaid("drive-bad|S64DNF0R1", new DateTime(2025, 1, 1), null);
         t.Db.ClearHistory();
-        foreach (var table in new[] { "system_minute", "system_day", "app_hour", "app_month", "sessions", "drive_day", "crashes" })
+        foreach (var table in new[] { "system_minute", "system_day", "app_hour", "app_month", "sessions", "drive_day", "crashes", "notice", "notice_said", "apps", "inventory" })
             Assert.Equal(0, t.Count(table));
-        Assert.Equal(4, t.Count("apps"));
-        Assert.Equal("x", t.Db.GetMeta("extremes"));
+        // The one-time markers stay (the crashes in Windows' log aren't read back in); today's ranges go with the rest.
+        Assert.Equal("1", t.Db.GetMeta("crash_facts_filled"));
+        Assert.Null(t.Db.GetMeta("extremes"));
         Assert.Null(t.Db.FirstDataTime());
         Rollups.AssertAll(t);
 

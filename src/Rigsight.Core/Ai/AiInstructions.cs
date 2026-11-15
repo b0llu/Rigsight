@@ -59,8 +59,8 @@ public static class AiInstructions
 
     private static void Write(AiMode mode, Saved saved)
     {
-        Directory.CreateDirectory(RigsightPaths.DataDir);
-        File.WriteAllText(FileOf(mode), JsonSerializer.Serialize(saved));
+        // Their own text: written beside and swapped in, never left half written (no copy: Reset removes the file).
+        SafeFile.WriteText(FileOf(mode), JsonSerializer.Serialize(saved), backup: false);
     }
 
     private static Saved? Read(AiMode mode)

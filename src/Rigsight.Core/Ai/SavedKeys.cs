@@ -200,12 +200,23 @@ public static class SavedKeys
     {
         try
         {
-            if (System.IO.File.Exists(File))
-                return JsonSerializer.Deserialize<Stored>(Encoding.UTF8.GetString(KeyStore.Unprotect(System.IO.File.ReadAllBytes(File))), Json) ?? new Stored();
+            if (System.IO.File.Exists(File)) return Parse(File);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyStore.CryptographicException or JsonException)
+        catch (Exception ex) when (Unreadable(ex))
         {
-            Log.Write("own-key", $"The saved keys couldn't be read ({ex.GetType().Name}: {ex.Message}); going on with none");
+            // Kept aside, so the next save doesn't write over what might still be recovered; the copy the last good save
+            // kept is used when it reads.
+            try { System.IO.File.Copy(File, File + ".bad", overwrite: true); } catch (IOException) { }
+            try
+            {
+                if (System.IO.File.Exists(SafeFile.BackupOf(File)) && Parse(SafeFile.BackupOf(File)) is { } kept)
+                {
+                    Log.Write("own-key", $"The saved keys couldn't be read ({ex.GetType().Name}: {ex.Message}); using the copy kept at the save before ({kept.Keys.Count} keys)");
+                    return kept;
+                }
+            }
+            catch (Exception again) when (Unreadable(again)) { }
+            Log.Write("own-key", $"The saved keys couldn't be read ({ex.GetType().Name}: {ex.Message}), nor a copy; going on with none");
             return new Stored();
         }
         // The one-key days: that key becomes the first saved key, with the settings' service, model and address.
@@ -231,9 +242,13 @@ public static class SavedKeys
         return moved;
     }
 
-    private static void Write(Stored s)
-    {
-        Directory.CreateDirectory(Folder);
-        System.IO.File.WriteAllBytes(File, KeyStore.Protect(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(s, Json))));
-    }
+    private static Stored Parse(string file) =>
+        JsonSerializer.Deserialize<Stored>(Encoding.UTF8.GetString(KeyStore.Unprotect(System.IO.File.ReadAllBytes(file))), Json) ?? new Stored();
+
+    private static bool Unreadable(Exception ex) => ex is IOException or UnauthorizedAccessException or KeyStore.CryptographicException or JsonException;
+
+    /// <summary>Written beside, flushed, then swapped in, the one before kept as a copy (see <see cref="SafeFile"/>): every question
+    /// rewrites it (when the key was last used), so a power cut mid-save must never cost the keys.</summary>
+    private static void Write(Stored s) =>
+        SafeFile.Write(File, KeyStore.Protect(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(s, Json))));
 }
