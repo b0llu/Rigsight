@@ -1416,6 +1416,7 @@ internal sealed partial class AgentContext : ApplicationContext
                 gameMonitor);
             _overlay.Update(data);
             _notices.SetFullscreen(otherFullscreen);
+            CheckRivaTunerOff(settings);
             if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
             if (alert is { } hot)
                 Notify(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true));
@@ -2419,6 +2420,12 @@ internal sealed partial class AgentContext : ApplicationContext
     /// <summary>Opens the Rigsight app (or brings it to the front) on an optional page.</summary>
     private void OpenApp(string? page, string? arg = null)
     {
+        // "RivaTuner isn't running": its click starts it, and the Games page opens, where its FPS will show.
+        if (page == "rivatuner")
+        {
+            if (!RigsightPaths.IsTestInstance) _ui.Post(_ => _overlay.StartRtss(), null);
+            page = "games";
+        }
         if (_pipe.ClientCount > 0)
         {
             Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
@@ -2598,6 +2605,38 @@ internal sealed partial class AgentContext : ApplicationContext
         }
         _pipe.Broadcast(new AgentMessage { T = "previews" });
     }
+
+    // The day the "RivaTuner isn't running" notice was last looked at for (said or not, once a day).
+    private DateTime _rtssOffCheckedOn;
+
+    /// <summary>
+    /// UI thread, on every tick: RivaTuner installed but off for 10 minutes, on a PC that played a game in the last 30
+    /// days, means no FPS is being recorded, and nothing else would say so (the user, 2026-11-14: it had been off
+    /// unnoticed). Said of RivaTuner, not of a game ("i want it generic"), and before the next game if it can be: it
+    /// only measures games opened after it. Once a day. Not when it isn't installed (the Games page says that; a notice
+    /// each day would nag).
+    /// </summary>
+    private void CheckRivaTunerOff(RigsightSettings settings)
+    {
+        if (_overlay.RtssOffSince is not { } off || DateTime.Now - off < RtssOffFor || _rtssOffCheckedOn == DateTime.Today) return;
+        _rtssOffCheckedOn = DateTime.Today;
+        string state = _overlay.RtssState;
+        bool on = settings.Alerts.FpsNotRecorded;
+        RunOnSampler(() =>
+        {
+            bool gamer = false;
+            try { gamer = _db.PlayedGameSince(TimeUtil.ToUnix(DateTime.Today.AddDays(-30))); }
+            catch (Exception ex) { Log.Error("notice", ex); }
+            bool say = state == "stopped" && gamer && on && !RigsightPaths.IsTestInstance;
+            Log.Write("notice", $"RivaTuner {state} since {off:t}" + (say ? "" : state != "stopped" ? ", nothing to start"
+                : !gamer ? ", not shown: no game in the last 30 days" : !on ? ", not shown: switched off" : ", not shown: test copy"));
+            if (!say) return;
+            var text = NoticeWords.RivaTunerOff();
+            Notify(new Notice(NoticeKind.Fps, text.Title, text.Body, Page: "rivatuner"));
+        });
+    }
+
+    private static readonly TimeSpan RtssOffFor = TimeSpan.FromMinutes(10);
 
     /// <summary>UI thread: the overlay appeared, disappeared, or its shortcut turned out to be taken.</summary>
     private void OnOverlayStateChanged()

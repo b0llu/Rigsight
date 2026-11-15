@@ -422,29 +422,109 @@
                                        FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
                         </StackPanel>
                     </ctl:SmoothBorder>
-
-                    <!-- The period, for all the fans: its loudest hour, day or month, and a card's zero-rpm fans starting and resting. -->
-                    <ctl:SmoothBorder Style="{StaticResource RowCard}" Visibility="{Binding HasToday, Converter={StaticResource Vis}}">
-                        <StackPanel>
-                            <TextBlock Text="{Binding PeriodCaption}" Style="{StaticResource Caption}" Margin="0,0,0,2" />
-                            <StackPanel Margin="0,10,0,0" Visibility="{Binding LoudestHour, Converter={StaticResource Vis}}">
-                                <TextBlock Text="{Binding LoudestLabel}" Style="{StaticResource TileNote}" />
-                                <TextBlock Text="{Binding LoudestHour}" Style="{StaticResource FactValue}" />
-                                <TextBlock Text="{Binding LoudestNote}" Style="{StaticResource TileNote}" Visibility="{Binding LoudestNote, Converter={StaticResource Vis}}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,12,0,0" Visibility="{Binding StartsText, Converter={StaticResource Vis}}">
-                                <TextBlock Text="{ctl:T 'GPU fans started up'}" Style="{StaticResource TileNote}" />
-                                <TextBlock Text="{Binding StartsText}" Style="{StaticResource FactValue}" />
-                                <TextBlock Text="{Binding StartsNote}" Style="{StaticResource TileNote}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,12,0,0" Visibility="{Binding SilentText, Converter={StaticResource Vis}}">
-                                <TextBlock Text="{ctl:T 'Longest silent stretch'}" Style="{StaticResource TileNote}" />
-                                <TextBlock Text="{Binding SilentText}" Style="{StaticResource FactValue}" />
-                                <TextBlock Text="{Binding SilentNote}" Style="{StaticResource TileNote}" />
-                            </StackPanel>
-                        </StackPanel>
-                    </ctl:SmoothBorder>
                 </UniformGrid>
+
+                <!-- ── The period's loudness, full width after the even row (approved mock-up 2026-11-14): a strip of the day minute by
+                     minute (a bar a day or a month for longer periods), and three facts side by side; hovering one marks its stretch. ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding HasToday, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,12">
+                            <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding LevelKeys}" Focusable="False" VerticalAlignment="Center">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="14,0,0,0" Background="Transparent" ToolTip="{Binding Tip}" ToolTipService.InitialShowDelay="250">
+                                            <Rectangle x:Name="Swatch" Width="10" Height="{Binding Height}" RadiusX="2" RadiusY="2" Fill="{DynamicResource SkyBrush}" Opacity="{Binding Strength}"
+                                                       VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsTick}" Value="True">
+                                                <Setter TargetName="Swatch" Property="Width" Value="2" />
+                                                <Setter TargetName="Swatch" Property="RadiusX" Value="1" />
+                                                <Setter TargetName="Swatch" Property="RadiusY" Value="1" />
+                                                <Setter TargetName="Swatch" Property="Fill" Value="{DynamicResource CpuBrush}" />
+                                            </DataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsTick}" Value="True" />
+                                                    <Condition Binding="{Binding Gpu}" Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter TargetName="Swatch" Property="Fill" Value="{DynamicResource GpuBrush}" />
+                                            </MultiDataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding PeriodCaption}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <ctl:FanStrip x:Name="Strip" Height="112" Data="{Binding Strip}" AutomationProperties.Name="{ctl:T 'How loud the fans ran'}" />
+                        <ItemsControl ItemsSource="{Binding TodayFacts}" Margin="-5,11,-5,-5" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="3" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Tag="{Binding Id}" Focusable="True" Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Tile}" Padding="14,12" Margin="5"
+                                            BorderThickness="1" MouseEnter="Fact_Enter" MouseLeave="Fact_Leave" GotKeyboardFocus="Fact_Enter" LostKeyboardFocus="Fact_Leave"
+                                            AutomationProperties.Name="{Binding Label}">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="BorderBrush" Value="Transparent" />
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource HoverBrush}" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource HoverBrush}" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <HeaderedContentControl Style="{StaticResource IconRow}">
+                                            <HeaderedContentControl.Header>
+                                                <Grid Width="30" Height="30">
+                                                    <Border x:Name="IconBack" CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource SkyBrush}" Opacity="0.16" />
+                                                    <TextBlock x:Name="Glyph" Text="&#xE767;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource SkyBrush}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <ContentControl x:Name="Fan" Content="{StaticResource FanIcon}" Foreground="{DynamicResource GpuBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                    Focusable="False" Visibility="Collapsed" />
+                                                </Grid>
+                                            </HeaderedContentControl.Header>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Label}" Style="{StaticResource TileNote}" />
+                                                <TextBlock Text="{Binding Value}" Style="{StaticResource FactValue}" />
+                                                <TextBlock Text="{Binding Note}" Style="{StaticResource TileNote}" />
+                                            </StackPanel>
+                                        </HeaderedContentControl>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsFan}" Value="True">
+                                            <Setter TargetName="Glyph" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="Fan" Property="Visibility" Value="Visible" />
+                                            <Setter TargetName="IconBack" Property="Background" Value="{DynamicResource GpuBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Tone}" Value="FanStarts">
+                                            <Setter TargetName="Fan" Property="Foreground" Value="{DynamicResource CpuBrush}" />
+                                            <Setter TargetName="IconBack" Property="Background" Value="{DynamicResource CpuBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Tone}" Value="Still">
+                                            <Setter TargetName="Glyph" Property="Text" Value="&#xE74F;" />
+                                            <Setter TargetName="Glyph" Property="Opacity" Value="0.75" />
+                                            <Setter TargetName="IconBack" Property="Opacity" Value="0.09" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ctl:SmoothBorder>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

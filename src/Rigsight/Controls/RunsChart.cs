@@ -9,10 +9,11 @@ namespace Rigsight.Controls;
 
 /// <summary>
 /// A point of "How it runs" over a range: one play, or a week of plays over a long range. Its frame rate, 1% low and
-/// stutters an hour (plays with frame data), and whether it opens (a play with frame data, or a week).
+/// stutters an hour (plays with frame data), and whether it opens (a play with frame data, or a week). A play's own RAM
+/// (MB, its average and highest over the hours it touched) for the hover.
 /// </summary>
 public sealed record RunsPoint(DateTime At, DateTime End, double ActiveSec, double Fps, double? Low, double? StuttersAnHour, int Plays, bool IsWeek,
-    bool CanOpen, bool PowerCut, double? Gpu, double? Watts);
+    bool CanOpen, bool PowerCut, double? Gpu, double? Watts, double? MemAvg = null, double? MemMax = null);
 
 /// <summary>A driver or the game updated: a flag on a dashed line at its time.</summary>
 public sealed record RunsMark(DateTime Time, string Label, string Title);
@@ -27,6 +28,10 @@ public sealed record RunsMinute(DateTime At, double? Fps, double? Low, int Stutt
 /// stutters an hour; one tick a stutter inside a play). Switching to a play zooms into its dot, and back out again.
 /// Updates are flags with their name beside them only where it fits. The hover finds the nearest point anywhere up and
 /// down the chart, so a thin bar never has to be hit.
+/// With <see cref="Slots"/> (12 plays or fewer in the range, approved mock-up "One game's page", 2026-11-14) each play gets
+/// an evenly spaced slot named by its date instead of its place in time: its average over its 1% low as two dots joined
+/// by a bar, both numbers by them, the updates as flags between the slots they came between, and a gap of a week or more
+/// said in days. Plays on dates that are far apart otherwise used a tenth of a 30-day axis and drew no 1% low at all.
 /// </summary>
 public sealed class RunsChart : FrameworkElement
 {
@@ -39,6 +44,7 @@ public sealed class RunsChart : FrameworkElement
     public static readonly DependencyProperty MinutesProperty = Register<IReadOnlyList<RunsMinute>?>(nameof(Minutes), null);
     public static readonly DependencyProperty StuttersProperty = Register<IReadOnlyList<Stutter>?>(nameof(Stutters), null);
     public static readonly DependencyProperty PlayStartProperty = Register<DateTime?>(nameof(PlayStart), null);
+    public static readonly DependencyProperty SlotsProperty = Register(nameof(Slots), false);
     public static readonly DependencyProperty ShowPlayProperty = DependencyProperty.Register(nameof(ShowPlay), typeof(bool), typeof(RunsChart),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender, (d, e) => ((RunsChart)d).ZoomTo((bool)e.NewValue)));
 
@@ -58,6 +64,8 @@ public sealed class RunsChart : FrameworkElement
     public IReadOnlyList<Stutter>? Stutters { get => (IReadOnlyList<Stutter>?)GetValue(StuttersProperty); set => SetValue(StuttersProperty, value); }
     public DateTime? PlayStart { get => (DateTime?)GetValue(PlayStartProperty); set => SetValue(PlayStartProperty, value); }
     public bool ShowPlay { get => (bool)GetValue(ShowPlayProperty); set => SetValue(ShowPlayProperty, value); }
+    /// <summary>The plays (never weeks) each in its own slot, named by date (see the class summary).</summary>
+    public bool Slots { get => (bool)GetValue(SlotsProperty); set => SetValue(SlotsProperty, value); }
     private double Zoom => (double)GetValue(ZoomProperty);
 
     /// <summary>A play with frame data, or a week, was clicked.</summary>
@@ -179,6 +187,51 @@ public sealed class RunsChart : FrameworkElement
         return clamp ? Math.Clamp(x, Left + 28, width - Right - 28) : x;
     }
 
+    /// <summary>The most plays drawn one to a slot; past this the plays go on dates (the line and its band read well then).</summary>
+    public const int MostSlots = 12;
+
+    /// <summary>A gap between plays that's said in days, between their slots.</summary>
+    public const int GapDays = 7;
+
+    /// <summary>
+    /// The slots' names, one a play, for slots <paramref name="slotWidth"/> wide: its weekday and date where there's room,
+    /// else the date, else just the day of the month (the first slot and a new month keep the month). A second play on the
+    /// same day says its time where there's room, else a dot.
+    /// </summary>
+    internal static List<string> SlotDays(IReadOnlyList<RunsPoint> pts, double slotWidth)
+    {
+        var list = new List<string>();
+        for (int i = 0; i < pts.Count; i++)
+        {
+            var at = pts[i].At;
+            bool sameDay = i > 0 && pts[i - 1].At.Date == at.Date;
+            list.Add(sameDay ? (slotWidth >= 60 ? TimeText.At(at, "h:mm tt") : "·")
+                : slotWidth >= 84 ? at.ToString("ddd d MMM")
+                : slotWidth >= 46 || i == 0 || pts[i - 1].At.Month != at.Month ? at.ToString("d MMM")
+                : at.Day.ToString(System.Globalization.CultureInfo.CurrentCulture));
+        }
+        return list;
+    }
+
+    /// <summary>The gaps of <see cref="GapDays"/> days or more between one play's end and the next one's start: the slot after it and the whole days.</summary>
+    internal static List<(int After, int Days)> SlotGaps(IReadOnlyList<RunsPoint> pts)
+    {
+        var gaps = new List<(int, int)>();
+        for (int i = 1; i < pts.Count; i++)
+        {
+            int days = (int)Math.Round((pts[i].At - pts[i - 1].End).TotalDays);
+            if (days >= GapDays) gaps.Add((i, days));
+        }
+        return gaps;
+    }
+
+    /// <summary>Where an update's flag stands among the slots: between the plays it came between, or at an edge.</summary>
+    internal static double SlotMarkX(IReadOnlyList<RunsPoint> pts, IReadOnlyList<double> xs, DateTime time, double width)
+    {
+        int k = pts.Count(p => p.At < time);
+        return k <= 0 ? Left + 3 : k >= pts.Count ? width - Right - 3 : (xs[k - 1] + xs[k]) / 2;
+    }
+
     protected override void OnRender(DrawingContext dc)
     {
         double w = ActualWidth, h = ActualHeight;
@@ -214,7 +267,9 @@ public sealed class RunsChart : FrameworkElement
         var warm = ChartPaint.Warm;
         double from = From.Ticks, to = Math.Max(To.Ticks, From.Ticks + TimeSpan.TicksPerHour);
         double X(DateTime t) => Left + (t.Ticks - from) / (to - from) * (w - Left - Right);
-        for (int i = 0; i < pts.Count; i++) _xs.Add(X(pts[i].At));
+        bool slots = Slots && pts.Count > 0 && pts.All(p => !p.IsWeek);
+        double slotW = slots ? (w - Left - Right) / pts.Count : 0;
+        for (int i = 0; i < pts.Count; i++) _xs.Add(slots ? Left + (i + 0.5) * slotW : X(pts[i].At));
 
         // Where the zoom grows from: the play's own dot (or the right edge when it's outside the range).
         int origin = PlayStart is { } start ? pts.ToList().FindIndex(p => !p.IsWeek && p.At == start) : -1;
@@ -256,6 +311,7 @@ public sealed class RunsChart : FrameworkElement
             {
                 ChartPaint.Text(dc, this, Lang.T("No plays with a frame rate in this range"), new Point((Left + w - Right) / 2, (Top + plotBottom) / 2), 12.5, ChartPaint.Muted, ChartPaint.Align.Center);
             }
+            if (slots) { DrawSlots(); return; }
             // The lines break where nothing was played (2026-10-27: a line straight from the 21st to the 26th read as
             // plays in between): more than two days between plays, or a week without any.
             var gap = TimeSpan.FromDays(pts.Any(p => p.IsWeek) ? 8 : 2);
@@ -267,38 +323,24 @@ public sealed class RunsChart : FrameworkElement
                     Band(withLow.Select(i => new Point(_xs[i], Y(pts[i].Fps))).ToList(), withLow.Select(i => new Point(_xs[i], Y(pts[i].Low!.Value))).ToList());
                     Line(withLow.Select(i => new Point(_xs[i], Y(pts[i].Low!.Value))).ToList(), new Pen(ChartPaint.Muted, 1.6) { DashStyle = new DashStyle([3, 2.5], 0) });
                 }
+                // A play with no close neighbour still shows its 1% low: a short bar down to a small ring (it drew no
+                // 1% low at all with plays more than two days apart, 2026-11-14).
+                else if (withLow.Count == 1)
+                {
+                    int i = withLow[0];
+                    var top = new Point(_xs[i], Y(pts[i].Fps));
+                    var low = new Point(_xs[i], Y(pts[i].Low!.Value));
+                    dc.DrawLine(new Pen(ChartPaint.Brush(accent.Color, 0.35), 3) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, top, low);
+                    dc.DrawEllipse(hole, new Pen(ChartPaint.Muted, 1.6), low, 3, 3);
+                }
                 Line(run.Select(i => new Point(_xs[i], Y(pts[i].Fps))).ToList(), new Pen(accent, 2.2));
             }
 
             // Updates: a flag on its dashed line; its name beside it only where it fits before the next one.
-            var marks = (Marks ?? []).Where(m => m.Time >= From && m.Time <= To).OrderBy(m => m.Time).ToList();
+            var marks = MarksShown();
             double free = double.MinValue;
-            var flagPen = new Pen(ChartPaint.Brush(accent.Color, 0.7), 1) { DashStyle = new DashStyle([3, 3], 0) };
             for (int k = 0; k < marks.Count; k++)
-            {
-                double x = Math.Round(X(marks[k].Time)) + 0.5;
-                dc.DrawLine(flagPen, new Point(x, Top - 8), new Point(x, railBase));
-                var diamond = new StreamGeometry();
-                using (var g = diamond.Open())
-                {
-                    g.BeginFigure(new Point(x, Top - 18), true, true);
-                    g.LineTo(new Point(x + 4.5, Top - 13.5), true, false);
-                    g.LineTo(new Point(x, Top - 9), true, false);
-                    g.LineTo(new Point(x - 4.5, Top - 13.5), true, false);
-                }
-                diamond.Freeze();
-                dc.DrawGeometry(ChartPaint.FpsMarkText, null, diamond);
-                var hit = new Rect(x - 8, Top - 22, 16, 18);
-                var ft = ChartPaint.Format(this, marks[k].Label, 10.5, ChartPaint.FpsMarkText);
-                double next = k + 1 < marks.Count ? X(marks[k + 1].Time) - 10 : w - Right;
-                if (x + 8 > free && x + 8 + ft.Width < next)
-                {
-                    dc.DrawText(ft, new Point(x + 8, Top - 13.5 - ft.Height / 2));
-                    hit = new Rect(x - 8, Top - 22, 16 + ft.Width + 4, 18);
-                    free = x + 8 + ft.Width + 6;
-                }
-                _flags.Add((hit, marks[k]));
-            }
+                Flag(X(marks[k].Time), marks[k], k + 1 < marks.Count ? X(marks[k + 1].Time) - 10 : w - Right, ref free);
 
             // Stutters, one bar a play (or week) with frame data, as tall as its stutters an hour; then the dots.
             double barW = pts.Any(p => p.IsWeek) ? Math.Clamp((w - Left - Right) / Math.Max(1, pts.Count) / 2, 4, 10) : 6;
@@ -324,6 +366,85 @@ public sealed class RunsChart : FrameworkElement
         {
             foreach (var (at, text) in DateTicks(From, To, w, t => ChartPaint.Width(this, t, 11, ChartPaint.Label)))
                 ChartPaint.Text(dc, this, text, new Point(DateX(at, From, To, w), h - 6), 11, ChartPaint.Label, ChartPaint.Align.Center);
+        }
+
+        List<RunsMark> MarksShown() => [.. (Marks ?? []).Where(m => m.Time >= From && m.Time <= To).OrderBy(m => m.Time)];
+
+        // An update: a flag on its dashed line at x; its name beside it only where it fits before the next one (next).
+        void Flag(double at, RunsMark mark, double next, ref double free)
+        {
+            double x = Math.Round(at) + 0.5;
+            dc.DrawLine(new Pen(ChartPaint.Brush(accent.Color, 0.7), 1) { DashStyle = new DashStyle([3, 3], 0) }, new Point(x, Top - 8), new Point(x, railBase));
+            var diamond = new StreamGeometry();
+            using (var g = diamond.Open())
+            {
+                g.BeginFigure(new Point(x, Top - 18), true, true);
+                g.LineTo(new Point(x + 4.5, Top - 13.5), true, false);
+                g.LineTo(new Point(x, Top - 9), true, false);
+                g.LineTo(new Point(x - 4.5, Top - 13.5), true, false);
+            }
+            diamond.Freeze();
+            dc.DrawGeometry(ChartPaint.FpsMarkText, null, diamond);
+            var hit = new Rect(x - 8, Top - 22, 16, 18);
+            var ft = ChartPaint.Format(this, mark.Label, 10.5, ChartPaint.FpsMarkText);
+            if (x + 8 > free && x + 8 + ft.Width < next)
+            {
+                dc.DrawText(ft, new Point(x + 8, Top - 13.5 - ft.Height / 2));
+                hit = new Rect(x - 8, Top - 22, 16 + ft.Width + 4, 18);
+                free = x + 8 + ft.Width + 6;
+            }
+            _flags.Add((hit, mark));
+        }
+
+        // A slot a play (approved mock-up, 2026-11-14): every other slot faintly shaded, the updates between the slots they
+        // came between, a long gap said in days, then each play's 1% low and average with their numbers, and its date.
+        void DrawSlots()
+        {
+            var shade = ChartPaint.Brush(ChartPaint.Res("TextColor", 0xFF), 0.015);
+            for (int i = 1; i < pts.Count; i += 2) dc.DrawRectangle(shade, null, new Rect(Left + i * slotW, Top, slotW, railBase - Top));
+
+            var marks = MarksShown();
+            var mx = marks.Select(m => SlotMarkX(pts, _xs, m.Time, w)).ToList();
+            double free = double.MinValue;
+            for (int k = 0; k < marks.Count; k++) Flag(mx[k], marks[k], k + 1 < marks.Count ? mx[k + 1] - 10 : w - Right, ref free);
+
+            var dotted = new Pen(ChartPaint.Grid, 1) { DashStyle = new DashStyle([1, 4], 0) };
+            foreach (var (after, days) in SlotGaps(pts))
+            {
+                double x = (_xs[after - 1] + _xs[after]) / 2;
+                if (!mx.Any(v => Math.Abs(v - x) < 2)) dc.DrawLine(dotted, new Point(x, Top), new Point(x, railBase));
+                string text = Lang.T($"{days} days");
+                double tw = ChartPaint.Width(this, text, 10.5, ChartPaint.Label) + 10;
+                dc.DrawRoundedRectangle(ChartPaint.Track, null, new Rect(x - tw / 2, railBase - 9, tw, 16), 8, 8);
+                ChartPaint.Text(dc, this, text, new Point(x, railBase - 1), 10.5, ChartPaint.Label, ChartPaint.Align.Center);
+            }
+
+            bool numbers = slotW >= 34;
+            var names = SlotDays(pts, slotW);
+            var ring = new Pen(ChartPaint.Brush(accent.Color, 0.5), 1.5);
+            var bar = new Pen(ChartPaint.Brush(accent.Color, 0.38), 4) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+            for (int i = 0; i < pts.Count; i++)
+            {
+                var p = pts[i];
+                double x = _xs[i], ya = Y(p.Fps);
+                if (p.StuttersAnHour is double rate)
+                {
+                    double bh = 3 + Math.Min(1, rate / 400) * (Rail - 2);
+                    dc.DrawRoundedRectangle(warm, null, new Rect(x - 3, railBase - bh, 6, bh), 1, 1);
+                }
+                if (p.Low is double low)
+                {
+                    double yl = Y(low);
+                    dc.DrawLine(bar, new Point(x, ya), new Point(x, yl));
+                    dc.DrawEllipse(hole, new Pen(ChartPaint.Muted, 1.7), new Point(x, yl), 3.6, 3.6);
+                    if (numbers) ChartPaint.Text(dc, this, $"{low:0}", new Point(x, yl + 12), 11, ChartPaint.Muted, ChartPaint.Align.Center);
+                }
+                if (p.CanOpen) dc.DrawEllipse(null, ring, new Point(x, ya), 8.5, 8.5);
+                if (p.PowerCut) dc.DrawEllipse(hole, new Pen(ChartPaint.Muted, 2), new Point(x, ya), 4.8, 4.8);
+                else dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(x, ya), 4.6, 4.6);
+                if (numbers) ChartPaint.Text(dc, this, $"{p.Fps:0}", new Point(x, ya - (p.CanOpen ? 17 : 14)), 11, accent, ChartPaint.Align.Center, bold: true);
+                ChartPaint.Text(dc, this, names[i], new Point(x, h - 6), 11, ChartPaint.Label, ChartPaint.Align.Center);
+            }
         }
 
         void DrawPlay()
@@ -365,7 +486,9 @@ public sealed class RunsChart : FrameworkElement
         void HoverPoint(RunsPoint p, double x0)
         {
             double x = Math.Round(x0) + 0.5;
-            dc.DrawLine(new Pen(ChartPaint.Cursor, 1), new Point(x, Top), new Point(x, railBase));
+            // A slot lights up whole; on dates, a line marks the play.
+            if (slots) dc.DrawRectangle(ChartPaint.Brush(ChartPaint.Res("TextColor", 0xFF), 0.05), null, new Rect(Left + _hover * slotW, Top, slotW, railBase - Top));
+            else dc.DrawLine(new Pen(ChartPaint.Cursor, 1), new Point(x, Top), new Point(x, railBase));
             var lines = new List<(string, Brush, bool)>
             {
                 (p.IsWeek ? Lang.T($"Week of {p.End.AddDays(-7):d MMM} · {(p.Plays == 1 ? Lang.T("1 play") : Lang.T($"{p.Plays} plays"))}")
@@ -375,12 +498,19 @@ public sealed class RunsChart : FrameworkElement
             if (p.Low is double low) lines.Add((Lang.T($"{low:0} fps 1% low"), ChartPaint.Muted, false));
             if (p.StuttersAnHour is double rate) lines.Add((rate < 0.5 ? Lang.T("No stutters") : Lang.T($"{rate:0} stutters an hour"), warm, false));
             if (p.Gpu is double gpu && !p.IsWeek) lines.Add(($"GPU {Units.TempShort(gpu)}" + (p.Watts is double watts ? $" · {watts:0} W" : ""), ChartPaint.Muted, false));
+            // The game's own RAM in this play, as Every play shows it.
+            if (p.MemAvg is double mem && !p.IsWeek)
+            {
+                string avg = Units.Megabytes(mem);
+                lines.Add((p.MemMax is double most ? Lang.T($"RAM {avg} · peak {Units.Megabytes(most)}") : $"RAM {avg}", ChartPaint.Muted, false));
+            }
             if (p.PowerCut) lines.Add((Lang.T("Ended by a power cut"), ChartPaint.Muted, false));
             // An update shortly before: what may explain a change.
             if ((Marks ?? []).Where(m => m.Time <= p.End && m.Time > p.At.AddDays(-7)).MaxBy(m => m.Time) is { } m)
                 lines.Add((Lang.T($"{m.Time:d MMM}: {m.Title}"), ChartPaint.FpsMarkText, false));
             if (p.CanOpen) lines.Add((p.IsWeek ? Lang.T("Click to see this week") : Lang.T("Click to see this play"), ChartPaint.Muted, false));
-            dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(x0, Y(p.Fps)), 4, 4);
+            double r = slots ? 5.2 : 4;
+            dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(x0, Y(p.Fps)), r, r);
             ChartPaint.InfoBox(dc, this, lines, new Point(x, Y(p.Fps) - 10), bounds, above: true);
         }
 

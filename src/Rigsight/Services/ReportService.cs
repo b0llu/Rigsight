@@ -84,7 +84,7 @@ public sealed class ReportService(SettingsModel settings)
     /// <summary>What is on record about one running app (the Processes page's box under its row).</summary>
     public Task<AppPast?> AppPastAsync(string exe) => Run(db => AppPast.Read(db, exe, DateTime.Now));
 
-    /// <summary>What is on record about every app's memory (the Memory page's list and its "Worth a look" cards).</summary>
+    /// <summary>What is on record about every app's memory (the Memory page's list, its marked rows and today's fullest line).</summary>
     public Task<MemoryPast?> MemoryPastAsync() => Run(db => MemoryPast.Read(db, DateTime.Now));
 
     /// <summary>The day Rigsight started recording (null: nothing recorded yet).</summary>
@@ -232,6 +232,13 @@ public sealed class ReportService(SettingsModel settings)
             db.GetFanDays(Math.Min(TimeUtil.ToUnix(since), TimeUtil.ToUnix(daysFrom)), daysEnd), db.LoadApps(),
             db.GetFanCurveDays(TimeUtil.ToUnix(curvesFrom), TimeUtil.ToUnix(curvesTo)));
     });
+
+    /// <summary>Each fan's range over the days before <paramref name="to"/> (see <see cref="Core.Reports.FanLevels"/>): the Fans card's loudness.</summary>
+    public Task<List<Core.Reports.FanSpan>?> FanSpansAsync(DateTime to) => Run(db =>
+        db.GetFanSpans(TimeUtil.ToUnix(to.AddDays(-Core.Reports.FanLevels.RangeDays)), Math.Min(TimeUtil.ToUnix(to), TimeUtil.NowUnix() + 60)));
+
+    /// <summary>Each finished day's fan loudness from <paramref name="from"/> to <paramref name="to"/> (a year's Fans card).</summary>
+    public Task<List<FanLevelDay>?> FanLevelDaysAsync(DateTime from, DateTime to) => Run(db => db.GetFanLevelDays(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to)));
 
     /// <summary>The first day with fan speeds recorded (the Fans page's picker goes no further back).</summary>
     public Task<DateTime?> FirstFanDayAsync() => Run(db => db.FirstFanDay() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);

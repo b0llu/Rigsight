@@ -38,11 +38,10 @@ internal static unsafe class Rtss
     /// <summary>RTSS.exe if RivaTuner is installed, else null (see <see cref="RtssSetup.Find()"/>).</summary>
     public static string? FindExe() => RtssSetup.Find();
 
+    /// <summary>RivaTuner's process is there: once found, asked of that process (no search of every process each time).</summary>
     public static bool IsRunning()
     {
-        var processes = Process.GetProcessesByName("RTSS");
-        foreach (var p in processes) p.Dispose();
-        return processes.Length > 0;
+        lock (Gate) return StillRunning();
     }
 
     /// <summary>Shows <paramref name="text"/> in games (RTSS's own tags allowed). Returns false if RTSS isn't running.</summary>

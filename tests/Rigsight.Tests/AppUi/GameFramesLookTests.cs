@@ -18,12 +18,18 @@ public sealed class GameFramesLookTests(AppHost host) : IClassFixture<AppHost>
 {
     private static readonly string Shots = Path.Combine(TestEnvironment.DataDir, "screens");
 
-    /// <summary>Cyberpunk 2077's newest play, a frame minute for each of its minutes: 144 fps with a stutter every 20 s.</summary>
-    private static long WriteFrames()
+    /// <summary>
+    /// One of Cyberpunk 2077's plays (<paramref name="back"/> = 0 the newest, 1 the one before), a frame minute for each of
+    /// its minutes: 144 fps with a stutter every 20 s.
+    /// </summary>
+    private static long WriteFrames(int back = 0)
     {
         using var db = RigsightDb.OpenWriter();
         long app = db.LoadApps().Single(a => a.Exe == "cyberpunk2077.exe").Id;
-        var play = db.GetAppSessions(app).Last();
+        var sessions = db.GetAppSessions(app).OrderBy(s => s.Start).ToList();
+        var play = sessions[^1];
+        // A play of its own: sessions with breaks under 15 minutes are one play, so the one before ended an hour or more earlier.
+        for (int i = 0; i < back; i++) play = sessions.Last(s => s.End < play.Start - 3600);
         var spreads = new List<(long, FrameSpread, List<Stutter>)>();
         var random = new Random(7);
         for (long ts = play.Start / 60 * 60; ts < play.End; ts += 60)
@@ -65,6 +71,20 @@ public sealed class GameFramesLookTests(AppHost host) : IClassFixture<AppHost>
         host.Show("games", 1500);
         // The library's covers can log a binding of their own mask while they draw (older than this test): only the opened game counts here.
         Ui.TakeProblems();
+        Ui.Run(() => host.Shell.Games.OpenKeyAsync("cyberpunk2077.exe")).GetAwaiter().GetResult();
+        // Its one play with a frame rate has frame data: How it runs opens straight on that play's minutes, with no
+        // All plays switch (approved mock-up, 2026-11-14).
+        Ui.WaitFor(() => Ui.Run(() => host.Shell.Games.OnlyPlay && host.Shell.Games.FramesView), 10_000);
+        Ui.Run(() =>
+        {
+            Assert.True(host.Shell.Games.OnlyPlay);
+            Assert.True(host.Shell.Games.FramesView);
+            Assert.False(host.Shell.Games.HasFramePlays);
+        });
+        // A second play with frame data: the plays over the range again, each one opening.
+        WriteFrames(back: 1);
+        host.Show("home", 600);
+        host.Show("games", 1500);
         Ui.Run(() => host.Shell.Games.OpenKeyAsync("cyberpunk2077.exe")).GetAwaiter().GetResult();
         Ui.WaitFor(() => Ui.Run(() => host.Shell.Games.HasFramePlays && host.Shell.Games.HasSettings && host.Shell.Games.RunsPoints.Count > 0), 10_000);
         Ui.Pump(600);
@@ -115,7 +135,9 @@ public sealed class GameFramesLookTests(AppHost host) : IClassFixture<AppHost>
         Ui.Run(() =>
         {
             Assert.Equal("Last 12 months", games.RunsLabel);
-            Assert.All(games.RunsPoints, p => Assert.True(p.IsWeek));
+            // A point a week past 12 plays; 12 or fewer each get a slot however long the range (approved mock-up, 2026-11-14).
+            if (games.RunsSlots) Assert.All(games.RunsPoints, p => Assert.False(p.IsWeek));
+            else Assert.All(games.RunsPoints, p => Assert.True(p.IsWeek));
             Ui.SavePng(host.Window, Path.Combine(Shots, "game-frames-1c-year.png"));
         });
         Ui.Run(() => games.PickRunsRangeCommand.Execute("7"));

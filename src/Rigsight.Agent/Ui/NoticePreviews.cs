@@ -27,6 +27,7 @@ internal static class NoticePreviews
             "weekly" => NoticeWords.Weekly(31 * 3600 + 20 * 60, "Crimson Desert", 9 * 3600 + 5 * 60, 35 * 3600 + 20 * 60) is var (t, b)
                 ? (NoticeKind.Weekly, new NoticeText(t, b), "reports") : null,
             "memory" => (NoticeKind.Memory, NoticeWords.MemoryGrowing("Google Chrome", (long)(2.1 * (1L << 30)), (long)(9.2 * (1L << 30)), 3 * 3600), "processes"),
+            "fps" => (NoticeKind.Fps, NoticeWords.RivaTunerOff(), "rivatuner"),
             "startup" => (NoticeKind.Startup, NoticeWords.StartsWithWindows(SavedText.Show("FACEIT now starts with Windows"), now.AddMinutes(-20), now), "timeline"),
             _ => null,
         };

@@ -14,6 +14,9 @@ internal sealed class TrayController : IDisposable
     private string _lastKey = "";
     private Action? _balloonAction;
 
+    /// <summary>First line of a test copy's tray tooltip (only ever seen by the developer, so not translated).</summary>
+    private const string TestTip = "RigSight test copy";
+
     /// <summary>An on/off item of the menu: its English name, whether it's on (a tick), and what a click does.</summary>
     internal sealed record Switch(string English, Func<bool> IsOn, Action Toggle);
 
@@ -23,10 +26,12 @@ internal sealed class TrayController : IDisposable
         // Rigsight runs as admin and Explorer doesn't: Windows drops that message on the way unless it's let through
         // (the icon, its menu and every notification from it were gone until the agent restarted).
         ChangeWindowMessageFilter(RegisterWindowMessage("TaskbarCreated"), 1 /* MSGFLT_ADD */);
-        _logo = new Icon(Path.Combine(AppContext.BaseDirectory, "Rigsight.ico"), SystemInformation.SmallIconSize);
+        // A test copy shows its own icon, never the installed RigSight's logo (the user, 2026-11-14).
+        _logo = RigsightPaths.IsTestInstance ? TestLogo.Icon(SystemInformation.SmallIconSize.Width)
+            : new Icon(Path.Combine(AppContext.BaseDirectory, "Rigsight.ico"), SystemInformation.SmallIconSize);
         _icon.ContextMenuStrip = BuildMenu(open, switches, widgetsMenu, overlayItem, pause, resume, isPaused, quit);
         _icon.Icon = _logo;
-        _icon.Text = "RigSight";
+        _icon.Text = RigsightPaths.IsTestInstance ? TestTip : "RigSight";
         _icon.Visible = true;
         _icon.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) open(); };
         _icon.BalloonTipClicked += (_, _) => _balloonAction?.Invoke();
@@ -106,6 +111,7 @@ internal sealed class TrayController : IDisposable
     public void Update(string tooltip, int health)
     {
         // NotifyIcon.Text is limited to 127 characters.
+        if (RigsightPaths.IsTestInstance) tooltip = TestTip + Environment.NewLine + tooltip;
         _icon.Text = tooltip.Length > 127 ? tooltip[..127] : tooltip;
 
         string key = "status" + health;
@@ -136,9 +142,17 @@ internal sealed class TrayController : IDisposable
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
             g.Clear(Color.Transparent);
-            using (var icon = new Icon(_logo, size, size))
-            using (var logo = icon.ToBitmap())
+            if (RigsightPaths.IsTestInstance)
+            {
+                using var test = TestLogo.Draw(size);
+                g.DrawImage(test, 0, 0, size, size);
+            }
+            else
+            {
+                using var icon = new Icon(_logo, size, size);
+                using var logo = icon.ToBitmap();
                 g.DrawImage(logo, 0, 0, size, size);
+            }
 
             var color = health switch
             {

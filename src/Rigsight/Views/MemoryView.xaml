@@ -34,6 +34,109 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- The box over today's fullest moment, in the same look: what each app held then, and everything else. -->
+        <Style x:Key="FullTip" TargetType="ToolTip">
+            <Setter Property="HasDropShadow" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Field}"
+                                Padding="14,10,14,11" MinWidth="176">
+                            <StackPanel>
+                                <TextBlock Text="{Binding TipTitle}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,3" />
+                                <ItemsControl ItemsSource="{Binding Held}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,4,0,0">
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Figure}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="18,0,0,0" />
+                                                <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{DynamicResource RamBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="9,0,0,0" />
+                                            </DockPanel>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsRest}" Value="True">
+                                                    <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource FaintBrush}" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- "Above their usual" in the live list's header: shows only those rows, in the same box. Greyed with none; the
+             count is in amber, like the figures it counts. -->
+        <Style x:Key="OverFilter" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Detail}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingPill}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <ctl:SmoothBorder x:Name="Bd" Background="{DynamicResource Surface2Brush}" CornerRadius="13" Padding="12,5">
+                            <StackPanel Orientation="Horizontal">
+                                <ContentPresenter VerticalAlignment="Center" />
+                                <TextBlock x:Name="Count" Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" FontSize="{x:Static ctl:TextSize.Label}" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource WarmBrush}" MinWidth="10" TextAlignment="Center" VerticalAlignment="Center" Margin="8,0,0,0" />
+                            </StackPanel>
+                        </ctl:SmoothBorder>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+                                <Setter TargetName="Count" Property="Foreground" Value="{DynamicResource OnAccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- A row of the live list, as every list's (RowItem), with a faint amber shade when the app is above its usual
+             (deeper under the pointer). -->
+        <Style x:Key="LiveRow" TargetType="ListBoxItem" BasedOn="{StaticResource RowItem}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid Margin="0,0,0,2">
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Control}" />
+                            <Border x:Name="Tint" Background="{DynamicResource WarmBrush}" Opacity="0.055" CornerRadius="{x:Static ctl:Corner.Control}"
+                                    IsHitTestVisible="False" Visibility="Collapsed" />
+                            <ContentPresenter Margin="10,8" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsOver}" Value="True">
+                                <Setter TargetName="Tint" Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsOver}" Value="True" />
+                                    <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="Bd" Property="Background" Value="Transparent" />
+                                <Setter TargetName="Tint" Property="Opacity" Value="0.09" />
+                            </MultiDataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <!-- The mark on an app's bar at its usual: a bar of its own over the first, of which only the end shows. -->
         <Style x:Key="UsualMark" TargetType="ProgressBar">
             <Setter Property="Height" Value="14" />
@@ -63,7 +166,6 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <DockPanel Margin="0,0,0,18">
@@ -77,7 +179,7 @@
         </DockPanel>
 
         <!-- Overview -->
-        <Grid Grid.Row="1">
+        <Grid x:Name="Overview" Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="18" />
@@ -154,14 +256,33 @@
                     </ctl:SideOrStack>
                 </DockPanel>
             </ctl:SmoothBorder>
+            <!-- As tall as the RAM card beside it: its list shows as many of today's apps as fit that height (see FitStack),
+                 and today's fullest moment comes right under them, so the card has no empty space above or within it. -->
             <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
-                <StackPanel>
-                    <TextBlock Text="{ctl:T 'Today\'s biggest memory users'}" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Today\'s biggest memory users'}" Style="{StaticResource H2}" Margin="0,0,0,10" />
+                    <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Nothing measured yet today. The list fills in within a few minutes.'}" Style="{StaticResource Muted}"
+                               Visibility="{Binding ShowCollecting, Converter={StaticResource Vis}}" />
+                    <ctl:Spinner DockPanel.Dock="Top" Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,110,0,0"
+                                 Visibility="{Binding Ready, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     <!-- Rows share the peak/average column widths, so every bar starts and ends at the same place. -->
-                    <ItemsControl ItemsSource="{Binding TodayTop}" Grid.IsSharedSizeScope="True">
+                    <ItemsControl x:Name="TodayList" ItemsSource="{Binding TodayRows}" Grid.IsSharedSizeScope="True" Focusable="False" ClipToBounds="True">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ctl:FitStack />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="ctl:FitStack.Rank" Value="{Binding Rank}" />
+                                <Setter Property="ctl:FitStack.Essential" Value="{Binding Essential}" />
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Grid Margin="0,4">
+                                <Grid>
+                                <Grid Visibility="{Binding IsApp, Converter={StaticResource Vis}}">
+                                <Grid Margin="0,4" DataContext="{Binding App}">
                                     <!-- The name gives way (cut with a tooltip); the peak and average always show in full. -->
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="30" />
@@ -183,67 +304,64 @@
                                         <Run Text="{ctl:T average}" /> <Run Text="{Binding MemAvg, Converter={StaticResource Megabytes}, Mode=OneWay}" />
                                     </TextBlock>
                                 </Grid>
+                                </Grid>
+                                <!-- Today's fullest moment, from 85%: what was holding the most, and Windows nearly out of memory
+                                     then (amber). The box over it says what each app held. -->
+                                <Grid Visibility="{Binding IsFullest, Converter={StaticResource Vis}}">
+                                <Border x:Name="FullestLine" DataContext="{Binding Fullest}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0"
+                                        Margin="0,12,0,0" Padding="0,14,0,0" Background="Transparent"
+                                        ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="60000" ToolTipService.IsEnabled="{Binding HasHeld}">
+                                    <Border.ToolTip>
+                                        <ToolTip Style="{StaticResource FullTip}" />
+                                    </Border.ToolTip>
+                                    <HeaderedContentControl Style="{StaticResource IconRow}">
+                                        <HeaderedContentControl.Header>
+                                            <Border Style="{StaticResource IconBox}">
+                                                <TextBlock Text="&#xE964;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource WarmBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                        </HeaderedContentControl.Header>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding CommitText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
+                                                       Visibility="{Binding HasCommit, Converter={StaticResource Vis}}" />
+                                        </StackPanel>
+                                    </HeaderedContentControl>
+                                </Border>
+                                </Grid>
+                                </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock Text="{ctl:T 'Nothing measured yet today. The list fills in within a few minutes.'}" Style="{StaticResource Muted}"
-                               Visibility="{Binding ShowCollecting, Converter={StaticResource Vis}}" />
-                    <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,110,0,0"
-                                 Visibility="{Binding Ready, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                </StackPanel>
+                </DockPanel>
             </ctl:SmoothBorder>
         </Grid>
 
-        <!-- Worth a look: what stands out about the apps' memory right now. Left out, gap and all, with nothing to say.
-             As many cards side by side as the page has room for (set in the code-behind); each has its own gap on the
-             right, which the row gives back at its end. -->
-        <ItemsControl x:Name="NotesRow" Grid.Row="2" ItemsSource="{Binding Notes}" Margin="0,0,-18,0" Focusable="False"
-                      Visibility="{Binding HasNotes, Converter={StaticResource Vis}}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <UniformGrid Columns="3" VerticalAlignment="Top" Loaded="NotesPanel_Loaded" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <ctl:SmoothBorder Style="{StaticResource Card}" Padding="18,14,18,15" Margin="0,18,18,0">
-                        <StackPanel>
-                            <TextBlock x:Name="Kind" Text="{Binding Caption}" Style="{StaticResource Caption}" />
-                            <!-- What it is about comes first: led by the figure, a card read as being about all the memory. -->
-                            <DockPanel Margin="0,7,0,6">
-                                <TextBlock x:Name="Figure" DockPanel.Dock="Right" Text="{Binding Figure}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Margin="12,0,0,0" />
-                                <Image DockPanel.Dock="Left" Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="22" Height="22" Margin="0,0,10,0"
-                                       Visibility="{Binding HasIcon, Converter={StaticResource Vis}}" />
-                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.SubtitlePlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"
-                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                            </DockPanel>
-                            <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-                            <!-- What to do about it, asked of the AI (hidden while it's off). -->
-                            <Button Style="{StaticResource AiButtonSmall}" HorizontalAlignment="Left" Margin="0,10,0,0" Content="{ctl:T 'What should I do about it?'}"
-                                    CommandParameter="{Binding Ask}" AutomationProperties.Name="{ctl:T 'What should I do about it?'}" />
-                        </StackPanel>
-                    </ctl:SmoothBorder>
-                    <DataTemplate.Triggers>
-                        <DataTrigger Binding="{Binding IsWarm}" Value="True">
-                            <Setter TargetName="Kind" Property="Foreground" Value="{DynamicResource WarmBrush}" />
-                            <Setter TargetName="Figure" Property="Foreground" Value="{DynamicResource WarmBrush}" />
-                        </DataTrigger>
-                    </DataTemplate.Triggers>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
         <!-- Live list -->
-        <ctl:SmoothBorder Grid.Row="3" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
+        <ctl:SmoothBorder Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
             <DockPanel>
                 <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
                     <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Only apps with windows'}" FontSize="{x:Static ctl:TextSize.Detail}"
                               IsChecked="{Binding Live.OnlyWindowedApps}" />
                     <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search apps…'}" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
                              AutomationProperties.Name="{ctl:T 'Search the apps using memory'}" ctl:Debounce.Text="{Binding Live.ProcSearch}" />
+                    <!-- Only the apps above their usual, in this same box; greyed while there are none. -->
+                    <CheckBox x:Name="OverFilter" DockPanel.Dock="Right" Style="{StaticResource OverFilter}" Content="{ctl:T 'Above their usual'}" Margin="0,0,18,0"
+                              Tag="{Binding Live.AboveUsualCount}" IsChecked="{Binding Live.OnlyAboveUsual}" IsEnabled="{Binding Live.HasAboveUsual}"
+                              AutomationProperties.Name="{ctl:T 'Above their usual'}" />
                     <TextBlock Text="{ctl:T 'Using memory right now'}" Style="{StaticResource H2}" />
                 </DockPanel>
+                <!-- The first days: no app has a usual yet, so no row is marked; this says why. -->
+                <HeaderedContentControl DockPanel.Dock="Top" Style="{StaticResource IconRow}" Padding="12,0,0,0" Margin="0,2,8,10"
+                                        Visibility="{Binding TooSoonText, Converter={StaticResource Vis}}">
+                    <HeaderedContentControl.Header>
+                        <Border Style="{StaticResource IconBox}" Width="26" Height="26">
+                            <TextBlock Text="&#xE823;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </HeaderedContentControl.Header>
+                    <TextBlock Text="{Binding TooSoonText}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" />
+                </HeaderedContentControl>
                 <!-- Its right edge is set in the code-behind, to where the rows' figures end: the list's scrollbar takes room from
                      the rows that a fixed margin here could only guess at (the heading sat to the right of its figures). The
                      columns are the rows' own, so each heading ends where its figures do. -->
@@ -265,12 +383,15 @@
                 <!-- The list arrives from the agent a moment after the window opens: the box says it's on its way. -->
                 <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,8,40"
                              Visibility="{Binding Live.AppsPending, Converter={StaticResource Vis}}" />
-                <ListBox x:Name="LiveList" Style="{StaticResource PlainList}" ItemsSource="{Binding Live.ProcsView}" VirtualizingPanel.IsVirtualizing="True"
+                <ListBox x:Name="LiveList" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource LiveRow}" ItemsSource="{Binding Live.ProcsView}" VirtualizingPanel.IsVirtualizing="True"
                          ctl:WheelChain.Enabled="True">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="0,0,8,0">
-                                <Grid Background="Transparent" MouseLeftButtonUp="App_Click">
+                                <!-- The row and its "above its usual" line open the app's processes as one: a click anywhere on them
+                                     but the AI button (the user, 2026-11-14: the line and the gap above it didn't open it). -->
+                                <StackPanel Background="Transparent" MouseLeftButtonUp="App_Click">
+                                <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="2*" />
@@ -310,6 +431,22 @@
                                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="3" Text="{Binding UsualText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
+                                <!-- Above its usual: since when, with its peak today, and what to do about it asked of the AI. The
+                                     button keeps its room while the AI is off (a hidden twin under it), so no row changes height. -->
+                                <Grid Margin="54,4,0,0" Visibility="{Binding IsOver, Converter={StaticResource Vis}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OverLine" Text="{Binding OverLine}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    <Grid Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                                        <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'What should I do about it?'}" Visibility="Hidden" IsTabStop="False" />
+                                        <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'What should I do about it?'}" CommandParameter="{Binding OverAsk}"
+                                                AutomationProperties.Name="{ctl:T 'What should I do about it?'}" />
+                                    </Grid>
+                                </Grid>
+                                </StackPanel>
                                 <ItemsControl ItemsSource="{Binding Children}" Margin="0,6,0,0" Visibility="{Binding ShowChildren, Converter={StaticResource Vis}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -336,8 +473,11 @@
                                 <DataTrigger Binding="{Binding IsOver}" Value="True">
                                     <Setter TargetName="Now" Property="Foreground" Value="{DynamicResource WarmBrush}" />
                                 </DataTrigger>
-                                <DataTrigger Binding="{Binding IsGrowing}" Value="True">
+                                <DataTrigger Binding="{Binding SubIsGrowing}" Value="True">
                                     <Setter TargetName="Sub" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding OverLineIsGrowing}" Value="True">
+                                    <Setter TargetName="OverLine" Property="Foreground" Value="{DynamicResource WarmBrush}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding CanExpand}" Value="True">
                                     <Setter TargetName="Chevron" Property="Visibility" Value="Visible" />

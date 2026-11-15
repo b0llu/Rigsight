@@ -74,7 +74,14 @@ public sealed record GameStory
     public int DriverResets { get; init; }
     public int ShutOffs { get; init; }
     public IReadOnlyList<GamePlay> PowerCuts { get; init; } = [];
-    /// <summary>"No change", "12% lower"…: the frame rate since the game's last update against before, or null.</summary>
+    /// <summary>When each of those happened, oldest first (a play's end for one that ended it, else the crash's own time).</summary>
+    public IReadOnlyList<DateTime> CrashTimes { get; init; } = [];
+    public IReadOnlyList<DateTime> HangTimes { get; init; } = [];
+    public IReadOnlyList<DateTime> DriverResetTimes { get; init; } = [];
+    public IReadOnlyList<DateTime> ShutOffTimes { get; init; } = [];
+    /// <summary>The PC's installed RAM (GB), for "up to 21.7 of 32 GB"; null when the inventory hasn't read it.</summary>
+    public double? RamTotalGb { get; init; }
+    /// <summary>"No change","12% lower"…: the frame rate since the game's last update against before, or null.</summary>
     public string? SinceUpdate { get; init; }
     public DateTime? LastUpdate { get; init; }
 
@@ -177,36 +184,40 @@ public static class GameHistory
 
         var plays = new List<GamePlay>();
         int gameCrashes = 0, hangs = 0, resets = 0, offs = 0;
+        List<DateTime> crashTimes = [], hangTimes = [], resetTimes = [], offTimes = [];
         var inPlay = new HashSet<long>();
         foreach (var (start, end, active, parts) in spans)
         {
             var ending = PlayEnd.Closed;
+            long endedAt = end;
             foreach (var c in crashes)
             {
                 // The game's own crash or hang as it ended; the PC's problems while it ran or just after.
                 if (c.Kind is CrashKind.AppCrash or CrashKind.AppHang && exes.Contains(c.AppExe) && c.Ts >= start && c.Ts <= end + 120)
                 {
                     ending = c.Kind == CrashKind.AppCrash ? PlayEnd.Crashed : PlayEnd.Hung;
+                    endedAt = c.Ts;
                     inPlay.Add(c.Id);
                 }
-                else if (c.Kind == CrashKind.GpuDriverReset && c.Ts >= start && c.Ts <= end + 120) ending = PlayEnd.DriverReset;
-                else if (c.Kind == CrashKind.SystemCrash && c.Ts >= start && c.Ts <= end + 600) ending = PlayEnd.BlueScreen;
+                else if (c.Kind == CrashKind.GpuDriverReset && c.Ts >= start && c.Ts <= end + 120) (ending, endedAt) = (PlayEnd.DriverReset, c.Ts);
+                else if (c.Kind == CrashKind.SystemCrash && c.Ts >= start && c.Ts <= end + 600) (ending, endedAt) = (PlayEnd.BlueScreen, c.Ts);
                 else if (c.Kind == CrashKind.UnexpectedShutdown && c.Ts >= end - 120 && c.Ts <= end + 600)
                     ending = PcUsual.LooksLikePower(c, verdicts.GetValueOrDefault(c.Id)) ? PlayEnd.PowerCut : PlayEnd.ShutOff;
             }
+            var at = TimeUtil.FromUnix(endedAt);
             switch (ending)
             {
-                case PlayEnd.Crashed: gameCrashes++; break;
-                case PlayEnd.Hung: hangs++; break;
-                case PlayEnd.DriverReset: resets++; break;
-                case PlayEnd.ShutOff or PlayEnd.BlueScreen: offs++; break;
+                case PlayEnd.Crashed: gameCrashes++; crashTimes.Add(at); break;
+                case PlayEnd.Hung: hangs++; hangTimes.Add(at); break;
+                case PlayEnd.DriverReset: resets++; resetTimes.Add(at); break;
+                case PlayEnd.ShutOff or PlayEnd.BlueScreen: offs++; offTimes.Add(at); break;
             }
             plays.Add(new GamePlay(start, end, active, parts, db.GetPlayStats(mainApp, start, end + 60), ending));
         }
         // The game's own crashes and freezes before it was ever in front long enough to be a play: REMATCH froze 19
         // seconds after it started and the game said "hangs 0" while Crashes listed it (real PC, 19 Oct 2026).
         foreach (var c in crashes.Where(c => c.Kind is CrashKind.AppCrash or CrashKind.AppHang && exes.Contains(c.AppExe) && !inPlay.Contains(c.Id)))
-            if (c.Kind == CrashKind.AppCrash) gameCrashes++; else hangs++;
+            if (c.Kind == CrashKind.AppCrash) { gameCrashes++; crashTimes.Add(c.Time); } else { hangs++; hangTimes.Add(c.Time); }
 
         // Changes between plays: graphics drivers, Windows and BIOS updates, hardware and fan settings, and this game's own updates.
         var gameKey = entry.Installed is { } inst ? Inventory.Game + ":" + inst.Key : null;
@@ -245,6 +256,8 @@ public static class GameHistory
             All = WithFrames(db, mainApp, Sum(plays.Select(p => p.Stats)), first - 60, last + 120),
             Crashes = gameCrashes, Hangs = hangs, DriverResets = resets, ShutOffs = offs,
             PowerCuts = plays.Where(p => p.Ending == PlayEnd.PowerCut).ToList(),
+            CrashTimes = [.. crashTimes.Order()], HangTimes = [.. hangTimes.Order()], DriverResetTimes = [.. resetTimes.Order()], ShutOffTimes = [.. offTimes.Order()],
+            RamTotalGb = db.GetRamTotalGb(),
             LastUpdate = lastUpdate ?? entry.Installed?.Updated,
             SinceUpdate = SinceUpdate(plays, lastUpdate ?? entry.Installed?.Updated),
         };
@@ -384,6 +397,7 @@ public static class GameHistory
             GpuFullMinutes = list.Sum(p => p.GpuFullMinutes),
             VramMax = list.Max(p => p.VramMax), VramTotal = list.Max(p => p.VramTotal), VramOwnMax = list.Max(p => p.VramOwnMax),
             Fps = W(p => p.Fps, p => p.FpsMinutes), FpsLow = W(p => p.FpsLow, p => p.FpsMinutes), FpsMinutes = list.Sum(p => p.FpsMinutes),
+            MemAvg = W(p => p.MemAvg), MemMax = list.Max(p => p.MemMax), RamUsedMax = list.Max(p => p.RamUsedMax),
         };
     }
 

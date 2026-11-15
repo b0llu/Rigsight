@@ -35,6 +35,15 @@ public sealed record PlayStats
     public int FpsMinutes { get; init; }
 
     /// <summary>
+    /// The game's own RAM (MB of private working set, what Task Manager shows for it) over the hours the play touched, on
+    /// average and at most: kept per hour, so a play shares its hours' figures with anything else the game did in them.
+    /// </summary>
+    public double? MemAvg { get; init; }
+    public double? MemMax { get; init; }
+    /// <summary>The most RAM in use on the whole PC (GB, every app together) in a minute with the game in front.</summary>
+    public double? RamUsedMax { get; init; }
+
+    /// <summary>
     /// From every frame (recorded since 2026-10-25, see <see cref="Games.FrameSpread"/>): the true 0.1% low, how many
     /// stutters, and the minutes that had frames. Where there are such minutes, <see cref="Fps"/> and <see cref="FpsLow"/>
     /// come from the frames too; older plays keep RivaTuner's minute averages.
@@ -92,7 +101,7 @@ public sealed partial class RigsightDb
         using var cmd = Cmd($"""
             SELECT COUNT(*), AVG(gpu_temp), max(gpu_temp_max), AVG(cpu_temp), max(cpu_temp_max), max(gpu_hot_max), AVG(gpu_load),
                 AVG(gpu_power), AVG(CASE WHEN cpu_power IS NULL AND gpu_power IS NULL THEN NULL ELSE coalesce(cpu_power, 0) + coalesce(gpu_power, 0) END),
-                SUM(CASE WHEN gpu_load >= 95 THEN 1 ELSE 0 END), {vram}, {fps}, {own}
+                SUM(CASE WHEN gpu_load >= 95 THEN 1 ELSE 0 END), {vram}, {fps}, {own}, max(ram_used)
             FROM system_minute WHERE ts >= $from AND ts < $to AND fg_app = $app
             """, ("$from", from), ("$to", to), ("$app", appId));
         using var r = cmd.ExecuteReader();
@@ -102,9 +111,11 @@ public sealed partial class RigsightDb
             Minutes = r.GetInt32(0), Gpu = D(r, 1), GpuMax = D(r, 2), Cpu = D(r, 3), CpuMax = D(r, 4), HotMax = D(r, 5),
             GpuLoad = D(r, 6), GpuPower = D(r, 7), Power = D(r, 8), GpuFullMinutes = r.IsDBNull(9) ? 0 : r.GetInt32(9),
             VramMax = D(r, 10), VramTotal = D(r, 11), Fps = D(r, 12), FpsLow = D(r, 13), FpsMinutes = r.IsDBNull(14) ? 0 : r.GetInt32(14),
-            VramOwnMax = D(r, 15),
+            VramOwnMax = D(r, 15), RamUsedMax = D(r, 16),
         };
         r.Close();
+        var (memAvg, memMax) = GetAppMemory(appId, from, to);
+        stats = stats with { MemAvg = memAvg, MemMax = memMax };
         // Every frame, where it was recorded: the true lows and the stutters.
         var (spread, minutes, stutters) = GetFrameSpread(appId, from, to);
         if (minutes == 0 || spread.IsEmpty) return stats;
@@ -195,6 +206,33 @@ public sealed partial class RigsightDb
         while (r.Read()) map[r.GetInt64(0)] = r.GetDouble(1);
         return map;
     }
+
+    /// <summary>Whether any game was played from <paramref name="from"/> on (unix seconds).</summary>
+    public bool PlayedGameSince(long from)
+    {
+        using var cmd = Cmd("SELECT EXISTS(SELECT 1 FROM sessions WHERE is_game = 1 AND start >= $from)", ("$from", from));
+        return cmd.ExecuteScalar() is long v && v != 0;
+    }
+
+    /// <summary>
+    /// An app's own RAM over the hours that [<paramref name="from"/>, <paramref name="to"/>) touched (MB of private working
+    /// set): its average and its highest. An hour starts within the hour before <paramref name="from"/> at the earliest, so
+    /// the hour a play began in counts. Nulls with nothing recorded.
+    /// </summary>
+    public (double? Avg, double? Peak) GetAppMemory(long appId, long from, long to)
+    {
+        using var cmd = Cmd("SELECT total(mem_sum), total(mem_n), max(mem_max) FROM app_hour WHERE ts > $from AND ts < $to AND app_id = $app",
+            ("$from", from - 3600), ("$to", to), ("$app", appId));
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return (null, null);
+        double sum = r.GetDouble(0), n = r.GetDouble(1);
+        return (n > 0 ? sum / n : null, D(r, 2));
+    }
+
+    /// <summary>The PC's installed RAM in GB, as the inventory last read it ("32 GB DDR5-6000"); null when not read yet.</summary>
+    public double? GetRamTotalGb() =>
+        GetInventoryValue(Stability.Inventory.Ram) is { } installed
+        && double.TryParse(installed.Split(' ')[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var gb) && gb > 0 ? gb : null;
 
     /// <summary>An app's time in front, in seconds, from <paramref name="from"/> to <paramref name="to"/> (by its hours).</summary>
     public double GetAppFrontSec(long appId, long from, long to)

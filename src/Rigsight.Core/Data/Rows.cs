@@ -230,6 +230,23 @@ public sealed class DriveHealthDay
     public long? Pending { get; set; }
     public long? Uncorrectable { get; set; }
     public string Status { get; set; } = "";
+
+    // Kept since Every reading was reworked (its month-ago figures, see DriveCounts); null on older days.
+
+    /// <summary>199, cable or connection errors (SATA).</summary>
+    public long? CableErrors { get; set; }
+    /// <summary>187, data it couldn't read back (SATA).</summary>
+    public long? ReportedUncorrectable { get; set; }
+    /// <summary>188, commands that timed out (SATA).</summary>
+    public long? Timeouts { get; set; }
+    /// <summary>NVMe 14, data it couldn't read back.</summary>
+    public long? MediaErrors { get; set; }
+    /// <summary>NVMe 3, spare blocks left (percent).</summary>
+    public long? Spare { get; set; }
+    /// <summary>NVMe 1, the drive's warning flag (its bits).</summary>
+    public long? Warning { get; set; }
+    /// <summary>Sudden shut-offs (NVMe 13; SATA 192 or 174).</summary>
+    public long? ShutOffs { get; set; }
 }
 
 public static class TimeUtil
@@ -261,6 +278,19 @@ public static class TimeUtil
 /// </summary>
 /// <summary>One fan's steady-load minutes at one temperature step for one app on one day, and their speed sum (fan_curve_day).</summary>
 public sealed record FanCurveDay(long Day, long Fan, long App, int Temp, int N, double RpmSum);
+
+/// <summary>
+/// One finished day of the fans' loudness (fan_level_day, see <see cref="Reports.FanLevels"/>): its minutes at each
+/// level, how many times the fans started up (<paramref name="Kind"/> says what was counted, a <see cref="Reports.FanStartKind"/>),
+/// its longest stretch still (or quiet) and when it began, its minutes' scores added up, and the app in front while the
+/// fans ran hardest with that app's share of the scores.
+/// </summary>
+public sealed record FanLevelDay(long Day, int Silent, int Quiet, int Busy, int Loud, int Starts, int Kind, int LongestN, long LongestFrom,
+    double ScoreSum, long? LoudApp, double LoudAppScore)
+{
+    public int Minutes => Silent + Quiet + Busy + Loud;
+    public int[] Levels => [Silent, Quiet, Busy, Loud];
+}
 
 public sealed record HeatDay(long Day, long App, int N, double GpuSum, int GpuN, double CpuSum, int CpuN, double PowerSum, int PowerN);
 

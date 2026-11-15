@@ -41,7 +41,7 @@ public static class NoticeLook
         "Usual" => "\uE8AB",
         "Change" => "\uE823",
         "Recap" or "Weekly" => "\uE787",
-        "Session" => "\uE7FC",
+        "Session" or "Fps" => "\uE7FC",
         "Rewind" => "\uE768",
         "Memory" => "\uE964",
         "Startup" => "\uE7E8",

@@ -899,6 +899,12 @@ public sealed partial class ShellViewModel : ObservableObject
             else Ask.IsOpen = !(inFront && Ask.IsOpen);
             return;
         }
+        // "RivaTuner isn't running" from the bell's list: started, as its card's click does, and the Games page shown.
+        if (page == "rivatuner")
+        {
+            if (Overlay.CanStartRtss) Overlay.StartRtssCommand.Execute(null);
+            page = "games";
+        }
         if (!string.IsNullOrEmpty(page))
         {
             // A crash's notification: that crash, opened (its time, in ticks).

@@ -18,6 +18,21 @@ public enum FanState { NoReading, Spinning, Resting, Stopped, StoppedHot }
 /// <summary>One of the six facts on a fan's details: a heading, a value, and a line under it.</summary>
 public sealed record FanFact(string Label, string Value, string Note);
 
+/// <summary>What a Today card fact is about, for its icon and colour.</summary>
+public enum FanFactTone { Loud, GpuStarts, FanStarts, Still }
+
+/// <summary>
+/// One of the Today card's three facts (side by side, the same parts): its id (what it marks on the strip when
+/// hovered), heading, value and the line under it.
+/// </summary>
+public sealed record FanTodayFact(string Id, string Label, string Value, string Note, FanFactTone Tone)
+{
+    public bool IsFan => Tone is FanFactTone.GpuStarts or FanFactTone.FanStarts;
+}
+
+/// <summary>An item of the Today card's legend: a level (its swatch's height and strength) or the starts' mark, with what it means on hover.</summary>
+public sealed record FanLevelKey(string Name, string Tip, double Height, double Strength, bool IsTick = false, bool Gpu = false);
+
 /// <summary>An app on a fan's "what makes it spin": the fan's average speed while that app worked the chip it follows.</summary>
 public sealed record FanAppRow(string Name, string RpmText, double Share, bool Dim);
 
@@ -320,8 +335,8 @@ public sealed partial class FansViewModel : ObservableObject
             new(Lang.T("Fastest"), FastestText, FastestNote),
         };
         if (LoudestHour is { } loud) facts.Add(new(LoudestLabel, loud, LoudestNote));
-        if (StartsText is { } starts) facts.Add(new(Lang.T("Started up"), starts, StartsNote));
-        if (SilentText is { } silent) facts.Add(new(Lang.T("Longest silence"), silent, SilentNote));
+        if (StartsText is { } starts) facts.Add(new(StartsLabel, starts, StartsNote));
+        if (SilentText is { } silent) facts.Add(new(SilentLabel, silent, SilentNote));
         return facts;
     }
 
@@ -379,22 +394,34 @@ public sealed partial class FansViewModel : ObservableObject
     [ObservableProperty] private string _fastestText = "—";
     [ObservableProperty] private string _fastestNote = "";
 
-    // The "Today" card under the list.
+    // The "Today" card under the even row (approved mock-up 2026-11-14): a strip of the period's loudness and three facts.
 
-    /// <summary>The hour (a day) or the day (a week, a month) the fans spun fastest together, and what was going on.</summary>
+    /// <summary>The hour (a day), the day (a week, a month) or the month (a year) the fans ran loudest, and what was in front then.</summary>
     [ObservableProperty] private string? _loudestHour;
     [ObservableProperty] private string _loudestNote = "";
     [ObservableProperty] private string _loudestLabel = Lang.T("Loudest hour");
 
-    /// <summary>How many times a graphics card's fans started up (zero-rpm fans starting and stopping).</summary>
+    /// <summary>How many times the fans started up (a card's, or one fan that stops), or sped up from quiet with none that stops.</summary>
     [ObservableProperty] private string? _startsText;
     [ObservableProperty] private string _startsNote = "";
+    [ObservableProperty] private string _startsLabel = Lang.T("GPU fans started up");
 
-    /// <summary>A graphics card's fans' longest stretch standing still today, and when.</summary>
+    /// <summary>The longest stretch the fans that stop stood still (or, with none, stayed quiet), and when.</summary>
     [ObservableProperty] private string? _silentText;
     [ObservableProperty] private string _silentNote = "";
+    [ObservableProperty] private string _silentLabel = Lang.T("Longest silent stretch");
 
-    public bool HasToday => LoudestHour is not null || StartsText is not null || SilentText is not null;
+    /// <summary>The card's three facts, its strip and its legend.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasToday))]
+    private IReadOnlyList<FanTodayFact> _todayFacts = [];
+    [ObservableProperty] private Controls.FanStripData? _strip;
+    [ObservableProperty] private IReadOnlyList<FanLevelKey> _levelKeys = [];
+
+    public bool HasToday => TodayFacts.Count > 0;
+
+    /// <summary>The level each minute was at, from the period's minutes (shared with the year's today).</summary>
+    internal LevelRun? Levels { get; private set; }
 
     // The "Over the months" tile under the list (every period: it's about the weeks, not the period picked).
 
@@ -478,6 +505,9 @@ public sealed partial class FansViewModel : ObservableObject
             .Where(i => i.Key is "fan-stopped" or "fan-slower" or "fan-older").ToList() ?? [];
         // The first day there is, not the first of the days just read (those go back 90 at most, and the picker stopped there).
         var first = await _reports.FirstFanDayAsync();
+        // Each fan's range over the 30 days to the period's end (the Today card's loudness), and a year's finished days.
+        var spans = await SpansAsync(IsYear ? today.AddDays(1) : to);
+        var levelDays = IsYear ? await _reports.FanLevelDaysAsync(from, today) ?? [] : [];
         if (id != _load) return;
         FirstDay = first ?? today;
 
@@ -561,8 +591,15 @@ public sealed partial class FansViewModel : ObservableObject
         }
         EmptyHeaders = empty;
         Summarise();
-        if (IsYear) SummariseYear(shown.SelectMany(c => c.Sensors).Select(x => bySensor.TryGetValue(x.Id, out var f) ? f : -1).ToHashSet(), history.Days);
-        else SummariseToday(shown, MinutesOf, minutes, apps, s);
+        // The rows as the levels see them (a card's fans together), each against its range; worked out off the window's thread.
+        var levelRows = shown.Select(c => new LevelRow(c.Title, [.. c.Sensors.Select(x => bySensor.TryGetValue(x.Id, out var f) ? f : -1).Where(f => f >= 0)], c.IsGpu)).ToList();
+        var spanOf = spans.GroupBy(x => x.Fan).ToDictionary(g => g.Key, g => g.First());
+        var ranges = levelRows.Select(r => FanLevels.RangeOf(r.Fans.Where(spanOf.ContainsKey).Select(f => spanOf[f]))).ToList();
+        var run = await Task.Run(() => FanLevels.Of(levelRows, ranges, history.Minutes));
+        if (id != _load) return;
+        Levels = run;
+        if (IsYear) SummariseYear(run, levelDays, minutes, apps, s);
+        else SummariseToday(run, minutes, apps, s);
         Selected = picked is not null && Fans.Contains(picked) ? picked : Fans.FirstOrDefault();
         OnPropertyChanged(nameof(ChartSeries));
         await LoadWearAsync(id, shown, bySensor);
@@ -606,74 +643,331 @@ public sealed partial class FansViewModel : ObservableObject
         FastestNote = fastest is null ? "" : fastest.Detail!.FastestWhen.Length > 0 ? $"{fastest.Title} · {fastest.Detail.FastestWhen}" : fastest.Title;
     }
 
-    /// <summary>
-    /// The "Today" card: the hour the fans spun fastest together (and what was going on), and for a graphics card how many
-    /// times its fans started up and their longest stretch standing still.
-    /// </summary>
-    private void SummariseToday(List<FanCard> rows, Func<SensorItem, List<FanMinute>> minutesOf, IReadOnlyDictionary<long, SystemMinute> minutes,
-        IReadOnlyDictionary<long, AppRow> apps, Core.Settings.RigsightSettings s)
-    {
-        // All the fans together each minute, then each hour's (a day) or day's (a week, a month) average: an hour needs a
-        // third of its minutes, a day an hour of them.
-        var total = rows.SelectMany(r => r.Sensors).SelectMany(minutesOf).GroupBy(f => f.Ts).ToDictionary(g => g.Key, g => g.Sum(f => (double)f.RpmAvg));
-        DateTime Slot(long ts) => IsDay ? TimeUtil.FromUnix(ts).Date.AddHours(TimeUtil.FromUnix(ts).Hour) : TimeUtil.FromUnix(ts).Date;
-        var loudest = total.GroupBy(x => Slot(x.Key)).Where(g => g.Count() >= (IsDay ? 20 : 60))
-            .Select(g => (Slot: g.Key, Rpm: g.Average(x => x.Value))).OrderByDescending(h => h.Rpm).FirstOrDefault();
-        LoudestLabel = IsDay ? Lang.T("Loudest hour") : Lang.T("Loudest day");
-        if (loudest.Slot == default) (LoudestHour, LoudestNote) = (null, "");
-        else
-        {
-            LoudestHour = IsDay ? $"{TimeText.At(loudest.Slot, "h tt")} – {TimeText.At(loudest.Slot.AddHours(1), "h tt")}" : loudest.Slot.ToString("dddd d MMM");
-            // What was in front most of it, in the peaks' words ("While playing Rematch").
-            var front = total.Keys.Where(t => Slot(t) == loudest.Slot && minutes.TryGetValue(t, out var m) && m.FgApp is not null)
-                .GroupBy(t => minutes[t].FgApp!.Value).OrderByDescending(g => g.Count()).FirstOrDefault()?.Key;
-            LoudestNote = front is long f && apps.TryGetValue(f, out var app) ? PeakWords.Line(1, NameOf(app, s), null, CategoryOf(app, s)) ?? "" : "";
-        }
+    // ── The Today card (approved mock-up 2026-11-14) ──
 
-        // A graphics card's fans: starts, and the longest stretch still.
-        var card = rows.FirstOrDefault(r => r.IsGpu);
-        var speed = card is null ? [] : card.Sensors.SelectMany(minutesOf)
-            .GroupBy(f => f.Ts).OrderBy(g => g.Key).Select(g => (Ts: g.Key, Rpm: g.Average(f => (double)f.RpmAvg))).ToList();
-        int starts = 0, run = 0, best = 0;
-        long runFrom = 0, bestFrom = 0, previous = 0;
-        bool wasStill = false;
-        foreach (var (ts, rpm) in speed)
-        {
-            bool still = rpm < FanCard.MinSpinRpm, joined = ts == previous + 60;
-            if (joined && wasStill && !still) starts++;
-            if (still)
-            {
-                if (!joined || !wasStill) (run, runFrom) = (0, ts);
-                run++;
-                if (run > best) (best, bestFrom) = (run, runFrom);
-            }
-            (wasStill, previous) = (still, ts);
-        }
-        StartsText = card is null || speed.Count == 0 ? null : starts == 1 ? Lang.T("1 time") : Lang.T($"{starts} times");
-        int daysOn = speed.Select(x => TimeUtil.FromUnix(x.Ts).Date).Distinct().Count();
-        // A rate only when there's one to give: twice in six days isn't "about 0 a day".
-        StartsNote = !IsDay && daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? Lang.T($"About {Math.Round(starts / (double)daysOn):0} a day, each time the GPU warmed past its silent point")
-            : Lang.T("Each time the GPU warmed past its silent point");
-        SilentText = best >= 5 ? Units.Duration(best * 60) : null;
-        SilentNote = best < 5 ? ""
-            : IsDay ? $"{TimeText.At(TimeUtil.FromUnix(bestFrom), "h:mm tt")} – {TimeText.At(TimeUtil.FromUnix(bestFrom + best * 60), "h:mm tt")}"
-            : $"{TimeText.At(TimeUtil.FromUnix(bestFrom), "ddd d MMM, h:mm tt")} – {TimeText.At(TimeUtil.FromUnix(bestFrom + best * 60), "h:mm tt")}";
-        OnPropertyChanged(nameof(HasToday));
+    private (DateTime To, int Hour, List<FanSpan> Spans)? _spans;
+
+    /// <summary>Each fan's range over the 30 days to <paramref name="to"/>: read again each hour while the period runs to now, once for one that's over.</summary>
+    private async Task<List<FanSpan>> SpansAsync(DateTime to)
+    {
+        int hour = to > DateTime.Now ? DateTime.Now.Hour : -1;
+        if (_spans is { } c && c.To == to && c.Hour == hour) return c.Spans;
+        var spans = await _reports.FanSpansAsync(to) ?? [];
+        _spans = (to, hour, spans);
+        return spans;
     }
 
-    /// <summary>A year's card, from each day's totals: the month the fans spun fastest together (starts and silent stretches need minutes).</summary>
-    private void SummariseYear(HashSet<long> fans, List<FanDay> days)
+    /// <summary>What the middle fact is called for what it counts.</summary>
+    internal static string StartsName(FanStartKind kind) => kind switch
+    {
+        FanStartKind.GpuFans => Lang.T("GPU fans started up"),
+        FanStartKind.OneFan => Lang.T("The fan started up"),
+        _ => Lang.T("Fans sped up"),
+    };
+
+    private static string Times(int n) => n == 1 ? Lang.T("1 time") : Lang.T($"{n:N0} times");
+
+    /// <summary>"While playing Rematch", in the peaks' words, for the app in front while the fans ran hardest (no app: said so).</summary>
+    private static string While(long? app, IReadOnlyDictionary<long, AppRow> apps, Core.Settings.RigsightSettings s) =>
+        app is long a && apps.TryGetValue(a, out var row) ? PeakWords.Line(1, NameOf(row, s), null, CategoryOf(row, s)) ?? "" : Controls.HeatHover.NoApp;
+
+    /// <summary>The same inside a sentence: "while playing Rematch".</summary>
+    private static string WhileInside(AppRow app, Core.Settings.RigsightSettings s)
+    {
+        string name = NameOf(app, s);
+        return CategoryOf(app, s) switch
+        {
+            Core.Settings.AppCategory.Game => Lang.T($"while playing {name}"),
+            Core.Settings.AppCategory.Media => Lang.T($"while {name} was playing"),
+            Core.Settings.AppCategory.Browser or Core.Settings.AppCategory.Communication or Core.Settings.AppCategory.Productivity or Core.Settings.AppCategory.Development => Lang.T($"while using {name}"),
+            _ => Lang.T($"while {name} was running"),
+        };
+    }
+
+    /// <summary>"6 PM" and "9 PM": the hours a bunch of starts began and ended.</summary>
+    private static (string From, string To) Hours(int hour) =>
+        (TimeText.At(DateTime.Today.AddHours(hour), "h tt"), TimeText.At(DateTime.Today.AddHours(hour + FanLevels.BunchHours), "h tt"));
+
+    /// <summary>The legend: the levels there can be (no Silent with no fan that stops), and on a day, the starts' mark.</summary>
+    private static List<FanLevelKey> Legend(FanStartKind kind, bool day)
+    {
+        string range = Lang.T("A fan's range runs from its slowest to its fastest while spinning, over the last 30 days.");
+        var keys = new List<FanLevelKey>();
+        if (kind != FanStartKind.SpeedUps)
+            keys.Add(new(Controls.FanStrip.LevelName(FanLevel.Silent), (kind == FanStartKind.GpuFans
+                ? Lang.T("GPU fans standing still, and every other fan in the slowest third of its range.")
+                : Lang.T("The fan standing still, and every other fan in the slowest third of its range.")) + " " + range, 0, 0));
+        keys.Add(new(Controls.FanStrip.LevelName(FanLevel.Quiet), Lang.T("Every fan in the slowest third of its range.") + " " + range, 1, 0));
+        keys.Add(new(Controls.FanStrip.LevelName(FanLevel.Busy), Lang.T("A fan in the middle third of its range.") + " " + range, 2, 0));
+        keys.Add(new(Controls.FanStrip.LevelName(FanLevel.Loud), Lang.T("A fan in the fastest third of its range.") + " " + range, 3, 0));
+        keys = [.. keys.Select(k => k with { Height = 4 + Controls.FanStrip.Tall[(int)k.Height] * 8, Strength = Controls.FanStrip.Strength[(int)k.Height] })];
+        if (day)
+            keys.Add(new(StartsName(kind), kind switch
+            {
+                FanStartKind.GpuFans => Lang.T("Each mark is a minute in which the GPU fans started up."),
+                FanStartKind.OneFan => Lang.T("Each mark is a minute in which the fan started up."),
+                _ => Lang.T("Each mark is a minute in which the fans went from quiet to busy or loud."),
+            }, 10, 1, IsTick: true, Gpu: kind == FanStartKind.GpuFans));
+        return keys;
+    }
+
+    /// <summary>A bar's hover rows: each level's time (Silent only where there can be one), then its starts.</summary>
+    private static List<(string, string)> BarRows(int[] levels, int starts, FanStartKind kind) =>
+        [.. Enumerable.Range(0, 4).Where(k => k > 0 || kind != FanStartKind.SpeedUps)
+            .Select(k => (Controls.FanStrip.LevelName((FanLevel)k), Units.Duration(levels[k] * 60))), (StartsName(kind), Times(starts))];
+
+    /// <summary>The longest stretch's fact: how long and when, or none.</summary>
+    private void SetLongest(FanStartKind kind, long from, int length, bool withDay)
+    {
+        SilentLabel = kind == FanStartKind.SpeedUps ? Lang.T("Longest quiet stretch") : Lang.T("Longest silent stretch");
+        SilentText = length > 0 ? Units.Duration(length * 60) : Lang.T("None");
+        var (a, z) = (TimeUtil.FromUnix(from), TimeUtil.FromUnix(from + length * 60L));
+        SilentNote = length > 0
+            ? withDay ? $"{TimeText.At(a, "ddd d MMM, h:mm tt")} – {TimeText.At(z, "h:mm tt")}" : $"{TimeText.At(a, "h:mm tt")} – {TimeText.At(z, "h:mm tt")}"
+            : kind switch
+            {
+                FanStartKind.GpuFans => Lang.T("The fans never stopped"),
+                FanStartKind.OneFan => Lang.T("The fan never stopped"),
+                _ => Lang.T("No quiet minutes"),
+            };
+    }
+
+    private void SetFacts(FanStartKind kind)
+    {
+        TodayFacts =
+        [
+            new("loud", LoudestLabel, LoudestHour ?? Wording.NotRecorded, LoudestNote, FanFactTone.Loud),
+            new("starts", StartsLabel, StartsText ?? "", StartsNote, kind == FanStartKind.GpuFans ? FanFactTone.GpuStarts : FanFactTone.FanStarts),
+            new("sil", SilentLabel, SilentText ?? "", SilentNote, FanFactTone.Still),
+        ];
+    }
+
+    private void ClearToday()
+    {
+        (LoudestHour, LoudestNote, StartsText, StartsNote, SilentText, SilentNote) = (null, "", null, "", null, "");
+        TodayFacts = [];
+        Strip = null;
+        LevelKeys = [];
+    }
+
+    /// <summary>
+    /// The Today card for a day, a week or a month, from the period's minutes (see <see cref="FanLevels"/>): the loudest
+    /// hour (day), the fans starting up and where they bunched, the longest silent stretch, and the strip.
+    /// </summary>
+    private void SummariseToday(LevelRun run, IReadOnlyDictionary<long, SystemMinute> minutes, IReadOnlyDictionary<long, AppRow> apps, Core.Settings.RigsightSettings s)
+    {
+        if (run.Minutes.Count == 0)
+        {
+            ClearToday();
+            return;
+        }
+        var (from, to) = Period;
+        long? AppAt(long ts) => minutes.TryGetValue(ts, out var m) ? m.FgApp : null;
+        var kind = run.Kind;
+        int n = run.Starts.Count;
+        StartsLabel = StartsName(kind);
+        StartsText = Times(n);
+        var bunch = FanLevels.Bunch(run.Starts);
+        var marks = new Dictionary<string, Controls.FanStripMark>();
+
+        if (IsDay)
+        {
+            var loud = FanLevels.Loudest(run.Minutes, t => t.Date.AddHours(t.Hour), FanLevels.HourMinutes);
+            LoudestLabel = Lang.T("Loudest hour");
+            LoudestHour = loud is { } l ? $"{TimeText.At(l.Slot, "h tt")} – {TimeText.At(l.Slot.AddHours(1), "h tt")}" : null;
+            LoudestNote = loud is { } l2 ? While(FanLevels.AppWhileHardest(l2.Minutes, AppAt), apps, s)
+                : IncludesToday ? Lang.T("No hour with 20 minutes on yet") : Lang.T("No hour with 20 minutes on");
+
+            // Where the starts bunched, and how warm the GPU sat at them (on a laptop, what was in front).
+            string onFor = Units.Duration(run.Minutes.Count * 60);
+            if (n < FanLevels.BunchFrom) StartsNote = Lang.T($"Over {onFor} on");
+            else if (bunch is { } b)
+            {
+                var (a, z) = Hours(b.Hour);
+                int k = b.Starts.Count;
+                string lead = k == n ? Lang.T($"All {n} between {a} and {z}") : Lang.T($"{k} of them between {a} and {z}");
+                string note = lead;
+                if (kind == FanStartKind.GpuFans)
+                {
+                    var temps = b.Starts.Select(t => minutes.TryGetValue(t, out var m) ? m.GpuTemp : null).OfType<double>().ToList();
+                    if (temps.Count > 0) note = Lang.T($"{lead}, while the GPU sat around {Units.TempShort(Math.Round(temps.Average()))}");
+                }
+                else if (b.Starts.Select(AppAt).OfType<long>().GroupBy(x => x).MaxBy(g => g.Count())?.Key is long app && apps.TryGetValue(app, out var row))
+                    note = Lang.T($"{lead}, {WhileInside(row, s)}");
+                StartsNote = kind == FanStartKind.SpeedUps ? Lang.T("Each from quiet to busy or loud.") + " " + note : note;
+            }
+            else StartsNote = kind == FanStartKind.SpeedUps ? Lang.T("Each from quiet to busy or loud") : Lang.T($"Spread across {onFor} on");
+            SetLongest(kind, run.Longest.From, run.Longest.Minutes, withDay: false);
+
+            // The strip: from the first hour the PC was on to the last, six hours at least, so a day that starts at 9 AM has no empty morning.
+            DateTime first = TimeUtil.FromUnix(run.Minutes[0].Ts), last = TimeUtil.FromUnix(run.Minutes[^1].Ts + 60);
+            DateTime start = first.Date.AddHours(first.Hour), end = last.Date.AddHours(last.Hour);
+            if (end < last) end = end.AddHours(1);
+            if (end - start < TimeSpan.FromHours(6))
+            {
+                var mid = start + (end - start) / 2;
+                start = mid.AddHours(-3);
+                start = start.Date.AddHours(start.Hour);
+                if (start < from) start = from;
+                end = start.AddHours(6);
+                if (end > from.AddDays(1)) (end, start) = (from.AddDays(1), from.AddDays(1).AddHours(-6));
+            }
+            long t0 = TimeUtil.ToUnix(start);
+            int span = (int)((TimeUtil.ToUnix(end) - t0) / 60);
+            var levels = new FanLevel?[span];
+            var at = new Dictionary<long, LevelMinute>();
+            foreach (var m in run.Minutes)
+            {
+                at[m.Ts] = m;
+                long i = (m.Ts - t0) / 60;
+                if (i >= 0 && i < span) levels[i] = m.Level;
+            }
+            int Index(long ts) => (int)((ts - t0) / 60);
+            if (loud is { } lh) marks["loud"] = new(Index(TimeUtil.ToUnix(lh.Slot)), Index(TimeUtil.ToUnix(lh.Slot)) + 60, Lang.T("Loudest hour"));
+            if (run.Longest.Minutes > 0) marks["sil"] = new(Index(run.Longest.From), Index(run.Longest.From) + run.Longest.Minutes, SilentLabel);
+            if (bunch is { } bb)
+            {
+                int i = Index(TimeUtil.ToUnix(from.AddHours(bb.Hour)));
+                marks["starts"] = new(i, i + FanLevels.BunchHours * 60, Lang.T($"{bb.Starts.Count} of {n}"), Ticks: true);
+            }
+            var starts = run.Starts.ToHashSet();
+            var rows = run.Rows;
+            Controls.FanStripTip TipAt(int i)
+            {
+                long ts = t0 + i * 60L;
+                if (!at.TryGetValue(ts, out var m))
+                {
+                    int a = i, z = i;
+                    while (a > 0 && levels[a - 1] is null) a--;
+                    while (z < span - 1 && levels[z + 1] is null) z++;
+                    return new($"{TimeText.Time(start.AddMinutes(a))} – {TimeText.Time(start.AddMinutes(z + 1))}", null, [], Wording.NotRecorded);
+                }
+                var counted = Enumerable.Range(0, rows.Count).Where(r => m.Places[r] is not null).OrderByDescending(r => m.Places[r]).ToList();
+                var others = Enumerable.Range(0, rows.Count).Where(r => m.Places[r] is null && m.Speeds[r] is not null).ToList();
+                var list = counted.Take(3).Select(r => (rows[r].Name, Units.Format(SensorKind.Fan, m.Speeds[r]))).ToList();
+                int more = counted.Count - 3 + others.Count;
+                if (counted.Count <= 3) list.AddRange(others.Select(r => (rows[r].Name, Units.Format(SensorKind.Fan, m.Speeds[r]))));
+                else if (more > 0) list.Add((more == 1 ? Lang.T("1 more fan") : Lang.T($"{more} more fans"), Lang.T("Slow or set")));
+                if (minutes.TryGetValue(ts, out var sm))
+                {
+                    if (sm.GpuTemp is double g) list.Add(("GPU", Units.TempShort(g)));
+                    else if (sm.CpuTemp is double c) list.Add(("CPU", Units.TempShort(c)));
+                    if (sm.FgApp is long fg && apps.TryGetValue(fg, out var app)) list.Add((Lang.T("In front"), NameOf(app, s)));
+                }
+                string? note = !starts.Contains(ts) ? null : kind switch
+                {
+                    FanStartKind.GpuFans => Lang.T("GPU fans started up"),
+                    FanStartKind.OneFan => Lang.T("The fan started up"),
+                    _ => Lang.T("The fans sped up"),
+                };
+                var when = TimeUtil.FromUnix(ts);
+                return new($"{TimeText.Time(when)} – {TimeText.Time(when.AddMinutes(1))}", m.Level, list, note);
+            }
+            int hours = span / 60;
+            Strip = new Controls.FanStripData
+            {
+                IsDay = true, From = start, Levels = levels, GpuTicks = kind == FanStartKind.GpuFans, HourStep = Math.Max(1, (int)Math.Ceiling(hours / 8.0)),
+                Ticks = [.. run.Starts.Select(Index).Where(i => i >= 0 && i < span)], TipAt = TipAt, Marks = marks,
+            };
+        }
+        else
+        {
+            var loud = FanLevels.Loudest(run.Minutes, t => t.Date, FanLevels.DayMinutes);
+            LoudestLabel = Lang.T("Loudest day");
+            LoudestHour = loud?.Slot.ToString("dddd d MMM");
+            LoudestNote = loud is { } l ? While(FanLevels.AppWhileHardest(l.Minutes, AppAt), apps, s) : Lang.T("No day with an hour on");
+            var byDay = run.Minutes.GroupBy(m => TimeUtil.FromUnix(m.Ts).Date).ToDictionary(g => g.Key, g => g.ToList());
+            int daysOn = byDay.Count;
+            double rate = Math.Round(n / (double)daysOn);
+            if (rate >= 1)
+            {
+                if (bunch is { } b)
+                {
+                    var (a, z) = Hours(b.Hour);
+                    StartsNote = Lang.T($"About {rate:0} a day, most between {a} and {z}");
+                }
+                else StartsNote = Lang.T($"About {rate:0} a day");
+            }
+            else StartsNote = daysOn == 1 ? Lang.T("Across 1 day recorded") : Lang.T($"Across {daysOn} days recorded");
+            SetLongest(kind, run.Longest.From, run.Longest.Minutes, withDay: true);
+
+            // A bar a day of the four levels.
+            var days = Enumerable.Range(0, Days).Select(i => from.AddDays(i)).ToList();
+            var startsBy = run.Starts.GroupBy(t => TimeUtil.FromUnix(t).Date).ToDictionary(g => g.Key, g => g.Count());
+            var bars = days.Select((d, i) =>
+            {
+                string title = d.ToString("ddd d MMM");
+                if (d == DateTime.Today) title = Lang.T($"{title}, today");
+                bool labelled = Days <= 7 || i % 5 == 0 || i == Days - 1;
+                string label = !labelled ? "" : Days <= 7 ? d.ToString("ddd d") : d.ToString("d MMM");
+                if (!byDay.TryGetValue(d, out var list)) return new Controls.FanStripBar(d, new int[4], label, d == DateTime.Today, new(title, null, [], Wording.NotRecorded));
+                var lv = FanLevels.LevelMinutes(list);
+                return new Controls.FanStripBar(d, lv, label, d == DateTime.Today, new(title, null, BarRows(lv, startsBy.GetValueOrDefault(d), kind)));
+            }).ToList();
+            if (loud is { } ld) marks["loud"] = new(days.IndexOf(ld.Slot), days.IndexOf(ld.Slot) + 1, null);
+            if (run.Longest.Minutes > 0) marks["sil"] = new(days.IndexOf(TimeUtil.FromUnix(run.Longest.From).Date), 0, null);
+            Strip = new Controls.FanStripData { IsDay = false, Bars = bars, GpuTicks = kind == FanStartKind.GpuFans, Marks = marks };
+        }
+        LevelKeys = Legend(kind, IsDay);
+        SetFacts(kind);
+    }
+
+    /// <summary>
+    /// A year's card, from each finished day's loudness (fan_level_day, kept from 2026-11-14 on, see <see cref="FanLevels"/>)
+    /// and today's minutes: the loudest month, the starts a day, the longest silent stretch, and a bar a month of its average day.
+    /// </summary>
+    private void SummariseYear(LevelRun today, List<FanLevelDay> kept, IReadOnlyDictionary<long, SystemMinute> minutes, IReadOnlyDictionary<long, AppRow> apps,
+        Core.Settings.RigsightSettings s)
     {
         var (from, to) = Period;
-        var loudest = days.Where(d => fans.Contains(d.Fan) && d.RpmN > 0 && TimeUtil.FromUnix(d.Day) >= from && TimeUtil.FromUnix(d.Day) < to)
-            .GroupBy(d => new DateTime(TimeUtil.FromUnix(d.Day).Year, TimeUtil.FromUnix(d.Day).Month, 1))
-            .Select(g => (Month: g.Key, Rpm: g.GroupBy(d => d.Fan).Sum(f => f.Sum(d => d.RpmSum) / f.Sum(d => d.RpmN))))
-            .OrderByDescending(m => m.Rpm).FirstOrDefault();
+        var days = kept.Where(d => TimeUtil.FromUnix(d.Day).Date >= from && TimeUtil.FromUnix(d.Day).Date < DateTime.Today).ToList();
+        if (today.Minutes.Count > 0 && DateTime.Today >= from && DateTime.Today < to)
+            days.Add(FanLevels.DayRow(TimeUtil.ToUnix(DateTime.Today), today, t => minutes.TryGetValue(t, out var m) ? m.FgApp : null));
+        if (days.Count == 0)
+        {
+            ClearToday();
+            return;
+        }
+        var kind = today.Minutes.Count > 0 ? today.Kind : (FanStartKind)days[^1].Kind;
+        DateTime MonthOf(FanLevelDay d) => new(TimeUtil.FromUnix(d.Day).Year, TimeUtil.FromUnix(d.Day).Month, 1);
+        var byMonth = days.GroupBy(MonthOf).ToDictionary(g => g.Key, g => g.ToList());
+
+        var loud = byMonth.Where(m => m.Value.Sum(d => d.Minutes) >= FanLevels.DayMinutes)
+            .Select(m => (Month: m.Key, Score: m.Value.Sum(d => d.ScoreSum) / m.Value.Sum(d => d.Minutes), Days: m.Value))
+            .OrderByDescending(m => m.Score).FirstOrDefault();
         LoudestLabel = Lang.T("Loudest month");
-        LoudestHour = loudest.Month == default ? null : loudest.Month.ToString("MMMM yyyy");
-        LoudestNote = "";
-        (StartsText, StartsNote, SilentText, SilentNote) = (null, "", null, "");
-        OnPropertyChanged(nameof(HasToday));
+        LoudestHour = loud.Days is null ? null : loud.Month.ToString("MMMM yyyy");
+        LoudestNote = loud.Days is null ? Lang.T("No day with an hour on")
+            : While(loud.Days.Where(d => d.LoudApp is not null).GroupBy(d => d.LoudApp!.Value).MaxBy(g => g.Sum(d => d.LoudAppScore))?.Key, apps, s);
+
+        // The starts and the longest stretch from the days that counted the same thing as today (a day before a card's
+        // fans had ever spun counted the fans speeding up and the longest quiet stretch, which aren't the same facts).
+        var alike = days.Where(d => d.Kind == (int)kind).ToList();
+        if (alike.Count == 0) alike = days;
+        int n = alike.Sum(d => d.Starts);
+        double rate = Math.Round(n / (double)alike.Count);
+        StartsLabel = StartsName(kind);
+        StartsText = rate >= 1 ? Lang.T($"About {rate:0} a day") : Times(n);
+        StartsNote = alike.Count == 1 ? Lang.T("Across 1 day recorded") : Lang.T($"Across {alike.Count} days recorded");
+        var longest = alike.MaxBy(d => d.LongestN)!;
+        SetLongest(kind, longest.LongestFrom, longest.LongestN, withDay: true);
+
+        // A bar a month: its average day at each level.
+        var months = Enumerable.Range(0, 12).Select(i => from.AddMonths(i)).Where(m => m < to).ToList();
+        var bars = months.Select(m =>
+        {
+            bool now = m.Year == DateTime.Today.Year && m.Month == DateTime.Today.Month;
+            string title = m.ToString("MMMM yyyy");
+            if (!byMonth.TryGetValue(m, out var list)) return new Controls.FanStripBar(m, new int[4], m.ToString("MMM"), now, new(title, null, [], Wording.NotRecorded));
+            var lv = Enumerable.Range(0, 4).Select(k => (int)Math.Round(list.Average(d => d.Levels[k]))).ToArray();
+            return new Controls.FanStripBar(m, lv, m.ToString("MMM"), now, new(title, null, BarRows(lv, (int)Math.Round(list.Average(d => d.Starts)), kind), Sub: Lang.T("An average day")));
+        }).ToList();
+        var marks = new Dictionary<string, Controls.FanStripMark>();
+        if (loud.Days is not null) marks["loud"] = new(months.IndexOf(loud.Month), 0, null);
+        if (longest.LongestN > 0) marks["sil"] = new(months.IndexOf(MonthOf(longest)), 0, null);
+        Strip = new Controls.FanStripData { IsDay = false, Bars = bars, GpuTicks = kind == FanStartKind.GpuFans, Marks = marks };
+        LevelKeys = Legend(kind, false);
+        SetFacts(kind);
     }
 
     /// <summary>A row's detail (see <see cref="FanDetail"/>) from its fans' minutes today and their days before.</summary>
@@ -803,17 +1097,11 @@ public sealed partial class FansViewModel : ObservableObject
             more.Add(new(Lang.T("Under heavy load"), hard.Count >= 5 ? Rpm(hard.Average()) : "—",
                 hard.Count >= 5 ? onGpu ? Lang.T("Average while games pushed the GPU") : Lang.T("Average while work pushed the CPU")
                 : onGpu ? Lang.T("The GPU didn't work hard for long") : Lang.T("The CPU didn't work hard for long")));
-            if (card.IsGpu && speed.Count > 0)
+            // Starts only for a card whose fans stood still in the period (one that never stops has none to count); counted
+            // as the Today card counts them, so the two say the same number.
+            if (card.IsGpu && speed.Values.Any(v => v < FanCard.MinSpinRpm))
             {
-                int starts = 0;
-                long previous = 0;
-                bool wasStill = false;
-                foreach (var (ts, rpm) in speed.OrderBy(x => x.Key))
-                {
-                    bool isStill = rpm < FanCard.MinSpinRpm;
-                    if (ts == previous + 60 && wasStill && !isStill) starts++;
-                    (wasStill, previous) = (isStill, ts);
-                }
+                int starts = FanLevels.Starts(speed.Select(x => (x.Key, x.Value))).Count;
                 int daysOn = speed.Keys.Select(t => TimeUtil.FromUnix(t).Date).Distinct().Count();
                 more.Add(new(Lang.T("Started up"), starts == 1 ? Lang.T("1 time") : Lang.T($"{starts} times"),
                     daysOn > 1 && Math.Round(starts / (double)daysOn) >= 1 ? Lang.T($"About {Math.Round(starts / (double)daysOn):0} a day, each past its silent point") : Lang.T("Each time the GPU warmed past its silent point")));

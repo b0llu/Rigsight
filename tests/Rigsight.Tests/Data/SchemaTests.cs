@@ -36,6 +36,7 @@ public sealed class SchemaTests
         ["fans"] = ["id", "sensor", "name", "hardware"],
         ["fan_minute"] = ["ts", "fan", "rpm_avg", "rpm_max"],
         ["fan_curve_day"] = ["day", "fan", "app", "temp", "n", "rpm_sum"],
+        ["fan_level_day"] = ["day", "silent", "quiet", "busy", "loud", "starts", "kind", "longest_n", "longest_from", "score_sum", "loud_app", "loud_app_score"],
         ["fan_day"] = ["day", "fan", "rpm_sum", "rpm_n", "rpm_max", "idle_sum", "idle_n"],
         ["heat_day"] = ["day", "app", "n", "gpu_sum", "gpu_n", "cpu_sum", "cpu_n", "power_sum", "power_n"],
         ["sessions"] = ["id", "app_id", "start", "end", "active_sec", "cpu_temp_max", "gpu_temp_max", "is_game"],
@@ -43,7 +44,8 @@ public sealed class SchemaTests
         ["crash_signs"] = ["ts", "kind", "detail"],
         ["close_up"] = ["ts", "exe", "kind", "done", "data"],
         ["drive_day"] = ["day", "drive", "used_gb", "total_gb"],
-        ["drive_health_day"] = ["day", "drive", "name", "life", "hours", "power_ons", "read_gb", "written_gb", "temp_max", "temp_sum", "temp_n", "reallocated", "pending", "uncorrectable", "status"],
+        ["drive_health_day"] = ["day", "drive", "name", "life", "hours", "power_ons", "read_gb", "written_gb", "temp_max", "temp_sum", "temp_n", "reallocated", "pending", "uncorrectable", "status",
+            "crc", "uncorrectable_reported", "timeouts", "media_errors", "spare", "warning", "shut_offs"],
         ["net_minute"] = ["ts", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "lan", "steady", "app"],
         ["net_day"] = ["day", "minutes", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "lan", "best", "best_ts"],
         ["net_app_hour"] = ["ts", "app", "down", "up", "bg_down", "bg_up", "away_down", "away_up", "game_down", "lan"],
@@ -122,6 +124,7 @@ public sealed class SchemaTests
     [InlineData("fan_minute", "ts,fan")]
     [InlineData("fan_day", "day,fan")]
     [InlineData("fan_curve_day", "day,fan,app,temp")]
+    [InlineData("fan_level_day", "day")]
     [InlineData("heat_day", "day,app")]
     [InlineData("net_minute", "ts")]
     [InlineData("net_day", "day")]

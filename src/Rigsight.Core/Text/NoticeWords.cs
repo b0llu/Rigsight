@@ -275,6 +275,15 @@ public static class NoticeWords
         return new(Lang.T($"Your {letter} drive is almost full"), body);
     }
 
+    /// <summary>
+    /// RivaTuner installed but off for a while on a PC that plays games, so no game's FPS is being recorded: "RivaTuner
+    /// isn't running" / "RigSight reads FPS from it, so none is being recorded. Click to start it." The click
+    /// starts it. The user, 2026-11-14: "rivatuner was turned off and i did not even know it"; said of RivaTuner, not of
+    /// one game ("i want it generic").
+    /// </summary>
+    public static NoticeText RivaTunerOff() =>
+        new(Lang.T("RivaTuner isn't running"), Lang.T("RigSight reads FPS from it, so none is being recorded. Click to start it."));
+
     /// <summary>An app whose memory keeps growing: "Google Chrome keeps using more memory" / "It has gone from 2.1 GB to 9.2 GB in 3 hours, and hasn't come back down."</summary>
     public static NoticeText MemoryGrowing(string app, long fromBytes, long toBytes, double seconds) =>
         new(Lang.T($"{Name(app)} keeps using more memory"),

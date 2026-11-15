@@ -224,21 +224,3 @@ public sealed class WearHealthLineTests
         Assert.Equal(line.Text, parts[0].Text);
     }
 }
-
-/// <summary>Every reading in plain words: each group a column of its own.</summary>
-public sealed class ReadingColumnsTests
-{
-    private static Rigsight.Models.ReadingRow H(string g) => new(g, "", "", "", null) { IsHeader = true };
-    private static Rigsight.Models.ReadingRow R(string g, string n) => new(g, n, "1", "", null);
-
-    [Fact]
-    public void Each_group_keeps_all_its_lines_in_its_own_column()
-    {
-        var list = new List<Rigsight.Models.ReadingRow> { H("WATCH"), R("WATCH", "Cable"), H("WEAR"), R("WEAR", "Life"), R("WEAR", "Written"),
-            R("WEAR", "Read"), R("WEAR", "Hours") };
-        var groups = Rigsight.Models.DriveReadings.Groups(list);
-        Assert.Equal(["WATCH", "WEAR"], groups.Select(g => g.Title));
-        Assert.Equal(["Cable"], groups[0].Rows.Select(r => r.Name));
-        Assert.Equal(["Life", "Written", "Read", "Hours"], groups[1].Rows.Select(r => r.Name));
-    }
-}

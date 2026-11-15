@@ -541,7 +541,7 @@
                         <Grid>
                             <TextBlock Text="{ctl:T 'No motherboard temperatures are being read right now. They need RigSight to run with admin rights.'}" Style="{StaticResource Muted}" TextWrapping="Wrap"
                                        Visibility="{Binding HasBoardTemps, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                            <ScrollViewer MaxHeight="252" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                            <ScrollViewer MaxHeight="252" ctl:WheelChain.Enabled="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
                                           Visibility="{Binding HasBoardTemps, Converter={StaticResource Vis}}">
                                 <ItemsControl ItemsSource="{Binding BoardChips}" Focusable="False" Margin="0,0,-22,0">
                                     <ItemsControl.ItemsPanel>

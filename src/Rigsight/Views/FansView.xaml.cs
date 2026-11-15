@@ -13,6 +13,15 @@ public partial class FansView : UserControl
     /// </summary>
     public const double ListMaxHeight = 480;
 
+    /// <summary>A Today fact under the pointer or the keyboard: its stretch marked on the strip above (the fact's id is its Tag).</summary>
+    private void Fact_Enter(object sender, System.Windows.RoutedEventArgs e) => Strip.Mark = (sender as System.Windows.FrameworkElement)?.Tag as string;
+
+    private void Fact_Leave(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (sender is System.Windows.FrameworkElement f && (f.IsMouseOver || f.IsKeyboardFocusWithin)) return;
+        Strip.Mark = null;
+    }
+
     /// <summary>Enter keeps a fan's new name, Escape puts the old one back.</summary>
     private void Rename_KeyDown(object sender, KeyEventArgs e)
     {

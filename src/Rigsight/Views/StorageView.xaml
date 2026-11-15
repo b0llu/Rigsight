@@ -176,6 +176,8 @@
         <!-- A drive in the table: its own row (opens it), its letters under it with their bars and Scan. -->
         <DataTemplate x:Key="DriveTableRow">
             <StackPanel>
+                <!-- A line between drives: above each but the first, so none is left under the last (the user, 2026-11-14). -->
+                <Border x:Name="Between" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Margin="0,6" />
                 <Button Style="{StaticResource FlatRowButton}" Command="{Binding DataContext.OpenDriveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
                         AutomationProperties.Name="{Binding Name}">
                     <Grid Style="{StaticResource DriveColumns}" MinHeight="58">
@@ -219,8 +221,12 @@
                 <ItemsControl ItemsSource="{Binding Letters}" ItemTemplate="{StaticResource DriveRow}" Focusable="False" Margin="60,0,12,0" />
                 <TextBlock Text="{ctl:T 'No drive letter'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="60,4,0,8"
                            Visibility="{Binding NoLetter, Converter={StaticResource Vis}}" />
-                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Margin="0,6" />
             </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">
+                    <Setter TargetName="Between" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
 
         <!-- The header over a drive table, its columns the rows'. -->
@@ -267,47 +273,65 @@
             </Grid>
         </DataTemplate>
 
-        <!-- A group of Every reading in plain words, a column of its own: its name over its lines (Now and the month-ago heading
-             only when there's a month-ago reading); the Now and month-ago columns share their widths down the column. -->
-        <DataTemplate x:Key="PlainReadingsColumn">
-            <StackPanel Grid.IsSharedSizeScope="True" Margin="0,0,40,0" VerticalAlignment="Top">
-                <Grid Height="30">
+        <!-- A line of Every reading in plain words (approved mock-up 2026-11-14): its icon in a coloured square, its name and a grey
+             line saying what it is; the figure now (a watched one with its dot and what's usual under it); what changed since the
+             month-ago day, amber only when a watched reading went the wrong way. Hover gives one calm sentence and the drive's own
+             name and number for it. A line between lines, none above the first. -->
+        <DataTemplate x:Key="ReadingLineTemplate">
+            <Border x:Name="Line" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Background="Transparent"
+                    ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="60000">
+                <Border.ToolTip>
+                    <StackPanel MaxWidth="330">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Tip}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding MakerLine}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Visibility="{Binding HasMakerLine, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                </Border.ToolTip>
+                <!-- The hover shade: rounded like every row's, in the hover colour (the icon squares keep their own), set in from
+                     the lines (the user, 2026-11-14: square edges and the icon square lost in it). -->
+                <Border x:Name="Shade" Margin="-8,3" Padding="8,7" CornerRadius="{x:Static ctl:Corner.Button}" Background="Transparent">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="Now" />
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="Then" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="{Binding SinceWidth}" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding Title}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="1" Text="{ctl:T NOW}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="24,0,0,0"
-                               Visibility="{Binding DataContext.HasReadingsThen, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Vis}}" />
-                    <TextBlock Grid.Column="2" Text="{Binding DataContext.ReadingsThenTitle, RelativeSource={RelativeSource AncestorType=UserControl}}" Style="{StaticResource Caps}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="24,0,0,0"
-                               Visibility="{Binding DataContext.HasReadingsThen, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Vis}}" />
-                </Grid>
-                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" />
-                <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border x:Name="Line" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Height="38">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Now" />
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Then" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Ellipse Width="8" Height="8" Fill="{Binding Dot}" Margin="0,0,10,0" VerticalAlignment="Center" Visibility="{Binding HasDot, Converter={StaticResource Vis}}" />
-                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding Now}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="24,0,0,0" />
-                                    <TextBlock Grid.Column="2" Text="{Binding Then}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="24,0,0,0"
-                                               Visibility="{Binding DataContext.HasReadingsThen, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Vis}}" />
-                                </Grid>
+                    <HeaderedContentControl Style="{StaticResource IconRow}">
+                        <HeaderedContentControl.Header>
+                            <Border Style="{StaticResource IconBox}">
+                                <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{Binding IconBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+                        </HeaderedContentControl.Header>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding What}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,1,0,0" />
+                        </StackPanel>
+                    </HeaderedContentControl>
+                    <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Ellipse Width="8" Height="8" Fill="{Binding Dot}" Margin="0,0,8,0" VerticalAlignment="Center" Visibility="{Binding HasDot, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="{Binding Now}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" Foreground="{Binding ValueBrush}" Typography.NumeralAlignment="Tabular" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Usual}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" Margin="0,1,0,0"
+                                   Visibility="{Binding HasUsual, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="4" Text="{Binding Change}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{Binding ChangeBrush}" TextWrapping="Wrap" VerticalAlignment="Center"
+                               Visibility="{Binding HasChange, Converter={StaticResource Vis}}" />
+                </Grid>
+                </Border>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsFirst}" Value="True">
+                    <Setter TargetName="Line" Property="BorderThickness" Value="0" />
+                </DataTrigger>
+                <Trigger SourceName="Line" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Shade" Property="Background" Value="{DynamicResource HoverBrush}" />
+                </Trigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
 
         <!-- The Day, Week and Month switch over "What reads and writes". -->
@@ -469,6 +493,9 @@
                         </StackPanel>
                         <TextBlock Text="{Binding OpenedSub}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
                         <TextBlock Text="{Binding Reason}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{Binding HealthBrush}" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="{Binding Reason, Converter={StaticResource Vis}}" />
+                        <!-- No reading: what can be shown and why, as the drive list says it. -->
+                        <TextBlock Text="{Binding Note}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Visibility="{Binding HasReading, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                     </StackPanel>
                 </DockPanel>
 
@@ -520,7 +547,19 @@
                             <ItemsControl ItemsSource="{Binding OpenedTile}" ItemTemplate="{StaticResource WearTileRowTemplate}" Focusable="False" />
                         </StackPanel>
                     </ctl:SmoothBorder>
-                    <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
+                    <!-- Beside Over the months, or across the whole width when that isn't shown (a drive with no reading). -->
+                    <ctl:SmoothBorder>
+                        <ctl:SmoothBorder.Style>
+                            <Style TargetType="ctl:SmoothBorder" BasedOn="{StaticResource Card}">
+                                <Setter Property="Grid.Column" Value="2" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding UseFullWidth}" Value="True">
+                                        <Setter Property="Grid.Column" Value="0" />
+                                        <Setter Property="Grid.ColumnSpan" Value="3" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ctl:SmoothBorder.Style>
                         <StackPanel>
                             <DockPanel Margin="0,0,0,10">
                                 <ContentPresenter DockPanel.Dock="Right" Content="{Binding}" ContentTemplate="{StaticResource UsePeriodSwitch}" VerticalAlignment="Center" />
@@ -808,7 +847,9 @@
                         </StackPanel>
                     </ctl:SmoothBorder>
 
-                <!-- Every reading the drive gives: in plain words with a month ago beside it, or as the drive names them. -->
+                <!-- Every reading the drive gives (approved mock-up "Every reading, made clearer", 2026-11-14): in plain words as one
+                     list across the card in two groups, each line what the reading is, its figure now and what changed since the
+                     month-ago day; or as the drive reports them, with their scores and counts. -->
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Visibility="{Binding Opened.HasReading, Converter={StaticResource Vis}}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,8">
@@ -820,34 +861,79 @@
                             </Border>
                             <TextBlock Text="{ctl:T 'Every reading'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
                         </DockPanel>
-                        <!-- Plain words: each group in a column of its own under its name (option A, the user 2026-11-14), each line
-                             the reading, now, and a month ago when kept. -->
-                        <ItemsControl ItemsSource="{Binding ReadingGroups}" ItemTemplate="{StaticResource PlainReadingsColumn}" Focusable="False" Margin="0,0,-40,0"
-                                      Visibility="{Binding OwnNames, Converter={StaticResource Vis}, ConverterParameter=Invert}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <UniformGrid Columns="{Binding ReadingColumns}" VerticalAlignment="Top" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                        <!-- The drive's own: its number, its name, score now, worst, limit and the raw count. The headings keep
-                             clear of the list's scroll bar, so each sits over its column (StorageView.xaml.cs). -->
+
+                        <!-- In plain words: WHAT TO WATCH with how many aren't as usual, then WEAR AND USE, sharing one set of columns. -->
+                        <StackPanel Visibility="{Binding OwnNames, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                            <StackPanel Visibility="{Binding HasWatchReadings, Converter={StaticResource Vis}}">
+                                <Grid Height="34">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="{Binding SinceWidth}" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{ctl:T 'WHAT TO WATCH'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding WatchSummary}" FontSize="{x:Static ctl:TextSize.Small}" Margin="10,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding WatchSummaryWarm}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{ctl:T NOW}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="4" Text="{Binding SinceTitle}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                                </Grid>
+                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" />
+                                <ItemsControl ItemsSource="{Binding WatchReadings}" ItemTemplate="{StaticResource ReadingLineTemplate}" Focusable="False" />
+                            </StackPanel>
+                            <Border Height="18" Visibility="{Binding HasBothReadingGroups, Converter={StaticResource Vis}}" />
+                            <StackPanel Visibility="{Binding HasWearReadings, Converter={StaticResource Vis}}">
+                                <Grid Height="34">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="{Binding SinceWidth}" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{ctl:T 'WEAR AND USE'}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{ctl:T NOW}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="4" Text="{Binding SinceTitle}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
+                                </Grid>
+                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" />
+                                <ItemsControl ItemsSource="{Binding WearReadings}" ItemTemplate="{StaticResource ReadingLineTemplate}" Focusable="False" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- As the drive reports: its number as a number and as hex, its name with the plain name beside a reading shown in
+                             plain words (a dot and a faint shade on a watched one), its score, lowest score, limit and count; an NVMe
+                             drive only its number, name and count. The headings keep clear of the list's scroll bar, so each sits over
+                             its column (StorageView.xaml.cs). -->
                         <StackPanel Visibility="{Binding OwnNames, Converter={StaticResource Vis}}">
                             <Grid x:Name="OwnHead" Height="30">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="60" />
+                                    <ColumnDefinition Width="84" />
                                     <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="80" />
-                                    <ColumnDefinition Width="80" />
-                                    <ColumnDefinition Width="80" />
-                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="{Binding OwnScoreWidth}" />
+                                    <ColumnDefinition Width="{Binding OwnScoreWidth}" />
+                                    <ColumnDefinition Width="{Binding OwnScoreWidth}" />
+                                    <ColumnDefinition Width="{Binding OwnCountWidth}" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{ctl:T ID}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="1" Text="{ctl:T READING}" Style="{StaticResource Caps}" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="2" Text="{ctl:T NOW}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="3" Text="{ctl:T WORST}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="4" Text="{ctl:T LIMIT}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="5" Text="{ctl:T COUNT}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T ID}" Style="{StaticResource Caps}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                <TextBlock Grid.Column="1" Text="{ctl:T READING}" Style="{StaticResource Caps}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                <TextBlock Grid.Column="2" Text="{ctl:T SCORE}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Visibility="{Binding OwnNvme, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                <TextBlock Grid.Column="3" Text="{ctl:T LOWEST}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Visibility="{Binding OwnNvme, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                <TextBlock Grid.Column="4" Text="{ctl:T LIMIT}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Visibility="{Binding OwnNvme, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                <TextBlock Grid.Column="5" Text="{ctl:T COUNT}" Style="{StaticResource Caps}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" />
                             </Grid>
                             <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" />
                             <!-- A long list scrolls in its box, its last line cut through so the scroll shows. -->
@@ -855,28 +941,48 @@
                                 <ItemsControl ItemsSource="{Binding Readings}" Focusable="False">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Height="38">
+                                            <Border x:Name="Row" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Height="38" Background="Transparent"
+                                                    ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="60000">
+                                                <Border x:Name="Shade" Margin="0,3" CornerRadius="{x:Static ctl:Corner.Button}" Background="Transparent">
+                                                <Border.ToolTip>
+                                                    <StackPanel MaxWidth="330">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding Tip}" TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </Border.ToolTip>
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="60" />
+                                                        <ColumnDefinition Width="84" />
                                                         <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="80" />
-                                                        <ColumnDefinition Width="80" />
-                                                        <ColumnDefinition Width="80" />
-                                                        <ColumnDefinition Width="150" />
+                                                        <ColumnDefinition Width="{Binding ScoreWidth}" />
+                                                        <ColumnDefinition Width="{Binding ScoreWidth}" />
+                                                        <ColumnDefinition Width="{Binding ScoreWidth}" />
+                                                        <ColumnDefinition Width="{Binding CountWidth}" />
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{Binding Id}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
-                                                    <TextBlock Grid.Column="2" Text="{Binding Current}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
-                                                    <TextBlock Grid.Column="3" Text="{Binding Worst}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
-                                                    <TextBlock Grid.Column="4" Text="{Binding Threshold}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
-                                                    <TextBlock Grid.Column="5" Text="{Binding Now}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBlock Text="{Binding IdText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center"
+                                                               Typography.NumeralAlignment="Tabular" Margin="8,0,0,0" />
+                                                    <DockPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                        <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Fill="{Binding Dot}" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                                 Visibility="{Binding Watched, Converter={StaticResource Vis}}" />
+                                                        <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                                            <Run Text="{Binding Name, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" /><Run Text="  " /><Run Text="{Binding Plain, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                                        </TextBlock>
+                                                    </DockPanel>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Score}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" Typography.NumeralAlignment="Tabular" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding Lowest}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" Typography.NumeralAlignment="Tabular" />
+                                                    <TextBlock Grid.Column="4" Text="{Binding Limit}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" Typography.NumeralAlignment="Tabular" />
+                                                    <TextBlock Grid.Column="5" Text="{Binding Count}" FontSize="{x:Static ctl:TextSize.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}" Typography.NumeralAlignment="Tabular" Margin="0,0,8,0" />
                                                 </Grid>
+                                                </Border>
                                             </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Watched}" Value="True"><Setter TargetName="Shade" Property="Background" Value="{DynamicResource Surface2Brush}" /></DataTrigger>
+                                            </DataTemplate.Triggers>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
+                            <TextBlock Text="{Binding OwnFoot}" FontSize="{x:Static ctl:TextSize.Label}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
                         </StackPanel>
                     </StackPanel>
                 </ctl:SmoothBorder>

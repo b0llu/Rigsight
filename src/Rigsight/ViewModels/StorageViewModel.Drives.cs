@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core;
@@ -93,7 +94,7 @@ public sealed partial class StorageViewModel
             double? week = mine.Count >= 2 && (mine[^1].Day - mine[0].Day) >= 6 * 86400 ? Math.Max(0, mine[^1].WrittenGb!.Value - mine[0].WrittenGb!.Value) : null;
             _figures[g.Id] = (wear, week);
             foreach (var shown in Looks.Concat(Inside).Concat(Others).Where(x => x.Id == g.Id)) { shown.Wear = wear; shown.WrittenWeek = week; }
-            if (Opened?.Id == g.Id) { Opened.Wear = wear; Opened.WrittenWeek = week; foreach (var n in new[] { nameof(OpenedWear), nameof(OpenedTile), nameof(OpenedAgainst), nameof(HasOpenedTile) }) OnPropertyChanged(n); }
+            if (Opened?.Id == g.Id) { Opened.Wear = wear; Opened.WrittenWeek = week; foreach (var n in new[] { nameof(OpenedWear), nameof(OpenedTile), nameof(OpenedAgainst), nameof(HasOpenedTile), nameof(UseFullWidth), nameof(UseBesideMonths) }) OnPropertyChanged(n); }
         }
     }
 
@@ -106,7 +107,7 @@ public sealed partial class StorageViewModel
     // ── A drive opened ──────────────────────────────────────────────────
 
     /// <summary>The drive opened in full (null: the page's overview). Back returns to the overview.</summary>
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsDriveOpen), nameof(OpenedWear), nameof(OpenedLetters), nameof(OpenedTile), nameof(OpenedAgainst), nameof(HasOpenedTile), nameof(OpenedTabs))] private DriveGroup? _opened;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsDriveOpen), nameof(OpenedWear), nameof(OpenedLetters), nameof(OpenedTile), nameof(OpenedAgainst), nameof(HasOpenedTile), nameof(OpenedTabs), nameof(UseFullWidth), nameof(UseBesideMonths))] private DriveGroup? _opened;
     public bool IsDriveOpen => Opened is not null;
     public Core.Reports.WearRow? OpenedWear => Opened?.Wear;
     /// <summary>The opened drive's "Over the months" lines, and the tile's corner ("Against late September").</summary>
@@ -116,21 +117,45 @@ public sealed partial class StorageViewModel
     public bool HasOpenedTile => OpenedTile.Count > 0;
     public IReadOnlyList<VolumeRow> OpenedLetters => Opened?.Letters ?? [];
 
-    public ObservableCollection<ReadingRow> Readings { get; } = [];
-    /// <summary>The plain list's groups, a column each (two at the most side by side).</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ReadingColumns))]
-    private IReadOnlyList<ReadingGroup> _readingGroups = [];
-    public int ReadingColumns => Math.Clamp(ReadingGroups.Count, 1, 2);
+    /// <summary>
+    /// What reads and writes it takes the card's whole width when Over the months isn't shown: a drive with no reading
+    /// (a USB adapter, a network drive), or one whose months were read and have nothing to show.
+    /// </summary>
+    public bool UseFullWidth => Opened is { } o && (o.Health?.Key is null || o.Wear is not null && !HasOpenedTile);
+    public bool UseBesideMonths => !UseFullWidth;
+
+    // ── Every reading (approved mock-up "Every reading, made clearer", 2026-11-14) ──
+
+    /// <summary>In plain words, WHAT TO WATCH: the counts and flags RigSight watches, each with its dot and what's usual.</summary>
+    public ObservableCollection<ReadingLine> WatchReadings { get; } = [];
+    /// <summary>In plain words, WEAR AND USE: the tiles' readings and the rest, each with what changed since the month-ago day.</summary>
+    public ObservableCollection<ReadingLine> WearReadings { get; } = [];
+    /// <summary>As the drive reports: every attribute, its ID as a number and as hex.</summary>
+    public ObservableCollection<OwnReadingLine> Readings { get; } = [];
+    public bool HasWatchReadings => WatchReadings.Count > 0;
+    public bool HasWearReadings => WearReadings.Count > 0;
+    public bool HasBothReadingGroups => HasWatchReadings && HasWearReadings;
+    /// <summary>"All as usual", or "2 aren't as usual" in amber.</summary>
+    [ObservableProperty] private string _watchSummary = "";
+    [ObservableProperty] private bool _watchSummaryWarm;
+    /// <summary>"SINCE 14 OCT" over the change column; the column isn't there on a drive's first day.</summary>
+    [ObservableProperty] private string _sinceTitle = "";
+    [ObservableProperty] private GridLength _sinceWidth = new(220);
+    /// <summary>The drive's own list: NVMe drives give counts only, so Score, Lowest and Limit go.</summary>
+    [ObservableProperty] private bool _ownNvme;
+    public GridLength OwnScoreWidth => DriveReadingBrushes.ScoreWidth(OwnNvme);
+    public GridLength OwnCountWidth => DriveReadingBrushes.CountWidth(OwnNvme);
+    partial void OnOwnNvmeChanged(bool value) { OnPropertyChanged(nameof(OwnScoreWidth)); OnPropertyChanged(nameof(OwnCountWidth)); OnPropertyChanged(nameof(OwnFoot)); }
+    /// <summary>The line under the drive's own list on how scores work.</summary>
+    public string OwnFoot => Core.Storage.DriveReadings.OwnFoot(OwnNvme);
+
     /// <summary>"Every reading" as the drive itself names them (its numbers, scores and limits) instead of in plain words.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(PlainNames))] private bool _ownNames;
     public bool PlainNames => !OwnNames;
     [RelayCommand] private void PickNames(string? which) => OwnNames = which == "own";
-    partial void OnOwnNamesChanged(bool value) => ShowReadings();
-    [ObservableProperty] private string _readingsThenTitle = "";
-    [ObservableProperty] private bool _hasReadingsThen;
 
-    private DriveHealthDay? _monthAgo;
+    /// <summary>The opened drive's own daily rows (the last 40 days), which the change column is worked out from.</summary>
+    private IReadOnlyList<DriveHealthDay> _driveDays = [];
 
     [RelayCommand]
     private async Task OpenDrive(DriveGroup? group)
@@ -144,13 +169,14 @@ public sealed partial class StorageViewModel
             if (!IsScanning) PickedRoot = group.Letters.OrderBy(l => l.Root, StringComparer.OrdinalIgnoreCase).First().Root;
             CleanupRoot = letter.Root;
         }
-        _monthAgo = null;
+        _driveDays = [];
         ShowReadings();
         DriveOpened?.Invoke();
         if (group.Health?.Key is { } key)
         {
             var rows = await reports.DriveHealthDaysAsync(40) ?? [];
-            _monthAgo = rows.Where(r => r.Drive == key && r.Day <= TimeUtil.ToUnix(DateTime.Today.AddDays(-28))).MaxBy(r => r.Day);
+            if (Opened?.Health?.Key != key) return;
+            _driveDays = [.. rows.Where(r => r.Drive == key)];
             ShowReadings();
         }
         await LoadDiskUseAsync();
@@ -191,21 +217,27 @@ public sealed partial class StorageViewModel
     /// <summary>The page goes to the top when a drive opens or closes.</summary>
     public event Action? DriveOpened;
 
+    /// <summary>Both views of Every reading, built together so the switch between them is instant.</summary>
     private void ShowReadings()
     {
+        WatchReadings.Clear();
+        WearReadings.Clear();
         Readings.Clear();
-        if (Opened?.Health is not { } h) { HasReadingsThen = false; ReadingGroups = []; return; }
-        var rows = OwnNames ? Models.DriveReadings.Own(h) : Models.DriveReadings.Plain(h, _monthAgo);
-        string? group = null;
-        foreach (var r in rows)
+        if (Opened?.Health is { } h)
         {
-            if (!OwnNames && r.Group != group) Readings.Add(new ReadingRow(r.Group, "", "", "", null) { IsHeader = true });
-            group = r.Group;
-            Readings.Add(r);
+            var plain = Core.Storage.DriveReadings.Plain(h, _driveDays, DateTime.Today);
+            SinceWidth = new GridLength(plain.Since is null ? 0 : 220);
+            SinceTitle = plain.SinceTitle;
+            foreach (var r in plain.Watch) WatchReadings.Add(new ReadingLine(r, SinceWidth, WatchReadings.Count == 0));
+            foreach (var r in plain.Wear) WearReadings.Add(new ReadingLine(r, SinceWidth, WearReadings.Count == 0));
+            WatchSummary = plain.Summary;
+            WatchSummaryWarm = plain.NotUsual > 0;
+            OwnNvme = h.IsNvme;
+            foreach (var a in Core.Storage.DriveReadings.Own(h, plain)) Readings.Add(new OwnReadingLine(a, h.IsNvme));
         }
-        HasReadingsThen = !OwnNames && rows.Any(r => r.Then.Length > 0);
-        ReadingGroups = OwnNames ? [] : Models.DriveReadings.Groups(rows);
-        ReadingsThenTitle = _monthAgo is { } then ? Lang.T($"ON {TimeUtil.FromUnix(then.Day):d MMM}").ToUpperInvariant() : "";
+        OnPropertyChanged(nameof(HasWatchReadings));
+        OnPropertyChanged(nameof(HasWearReadings));
+        OnPropertyChanged(nameof(HasBothReadingGroups));
     }
 
     // ── What reads and writes ───────────────────────────────────────────

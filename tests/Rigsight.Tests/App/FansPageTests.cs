@@ -304,6 +304,41 @@ public sealed class FansPageTests
     }
 
     [Fact]
+    public void The_today_card_shows_the_day_minute_by_minute_with_three_facts_alike()
+    {
+        var (vm, _) = Page();
+        Ui.Run(() =>
+        {
+            Assert.True(vm.HasToday);
+            Assert.Equal(["loud", "starts", "sil"], vm.TodayFacts.Select(f => f.Id));
+            Assert.All(vm.TodayFacts, f => Assert.True(f.Label.Length > 0 && f.Value.Length > 0 && f.Note.Length > 0));
+            var strip = vm.Strip!;
+            Assert.True(strip.IsDay);
+            Assert.True(strip.Levels.Length >= 6 * 60); // from the first hour on to the last, six hours at least
+            Assert.Equal(0, strip.Levels.Length % 60);
+            Assert.Contains(strip.Levels, l => l is not null);
+            var run = vm.Levels!;
+            // The legend leaves Silent out when no fan stops; the starts' mark is the last item on a day.
+            Assert.Equal(run.HasSilent, vm.LevelKeys.Any(k => k.Name == "Silent"));
+            Assert.True(vm.LevelKeys[^1].IsTick);
+            // The seeded card stands still while it's cool: its starts are counted, and the card and the GPU fans' facts agree.
+            if (run.Kind == FanStartKind.GpuFans)
+            {
+                Assert.Equal("GPU fans started up", vm.StartsLabel);
+                var grid = vm.Fans[0].Detail!.Facts.Single(f => f.Label == "Started up");
+                Assert.Equal(vm.StartsText, grid.Value);
+            }
+            else Assert.DoesNotContain("0 times, each time", vm.StartsNote);
+            // A minute's hover: its time, its level and its fans.
+            int i = Array.FindIndex(strip.Levels, l => l is not null);
+            var tip = strip.TipAt!(i);
+            Assert.Equal(strip.Levels[i], tip.Level);
+            Assert.Contains(" – ", tip.Title);
+            Assert.NotEmpty(tip.Rows);
+        });
+    }
+
+    [Fact]
     public void Each_row_has_its_facts_its_curve_and_its_last_30_days()
     {
         var (vm, _) = Page();
@@ -402,6 +437,14 @@ public sealed class FansPageTests
         // A card's six: where it starts, rest, fastest, average while turning, under heavy load, and how often it started.
         Assert.Equal(["Starts spinning", "Stood still", "Fastest", "Average while spinning", "Under heavy load", "Started up"], detail.Facts.Select(f => f.Label));
         Assert.EndsWith("times", detail.Facts[5].Value);
+        // Counted as the Today card counts them.
+        Assert.Equal($"{FanLevels.Starts(fan.Select(f => (f.Ts, (double)f.RpmAvg))).Count} times", detail.Facts[5].Value);
+
+        // A card whose fans never stop has no starts to count: its usual instead, never "Started up 0 times".
+        var turning = minutes.Values.Select(m => new Rigsight.Core.Data.FanMinute(m.Ts, 1, (int)(1000 + m.GpuTemp!.Value * 10), 0)).ToList();
+        var always = FansViewModel.DetailOf(card, [turning, turning], minutes, [], [], new Dictionary<long, Rigsight.Core.Data.AppRow>(), new Rigsight.Core.Settings.RigsightSettings(), DateTime.Today, DateTime.Today.AddDays(1));
+        Assert.DoesNotContain(always.Facts, f => f.Label == "Started up");
+        Assert.Equal("Usual", always.Facts[5].Label);
     }
 
     [Fact]
@@ -454,7 +497,11 @@ public sealed class FansPageTests
             Assert.Equal("SPEED AT EACH GPU TEMPERATURE · IN GAMES", gpu.CurveTitle);
             Assert.Equal("AVERAGE SPEED", vm.QuietLabel);
             if (vm.LoudestHour is not null) Assert.Equal("Loudest month", vm.LoudestLabel);
-            Assert.Null(vm.StartsText); // kept by the day: no starts to count
+            // The card: a bar a month (each its average day at each level), the starts a day across the days kept and today.
+            Assert.True(vm.HasToday);
+            Assert.Equal(12, vm.Strip!.Bars.Count);
+            Assert.False(vm.Strip.IsDay);
+            Assert.StartsWith("Across ", vm.StartsNote);
         });
     }
 

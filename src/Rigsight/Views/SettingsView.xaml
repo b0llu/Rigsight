@@ -919,6 +919,12 @@
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DriveFull}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Drive almost full'}">
                         <TextBlock Text="{ctl:T 'Drive almost full'}" Style="{StaticResource Title}" VerticalAlignment="Center" />
                     </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding FpsNotRecorded}" Margin="0,10" AutomationProperties.Name="{ctl:T 'RivaTuner not running'}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'RivaTuner not running'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'No FPS is recorded while it\'s off. At most once a day.'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
                 </StackPanel>
             </ctl:SmoothBorder>
 

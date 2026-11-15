@@ -27,6 +27,17 @@ internal sealed class OverlayManager : IDisposable
     private string? _installResult;
     private readonly HashSet<string> _warnedApps = new(StringComparer.OrdinalIgnoreCase);
     private readonly InGameNotice _notice = new();
+    // RivaTuner started or closed however it happened (its button, its own shortcut, Afterburner, the tray): looked at
+    // every few seconds, and often for a while after a start was asked, so the app's "Start RivaTuner" turns into
+    // "running" as soon as it is (it used to wait for something else to change, which could take a long while).
+    private readonly System.Windows.Forms.Timer _rtssWatch = new() { Interval = WatchMs };
+    private const int WatchMs = 3000, WatchFastMs = 300;
+    private static readonly TimeSpan WatchFastFor = TimeSpan.FromSeconds(30);
+    private bool _rtssWasRunning;
+
+    /// <summary>When RivaTuner was last seen to stop (or the agent started without it); null while it runs.</summary>
+    public DateTime? RtssOffSince { get; private set; }
+    private long _watchFastUntil;
 
     public OverlayManager(bool isAdmin)
     {
@@ -37,6 +48,31 @@ internal sealed class OverlayManager : IDisposable
         _trayItem.Click += (_, _) => Toggle("the tray menu");
         // Its name in the language in use each time the tray menu opens (the language can change while it runs).
         _trayItem.OwnerChanged += (_, _) => { if (_trayItem.Owner is ToolStripDropDown owner) owner.Opening += (_, _) => _trayItem.Text = Lang.T("Show overlay"); };
+        _rtssWasRunning = Rtss.IsRunning();
+        RtssOffSince = _rtssWasRunning ? null : DateTime.Now;
+        _rtssWatch.Tick += (_, _) => WatchRtss();
+        _rtssWatch.Start();
+    }
+
+    /// <summary>Says when RivaTuner has started or closed since the last look (UI thread, on the watch's timer).</summary>
+    private void WatchRtss()
+    {
+        bool fast = Environment.TickCount64 < _watchFastUntil;
+        int interval = fast ? WatchFastMs : WatchMs;
+        if (_rtssWatch.Interval != interval) _rtssWatch.Interval = interval;
+        bool running = Rtss.IsRunning();
+        if (running == _rtssWasRunning) return;
+        _rtssWasRunning = running;
+        RtssOffSince = running ? null : DateTime.Now;
+        Log.Write("overlay", running ? "RivaTuner is running" : "RivaTuner was closed");
+        StateChanged?.Invoke();
+    }
+
+    /// <summary>A start was just asked for: look often for a while, so it's seen within a moment of opening.</summary>
+    private void WatchClosely()
+    {
+        _watchFastUntil = Environment.TickCount64 + (long)WatchFastFor.TotalMilliseconds;
+        _rtssWatch.Interval = WatchFastMs;
     }
 
     public bool Visible { get; private set; }
@@ -265,6 +301,7 @@ internal sealed class OverlayManager : IDisposable
     /// <summary>The Overlay page's "Start RivaTuner" button.</summary>
     public void StartRtss()
     {
+        WatchClosely();
         _rtssStartTried = false;
         EnsureRtssRunning();
         StateChanged?.Invoke();
@@ -294,6 +331,7 @@ internal sealed class OverlayManager : IDisposable
                 _installing = false;
                 _installResult = ok ? null : "install-failed";
                 _rtssStartTried = false;
+                WatchClosely();
                 EnsureRtssRunning();
                 StateChanged?.Invoke();
             }, null);
@@ -327,6 +365,7 @@ internal sealed class OverlayManager : IDisposable
 
     public void Dispose()
     {
+        _rtssWatch.Dispose();
         ClearRtss();
         _notice.Dispose();
         Rtss.Release();

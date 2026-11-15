@@ -18,6 +18,8 @@ public partial class MainWindow : Window
     public MainWindow(ShellViewModel vm)
     {
         InitializeComponent();
+        // A test copy's window and taskbar button show its own icon, never the installed RigSight's logo (the user, 2026-11-14).
+        if (Rigsight.Core.RigsightPaths.IsTestInstance) Icon = TestLogo.Image();
         DataContext = _vm = vm;
         // A page's Export button: that page's own box.
         CommandBindings.Add(new System.Windows.Input.CommandBinding(Controls.PageCommands.Export, (_, _) => vm.ExportPageCommand.Execute(null), (_, e) => e.CanExecute = true));

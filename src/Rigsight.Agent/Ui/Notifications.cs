@@ -17,6 +17,8 @@ internal enum NoticeKind
     FanStopped, DriveFailing, Fans, Drive, Usual, Slowed, Change, Space, Memory, Startup, Weekly,
     // A widget's timer that has run out (widgets part two, 2026-11-11).
     Timer,
+    // RivaTuner off, so no FPS is recorded (2026-11-14).
+    Fps,
 }
 
 /// <summary>Something worth telling the user. <see cref="Urgent"/> notices are shown even during fullscreen games.</summary>
@@ -99,7 +101,7 @@ internal static class NoticeLevels
     public static Core.Notices.NoticeLevel Of(NoticeKind kind) => kind switch
     {
         NoticeKind.Alert or NoticeKind.Crash or NoticeKind.Internet or NoticeKind.InternetBack or NoticeKind.FanStopped or NoticeKind.DriveFailing => Core.Notices.NoticeLevel.Problem,
-        NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space => Core.Notices.NoticeLevel.Worth,
+        NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space or NoticeKind.Fps => Core.Notices.NoticeLevel.Worth,
         NoticeKind.Recap or NoticeKind.Session or NoticeKind.Rewind or NoticeKind.Memory or NoticeKind.Startup or NoticeKind.Weekly => Core.Notices.NoticeLevel.Recap,
         _ => Core.Notices.NoticeLevel.App,
     };
@@ -389,14 +391,14 @@ internal static class ToastRenderer
     {
         (NoticeKind.Alert or NoticeKind.FanStopped or NoticeKind.DriveFailing, false) => Color.FromArgb(248, 113, 113),
         (NoticeKind.Recap or NoticeKind.Rewind or NoticeKind.Memory or NoticeKind.Startup or NoticeKind.Weekly, false) => Color.FromArgb(91, 140, 255),
-        (NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space, false) => Color.FromArgb(251, 191, 36),
+        (NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space or NoticeKind.Fps, false) => Color.FromArgb(251, 191, 36),
         (NoticeKind.Session, false) => Color.FromArgb(61, 220, 151),
         (NoticeKind.Crash or NoticeKind.Internet, false) => Color.FromArgb(251, 191, 36),
         (NoticeKind.InternetBack, false) => Color.FromArgb(61, 220, 151),
         (_, false) => Color.FromArgb(177, 140, 255),
         (NoticeKind.Alert or NoticeKind.FanStopped or NoticeKind.DriveFailing, true) => Color.FromArgb(185, 28, 28),
         (NoticeKind.Recap or NoticeKind.Rewind or NoticeKind.Memory or NoticeKind.Startup or NoticeKind.Weekly, true) => Color.FromArgb(37, 99, 235),
-        (NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space, true) => Color.FromArgb(180, 83, 9),
+        (NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space or NoticeKind.Fps, true) => Color.FromArgb(180, 83, 9),
         (NoticeKind.Session, true) => Color.FromArgb(4, 120, 87),
         (NoticeKind.Crash or NoticeKind.Internet, true) => Color.FromArgb(180, 83, 9),
         (NoticeKind.InternetBack, true) => Color.FromArgb(4, 120, 87),
@@ -423,6 +425,7 @@ internal static class ToastRenderer
         NoticeKind.Startup => Lang.T("STARTS WITH WINDOWS"),
         NoticeKind.Weekly => Lang.T("WEEKLY RECAP"),
         NoticeKind.Timer => Lang.T("TIMER"),
+        NoticeKind.Fps => Lang.T("GAMES"),
         _ => Lang.T("UPDATE"),
     };
 

@@ -65,11 +65,18 @@ public sealed partial class ShelfRow(GameEntry entry, string name, string sub, s
 /// <summary>A figure over the banner, one line: plain lead, the figure in bold, plain trail.</summary>
 public sealed record GamePill(string Lead, string Bold, string Trail = "");
 
-/// <summary>A line of "Problems in …": amber only when it counts something that needs a look.</summary>
-public sealed record ProblemRow(string Label, string Value, string Note, bool Warm, bool Grey = false);
+/// <summary>
+/// A tile of "Problems in …", only for what happened (approved mock-up, 2026-11-14): its icon, the sentence with its count
+/// picked out (<see cref="Lead"/>, <see cref="Count"/>, <see cref="Trail"/>, so the whole sentence stays one text to
+/// translate) and the days. Amber, or grey for power cuts, which are said apart and never judged.
+/// </summary>
+public sealed record ProblemTile(string Glyph, string Lead, string Count, string Trail, string Days, bool Grey = false)
+{
+    public bool HasDays => Days.Length > 0;
+}
 
-/// <summary>A label and its value in "Heat and power".</summary>
-public sealed record HeatRow(string Label, string Value, Brush? Brush = null);
+/// <summary>A label and its value in "Heat and power", "Memory" and the like, with what it means on hover where that helps.</summary>
+public sealed record HeatRow(string Label, string Value, Brush? Brush = null, string? Tip = null);
 
 /// <summary>One line in "Can it run better?": an icon in the part's colour and one statement.</summary>
 public sealed record BetterLine(string Glyph, string Text, Brush? Brush);
@@ -110,6 +117,9 @@ public sealed record PlayRow
     public string? Usual { get; init; }
     public bool UsualWarm { get; init; }
     public string Power { get; init; } = "";
+    /// <summary>The game's own RAM in the play, on average ("9.6 GB") and at most ("peak 11.4"); null when not recorded.</summary>
+    public string? Ram { get; init; }
+    public string? RamPeak { get; init; }
     /// <summary>How a play ended, only when it ended badly ("Game crashed 1h 30m in"); a closed game says nothing.</summary>
     public string? Ended { get; init; }
     public string EndedJoin => Ended is null ? "" : " · ";
@@ -579,8 +589,18 @@ public sealed partial class GamesViewModel : ObservableObject
     [ObservableProperty] private string _runsLabel = "";
     [ObservableProperty] private bool _canRunsPrevious;
     [ObservableProperty] private bool _canRunsNext;
-    /// <summary>A play with frame data to open: the switch shows.</summary>
+    /// <summary>A play with frame data to open, and something to switch back to: the switch shows.</summary>
     [ObservableProperty] private bool _hasFramePlays;
+    /// <summary>
+    /// The game's one play with a frame rate has frame data: How it runs opens straight on its minutes and the switch is
+    /// gone, since there's nothing to switch to (approved mock-up, 2026-11-14).
+    /// </summary>
+    [ObservableProperty] private bool _onlyPlay;
+    /// <summary>12 plays or fewer in the range: each in its own slot (see <see cref="RunsChart.Slots"/>).</summary>
+    [ObservableProperty] private bool _runsSlots;
+    /// <summary>The key's 1% low as the slots draw it (a ring), else as the dates do (a dashed line).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(LineKey))] private bool _slotKey;
+    public bool LineKey => !SlotKey;
     /// <summary>The key's ringed dot: plays drawn one by one (not weeks), some with frame data.</summary>
     [ObservableProperty] private bool _showRingKey;
     /// <summary>The range picked, for the menu's tick: 7, 30 or 365 days, or -1 (custom or stepped back).</summary>
@@ -679,13 +699,17 @@ public sealed partial class GamesViewModel : ObservableObject
         int ask = ++_runsAsk;
         var (from, to) = RunsRange();
         var inRange = _withFps.Where(p => p.EndTime >= from && p.StartTime <= to).ToList();
-        bool weekly = (to - from).TotalDays > 62;
+        // A few plays each get a slot, however long the range (a point a week would hide them); past that, dates.
+        bool slots = inRange.Count is > 0 and <= RunsChart.MostSlots;
+        bool weekly = !slots && (to - from).TotalDays > 62;
         RunsFrom = from;
         RunsTo = to;
+        RunsSlots = slots;
+        SlotKey = slots && !FramesView;
         RunsPoints = weekly
             ? inRange.GroupBy(p => p.StartTime.Date.AddDays(-(((int)p.StartTime.DayOfWeek + 6) % 7))).Select(g => Week(g.Key, g.ToList(), to)).ToList()
             : inRange.Select(p => new RunsPoint(p.StartTime, p.EndTime, p.ActiveSec, p.Stats.Fps!.Value, p.Stats.FpsLow, p.Stats.StuttersAnHour, 1, false,
-                p.Stats.FrameMinutes > 0, p.Ending == PlayEnd.PowerCut, p.Stats.Gpu, p.Stats.GpuPower)).ToList();
+                p.Stats.FrameMinutes > 0, p.Ending == PlayEnd.PowerCut, p.Stats.Gpu, p.Stats.GpuPower, p.Stats.MemAvg, p.Stats.MemMax)).ToList();
         RunsMarks = _allMarks;
         ShowRingKey = !weekly && RunsPoints.Any(p => p.CanOpen);
         CanRunsPrevious = FramesView ? _play is not null && _framePlays.IndexOf(_play) > 0 : from > RunsHistoryStart;
@@ -764,8 +788,12 @@ public sealed partial class GamesViewModel : ObservableObject
     // Can it run better?
     [ObservableProperty] private IReadOnlyList<BetterLine> _better = [];
 
-    [ObservableProperty] private IReadOnlyList<ProblemRow> _problems = [];
+    /// <summary>Only what happened; with none the card isn't there (approved mock-up, 2026-11-14).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasProblems))] private IReadOnlyList<ProblemTile> _problems = [];
+    public bool HasProblems => Problems.Count > 0;
     [ObservableProperty] private IReadOnlyList<HeatRow> _heat = [];
+    /// <summary>The game's RAM, the whole PC's and video memory, beside "Heat and power" with as many rows.</summary>
+    [ObservableProperty] private IReadOnlyList<HeatRow> _memory = [];
     /// <summary>The game itself: launcher, size, drive, folder, version, when it was played (see <see cref="AboutRows"/>).</summary>
     [ObservableProperty] private IReadOnlyList<HeatRow> _about = [];
     [ObservableProperty] private IReadOnlyList<WeekBar> _weeks = [];
@@ -989,10 +1017,16 @@ public sealed partial class GamesViewModel : ObservableObject
         _withFps = withFps;
         _framePlays = withFps.Where(p => p.Stats.FrameMinutes > 0).ToList();
         _app = e.AppIds.Count > 0 ? e.AppIds[0] : 0;
-        HasFramePlays = _framePlays.Count > 0;
+        bool wasOnlyPlay = OnlyPlay;
+        OnlyPlay = withFps.Count == 1 && _framePlays.Count == 1;
+        HasFramePlays = _framePlays.Count > 0 && !OnlyPlay;
         _play = _play is { } was ? _framePlays.FirstOrDefault(p => p.Start == was.Start) : null;
         _play ??= _framePlays.LastOrDefault();
         if (_play is null) FramesView = false;
+        else if (OnlyPlay) FramesView = true;
+        // It was showing its one play only because there was one: with a second, back to the plays over the range, as
+        // any game with several opens (the gate, 2026-11-15).
+        else if (wasOnlyPlay) FramesView = false;
         // Opening on the last 30 days, or longer when the game wasn't played in them.
         if (_runsCustom is null && _runsBack == 0 && withFps.Count > 0 && !withFps.Any(p => p.EndTime >= DateTime.Now.AddDays(-_runsDays)))
         {
@@ -1009,19 +1043,10 @@ public sealed partial class GamesViewModel : ObservableObject
 
         Better = BetterLines(st, withFps);
 
-        // Problems: the game's own, and the PC's that weren't a power cut. Power cuts in grey.
-        var problems = new List<ProblemRow>
-        {
-            new(Lang.T("Shut-offs that weren't a power cut"), st.ShutOffs > 0 ? $"{st.ShutOffs}" : None, "", st.ShutOffs > 0),
-            new(Lang.T("Game crashes Windows recorded"), st.Crashes > 0 ? $"{st.Crashes}" : None, "", st.Crashes > 0),
-            new(Lang.T("Graphics driver resets"), st.DriverResets > 0 ? $"{st.DriverResets}" : None, "", st.DriverResets > 0),
-            new(Lang.T("Freezes"), st.Hangs > 0 ? $"{st.Hangs}" : None, "", st.Hangs > 0),
-        };
-        if (st.PowerCuts.Count > 0)
-            problems.Add(new(Lang.T("Power cuts"), $"{st.PowerCuts.Count}", " · " + string.Join(", ", st.PowerCuts.Select(p => p.StartTime.ToString("d MMM"))), false, Grey: true));
-        Problems = problems;
+        // Problems: the game's own, and the PC's that weren't a power cut, only those that happened. Power cuts in grey.
+        Problems = ProblemTiles(st);
 
-        // Heat and power
+        // Heat and power, and beside it Memory with as many rows (video memory moved there, 2026-11-14).
         var heat = new List<HeatRow>
         {
             new(Lang.T("GPU while playing"), st.Usual is { } uu ? Lang.T($"{Units.TempShort(uu.Gpu)} usual") : Units.TempShort(st.All.Gpu), Brush("GpuBrush")),
@@ -1029,9 +1054,9 @@ public sealed partial class GamesViewModel : ObservableObject
             new(Lang.T("Hot spot peak"), Units.TempShort(st.All.HotMax), Brush("PurpleBrush")),
             // Without the card's watts the figure is the CPU's alone (an RTX 3050 that gives no power reading, 2026-11-02).
             new(st.All.GpuPower is null ? Lang.T("CPU power") : Lang.T("CPU and GPU power"), st.All.Power is double p ? Lang.T($"{p:0} W · {p / 1000:0.00} kWh an hour") : "—"),
-            new(Lang.T("Video memory"), GraphicsMemory(st.All)),
         };
         Heat = heat;
+        Memory = MemoryRows(st.All, st.RamTotalGb);
 
         // Play time over the last four weeks
         double top = Math.Max(st.WeekSec.DefaultIfEmpty(0).Max(), 1);
@@ -1122,6 +1147,67 @@ public sealed partial class GamesViewModel : ObservableObject
         return "";
     }
 
+    /// <summary>
+    /// "Problems in …" as tiles, one for each kind that happened, with its days: shut-offs that weren't a power cut, the
+    /// game's crashes, graphics driver resets and freezes in amber, power cuts in grey. Empty when nothing happened.
+    /// </summary>
+    internal static List<ProblemTile> ProblemTiles(GameStory st)
+    {
+        var tiles = new List<ProblemTile>();
+        Add("", st.ShutOffs, st.ShutOffs == 1 ? Lang.T("1 sudden shut-off that wasn't a power cut") : Lang.T($"{st.ShutOffs} sudden shut-offs that weren't a power cut"), st.ShutOffTimes);
+        Add("", st.Crashes, st.Crashes == 1 ? Lang.T("1 game crash Windows recorded") : Lang.T($"{st.Crashes} game crashes Windows recorded"), st.CrashTimes);
+        Add("", st.DriverResets, st.DriverResets == 1 ? Lang.T("1 graphics driver reset") : Lang.T($"{st.DriverResets} graphics driver resets"), st.DriverResetTimes);
+        Add("", st.Hangs, st.Hangs == 1 ? Lang.T("1 freeze") : Lang.T($"{st.Hangs} freezes"), st.HangTimes);
+        int cuts = st.PowerCuts.Count;
+        Add("", cuts, cuts == 1 ? Lang.T("1 power cut") : Lang.T($"{cuts} power cuts"), st.PowerCuts.Select(p => p.StartTime), grey: true);
+        return tiles;
+
+        // The count picked out of the whole sentence, wherever the language puts it.
+        void Add(string glyph, int n, string text, IEnumerable<DateTime> times, bool grey = false)
+        {
+            if (n <= 0) return;
+            string count = n.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            int at = text.IndexOf(count, StringComparison.Ordinal);
+            tiles.Add(at < 0 ? new(glyph, "", "", text, DaysOf(times), grey) : new(glyph, text[..at], count, text[(at + count.Length)..], DaysOf(times), grey));
+        }
+    }
+
+    /// <summary>The days something happened: up to three named ("Sat 24 Oct and Mon 9 Nov"), else the last one.</summary>
+    private static string DaysOf(IEnumerable<DateTime> times)
+    {
+        var days = times.Select(t => t.Date).Distinct().Order().ToList();
+        if (days.Count == 0) return "";
+        if (days.Count <= 3) return Wording.JoinAnd(days.Select(Day));
+        string last = Day(days[^1]);
+        return Lang.T($"The last one on {last}");
+    }
+
+    /// <summary>
+    /// "Memory": the game's own RAM on average and at most (Task Manager's measure), all the RAM in use on the PC while it
+    /// was in front, and its video memory. Plain figures: none has a usual to compare with, so none is coloured.
+    /// </summary>
+    internal static List<HeatRow> MemoryRows(PlayStats all, double? ramTotalGb)
+    {
+        string none = Lang.T("Not recorded");
+        string pc = all.RamUsedMax is not double used ? none : ramTotalGb is double total ? Lang.T($"up to {used:0.0} of {total:0} GB") : Lang.T($"up to {used:0.0} GB");
+        return
+        [
+            new(Lang.T("RAM while playing"), all.MemAvg is double avg ? Lang.T($"{Units.Megabytes(avg)} average") : none, null, Lang.T("What the game itself held, on average while it ran.")),
+            new(Lang.T("RAM peak"), all.MemMax is double most ? Units.Megabytes(most) : none, null, Lang.T("The most the game itself held at one time.")),
+            new(Lang.T("RAM in use, all apps"), pc, null, Lang.T("Everything in use on the PC while you played, the game included.")),
+            new(Lang.T("Video memory"), GraphicsMemory(all)),
+        ];
+    }
+
+    /// <summary>A play's own RAM for Every play: "9.6 GB" and "peak 11.4" (the unit said once where both are in GB).</summary>
+    internal static (string? Ram, string? Peak) PlayRam(PlayStats s)
+    {
+        if (s.MemAvg is not double avg) return (null, null);
+        if (s.MemMax is not double most) return (Units.Megabytes(avg), null);
+        string peak = avg >= 1024 && most >= 1024 ? (most / 1024).ToString("0.0", System.Globalization.CultureInfo.CurrentCulture) : Units.Megabytes(most);
+        return (Units.Megabytes(avg), Lang.T($"peak {peak}"));
+    }
+
     private static PlayRow ChangeRow(SystemChange c) => new()
     {
         IsChange = true,
@@ -1168,6 +1254,8 @@ public sealed partial class GamesViewModel : ObservableObject
             Usual = note,
             UsualWarm = warm,
             Power = p.Stats.GpuPower is double w ? $"{w:0} W" : "",
+            Ram = PlayRam(p.Stats).Ram,
+            RamPeak = PlayRam(p.Stats).Peak,
             Ended = ended is null ? null : $"{ended} {In(p)}",
             EndedWarm = endWarm,
             Ask = endWarm && ended is not null ? new(Lang.T($"Why did my {game} play on {p.StartTime:ddd d MMM} at {p.StartTime:h:mm tt} end ({ended.ToLowerInvariant()})?"), AiPages.Games)
@@ -1191,8 +1279,6 @@ public sealed partial class GamesViewModel : ObservableObject
         Launcher.BattleNet => "Battle.net",
         _ => "",
     };
-
-    private static string None => Lang.T("None");
 
     private static string NotPlayedYet => Lang.T("Not played yet");
 

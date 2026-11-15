@@ -97,6 +97,7 @@ public sealed class PlansTests
     [InlineData("licence", "has_plan", "already has a plan")]
     [InlineData("unavailable", "too_fast", "wasn't counted")]
     [InlineData("unavailable", "billing", "Nothing was charged")]
+    [InlineData("unavailable", "region", "isn't available in your region")]
     public void The_relays_new_refusals_are_said_plainly(string kind, string reason, string part)
     {
         Assert.Contains(part, Relay.Problem($"{{\"error\":\"{kind}\",\"reason\":\"{reason}\"}}", 403));

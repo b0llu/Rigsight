@@ -207,6 +207,15 @@ public sealed partial class RigsightDb : IDisposable
                 n INTEGER NOT NULL, rpm_sum REAL NOT NULL, PRIMARY KEY(day, fan, app, temp)) WITHOUT ROWID;
             """);
 
+        // Each day's fan loudness (2026-11-14, see FanLevels): minutes at each level, starts and the longest still stretch,
+        // so a year shows them without a year of minutes. Added up by WriteFanMinutes for each finished day from then on
+        // (and the 30 days before, the first time).
+        Exec("""
+            CREATE TABLE IF NOT EXISTS fan_level_day(day INTEGER PRIMARY KEY, silent INTEGER NOT NULL, quiet INTEGER NOT NULL,
+                busy INTEGER NOT NULL, loud INTEGER NOT NULL, starts INTEGER NOT NULL, kind INTEGER NOT NULL, longest_n INTEGER NOT NULL,
+                longest_from INTEGER NOT NULL, score_sum REAL NOT NULL, loud_app INTEGER, loud_app_score REAL NOT NULL);
+            """);
+
         // Until 0.10.2 a fan's last reading was recorded again and again while the app was closed (its chip wasn't read
         // then): those speeds are mostly hours old, so they go, once. The fans themselves stay.
         if (GetMeta(FansFreshKey) is null)
@@ -523,7 +532,105 @@ public sealed partial class RigsightDb : IDisposable
             """, ("$ts", ts));
         day.ExecuteNonQuery();
         RollFanCurves(ts);
+        // Never in the way of the minutes: a day's loudness that can't be added up is left out, and said in the log.
+        try { RollFanLevels(ts); }
+        catch (Exception ex) { Log.Error("FanLevels", ex); }
     }
+
+    private const string FanLevelKey = "fan_level_through";
+
+    /// <summary>
+    /// fan_level_day for the finished days not added up yet (once a day, like <see cref="RollFanCurves"/>): each from its
+    /// minutes, every fan against its range over the <see cref="Reports.FanLevels.RangeDays"/> days to its end. The first
+    /// time, the last <see cref="Reports.FanLevels.RangeDays"/> days, ONE DAY A CALL (a call each minute): all thirty at
+    /// once read a month of minutes in one go and left the agent's memory 30 MB up (the gate's end-to-end, 2026-11-15).
+    /// </summary>
+    private void RollFanLevels(long ts)
+    {
+        long DayStart(long t, string shift = "")
+        {
+            using var c = Cmd($"SELECT {DayOf("$t", shift)}", ("$t", t));
+            return (long)c.ExecuteScalar()!;
+        }
+        long today = DayStart(ts);
+        long through = GetMeta(FanLevelKey) is string s && long.TryParse(s, out long v) ? v
+            : DayStart(ts, $", '-{Reports.FanLevels.RangeDays} days'");
+        if (through >= today) return;
+
+        // The next day with minutes, only: the rest wait for the next calls.
+        long? first;
+        using (var c = Cmd($"SELECT {DayOf("min(ts)")} FROM fan_minute WHERE ts >= $from AND ts < $to", ("$from", through), ("$to", today)))
+            first = c.ExecuteScalar() is long f ? f : null;
+        if (first is null)
+        {
+            SetMeta(FanLevelKey, today.ToString());
+            return;
+        }
+        var rows = Reports.FanLevels.RowsOf(GetFans());
+        foreach (long day in new[] { first.Value })
+        {
+            long next = DayStart(day, ", '+1 day'");
+            var spans = GetFanSpans(DayStart(day, $", '-{Reports.FanLevels.RangeDays - 1} days'"), next).ToDictionary(x => x.Fan);
+            var ranges = rows.Select(row => Reports.FanLevels.RangeOf(row.Fans.Where(spans.ContainsKey).Select(f => spans[f]))).ToList();
+            var run = Reports.FanLevels.Of(rows, ranges, GetFanMinutes(day, next));
+            if (run.Minutes.Count == 0)
+            {
+                // Nothing to add up that day: past it all the same, or every call would try it again.
+                SetMeta(FanLevelKey, next.ToString());
+                continue;
+            }
+            // The app in front each minute, and nothing else of the minute (whole rows for a day were the heavy part).
+            var front = new Dictionary<long, long?>();
+            using (var c = Cmd("SELECT ts, fg_app FROM system_minute WHERE ts >= $from AND ts < $to AND fg_app IS NOT NULL", ("$from", day), ("$to", next)))
+            using (var r = c.ExecuteReader())
+                while (r.Read()) front[r.GetInt64(0)] = r.GetInt64(1);
+            var d = Reports.FanLevels.DayRow(day, run, t => front.GetValueOrDefault(t));
+            using var ins = Cmd("""
+                INSERT OR REPLACE INTO fan_level_day(day, silent, quiet, busy, loud, starts, kind, longest_n, longest_from, score_sum, loud_app, loud_app_score)
+                VALUES($d, $s, $q, $b, $l, $st, $k, $ln, $lf, $sc, $a, $as)
+                """, ("$d", d.Day), ("$s", d.Silent), ("$q", d.Quiet), ("$b", d.Busy), ("$l", d.Loud), ("$st", d.Starts), ("$k", d.Kind),
+                ("$ln", d.LongestN), ("$lf", d.LongestFrom), ("$sc", d.ScoreSum), ("$a", (object?)d.LoudApp ?? DBNull.Value), ("$as", d.LoudAppScore));
+            ins.ExecuteNonQuery();
+            // Done through this day; the next call takes the one after.
+            SetMeta(FanLevelKey, next.ToString());
+        }
+    }
+
+    /// <summary>
+    /// Each fan's minutes from <paramref name="from"/> to <paramref name="to"/>: its slowest while spinning, its fastest,
+    /// and its minutes still and spinning (a fan's range, see <see cref="Reports.FanLevels"/>).
+    /// </summary>
+    public List<Reports.FanSpan> GetFanSpans(long from, long to)
+    {
+        if (!HasFans) return [];
+        using var cmd = Cmd("""
+            SELECT fan, min(CASE WHEN rpm_avg >= $spin THEN rpm_avg END), max(rpm_avg), total(rpm_avg < $spin), total(rpm_avg >= $spin)
+            FROM fan_minute WHERE ts >= $from AND ts < $to GROUP BY fan
+            """, ("$from", from), ("$to", to), ("$spin", Reports.FanList.MinSpinRpm));
+        using var r = cmd.ExecuteReader();
+        var list = new List<Reports.FanSpan>();
+        while (r.Read())
+            list.Add(new Reports.FanSpan(r.GetInt64(0), r.IsDBNull(1) ? null : r.GetDouble(1), r.IsDBNull(2) ? 0 : r.GetDouble(2), (int)r.GetDouble(3), (int)r.GetDouble(4)));
+        return list;
+    }
+
+    /// <summary>fan_level_day's rows for the days from <paramref name="from"/> to <paramref name="to"/> (empty before it was kept).</summary>
+    public List<FanLevelDay> GetFanLevelDays(long from, long to)
+    {
+        if (!(_hasFanLevels ??= HasTable("fan_level_day"))) return [];
+        using var cmd = Cmd("""
+            SELECT day, silent, quiet, busy, loud, starts, kind, longest_n, longest_from, score_sum, loud_app, loud_app_score
+            FROM fan_level_day WHERE day >= $from AND day < $to ORDER BY day
+            """, ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        var list = new List<FanLevelDay>();
+        while (r.Read())
+            list.Add(new FanLevelDay(r.GetInt64(0), r.GetInt32(1), r.GetInt32(2), r.GetInt32(3), r.GetInt32(4), r.GetInt32(5), r.GetInt32(6), r.GetInt32(7),
+                r.GetInt64(8), r.GetDouble(9), r.IsDBNull(10) ? null : r.GetInt64(10), r.GetDouble(11)));
+        return list;
+    }
+
+    private bool? _hasFanLevels;
 
     private const string FanCurveKey = "fan_curve_through";
 
@@ -944,6 +1051,7 @@ public sealed partial class RigsightDb : IDisposable
             DELETE FROM fan_minute WHERE ts < $t;
             DELETE FROM fan_day WHERE day <= {DayOf("$t")};
             DELETE FROM fan_curve_day WHERE day <= {DayOf("$t")};
+            DELETE FROM fan_level_day WHERE day < {DayOf("$t")};
             INSERT INTO fan_day SELECT {DayOf("f.ts")}, f.fan, {FanSums} FROM fan_minute f JOIN system_minute m ON m.ts = f.ts
                 WHERE f.ts >= {DayOf("$t")} AND f.ts < {DayOf("$t", ", '+1 day'")} GROUP BY 1, 2;
             """, ("$t", before))) c1f.ExecuteNonQuery();
@@ -978,7 +1086,7 @@ public sealed partial class RigsightDb : IDisposable
     public void ClearHistory()
     {
         Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM drive_health_day; DELETE FROM crashes; DELETE FROM crash_signs; DELETE FROM close_up;"
-            + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM app_minute;"
+            + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM fan_level_day; DELETE FROM app_minute;"
             + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop; DELETE FROM net_ping; DELETE FROM net_ping_switch;"
             + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter; DELETE FROM steam_download;"
             + " DELETE FROM disk_app_hour; DELETE FROM disk_app_day;"); // the inventory stays: what's installed isn't history, and clearing it would list every app as new

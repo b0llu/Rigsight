@@ -39,6 +39,9 @@ public sealed partial class LiveData : ObservableObject
         {
             live.LiveSortingProperties.Add(nameof(ProcRow.MemMB));
             live.IsLiveSorting = true;
+            // The Memory page's "Above their usual" filter follows the apps as they come above it or go back down.
+            live.LiveFilteringProperties.Add(nameof(ProcRow.IsOver));
+            live.IsLiveFiltering = true;
         }
         ProcsView.Filter = o => o is ProcRow p && Listed(p);
     }
@@ -485,10 +488,29 @@ public sealed partial class LiveData : ObservableObject
     /// <summary>Something is searched for and no app running matches it.</summary>
     public bool NoProcsMatch => _procWords.Length > 0 && !Procs.Any(Listed);
 
-    /// <summary>Whether an app is in the live list: by the switch, and by what's searched for (its name, its program's
-    /// name, or one of its processes where those are open).</summary>
-    private bool Listed(ProcRow p) => (!OnlyWindowedApps || p.HasWindow)
+    /// <summary>The Memory page's "Above their usual" filter: the live list shows only the apps above their usual.</summary>
+    [ObservableProperty] private bool _onlyAboveUsual;
+
+    /// <summary>How many of the apps the switch and the search leave in the live list are above their usual (the filter's count).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAboveUsual))]
+    private int _aboveUsualCount;
+
+    /// <summary>Any app in the live list is above its usual: the filter can be used.</summary>
+    public bool HasAboveUsual => AboveUsualCount > 0;
+
+    /// <summary>Whether an app is in the live list: by the switch, by what's searched for (its name, its program's
+    /// name, or one of its processes where those are open), and by the "Above their usual" filter.</summary>
+    private bool Listed(ProcRow p) => Matches(p) && (!OnlyAboveUsual || p.IsOver);
+
+    private bool Matches(ProcRow p) => (!OnlyWindowedApps || p.HasWindow)
         && (_procWords.Length == 0 || Core.TextMatch.Has(_procWords, [p.Name, p.Exe, .. p.Children.Select(c => c.Label)]));
+
+    partial void OnOnlyAboveUsualChanged(bool value)
+    {
+        ProcsView.Refresh();
+        UpdateBars();
+    }
 
     partial void OnProcSearchChanged(string value)
     {
@@ -1108,7 +1130,7 @@ public sealed partial class LiveData : ObservableObject
         if (!top6.SequenceEqual(TopMemory)) TopMemory = top6;
         double totalMB = ((RamUsed?.Value ?? 0) + (RamAvailable?.Value ?? 0)) * 1024;
         foreach (var p in Procs) p.MemShare = totalMB > 0 ? p.MemMB / totalMB * 100 : 0;
-        if (OnlyWindowedApps || _procWords.Length > 0)
+        if (OnlyWindowedApps || _procWords.Length > 0 || OnlyAboveUsual)
         {
             ProcsView.Refresh();
             OnPropertyChanged(nameof(NoProcsMatch));
@@ -1125,6 +1147,13 @@ public sealed partial class LiveData : ObservableObject
     /// </summary>
     public void UpdateBars()
     {
+        // The filter's count first: with none left above their usual, the filter goes off and the list shows every app.
+        AboveUsualCount = Procs.Count(p => p.IsOver && Matches(p));
+        if (AboveUsualCount == 0 && OnlyAboveUsual)
+        {
+            OnlyAboveUsual = false;
+            return; // its change refreshed the list and came back here
+        }
         double biggest = Procs.Where(Listed).Select(p => Math.Max(p.MemMB, p.UsualMB ?? 0)).DefaultIfEmpty(0).Max();
         foreach (var p in Procs)
         {

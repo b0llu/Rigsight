@@ -191,66 +191,69 @@ public sealed record DiskUseRow(string Name, bool IsWindows, double ReadShare, d
 {
 }
 
-/// <summary>A group of Every reading in plain words ("WHAT TO WATCH", "WEAR AND USE"): a column of its own.</summary>
-public sealed record ReadingGroup(string Title, IReadOnlyList<ReadingRow> Rows);
-
-/// <summary>One line of "Every reading": in plain words with what it was a month ago, or as the drive reports it.</summary>
-public sealed record ReadingRow(string Group, string Name, string Now, string Then, Brush? Dot, string Id = "", string Current = "", string Worst = "", string Threshold = "", string Maker = "")
+/// <summary>
+/// One line of Every reading in plain words (approved mock-up 2026-11-14): the reading worked out in Core
+/// (<see cref="Core.Storage.DriveReading"/>) with its brushes, and the change column's width (none on a drive's first day).
+/// </summary>
+public sealed class ReadingLine(Core.Storage.DriveReading r, GridLength sinceWidth, bool isFirst)
 {
-    public bool HasDot => Dot is not null;
-    /// <summary>A group's heading line ("WHAT TO WATCH"), put in the list where the group starts.</summary>
-    public bool IsHeader { get; init; }
-    public bool IsRow => !IsHeader;
+    /// <summary>The group's first line, which has no line above it (its heading has one under it).</summary>
+    public bool IsFirst { get; } = isFirst;
+    public string Name => r.Name;
+    public string What => r.What;
+    public string Now => r.Now;
+    public string Usual => r.Usual;
+    public bool HasUsual => r.Usual.Length > 0;
+    public string Change => r.Change;
+    public string Glyph => r.Glyph;
+    public string Tip => r.Tip;
+    public string MakerLine => r.MakerLine;
+    public bool HasMakerLine => r.MakerLine.Length > 0;
+    public bool HasDot => r.Dot != Core.Storage.ReadingDot.None;
+    public Brush? Dot => DriveReadingBrushes.Dot(r.Dot);
+    public Brush IconBrush => DriveReadingBrushes.Get(r.Colour);
+    public Brush ValueBrush => DriveReadingBrushes.Get(r.ValueWarm ? "WarmBrush" : "TextBrush");
+    /// <summary>Amber only when a watched reading went the wrong way.</summary>
+    public Brush ChangeBrush => DriveReadingBrushes.Get(r.ChangeWarm ? "WarmBrush" : "MutedBrush");
+    public GridLength SinceWidth { get; } = sinceWidth;
+    /// <summary>
+    /// The change shows only while its column does: with no earlier day the column is 0 wide, and its text wrapped a letter
+    /// a line there, making every line some 300 px tall (the user's test copy, 2026-11-14).
+    /// </summary>
+    public bool HasChange => SinceWidth.Value > 0 && r.Change.Length > 0;
 }
 
-/// <summary>A drive's attributes in plain words (CrystalDiskInfo's numbers; an NVMe drive's health log comes as attributes 1 to 15).</summary>
-public static class DriveReadings
+/// <summary>One line of Every reading as the drive reports it (see <see cref="Core.Storage.DriveAttributeLine"/>), its columns' widths set by the drive's kind.</summary>
+public sealed class OwnReadingLine(Core.Storage.DriveAttributeLine a, bool nvme)
 {
-    /// <summary>
-    /// The plain list as its groups, each a column of its own under its name (the user picked this, 2026-11-14: one group
-    /// split over two columns read like two drives side by side).
-    /// </summary>
-    public static List<ReadingGroup> Groups(IEnumerable<ReadingRow> rows) =>
-        [.. rows.Where(r => r.IsRow).GroupBy(r => r.Group).Select(g => new ReadingGroup(g.Key, [.. g]))];
+    public string IdText => a.IdText;
+    public string Name => a.Name;
+    public string Plain => a.Plain;
+    public bool HasPlain => a.Plain.Length > 0;
+    public string Score => a.Score;
+    public string Lowest => a.Lowest;
+    public string Limit => a.Limit;
+    public string Count => a.Count;
+    public string Tip => a.Tip;
+    public bool Watched => a.Watched;
+    public Brush? Dot => DriveReadingBrushes.Dot(a.Dot);
+    /// <summary>Score, Lowest and Limit: none on an NVMe drive, which gives counts only.</summary>
+    public GridLength ScoreWidth => DriveReadingBrushes.ScoreWidth(nvme);
+    public GridLength CountWidth => DriveReadingBrushes.CountWidth(nvme);
+}
 
-    public static List<ReadingRow> Plain(DriveHealthInfo h, DriveHealthDay? monthAgo)
+/// <summary>The palette brushes and column widths Every reading's lines use.</summary>
+public static class DriveReadingBrushes
+{
+    public static Brush Get(string key) => Application.Current?.TryFindResource(key) as Brush ?? Brushes.Gray;
+
+    public static Brush? Dot(Core.Storage.ReadingDot dot) => dot switch
     {
-        var rows = new List<ReadingRow>();
-        string watch = Lang.T("WHAT TO WATCH"), use = Lang.T("WEAR AND USE");
-        var good = (Brush)Application.Current.FindResource("GoodBrush");
-        var warm = (Brush)Application.Current.FindResource("WarmBrush");
-        var attrs = h.Attributes ?? [];
-        ulong? Raw(int id) => attrs.FirstOrDefault(a => a.Id == id) is { } a ? a.Raw : null;
-        Brush Dot(ulong v) => v == 0 ? good : warm;
-        void Count(string name, ulong? now, long? then)
-        {
-            if (now is not ulong v) return;
-            rows.Add(new ReadingRow(watch, name, $"{v:N0}", then is long t ? $"{t:N0}" : "", Dot(v)));
-        }
-        if (h.IsNvme)
-        {
-            if (Raw(1) is ulong warn) rows.Add(new ReadingRow(watch, Lang.T("Warnings from the drive"), warn == 0 ? Lang.T("None") : Lang.T("Yes"), "", Dot(warn)));
-            if (Raw(3) is ulong spare) rows.Add(new ReadingRow(watch, Lang.T("Spare blocks left"), $"{spare}%", "", spare >= (Raw(4) ?? 10) ? good : warm));
-            Count(Lang.T("Data it couldn't read back"), Raw(14), null);
-        }
-        else
-        {
-            Count(Lang.T("Bad sectors swapped out"), Raw(5), monthAgo?.Reallocated);
-            Count(Lang.T("Sectors waiting to be swapped"), Raw(197), monthAgo?.Pending);
-            Count(Lang.T("Sectors it couldn't read"), Raw(198), monthAgo?.Uncorrectable);
-            Count(Lang.T("Cable or connection errors"), Raw(199), null);
-        }
-        if (h.Life is double life) rows.Add(new ReadingRow(use, Lang.T("Life left"), $"{life:0}%", monthAgo?.Life is double l ? $"{l:0}%" : "", null));
-        if (h.WrittenGb is double w) rows.Add(new ReadingRow(use, Lang.T("Data written"), Units.DiskBytes((long)(w * 1e9)), monthAgo?.WrittenGb is double wt ? Units.DiskBytes((long)(wt * 1e9)) : "", null));
-        if (h.ReadGb is double r) rows.Add(new ReadingRow(use, Lang.T("Data read"), Units.DiskBytes((long)(r * 1e9)), monthAgo?.ReadGb is double rt ? Units.DiskBytes((long)(rt * 1e9)) : "", null));
-        if (h.PowerOnHours is long hrs) rows.Add(new ReadingRow(use, Lang.T("Hours on"), $"{hrs:N0}", monthAgo?.Hours is long ht ? $"{ht:N0}" : "", null));
-        if (h.PowerOnCount is long ons) rows.Add(new ReadingRow(use, Lang.T("Times switched on"), $"{ons:N0}", monthAgo?.PowerOns is long ot ? $"{ot:N0}" : "", null));
-        if ((h.IsNvme ? Raw(13) : Raw(192) ?? Raw(174)) is ulong cuts) rows.Add(new ReadingRow(use, Lang.T("Sudden shut-offs"), $"{cuts:N0}", "", null));
-        if (h.Temperature is double temp) rows.Add(new ReadingRow(use, Lang.T("Temperature"), $"{temp:0}°", "", null));
-        return rows;
-    }
+        Core.Storage.ReadingDot.Good => Get("GoodBrush"),
+        Core.Storage.ReadingDot.Warm => Get("WarmBrush"),
+        _ => null,
+    };
 
-    /// <summary>Every attribute as the drive names it, with its score, worst, limit and raw count.</summary>
-    public static List<ReadingRow> Own(DriveHealthInfo h) =>
-        [.. (h.Attributes ?? []).Select(a => new ReadingRow("", a.Name, $"{a.Raw:N0}", "", null, $"{a.Id}", h.IsNvme ? "" : $"{a.Current}", h.IsNvme ? "" : $"{a.Worst}", h.IsNvme ? "" : $"{a.Threshold}", a.Name))];
+    public static GridLength ScoreWidth(bool nvme) => new(nvme ? 0 : 72);
+    public static GridLength CountWidth(bool nvme) => new(nvme ? 170 : 130);
 }

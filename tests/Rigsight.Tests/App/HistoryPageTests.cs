@@ -1096,7 +1096,7 @@ public sealed class HistoryPageTests
     // ── Memory ───────────────────────────────────────────────────────────
 
     [Fact]
-    public void Memory_page_lists_todays_ten_biggest_apps()
+    public void Memory_page_lists_todays_biggest_apps()
     {
         var (_, reports, live) = Setup();
         var vm = Ui.Run(() => new MemoryViewModel(reports, live));
@@ -1104,7 +1104,9 @@ public sealed class HistoryPageTests
         Kit.Wait(() => vm.RefreshAsync());
         Ui.Run(() =>
         {
-            Assert.InRange(vm.TodayTop.Count, 1, 10);
+            // As many as the card has room for are shown of these (see MemoryPageTests).
+            Assert.InRange(vm.TodayTop.Count, 1, MemoryViewModel.MostToday);
+            Assert.Equal(vm.TodayTop, vm.TodayRows.Where(r => r.IsApp).Select(r => r.App!));
             var peaks = vm.TodayTop.Select(a => a.MemMax!.Value).ToList();
             Assert.Equal(peaks.OrderDescending(), peaks);
             Assert.Equal(peaks[0], vm.TodayMemoryMax);

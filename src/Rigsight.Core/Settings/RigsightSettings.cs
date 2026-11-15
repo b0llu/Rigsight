@@ -478,6 +478,12 @@ public sealed class AlertSettings
 
     /// <summary>Problems: a drive at or past its own warning temperature, once a day.</summary>
     public bool DriveTemperature { get; set; } = true;
+
+    /// <summary>
+    /// RivaTuner installed but off for 10 minutes on a PC that played a game in the last 30 days, so no FPS is recorded;
+    /// once a day (the user, 2026-11-14). On for everyone; a setting already chosen keeps its value.
+    /// </summary>
+    public bool FpsNotRecorded { get; set; } = true;
     /// <summary>Worth knowing: a CPU or GPU that runs hotter under the same load than in its first weeks, at most once a month.</summary>
     public bool PartsChanged { get; set; } = true;
     /// <summary>Worth knowing: an SSD passing half and a quarter of its rated life.</summary>

@@ -418,6 +418,8 @@ public static partial class Relay
             ("update_needed", _) => Lang.T("RigSight AI needs the latest RigSight. Update, then ask again."),
             // Past the relay's limits for one question (rounds, size): it was counted, so no "wasn't counted".
             ("unavailable", "stopped") => Lang.T("RigSight AI couldn't finish this answer. Ask again, or ask about one part of it."),
+            // The relay's model isn't offered where this PC is: asking again won't help, Ollama runs on the PC itself.
+            ("unavailable", "region") => Lang.T("RigSight AI isn't available in your region, so it can't answer here. Your question wasn't counted. You can still ask with Ollama in Settings › Ask RigSight."),
             ("unavailable", "busy") => Lang.T("RigSight AI is busy right now. Your question wasn't counted. Ask again in a moment."),
             _ when status >= 500 || kind == "unavailable" => Lang.T("RigSight AI couldn't answer this time. Your question wasn't counted. Ask again in a minute."),
             _ => Lang.T($"RigSight AI couldn't answer this time (error {status}). Ask again in a minute."),

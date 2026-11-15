@@ -1,8 +1,11 @@
+using System.Globalization;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Rigsight.Core;
 using Rigsight.Core.Apps;
+using Rigsight.Core.Data;
 using Rigsight.Core.Protocol;
+using Rigsight.Core.Reports;
 using Rigsight.Services;
 
 namespace Rigsight.Models;
@@ -44,15 +47,19 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UsualText), nameof(HasUsual))]
     private double? _usualMB;
-    /// <summary>Well above its usual (see <see cref="OverFactor"/>): its figure turns amber. Never a part of Windows,
-    /// whose memory isn't the user's to act on.</summary>
+    /// <summary>Well above its usual (see <see cref="OverFactor"/>): its figure turns amber, its row is shaded and has its
+    /// line (<see cref="OverLine"/>). Never a part of Windows, whose memory isn't the user's to act on.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(OverText))]
+    [NotifyPropertyChangedFor(nameof(OverText), nameof(OverLine), nameof(OverLineIsGrowing), nameof(OverAsk), nameof(SubText), nameof(SubIsGrowing))]
     private bool _isOver;
     /// <summary>The time it has grown since ("9:10 AM"), when it has grown in every hour of today; null otherwise.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SubText), nameof(IsGrowing))]
+    [NotifyPropertyChangedFor(nameof(SubText), nameof(IsGrowing), nameof(SubIsGrowing), nameof(OverLine), nameof(OverLineIsGrowing), nameof(OverAsk))]
     private string? _growingSince;
+    /// <summary>What the Memory page read about it for today: its hours and its peak (null until it has read them).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OverLine), nameof(OverAsk))]
+    private MemoryToday? _today;
     /// <summary>Showing each of its processes underneath.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowChildren), nameof(IsLoading))]
@@ -90,25 +97,60 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     /// <summary>The heading over its processes when opened ("21 PROCESSES").</summary>
     public string CountCaption => CountText.ToUpperInvariant();
 
-    /// <summary>How far above its usual an app is before the Memory page points it out.</summary>
-    public const double OverFactor = 1.6;
-    /// <summary>
-    /// How far above its usual an app pointed out has to stay to go on being pointed out. Lower than
-    /// <see cref="OverFactor"/>: an app hovering at that line had its card and its amber come and go every few seconds.
-    /// </summary>
-    public const double StayOverFactor = 1.3;
+    /// <summary>How far above its usual an app is before the Memory page points it out (see <see cref="MemoryPast.OverFactor"/>).</summary>
+    public const double OverFactor = MemoryPast.OverFactor;
+    /// <summary>How far above its usual an app pointed out has to stay to go on being pointed out (see <see cref="MemoryPast.StayOverFactor"/>).</summary>
+    public const double StayOverFactor = MemoryPast.StayOverFactor;
     public bool HasUsual => UsualMB is not null;
     public string UsualText => UsualMB is { } usual ? Units.Megabytes(usual) : Nothing;
     public bool IsGrowing => GrowingSince is not null;
-    /// <summary>The line under its name on the Memory page: since when it has grown, or else how many processes it is.</summary>
-    public string SubText => GrowingSince is { } since ? Lang.T($"Growing since {since}") : CountText;
+    /// <summary>
+    /// The line under its name on the Memory page: since when it has grown, or else how many processes it is. A row
+    /// above its usual says since when in its own line (<see cref="OverLine"/>), so its name keeps the count.
+    /// </summary>
+    public string SubText => GrowingSince is { } since && !IsOver ? Lang.T($"Growing since {since}") : CountText;
+    /// <summary>The line under its name says it is growing (amber).</summary>
+    public bool SubIsGrowing => IsGrowing && !IsOver;
     /// <summary>How far above its usual it is, for the box over its bar; null unless it is well above.</summary>
     public string? OverText => IsOver && UsualMB is { } usual ? OverTextOf(MemMB, usual) : null;
 
-    /// <summary>"Twice its usual" around double, else the times over ("2.6 times its usual").</summary>
+    /// <summary>
+    /// The line under a row above its usual (Memory page, mock-up 2026-11-14 B): since when, and its peak today.
+    /// "Above its usual since 1:00 PM, with a peak of 561 MB.", "Above its usual since it started at 9:12 AM, …", or,
+    /// growing, "Growing every hour since 8:00 AM, …". Null unless it is above its usual.
+    /// </summary>
+    public string? OverLine
+    {
+        get
+        {
+            if (!IsOver || UsualMB is not { } usual) return null;
+            // Today's highest reading on record, or what it holds now where that is higher still.
+            string peak = Units.Megabytes(Math.Max(Today?.PeakMB ?? 0, MemMB));
+            if (GrowingSince is { } growing) return Lang.T($"Growing every hour since {growing}, with a peak of {peak}.");
+            var started = Started > 0 ? TimeUtil.FromUnix(Started) : (DateTime?)null;
+            var (at, sinceStart) = MemoryPast.AboveSince(Today?.Hours ?? [], usual, started, Today?.ReadAt ?? DateTime.Now);
+            string time = at.ToString(TimeText.Fit("h:mm tt"), CultureInfo.CurrentCulture);
+            return sinceStart
+                ? Lang.T($"Above its usual since it started at {time}, with a peak of {peak}.")
+                : Lang.T($"Above its usual since {time}, with a peak of {peak}.");
+        }
+    }
+
+    /// <summary>Its line says it keeps growing (amber, like "Growing since").</summary>
+    public bool OverLineIsGrowing => IsOver && IsGrowing;
+
+    /// <summary>The AI button on a row above its usual: what to do about it, from the Memory page's records.</summary>
+    public AiQuestion? OverAsk => OverLine is { } line
+        ? new(Lang.T($"{Name} is at {MemText}. It usually holds {UsualText}. {line} What should I do?"), Core.Ai.AiPages.Memory)
+        : null;
+
+    /// <summary>
+    /// "Twice its usual" around double, else the times over ("2.6 times its usual"). Decided on the figure as it is
+    /// written: 1.86 times was written "1.9 times its usual" while 1.9 was "Twice its usual".
+    /// </summary>
     public static string OverTextOf(double memMB, double usualMB)
     {
-        double ratio = memMB / usualMB;
+        double ratio = Math.Round(memMB / usualMB, 1, MidpointRounding.AwayFromZero);
         return ratio is >= 1.9 and < 2.3 ? Lang.T("Twice its usual") : Lang.T($"{ratio:0.#} times its usual");
     }
 
@@ -150,7 +192,12 @@ public sealed partial class ProcRow(string exe) : ObservableObject
         }
         Judge();
         OnPropertyChanged(nameof(MemText));
-        if (IsOver) OnPropertyChanged(nameof(OverText));
+        if (IsOver)
+        {
+            OnPropertyChanged(nameof(OverText));
+            OnPropertyChanged(nameof(OverLine));
+            OnPropertyChanged(nameof(OverAsk));
+        }
         OnPropertyChanged(nameof(CpuText));
         OnPropertyChanged(nameof(CpuCell));
         OnPropertyChanged(nameof(CountText));
@@ -191,3 +238,9 @@ public sealed partial class ProcRow(string exe) : ObservableObject
         return list;
     }
 }
+
+/// <summary>
+/// What the Memory page read about one app for today: its memory in each hour from midnight (MB, null where not
+/// recorded), its highest reading today (MB), and when that was read.
+/// </summary>
+public sealed record MemoryToday(IReadOnlyList<double?> Hours, double? PeakMB, DateTime ReadAt);
