@@ -14,8 +14,12 @@ namespace Rigsight.Controls;
 /// <para>
 /// Taken as the wheel reaches a scrolling box on its way out from what's under the pointer, so anything inside that uses
 /// the wheel itself (a sideways row, Ctrl + wheel's zoom, <see cref="WheelChain"/> at a box's end) has it first, and the
-/// box nearest the pointer is the one that moves. WPF's own wheel is left as it was for a touchpad (not whole notches),
-/// with Windows' animation effects off, at a box's end, and for a list that scrolls by the item rather than the pixel.
+/// box nearest the pointer is the one that moves. WPF's own wheel is left as it was with Windows' animation effects off,
+/// at a box's end, and for a list that scrolls by the item rather than the pixel.
+/// </para>
+/// <para>
+/// A touchpad (or a wheel that spins freely) sends its turns in small parts, not whole notches: each part moves its own
+/// share of a notch, at once, as Windows' own apps do (see <see cref="TryPart"/>).
 /// </para>
 /// </summary>
 public static class SmoothWheel
@@ -47,8 +51,64 @@ public static class SmoothWheel
     private static void OnWheel(object sender, MouseWheelEventArgs e)
     {
         if (e.Handled || sender is not ScrollViewer sv) return;
-        if (TryGlide(sv, e.Delta)) e.Handled = true;
+        if (TryGlide(sv, e.Delta) || TryPart(sv, e.Delta)) e.Handled = true;
     }
+
+    /// <summary>
+    /// Part of a notch (a touchpad, a free-spinning wheel) for <paramref name="sv"/>: moved by that share of a notch, at
+    /// once, not glided (the parts come many a second, and Windows sends a flick's coast as more of them). WPF's own wheel
+    /// moved a whole notch for every part, so a touchpad flew (issue #14, 2026-11-16: "way faster than a native app").
+    /// A list that scrolls by the item gathers the parts until they make a whole row. False when the box can't move that
+    /// way (its end: left to WPF's wheel and <see cref="WheelChain"/>, as a notch is).
+    /// </summary>
+    internal static bool TryPart(ScrollViewer sv, int delta)
+    {
+        if (!(_everywhere || GetEnabled(sv)) || delta == 0 || delta % 120 == 0) return false;
+        double at = Where(sv);
+        bool canMove = delta > 0 ? at > 0 : at < sv.ScrollableHeight;
+        if (!canMove)
+        {
+            Gathered.Remove(sv);
+            return false;
+        }
+        // A glide still going (a notch just before): this part goes on from where the box is now.
+        Glides.Remove(sv);
+        double by = Step(delta, SystemParameters.WheelScrollLines, sv.ViewportHeight);
+        if (ByItem(sv))
+        {
+            // Its offsets count rows: a notch is WheelScrollLines rows (or a screen of them), so a part is that share.
+            double rows = SystemParameters.WheelScrollLines < 0 ? by : by / 16.0;
+            var held = Gathered.GetOrCreateValue(sv);
+            if (Math.Sign(held.Value) == -Math.Sign(rows)) held.Value = 0; // turned back: start again
+            held.Value += rows;
+            double whole = Math.Truncate(held.Value);
+            held.Value -= whole;
+            if (whole != 0) MoveTo(sv, Math.Clamp(Where(sv) + whole, 0, sv.ScrollableHeight));
+            return true;
+        }
+        MoveTo(sv, Math.Clamp(Where(sv) + by, 0, sv.ScrollableHeight));
+        return true;
+    }
+
+    /// <summary>
+    /// Where <paramref name="sv"/> is going: a box takes a new offset only at its next layout, and a touchpad sends several
+    /// parts between two, so each part goes on from where the last one sent it, not from where the box still is (only
+    /// the last part counted).
+    /// </summary>
+    private static double Where(ScrollViewer sv) =>
+        Sent.TryGetValue(sv, out var sent) && Math.Abs(sv.VerticalOffset - sent.Value.From) < 0.01 ? sent.Value.To : sv.VerticalOffset;
+
+    private static void MoveTo(ScrollViewer sv, double to)
+    {
+        Sent.AddOrUpdate(sv, new((sv.VerticalOffset, to)));
+        sv.ScrollToVerticalOffset(to);
+    }
+
+    /// <summary>The offset each box was last sent to by a part of a notch, and where it was then.</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ScrollViewer, System.Runtime.CompilerServices.StrongBox<(double From, double To)>> Sent = new();
+
+    /// <summary>The share of a row a list that scrolls by the item has gathered from parts of notches so far.</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ScrollViewer, System.Runtime.CompilerServices.StrongBox<double>> Gathered = new();
 
     /// <summary>
     /// One turn of the wheel for <paramref name="sv"/>: glided when that box glides, the turn is whole notches and the box

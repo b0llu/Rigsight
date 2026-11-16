@@ -8,8 +8,9 @@ namespace Rigsight.Tests.App;
 
 /// <summary>
 /// The wheel glides (SmoothWheel): a notch moves as far as WPF's own wheel, over a tenth of a second, a spin adding on;
-/// a touchpad, Windows' animations off and a list that scrolls by the item keep WPF's wheel; a list inside a page still
-/// hands the wheel on at its end; anything inside that takes the wheel itself keeps it.
+/// Windows' animations off and a list that scrolls by the item keep WPF's wheel; a touchpad's small parts move their own
+/// share of a notch; a list inside a page still hands the wheel on at its end; anything inside that takes the wheel itself
+/// keeps it.
 /// </summary>
 public sealed class SmoothWheelTests
 {
@@ -87,7 +88,7 @@ public sealed class SmoothWheelTests
                 Ui.Pump(250);
                 Assert.Equal(3 * step, page.VerticalOffset, 1);
 
-                // A touchpad's small turns are WPF's own.
+                // A touchpad's small part isn't glided.
                 Turn(over, -30);
                 Assert.False(SmoothWheel.IsGliding(page));
             }
@@ -125,6 +126,82 @@ public sealed class SmoothWheelTests
                 for (int i = 1; i < at.Count; i++)
                     Assert.True(at[i] > at[i - 1], $"frame {i} stood still ({all})");
                 Assert.Equal(step, at[^1], 1);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// Issue #14 (2026-11-16): "In any scrollable view, it is way faster than a native app." A touchpad sends a notch's
+    /// worth of scrolling as many small parts, and WPF's own wheel moved a whole notch for each one. Twelve parts of 10
+    /// now go as far as one notch, as in Windows' own apps; each part moves at once, and back the other way too.
+    /// </summary>
+    [Fact]
+    public void A_touchpads_small_parts_go_as_far_as_their_share_of_a_notch()
+    {
+        Ui.Run(() =>
+        {
+            var (window, page, panel) = Window();
+            try
+            {
+                var over = (UIElement)panel.Children[1];
+                double notch = SmoothWheel.Step(-120, SystemParameters.WheelScrollLines, page.ViewportHeight);
+                Turn(over, -10);
+                page.UpdateLayout();
+                Assert.Equal(notch / 12, page.VerticalOffset, 1); // at once, its share only
+                Assert.False(SmoothWheel.IsGliding(page));
+                for (int i = 1; i < 12; i++) Turn(over, -10);
+                page.UpdateLayout();
+                Assert.Equal(notch, page.VerticalOffset, 1); // twelve parts: one notch, not twelve
+
+                for (int i = 0; i < 6; i++) Turn(over, 10);
+                page.UpdateLayout();
+                Assert.Equal(notch / 2, page.VerticalOffset, 1);
+
+                // At the top it can't go further: left to WPF's wheel (and the page around, if any).
+                page.ScrollToTop();
+                page.UpdateLayout();
+                Assert.False(SmoothWheel.TryPart(page, 10));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void A_list_that_scrolls_by_the_item_gathers_a_touchpads_parts_into_rows()
+    {
+        Ui.Run(() =>
+        {
+            var byItem = List(ScrollUnit.Item);
+            var (window, _, _) = Window(byItem);
+            try
+            {
+                var box = Visuals.Descendants<ScrollViewer>(byItem).First();
+                SmoothWheel.SetEnabled(box, true);
+                Assert.True(SmoothWheel.ByItem(box));
+                int lines = SystemParameters.WheelScrollLines;
+                if (lines <= 0) return; // Windows set to a screen at a time: rows by the screen, not checked here
+                var row = Visuals.Descendants<ListBoxItem>(byItem).First();
+
+                // A notch is `lines` rows: 120 / lines of parts make one row. Short of that, it stays put.
+                int perRow = 120 / lines;
+                Turn(row, -(perRow - 1));
+                box.UpdateLayout();
+                Assert.Equal(0, box.VerticalOffset);
+                Turn(row, -1);
+                box.UpdateLayout();
+                Assert.Equal(1, box.VerticalOffset);
+
+                // A whole notch's worth in parts of 10: as far as a notch, not a notch per part.
+                for (int i = 0; i < 12; i++) Turn(row, -10);
+                box.UpdateLayout();
+                Assert.Equal(1 + lines, box.VerticalOffset);
             }
             finally
             {

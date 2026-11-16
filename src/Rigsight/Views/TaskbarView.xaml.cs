@@ -110,7 +110,7 @@ public partial class TaskbarView : UserControl
     private void List_Wheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is not DependencyObject d || FindScroll(d) is not { } scroll) return;
-        if (!Controls.SmoothWheel.TryGlide(scroll, e.Delta))
+        if (!Controls.SmoothWheel.TryGlide(scroll, e.Delta) && !Controls.SmoothWheel.TryPart(scroll, e.Delta))
             scroll.ScrollToVerticalOffset(scroll.VerticalOffset - (Controls.SmoothWheel.ByItem(scroll) ? Math.Sign(e.Delta) * 3 : e.Delta / 3.0));
         e.Handled = true;
     }

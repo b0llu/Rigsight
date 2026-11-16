@@ -14,6 +14,8 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, FrameworkElement> _pages = [];
     /// <summary>The zoom the title bar is drawn at (the pages' own, see ApplyZoom).</summary>
     private double _barZoom = 1;
+    /// <summary>Ctrl + wheel gathered toward the next zoom step (a touchpad pinch comes in parts of a notch).</summary>
+    private int _zoomWheel;
 
     public MainWindow(ShellViewModel vm)
     {
@@ -39,12 +41,18 @@ public partial class MainWindow : Window
         // Charts and lists grow with a taller window (see Roomy).
         // Zoomed, the pages have the window's room divided by the zoom.
         SizeChanged += (_, _) => ApplyZoom();
-        // Ctrl + wheel zooms the window, as a browser does (nothing in the app uses Ctrl + wheel for itself).
+        // Ctrl + wheel zooms the window, as a browser does (nothing in the app uses Ctrl + wheel for itself). A step per
+        // notch: a touchpad's pinch comes as Ctrl + wheel in small parts, gathered until they make a notch (each part
+        // was a whole step, so a pinch flew through the zoom; issue #14).
         PreviewMouseWheel += (_, e) =>
         {
             if (!System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Control) || e.Delta == 0) return;
-            Zoom(e.Delta > 0 ? 1 : -1);
             e.Handled = true;
+            if (Math.Sign(_zoomWheel) == -Math.Sign(e.Delta)) _zoomWheel = 0; // turned back: start again
+            _zoomWheel += e.Delta;
+            int steps = _zoomWheel / 120;
+            _zoomWheel -= steps * 120;
+            if (steps != 0) Zoom(Math.Sign(steps));
         };
         // What's new after an update: once the window is up, so it's the first thing seen, not a popup out of nowhere.
         // One big card per start, in this order (approved journey, 2026-10-30): a new install's welcome, What's new after
