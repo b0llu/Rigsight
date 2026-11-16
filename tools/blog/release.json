@@ -49,15 +49,15 @@
   "ssd-health-check": "2026-11-12",
   "choosing-a-model-blind": "2026-11-12",
   "how-to-show-fps-overlay": "2026-11-13",
-  "testing-ai-on-fake-pcs": "2026-11-13"
+  "testing-ai-on-fake-pcs": "2026-11-13",
+  "vram-temperature": "2026-11-14",
+  "tray-open-speed": "2026-11-14",
+  "normal-gpu-usage-while-gaming": "2026-11-15",
+  "numbers-that-couldnt-be-true": "2026-11-15",
+  "normal-cpu-usage-while-gaming": "2026-11-16",
+  "fixing-the-ai-from-my-own-chats": "2026-11-16"
  },
  "queue": [
-  "vram-temperature",
-  "tray-open-speed",
-  "normal-gpu-usage-while-gaming",
-  "numbers-that-couldnt-be-true",
-  "normal-cpu-usage-while-gaming",
-  "fixing-the-ai-from-my-own-chats",
   "normal-ram-usage-while-gaming",
   "normal-cpu-temp-idle",
   "vsync-fps-cap",

@@ -294,7 +294,10 @@ UMAMI = '''<script defer src="https://cloud.umami.is/script.js" data-website-id=
 
 def live_posts(posts):
     """Only released posts go on the site, dated by their release; links to held posts become plain text."""
-    held = {p["slug"] for p in posts} - set(RELEASED)
+    # Held guides too: a post can link to a guide that is still queued.
+    guide_slugs = {m.group(1) for f in (POSTS.parent / "guides").glob("*.html")
+                   if (m := re.search(r'"slug":\s*"([a-z0-9-]+)"', f.read_text(encoding="utf-8")))}
+    held = ({p["slug"] for p in posts} | guide_slugs) - set(RELEASED)
     kept = [p for p in posts if p["slug"] in RELEASED]
     for p in kept:
         p["published"] = RELEASED[p["slug"]]
