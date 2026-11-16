@@ -187,6 +187,8 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.13.1", 11, 16,
+            fixedBugs: [Lang.T("A touchpad no longer scrolls pages far faster than other apps do, or jumps several zoom steps with one pinch.")]),
         V("1.13.0", 11, 15,
             added: [Lang.T("Fans shows today as one strip from silent to loud, with the loudest hour, how often the fans started and the longest silence."),
                 Lang.T("Memory marks the apps using more memory than their usual right in the live list, and Above their usual shows only them."),
