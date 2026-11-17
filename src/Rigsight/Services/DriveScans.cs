@@ -146,11 +146,48 @@ public static class DriveScans
         return Describe(letter, scan.Result, scan.At, DateTime.Now, CleanupOn(letter));
     }
 
-    /// <summary>What could be freed on this drive, as the Storage page lists it (temp files, caches, old downloads, the Recycle Bin).</summary>
+    /// <summary>
+    /// For a drive not scanned: what the Storage page's "Space you could free" lists for it all the same (the system drive's
+    /// temporary files, caches, old downloads, the Recycle Bin), or null when it lists nothing. A person asked about the
+    /// "Old downloads (4.2 GB)" card before scanning and was told its figure couldn't be confirmed (audit Q076).
+    /// </summary>
+    public static string? CleanupText(string letter)
+    {
+        var free = CleanupOn(letter).Where(i => i.Size > 0).ToList();
+        return free.Count == 0 ? null : FreeText(letter, free, scanned: false);
+    }
+
+    /// <summary>
+    /// What could be freed on this drive, the Storage page's "Space you could free" cards for it with their sizes, from the
+    /// page's own calculation (<see cref="ViewModels.StorageViewModel.ItemsOn"/>): on the system drive its places, on
+    /// another its own Recycle Bin, and on a scanned drive the big files unchanged for a year.
+    /// </summary>
     internal static Func<string, IReadOnlyList<(string Title, string Why, long Size)>> CleanupOn { get; set; } = letter =>
-        [.. ViewModels.StorageViewModel.CleanupItems()
-            .Where(i => i.Path is null ? letter == SystemLetter : string.Equals(Path.GetPathRoot(i.Path)?.TrimEnd('\\'), letter + ":", StringComparison.OrdinalIgnoreCase))
-            .Select(i => (i.Title, i.Description, i.Size))];
+    {
+        string root = letter + @":\";
+        bool system = ViewModels.StorageViewModel.IsSystemRoot(root);
+        var scan = Get(letter)?.Result;
+        var items = ViewModels.StorageViewModel.ItemsOn(root, system, system ? ViewModels.StorageViewModel.CleanupItems() : [],
+            system ? null : StorageScanner.RecycleBin(root), scan, DateTime.Now);
+        return [.. items.Select(i => (i.Title, i.ReviewRoot is null ? i.Description : OldFilesWhy(scan!, DateTime.Now), i.Size))];
+    };
+
+    /// <summary>The "Big files unchanged for a year" card for the AI: how many, and where in the scan's text they are.</summary>
+    private static string OldFilesWhy(ScanResult scan, DateTime now)
+    {
+        int n = ViewModels.StorageViewModel.UnchangedForAYear(scan, now).Count;
+        return $"{(n == 1 ? "1 file" : $"{n} files")} among the scan's biggest files, not changed in over a year: each is in the biggest files above, marked \"not changed since\". The card's Review button shows them on the Storage page.";
+    }
+
+    /// <summary>The free list as the AI reads it: every card with its size and the page's own words.</summary>
+    private static string FreeText(string letter, IReadOnlyList<(string Title, string Why, long Size)> free, bool scanned)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Space that could be freed on {letter}: (as RigSight's Storage page lists it{(scanned ? "" : ", without a scan")}; all {Units.Bytes(free.Sum(i => i.Size))}). "
+            + "These are RigSight's own cards with their sizes: take a card's group and size as true.");
+        foreach (var (title, why, size) in free.OrderByDescending(i => i.Size)) sb.AppendLine($"  {title}: {Units.Bytes(size)}. {why}");
+        return sb.ToString();
+    }
 
     private static string SystemLetter => (Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.Windows)) ?? "C:")[..1].ToUpperInvariant();
 
@@ -174,7 +211,7 @@ public static class DriveScans
         // By label (approved mock-up "File names in the chat, without sending them", 2026-10-27): the names stay on this PC,
         // and RigSight shows them where the answer writes the label (see FileAt and Controls.Md).
         // Each label carries this scan's code, so an answer read after a rescan never shows another file's name (2026-10-27).
-        var files = Biggest(r);
+        var files = Biggest(r, now);
         if (files.Count > 0)
         {
             string code = ScanCode(at);
@@ -183,16 +220,13 @@ public static class DriveScans
             {
                 var f = files[i];
                 string kind = Path.GetExtension(f.Path) is { Length: > 1 } ext ? ext.ToLowerInvariant() + " file" : "file with no extension";
-                sb.AppendLine($"  [file {letter}{i + 1} {code}]: {Units.Bytes(f.Size)}, a {kind} in {Shown(f.Folder)}");
+                sb.AppendLine($"  [file {letter}{i + 1} {code}]: {Units.Bytes(f.Size)}, a {kind} in {Shown(f.Folder)}"
+                    + (f.LastWrite > DateTime.MinValue && f.LastWrite < now.AddYears(-1) ? $", not changed since {f.LastWrite.ToString("MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}" : ""));
             }
         }
 
-        var freeable = free.Where(i => i.Size > 0).OrderByDescending(i => i.Size).ToList();
-        if (freeable.Count > 0)
-        {
-            sb.AppendLine($"Space that could be freed on {letter}: (as RigSight's Storage page lists it; all {Units.Bytes(freeable.Sum(i => i.Size))}):");
-            foreach (var (title, why, size) in freeable) sb.AppendLine($"  {title}: {Units.Bytes(size)}. {why}");
-        }
+        var freeable = free.Where(i => i.Size > 0).ToList();
+        if (freeable.Count > 0) sb.Append(FreeText(letter, freeable, scanned: true));
         else sb.AppendLine($"Nothing on RigSight's list of space that is safe to free (temporary files, caches, old downloads, the Recycle Bin) is on {letter}:.");
 
         sb.AppendLine("Folder names are the person's own: say what a folder probably is only from its name (a Steam library, videos) and never invent what is inside. Suggest deleting only what the free list names, or what can be got back (a game installed again from its launcher, uninstalled from Installed apps); never a file of their own. [do: open storage <letter>] opens this scan on the Storage page; [do: windows storage-sense] or disk-cleanup clears Windows' own files.");
@@ -213,8 +247,16 @@ public static class DriveScans
         return new string([digits[(int)(n / 1296)], digits[(int)(n / 36 % 36)], digits[(int)(n % 36)]]);
     }
 
-    /// <summary>The biggest files in the order the AI reads them: "file C1" is the first.</summary>
-    private static List<LargeFile> Biggest(ScanResult r) => [.. r.LargestFiles.OrderByDescending(f => f.Size).Take(8)];
+    /// <summary>
+    /// The files in the order the AI reads them ("file C1" is the first): the 8 biggest, then the rest of the "Big files
+    /// unchanged for a year" card's, so each file the card counts has a label (audit Q072: its 2 files of 6.6 GB weren't
+    /// among the 8 biggest, and the answer said the card didn't add up).
+    /// </summary>
+    private static List<LargeFile> Biggest(ScanResult r, DateTime now)
+    {
+        var top = r.LargestFiles.OrderByDescending(f => f.Size).Take(8).ToList();
+        return [.. top, .. ViewModels.StorageViewModel.UnchangedForAYear(r, now).OrderByDescending(f => f.Size).Where(f => !top.Contains(f)).Take(8)];
+    }
 
     /// <summary>
     /// A file an answer names by its label ("[file C1 k3x]"), from the scan kept on this PC: its name, where it is and how
@@ -230,7 +272,7 @@ public static class DriveScans
             if (!Last.TryGetValue(letter.ToUpperInvariant(), out var scan) || ScanCode(scan.At) != code) return null;
             result = scan.Result;
         }
-        var files = Biggest(result);
+        var files = Biggest(result, DateTime.Now);
         if (n < 1 || n > files.Count) return null;
         var f = files[n - 1];
         return (f.Name, f.Path, Shown(f.Folder), f.Size);

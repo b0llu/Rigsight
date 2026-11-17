@@ -36,6 +36,12 @@ public sealed partial class AiTools
     /// </summary>
     public Func<string, string?>? DriveScan { get; set; }
 
+    /// <summary>
+    /// For a drive not scanned: the Storage page's "Space you could free" cards for it all the same, from the app; null when
+    /// it lists none, or not known here.
+    /// </summary>
+    public Func<string, string?>? DriveCleanup { get; set; }
+
     /// <summary>A sensor's name as the app shows it, from its identifier (null: not known here, the identifier stands in).</summary>
     public Func<string, string?>? SensorName { get; set; }
 
@@ -53,7 +59,7 @@ public sealed partial class AiTools
             },
             ["required"] = new JsonArray("period"),
         }),
-        Def("get_drive_scan", "What is using the space on one drive, from RigSight's scan of it: the biggest folders, the biggest files by kind and folder, and the space that could be freed there (temporary files, caches, old downloads, the Recycle Bin). Only after a scan: when there is none, it says so, and the answer offers [do: scan <letter>].", new JsonObject
+        Def("get_drive_scan", "What is using the space on one drive, from RigSight's scan of it: the biggest folders, the biggest files by kind and folder, and the space that could be freed there as the Storage page's cards show it (temporary files, caches, old downloads, big files unchanged for a year, the Recycle Bin). Without a scan it says so and still gives the cards the page shows, and the answer offers [do: scan <letter>].", new JsonObject
         {
             ["type"] = "object",
             ["properties"] = new JsonObject { ["drive"] = new JsonObject { ["type"] = "string", ["description"] = "The drive's letter, like \"C\" or \"E\"." } },
@@ -156,7 +162,12 @@ public sealed partial class AiTools
         if (drive is null || Regex.Match(drive, @"^\s*([A-Za-z])") is not { Success: true } m) return "Name a drive by its letter, like \"C\".";
         string letter = m.Groups[1].Value.ToUpperInvariant();
         if (DriveScan?.Invoke(letter) is { Length: > 0 } scan) return scan;
-        return $"{letter}: hasn't been scanned, so what fills it isn't known yet. Offer the button [do: scan {letter}]: pressed, RigSight scans the drive (a minute or two) and asks again by itself with what it found.";
+        string notScanned = $"{letter}: hasn't been scanned, so what fills it isn't known yet. Offer the button [do: scan {letter}]: pressed, RigSight scans the drive (a minute or two) and asks again by itself with what it found.";
+        // The Storage page's cards for a drive it hasn't scanned (the system drive's temporary files, caches, old
+        // downloads): "I can't confirm the 4.2 GB figure" was said of one (audit Q076, 2026-11-17).
+        return DriveCleanup?.Invoke(letter) is { Length: > 0 } free
+            ? notScanned + Environment.NewLine + free.TrimEnd() + Environment.NewLine + "The scan adds the big files on it unchanged for a year, which need one."
+            : notScanned;
     }
 
     // ── Home: today ──────────────────────────────────────────────────────

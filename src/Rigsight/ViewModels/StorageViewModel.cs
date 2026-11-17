@@ -653,22 +653,45 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
     /// <summary>What a drive has to free: the system drive's places, the drive's Recycle Bin, and what its scan found.</summary>
     private List<CleanupItem> ItemsFor(string root)
     {
-        var list = new List<CleanupItem>();
-        bool system = string.Equals(root, SystemRoot, StringComparison.OrdinalIgnoreCase);
-        if (system) list.AddRange(Cleanup);
-        else if (!_binsRead.TryGetValue(root, out var bin)) _ = ReadBinAsync(root);
-        else if (bin.Size > 0)
-            list.Add(new CleanupItem(Lang.T("Recycle Bin"), bin.Items == 1 ? Lang.T($"1 deleted item on {root.TrimEnd('\\')}.") : Lang.T($"{bin.Items:N0} deleted items on {root.TrimEnd('\\')}."),
-                bin.Size, null, true) { BinRoot = root });
-        if (DriveScans.Letter(root) is { } letter && DriveScans.Get(letter) is { } kept)
+        bool system = IsSystemRoot(root);
+        (long Size, long Items)? bin = null;
+        if (!system)
         {
-            var old = kept.Result.LargestFiles.Where(f => f.LastWrite > DateTime.MinValue && f.LastWrite < DateTime.Now.AddYears(-1)).ToList();
+            if (_binsRead.TryGetValue(root, out var read)) bin = read;
+            else _ = ReadBinAsync(root);
+        }
+        var scan = DriveScans.Letter(root) is { } letter && DriveScans.Get(letter) is { } kept ? kept.Result : null;
+        return ItemsOn(root, system, Cleanup, bin, scan, DateTime.Now);
+    }
+
+    internal static bool IsSystemRoot(string root) => string.Equals(root, SystemRoot, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// "Space you could free" for one drive, as this page lists it and the AI's get_drive_scan says it (one calculation,
+    /// so the AI never denies a card the person sees, audit Q072, Q076): on the system drive its places
+    /// (<paramref name="places"/>, the Recycle Bin among them); on another drive its own Recycle Bin when read; and the
+    /// scan's big files unchanged for a year.
+    /// </summary>
+    internal static List<CleanupItem> ItemsOn(string root, bool system, IEnumerable<CleanupItem> places, (long Size, long Items)? bin, ScanResult? scan, DateTime now)
+    {
+        var list = new List<CleanupItem>();
+        if (system) list.AddRange(places);
+        else if (bin is { Size: > 0 } b)
+            list.Add(new CleanupItem(Lang.T("Recycle Bin"), b.Items == 1 ? Lang.T($"1 deleted item on {root.TrimEnd('\\')}.") : Lang.T($"{b.Items:N0} deleted items on {root.TrimEnd('\\')}."),
+                b.Size, null, true) { BinRoot = root });
+        if (scan is not null)
+        {
+            var old = UnchangedForAYear(scan, now);
             if (old.Count > 0 && old.Sum(f => f.Size) >= 50L << 20)
                 list.Add(new CleanupItem(Lang.T("Big files unchanged for a year"),
                     old.Count == 1 ? Lang.T("1 file · from the scan") : Lang.T($"{old.Count} files · from the scan"), old.Sum(f => f.Size), null, false) { ReviewRoot = root });
         }
         return [.. list.OrderByDescending(i => i.Size)];
     }
+
+    /// <summary>The scan's biggest files (the 40 it keeps) not changed in over a year: the "Big files unchanged for a year" card.</summary>
+    internal static List<LargeFile> UnchangedForAYear(ScanResult scan, DateTime now) =>
+        [.. scan.LargestFiles.Where(f => f.LastWrite > DateTime.MinValue && f.LastWrite < now.AddYears(-1))];
 
     private readonly Dictionary<string, (long Size, long Items)> _binsRead = new(StringComparer.OrdinalIgnoreCase);
 
