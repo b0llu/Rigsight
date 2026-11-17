@@ -159,6 +159,37 @@ public sealed class RelayFailureTests
     }
 
     [Fact]
+    public async Task A_connection_lost_before_any_words_asks_for_the_question_back()
+    {
+        await using var relay = new FakeRelay((_, s) => { FakeRelay.Reset(s); return Task.CompletedTask; });
+        using var _ = Point(relay.Url);
+        var reply = await Relay.AskAsync([], "Why?", Tools(), writing: (_, _) => { });
+        Assert.Null(reply.Text);
+        Assert.True(reply.GiveBack);
+        Assert.Contains("wasn't counted", reply.Problem);
+    }
+
+    [Fact]
+    public async Task A_connection_lost_with_words_on_screen_keeps_the_question_counted()
+    {
+        // The relay may have written its answer: no give-back, and nothing says it wasn't counted.
+        await using var relay = new FakeRelay(async (_, s) =>
+        {
+            await FakeRelay.SseStart(s);
+            await FakeRelay.Write(s, Words("Half an answer"));
+            await Task.Delay(300);
+            FakeRelay.Reset(s);
+        });
+        using var _ = Point(relay.Url);
+        string? shown = null;
+        var reply = await Relay.AskAsync([], "Why?", Tools(), writing: (t, _) => shown = t);
+        Assert.Equal("Half an answer", shown);
+        Assert.Null(reply.Text);
+        Assert.False(reply.GiveBack);
+        Assert.Equal("The answer stopped before it finished. Ask again in a minute.", reply.Problem);
+    }
+
+    [Fact]
     public async Task An_error_inside_the_stream_says_the_question_wasnt_counted()
     {
         await using var relay = new FakeRelay(async (_, s) =>

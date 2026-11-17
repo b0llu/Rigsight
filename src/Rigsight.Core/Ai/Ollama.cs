@@ -58,7 +58,14 @@ public static class AiTurns
 public sealed record AiStep(string Text, string? Note = null, bool Loading = false);
 
 /// <summary>What came back for a question: the answer's text, or why there is none, what it looked at, and a quiet note for under the answer (web search failed).</summary>
-public sealed record AiReply(string? Text, string? Problem, IReadOnlyList<AiLookUp> LookUps, string? Model = null, string? Note = null, AiLimit? Limit = null);
+public sealed record AiReply(string? Text, string? Problem, IReadOnlyList<AiLookUp> LookUps, string? Model = null, string? Note = null, AiLimit? Limit = null)
+{
+    /// <summary>
+    /// RigSight AI's connection failed with no words on screen: nothing tells the relay the question went unanswered, so
+    /// the app gives it back as Stop does. It waited 15 quiet minutes otherwise (2026-11-17).
+    /// </summary>
+    public bool GiveBack { get; init; }
+}
 
 /// <summary>
 /// Ollama on this PC (Settings › Ask RigSight → Ollama on my PC): lists its models and answers questions, looking at RigSight's

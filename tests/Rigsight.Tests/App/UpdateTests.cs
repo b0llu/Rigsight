@@ -596,6 +596,30 @@ public sealed class UpdateTests : IDisposable
     }
 
     [Fact]
+    public void Updating_lets_go_of_an_answer_under_way_before_the_installer_is_asked_for()
+    {
+        // The installer ends RigSight without warning (taskkill): an Ask answer under way is let go of first.
+        using var link = new AgentLink();
+        _agentCanInstall = true;
+        var vm = Make(link.Client);
+        Act(vm);
+        Act(vm);
+        var letGo = new TaskCompletionSource();
+        bool asked = false;
+        Ui.Run(() =>
+        {
+            vm.Leaving = () => { asked = true; return letGo.Task; };
+            vm.InstallCommand.Execute(null);
+            Assert.True(asked);
+            Assert.Equal(UpdateState.Installing, vm.State);
+        });
+        Ui.Pump(300);
+        Assert.Empty(link.Agent.Commands("install-update"));
+        Ui.Run(() => letGo.SetResult());
+        Assert.Equal(SetupPath, link.Sent("install-update").Arg);
+    }
+
+    [Fact]
     public void Pressing_update_covers_the_window_and_its_bar_moves_only_at_moments_the_app_sees()
     {
         // The user: "show a updating app overlay ... only if user initiates the update by pressing" it.

@@ -190,9 +190,9 @@ public sealed partial class UpdateViewModel : ObservableObject
         {
             case UpdateState.None: await CheckNowAsync(); break;
             // On a PC that updates Rigsight itself there is nothing for this account to download: it asks for the update.
-            case UpdateState.Available when _pcUpdates(): Install(); break;
+            case UpdateState.Available when _pcUpdates(): await Install(); break;
             case UpdateState.Available: await DownloadAsync(automatic: false); break;
-            case UpdateState.Ready or UpdateState.Waiting: Install(); break;
+            case UpdateState.Ready or UpdateState.Waiting: await Install(); break;
             case UpdateState.Failed: await RetryAsync(); break;
         }
     }
@@ -413,7 +413,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     {
         if (_release is null) { await CheckNowAsync(); return; }
         UpdateStore.ClearAttempt();
-        if (await ReleaseFeed.MatchesAsync(UpdateStore.SetupPath(_release), _release)) Install();
+        if (await ReleaseFeed.MatchesAsync(UpdateStore.SetupPath(_release), _release)) await Install();
         else await DownloadAsync(automatic: false);
     }
 
@@ -501,9 +501,15 @@ public sealed partial class UpdateViewModel : ObservableObject
         return RetryAsync();
     }
 
+    /// <summary>
+    /// Asked as an update starts: the installer ends this window without warning, so whatever must go out first goes now
+    /// (an Ask answer under way, <see cref="AskViewModel.LetGo"/>). Waited on for a moment at most.
+    /// </summary>
+    public Func<Task>? Leaving { get; set; }
+
     /// <summary>"Update now" in the prompt, the "Update ready" line, or Settings.</summary>
     [RelayCommand]
-    private void Install()
+    private async Task Install()
     {
         if (_release is not { } release) return;
         // Someone pressed it: the screen goes over the window, the download already checked when it was saved.
@@ -514,6 +520,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         State = UpdateState.Installing;
         Progress = 100;
         ProgressText = Lang.T("RigSight closes and opens again by itself in about 15 seconds.");
+        if (Leaving?.Invoke() is { IsCompleted: false } leaving) await Task.WhenAny(leaving, Task.Delay(AskViewModel.LetGoWithin + TimeSpan.FromMilliseconds(500)));
         if (_pcUpdates())
         {
             // The PC's own updater does it: told it may close this window (and that it is to come back), then asked to run.

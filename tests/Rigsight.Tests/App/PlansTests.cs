@@ -423,6 +423,115 @@ public sealed class PlansTests
         });
     }
 
+    /// <summary>
+    /// A relay that writes the start of an answer and goes on writing (or, with <paramref name="drop"/>, drops the connection
+    /// before any words), and keeps the ids of the questions given back through /v1/stop.
+    /// </summary>
+    private static FakeRelay Answering(System.Collections.Concurrent.ConcurrentQueue<string?> stops, bool drop = false) => new(async (r, s) =>
+    {
+        if (r.Path == "/v1/stop") { stops.Enqueue((string?)JsonNode.Parse(r.Body)?["question_id"]); await FakeRelay.Reply(s, 200, "application/json", "{\"ok\":true,\"refunded\":true}"); return; }
+        if (r.Path != "/v1/ask") { await FakeRelay.Reply(s, 200, "application/json", Status("essentials", "subscription")); return; }
+        if (drop) { FakeRelay.Reset(s); return; }
+        await FakeRelay.SseStart(s);
+        var chunk = new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["index"] = 0, ["delta"] = new JsonObject { ["content"] = "Your PC shut off because the power" } }) };
+        await FakeRelay.Write(s, $"data: {chunk.ToJsonString()}\n\n");
+        await Task.Delay(20_000); // still writing
+    });
+
+    /// <summary>The Ask window on RigSight AI, asking <paramref name="question"/> of <paramref name="relay"/>.</summary>
+    private static (AskViewModel Ask, Rigsight.Services.SettingsModel Settings) Asked(FakeRelay relay, string question)
+    {
+        var settings = new RigsightSettings();
+        settings.Ai.Mode = AiMode.RigSight;
+        settings.Ai.FirstQuestionSeen.Add(AiMode.RigSight);
+        var model = Kit.OfflineSettings(settings);
+        var ask = Ui.Run(() => new AskViewModel(model));
+        Ui.Run(() =>
+        {
+            Relay.TestRoot.Value = relay.Url;
+            ask.Draft = question;
+            ask.SendCommand.Execute(null);
+            Relay.TestRoot.Value = null;
+        });
+        return (ask, model);
+    }
+
+    private static bool Writing(AskViewModel ask) => Ui.Run(() => ask.Current!.Messages.OfType<AskWriting>().Any(w => w.Verdict.Length > 0 || w.Parts.Count > 0));
+
+    [Fact]
+    public async Task Closing_mid_answer_gives_the_question_back_at_once_and_leaves_it_with_try_again()
+    {
+        // 2026-11-17: RigSight closed while answering; nothing told the relay, which waited 15 minutes to give it back.
+        var stops = new System.Collections.Concurrent.ConcurrentQueue<string?>();
+        await using var relay = Answering(stops);
+        var (ask, _) = Asked(relay, "Why did my PC turn off?");
+        Assert.True(Ui.WaitFor(() => Writing(ask), 15_000), "the answer never started");
+        var told = Ui.Run(() =>
+        {
+            Relay.TestRoot.Value = relay.Url;
+            var going = ask.LetGo();
+            Relay.TestRoot.Value = null;
+            return going;
+        });
+        // Waited on by App.OnExit on the window's thread: it never needs that thread, and it's quick.
+        Assert.True(await Task.WhenAny(told, Task.Delay(AskViewModel.LetGoWithin + TimeSpan.FromSeconds(1))) == told, "letting go took longer than closing waits");
+        Assert.True(stops.TryPeek(out var id) && id is { Length: > 0 }, "the relay wasn't told");
+        Assert.True(Ui.WaitFor(() => !ask.IsAnswering, 15_000), "the answer didn't stop");
+        Ui.Pump(300);
+        // Told once: the stop that ends the answer doesn't give it back a second time.
+        Assert.Single(stops);
+        Ui.Run(() =>
+        {
+            // Should the window stay after all (an update that didn't start), it reads as the chat does when opened again.
+            var left = ask.Current!.Messages.ToList();
+            Assert.Equal(2, left.Count);
+            Assert.Equal("Why did my PC turn off?", Assert.IsType<AskQuestion>(left[0]).Text);
+            var problem = Assert.IsType<AskProblem>(left[1]);
+            Assert.Equal("No answer came back. Ask again.", problem.Text);
+            Assert.True(problem.CanRetry);
+            Assert.Equal("Why did my PC turn off?", ask.Draft);
+        });
+    }
+
+    [Fact]
+    public void Letting_go_with_nothing_under_way_tells_nobody()
+    {
+        var ask = Ui.Run(() => new AskViewModel(Kit.OfflineSettings(new RigsightSettings())));
+        Assert.True(Ui.Run(() => ask.LetGo()).IsCompleted);
+    }
+
+    [Fact]
+    public async Task Switching_to_another_mode_mid_answer_still_gives_rigsight_ai_its_question_back()
+    {
+        // The switch stops the answer; the give-back went by the mode after the switch, so Own key or Ollama sent no stop.
+        var stops = new System.Collections.Concurrent.ConcurrentQueue<string?>();
+        await using var relay = Answering(stops);
+        var (ask, settings) = Asked(relay, "Why did my PC turn off?");
+        Assert.True(Ui.WaitFor(() => Writing(ask), 15_000), "the answer never started");
+        Ui.Run(() => settings.Update(s => s.Ai.Mode = AiMode.Ollama));
+        Assert.True(Ui.WaitFor(() => !ask.IsAnswering && !stops.IsEmpty, 15_000), "the relay wasn't told");
+        Assert.Single(stops);
+        // Asked of RigSight AI, so it says it wasn't counted, as it is.
+        Assert.Equal("You stopped this answer. It wasn't counted.", Ui.Run(() => ask.Current!.Messages.OfType<AskStoppedAnswer>().Single().Text));
+    }
+
+    [Fact]
+    public async Task A_connection_lost_before_any_words_gives_the_question_back()
+    {
+        // Counted as a reply, it was never given back, though the line says it wasn't counted.
+        var stops = new System.Collections.Concurrent.ConcurrentQueue<string?>();
+        await using var relay = Answering(stops, drop: true);
+        var (ask, _) = Asked(relay, "Why did my PC turn off?");
+        Assert.True(Ui.WaitFor(() => !ask.IsAnswering && !stops.IsEmpty, 15_000), "the relay wasn't told");
+        Assert.Single(stops);
+        Ui.Run(() =>
+        {
+            var problem = ask.Current!.Messages.OfType<AskProblem>().Single();
+            Assert.Contains("wasn't counted", problem.Text);
+            Assert.True(problem.CanRetry);
+        });
+    }
+
     /// <summary>An answer's words, wherever they landed (its opening or its lines).</summary>
     private static string Words(AskAnswer a) => a.Verdict + " " + string.Join(" ", a.Parts.OfType<AskLine>().Select(l => l.Text));
 

@@ -229,6 +229,78 @@ public sealed class AskConversationsTests
     }
 
     [Fact]
+    public async Task A_question_saved_with_no_answer_after_it_gets_try_again_and_goes_back_in_the_box()
+    {
+        // 2026-11-17: RigSight closed mid-answer; opened again, the question stood alone with nothing under it.
+        string file = NewFile();
+        AiConversations.Save([new SavedConversation("c1", "Is my PC ok?", DateTime.Now, null, false, false,
+        [
+            new SavedMessage(SavedMessage.Question, "Is my PC ok?"),
+            new SavedMessage(SavedMessage.Answer, "Mostly yes.", "gemma4:12b", []),
+            new SavedMessage(SavedMessage.Question, "Why did it turn off last night?"),
+        ])], file);
+        var window = Window(file);
+        var talk = window.Conversations.Single(c => c.Id == "c1");
+        window.PickCommand.Execute(talk);
+        await Until(() => talk.Messages.Count == 4 && window.Draft.Length > 0);
+        Assert.Equal("Why did it turn off last night?", Assert.IsType<AskQuestion>(talk.Messages[2]).Text);
+        var problem = Assert.IsType<AskProblem>(talk.Messages[3]);
+        Assert.Equal("No answer came back. Ask again.", problem.Text);
+        Assert.True(problem.CanRetry);
+        Assert.Equal("Why did it turn off last night?", problem.Question);
+        Assert.Equal("Why did it turn off last night?", window.Draft);
+        // Not sent with the next question, as a stopped one isn't: it got no answer.
+        Assert.Equal(2, talk.Sent.Count);
+        // Kept with its line, so the next start doesn't add another.
+        await window.Save();
+        Assert.Equal(SavedMessage.Problem, AiConversations.Load(file).Single().Messages[^1].Kind);
+    }
+
+    [Fact]
+    public async Task An_unanswered_question_earlier_in_a_chat_gets_the_line_without_try_again()
+    {
+        // The live case: "?" sent after a question that got no answer, and answered.
+        string file = NewFile();
+        AiConversations.Save([new SavedConversation("c2", "Why is my GPU hot?", DateTime.Now, null, false, false,
+        [
+            new SavedMessage(SavedMessage.Question, "Why is my GPU hot?"),
+            new SavedMessage(SavedMessage.Question, "?"),
+            new SavedMessage(SavedMessage.Answer, "Which part is unclear?", "gemma4:12b", []),
+        ])], file);
+        var window = Window(file);
+        var talk = window.Conversations.Single(c => c.Id == "c2");
+        window.PickCommand.Execute(talk);
+        await Until(() => talk.Messages.Count == 4);
+        var problem = Assert.IsType<AskProblem>(talk.Messages[1]);
+        Assert.Equal("No answer came back. Ask again.", problem.Text);
+        Assert.False(problem.CanRetry);
+        Assert.Equal("?", Assert.IsType<AskQuestion>(talk.Messages[2]).Text);
+        Assert.IsType<AskAnswer>(talk.Messages[3]);
+        Assert.Equal("", window.Draft);
+    }
+
+    [Fact]
+    public async Task A_question_with_its_problem_or_stopped_line_gets_nothing_more()
+    {
+        string file = NewFile();
+        AiConversations.Save([new SavedConversation("c3", "Is my PC ok?", DateTime.Now, null, false, false,
+        [
+            new SavedMessage(SavedMessage.Question, "Is my PC ok?"),
+            new SavedMessage(SavedMessage.Problem, "Ollama isn't answering."),
+            new SavedMessage(SavedMessage.Question, "And now?"),
+            new SavedMessage(SavedMessage.Stopped, "You stopped this answer."),
+        ])], file);
+        var window = Window(file);
+        var talk = window.Conversations.Single(c => c.Id == "c3");
+        window.PickCommand.Execute(talk);
+        await Until(() => talk.Messages.Count == 4);
+        await Task.Delay(100);
+        Assert.Equal(4, talk.Messages.Count);
+        Assert.Single(talk.Messages.OfType<AskProblem>());
+        Assert.Equal("", window.Draft);
+    }
+
+    [Fact]
     public async Task New_conversation_never_reuses_a_saved_one_that_isnt_opened_yet()
     {
         string file = NewFile();

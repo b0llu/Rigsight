@@ -241,6 +241,8 @@ public static partial class Relay
         tools.OpenableAppsLookUp = Features.UseActions2;
         var definitions = tools.Definitions();
         bool searchFailed = false;
+        // Words of the answer on screen now (taken away again when a round turns out to be look-ups).
+        bool showing = false;
         Log.Write("relay", $"Asking RigSight AI at {Root} (question {id[..8]}, {definitions.Count} kinds of look-up open on the plan, at most {MaxRounds} rounds, {AiTurns.Recent(earlier).Count} of {earlier.Count} earlier messages)");
         step?.Invoke(new AiStep(""));
         for (int round = 0; round < MaxRounds; round++)
@@ -277,7 +279,7 @@ public static partial class Relay
                 }
                 // A round that thought until its limit is asked again without thinking (2026-10-27): said, so the long
                 // wait reads as progress.
-                got = await OwnKey.ReadStreamAsync(res, writing is null ? null : t => writing(t, lookUps), ct, QuietLimit, said =>
+                got = await OwnKey.ReadStreamAsync(res, writing is null ? null : t => { showing = t is { Length: > 0 }; writing(t, lookUps); }, ct, QuietLimit, said =>
                 {
                     Log.Write("relay", $"Round {round}: thinking ran out before any words, so the relay asked again without it");
                     if (said == "writing") step?.Invoke(new AiStep(Lang.T("Writing your answer…")));
@@ -285,8 +287,10 @@ public static partial class Relay
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or InvalidOperationException or UriFormatException && !ct.IsCancellationRequested)
             {
-                Log.Write("relay", $"No answer from {Root} in round {round}: {ex.GetType().Name}: {ex.Message}");
-                return new AiReply(null, await Unreachable(ex), lookUps);
+                Log.Write("relay", $"No answer from {Root} in round {round}: {ex.GetType().Name}: {ex.Message} ({(showing ? "words were on screen, so the question stays counted" : "nothing on screen, so the app gives the question back")})");
+                // Words already showing: the relay may have written its answer, so it isn't said to be uncounted.
+                return showing ? new AiReply(null, Lang.T("The answer stopped before it finished. Ask again in a minute."), lookUps)
+                    : new AiReply(null, await Unreachable(ex), lookUps) { GiveBack = true };
             }
             if (got.Error is not null)
             {
@@ -305,7 +309,7 @@ public static partial class Relay
                 Log.Write("relay", $"Round {round}: wrote an answer ({got.Text.Trim().Length} chars) and asked for {string.Join(", ", got.Calls.Select(c => (string?)c["function"]?["name"]))} too: kept the answer, the look-ups not run");
             else if (got.Calls.Count > 0)
             {
-                if (got.Text.Length > 0) writing?.Invoke(null, lookUps);
+                if (got.Text.Length > 0) { writing?.Invoke(null, lookUps); showing = false; }
                 var calls = new JsonArray([.. got.Calls.Select(c => (JsonNode)c)]);
                 messages.Add(new JsonObject { ["role"] = "assistant", ["content"] = "", ["tool_calls"] = JsonNode.Parse(calls.ToJsonString()) });
                 foreach (var call in calls)

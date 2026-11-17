@@ -145,6 +145,8 @@ public sealed partial class ShellViewModel : ObservableObject
             // set by an admin, still looks: that's the PC's own updater's choice).
             checksOn: () => Settings.Current.AutoUpdate || MachineSetup.KeepUpdated);
         SettingsPage.Update = Update;
+        // The installer ends this window without warning: an answer under way is let go of first, so RigSight AI gives it back.
+        Update.Leaving = Ask.LetGo;
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page, CustomPages);
         Presets = new PresetPickerViewModel(Live, preset => NewPage(preset));

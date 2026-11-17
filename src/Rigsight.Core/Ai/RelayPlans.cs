@@ -246,13 +246,14 @@ public static partial class Relay
     /// The person pressed Stop: the relay gives the question back (it decides; past its daily allowance, or once the answer
     /// was already written out, it keeps it). Returns whether it did; false when it couldn't be told.
     /// </summary>
-    public static async Task<bool> StopAsync(string questionId)
+    /// <param name="within">How long it may take: RigSight closing waits only a moment for it.</param>
+    public static async Task<bool> StopAsync(string questionId, TimeSpan? within = null)
     {
         try
         {
             var req = Request(HttpMethod.Post, "/v1/stop");
             req.Content = new StringContent(new JsonObject { ["question_id"] = questionId }.ToJsonString(), Encoding.UTF8, "application/json");
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var cts = new CancellationTokenSource(within ?? TimeSpan.FromSeconds(15));
             using var res = await Http.SendAsync(req, cts.Token);
             string text = await res.Content.ReadAsStringAsync(cts.Token);
             bool back = res.IsSuccessStatusCode && (bool?)(JsonNode.Parse(text)?["refunded"] as JsonValue) == true;

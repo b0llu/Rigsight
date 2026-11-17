@@ -21,6 +21,7 @@ public partial class App : Application
     private EventWaitHandle? _showEvent;
     private AgentClient? _client;
     private SettingsModel? _settings;
+    private AskViewModel? _ask;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -64,6 +65,7 @@ public partial class App : Application
         };
         var shell = new ShellViewModel(_client);
         _settings = shell.Settings;
+        _ask = shell.Ask;
         ThemeManager.Apply(shell.Settings.Current.Theme, shell.Settings.Current.Accent, shell.Settings.Current.KeepStatusColors,
             shell.Settings.Current.DarkTheme, shell.Settings.Current.LightTheme);
         Motion.ApplyDurations(Resources);
@@ -157,9 +159,27 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        LetGoOfAnswer();
         _settings?.OnExit();
         _client?.Dispose();
         base.OnExit(e);
+    }
+
+    /// <summary>Windows signing out or shutting down: an answer under way is let go of before the app is ended.</summary>
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        LetGoOfAnswer();
+        base.OnSessionEnding(e);
+    }
+
+    /// <summary>
+    /// Closing with an Ask answer under way (the window, a language change, Windows ending the session): RigSight AI is told
+    /// now so it gives the question back, waiting a moment at most (<see cref="AskViewModel.LetGo"/>).
+    /// </summary>
+    private void LetGoOfAnswer()
+    {
+        try { _ask?.LetGo().Wait(AskViewModel.LetGoWithin + TimeSpan.FromMilliseconds(500)); }
+        catch (Exception ex) { Log.Error("app", ex); }
     }
 
     private bool _showingError;

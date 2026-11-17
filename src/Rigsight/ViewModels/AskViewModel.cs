@@ -288,7 +288,8 @@ public sealed record AskWriting : AskMessage, System.ComponentModel.INotifyPrope
 /// <summary>
 /// No answer came: Ollama not running, the model gone, and so on, said plainly. With a way forward where there is one (the
 /// approved board 6, 2026-10-26): Try again asks the same question once more in its place, Open Settings goes where the
-/// words send them. One opened from History has neither: the moment has passed.
+/// words send them. One opened from History has neither: the moment has passed. The exception is a last question saved
+/// with nothing after it (RigSight closed mid-answer, 2026-11-17): it gets this line with Try again when opened.
 /// </summary>
 public sealed record AskProblem(string Text) : AskMessage
 {
@@ -1428,7 +1429,10 @@ public sealed partial class AskViewModel : ObservableObject
         // Made before the wait for the plan, so Stop works there too: nothing has gone yet (board 6, 2026-10-26).
         using var stop = new CancellationTokenSource();
         _answering = stop;
-        _answeringMode = Ai.Mode;
+        // The way it was asked: a switch of the AI's mode stops it (OnSettingsChanged), and RigSight AI still gives it back.
+        var mode = Ai.Mode;
+        _answeringMode = mode;
+        _leaving = false;
         // One stage going on far longer than usual (but not the model loading, which says so): say it's still at it,
         // once, rather than rotating lines to fill the time.
         var longWait = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(0.5) };
@@ -1519,25 +1523,36 @@ public sealed partial class AskViewModel : ObservableObject
             else
             {
                 Unwait(talk);
+                if (reply.GiveBack && mode == AiMode.RigSight && _questionId is { } lost) _ = GiveBackAsync(lost);
                 if (reply.Limit is { } limit)
                 {
                     talk.Messages.Add(LimitWall(limit, question));
                     // The card says the question stays: it does, in the box (board 6, 2026-10-26).
                     ToBox(talk, question);
                 }
-                else talk.Messages.Add(Problem(reply.Problem ?? Lang.T("No answer came back. Ask again."), question, givenAside, fromPage));
+                else talk.Messages.Add(Problem(reply.Problem ?? NoAnswer, question, givenAside, fromPage));
             }
+        }
+        catch (OperationCanceledException) when (stop.IsCancellationRequested && _leaving)
+        {
+            // RigSight closing for an update (LetGo): RigSight AI was told already. Should the window stay after all (the
+            // update didn't start), the question shows as one that got no answer, as it does when the chat is opened again.
+            Log.Write("ask", "The answer under way was stopped: RigSight is closing");
+            Unwait(talk);
+            talk.Messages.Add(Problem(NoAnswer, question, givenAside, fromPage));
+            ToBox(talk, question);
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
         {
             // Stopped: whatever was written goes (the person's word, 2026-10-23), and a faint line says so with Ask again,
             // the question back in the box (board 6, 2026-10-26). It isn't sent again with the next one, since it got no
             // answer. RigSight AI gives the question back, whenever Stop was pressed.
+            // By the mode it was asked in: switched from RigSight AI to Ollama mid-answer, RigSight AI still gives it back.
             bool sentYet = _questionId is not null;
-            Log.Write("ask", sentYet || Ai.Mode != AiMode.RigSight ? "Stopped before the answer finished: the answer is hidden, the question stays" : "Stopped while waiting for the plan: nothing was sent");
+            Log.Write("ask", sentYet || mode != AiMode.RigSight ? "Stopped before the answer finished: the answer is hidden, the question stays" : "Stopped while waiting for the plan: nothing was sent");
             Unwait(talk);
-            if (Ai.Mode == AiMode.RigSight && _questionId is { } id) _ = GiveBackAsync(id);
-            talk.Messages.Add(new AskStoppedAnswer(Ai.Mode == AiMode.RigSight ? Lang.T("You stopped this answer. It wasn't counted.") : Lang.T("You stopped this answer."), question)
+            if (mode == AiMode.RigSight && _questionId is { } id) _ = GiveBackAsync(id);
+            talk.Messages.Add(new AskStoppedAnswer(mode == AiMode.RigSight ? Lang.T("You stopped this answer. It wasn't counted.") : Lang.T("You stopped this answer."), question)
             {
                 Aside = givenAside, FromPage = fromPage,
             });
@@ -1549,7 +1564,7 @@ public sealed partial class AskViewModel : ObservableObject
             Unwait(talk);
             // Broken off here before any answer came: RigSight AI gives the question back now, as for Stop. Otherwise the
             // relay waited 15 quiet minutes for a next round that never came, and only then gave it back (2026-10-31).
-            if (!replied && Ai.Mode == AiMode.RigSight && _questionId is { } id) _ = GiveBackAsync(id);
+            if (!replied && mode == AiMode.RigSight && _questionId is { } id) _ = GiveBackAsync(id);
             talk.Messages.Add(Problem(Lang.T("Something went wrong while answering. Ask again."), question, givenAside, fromPage));
         }
         finally { IsAnswering = false; _answering = null; _questionId = null; longWait.Stop(); Save(); }
@@ -1724,6 +1739,35 @@ public sealed partial class AskViewModel : ObservableObject
     {
         if (await Relay.StopAsync(id)) await RefreshQuestionsAsync();
     }
+
+    /// <summary>The answer under way is being stopped because RigSight is closing, not by the person.</summary>
+    private bool _leaving;
+
+    /// <summary>How long RigSight closing waits for RigSight AI to hear that a question goes unanswered.</summary>
+    public static readonly TimeSpan LetGoWithin = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// RigSight is closing (the window, Windows shutting down, a language change or an update) with an answer under way:
+    /// it stops, and a question RigSight AI was answering is given back at once, as Stop does. Closing only tore the answer
+    /// down, so the relay waited 15 quiet minutes before giving it back (2026-11-17). The question stays saved with no
+    /// answer, and shows as one when the chat is opened again (<see cref="Open"/>).
+    /// </summary>
+    /// <returns>The give-back, done or given up on within <see cref="LetGoWithin"/>. It never needs this window's thread,
+    /// so App.OnExit can wait on it there.</returns>
+    public Task LetGo()
+    {
+        if (_answering is not { } going) return Task.CompletedTask;
+        var id = _answeringMode == AiMode.RigSight ? _questionId : null;
+        _questionId = null; // given back here, and not again by the stop below
+        _leaving = true;
+        Log.Write("ask", id is null ? "Closing with an answer under way: it stops" : "Closing with an answer under way: it stops, and RigSight AI is told so it gives the question back");
+        var told = id is null ? Task.CompletedTask : Task.Run(() => Relay.StopAsync(id, LetGoWithin));
+        going.Cancel();
+        return told;
+    }
+
+    /// <summary>The problem line under a question that got no answer, and under one saved with none after it.</summary>
+    private static string NoAnswer => Lang.T("No answer came back. Ask again.");
 
     /// <summary>The next plan up from this one (more questions a day), or null on the biggest.</summary>
     private RelayPlanOffer? Bigger(RelayPlan now)
@@ -2351,11 +2395,23 @@ public sealed partial class AskViewModel : ObservableObject
             messages = await Task.Run(() =>
             {
                 var list = new List<AskMessage>();
+                // A question with no answer, problem or stopped line before the next one: RigSight closed while it was
+                // being answered, and it stood alone with nothing under it (2026-11-17). It gets the line a failed answer
+                // gets; the last one with Try again, its words back in the box (below).
+                string? waiting = null;
+                void Unanswered(bool last)
+                {
+                    if (waiting is null) return;
+                    list.Add(last ? Problem(NoAnswer, waiting, null, null) : new AskProblem(NoAnswer));
+                    waiting = null;
+                }
                 foreach (var m in saved)
                 {
+                    if (m.Kind == SavedMessage.Question) Unanswered(last: false);
+                    else if (m.Kind is SavedMessage.Answer or SavedMessage.Problem or SavedMessage.Stopped) waiting = null;
                     switch (m.Kind)
                     {
-                        case SavedMessage.Question: list.Add(new AskQuestion(m.Text)); break;
+                        case SavedMessage.Question: list.Add(new AskQuestion(m.Text)); waiting = m.Text; break;
                         case SavedMessage.Problem: list.Add(new AskProblem(m.Text)); break;
                         case SavedMessage.Stopped: list.Add(new AskStopped(m.Text)); break;
                         case SavedMessage.Done: list.Add(new AskDone(m.Text)); break;
@@ -2373,6 +2429,7 @@ public sealed partial class AskViewModel : ObservableObject
                             break;
                     }
                 }
+                Unanswered(last: true);
                 return list;
             });
         }
@@ -2383,6 +2440,11 @@ public sealed partial class AskViewModel : ObservableObject
         }
         foreach (var answer in messages.OfType<AskAnswer>()) PrepareSetups(answer);
         foreach (var m in messages) talk.Messages.Add(m);
+        if (messages.LastOrDefault() is AskProblem { Question: { } unanswered })
+        {
+            Log.Write("ask", "Opened a chat whose last question got no answer: Try again under it, and its words back in the box");
+            ToBox(talk, unanswered);
+        }
         // A check from before: compared now if its time has passed, counted down otherwise.
         var checks = messages.OfType<AskCheck>().ToList();
         if (checks.Count > 0)
