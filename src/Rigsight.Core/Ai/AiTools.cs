@@ -400,7 +400,9 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (list.Count == 0 && results.Count == 0) return "No changes recorded in that time.";
         var sb = new StringBuilder();
         if (list.Count > 120) { sb.AppendLine($"(The newest 120 of {list.Count}.)"); list = list[^120..]; }
-        foreach (var c in list) sb.AppendLine($"{c.Time:ddd d MMM yyyy h:mm tt}  [{c.Kind}]  {c.Shown}");
+        // What it was before, where that's kept: "CPU changed to i7-14700KF" alone left the model doubting the person's
+        // own word that they had an i9-11900KF (2026-11-17).
+        foreach (var c in list) sb.AppendLine($"{c.Time:ddd d MMM yyyy h:mm tt}  [{c.Kind}]  {c.Shown}{(c.Was is { Length: > 0 } was && !c.Shown.Contains(was, StringComparison.OrdinalIgnoreCase) ? $" (was {was})" : "")}");
         if (results.Count > 0) sb.Append(ChangeResults(results));
         return sb.ToString();
     }

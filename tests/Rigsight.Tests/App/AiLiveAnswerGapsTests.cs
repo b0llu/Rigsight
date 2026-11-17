@@ -188,4 +188,26 @@ public sealed class AiLiveAnswerGapsTests : IDisposable
         Assert.Contains("<dt>Had been running</dt><dd>4 seconds, as Windows recorded the program that crashed; Medal itself had been in use for 4m</dd>",
             ReadableExport.Crashes([Story(4, 240)], "Today", DateTime.Now, "1.5.0"));
     }
+
+    // ── 7. A part swapped ────────────────────────────────────────────────
+
+    [Fact]
+    public void A_changed_part_says_what_it_was_before()
+    {
+        // 17 Nov 2026: "CPU changed to i7-14700KF" alone, and the model doubted the person's word that they had an i9-11900KF.
+        var at = DateTime.Today.AddDays(-3).AddHours(23);
+        using (var w = RigsightDb.OpenWriter(_db))
+            w.InsertChanges([
+                new SystemChange(at, ChangeKind.Hardware, "CPU changed to Intel(R) Core(TM) i7-14700KF")
+                    { Subject = "cpu:cpu", Was = "11th Gen Intel(R) Core(TM) i9-11900KF @ 3.50GHz", Now = "Intel(R) Core(TM) i7-14700KF" },
+                new SystemChange(at, ChangeKind.Setting, "Game Mode turned Off") { Subject = "setting:game-mode" },
+            ]);
+        string from = DateTime.Today.AddDays(-7).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        string to = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        string said = Tools().Run("get_changes", $$"""{"from":"{{from}}","to":"{{to}}"}""");
+
+        Assert.Contains("CPU changed to Intel(R) Core(TM) i7-14700KF (was 11th Gen Intel(R) Core(TM) i9-11900KF @ 3.50GHz)", said);
+        Assert.Contains("Game Mode turned Off" + Environment.NewLine, said);
+    }
 }
