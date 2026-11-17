@@ -12,7 +12,11 @@ public sealed record ChangeProblem(DateTime Time, CrashKind Kind, bool Graphics,
 /// One reading before a change and since it ("GPU in Crimson Desert", "71°", "77°"), with what the difference means.
 /// <see cref="Counted"/> false: shown so nothing is hidden, but not something this change can cause.
 /// </summary>
-public sealed record ChangeFigure(string Label, string Detail, string Before, string After, EffectTone Tone, string Meaning, bool Counted = true);
+public sealed record ChangeFigure(string Label, string Detail, string Before, string After, EffectTone Tone, string Meaning, bool Counted = true)
+{
+    /// <summary>A count of problems, not a reading: left out where crashes aren't shared (the AI's get_game).</summary>
+    public bool Problems { get; init; }
+}
 
 /// <summary>One thing the result rests on ("The same load"), or one that makes it less sure (<see cref="Ok"/> false).</summary>
 public sealed record ChangeCheck(bool Ok, string Title, string Detail);
@@ -64,6 +68,8 @@ public sealed record ChangeResult
     public List<ChangeFigure> Pairs { get; init; } = [];
     /// <summary>Every reading compared, for the opened change.</summary>
     public List<ChangeFigure> Rows { get; init; } = [];
+    /// <summary>The one game compared on both sides, when it was one game (not every game at the same power).</summary>
+    public long? AppId { get; init; }
     public List<ChangeCheck> Checks { get; init; } = [];
     /// <summary>The days and hours compared, and why it isn't more than possible where it isn't.</summary>
     public string Why { get; init; } = "";
@@ -269,6 +275,7 @@ public static class ChangeEffects
             Func<HeatDay, double?>? tempOf = null;
             double? tempBefore = null, tempAfter = null;
             string playWhy = "";
+            long? sameGame = null;
 
             // ── Heat: the same game, else (not for the power plan, which changes power by design) the GPU at the same power across games.
             var (was, wasRest) = Heat(from, day);
@@ -280,6 +287,7 @@ public static class ChangeEffects
             if (restOk && game.Now is { } n1 && game.Was is { } w1)
             {
                 long app = n1.AppId;
+                sameGame = app;
                 bool any = false;
                 // Two hours on each side for "likely"; the hour that's enough to see it makes it only possible.
                 bool thin = Math.Min(n1.Minutes, w1.Minutes) < SureMinutes;
@@ -366,7 +374,8 @@ public static class ChangeEffects
                     : before.Count >= 2 && rateBefore >= 2 * rateAfter ? EffectTone.Better : EffectTone.Same;
                 var figure = new ChangeFigure(what, (_graphics ? Lang.T("Graphics driver resets, blue screens in a graphics driver, the GPU hanging · ") : "")
                     + Lang.T($"{hoursBefore:0}h of use before, {hoursAfter:0}h {Since}"), Count(before), Count(since), tone,
-                    tone == EffectTone.Worse ? Lang.T("More") : tone == EffectTone.Better ? Lang.T("Fewer") : before.Count + since.Count is > 0 and < 4 ? Lang.T("Too few to compare") : Lang.T("As before"));
+                    tone == EffectTone.Worse ? Lang.T("More") : tone == EffectTone.Better ? Lang.T("Fewer") : before.Count + since.Count is > 0 and < 4 ? Lang.T("Too few to compare") : Lang.T("As before"))
+                    { Problems = true };
                 rows.Add(figure);
                 if (tone != EffectTone.Same)
                 {
@@ -392,7 +401,7 @@ public static class ChangeEffects
                 if (_graphics && problems.Where(p => !p.Graphics).ToList() is { Count: > 0 } other
                     && other.Count(p => p.Time >= from && p.Time < at) is var ob && other.Count(p => p.Time >= at && p.Time < to) is var oa && ob + oa > 0)
                     rows.Add(new(Lang.T($"{Wording.Capital(And(other.Select(p => Wording.Noun(p.Kind, many: true)).Distinct()))} not counted"),
-                        Lang.T("A graphics driver doesn't cause these unless the GPU hung"), ob.ToString(), oa.ToString(), EffectTone.Same, Lang.T("See Crashes"), Counted: false));
+                        Lang.T("A graphics driver doesn't cause these unless the GPU hung"), ob.ToString(), oa.ToString(), EffectTone.Same, Lang.T("See Crashes"), Counted: false) { Problems = true });
             }
 
             var head = findings.OrderBy(f => f.Tone == EffectTone.Worse ? 0 : 1).ThenBy(f => f.Sure).ThenBy(f => f.Heat ? 0 : 1).FirstOrDefault();
@@ -431,7 +440,7 @@ public static class ChangeEffects
             {
                 Day = day, Changes = of, From = from, To = to, Open = open, DaysBefore = _daysBefore, DaysAfter = _daysAfter,
                 Tone = head.Tone, Sure = head.Sure, Cause = cause, Headline = head.Headline, Line = head.Line, Context = head.Context, Short = head.Short,
-                Pairs = [.. pairs.Take(2)], Rows = rows, Checks = checks, Why = why, Advice = advice,
+                Pairs = [.. pairs.Take(2)], Rows = rows, AppId = sameGame, Checks = checks, Why = why, Advice = advice,
                 Before = before, After = since, TempLabel = tempLabel, TempBefore = tempBefore, TempAfter = tempAfter, Days = list,
             };
         }

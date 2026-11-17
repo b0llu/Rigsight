@@ -59,10 +59,15 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
                     ["to"] = new JsonObject { ["type"] = "string", ["description"] = "Last day included, yyyy-MM-dd." },
                 },
             }),
-            Def("get_game", "One game's history and how it's set: each play with its length, CPU/GPU load and temperature, power, frame rate when recorded, how it ended; its usual; crashes; changes between plays; the game's own saved graphics settings (resolution, display mode, VSync, frame limit, quality, upscaling) and Windows' settings for it. Look it up for how to make a game run better, smoother or cooler.", new JsonObject
+            Def("get_game", "One game's history and how it's set: each play with its length, CPU/GPU load and temperature, power, frame rate when recorded, how it ended; its usual; crashes; changes between plays; RigSight's before-and-after findings about it with the figures behind them; the game's own saved graphics settings (resolution, display mode, VSync, frame limit, quality, upscaling) and Windows' settings for it. Without from and to it lists the newest plays one by one and sums up the older ones; with from and to it lists every play in that period, for comparing before and after a change. Look it up for how to make a game run better, smoother or cooler.", new JsonObject
             {
                 ["type"] = "object",
-                ["properties"] = new JsonObject { ["name"] = new JsonObject { ["type"] = "string", ["description"] = "The game's name as list_games gives it." } },
+                ["properties"] = new JsonObject
+                {
+                    ["name"] = new JsonObject { ["type"] = "string", ["description"] = "The game's name as list_games gives it." },
+                    ["from"] = new JsonObject { ["type"] = "string", ["description"] = "First day of plays to list, yyyy-MM-dd (leave out for the newest plays)." },
+                    ["to"] = new JsonObject { ["type"] = "string", ["description"] = "Last day included, yyyy-MM-dd." },
+                },
                 ["required"] = new JsonArray("name"),
             }),
         };
@@ -128,6 +133,8 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
                 "list_games" when args["from"] is not null || args["to"] is not null =>
                     WithDb(db => GamesIn(db, Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to"))),
                 "list_games" => WithDb(ListGames),
+                "get_game" when args["from"] is not null || args["to"] is not null =>
+                    WithDb(db => Game(db, AiArgs.Text(args["name"]) ?? "", (Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to")))),
                 "get_game" => WithDb(db => Game(db, AiArgs.Text(args["name"]) ?? "")),
                 _ => RunMore(name, args) ?? RunPages(name, args) ?? $"Error: there is no tool called {name}.",
             };
@@ -463,7 +470,13 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
 
     private List<GameEntry> Played(RigsightDb db) => [.. Library(db).Where(g => g.HasHistory).OrderByDescending(g => g.ActiveSec)];
 
-    private string Game(RigsightDb db, string name)
+    /// <summary>Plays get_game lists one by one without dates; the older ones are summed in one line.</summary>
+    internal const int MostPlays = 15;
+
+    /// <param name="period">From and to (both included): every play in it, one by one. Without it, the newest
+    /// <see cref="MostPlays"/> and one line for the rest: a before-and-after question couldn't be answered when the plays
+    /// before the change were simply left out (2026-11-16).</param>
+    private string Game(RigsightDb db, string name, (DateTime From, DateTime To)? period = null)
     {
         var games = Library(db).Where(g => g.HasHistory).ToList();
         var entry = games.FirstOrDefault(g => g.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
@@ -493,11 +506,30 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (story.All.FrameMinutes > 0)
             sb.AppendLine("A stutter is one frame taking at least 2.5 times as long as the frames just before it, and at least 20 ms: a hitch you feel. Lows and stutters come from every frame RivaTuner drew; more stutters an hour than the game's own other plays means it ran less smoothly.");
         if (settings.Ai.Sends(AiPages.Memory)) sb.AppendLine("\"Graphics card memory in use\" is the whole card, every app together. \"The game's own video memory\" is the game alone, recorded only for plays from 20 Oct 2026 on: for older plays, check what else was using the card before saying a game uses more.");
-        sb.AppendLine("Plays, newest first (at most 15):");
+        var newest = story.Plays.OrderByDescending(p => p.Start).ToList();
+        List<GamePlay> listed, older = [];
+        string? together = null;
+        if (period is { } asked)
+        {
+            var (from, to) = asked;
+            if (to < from) (from, to) = (to, from);
+            long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to.AddDays(1));
+            string days = from == to ? $"on {from:d MMM yyyy}" : $"from {from:d MMM yyyy} to {to:d MMM yyyy}";
+            listed = [.. newest.Where(p => p.Start < t && p.End >= f)];
+            sb.AppendLine(listed.Count == 0 ? $"No plays {days}. Its plays run from {story.Plays.FirstOrDefault()?.StartTime:d MMM yyyy} to {story.Plays.LastOrDefault()?.StartTime:d MMM yyyy}."
+                : $"Every play {days}, newest first ({listed.Count} of its {newest.Count}); the lines above are for all its plays:");
+            if (listed.Count > 1) together = $"These {listed.Count} plays together: " + Stats(GameHistory.StatsOf(db, entry.AppIds[0], listed), cardNote: false);
+        }
+        else
+        {
+            listed = [.. newest.Take(MostPlays)];
+            older = [.. newest.Skip(MostPlays)];
+            sb.AppendLine(older.Count == 0 ? "Plays, newest first, every one:" : $"Plays, newest first: the newest {MostPlays} of {newest.Count} one by one, the {older.Count} older ones summed after them.");
+        }
         // Video memory is the whole card's (every app together), so each play says what else had the card at the time.
         var apps = db.LoadApps().ToDictionary(a => a.Id);
         var own = entry.AppIds.ToHashSet();
-        foreach (var p in story.Plays.OrderByDescending(p => p.Start).Take(15))
+        foreach (var p in listed)
         {
             // A play of a few seconds has no minute of readings: no empty ". ." before what ran with it.
             string stats = Stats(p.Stats, cardNote: false);
@@ -505,6 +537,15 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
             sb.AppendLine($"  {p.StartTime:ddd d MMM h:mm tt} to {p.EndTime:h:mm tt}, {Units.Duration(p.ActiveSec)} in front{(settings.Ai.Sends(AiPages.Crashes) ? $", ended: {p.Ending}" : "")}"
                 + (stats.Length > 0 ? $". {stats}" + alongside : alongside));
         }
+        if (together is not null) sb.AppendLine(together);
+        // Older, and summed: never left out without a word, or the plays before a change look missing (2026-11-16).
+        if (older.Count > 0)
+        {
+            string stats = Stats(GameHistory.StatsOf(db, entry.AppIds[0], older), cardNote: false);
+            sb.AppendLine($"The {older.Count} older plays, not listed one by one, summed together ({older.Min(p => p.StartTime):d MMM yyyy} to {older.Max(p => p.StartTime):d MMM yyyy}, {Units.Duration(older.Sum(p => p.ActiveSec))} in front)"
+                + (stats.Length > 0 ? $": {stats}." : ".") + " For them one by one, ask get_game again with from and to.");
+        }
+        foreach (var line in Findings(db, entry)) sb.AppendLine(line);
         // When the newest play with frames stuttered, and what else was going on then (as its page says it).
         if (story.Plays.LastOrDefault(p => p.Stats.Stutters is > 0) is { } rough && entry.AppIds.Count > 0)
         {
@@ -515,6 +556,28 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (settings.Ai.Sends(AiPages.Timeline))
             foreach (var c in story.Changes.TakeLast(10)) sb.AppendLine($"Changed between plays: {c.Change.Time:d MMM} {c.Change.Shown}");
         return sb.ToString() + LeftOut(Switch.Heat, Switch.Memory, Switch.Changes, Switch.Crashes);
+    }
+
+    /// <summary>
+    /// The before and after behind each of RigSight's "ran 6° hotter on the CPU in the 9 days after…" lines about this game
+    /// (Home, Timeline): its steady minutes on each side, which are what the line compares. On 2026-11-16 the model checked
+    /// such a line against the plays' own averages and a usual made of every play, and said the line was wrong.
+    /// </summary>
+    private IEnumerable<string> Findings(RigsightDb db, GameEntry entry)
+    {
+        if (!settings.Ai.Sends(AiPages.Temperatures) || !settings.Ai.Sends(AiPages.Timeline) || entry.AppIds.Count == 0) yield break;
+        var ids = entry.AppIds.ToHashSet();
+        bool crashes = settings.Ai.Sends(AiPages.Crashes);
+        foreach (var r in ChangeEffects.Read(db, settings).Values.Where(r => r.AppId is long a && ids.Contains(a)).OrderByDescending(r => r.Day).Take(3))
+        {
+            string before = $"{r.DaysBefore} days before, {r.From:d MMM} to {r.Day.AddDays(-1):d MMM}";
+            string after = r.Open ? $"{r.DaysAfter} days since, {r.Day.AddDays(1):d MMM} to now" : $"{r.DaysAfter} days after, {r.Day.AddDays(1):d MMM} to {r.To.AddDays(-1):d MMM}";
+            var rows = r.Rows.Where(x => crashes || !x.Problems).Select(x => $"{x.Label} {x.Before} before, {x.After} after ({x.Meaning})");
+            string change = r.Changes.Count == 1 ? $"{r.Main.Shown} on {r.Day:d MMM yyyy}" : $"the {r.Changes.Count} changes on {r.Day:d MMM yyyy} ({string.Join("; ", r.Changes.Select(c => c.Shown))})";
+            yield return $"RigSight's finding \"{r.Said}\" ({r.HowSure}), about {change} (that day itself is on neither side). "
+                + $"It compares this game's steady minutes, at heavy graphics card load past the first 10 minutes of each run, in the {before} against the {after}, at the same GPU power and with the PC at rest taken into account: "
+                + string.Join("; ", rows) + ". Those are the figures behind the line; whole plays' averages and the usual above mix in other minutes and other days, so they can differ. For the plays on each side one by one, ask get_game with from and to.";
+        }
     }
 
     /// <summary>
