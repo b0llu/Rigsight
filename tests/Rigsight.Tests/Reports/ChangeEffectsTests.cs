@@ -102,6 +102,33 @@ public sealed class ChangeEffectsTests
         Assert.Null(r.Advice); // 77° is under the GPU's warm level: nothing to do about it
     }
 
+    private static SystemChange GameUpdate(DateTime at, string game = "Cyberpunk 2077") =>
+        new(at, ChangeKind.GameUpdated, $"{game} updated") { Subject = "logged-game:steam:1091500", Was = "build 1", Now = "build 2" };
+
+    [Fact]
+    public void The_game_updated_in_the_days_after_is_said_and_keeps_it_possible()
+    {
+        // 2026-11-16: Phantom Blade Zero ran 6° hotter on the CPU after Windows updates, and the game itself was patched the next day.
+        var r = new Pc().Days(-10, -1, gpu: 70).Days(1, 6, gpu: 77).Result(Driver(Day), GameUpdate(Day.AddDays(1).AddHours(15)))!;
+        Assert.Equal("POSSIBLY THE DRIVER", r.Chip);
+        var check = Assert.Single(r.Checks, c => c.Title == "The game was updated too");
+        Assert.False(check.Ok);
+        Assert.Equal("Cyberpunk 2077 itself was updated on 29 Sep, in the days after, so some of the difference may come from the game.", check.Detail);
+        Assert.EndsWith("Possibly, not likely. Cyberpunk 2077 itself was updated in these days.", r.Why);
+    }
+
+    [Fact]
+    public void Another_games_update_or_one_outside_the_days_compared_changes_nothing()
+    {
+        var pc = new Pc().Days(-10, -1, gpu: 70).Days(1, 6, gpu: 77);
+        foreach (var other in new[] { GameUpdate(Day.AddDays(2), "Elden Ring"), GameUpdate(Day.AddDays(-30)) })
+        {
+            var r = pc.Result(Driver(Day), other)!;
+            Assert.Equal("LIKELY THE DRIVER", r.Chip);
+            Assert.DoesNotContain(r.Checks, c => c.Title == "The game was updated too");
+        }
+    }
+
     [Fact]
     public void Past_the_warm_level_it_says_what_to_try()
     {

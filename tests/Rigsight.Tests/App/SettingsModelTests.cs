@@ -82,6 +82,55 @@ public sealed class SettingsModelTests
     }
 
     [Fact]
+    public void Changes_wait_while_the_agent_is_another_version_and_go_once_it_matches()
+    {
+        using var w = new Wired();
+        Ui.Run(() =>
+        {
+            w.Settings.HoldFor("1.0.0");
+            w.Settings.Update(s => s.Theme = ThemeManager.Light);
+        });
+        Ui.Pump(800); // past the pause changes wait out
+        Assert.Empty(w.Sent);
+        Assert.True(w.Settings.Held);
+        Ui.Run(() =>
+        {
+            w.Settings.HoldFor(null);
+            w.Settings.OnConnected();
+        });
+        Assert.True(Ui.WaitFor(() => w.Sent.Count == 1, 3000), "the held change never went");
+        Assert.Equal(ThemeManager.Light, w.Sent[0].Settings!.Theme);
+    }
+
+    [Fact]
+    public void Closing_with_a_change_held_for_another_version_writes_nothing_over_its_file()
+    {
+        using var w = new Wired();
+        string before = SettingsStore.Serialize(SettingsStore.Load());
+        Ui.Run(() =>
+        {
+            w.Settings.HoldFor("1.0.0");
+            w.Settings.Update(s => s.Theme = ThemeManager.Light);
+            w.Settings.OnExit();
+        });
+        Assert.Equal(before, SettingsStore.Serialize(SettingsStore.Load()));
+        Assert.Empty(w.Sent);
+    }
+
+    [Fact]
+    public void A_change_says_which_of_the_agents_copies_it_was_made_on()
+    {
+        using var w = new Wired();
+        Ui.Run(() =>
+        {
+            w.Settings.ApplyFromAgent(w.Settings.Current.Clone(), rev: 7);
+            w.Settings.Update(s => s.Theme = ThemeManager.Light);
+        });
+        Assert.True(Ui.WaitFor(() => w.Sent.Count == 1, 3000));
+        Assert.Equal(7, w.Sent[0].SettingsBase);
+    }
+
+    [Fact]
     public void A_change_made_with_no_agent_running_is_kept_for_the_next_start()
     {
         using var w = new Wired(connect: false);

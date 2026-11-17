@@ -29,7 +29,7 @@ internal sealed partial class AgentContext
     private static readonly string[] LiveKinds =
     [
         WidgetTiles.Fans, WidgetTiles.Drives, WidgetTiles.Cores, WidgetTiles.TopCpu, WidgetTiles.TopMemory,
-        WidgetTiles.NetSpeed, WidgetTiles.NetNow,
+        WidgetTiles.NetSpeed, WidgetTiles.NetNow, WidgetTiles.Ping,
     ];
 
     /// <summary>Sampler thread: what the PC's live tiles on the widgets show now (null: none of them is on a widget).</summary>
@@ -54,6 +54,7 @@ internal sealed partial class AgentContext
                     pc.TopMemory = [.. apps.OrderByDescending(a => a.MemMB).Take(8).Select(a => AppOf(a, Units.Megabytes(a.MemMB)))];
             }
         }
+        if (kinds.Contains(WidgetTiles.Ping)) PingNow(pc);
         if (kinds.Contains(WidgetTiles.NetSpeed) || kinds.Contains(WidgetTiles.NetNow))
         {
             bool reading = _netTrace is not null || _cardsBefore is not null;
@@ -221,4 +222,11 @@ internal sealed partial class AgentContext
             }
         });
     }
+
+    /// <summary>
+    /// Sampler thread: the Ping tile's figures, as the Network page's top line says them: the game's or call's server when
+    /// one is checked, else the internet provider's first router, else the router.
+    /// </summary>
+    private void PingNow(PcNow pc) =>
+        pc.FillPing(LineNow(), exe => _tracker.NetNow?.Apps.FirstOrDefault(a => a.Exe.Equals(exe, StringComparison.OrdinalIgnoreCase))?.Name);
 }

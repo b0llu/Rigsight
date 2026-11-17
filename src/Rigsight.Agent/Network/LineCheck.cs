@@ -10,7 +10,8 @@ namespace Rigsight.Agent.Network;
 
 /// <summary>
 /// Checks the line every few seconds: how long a ping takes to this PC's router (the home side: the cable or Wi-Fi) and
-/// to the internet provider's first router after it (the provider's side). No outside server is asked anything: the
+/// to the internet provider's first router after it (the provider's side). No outside server is asked anything here (the
+/// servers games and calls already talk to are checked by ServerPing, with their own switch): the
 /// provider's router is found the way a traceroute finds it, by sending pings that may only go so many stops and seeing
 /// which stop answers first from outside the home. Pings leave from the network card itself, so a VPN in between (WARP)
 /// doesn't hide the line. Its own thread; the sampler takes what it found each second (<see cref="Live"/>) and each
@@ -84,11 +85,14 @@ internal sealed class LineCheck : IDisposable
             {
                 if (!_enabled) { _stop.Wait(EverySeconds * 1000); continue; }
                 long now = TimeUtil.NowUnix();
-                if (_findNow.IsSet || now >= nextFind || _stops is null)
+                // With no router, the next search waits its 60 s like any other (the network changing still wakes it).
+                if (_findNow.IsSet || now >= nextFind)
                 {
                     _findNow.Reset();
                     _stops = Find();
-                    nextFind = now + (_stops is null ? 60 : FindEverySeconds);
+                    // No router, or no provider's router answering yet (a game starting can crowd the first look out):
+                    // looked for again in a minute, not half an hour of checking only the home side.
+                    nextFind = now + (_stops is not { Provider: not null } ? 60 : FindEverySeconds);
                 }
                 if (_stops is { } s)
                 {
@@ -116,6 +120,9 @@ internal sealed class LineCheck : IDisposable
     /// answers from an address outside the home (a provider's shared address, 100.64/10, counts as the provider's).
     /// Null when no network card has a router.
     /// </summary>
+    private static bool _noRouterSaid;
+    private static string? _missSaidFor; // the router whose provider's router last didn't answer, already in the log
+
     private static Stops? Find()
     {
         var card = NetworkInterface.GetAllNetworkInterfaces()
@@ -129,9 +136,12 @@ internal sealed class LineCheck : IDisposable
             .FirstOrDefault();
         if (card.Source is null || card.Router is null)
         {
-            Log.Write("line check", "No network card with a router: the line isn't checked for now");
+            // Said once until a router is back: every minute would push the log's useful lines out within a day.
+            if (!_noRouterSaid) Log.Write("line check", "No network card with a router: the line isn't checked for now (looked for again each minute)");
+            _noRouterSaid = true;
             return null;
         }
+        _noRouterSaid = false;
         // Stop by stop: the first to answer from outside the home is the provider's.
         IPAddress? provider = null;
         int stop = 0;
@@ -143,7 +153,10 @@ internal sealed class LineCheck : IDisposable
         // A router that answers pings is pinged; one that only says "too many stops" is reached the same way it was found.
         bool echo = provider is not null && Enumerable.Range(0, 3).Any(_ => Echo(card.Source, provider) is not null);
         int? lanMs = Echo(card.Source, card.Router), ispMs = provider is null ? null : echo ? Echo(card.Source, provider) : Limited(card.Source, stop, provider);
-        Log.Write("line check", $"Router {card.Router} on {card.ni.Name} ({Ms(lanMs)}); "
+        // Looked for each minute while the provider's router doesn't answer: said the first time, not every minute.
+        bool sameMiss = provider is null && _missSaidFor == card.Router.ToString();
+        _missSaidFor = provider is null ? card.Router.ToString() : null;
+        if (!sameMiss) Log.Write("line check", $"Router {card.Router} on {card.ni.Name} ({Ms(lanMs)}); "
             + (provider is null ? $"no provider's router answered within {MaxStops} stops: only the home side is checked"
                : $"the provider's first router is {stop} stops out ({Ms(ispMs)}, {(echo ? "answers pings" : "reached stop-limited")})"));
         return new Stops(card.Source, card.Router, provider, stop, echo);

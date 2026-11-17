@@ -704,39 +704,6 @@ internal sealed class WidgetManager(Func<RigsightSettings> getSettings, Action<A
         return root;
     }
 
-    /// <summary>Saves a PNG of every widget style (with current data) for the app's Widgets page.</summary>
-    public void RenderPreviews(RigsightSettings settings)
-    {
-        try
-        {
-            var dir = Path.Combine(Rigsight.Core.RigsightPaths.DataDir, "previews");
-            Directory.CreateDirectory(dir);
-            foreach (var cfg in settings.Widgets)
-            {
-                // Shown over a backdrop in the app, so both opacities are visible there as on the desktop.
-                var preview = new WidgetConfig
-                {
-                    Style = cfg.Style, Id = cfg.Id, Name = cfg.Name, Layout = cfg.Layout, Items = cfg.Items, Theme = cfg.Theme,
-                    Grayscale = cfg.Grayscale, BackgroundOpacity = cfg.BackgroundOpacity, ContentOpacity = cfg.ContentOpacity, Scale = 1,
-                    Tiles = cfg.Tiles, Accent = cfg.Accent, Font = cfg.Font, Corners = cfg.Corners, TileBoxes = cfg.TileBoxes, Gap = cfg.Gap, TileLines = cfg.TileLines,
-                };
-                var data = _data;
-                // A frame rate only exists with a game in front (never, while the app is): show one as it would look.
-                if (ShowsFrameRate(cfg) && data?.Frame is null)
-                {
-                    data = data?.Copy() ?? new WidgetData();
-                    data.Frame = new FrameStats(144, 6.9, 118);
-                }
-                using var bmp = WidgetRenderer.Render(preview, data, 2f, hover: false, out _);
-                PreviewFile.Save(bmp, Path.Combine(dir, $"{cfg.Id}.png"));
-            }
-        }
-        catch (Exception ex)
-        {
-            Rigsight.Core.Log.Error("widgets", ex);
-        }
-    }
-
     public void CloseAll()
     {
         foreach (var f in _forms.Values)

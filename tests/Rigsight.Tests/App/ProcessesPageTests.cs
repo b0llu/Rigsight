@@ -619,6 +619,125 @@ public sealed class ProcessesPageTests
         Assert.Equal("1 tab 250 MB", $"{row.Shares[0].Name} {row.Shares[0].Text}");
     }
 
+    /// <summary>What a day of history with CPU time says about an app: today's hours from 9 AM, and the 30 days up to today.</summary>
+    private static AppPast CpuPast(DateTime now, int threads = 16) => new()
+    {
+        Hours = [.. Enumerable.Range(0, now.Hour + 1).Select(h => h < 9 ? (double?)null : 500)],
+        UsualMB = 520, Crashes = 0, Threads = threads, HourNowSec = 20 * 60,
+        // 9 AM: none; 2 PM to 3 PM: 2m 02s; the rest a minute an hour.
+        CpuHourMs = [.. Enumerable.Range(0, now.Hour + 1).Select(h => h < 9 ? (long?)null : h == 9 ? 0 : h == 14 ? 122_000 : 60_000)],
+        CpuUsualPct = 0.1,
+        // Recorded from 10 days back; it didn't run 2 days back; 48 minutes of CPU time on the other days.
+        Days = [.. Enumerable.Range(0, AppPast.UsualDays).Select(i =>
+        {
+            var day = now.Date.AddDays(i - (AppPast.UsualDays - 1));
+            int back = (int)(now.Date - day).TotalDays;
+            return back > 10 ? new AppPastDay(day, false, 0, null, 0, 0)
+                : back == 2 ? new AppPastDay(day, true, 0, null, 0, 0)
+                : new AppPastDay(day, true, 48 * 60_000, 412, 6 * 3600, 0);
+        })],
+        CpuUsualDayMs = 40 * 60_000,
+    };
+
+    [Fact]
+    public void The_box_says_its_cpu_time_and_both_charts_follow_the_period_picked()
+    {
+        var now = new DateTime(2026, 6, 19, 15, 20, 0); // a Friday
+        var row = new ProcRow("Discord.exe");
+        var info = App("Discord.exe", "Discord", 1100, count: 6);
+        info.Started = TimeUtil.ToUnix(now.Date.AddHours(9));
+        row.Update(info);
+        var history = new ProcHistory();
+        history.Fill(row, CpuPast(now), now);
+
+        // Today: CPU time beside its memory, and what it means for this PC under the pointer.
+        var cpu = history.Facts.Single(f => f.Label == "CPU time today");
+        Assert.Equal("48m", cpu.Value);
+        Assert.Equal("All of Discord's 6 processes together kept one CPU core busy for 48m today. Your CPU has 16 threads, so that's 0.8% of what it could do in that time.", cpu.Tip);
+        Assert.Equal(["Running since", "Usual memory", "CPU time today", "Crashes (30 days)"], history.Facts.Select(f => f.Label));
+        Assert.True(history.HasCpu);
+        Assert.False(history.IsDays);
+        Assert.Equal(("CPU TODAY", "MEMORY TODAY", "12 AM", "Now"), (history.CpuCaption, history.MemCaption, history.AxisFrom, history.AxisTo));
+        Assert.True(history.HasCpuChart);
+        Assert.Equal(0.1, history.CpuUsual);
+        Assert.Equal(122.0 / (3600 * 16) * 100, history.CpuValues[14]!.Value, 6);
+        Assert.Equal("2 PM to 3 PM, 0.2% of the CPU on average, 2m 02s of CPU time", history.CpuTips![14]);
+        Assert.Equal("9 AM to 10 AM, no CPU time", history.CpuTips[9]);
+        Assert.Equal("3 AM to 4 AM, not recorded", history.CpuTips[3]);
+        Assert.StartsWith("3 PM to now, ", history.CpuTips[15]);
+        Assert.Null(history.MemTips); // the memory line keeps its own hover
+
+        // The last 7 days: a bar a day for both, the CPU time fact over the same days.
+        history.Period = ProcPeriod.Week;
+        Assert.True(history.IsDays);
+        Assert.Equal(("CPU TIME, LAST 7 DAYS", "MEMORY, LAST 7 DAYS", "Sat", "Today"), (history.CpuCaption, history.MemCaption, history.AxisFrom, history.AxisTo));
+        Assert.Equal(7, history.CpuValues.Count);
+        Assert.Equal(48 * 60.0, history.CpuValues[^1]);
+        Assert.Equal(0, history.CpuValues[^3]); // the day it didn't run: no bar
+        Assert.Equal("Fri, 48m of CPU time", history.CpuTips![^1]);
+        Assert.Equal("Wed, not running", history.CpuTips[^3]);
+        Assert.Equal("Fri, 412 MB on average", history.MemTips![^1]);
+        Assert.Equal(40 * 60.0, history.CpuUsual);
+        var week = history.Facts.Single(f => f.Label == "CPU time, last 7 days");
+        Assert.Equal("4h 48m", week.Value);
+        Assert.StartsWith("All of Discord's 6 processes together kept one CPU core busy for 4h 48m over the last 7 days.", week.Tip);
+
+        // The last 30 days: the days before anything was recorded are grey and say so.
+        history.Period = ProcPeriod.Month;
+        Assert.Equal(("CPU TIME, LAST 30 DAYS", "MEMORY, LAST 30 DAYS"), (history.CpuCaption, history.MemCaption));
+        Assert.Equal(30, history.CpuValues.Count);
+        Assert.Null(history.CpuValues[0]);
+        Assert.Null(history.MemValues[0]);
+        Assert.EndsWith(", not recorded", history.CpuTips![0]);
+        Assert.Equal("Thu 21 May", history.AxisFrom); // over a month a day is named with its date
+        Assert.Contains("CPU time, last 30 days", history.Facts.Select(f => f.Label));
+
+        // One process only, and no history with CPU time: the fact is said of the app itself, or left out.
+        var one = new ProcRow("helper.exe");
+        one.Update(App("helper.exe", "Helper", 20));
+        Assert.StartsWith("Helper kept one CPU core busy for 48m today.", ProcHistory.CpuFact(one, CpuPast(now), ProcPeriod.Today, now)!.Tip);
+        var old = new ProcHistory();
+        old.Fill(row, new AppPast { Hours = [.. Enumerable.Range(0, 16).Select(_ => (double?)500)], Crashes = 0 }, now);
+        Assert.False(old.HasCpu);
+        Assert.False(old.HasCpuChart);
+        Assert.DoesNotContain(old.Facts, f => f.Label.StartsWith("CPU time"));
+        old.Period = ProcPeriod.Week; // nothing to show by the day: it stays on today
+        Assert.False(old.IsDays);
+    }
+
+    [Fact]
+    public void Load_today_is_a_word_per_app_with_its_reason_and_sorts_like_the_other_columns()
+    {
+        var page = Page();
+        // The page reads every app's day as it shows: done first, so it can't come after the figures set here.
+        Kit.Wait(() => page.Vm.LoadTodayAsync());
+        Ui.Run(() =>
+        {
+            const double ram = 32 * 1024;
+            page.Row("game.exe").SetLoad(new(4 * 3600, 5 * 3600, 6 * 3600, 8000), 16, ram, "32 GB");
+            page.Row("chrome.exe").SetLoad(new(0.006 * 16 * 6 * 3600, 0, 6 * 3600, 2500), 16, ram, "32 GB");
+            page.Row("Discord.exe").SetLoad(new(0.002 * 16 * 3600, 0, 3600, 300), 16, ram, "32 GB");
+            page.Row("updater.exe").SetLoad(new(1, 0, 4 * 60, 100), 16, ram, "32 GB");
+            page.Row("csrss.exe").SetLoad(null, 16, ram, "32 GB");
+
+            var game = page.Row("game.exe");
+            Assert.Equal(("High", 3), (game.LoadText, game.LoadSteps));
+            Assert.Equal(("Medium", 2), (page.Row("chrome.exe").LoadText, page.Row("chrome.exe").LoadSteps));
+            Assert.Equal("Medium because of its memory, 2.4 GB on average today, 7.6% of your 32 GB. CPU 0.6% on average, over 6h 00m running.", page.Row("chrome.exe").LoadTip);
+            Assert.Equal(("Low", 1), (page.Row("Discord.exe").LoadText, page.Row("Discord.exe").LoadSteps));
+            // Not long enough yet, and nothing on record: a dash, with what it still needs or nothing at all.
+            Assert.Equal((ProcRow.Nothing, 0), (page.Row("updater.exe").LoadText, page.Row("updater.exe").LoadSteps));
+            Assert.Equal("Too soon to say. It needs 10 minutes of running today, and has 4 so far.", page.Row("updater.exe").LoadTip);
+            Assert.Equal((ProcRow.Nothing, (string?)null), (page.Row("csrss.exe").LoadText, page.Row("csrss.exe").LoadTip));
+
+            page.Vm.SortByCommand.Execute(ProcessesViewModel.ByLoad);
+            Assert.Equal(("↓", true), (page.Vm.LoadHeading.Arrow, page.Vm.LoadHeading.IsActive));
+            Assert.Equal("LOAD TODAY", page.Vm.LoadHeading.Label);
+        });
+        // Heaviest first; apps level on it by their memory, those without a word last.
+        Assert.Equal(["game.exe", "chrome.exe", "Discord.exe", "svchost.exe", "explorer.exe", "updater.exe", "csrss.exe"], page.Order);
+    }
+
     [Fact]
     public void The_box_is_read_when_an_app_is_first_opened()
     {
@@ -1333,29 +1452,56 @@ public sealed class ProcessesPageTests
             });
             // What the seeded history says about it is read first; the test then puts figures of its own in the box.
             Assert.True(Ui.WaitFor(() => chrome.History is { IsLoading: false }));
+            Kit.Wait(() => page.Vm.LoadTodayAsync());
             Ui.Run(() =>
             {
                 var list = Apps();
                 list[0].Processes = [new() { Pid = 61, Label = "YouTube", Kind = "Tab", MemMB = 912 }, new() { Pid = 60, Label = "Google Chrome", Kind = "Main", MemMB = 400 }];
                 page.Live.ApplyProcs(list, disk: 5_000_000);
+                var cpu = CpuPast(DateTime.Now);
                 chrome.History!.Fill(chrome, new AppPast
                 {
                     Hours = [.. Enumerable.Range(0, 12).Select(h => (double?)(3000 + h * 90))], UsualMB = 2700, FrontSec = 3 * 3600, BackSec = 2 * 3600, Crashes = 1,
+                    CpuHourMs = [.. Enumerable.Range(0, 12).Select(h => (long?)60_000 * h)], Threads = 16, Days = cpu.Days, CpuUsualDayMs = cpu.CpuUsualDayMs,
                 }, DateTime.Now);
+                page.Row("game.exe").SetLoad(new(4 * 3600, 5 * 3600, 6 * 3600, 8000), 16, 32 * 1024, "32 GB");
             });
             Ui.Pump(400);
             Ui.Run(() =>
             {
                 var view = (Views.ProcessesView)window.Content;
                 var texts = Visuals.Descendants<System.Windows.Controls.TextBlock>(view).Where(t => t.IsVisible).Select(t => t.Text).ToList();
-                foreach (var expected in new[] { "Processes", "MEMORY", "CPU", "INTERNET", "DISK", "Mostly Dota 2", "Running now", "APP", "Google Chrome", "30 processes", "MEMORY TODAY", "312 KB/s", "WHERE ITS MEMORY IS", "30 PROCESSES" })
+                foreach (var expected in new[] { "Processes", "MEMORY", "CPU", "INTERNET", "DISK", "LOAD TODAY", "High", "Mostly Dota 2", "Running now", "APP", "Google Chrome", "30 processes",
+                    "CPU TODAY", "MEMORY TODAY", "312 KB/s", "WHERE ITS MEMORY IS", "30 PROCESSES", "Today", "Last 7 days", "Last 30 days" })
                     Assert.Contains(expected, texts);
-                // The app is open: its box with the chart, the facts and the split of its memory, then its two processes.
+                Assert.Contains(chrome.History!.Facts, f => f.Label == "CPU time today" && f.Tip is { Length: > 0 });
+                // The app is open: its box with the charts, the facts and the split of its memory, then its two processes.
                 Assert.Equal(["1 tab", "Google Chrome itself"], Visuals.Descendants<Controls.PartsBar>(view).Single().Parts!.Cast<ProcShare>().Select(x => x.Name));
-                // Built for the open app only: the other rows stay as light as a row of the Memory page.
-                Assert.Single(Visuals.Descendants<Controls.HourLine>(view));
-                Assert.Equal("Now · 3.9 GB", Visuals.Descendants<Controls.HourLine>(view).Single(c => c.IsVisible).HoverText(11));
-                Assert.Equal("3 AM · 3.2 GB", Visuals.Descendants<Controls.HourLine>(view).Single(c => c.IsVisible).HoverText(3));
+                // Built for the open app only (its CPU and its memory): the other rows stay as light as a row of the Memory page.
+                Assert.Equal(2, Visuals.Descendants<Controls.HourLine>(view).Count(c => c.IsVisible));
+                var memory = Visuals.Descendants<Controls.HourLine>(view).Single(c => c.IsVisible && c.Tips is null);
+                Assert.Equal("Now · 3.9 GB", memory.HoverText(11));
+                Assert.Equal("3 AM · 3.2 GB", memory.HoverText(3));
+                var cpuLine = Visuals.Descendants<Controls.HourLine>(view).Single(c => c.IsVisible && c.Tips is not null);
+                Assert.StartsWith("11 AM to now, ", cpuLine.HoverText(11));
+                Assert.Equal("2 AM to 3 AM, 0.2% of the CPU on average, 2m 00s of CPU time", cpuLine.HoverText(2));
+                // CPU and memory to the right of where its memory is.
+                double Left(System.Windows.FrameworkElement e) => e.TranslatePoint(new System.Windows.Point(0, 0), view).X;
+                var split = Visuals.Descendants<Controls.PartsBar>(view).Single();
+                Assert.True(Left(split) < Left(cpuLine) && Left(cpuLine) < Left(memory));
+
+                // The last 7 days, picked: both charts are bars a day.
+                Visuals.Descendants<System.Windows.Controls.RadioButton>(view).Single(r => Equals(r.Content, "Last 7 days")).IsChecked = true;
+            });
+            Ui.Pump(200);
+            Ui.Run(() =>
+            {
+                var view = (Views.ProcessesView)window.Content;
+                var texts = Visuals.Descendants<System.Windows.Controls.TextBlock>(view).Where(t => t.IsVisible).Select(t => t.Text).ToList();
+                Assert.Contains("CPU TIME, LAST 7 DAYS", texts);
+                Assert.Contains("MEMORY, LAST 7 DAYS", texts);
+                Assert.All(Visuals.Descendants<Controls.HourLine>(view).Where(c => c.IsVisible), c => Assert.True(c.Bars));
+                Assert.Equal(7, Visuals.Descendants<Controls.HourLine>(view).First(c => c.IsVisible).Values!.Count);
                 Assert.Equal(4, Visuals.Descendants<Controls.Sparkline>(view).Count(s => s.IsVisible));
                 // The column headings end where the rows' figures end.
                 var list = Visuals.Descendants<System.Windows.Controls.ListBox>(view).Single();
@@ -1365,6 +1511,12 @@ public sealed class ProcessesPageTests
                 double figureRight = figure.TranslatePoint(new System.Windows.Point(figure.ActualWidth, 0), view).X;
                 double headingRight = heading.TranslatePoint(new System.Windows.Point(heading.ActualWidth, 0), view).X;
                 Assert.Equal(figureRight, headingRight, 1.0);
+                // LOAD TODAY too: the word and its steps end under the heading.
+                var word = Visuals.Descendants<System.Windows.Controls.TextBlock>(list).First(t => t.IsVisible && t.Text == "High");
+                var cell = (System.Windows.FrameworkElement)System.Windows.Media.VisualTreeHelper.GetParent(word);
+                var loadHeading = Visuals.Descendants<System.Windows.Controls.Button>(head).Single(b => b.DataContext == page.Vm.LoadHeading);
+                Assert.Equal(loadHeading.TranslatePoint(new System.Windows.Point(loadHeading.ActualWidth, 0), view).X,
+                    cell.TranslatePoint(new System.Windows.Point(cell.ActualWidth, 0), view).X, 1.0);
             });
             Ui.AssertNoProblems("the Processes page");
             Assert.True(Ui.Run(() => page.Live.Procs.Count > 0));

@@ -55,11 +55,28 @@ public sealed class SettingsModel
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// The agent is another version (an update half done, until it restarts): changes wait here. The older side drops the
+    /// fields it doesn't know, and saving would put those settings back to their defaults.
+    /// </summary>
+    public bool Held { get; private set; }
+
+    /// <summary>The agent's hello: its version against this window's (null when they match). Held changes go out once they match.</summary>
+    public void HoldFor(string? otherAgentVersion)
+    {
+        bool held = otherAgentVersion is not null;
+        if (held == Held) return;
+        Held = held;
+        Log.Write("settings", held
+            ? $"The agent is version {otherAgentVersion}: changes wait until it matches this window"
+            : "The agent matches this window again: changes go to it");
+    }
+
     public void Flush()
     {
         _debounce.Stop();
-        if (!_dirty) return;
-        if (_client.Send(new UiMessage { T = "settings", Settings = Current.Clone() }))
+        if (!_dirty || Held) return;
+        if (_client.Send(new UiMessage { T = "settings", Settings = Current.Clone(), SettingsBase = _agentRev }))
         {
             _dirty = false;
             _agents = SettingsStore.Serialize(Current);
@@ -75,6 +92,13 @@ public sealed class SettingsModel
     {
         Flush();
         if (!_dirty) return;
+        // An agent of another version is running and writing the file: written here, it'd be overwritten (and this copy
+        // would drop that version's fields). The change is lost; the log says so.
+        if (Held)
+        {
+            Log.Write("settings", "Closed with a change the agent of another version didn't take: not saved");
+            return;
+        }
         SettingsStore.Save(Current);
         _dirty = false;
     }
@@ -85,8 +109,13 @@ public sealed class SettingsModel
         if (_dirty) Flush();
     }
 
-    public void ApplyFromAgent(RigsightSettings settings)
+    // The agent's copy the app has taken in last (see UiMessage.SettingsBase).
+    private long? _agentRev;
+
+    public void ApplyFromAgent(RigsightSettings settings, long? rev = null)
     {
+        // Taken in either way below: as it is, or with a waiting change merged onto it.
+        if (rev is not null) _agentRev = rev;
         string agents = _agents, theirs = SettingsStore.Serialize(settings), mine = SettingsStore.Serialize(Current);
         _agents = theirs;
         if (_debounce.IsEnabled || _dirty)

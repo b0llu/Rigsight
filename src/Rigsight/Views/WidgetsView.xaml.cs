@@ -25,14 +25,18 @@ public partial class WidgetsView : UserControl
         Loaded += (_, _) =>
         {
             Watch(DataContext as WidgetsViewModel);
+            WatchWindow(true);
             if (_vm is null) return;
             _vm.PageShown = true;
             _vm.LoadMap();
+            _vm.Editor?.Resume();
         };
         Unloaded += (_, _) =>
         {
+            WatchWindow(false);
             if (_vm is not null)
             {
+                _vm.Editor?.Pause();
                 _vm.PageShown = false;
                 // A shortcut left waiting for its keys doesn't wait on another page and take the keys back here.
                 _vm.Recording = null;
@@ -44,6 +48,23 @@ public partial class WidgetsView : UserControl
         BackgroundPick.CustomMade += (_, hex) => _vm?.Editor?.AddBackgroundCustom(hex);
         PreviewKeyDown += RecordShortcut;
         PreviewMouseDown += (_, e) => KeepTyped(e.OriginalSource as DependencyObject);
+    }
+
+    private Window? _window;
+
+    /// <summary>Minimizing doesn't unload the page: the open editor's picture stops being drawn until the window is back.</summary>
+    private void WatchWindow(bool on)
+    {
+        if (_window is { } old) old.StateChanged -= Window_StateChanged;
+        _window = on ? Window.GetWindow(this) : null;
+        if (_window is { } window) window.StateChanged += Window_StateChanged;
+    }
+
+    private void Window_StateChanged(object? sender, EventArgs e)
+    {
+        if (_vm?.Editor is not { } editor || sender is not Window window) return;
+        if (window.WindowState == WindowState.Minimized) editor.Pause();
+        else editor.Resume();
     }
 
     /// <summary>

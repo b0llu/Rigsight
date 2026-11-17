@@ -179,9 +179,14 @@ public sealed class SettingsMigrationTests
     [InlineData(7)]
     [InlineData(8)]
     [InlineData(9)]
-    [InlineData(1000)]
     public void Every_version_ends_up_current(int version) =>
         Assert.Equal(13, Load($$"""{ "SettingsVersion": {{version}} }""").SettingsVersion);
+
+    // A newer RigSight's file read by this one keeps its number: lowered, that version's one-time steps would run again
+    // once it was back (from before 1.9.0, v13 put back built-in widgets someone had removed).
+    [Fact]
+    public void A_newer_versions_number_is_never_lowered() =>
+        Assert.Equal(1000, Load("""{ "SettingsVersion": 1000 }""").SettingsVersion);
 
     [Theory]
     [InlineData(0)]

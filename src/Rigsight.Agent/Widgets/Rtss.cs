@@ -61,8 +61,11 @@ internal static unsafe class Rtss
     /// <summary>Shows <paramref name="text"/> in games (RTSS's own tags allowed). Returns false if RTSS isn't running.</summary>
     public static bool Show(string text, string owner = Owner) => Use(memory => WriteEntry(memory, text, owner));
 
-    /// <summary>Removes Rigsight's text (of that slot) from games.</summary>
-    public static void Clear(string owner = Owner) => Use(memory => WriteEntry(memory, null, owner));
+    /// <summary>
+    /// Removes Rigsight's text (of that slot) from games. False only when it's still there: RivaTuner's memory stayed busy
+    /// (another on-screen tool writing), so the caller tries again. With RivaTuner gone there's nothing left to clear.
+    /// </summary>
+    public static bool Clear(string owner = Owner) => Use(memory => WriteEntry(memory, null, owner)) || !IsLive();
 
     /// <summary>Whether RTSS is drawing inside this process (so our own window isn't needed there).</summary>
     /// <summary>RivaTuner is running (its shared memory is live): cheaper than looking for the process.</summary>
@@ -324,7 +327,9 @@ internal static unsafe class Rtss
         // 2.14+: a busy bit guards the memory against RTSS reading a half-written entry.
         int* busy = (int*)(memory + BusyAt);
         bool locking = version >= 0x0002000E;
-        if (locking && (Interlocked.Or(ref *busy, 1) & 1) != 0) return true; // RTSS is busy; try again next update
+        // Another tool (Afterburner, HWiNFO) holds it for microseconds: wait a little, then leave it for the next update
+        // (false: nothing was written, so neither text nor a clear is taken as done).
+        if (locking && !TakeBusy(busy)) return false;
         try
         {
             // Slot 0 belongs to RTSS itself. First look for ours, then claim a free one.
@@ -356,6 +361,19 @@ internal static unsafe class Rtss
             if (locking) Interlocked.And(ref *busy, ~1);
         }
     }
+
+    /// <summary>Sets the busy bit for us, waiting up to about a millisecond for whoever holds it.</summary>
+    internal static bool TakeBusy(int* busy)
+    {
+        for (int i = 0; i < BusyTries; i++)
+        {
+            if ((Interlocked.Or(ref *busy, 1) & 1) == 0) return true;
+            Thread.SpinWait(20 << Math.Min(i, 6));
+        }
+        return false;
+    }
+
+    private const int BusyTries = 12;
 
     private static string ReadAnsi(byte* at, int max)
     {

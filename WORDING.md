@@ -120,6 +120,8 @@ Read every new or changed line against these, and rewrite it if any answer is wr
 | The graphics part | **GPU** in labels and sentences. "graphics driver" stays. | "graphics card", "GPU driver" |
 | Internet amounts | **Internet** for amounts used: "Internet 66 GB". **Network** is only the page's name. | "network use", "data" |
 | Open the detail | Nothing: a click on any notification opens its page, so no notification says so (the user, 2026-11-05). Only where the click does something people wouldn't expect: "Click to update.", "Click to watch it." | "Click for the full picture.", "Click for the full breakdown." |
+| A usual that is a spread | **usual 90 to 100 ms** (the middle half of its own past), "Usual 90 to 100 ms." in a hover; agreed with the ping per app mock-up (the user, 2026-11-16). | "usual ~95 ms", "90–100 ms usual", "typical range" |
+| Checks that got no reply | As a count of the checks made: **3 of the last 120 checks lost**, **None of the last 120 checks lost.** A percent only for the line check's own minute ("Packet loss 2%"). (the user, 2026-11-16) | "2.5% loss" for a handful of checks, "100% lost" for a server that doesn't answer (say it doesn't answer) |
 | A temperature in a notification | With its unit, in the one picked: **78°C**, **7°C hotter** (°F when picked). A notification is read away from the app, with nothing around it to say the unit. Pages keep **77°**. | "78°" in a notification |
 
 ## How sure is about the cause, never the event

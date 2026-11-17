@@ -122,8 +122,14 @@ public static class TrayParts
     /// <summary>The kind of hardware it's listed under (<see cref="PartOf"/>: with the GPU).</summary>
     public const string FpsHardwareType = "Game";
 
-    /// <summary>A reading of RigSight's own, not a sensor of the hardware library: the network's speeds and the game's frame rate.</summary>
-    public static bool IsOwn(string id) => IsNet(id) || id == Fps;
+    /// <summary>
+    /// The ping that matters now: to the server of the game or call (the slower of two), else to the internet provider's
+    /// first router, as the Network page's top line says it (approved mock-up, 2026-11-16).
+    /// </summary>
+    public const string Ping = "rigsight/network/ping";
+
+    /// <summary>A reading of RigSight's own, not a sensor of the hardware library: the network's speeds, the ping and the game's frame rate.</summary>
+    public static bool IsOwn(string id) => IsNet(id) || id == Fps || id == Ping;
 
     // ── Sizes ──
 
@@ -479,6 +485,7 @@ public static class TrayParts
             case SensorKind.Throughput: return Has("upload") ? Lang.T("Up") : Has("download") ? Lang.T("Down") : Lang.T("Rate");
             case SensorKind.Flow: return Lang.T("Flow");
             case SensorKind.FrameRate: return Lang.T("FPS");
+            case SensorKind.Latency: return Lang.T("Ping");
         }
         string first = sensorName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
         return first.Length <= 6 ? first : first[..6];

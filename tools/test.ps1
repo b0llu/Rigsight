@@ -1,5 +1,6 @@
 ﻿# The checks before a release. Stops at the first stage that fails.
-#   powershell -ExecutionPolicy Bypass -File tools\test.ps1 -Admin -Installed     # before a release
+#   powershell -ExecutionPolicy Bypass -File tools\test.ps1 -Full -Admin -Installed -Year     # before a release
+#   (started through %LOCALAPPDATA%\RigsightTestTools\gate.ps1, whose default flags are exactly these)
 #
 # By default only what the changes since the last release need is run (tests\Rigsight.Impact decides, and says why):
 #   none      nothing the programs use changed: build, the release build checks, and any changed tests

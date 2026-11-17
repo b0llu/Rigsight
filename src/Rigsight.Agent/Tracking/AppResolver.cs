@@ -32,6 +32,9 @@ internal sealed class AppResolver
 
     public IEnumerable<AppInfo> All => _byExe.Values;
 
+    /// <summary>The app record when the exe has one already (none is made).</summary>
+    public AppInfo? Known(string exe) => _byExe.GetValueOrDefault(exe);
+
     /// <summary>Returns the app record, creating it in the database the first time an exe is seen.</summary>
     public AppInfo Get(string exe, int pid)
     {

@@ -13,6 +13,10 @@ public enum AskPlace { TopBar, Sidebar }
 /// </summary>
 public sealed class AiSettings
 {
+    /// <summary>Fields this version doesn't know (written by a newer RigSight): kept and written back as they were, never dropped.</summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
+
     public AiMode Mode { get; set; } = AiMode.RigSight;
     public AskPlace Place { get; set; } = AskPlace.TopBar;
 

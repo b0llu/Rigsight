@@ -91,6 +91,7 @@ public static class WidgetPictures
             DownHistory = [.. live.NetHistory.Select(x => (float)x.Down)],
             UpHistory = [.. live.NetHistory.Select(x => (float)x.Up)],
         };
+        pc.FillPing(live.Line, exe => live.Net?.Apps.FirstOrDefault(a => a.Exe.Equals(exe, StringComparison.OrdinalIgnoreCase))?.Name);
         if (pc.Cores.Length == 0) pc.Cores = null;
         if (live.Procs.Count == 0) (pc.TopCpu, pc.TopMemory) = (null, null);
         var temps = live.Drives.Where(x => x.Temperature is not null)

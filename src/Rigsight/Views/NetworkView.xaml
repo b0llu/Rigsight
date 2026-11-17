@@ -104,107 +104,160 @@
                 </StackPanel>
             </DockPanel>
 
-            <!-- ── Right now, always open: the speeds and the last minute, the line, and every app using it. ── -->
+            <!-- ── Right now, always open (approved board A, "Status first", 2026-11-16; its strip one line since): how the line
+                 is and the way out, then the speeds, and every app using it with the ping of the games and calls among them. ── -->
             <ctl:SmoothBorder Style="{StaticResource Card}" Padding="0" Margin="0,0,0,18" AutomationProperties.Name="{ctl:T 'Right now'}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.25*" />
-                        <ColumnDefinition Width="0.8*" MinWidth="230" />
-                        <ColumnDefinition Width="1.15*" />
-                    </Grid.ColumnDefinitions>
-                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0" Padding="20,18">
-                        <StackPanel>
-                            <TextBlock Text="{ctl:T 'Right now'}" Style="{StaticResource H2}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource SkyBrush}" />
-                                        <TextBlock Text="{ctl:T 'Download'}" Style="{StaticResource LegendText}" />
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding DownNow}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
-                                </StackPanel>
-                                <StackPanel Margin="30,0,0,0">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource PurpleBrush}" />
-                                        <TextBlock Text="{ctl:T 'Upload'}" Style="{StaticResource LegendText}" />
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding UpNow}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
-                                </StackPanel>
+                <DockPanel>
+                    <!-- One line (the user, 2026-11-16: version 2): how the line is, then the way out read left to right, the game
+                         or call that matters most last with its usual and lost checks; the connection's facts in grey at the end.
+                         A narrow window wraps it. -->
+                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="22,13">
+                        <DockPanel>
+                            <!-- The connection's facts. -->
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="22,0,0,0">
+                                <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource FaintBrush}"><Run Text="{Binding ConnectedBy, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding VpnTag, Mode=OneWay}" /></TextBlock>
+                                <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource FaintBrush}" Background="Transparent"
+                                           ToolTip="{ctl:T 'How much the ping jumps from one check to the next'}" Visibility="{Binding PingChecksOn, Converter={StaticResource Vis}}"><Run Text=" · " /><Run Text="{Binding JitterTag, Mode=OneWay}" /></TextBlock>
+                                <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Background="Transparent"
+                                           ToolTip="{ctl:T 'Data that never arrived, in the last minute. A little now and then is normal; often, it shows up as lag in games and choppy calls.'}"
+                                           Visibility="{Binding HasLossTag, Converter={StaticResource Vis}}"><Run Text=" · " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding LossTag, Mode=OneWay}" Foreground="{DynamicResource WarmBrush}" /></TextBlock>
                             </StackPanel>
-                            <ctl:NetLiveChart Height="120" Margin="0,10,0,0" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
-                            <TextBlock Text="{ctl:T 'Each app\'s internet use is read while RigSight runs with admin rights.'}" Style="{StaticResource Note}" Margin="0,8,0,0"
-                                       Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                            <!-- Windows stopped delivering network events and the agent couldn't get them back. -->
-                            <TextBlock Text="{ctl:T 'Internet use isn\'t being recorded right now. Restarting your PC should bring it back.'}"
-                                       FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Foreground="{DynamicResource WarmBrush}" Margin="0,8,0,0"
-                                       Visibility="{Binding Stalled, Converter={StaticResource Vis}}" />
-                        </StackPanel>
-                    </Border>
-                    <Border Grid.Column="1" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0" Padding="20,18">
-                        <StackPanel>
-                            <TextBlock Text="{ctl:T 'CONNECTION'}" Style="{StaticResource Caption}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,12,0,10">
-                                <Ellipse Style="{StaticResource LineDot}" />
-                                <TextBlock Text="{Binding LineWords}" FontSize="{x:Static ctl:TextSize.SubtitlePlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
-                            </StackPanel>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="{ctl:T 'Ping'}" Style="{StaticResource KvLabel}" ToolTip="{Binding PingTip}" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource KvValue}" ToolTip="{Binding PingTip}">
-                                    <Run Text="{Binding PingNow, Mode=OneWay}" /><TextBlock Visibility="{Binding PingChecksOff, Converter={StaticResource Vis}}" FontWeight="Normal"><Run Text=" · " Foreground="{DynamicResource MutedBrush}" /><Hyperlink Command="{Binding StartPingCommand}" Focusable="False"
-                                        Foreground="{DynamicResource AccentBrush}"><Run Text="{ctl:T 'Resume'}" /></Hyperlink></TextBlock>
-                                </TextBlock>
-                                <TextBlock Grid.Row="1" Text="{ctl:T 'Jitter'}" Style="{StaticResource KvLabel}" ToolTip="{ctl:T 'How much the ping jumps from one check to the next'}" />
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding JitterNow}" Style="{StaticResource KvValue}" />
-                                <TextBlock Grid.Row="2" Text="{ctl:T 'Packet loss'}" Style="{StaticResource KvLabel}" ToolTip="{ctl:T 'Data that never arrived, in the last minute. A little now and then is normal; often, it shows up as lag in games and choppy calls.'}" />
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LostNow}" Style="{StaticResource KvValue}" />
-                                <TextBlock Grid.Row="3" Text="{ctl:T 'Connected by'}" Style="{StaticResource KvLabel}" />
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ConnectedBy}" Style="{StaticResource KvValue}" FontWeight="Normal" />
-                                <TextBlock Grid.Row="4" Text="VPN" Style="{StaticResource KvLabel}" />
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Vpn}" Style="{StaticResource KvValue}" FontWeight="Normal" ctl:TrimmedText.ToolTip="True" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-                    <DockPanel Grid.Column="2" Margin="20,18,8,14">
-                        <DockPanel DockPanel.Dock="Top" Margin="0,0,12,6">
-                            <TextBlock DockPanel.Dock="Right" Text="↑" Style="{StaticResource Caption}" Width="60" TextAlignment="Right" />
-                            <TextBlock DockPanel.Dock="Right" Text="↓" Style="{StaticResource Caption}" Width="80" TextAlignment="Right" />
-                            <TextBlock Text="{Binding UsingNowTitle}" Style="{StaticResource Caption}" />
+                            <WrapPanel VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'The way out'}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,0,2">
+                                    <Ellipse Style="{StaticResource LineDot}" />
+                                    <TextBlock Text="{Binding LineWords}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Rectangle Width="1" Height="18" Fill="{DynamicResource StrokeBrush}" Margin="18,0,18,0" VerticalAlignment="Center" />
+                                <!-- Your router, your provider. -->
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,0,2" Visibility="{Binding PingChecksOn, Converter={StaticResource Vis}}">
+                                    <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" ToolTip="{Binding RouterTip}" Background="Transparent"><Run Text="{ctl:T 'Your router'}" /><Run Text=" " /><Run Text="{Binding RouterMs, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /></TextBlock>
+                                    <TextBlock Text="→" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource FaintBrush}" Margin="9,0,9,0" />
+                                    <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" ToolTip="{Binding ProviderTip}" Background="Transparent"><Run Text="{ctl:T 'Your provider'}" /><Run Text=" " /><Run Text="{Binding ProviderMs, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /></TextBlock>
+                                </StackPanel>
+                                <!-- The game or call that matters most: its server, figure, usual and lost checks. -->
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,0,2" Visibility="{Binding HasFar, Converter={StaticResource Vis}}">
+                                    <TextBlock Text="→" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource FaintBrush}" Margin="9,0,9,0" />
+                                    <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" ToolTip="{Binding FarTip}" Background="Transparent"><Run Text="{Binding FarName, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding FarMs, Mode=OneWay}" FontWeight="SemiBold">
+                                            <Run.Style>
+                                                <Style TargetType="Run">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding FarMsWarm}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Run.Style>
+                                        </Run><Run Text="{Binding FarUsual, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding FarLost, Mode=OneWay}">
+                                            <Run.Style>
+                                                <Style TargetType="Run">
+                                                    <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding FarLosing}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Run.Style>
+                                        </Run></TextBlock>
+                                </StackPanel>
+                                <!-- Nothing to show a figure for: no game or call, no admin rights, a server that doesn't answer. -->
+                                <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,2,0,2"
+                                           Visibility="{Binding HasRest, Converter={StaticResource Vis}}"><Run Text="  ·  " /><Run Text="{Binding RestText, Mode=OneWay}" /></TextBlock>
+                                <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,2,0,2"
+                                           Visibility="{Binding PingChecksOff, Converter={StaticResource Vis}}"><Run Text="{ctl:T 'Ping checks are paused'}" /><Run Text=" · " /><Hyperlink Command="{Binding StartPingCommand}" Focusable="False"
+                                    Foreground="{DynamicResource AccentBrush}"><Run Text="{ctl:T 'Resume'}" /></Hyperlink></TextBlock>
+                            </WrapPanel>
                         </DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'No app is using the internet right now.'}" Style="{StaticResource Note}"
-                                   Visibility="{Binding NobodyNow, Converter={StaticResource Vis}}" />
-                        <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Each app\'s speed shows here while RigSight runs with admin rights.'}" Style="{StaticResource Note}"
-                                   Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                        <!-- As tall as the card's other columns: more apps than fit scroll inside it. -->
-                        <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" MaxHeight="190">
-                            <ItemsControl ItemsSource="{Binding UsingNow}" Focusable="False" Margin="0,0,12,0" AutomationProperties.Name="{ctl:T 'Using it now'}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:NetLiveRow}">
-                                        <Grid Margin="0,5">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="80" />
-                                                <ColumnDefinition Width="60" />
-                                            </Grid.ColumnDefinitions>
-                                            <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="18" Height="18" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Body}" Margin="10,0" VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
-                                            <TextBlock Grid.Column="2" Text="{Binding DownText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource SkyBrush}" TextAlignment="Right" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="3" Text="{Binding UpText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource PurpleBrush}" TextAlignment="Right" VerticalAlignment="Center" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </DockPanel>
-                </Grid>
+                    </Border>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,1,0" Padding="22,16">
+                            <StackPanel>
+                                <TextBlock Text="{ctl:T 'Right now'}" Style="{StaticResource H2}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource SkyBrush}" />
+                                            <TextBlock Text="{ctl:T 'Download'}" Style="{StaticResource LegendText}" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding DownNow}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Margin="30,0,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Rectangle Style="{StaticResource Swatch}" Fill="{DynamicResource PurpleBrush}" />
+                                            <TextBlock Text="{ctl:T 'Upload'}" Style="{StaticResource LegendText}" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding UpNow}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <!-- Edge to edge of its half, through the card's padding; its labels stay level with the text. -->
+                                <ctl:NetLiveChart Height="128" Margin="-22,10,-22,0" Inset="22" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
+                                <TextBlock Text="{ctl:T 'Each app\'s internet use is read while RigSight runs with admin rights.'}" Style="{StaticResource Note}" Margin="0,8,0,0"
+                                           Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                <!-- Windows stopped delivering network events and the agent couldn't get them back. -->
+                                <TextBlock Text="{ctl:T 'Internet use isn\'t being recorded right now. Restarting your PC should bring it back.'}"
+                                           FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Foreground="{DynamicResource WarmBrush}" Margin="0,8,0,0"
+                                           Visibility="{Binding Stalled, Converter={StaticResource Vis}}" />
+                            </StackPanel>
+                        </Border>
+                        <DockPanel Grid.Column="1" Margin="22,16,8,14">
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,12,6">
+                                <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'PING'}" Style="{StaticResource Caption}" Width="64" TextAlignment="Right" />
+                                <TextBlock DockPanel.Dock="Right" Text="↑" Style="{StaticResource Caption}" Width="72" TextAlignment="Right" />
+                                <TextBlock DockPanel.Dock="Right" Text="↓" Style="{StaticResource Caption}" Width="80" TextAlignment="Right" />
+                                <TextBlock Text="{Binding UsingNowTitle}" Style="{StaticResource Caption}" />
+                            </DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'No app is using the internet right now.'}" Style="{StaticResource Note}"
+                                       Visibility="{Binding NobodyNow, Converter={StaticResource Vis}}" />
+                            <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Each app\'s speed shows here while RigSight runs with admin rights.'}" Style="{StaticResource Note}"
+                                       Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                            <!-- More apps than fit scroll inside the card. -->
+                            <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" MaxHeight="200">
+                                <ItemsControl ItemsSource="{Binding UsingNow}" Focusable="False" Margin="0,0,12,0" AutomationProperties.Name="{ctl:T 'Using it now'}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:NetLiveRow}">
+                                            <Grid Margin="0,5" Background="Transparent" ContextMenuService.IsEnabled="{Binding CanPick}">
+                                                <!-- Another app whose delay matters (remote desktop, a trading app): its server checked like a game's. -->
+                                                <Grid.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="{Binding PickText}" Command="{Binding PickCommand}" Visibility="{Binding CanPick, Converter={StaticResource Vis}}" />
+                                                    </ContextMenu>
+                                                </Grid.ContextMenu>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="80" />
+                                                    <ColumnDefinition Width="72" />
+                                                    <ColumnDefinition Width="64" />
+                                                </Grid.ColumnDefinitions>
+                                                <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="18" Height="18" VerticalAlignment="Center" />
+                                                <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                                    <TextBlock Text="{Binding Under}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis"
+                                                               Visibility="{Binding HasUnder, Converter={StaticResource Vis}}" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" Text="{Binding DownText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource SkyBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="3" Text="{Binding UpText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource PurpleBrush}" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="4" Text="{Binding PingText}" ToolTip="{Binding PingTip}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center"
+                                                           Background="Transparent" AutomationProperties.Name="{Binding PingTip, TargetNullValue=''}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding PingWarm}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                                                <DataTrigger Binding="{Binding PingText}" Value="–"><Setter Property="Foreground" Value="{DynamicResource FaintBrush}" /></DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Grid>
+                </DockPanel>
             </ctl:SmoothBorder>
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
@@ -443,6 +496,41 @@
                                                 <StackPanel Orientation="Horizontal" Margin="0,9,0,0" Visibility="{Binding NoLoss, Converter={StaticResource Vis}}">
                                                     <Ellipse Width="7" Height="7" Fill="{DynamicResource GoodBrush}" VerticalAlignment="Center" />
                                                     <TextBlock Text="{ctl:T 'No packet loss'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="7,0,0,0" />
+                                                </StackPanel>
+                                                <!-- The games and calls checked in this hour: each with its icon, what it is, its figure and its highest. -->
+                                                <StackPanel Margin="0,11,0,0" Visibility="{Binding HasServers, Converter={StaticResource Vis}}">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                        <Rectangle Width="12" Height="2" Fill="{DynamicResource SkyBrush}" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{ctl:T 'GAMES AND CALLS'}" Style="{StaticResource Caption}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                    <ItemsControl ItemsSource="{Binding Servers}" Focusable="False">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate DataType="{x:Type vm:NetHoverServer}">
+                                                                <DockPanel Margin="0,3">
+                                                                    <StackPanel DockPanel.Dock="Right" Margin="8,0,0,0">
+                                                                        <TextBlock Text="{Binding Ms}" FontSize="{x:Static ctl:TextSize.Detail}" FontWeight="SemiBold" HorizontalAlignment="Right">
+                                                                            <TextBlock.Style>
+                                                                                <Style TargetType="TextBlock">
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding Warm}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </TextBlock.Style>
+                                                                        </TextBlock>
+                                                                        <TextBlock Text="{Binding Highest}" FontSize="{x:Static ctl:TextSize.Mini}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" />
+                                                                    </StackPanel>
+                                                                    <Image Source="{Binding Path, Converter={StaticResource ExeIcon}}" Style="{StaticResource AppIcon}" Width="16" Height="16" VerticalAlignment="Center" />
+                                                                    <StackPanel Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" />
+                                                                        <TextBlock Text="{Binding Under}" FontSize="{x:Static ctl:TextSize.Mini}" Foreground="{DynamicResource FaintBrush}" />
+                                                                    </StackPanel>
+                                                                </DockPanel>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <TextBlock Text="{Binding ServerLoss}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                                               Visibility="{Binding HasServerLoss, Converter={StaticResource Vis}}" />
                                                 </StackPanel>
                                                 <Border CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" Padding="9,6" Margin="0,9,0,0" Visibility="{Binding HasContext, Converter={StaticResource Vis}}">
                                                     <StackPanel Orientation="Horizontal">

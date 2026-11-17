@@ -203,6 +203,10 @@ public enum WidgetVisibility
 
 public sealed class WidgetConfig
 {
+    /// <summary>Fields this version doesn't know (written by a newer RigSight): kept and written back as they were, never dropped.</summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
+
     public WidgetStyle Style { get; set; }
 
     /// <summary>Tells widgets apart: the style's name for a built-in one, "custom-…" for the user's own.</summary>

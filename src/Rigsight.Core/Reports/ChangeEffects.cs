@@ -175,6 +175,9 @@ public static class ChangeEffects
         // a fan change keeps its days before, and two big changes on one day stay the driver's and the update's. A fan
         // change's own days end at any other big change, so nothing is put down to the fans that another change did.
         var major = changes.Where(IsMajor).ToList();
+        // A game's own update isn't a big change, but it can move the game's heat as much as one: a comparison in that
+        // game says so (2026-11-16: Phantom Blade Zero was patched the day after the changes its 6° was put down to).
+        var gameUpdates = changes.Where(c => c.Kind == ChangeKind.GameUpdated).ToList();
         var days = Days(major.Where(c => c.Kind != ChangeKind.Fans));
         var all = Days(major);
         var tomorrow = now.Date.AddDays(1);
@@ -188,7 +191,7 @@ public static class ChangeEffects
                 if (bounds.FirstOrDefault(d => d.Day > day) is { Of: not null } after && after.Day < to) to = after.Day;
                 bool open = to >= tomorrow; // still running: "since", not "in the days after"
                 if (open) to = tomorrow;
-                if (!results.ContainsKey(day) && new Comparison(day, at, from, to, open, of, heat, use, problems, nameOf).Result() is { } result) results[day] = result;
+                if (!results.ContainsKey(day) && new Comparison(day, at, from, to, open, of, heat, use, problems, nameOf, gameUpdates).Result() is { } result) results[day] = result;
             }
         return results;
 
@@ -241,7 +244,8 @@ public static class ChangeEffects
 
     /// <summary>One change's comparison: each side's heat and problems, then what (if anything) got better or worse.</summary>
     private sealed class Comparison(DateTime day, DateTime at, DateTime from, DateTime to, bool open, List<SystemChange> of,
-        IReadOnlyList<HeatDay> heat, IReadOnlyList<SystemDay> use, IReadOnlyList<ChangeProblem> problems, Func<long, string> nameOf)
+        IReadOnlyList<HeatDay> heat, IReadOnlyList<SystemDay> use, IReadOnlyList<ChangeProblem> problems, Func<long, string> nameOf,
+        IReadOnlyList<SystemChange> gameUpdates)
     {
         // Whole days on each side; the change's own day is neither.
         private readonly int _daysBefore = (int)(day - from).TotalDays, _daysAfter = (int)(to - day).TotalDays - 1;
@@ -253,6 +257,16 @@ public static class ChangeEffects
 
         /// <summary>The thinner side's play, when under <see cref="SureMinutes"/>.</summary>
         private string? _thin;
+
+        /// <summary>The compared game, when it was itself updated in the days compared.</summary>
+        private string? _gameUpdated;
+
+        /// <summary>
+        /// The compared game's own update in the days compared, if it had one: its title is the game's name and "updated"
+        /// (saved in English, as every change's title is).
+        /// </summary>
+        private SystemChange? GameUpdate(string game) => gameUpdates.FirstOrDefault(c => c.Time >= from && c.Time < to
+            && c.Time.Date != day && c.Title.StartsWith(game + " ", StringComparison.OrdinalIgnoreCase));
 
         private sealed record Finding(EffectTone Tone, Confidence Sure, string Headline, string Context, string Short, bool Heat, bool Warm)
         {
@@ -291,7 +305,9 @@ public static class ChangeEffects
                 bool any = false;
                 // Two hours on each side for "likely"; the hour that's enough to see it makes it only possible.
                 bool thin = Math.Min(n1.Minutes, w1.Minutes) < SureMinutes;
-                var sureHeat = of.Count == 1 && !thin ? Confidence.Likely : Confidence.Possible;
+                // The game updated in these days: some of the difference may be the game's own, so never more than possible.
+                var update = GameUpdate(n1.App);
+                var sureHeat = of.Count == 1 && !thin && update is null ? Confidence.Likely : Confidence.Possible;
                 foreach (var (part, a, b, rn, rw, warm) in new[] { ("GPU", n1.Gpu, w1.Gpu, nowRest!.Gpu, wasRest!.Gpu, GpuWarm), ("CPU", n1.Cpu ?? double.NaN, w1.Cpu ?? double.NaN, nowRest.Cpu, wasRest.Cpu, CpuWarm) })
                 {
                     if (double.IsNaN(a) || double.IsNaN(b)) continue;
@@ -324,6 +340,14 @@ public static class ChangeEffects
                         : Lang.T($"Only {least} of {n1.App} before. It takes two hours on each side to call it likely.")));
                 }
                 _thin = thin ? Play(Math.Min(n1.Minutes, w1.Minutes)) : null;
+                if (update is not null)
+                {
+                    _gameUpdated = n1.App;
+                    string on = update.Time.ToString(TimeText.Fit("d MMM"), System.Globalization.CultureInfo.CurrentCulture);
+                    checks.Add(new(false, Lang.T("The game was updated too"), update.Time >= at
+                        ? Lang.T($"{n1.App} itself was updated on {on}, in the days after, so some of the difference may come from the game.")
+                        : Lang.T($"{n1.App} itself was updated on {on}, in the days before, so some of the difference may come from the game.")));
+                }
             }
             else if (restOk && !_plan && Pooled(was) is { } pw && Pooled(isNow) is { } pn && pw.Minutes >= MinSteadyMinutes && pn.Minutes >= MinSteadyMinutes
                      && SamePower(pn.Power, pw.Power))
@@ -409,14 +433,14 @@ public static class ChangeEffects
             // How sure is about the headline: the heat's checks when it's heat, the count when it's problems.
             if (!head.Heat)
             {
-                string thinSide = Lang.T("A thin side"), differentGames = Lang.T("Different games");
-                checks.RemoveAll(c => c.Title == thinSide || c.Title == differentGames);
+                string thinSide = Lang.T("A thin side"), differentGames = Lang.T("Different games"), gameUpdated = Lang.T("The game was updated too");
+                checks.RemoveAll(c => c.Title == thinSide || c.Title == differentGames || c.Title == gameUpdated);
                 if (problemCheck is not null) checks.Insert(0, problemCheck);
             }
 
             checks.Add(of.Count == 1
                 ? new(true, Lang.T("Nothing else big changed in these days"), BoundsText())
-                : new(false, Lang.T("Two big changes on one day"), Lang.T($"{And(of.Select(c => c.Shown))} came in on the same day, so they can't be told apart.")));
+                : new(false, Lang.T("Two big changes on one day"), Lang.T($"{And(of.Select(c => c.Shown).Distinct())} came in on the same day, so they can't be told apart.")));
 
             string dB = Days(_daysBefore), dA = Days(_daysAfter);
             string why = (open ? Lang.T($"{dB} before, {dA} since") : Lang.T($"{dB} before, {dA} after"))
@@ -500,7 +524,8 @@ public static class ChangeEffects
                 : Lang.T($"No other graphics driver, Windows update, BIOS, hardware or power plan change from {from:d MMM} to {until:d MMM}.");
         }
 
-        private string PossibleWhy(Finding head, int changes) => changes > 1 ? Lang.T("Possibly, not likely. Two big changes came on one day.")
+        private string PossibleWhy(Finding head, int changes) => head.Heat && _gameUpdated is { } game ? Lang.T($"Possibly, not likely. {game} itself was updated in these days.")
+            : changes > 1 ? Lang.T("Possibly, not likely. Two big changes came on one day.")
             : !head.Heat ? Lang.T("Possibly, not likely. It's a small count.")
             : _thin is { } thin ? Lang.T($"Possibly, not likely. There's only {thin} of play on one side.") : Lang.T("Possibly, not likely. It's across games, not one game.");
 

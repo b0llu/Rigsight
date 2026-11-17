@@ -106,6 +106,15 @@ public sealed class LineChart : FrameworkElement
     /// just plummets").
     /// </summary>
     private readonly ChartLayer _lines, _over;
+    private readonly BitmapCache _cache = new() { SnapsToDevicePixels = true };
+
+    private void OnZoom()
+    {
+        if (_cache.RenderAtScale != PageZoom.Current) _cache.RenderAtScale = PageZoom.Current;
+    }
+
+    /// <summary>The scale the lines' picture is drawn at (for tests).</summary>
+    internal double CacheScale => _cache.RenderAtScale;
 
     /// <summary>What the last drawing of the lines left for the hover to be drawn against (null: nothing drawn).</summary>
     private (Rect Plot, List<ChartSeries> Series, long From, long To, double Lo, double Hi, List<(double X, (long From, long To) Gap)> Marks, List<(long From, long To)> Gaps, double Dpi)? _drawn;
@@ -139,7 +148,11 @@ public sealed class LineChart : FrameworkElement
 
     public LineChart()
     {
-        _lines = new ChartLayer(DrawChart) { CacheMode = new BitmapCache { SnapsToDevicePixels = true } };
+        // The picture is drawn at the pages' zoom: drawn at 100%, a zoom stretched it and the lines blurred.
+        _lines = new ChartLayer(DrawChart) { CacheMode = _cache };
+        _cache.RenderAtScale = PageZoom.Current;
+        Loaded += (_, _) => { PageZoom.Changed += OnZoom; OnZoom(); };
+        Unloaded += (_, _) => PageZoom.Changed -= OnZoom;
         _over = new ChartLayer(DrawOver);
         AddVisualChild(_lines);
         AddVisualChild(_over);

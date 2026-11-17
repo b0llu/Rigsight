@@ -61,6 +61,30 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="FigLoad" TargetType="TextBlock" BasedOn="{StaticResource Fig}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.SortKey, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="Load">
+                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- One step of the load's three: filled up to its level, in the figures' own grey (never a warning colour). -->
+        <Style x:Key="LoadStep" TargetType="Rectangle">
+            <Setter Property="Width" Value="9" />
+            <Setter Property="Height" Value="4" />
+            <Setter Property="RadiusX" Value="1" />
+            <Setter Property="RadiusY" Value="1" />
+            <Setter Property="Margin" Value="2,1,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Fill" Value="{DynamicResource StrokeBrush}" />
+        </Style>
+
+        <!-- A chart in an opened app's box: its caption, the chart, and the words under it. -->
+        <Style x:Key="AxisWord" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Caption}" />
+            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+        </Style>
 
         <!-- A column heading: a button that sorts. Its arrow says which way on the column sorted by; the rest show theirs
              under the pointer only (five ↕ in a row made the line busy). -->
@@ -106,31 +130,112 @@
                             <!-- The history is being read: the line says what it can meanwhile. -->
                             <ctl:Spinner DockPanel.Dock="Right" Late="True" Margin="12,0,0,0" VerticalAlignment="Top"
                                          Visibility="{Binding History.IsLoading, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                            <!-- Both charts and the CPU time fact over today or the days before, once CPU time is on record. -->
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Background="{DynamicResource SurfaceBrush}" Margin="12,-4,0,0" VerticalAlignment="Top"
+                                    Visibility="{Binding History.HasCpu, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Today'}"
+                                                 IsChecked="{Binding History.Period, Converter={StaticResource Equals}, ConverterParameter=Today}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Last 7 days'}"
+                                                 IsChecked="{Binding History.Period, Converter={StaticResource Equals}, ConverterParameter=Week}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Last 30 days'}"
+                                                 IsChecked="{Binding History.Period, Converter={StaticResource Equals}, ConverterParameter=Month}" />
+                                </StackPanel>
+                            </Border>
                             <ItemsControl ItemsSource="{Binding History.Facts}" Focusable="False">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <TextBlock FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,26,4">
+                                        <TextBlock FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,26,4" ToolTip="{Binding Tip}">
                                             <Run Text="{Binding Label, Mode=OneWay}" /> <Run Text="{Binding Value, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" />
                                         </TextBlock>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </DockPanel>
-                        <DockPanel x:Name="Drawn" Margin="0,10,0,0" LastChildFill="True">
-                            <StackPanel x:Name="Today" DockPanel.Dock="Right" Width="280" Margin="36,0,0,0"
-                                        Visibility="{Binding History.HasChart, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
-                                <TextBlock Text="{ctl:T 'MEMORY TODAY'}" Style="{StaticResource Caption}" Margin="0,0,0,6" />
-                                <ctl:HourLine Height="44" Values="{Binding History.Hours}" Usual="{Binding History.UsualMB}" />
-                                <DockPanel Margin="0,4,0,0">
-                                    <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Now'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" />
-                                    <TextBlock DockPanel.Dock="Left" Text="{ctl:T '12 AM'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" />
-                                    <TextBlock Text="{ctl:T 'Dashed line is its usual'}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center"
-                                               Visibility="{Binding History.UsualMB, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
-                                </DockPanel>
-                            </StackPanel>
+                        <!-- Where its memory is, then CPU and memory at 280 each (approved mock-up). With nothing to split, the two
+                             charts share the whole row: no empty half beside them. -->
+                        <Grid x:Name="Drawn" Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition>
+                                    <ColumnDefinition.Style>
+                                        <Style TargetType="ColumnDefinition">
+                                            <Setter Property="Width" Value="*" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasShares}" Value="False"><Setter Property="Width" Value="0" /></DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ColumnDefinition.Style>
+                                </ColumnDefinition>
+                                <ColumnDefinition>
+                                    <ColumnDefinition.Style>
+                                        <Style TargetType="ColumnDefinition">
+                                            <Setter Property="Width" Value="Auto" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasShares}" Value="False"><Setter Property="Width" Value="*" /></DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ColumnDefinition.Style>
+                                </ColumnDefinition>
+                            </Grid.ColumnDefinitions>
+                            <Grid.Resources>
+                                <Style x:Key="ChartColumn" TargetType="StackPanel">
+                                    <Setter Property="Width" Value="280" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasShares}" Value="False"><Setter Property="Width" Value="NaN" /></DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Resources>
+                            <Grid x:Name="Charts" Grid.Column="1">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Margin" Value="36,0,0,0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasShares}" Value="False"><Setter Property="Margin" Value="0" /></DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="36" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel x:Name="Cpu" Style="{StaticResource ChartColumn}"
+                                            Visibility="{Binding History.HasCpuChart, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
+                                    <!-- The caption, and the figure now at its right (approved mock-up, 2026-11-16). -->
+                                    <DockPanel Margin="0,0,0,6">
+                                        <TextBlock DockPanel.Dock="Right" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
+                                                   Visibility="{Binding History.HasCpuNow, Converter={StaticResource Vis}, FallbackValue=Collapsed}"><Run Text="{Binding History.CpuNow, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text=" " /><Run Text="{ctl:T now}" /></TextBlock>
+                                        <TextBlock Text="{Binding History.CpuCaption}" Style="{StaticResource Caption}" />
+                                    </DockPanel>
+                                    <ctl:HourLine Height="56" Values="{Binding History.CpuValues}" Usual="{Binding History.CpuUsual}" Tips="{Binding History.CpuTips}"
+                                                  Bars="{Binding History.IsDays}" Stroke="{DynamicResource CpuBrush}" Scale="{Binding History.CpuScale}" />
+                                    <DockPanel Margin="0,4,0,0">
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding History.AxisTo}" Style="{StaticResource AxisWord}" />
+                                        <TextBlock DockPanel.Dock="Left" Text="{Binding History.AxisFrom}" Style="{StaticResource AxisWord}" />
+                                        <TextBlock Text="{ctl:T 'Dashed line is its usual'}" Style="{StaticResource AxisWord}" HorizontalAlignment="Center"
+                                                   Visibility="{Binding History.CpuUsual, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                                    </DockPanel>
+                                </StackPanel>
+                                <StackPanel x:Name="Today" Grid.Column="2" Style="{StaticResource ChartColumn}"
+                                            Visibility="{Binding History.HasChart, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
+                                    <DockPanel Margin="0,0,0,6">
+                                        <TextBlock DockPanel.Dock="Right" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
+                                                   Visibility="{Binding History.HasMemNow, Converter={StaticResource Vis}, FallbackValue=Collapsed}"><Run Text="{Binding History.MemNow, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text=" " /><Run Text="{ctl:T now}" /></TextBlock>
+                                        <TextBlock Text="{Binding History.MemCaption}" Style="{StaticResource Caption}" />
+                                    </DockPanel>
+                                    <ctl:HourLine Height="56" Values="{Binding History.MemValues}" Usual="{Binding History.MemUsual}" Tips="{Binding History.MemTips}"
+                                                  Bars="{Binding History.IsDays}" Scale="Megabytes" />
+                                    <DockPanel Margin="0,4,0,0">
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding History.AxisTo}" Style="{StaticResource AxisWord}" />
+                                        <TextBlock DockPanel.Dock="Left" Text="{Binding History.AxisFrom}" Style="{StaticResource AxisWord}" />
+                                        <TextBlock Text="{ctl:T 'Dashed line is its usual'}" Style="{StaticResource AxisWord}" HorizontalAlignment="Center"
+                                                   Visibility="{Binding History.MemUsual, Converter={StaticResource Vis}, FallbackValue=Collapsed}" />
+                                    </DockPanel>
+                                </StackPanel>
+                            </Grid>
                             <StackPanel x:Name="Split" Visibility="{Binding HasShares, Converter={StaticResource Vis}}">
                                 <TextBlock Text="{ctl:T 'WHERE ITS MEMORY IS'}" Style="{StaticResource Caption}" Margin="0,0,0,9" />
                                 <ctl:PartsBar Height="8" Parts="{Binding Shares}" />
@@ -151,7 +256,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-                        </DockPanel>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
@@ -169,6 +274,7 @@
                                         <ColumnDefinition Width="76" />
                                         <ColumnDefinition Width="104" />
                                         <ColumnDefinition Width="104" />
+                                        <ColumnDefinition Width="120" />
                                         <ColumnDefinition Width="36" />
                                     </Grid.ColumnDefinitions>
                                     <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="36,1,0,0"
@@ -180,7 +286,7 @@
                                     <TextBlock Grid.Column="1" Text="{Binding MemText}" Style="{StaticResource FigMemory}" />
                                     <TextBlock Grid.Column="2" Text="{Binding CpuCell}" Style="{StaticResource FigCpu}" />
                                     <TextBlock Grid.Column="4" Text="{Binding DiskCell}" Style="{StaticResource FigDisk}" />
-                                    <Grid Grid.Column="5" Width="28" Height="24" HorizontalAlignment="Right">
+                                    <Grid Grid.Column="6" Width="28" Height="24" HorizontalAlignment="Right">
                                         <Button x:Name="More" Style="{StaticResource IconButton}" Height="24" Click="ProcessMore_Click" Visibility="Hidden"
                                                 ToolTip="{ctl:T 'More'}" AutomationProperties.Name="{Binding Label, StringFormat={ctl:T 'Actions for {0}'}}">
                                             <TextBlock Text="&#xE712;" />
@@ -204,16 +310,17 @@
                 </ItemsControl>
             </StackPanel>
             <DataTemplate.Triggers>
-                <!-- Nothing to split (most apps): today's line moves to the left, where the split would be. -->
+                <!-- Nothing to split (most apps): the charts move to the left, where the split would be. -->
                 <DataTrigger Binding="{Binding HasShares}" Value="False">
-                    <Setter TargetName="Today" Property="DockPanel.Dock" Value="Left" />
-                    <Setter TargetName="Today" Property="Margin" Value="0" />
+                    <Setter TargetName="Charts" Property="DockPanel.Dock" Value="Left" />
+                    <Setter TargetName="Charts" Property="Margin" Value="0" />
                 </DataTrigger>
-                <!-- Neither to draw: the facts alone, without the gap under them. -->
+                <!-- Nothing to draw: the facts alone, without the gap under them. -->
                 <MultiDataTrigger>
                     <MultiDataTrigger.Conditions>
                         <Condition Binding="{Binding HasShares}" Value="False" />
                         <Condition Binding="{Binding History.HasChart, FallbackValue=False}" Value="False" />
+                        <Condition Binding="{Binding History.HasCpuChart, FallbackValue=False}" Value="False" />
                     </MultiDataTrigger.Conditions>
                     <Setter TargetName="Drawn" Property="Visibility" Value="Collapsed" />
                 </MultiDataTrigger>
@@ -301,6 +408,7 @@
                                 <ColumnDefinition Width="76" />
                                 <ColumnDefinition Width="104" />
                                 <ColumnDefinition Width="104" />
+                                <ColumnDefinition Width="120" />
                                 <ColumnDefinition Width="36" />
                             </Grid.ColumnDefinitions>
                             <Button Style="{StaticResource SortHead}" DataContext="{Binding NameHeading}" HorizontalAlignment="Left" Margin="54,0,0,0" />
@@ -308,6 +416,7 @@
                             <Button Grid.Column="2" Style="{StaticResource SortHead}" DataContext="{Binding CpuHeading}" />
                             <Button Grid.Column="3" Style="{StaticResource SortHead}" DataContext="{Binding InternetHeading}" />
                             <Button Grid.Column="4" Style="{StaticResource SortHead}" DataContext="{Binding DiskHeading}" />
+                            <Button Grid.Column="5" Style="{StaticResource SortHead}" DataContext="{Binding LoadHeading}" />
                         </Grid>
                         <!-- A rule between the headings and the rows: the first row's name sat right under "APP". -->
                         <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource StrokeBrush}" Margin="0,0,8,6" />
@@ -331,6 +440,7 @@
                                                         <ColumnDefinition Width="76" />
                                                         <ColumnDefinition Width="104" />
                                                         <ColumnDefinition Width="104" />
+                                                        <ColumnDefinition Width="120" />
                                                         <ColumnDefinition Width="36" />
                                                     </Grid.ColumnDefinitions>
                                                     <DockPanel>
@@ -351,8 +461,18 @@
                                                     <TextBlock Grid.Column="2" Text="{Binding CpuCell}" Style="{StaticResource FigCpu}" />
                                                     <TextBlock Grid.Column="3" Text="{Binding NetCell}" Style="{StaticResource FigInternet}" />
                                                     <TextBlock Grid.Column="4" Text="{Binding DiskCell}" Style="{StaticResource FigDisk}" />
+                                                    <!-- Its load today: the word and its three steps, and what it comes from under the pointer. -->
+                                                    <StackPanel Grid.Column="5" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Background="Transparent"
+                                                                ToolTip="{Binding LoadTip}">
+                                                        <TextBlock Text="{Binding LoadText}" Style="{StaticResource FigLoad}" />
+                                                        <StackPanel x:Name="Steps" Orientation="Horizontal" Margin="6,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+                                                            <Rectangle x:Name="Step1" Style="{StaticResource LoadStep}" />
+                                                            <Rectangle x:Name="Step2" Style="{StaticResource LoadStep}" />
+                                                            <Rectangle x:Name="Step3" Style="{StaticResource LoadStep}" />
+                                                        </StackPanel>
+                                                    </StackPanel>
                                                     <!-- The dots show on the row under the pointer, picked, or reached with the keyboard; a spinner in their place while it is being ended. -->
-                                                    <Grid Grid.Column="5" Width="28" Height="28" HorizontalAlignment="Right">
+                                                    <Grid Grid.Column="6" Width="28" Height="28" HorizontalAlignment="Right">
                                                         <Button x:Name="More" Style="{StaticResource IconButton}" Click="AppMore_Click" Visibility="Hidden"
                                                                 ToolTip="{ctl:T 'More'}" AutomationProperties.Name="{Binding Name, StringFormat={ctl:T 'Actions for {0}'}}">
                                                             <TextBlock Text="&#xE712;" />
@@ -373,6 +493,21 @@
                                             <DataTrigger Binding="{Binding IsLoading}" Value="True">
                                                 <Setter TargetName="Chevron" Property="Visibility" Value="Hidden" />
                                                 <Setter TargetName="Opening" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding LoadSteps}" Value="1">
+                                                <Setter TargetName="Steps" Property="Visibility" Value="Visible" />
+                                                <Setter TargetName="Step1" Property="Fill" Value="{DynamicResource MutedBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding LoadSteps}" Value="2">
+                                                <Setter TargetName="Steps" Property="Visibility" Value="Visible" />
+                                                <Setter TargetName="Step1" Property="Fill" Value="{DynamicResource MutedBrush}" />
+                                                <Setter TargetName="Step2" Property="Fill" Value="{DynamicResource MutedBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding LoadSteps}" Value="3">
+                                                <Setter TargetName="Steps" Property="Visibility" Value="Visible" />
+                                                <Setter TargetName="Step1" Property="Fill" Value="{DynamicResource MutedBrush}" />
+                                                <Setter TargetName="Step2" Property="Fill" Value="{DynamicResource MutedBrush}" />
+                                                <Setter TargetName="Step3" Property="Fill" Value="{DynamicResource MutedBrush}" />
                                             </DataTrigger>
                                             <Trigger SourceName="Head" Property="IsMouseOver" Value="True">
                                                 <Setter TargetName="Head" Property="Background" Value="{DynamicResource Surface2Brush}" />

@@ -6,7 +6,7 @@ using Rigsight.Core.Settings;
 namespace Rigsight.Core.Reports;
 
 /// <summary>What a line of the Network page's "What happened" list is about.</summary>
-public enum NetHappeningKind { Insight, Steam, Played, Busy, New, PingSwitch, Drop }
+public enum NetHappeningKind { Insight, Steam, Played, Busy, New, PingSwitch, Drop, ServerPing }
 
 /// <summary>
 /// One line of "What happened": when (<see cref="When"/> as the list shows it, empty for a line about the whole period
@@ -168,6 +168,37 @@ public static class NetHappenings
             {
                 Detail = DropWords.WhatBroke(d.Kind, null, router), Icon = DropIcon(d.Kind), Tone = InsightTone.Warn,
             }, long.MaxValue / 2));
+        }
+
+        // ── A game's or call's ping well above its usual for 3 minutes or more: the highest, against the usual ──
+        foreach (var g in db.GetNetServers(f, t).GroupBy(m => m.Exe, StringComparer.OrdinalIgnoreCase))
+        {
+            var minutes = g.OrderBy(m => m.Ts).ToList();
+            var app = apps.Values.FirstOrDefault(a => a.Exe.Equals(g.Key, StringComparison.OrdinalIgnoreCase));
+            string name = app is not null ? Name(app.Id) : g.Key.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? g.Key[..^4] : g.Key;
+            int i = 0;
+            while (i < minutes.Count)
+            {
+                var first = minutes[i];
+                if (first.Ms is not int startMs || db.NetServerUsual(g.Key, first.Server, first.Ts) is not { } usual || !Net.ServerWords.AboveUsual(startMs, usual.High))
+                {
+                    i++;
+                    continue;
+                }
+                int start = i++;
+                while (i < minutes.Count && minutes[i].Ms is int ms && Net.ServerWords.AboveUsual(ms, usual.High) && minutes[i].Ts - minutes[i - 1].Ts <= 120) i++;
+                var run = minutes.GetRange(start, i - start);
+                if (run.Count < 3) continue;
+                var peak = run.MaxBy(m => m.Ms ?? 0)!;
+                var at = TimeUtil.FromUnix(peak.Ts);
+                int lost = run.Sum(m => m.Lost), sent = run.Sum(m => m.Sent);
+                lines.Add(new(new NetHappening(NetHappeningKind.ServerPing, at.Date, at, Clock(at),
+                    Lang.T($"{name}'s ping rose to {peak.Ms} ms, against its usual {usual.Low} to {usual.High} ms"))
+                {
+                    Detail = lost > 0 ? Lang.T($"{lost} of the {sent} checks to its server lost") : null,
+                    Path = app?.Path, Tone = InsightTone.Warn,
+                }, long.MaxValue / 2));
+            }
         }
 
         // ── Ping checks paused or resumed (Settings, or the Network page) ──

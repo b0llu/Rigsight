@@ -18,6 +18,11 @@ internal sealed class AppUsage
     public double Disk { get; set; }
     /// <summary>When the earliest of its processes started (a Windows file time).</summary>
     public long Created { get; set; }
+    /// <summary>
+    /// The CPU time its processes used since the last sample, in 100 ns ticks and every core counted: not capped like
+    /// <see cref="Cpu"/>, so it adds up to what Windows counted. A process started since then counts in full.
+    /// </summary>
+    public long CpuTime { get; set; }
     /// <summary>Each process on its own, only for the apps asked for (<see cref="ProcessSampler.Detail"/>).</summary>
     public List<ProcessUsage>? Processes { get; set; }
 }
@@ -36,6 +41,10 @@ internal sealed class ProcessSnapshot
     public Dictionary<string, double> GpuMemMb { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>What every process together (Windows' own "System" too) read and wrote since the last sample, in bytes a second.</summary>
     public double Disk { get; set; }
+    /// <summary>The CPU time every process together used since the last sample ("System" too, never the idle time), in 100 ns ticks.</summary>
+    public long CpuTime { get; set; }
+    /// <summary>Each app's time on the main GPU since the last sample, its busiest engine's, in 100 ns ticks by exe (see <see cref="GpuSampler"/>).</summary>
+    public Dictionary<string, long> GpuTime { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -50,6 +59,8 @@ internal sealed unsafe class ProcessSampler
     // started, so what it is using now is the difference between two samples.
     private Dictionary<(int Pid, long Created), (long Cpu, long Io)> _last = [];
     private long _lastSampleTime;
+    // The last sample's time as a Windows file time: a process started after it used all of its CPU time since.
+    private long _lastFileTime;
 
     /// <summary>Apps (exe names) whose processes are also listed one by one, for the Memory page.</summary>
     public HashSet<string>? Detail { get; set; }
@@ -65,16 +76,17 @@ internal sealed unsafe class ProcessSampler
             _buffer = Marshal.AllocHGlobal(_bufferSize);
         }
 
-        return status != 0 ? new ProcessSnapshot() : Read(_buffer, Stopwatch.GetTimestamp());
+        return status != 0 ? new ProcessSnapshot() : Read(_buffer, Stopwatch.GetTimestamp(), DateTime.UtcNow.ToFileTimeUtc());
     }
 
     /// <summary>
     /// Reads what Windows wrote into <paramref name="buffer"/> (one SYSTEM_PROCESS_INFORMATION after another), taken
     /// at <paramref name="now"/> on the Stopwatch's clock. Apart from <see cref="Sample"/>, the tests call it with
-    /// processes of their own making.
+    /// processes of their own making. <paramref name="fileTime"/> is the same moment as a Windows file time (now when not given).
     /// </summary>
-    internal ProcessSnapshot Read(IntPtr buffer, long now)
+    internal ProcessSnapshot Read(IntPtr buffer, long now, long fileTime = 0)
     {
+        if (fileTime == 0) fileTime = DateTime.UtcNow.ToFileTimeUtc();
         var snapshot = new ProcessSnapshot();
 
         // By the precise clock: a sample taken right after another (the Memory page asking for its details) is only
@@ -98,12 +110,17 @@ internal sealed unsafe class ProcessSampler
                 current[key] = (cpuTime, io);
 
                 double cpu = 0, disk = 0;
+                long used = 0;
                 if (haveBaseline && _last.TryGetValue(key, out var before))
                 {
-                    cpu = Math.Clamp((cpuTime - before.Cpu) / elapsed100ns * 100, 0, 100); // Windows counts CPU time in steps too
+                    used = Math.Max(0, cpuTime - before.Cpu);
+                    cpu = Math.Clamp(used / elapsed100ns * 100, 0, 100); // Windows counts CPU time in steps too
                     disk = Math.Max(0, io - before.Io) / seconds;
                 }
+                // Started since the last sample: all it has used was used since (a short-lived one would count for nothing).
+                else if (haveBaseline && info->CreateTime > _lastFileTime) used = Math.Max(0, cpuTime);
                 snapshot.Disk += disk;
+                snapshot.CpuTime += used;
 
                 if (pid > 4 && info->ImageName.Buffer != IntPtr.Zero)
                 {
@@ -118,6 +135,7 @@ internal sealed unsafe class ProcessSampler
                     double mem = info->WorkingSetPrivateSize / (1024.0 * 1024.0);
                     app.MemMB += mem;
                     app.Disk += disk;
+                    app.CpuTime += used;
                     if (info->CreateTime < app.Created) app.Created = info->CreateTime;
                     if (detail?.Contains(exe) == true) (app.Processes ??= []).Add(new ProcessUsage(pid, info->CreateTime, cpu, mem, disk));
                     snapshot.PidToExe[pid] = exe;
@@ -131,6 +149,7 @@ internal sealed unsafe class ProcessSampler
 
         _last = current;
         _lastSampleTime = now;
+        _lastFileTime = fileTime;
         return snapshot;
     }
 }

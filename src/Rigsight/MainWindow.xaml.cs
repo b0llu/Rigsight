@@ -267,6 +267,7 @@ public partial class MainWindow : Window
             PlaceDrop();
         }
         Controls.Roomy.Fit(double.IsNaN(height) || height <= 0 ? ActualHeight : ActualHeight / used);
+        Controls.PageZoom.Set(used);
         return used;
     }
 

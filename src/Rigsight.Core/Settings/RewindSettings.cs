@@ -9,6 +9,10 @@
 /// </summary>
 public sealed class RewindSettings
 {
+    /// <summary>Fields this version doesn't know (written by a newer RigSight): kept and written back as they were, never dropped.</summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
+
     /// <summary>A notification when one is finished while RigSight is closed (the agent's, in the Notifications style).</summary>
     public bool Notify { get; set; } = true;
 

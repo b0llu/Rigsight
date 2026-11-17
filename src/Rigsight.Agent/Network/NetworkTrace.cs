@@ -18,6 +18,16 @@ internal sealed class NetCounts
     public bool IsEmpty => Down == 0 && Up == 0 && TunnelDown == 0 && TunnelUp == 0 && LanDown == 0 && LanUp == 0;
 }
 
+/// <summary>One process's traffic with one server: its address (an IPv4 one in <see cref="Lo"/>), port, and UDP or TCP.</summary>
+internal readonly record struct FlowKey(int Pid, ulong Hi, ulong Lo, ushort Port, bool Udp);
+
+/// <summary>What went each way with one server since the last <see cref="NetworkTrace.TakeFlows"/>.</summary>
+internal sealed class FlowCount
+{
+    public int SentPackets, ReceivedPackets;
+    public long SentBytes, ReceivedBytes;
+}
+
 /// <summary>
 /// Every byte each process sends and receives over TCP and UDP, from Windows' own kernel network events (the source
 /// Resource Monitor reads), in a real-time trace session of our own. Needs admin rights; costs about 0.05% CPU at
@@ -39,6 +49,27 @@ internal sealed unsafe class NetworkTrace : IDisposable
     private readonly Lock _gate = new();
     private Dictionary<int, NetCounts> _counts = [];
     private Dictionary<int, NetCounts> _spare = [];
+
+    // Each process's servers (for the ping to the server a game or call uses): every UDP packet to or from the internet,
+    // and TCP only for the processes asked for (an app picked with "Check its ping"); a download's TCP stays uncounted here.
+    private Dictionary<FlowKey, FlowCount> _flows = [], _spareFlows = [];
+    private volatile HashSet<int>? _tcpPids;
+
+    /// <summary>The processes whose TCP servers are noted too (null: none).</summary>
+    public void WatchTcp(HashSet<int>? pids) => _tcpPids = pids;
+
+    /// <summary>Each process's traffic with each server since the last call (taken on the sampler thread).</summary>
+    public Dictionary<FlowKey, FlowCount> TakeFlows()
+    {
+        lock (_gate)
+        {
+            var taken = _flows;
+            _spareFlows.Clear();
+            _flows = _spareFlows;
+            _spareFlows = taken;
+            return taken;
+        }
+    }
     private volatile bool _stopped;
     private long _events;
 
@@ -262,8 +293,26 @@ internal sealed unsafe class NetworkTrace : IDisposable
         var where = v6 ? _addresses().Classify6(data + 8, data + 24) : _addresses().Classify4(*(uint*)(data + 8), *(uint*)(data + 12));
         if (where == Route.Self || size <= 0) return;
 
+        bool udp = id is 42 or 43 or 58 or 59;
+        bool flow = where is Route.Internet or Route.Tunnel && (udp || _tcpPids is { } watched && watched.Contains(pid)) && length >= (v6 ? 44 : 20);
+        FlowKey key = default;
+        if (flow)
+        {
+            // The server is the destination of what's sent and the source of what's received; ports are in network order.
+            byte* remote = data + (v6 ? (send ? 8 : 24) : (send ? 8 : 12));
+            ushort raw = *(ushort*)(data + (v6 ? (send ? 40 : 42) : (send ? 16 : 18)));
+            ushort port = (ushort)((raw >> 8) | (raw << 8));
+            key = v6 ? new FlowKey(pid, *(ulong*)remote, *(ulong*)(remote + 8), port, udp) : new FlowKey(pid, 0, *(uint*)remote, port, udp);
+        }
+
         lock (_gate)
         {
+            if (flow)
+            {
+                if (!_flows.TryGetValue(key, out var f)) _flows[key] = f = new FlowCount();
+                if (send) { f.SentPackets++; f.SentBytes += size; }
+                else { f.ReceivedPackets++; f.ReceivedBytes += size; }
+            }
             if (!_counts.TryGetValue(pid, out var c)) _counts[pid] = c = new NetCounts();
             switch (where)
             {

@@ -9,6 +9,10 @@ namespace Rigsight.Core.Settings;
 /// </summary>
 public sealed class RigsightSettings
 {
+    /// <summary>Fields this version doesn't know (written by a newer RigSight): kept and written back as they were, never dropped.</summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
+
     /// <summary>Bumped when defaults change, so older settings files get migrated once.</summary>
     public int SettingsVersion { get; set; }
 
@@ -355,6 +359,10 @@ public sealed class RigsightSettings
 /// <summary>What the sidebar card and Settings → History say about the history file (see <see cref="Data.HistoryRepair"/>).</summary>
 public sealed class HistoryFileState
 {
+    /// <summary>Fields this version doesn't know (written by a newer RigSight): kept and written back as they were, never dropped.</summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
+
     /// <summary>When the file was last checked, and why ("after the PC lost power", "when you asked").</summary>
     public DateTime? CheckedAt { get; set; }
     public string? CheckedWhy { get; set; }
@@ -375,6 +383,10 @@ public sealed class HistoryFileState
 
 public sealed class TrackingSettings
 {
+    /// <summary>Fields this version doesn't know (written by a newer RigSight): kept and written back as they were, never dropped.</summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
+
     /// <summary>Before 0.5.18: a separate "record" switch. Off is read once as paused until resumed, never written.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public bool? Enabled { get; set; }
@@ -401,6 +413,15 @@ public sealed class TrackingSettings
     public bool PingChecks { get; set; } = true;
 
     /// <summary>
+    /// With Ping checks, the server each game and call is talking to is checked too (1.14.0, needs the admin trace to
+    /// see which server that is). On with Ping checks: it follows their switch, and only asks servers the apps already use.
+    /// </summary>
+    public bool ServerPings { get; set; } = true;
+
+    /// <summary>Other apps whose server is checked like a game's ("Check its ping" in Using it now), by exe.</summary>
+    public List<string> PingApps { get; set; } = [];
+
+    /// <summary>
     /// How long history is kept, in days: minute-by-minute readings, hourly app time, sessions, crashes and drive
     /// fill all expire together, so every page covers the same dates. 0 keeps everything.
     /// </summary>
@@ -414,6 +435,10 @@ public sealed class TrackingSettings
 
 public sealed class AlertSettings
 {
+    /// <summary>Fields this version doesn't know (written by a newer RigSight): kept and written back as they were, never dropped.</summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
+
     public bool Enabled { get; set; } = true;
     public double CpuLimit { get; set; } = 85;
     public double GpuLimit { get; set; } = 83;

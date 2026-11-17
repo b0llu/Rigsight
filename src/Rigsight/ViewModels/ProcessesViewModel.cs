@@ -71,7 +71,7 @@ public sealed record EndTarget(ProcRow App, ProcChild? Process = null)
 /// </summary>
 public sealed partial class ProcessesViewModel : ObservableObject
 {
-    public const string ByName = "Name", ByMemory = "Memory", ByCpu = "Cpu", ByInternet = "Internet", ByDisk = "Disk";
+    public const string ByName = "Name", ByMemory = "Memory", ByCpu = "Cpu", ByInternet = "Internet", ByDisk = "Disk", ByLoad = "Load";
 
     private readonly ReportService _reports;
     private readonly Action<string, string?> _send;
@@ -127,6 +127,7 @@ public sealed partial class ProcessesViewModel : ObservableObject
         else Live.PropertyChanged -= OnLiveChanged;
         if (!shown) return;
         Refresh();
+        _ = LoadTodayAsync();
         // An app opened on the Memory page is open here too: its box is read now.
         foreach (var row in Live.Procs)
             if (row.IsExpanded) _ = LoadHistoryAsync(row);
@@ -153,7 +154,45 @@ public sealed partial class ProcessesViewModel : ObservableObject
                 reset();
             }
         }
-        if (_shown) Refresh();
+        if (!_shown) return;
+        Refresh();
+        // An app that came since today was read gets its word from it; once a minute today is read again.
+        if (DateTime.Now - _todayReadAt >= TodayAge) _ = LoadTodayAsync();
+        else if (_today is not null) ApplyToday(onlyNew: true);
+    }
+
+    // ── Each app's load today ──
+
+    /// <summary>How long what was read about every app's day is good for: the agent writes it once a minute.</summary>
+    private static readonly TimeSpan TodayAge = TimeSpan.FromMinutes(1);
+
+    private Dictionary<string, Core.Reports.AppDayUse>? _today;
+    private DateTime _todayReadAt = DateTime.MinValue;
+    private Task? _readingToday;
+
+    /// <summary>Reads every app's use today and gives each row its word (LOAD TODAY); the read under way when one is.</summary>
+    internal Task LoadTodayAsync() => _readingToday is { IsCompleted: false } running ? running : _readingToday = ReadTodayAsync();
+
+    private async Task ReadTodayAsync()
+    {
+        _todayReadAt = DateTime.Now;
+        if (await _reports.AppsTodayAsync() is { } today) _today = today;
+        ApplyToday(onlyNew: false);
+    }
+
+    private readonly HashSet<ProcRow> _judged = [];
+
+    private void ApplyToday(bool onlyNew)
+    {
+        if (_today is null || Live.HoldProcs) return;
+        double ramMb = ((Live.RamUsed?.Value ?? 0) + (Live.RamAvailable?.Value ?? 0)) * 1024;
+        if (!onlyNew) _judged.Clear();
+        foreach (var row in Live.Procs)
+        {
+            if (!_judged.Add(row)) continue;
+            row.SetLoad(_today.TryGetValue(row.Exe, out var use) ? use : null, Environment.ProcessorCount, ramMb, Live.RamTotalText);
+        }
+        if (_judged.Count > Live.Procs.Count * 2) _judged.IntersectWith(Live.Procs);
     }
 
     // ── The four totals, and each app's internet ──
@@ -234,6 +273,7 @@ public sealed partial class ProcessesViewModel : ObservableObject
     public SortHeading CpuHeading { get; } = new(ByCpu, "CPU");
     public SortHeading InternetHeading { get; } = new(ByInternet, Lang.T("INTERNET"));
     public SortHeading DiskHeading { get; } = new(ByDisk, Lang.T("DISK"));
+    public SortHeading LoadHeading { get; } = new(ByLoad, Lang.T("LOAD TODAY"));
 
     /// <summary>The column the list is sorted by: its figures are the ones in white.</summary>
     [ObservableProperty] private string _sortKey = ByMemory;
@@ -266,6 +306,7 @@ public sealed partial class ProcessesViewModel : ObservableObject
         string property = SortKey switch
         {
             ByName => nameof(ProcRow.Name), ByCpu => nameof(ProcRow.Cpu), ByInternet => nameof(ProcRow.Net), ByDisk => nameof(ProcRow.Disk),
+            ByLoad => nameof(ProcRow.LoadRank),
             _ => nameof(ProcRow.MemMB),
         };
         // Apps level on a figure (most use no internet) go by their memory.
@@ -278,7 +319,7 @@ public sealed partial class ProcessesViewModel : ObservableObject
             _view.LiveSortingProperties.Clear();
             _view.LiveSortingProperties.Add(property);
         }
-        foreach (var heading in new[] { NameHeading, MemoryHeading, CpuHeading, InternetHeading, DiskHeading })
+        foreach (var heading in new[] { NameHeading, MemoryHeading, CpuHeading, InternetHeading, DiskHeading, LoadHeading })
         {
             heading.IsActive = heading.Key == SortKey;
             heading.Arrow = !heading.IsActive ? "↕" : SortFlipped ? "↑" : "↓";

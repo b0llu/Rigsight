@@ -81,6 +81,38 @@ public sealed partial class ProcRow(string exe) : ObservableObject
     /// <summary>What is on record about it, for the box under its row on the Processes page (made when first opened there).</summary>
     [ObservableProperty] private ProcHistory? _history;
 
+    /// <summary>How heavy it has been on the PC today (the Processes page's LOAD TODAY); null before it has run long enough.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LoadText), nameof(LoadSteps), nameof(LoadRank))]
+    private AppLoad? _load;
+
+    /// <summary>What its word comes from, or how long it still needs; null when there is nothing to say yet.</summary>
+    [ObservableProperty] private string? _loadTip;
+
+    public string LoadText => Load?.Word ?? Nothing;
+    /// <summary>The steps filled of its three: Low 1, Medium 2, High 3; none without a word.</summary>
+    public int LoadSteps => Load is null ? 0 : (int)Load.Level + 1;
+    /// <summary>What the list sorts by in LOAD TODAY: the level, apps without a word last.</summary>
+    public int LoadRank => Load is null ? -1 : (int)Load.Level;
+
+    /// <summary>
+    /// Its word from what is on record for today (<paramref name="use"/>, null when nothing is), on a PC with
+    /// <paramref name="threads"/> threads and <paramref name="ramMb"/> of memory (<paramref name="ram"/> as the page says it).
+    /// </summary>
+    public void SetLoad(AppDayUse? use, int threads, double ramMb, string ram)
+    {
+        if (use is not { } u)
+        {
+            // Nothing on record: a part of Windows or an app left out, or one the minutes haven't caught up with yet.
+            Load = null;
+            LoadTip = null;
+            return;
+        }
+        var load = AppLoad.Judge(u.CpuSec, u.GpuSec, u.MemMb > 0 ? u.MemMb : MemMB, u.RunSec, threads, ramMb);
+        if (load != Load) Load = load;
+        LoadTip = load?.Hover(ram) ?? AppLoad.TooSoon(u.RunSec);
+    }
+
     // The list opens once the agent has sent the processes (a spinner in the chevron's place until then), not as an
     // empty gap before.
     public bool ShowChildren => IsExpanded && Children.Count > 0;

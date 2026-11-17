@@ -31,6 +31,7 @@ public sealed partial class RigsightDb
                 lan_lost INTEGER NOT NULL, isp_ms INTEGER, isp_max INTEGER, isp_lost INTEGER NOT NULL, jitter INTEGER);
             CREATE TABLE IF NOT EXISTS net_ping_switch(ts INTEGER PRIMARY KEY, turned_on INTEGER NOT NULL);
             """);
+        EnsureNetServerSchema();
     }
 
     // The app reads a database the agent made, which may be from before 0.14.0 (no network tables yet).
@@ -120,6 +121,7 @@ public sealed partial class RigsightDb
 
     private void PruneNetwork(long before)
     {
+        PruneNetServers(before);
         using (var c = Cmd($"""
             DELETE FROM net_minute WHERE ts < $t;
             DELETE FROM net_day WHERE day < {DayOf("$t")};

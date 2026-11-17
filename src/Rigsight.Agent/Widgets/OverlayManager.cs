@@ -159,6 +159,7 @@ internal sealed class OverlayManager : IDisposable
     {
         _data = data;
         if (Visible) Refresh();
+        else ClearRtss(); // a clear that found RivaTuner busy is tried again (nothing to do once it went through)
     }
 
     /// <summary>
@@ -185,7 +186,8 @@ internal sealed class OverlayManager : IDisposable
         {
             int pid = ForegroundPid();
             // Each label and number where our own window draws it (the user, 2026-11-09: it looked different in fullscreen).
-            _rtssWritten = Rtss.Show(WidgetRenderer.RtssTextPlaced(_settings, _data, Rtss.Resolution(pid) ?? ForegroundScreen().Size));
+            // A busy RivaTuner writes nothing this time, but what was written before is still there to clear later.
+            _rtssWritten = Rtss.Show(WidgetRenderer.RtssTextPlaced(_settings, _data, Rtss.Resolution(pid) ?? ForegroundScreen().Size)) || _rtssWritten;
             if (_form is { Visible: true }) _form.Hide();
             NoteRoute($"drawn by RivaTuner inside {_data?.Activity.Name ?? "the app in front"}");
             return;
@@ -210,8 +212,8 @@ internal sealed class OverlayManager : IDisposable
     private void ClearRtss()
     {
         if (!_rtssWritten) return;
-        Rtss.Clear();
-        _rtssWritten = false;
+        // Still written while RivaTuner was busy: the next update tries again, or the last text would stay in every game.
+        if (Rtss.Clear()) _rtssWritten = false;
     }
 
     /// <summary>

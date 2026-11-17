@@ -38,6 +38,36 @@ internal sealed class PcNow
     public bool NetPerApp;
     /// <summary>The speeds now, in bytes a second (null: not read), and the last minute of them, oldest first.</summary>
     public double? NetDown, NetUp;
+    /// <summary>The Ping tile: the figure, whose it is ("Discord call, Singapore", "Your provider"), its usual, and the
+    /// last 10 minutes' checks (-1 for one with no reply; none for the provider, whose checks aren't kept here).</summary>
+    public int? PingMs;
+    public string PingWho = "";
+    public string? PingUsual;
+    public bool PingWarm;
+    public int[] PingRecent = [];
+
+    /// <summary>
+    /// The Ping tile's figures from the live line, as the Network page's top line says them: the game's or call's server
+    /// when one is checked, else the internet provider's first router, else the router. <paramref name="nameOf"/> gives an
+    /// exe's name as the pages show it. The agent and the app's previews fill it the same way.
+    /// </summary>
+    public void FillPing(Rigsight.Core.Protocol.LineLive? line, Func<string, string?> nameOf)
+    {
+        if (Rigsight.Core.Net.ServerWords.Lead(line?.Servers) is { } s)
+        {
+            string app = nameOf(s.Exe) ?? (s.Exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? s.Exe[..^4] : s.Exe);
+            string who = Rigsight.Core.Net.ServerWords.Named(app, s.Kind);
+            PingMs = s.Ms;
+            PingWho = s.Place is null ? who : Lang.T($"{who}, {s.Place}");
+            PingUsual = s.UsualLow is int lo && s.UsualHigh is int hi ? Lang.T($"usual {lo} to {hi} ms") : null;
+            PingWarm = Rigsight.Core.Net.ServerWords.NeedsLook(s);
+            PingRecent = s.Recent is { } recent ? [.. recent] : [];
+            return;
+        }
+        PingMs = line?.IspMs ?? line?.LanMs;
+        PingWho = line is null ? Lang.T("Ping checks are paused")
+            : line.IspMs is not null ? Lang.T("Your provider, no game or call online") : Lang.T("Your router");
+    }
     public float[] DownHistory = [], UpHistory = [];
     /// <summary>When each of those was read (Unix seconds), for the graph's hover; empty: one a second.</summary>
     public long[] NetTimes = [];
@@ -484,6 +514,60 @@ internal static partial class WidgetRenderer
             }
         }
         if (foot) TextRight(g, Lang.T("Last minute"), CapPx, p.Faint, r.Right, top + Math.Max(textH, gh) + 3, 13.125f);
+    }
+
+    /// <summary>
+    /// The ping that matters now (approved mock-up, 2026-11-16): the figure big, whose it is under it, and where there's
+    /// room its usual and the last 10 minutes, a check with no reply a mark of one size along the bottom (hover says when).
+    /// </summary>
+    private static void PingTile(Graphics g, RectangleF r, WidgetData d, Palette p)
+    {
+        var pc = d.Pc;
+        var color = pc?.PingWarm == true ? Warm(p) : Gray ? p.Text : NetColor;
+        bool graph = r.Width >= 160 && r.Height >= 70 && pc?.PingRecent.Length > 1;
+        float blockH = 14.375f + 30 + 15 + (graph ? 34 : 0);
+        float top = MathF.Round(Middle(r, blockH));
+        TextLine(g, Lang.T("PING"), CapPx, p.Muted, r.Left, top, 14.375f);
+        if (pc?.PingUsual is { } usual && r.Width >= 160) TextRight(g, usual, CapPx, p.Faint, r.Right, top, 14.375f);
+        var (n, u) = Split(pc?.PingMs is int ms ? $"{ms} ms" : "—");
+        float baseline = top + 14.375f + 26;
+        Text(g, n, 24, FontStyle.Regular, color, r.Left, TopForBaseline(baseline, 24));
+        if (u.Length > 0) Text(g, u, 12, FontStyle.Regular, p.Muted, r.Left + W(g, n, 24) + Space(24), TopForBaseline(baseline, 12));
+        TextLine(g, pc?.PingWho ?? "", 11.5f, p.Muted, r.Left, top + 14.375f + 31, 15);
+        if (!graph) return;
+        var recent = pc!.PingRecent;
+        var area = new RectangleF(r.Left, top + 14.375f + 50, r.Width, 26);
+        float hi = Math.Max(10, recent.Max()) * 1.25f;
+        var smooth = g.SmoothingMode;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        float X(int i) => area.Left + area.Width * i / (recent.Length - 1);
+        using (var pen = new Pen(color, 1.6f) { LineJoin = LineJoin.Round })
+        {
+            var run = new List<PointF>();
+            void Flush()
+            {
+                if (run.Count > 1) g.DrawLines(pen, [.. run]);
+                run.Clear();
+            }
+            for (int i = 0; i < recent.Length; i++)
+            {
+                if (recent[i] < 0) { Flush(); continue; }
+                run.Add(new PointF(X(i), area.Bottom - 4 - Math.Clamp(recent[i], 0, hi) / hi * (area.Height - 4)));
+            }
+            Flush();
+        }
+        g.SmoothingMode = smooth;
+        // A check that got no reply: a mark of one size along the bottom (the hover says when).
+        using (var warm = new SolidBrush(Warm(p)))
+            for (int i = 0; i < recent.Length; i++)
+                if (recent[i] < 0) g.FillRectangle(warm, X(i) - 1.5f, area.Bottom - 8, 3, 8);
+        if (HoverIn(g, area, recent.Length, points: true) is int at)
+        {
+            float x = X(at);
+            HoverGuide(g, x, area.Top, area.Bottom, p);
+            double ago = (recent.Length - 1 - at) * 5;
+            SetTip(g, p, x, AgoText(ago), new TipLine(recent[at] < 0 ? Lang.T("No reply") : $"{recent[at]} ms", recent[at] < 0 ? Warm(p) : color));
+        }
     }
 
     private static void NetNowTile(Graphics g, RectangleF r, WidgetData d, Palette p)
@@ -963,6 +1047,7 @@ internal static partial class WidgetRenderer
             case WidgetTiles.NetApps: NetAppsTile(g, r, d, p); break;
             case WidgetTiles.NetHours: NetHoursTile(g, r, d, p); break;
             case WidgetTiles.NetDrops: NetDropsTile(g, r, d, p); break;
+            case WidgetTiles.Ping: PingTile(g, r, d, p); break;
             case WidgetTiles.TodaySoFar: TodaySoFarTile(g, r, d, p); break;
             case WidgetTiles.MostUsed: MostUsedTile(g, r, d, p); break;
             case WidgetTiles.StandOut: StandOutTile(g, r, d, p); break;
@@ -1002,6 +1087,7 @@ internal static partial class WidgetRenderer
             // The graph moves every second: drawn each time (a key that changes each second says the same).
             WidgetTiles.NetSpeed => $"{pc?.NetDown}|{pc?.NetUp}|{pc?.DownHistory.Length}|{string.Join(",", pc?.DownHistory.TakeLast(3) ?? [])}",
             WidgetTiles.NetNow => $"{pc?.NetPerApp}|{(pc is null ? "-" : Apps(pc.NetApps ?? []))}",
+            WidgetTiles.Ping => $"{pc?.PingMs}|{pc?.PingWho}|{pc?.PingUsual}|{pc?.PingWarm}|{pc?.PingRecent.Length}|{string.Join(",", pc?.PingRecent.TakeLast(3) ?? [])}",
             WidgetTiles.NetToday or WidgetTiles.NetApps or WidgetTiles.NetHours or WidgetTiles.NetDrops => Holds(PcNeeds.Internet) + (f is null ? "" :
                 $"{f.NetHasData}|{f.NetDown}|{f.NetUp}|{f.NetBackground}|{Lines(f.NetApps)}|{string.Join(",", f.HourTop)}|{string.Join(",", f.HourRest)}|{string.Join(",", f.HourApp)}|{Now().Hour}|{string.Join("", f.Quarters.Select(q => q ? '1' : '0'))}|{string.Join(",", f.Drops.Select(x => x.Start.Ticks + "-" + x.End.Ticks))}|{Now().Date.Ticks}"),
             WidgetTiles.TodaySoFar => $"{Units.Duration(d.Today.ActiveSec)}|{Units.Duration(d.Today.OnSec)}|{Units.Duration(d.Today.IdleSec)}",

@@ -117,15 +117,51 @@ public static class SettingsStore
 
     private const int CurrentVersion = 13;
 
+    /// <summary>
+    /// Settings RigSight once had and took away. Fields this version doesn't know are kept (a newer RigSight's, see each
+    /// section's Unknown), but these go as they always did: nothing will read them again.
+    /// </summary>
+    internal static readonly HashSet<string> Retired = new(StringComparer.Ordinal)
+    {
+        "Changes", "FullScreen", "Games", "Half", "Heat", "Internet", "KeepDetailedDays", "LeftOut", "Locked", "Metric",
+        "MinSessionMinutes", "Month", "Problems", "Quarter", "SessionGapMinutes", "ShareAccent", "ShareTheme", "ShowAsk",
+        "Sits", "Time", "Tray", "TrayCombined", "UseRivaTuner", "WidgetFade", "Year",
+    };
+
+    private static void ForgetRetired(Dictionary<string, JsonElement>? unknown)
+    {
+        if (unknown is null) return;
+        foreach (var name in unknown.Keys.Where(Retired.Contains).ToList()) unknown.Remove(name);
+    }
+
+    private static void ForgetRetired(RigsightSettings s)
+    {
+        ForgetRetired(s.Unknown);
+        ForgetRetired(s.HistoryFile?.Unknown);
+        ForgetRetired(s.Tracking?.Unknown);
+        ForgetRetired(s.Alerts?.Unknown);
+        ForgetRetired(s.Ai?.Unknown);
+        ForgetRetired(s.Overlay?.Unknown);
+        ForgetRetired(s.Rewind?.Unknown);
+        ForgetRetired(s.Sidebar?.Unknown);
+        ForgetRetired(s.Support?.Unknown);
+        ForgetRetired(s.Ai?.OllamaPreferences?.Unknown);
+        ForgetRetired(s.Ai?.OwnKeyPreferences?.Unknown);
+        foreach (var w in s.Widgets ?? []) ForgetRetired(w?.Unknown);
+        foreach (var p in s.CustomPages ?? []) ForgetRetired(p?.Unknown);
+    }
+
     /// <summary>Repairs settings from older versions or hand edits (missing widgets, out-of-range numbers…).</summary>
     private static RigsightSettings Normalize(RigsightSettings s)
     {
+        ForgetRetired(s);
         // v13 (the widget boxes): a built-in widget can be removed, so one missing is only put back in a file from before.
         bool builtInsFixed = s.SettingsVersion < 13;
         // A hand edit can leave null where a section or list belongs: that part starts from its defaults, the rest is kept.
         s.Widgets = s.Widgets is null ? WidgetConfig.Defaults() : [.. s.Widgets.Where(w => w is not null)];
         s.Tracking ??= new TrackingSettings();
         s.Tracking.ExcludedApps ??= [];
+        s.Tracking.PingApps = [.. (s.Tracking.PingApps ?? []).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase)];
         s.Alerts ??= new AlertSettings();
         s.Ai ??= new AiSettings();
         s.HistoryFile ??= new HistoryFileState();
@@ -204,7 +240,9 @@ public static class SettingsStore
         // v12 (1.3): a graph is drawn beside the number unless its reading asks for it behind; before, every graph was
         // behind. Applied below, once the looks are read (the user: "make sure we dont change the users already setup readings").
         bool graphsWereBehind = s.SettingsVersion is > 0 and < 12;
-        s.SettingsVersion = CurrentVersion;
+        // Never lowered: a file from a newer RigSight read by an older one keeps its number, so its one-time steps don't
+        // run a second time once the newer one is back (v13 would put back built-in widgets someone had removed).
+        s.SettingsVersion = Math.Max(s.SettingsVersion, CurrentVersion);
 
         if (!ThemeCatalog.IsKnown(s.Theme)) s.Theme = ThemeCatalog.DefaultDark;
         // Same as Windows' two picks: a dark (or colorful) one and a light one. Settings from before them (or edited by

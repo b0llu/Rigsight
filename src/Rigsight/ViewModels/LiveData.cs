@@ -754,6 +754,10 @@ public sealed partial class LiveData : ObservableObject
     public IReadOnlyList<SensorItem> FpsSensors { get; } =
         [new(new SensorMeta { Id = TrayParts.Fps, Name = Lang.T("Frame rate (FPS)"), Kind = SensorKind.FrameRate }, Lang.T("From RivaTuner, in the game you're playing"), TrayParts.FpsHardwareType)];
 
+    /// <summary>The ping, a taskbar reading of RigSight's own (see <see cref="TrayParts.Ping"/>): its value comes from the agent.</summary>
+    public IReadOnlyList<SensorItem> PingSensors { get; } =
+        [new(new SensorMeta { Id = TrayParts.Ping, Name = Lang.T("Ping"), Kind = SensorKind.Latency }, Lang.T("The game or call you're on, else your internet provider"), "Network")];
+
     private static SensorItem NetItem(string id) =>
         new(new SensorMeta { Id = id, Name = TrayParts.NetName(id), Kind = SensorKind.Throughput }, TrayParts.NetHardware, "Network");
 
@@ -826,6 +830,9 @@ public sealed partial class LiveData : ObservableObject
         // A readings tick without the internet: it isn't being read (no admin rights and no card counts yet).
         else if (tick.Values is not null) PushNet(null);
         Line = tick.Line;
+        // The ping reading as the agent's taskbar shows it: the game's or call's server, else the provider, else the router.
+        PingSensors[0].Push(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            (Rigsight.Core.Net.ServerWords.Lead(tick.Line?.Servers)?.Ms ?? tick.Line?.IspMs ?? tick.Line?.LanMs) is int ms ? ms : null);
         if (tick.Values is { } values && values.Length == _flat.Count)
         {
             // Only the readings' tick says which taskbar readings wait for room (none listed: all fit).

@@ -89,7 +89,16 @@ public partial class TaskbarView : UserControl
         if (AddPop.IsOpen && !AddSearchText.IsMouseOver) CloseAddList();
     }
 
-    private void Window_Away(object? sender, EventArgs e) => CloseAddList();
+    private void Window_Away(object? sender, EventArgs e)
+    {
+        CloseAddList();
+        // Minimizing doesn't unload the page: no drawing each second while nobody can see it.
+        if (e is not null && sender is Window { WindowState: var state } && IsLoaded)
+        {
+            if (state == WindowState.Minimized) _redraw.Stop();
+            else if (!_redraw.IsEnabled) { Redraw(); _redraw.Start(); }
+        }
+    }
 
     private void CloseAddList() => AddPop.IsOpen = false;
 

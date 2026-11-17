@@ -246,12 +246,19 @@ public static partial class ChangeLogReader
         }
         using (reader)
         {
+            int read = 0;
             while (true)
             {
                 EventRecord? record;
                 try { record = reader.ReadEvent(); }
-                catch { yield break; }
+                catch (Exception ex)
+                {
+                    // What's left of the log goes unread, so say where it stopped: a missed crash should leave a trace.
+                    Log.Write("changes", $"Stopped reading the {log} log after {read} entries, at a read error: {ex}");
+                    yield break;
+                }
                 if (record is null) yield break;
+                read++;
                 yield return record;
             }
         }

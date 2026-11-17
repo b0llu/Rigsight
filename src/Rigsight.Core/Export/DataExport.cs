@@ -113,17 +113,24 @@ public static class DataExport
              C(Lang.Key("In use (min)"), Lang.Key("In front and being used")), C(Lang.Key("Away (min)"), Lang.Key("In front while nobody was at the PC")),
              C(Lang.Key("Background (min)"), Lang.Key("Open with a window, another app in front")), C(Lang.Key("Minimized (min)"), Lang.Key("Open with every window minimized")),
              C(Lang.Key("Memory peak (MB)"), Lang.Key("The most memory it held")), C(Lang.Key("CPU peak (°C)"), Lang.Key("The CPU's highest while it was in front")),
-             C(Lang.Key("GPU peak (°C)"), Lang.Key("The GPU's highest while it was in front"))],
-            "app_hour", "ts", 78,
-            (db, from, to, n, f) => db.GetAppHours(from, to).Where(h => n.Has(f, h.AppId))
-                .GroupBy(h => (Day: TimeUtil.FromUnix(h.Ts).Date, h.AppId))
-                .OrderBy(g => g.Key.Day).ThenByDescending(g => g.Sum(h => h.FgSec))
-                .Select(g => new object?[]
-                {
-                    Day(g.Key.Day), n.Of(g.Key.AppId), n.Exe(g.Key.AppId), n.Category(g.Key.AppId),
-                    Min(g.Sum(h => h.FgSec)), Min(g.Sum(h => h.IdleSec)), Min(g.Sum(h => h.BgSec)), Min(g.Sum(h => h.MinSec)),
-                    R(g.Max(h => h.MemMax), 0), R(g.Max(h => h.CpuTempMax)), R(g.Max(h => h.GpuTempMax)),
-                })),
+             C(Lang.Key("GPU peak (°C)"), Lang.Key("The GPU's highest while it was in front")),
+             C(Lang.Key("CPU time (min)"), Lang.Key("How long all its processes together kept one CPU core busy. Empty on days before it was recorded."))],
+            "app_hour", "ts", 84,
+            (db, from, to, n, f) =>
+            {
+                // Its CPU time is kept by the day apart from the hours (and only since the version that added it).
+                var cpu = db.GetAppCpuTotalsByDay(from, to);
+                return db.GetAppHours(from, to).Where(h => n.Has(f, h.AppId))
+                    .GroupBy(h => (Day: TimeUtil.FromUnix(h.Ts).Date, h.AppId))
+                    .OrderBy(g => g.Key.Day).ThenByDescending(g => g.Sum(h => h.FgSec))
+                    .Select(g => new object?[]
+                    {
+                        Day(g.Key.Day), n.Of(g.Key.AppId), n.Exe(g.Key.AppId), n.Category(g.Key.AppId),
+                        Min(g.Sum(h => h.FgSec)), Min(g.Sum(h => h.IdleSec)), Min(g.Sum(h => h.BgSec)), Min(g.Sum(h => h.MinSec)),
+                        R(g.Max(h => h.MemMax), 0), R(g.Max(h => h.CpuTempMax)), R(g.Max(h => h.GpuTempMax)),
+                        cpu.TryGetValue((TimeUtil.ToUnix(g.Key.Day), g.Key.AppId), out long ms) ? Math.Round(ms / 60_000.0, 1) : null,
+                    });
+            }),
 
         [ExportTable.Sessions] = new(Lang.Key("Sessions.csv"), Lang.Key("Each stretch an app was in front, from when it came to the front until it left."),
             [C(Lang.Key("Start"), Lang.Key("When it started")), C(Lang.Key("End"), Lang.Key("When it ended")), C(Lang.Key("App"), Lang.Key("The app's name")), C(Lang.Key("Program"), Lang.Key("Its program file")),

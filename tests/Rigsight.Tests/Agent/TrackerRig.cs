@@ -51,6 +51,13 @@ internal sealed class TrackerRig : IDisposable
     /// <summary>Each running app's share of the GPU (default: none).</summary>
     public Dictionary<string, double> GpuUsage { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The CPU time and GPU time each running app used since the sample before, in 100 ns ticks (none unless set).</summary>
+    public Dictionary<string, long> CpuTime { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, long> GpuTime { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>CPU time of processes that are no app (Windows' "System"), in each sample's total.</summary>
+    public long SystemCpuTime { get; set; }
+
     /// <summary>What each running app reads and writes, in bytes a second (none unless set).</summary>
     public Dictionary<string, double> DiskUsage { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -152,10 +159,14 @@ internal sealed class TrackerRig : IDisposable
         {
             var (cpu, mem) = Usage.TryGetValue(exe, out var u) ? u : (5.0, 300.0);
             double disk = DiskUsage.GetValueOrDefault(exe);
-            snapshot.Apps[exe] = new AppUsage { Exe = exe, FirstPid = 0, Count = 1, Cpu = cpu, MemMB = mem, Disk = disk };
+            long cpuTime = CpuTime.GetValueOrDefault(exe);
+            snapshot.Apps[exe] = new AppUsage { Exe = exe, FirstPid = 0, Count = 1, Cpu = cpu, MemMB = mem, Disk = disk, CpuTime = cpuTime };
             snapshot.Disk += disk;
+            snapshot.CpuTime += cpuTime;
             if (GpuUsage.TryGetValue(exe, out var gpu)) snapshot.Gpu[exe] = gpu;
+            if (GpuTime.TryGetValue(exe, out var busy)) snapshot.GpuTime[exe] = busy;
         }
+        snapshot.CpuTime += SystemCpuTime;
         return snapshot;
     }
 

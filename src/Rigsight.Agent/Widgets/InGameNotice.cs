@@ -47,7 +47,10 @@ internal sealed class InGameNotice : IDisposable
     public void Hide()
     {
         _timer.Stop();
-        Rtss.Clear(Rtss.NoticeOwner);
+        if (Rtss.Clear(Rtss.NoticeOwner)) return;
+        // RivaTuner was busy: the notice is still in the game, so try again shortly.
+        _timer.Interval = 250;
+        _timer.Start();
     }
 
     public void Dispose()

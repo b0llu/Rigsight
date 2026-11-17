@@ -130,10 +130,18 @@ public sealed record NetHoverBox(string Title, string Total)
     public string? Context { get; init; }
     public string? ContextPath { get; init; }
     public bool HasContext => Context is not null;
+    /// <summary>The games and calls checked in it, slowest first, and what their checks lost (the warning colour).</summary>
+    public IReadOnlyList<NetHoverServer> Servers { get; init; } = [];
+    public bool HasServers => Servers.Count > 0;
+    public string? ServerLoss { get; init; }
+    public bool HasServerLoss => ServerLoss is not null;
 
     /// <summary>The range bar's width: the box's 300 less its border and padding.</summary>
     public const double RangeWidth = 270;
 }
+
+/// <summary>A game's or call's line in the ping hover: its icon and name, what it is, its middle and its highest.</summary>
+public sealed record NetHoverServer(string Name, string? Path, string? Under, string Ms, string Highest, bool Warm);
 
 /// <summary>A line of "What happened", or the heading of a day (<see cref="IsHeader"/>).</summary>
 public sealed record NetHappeningRow(bool IsHeader, string Text)
@@ -395,6 +403,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         }
         NobodyNow = UsingNow.Count == 0;
         UsingNowTitle = UsingNow.Count >= 2 ? Lang.T("USING IT NOW") + " · " + Lang.T($"{UsingNow.Count} APPS") : Lang.T("USING IT NOW");
+        UpdateServers(Live.Line); // the rows just made get their ping now, not at the next tick
     }
 
     /// <summary>The live list's caption, with how many apps are in it when there are several.</summary>
@@ -412,6 +421,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         LostNow = line is null ? "—" : $"{line.LostPercent:0.#}%";
         PingTip = line is null ? "" : line.ProviderFound ? Lang.T("To your internet provider's first router") : Lang.T("To your router (your provider's didn't answer)");
         (LineState, LineWords) = LineNow(line, _online, _usualPing, PingChecksOn);
+        UpdateServers(line);
     }
 
     /// <summary>The line's state from its last minute: offline, losing pings, slow against the period's usual, or working well.</summary>
@@ -773,6 +783,8 @@ public sealed partial class NetworkViewModel : ObservableObject
             UsualText = $"{p.Usual} ms", MostText = Lang.T($"under {p.Most} ms"), HighestText = $"{p.Highest} ms",
             Loss = p.LostPercent >= NetLine.LostWorthSaying ? Lang.T($"{p.LostPercent:0.#}% of the pings got no reply") : null,
             Context = context, ContextPath = busy is null ? null : _paths.GetValueOrDefault(busy.App),
+            Servers = [.. b.Servers.Select(s => new NetHoverServer(s.Name, s.Path, Core.Net.ServerWords.KindWord(s.Kind), $"{s.Ms} ms", Lang.T($"highest {s.Highest} ms"), s.Lost > 0))],
+            ServerLoss = b.Servers.Where(s => s.Lost > 0).Select(s => Lang.T($"{s.Lost} of {s.Sent} checks to {s.Name}'s server lost")).FirstOrDefault(),
         };
     }
 
@@ -954,6 +966,8 @@ public sealed partial class NetworkViewModel : ObservableObject
             ? ShowPingNote ? []
             : [new("CpuBrush", Lang.T("Usual ping")), new("CpuBrush", Lang.T("Most checks"), 0.4), new("CpuBrush", Lang.T("All checks"), 0.18),
                .. Bins.Any(b => b.Ping?.LostPercent >= NetLine.LostWorthSaying) ? [new NetLegend("WarmBrush", Lang.T("Packet loss"))] : Array.Empty<NetLegend>(),
+               .. Bins.Any(b => b.Servers.Count > 0) ? [new NetLegend("SkyBrush", Lang.T("Games and calls"))] : Array.Empty<NetLegend>(),
+               .. Bins.Any(b => b.Servers.Any(s => s.Lost > 0)) ? [new NetLegend("WarmBrush", Lang.T("Checks lost"))] : Array.Empty<NetLegend>(),
                .. Bins.Any(b => b.Game is not null) ? [new NetLegend("TextBrush", Lang.T("Playing"), 0.15)] : Array.Empty<NetLegend>()]
             : WholeOnly
             ? [new("SkyBrush", Lang.T("This PC")), new("SkyBrush", Lang.T("While you were away"), 0.45)]

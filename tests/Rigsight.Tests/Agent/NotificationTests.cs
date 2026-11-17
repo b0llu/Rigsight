@@ -281,15 +281,15 @@ public class CrashScanReachTests
     public void A_day_before_the_last_scan_and_never_more_than_ninety_days()
     {
         // Never scanned (or a value that can't be read): the 90 days.
-        Assert.Equal(Now.AddDays(-90), Rigsight.Agent.AgentContext.FirstScanFrom(null, Now));
-        Assert.Equal(Now.AddDays(-90), Rigsight.Agent.AgentContext.FirstScanFrom("soon", Now));
+        Assert.Equal(Now.AddDays(-90), Rigsight.Agent.Tracking.CrashScanner.FirstScanFrom(null, Now));
+        Assert.Equal(Now.AddDays(-90), Rigsight.Agent.Tracking.CrashScanner.FirstScanFrom("soon", Now));
         // Scanned ten minutes before a restart: a day and ten minutes, not 90 days.
-        Assert.Equal(Now.AddMinutes(-10).AddDays(-1), Rigsight.Agent.AgentContext.FirstScanFrom(At(Now.AddMinutes(-10)), Now));
+        Assert.Equal(Now.AddMinutes(-10).AddDays(-1), Rigsight.Agent.Tracking.CrashScanner.FirstScanFrom(At(Now.AddMinutes(-10)), Now));
         // Off for a fortnight: from a day before it was last on.
-        Assert.Equal(Now.AddDays(-15), Rigsight.Agent.AgentContext.FirstScanFrom(At(Now.AddDays(-14)), Now));
+        Assert.Equal(Now.AddDays(-15), Rigsight.Agent.Tracking.CrashScanner.FirstScanFrom(At(Now.AddDays(-14)), Now));
         // Off for half a year: Windows' logs are read 90 days back, as on a PC never scanned.
-        Assert.Equal(Now.AddDays(-90), Rigsight.Agent.AgentContext.FirstScanFrom(At(Now.AddDays(-180)), Now));
+        Assert.Equal(Now.AddDays(-90), Rigsight.Agent.Tracking.CrashScanner.FirstScanFrom(At(Now.AddDays(-180)), Now));
         // A clock that was set back since: a day, not nothing.
-        Assert.Equal(Now.AddDays(-1), Rigsight.Agent.AgentContext.FirstScanFrom(At(Now.AddDays(3)), Now));
+        Assert.Equal(Now.AddDays(-1), Rigsight.Agent.Tracking.CrashScanner.FirstScanFrom(At(Now.AddDays(3)), Now));
     }
 }

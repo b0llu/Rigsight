@@ -414,7 +414,7 @@ public static class ReportBuilder
         AddHourlyFallback(report, [.. hours.Where(h => !minuteDays.Contains(TimeUtil.FromUnix(h.Ts).Date))], minutes.Count * 60);
 
         // Per-app statistics.
-        var stats = AppStats(hours, apps, NameOf, CategoryOf);
+        var stats = AppStats(hours, apps, NameOf, CategoryOf, FrontCpu(db, f, t));
 
         // Sessions.
         foreach (var s in sessions)
@@ -638,7 +638,7 @@ public static class ReportBuilder
 
         // Apps: per-app totals and session counts, summed by the database (as on the Apps page).
         var totals = db.GetAppTotals(f, t);
-        var stats = AppStats(totals, apps, NameOf, CategoryOf);
+        var stats = AppStats(totals, apps, NameOf, CategoryOf, FrontCpu(db, f, t));
         foreach (var (id, (count, longest)) in db.GetSessionStats(f, t, MinSessionSec))
             if (stats.TryGetValue(id, out var st)) { st.SessionCount = count; st.LongestSessionSec = longest; }
         report.GamingSec = stats.Values.Where(a => a.Category == AppCategory.Game).Sum(a => a.ActiveSec);
@@ -726,7 +726,7 @@ public static class ReportBuilder
 
     /// <summary>Per-app totals from hourly rows (or rows already summed per app, as GetAppTotals returns).</summary>
     private static Dictionary<long, AppStat> AppStats(IEnumerable<AppHour> hours, IReadOnlyDictionary<long, AppRow> apps,
-        Func<long?, string> NameOf, Func<long?, AppCategory> CategoryOf)
+        Func<long?, string> NameOf, Func<long?, AppCategory> CategoryOf, IReadOnlyDictionary<long, AppCpuUse> front)
     {
         var stats = new Dictionary<long, AppStat>();
         var acc = new Dictionary<long, double[]>(); // cpuTempSum, n, gpuTempSum, n, cpuSum, n, memSum, n, gpuLoadSum, n
@@ -771,12 +771,21 @@ public static class ReportBuilder
             var a = acc[id];
             s.CpuTempAvg = a[1] > 0 ? a[0] / a[1] : null;
             s.GpuTempAvg = a[3] > 0 ? a[2] / a[3] : null;
-            s.CpuAvg = a[5] > 0 ? a[4] / a[5] : null;
+            // Its CPU use while in front, as the Apps page heads it: the hourly averages count every moment it was
+            // running, in front or not, so they would say something else.
+            // Hours from before CPU time was kept per app (1.14.0) have only the hourly figure: it stays theirs, so the
+            // Apps page on an older period doesn't go blank.
+            s.CpuAvg = front.TryGetValue(id, out var fg) && fg.FgSec > 0 ? fg.FgCpuMs / 1000.0 / (fg.FgSec * (double)Environment.ProcessorCount) * 100
+                : a[5] > 0 ? a[4] / a[5] : null;
             s.MemAvg = a[7] > 0 ? a[6] / a[7] : null;
             s.GpuLoadAvg = a[9] > 0 ? a[8] / a[9] : null;
         }
         return stats;
     }
+
+    /// <summary>Each app's CPU time while in front and the time it was in front over [<paramref name="f"/>, <paramref name="t"/>), by app.</summary>
+    private static Dictionary<long, AppCpuUse> FrontCpu(RigsightDb db, long f, long t) =>
+        db.GetAppCpuTotals(f, t, byHour: true).Where(u => u.App != AppCpuUse.AllApps).ToDictionary(u => u.App);
 
     /// <summary>
     /// What the Apps page needs for a range: per-app totals and session counts, summed by the database. Much
@@ -799,7 +808,7 @@ public static class ReportBuilder
 
         var totals = db.GetAppTotals(f, t);
         report.HasData = totals.Count > 0;
-        var stats = AppStats(totals, apps, NameOf, CategoryOf);
+        var stats = AppStats(totals, apps, NameOf, CategoryOf, FrontCpu(db, f, t));
         foreach (var (id, (count, longest)) in db.GetSessionStats(f, t, MinSessionSec))
             if (stats.TryGetValue(id, out var st)) { st.SessionCount = count; st.LongestSessionSec = longest; }
         report.ActiveSec = stats.Values.Sum(a => a.ActiveSec);

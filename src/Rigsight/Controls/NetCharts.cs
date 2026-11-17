@@ -363,7 +363,7 @@ public sealed class NetBarsChart : NetChartBase
         var (first, last) = Shown();
         var bins = all.Count == 0 ? [] : all.Skip(first).Take(last - first + 1).ToList();
         bool ping = View == NetChartView.Ping;
-        double top = ping ? PingTop(bins.Select(b => (double)(b.Ping?.Highest ?? 0)).DefaultIfEmpty(0).Max())
+        double top = ping ? PingTop(bins.Select(b => (double)Math.Max(b.Ping?.Highest ?? 0, b.ServerMs ?? 0)).DefaultIfEmpty(0).Max())
             : NiceTop(bins.Select(b => (double)b.Total).DefaultIfEmpty(0).Max());
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize));
         var plot = PlotArea;
@@ -396,6 +396,7 @@ public sealed class NetBarsChart : NetChartBase
         {
             DrawPingOff(dc, plot, bins, slot);
             DrawPing(dc, plot, bins, slot, Y, selected);
+            DrawServers(dc, plot, bins, slot, Y);
             DrawPingMarks(dc, plot, bins);
         }
         else
@@ -519,6 +520,41 @@ public sealed class NetBarsChart : NetChartBase
         if (selected.Count > 0)
             dc.DrawRoundedRectangle(Faded(PingBrush, 0.08), new Pen(Faded(PingBrush, 0.7), 1),
                 new Rect(plot.Left + selected.Min() * slot + 0.5, plot.Top, Math.Max(2, (selected.Max() - selected.Min() + 1) * slot - 1), plot.Height), 3, 3);
+    }
+
+    /// <summary>
+    /// The games and calls line: each bar's slowest server (the hover names each one), in its own colour beside the
+    /// provider's line, with a gap where none was checked; and a mark of one size along the bottom for a bar where checks to
+    /// one of them got no reply (the hover says how many: a bigger mark for more was too loud, 2026-11-16).
+    /// </summary>
+    private void DrawServers(DrawingContext dc, Rect plot, List<NetBin> bins, double slot, Func<double, double> y)
+    {
+        if (!bins.Any(b => b.ServerMs is not null)) return;
+        var pen = new Pen(Res("SkyBrush"), 1.9) { LineJoin = PenLineJoin.Round };
+        pen.Freeze();
+        int i = 0;
+        while (i < bins.Count)
+        {
+            if (bins[i].ServerMs is null) { i++; continue; }
+            int start = i;
+            while (i < bins.Count && bins[i].ServerMs is not null) i++;
+            var run = Enumerable.Range(start, i - start).Select(k => new Point(plot.Left + k * slot + slot / 2, y(bins[k].ServerMs!.Value))).ToList();
+            if (run.Count == 1) { dc.DrawEllipse(Res("SkyBrush"), null, run[0], 2.8, 2.8); continue; }
+            var line = new StreamGeometry();
+            using (var ctx = line.Open())
+            {
+                ctx.BeginFigure(run[0], false, false);
+                foreach (var p in run.Skip(1)) ctx.LineTo(p, true, true);
+            }
+            line.Freeze();
+            dc.DrawGeometry(null, pen, line);
+            // A dot on each hour, as on the usual ping's line (approved mock-up, 2026-11-16).
+            foreach (var p in run) dc.DrawEllipse(Res("SkyBrush"), null, p, 2.8, 2.8);
+        }
+        var warm = Res("WarmBrush");
+        for (int k = 0; k < bins.Count; k++)
+            if (bins[k].Servers.Any(s => s.Lost > 0))
+                dc.DrawRoundedRectangle(warm, null, new Rect(plot.Left + k * slot + slot / 2 - 1.5, plot.Bottom - 12, 3, 10), 1, 1);
     }
 
     /// <summary>
@@ -698,13 +734,34 @@ public sealed class NetLiveChart : NetChartBase
     /// <summary>Bumped each second (the live tick) to redraw.</summary>
     public long Version { get => (long)GetValue(VersionProperty); set => SetValue(VersionProperty, value); }
 
+    public static readonly DependencyProperty InsetProperty = DependencyProperty.Register(
+        nameof(Inset), typeof(double), typeof(NetLiveChart), new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
+    /// <summary>
+    /// The card's own padding: the chart is drawn from edge to edge of its half (the user, 2026-11-16: "extra space on left and
+    /// right"), and its labels sit this far in, level with the card's text, inside the chart over its lines.
+    /// </summary>
+    public double Inset { get => (double)GetValue(InsetProperty); set => SetValue(InsetProperty, value); }
+
+    /// <summary>Room over the top line for its label.</summary>
+    private const double LabelRoom = 14;
+
     protected override void OnRender(DrawingContext dc)
     {
         var points = History ?? [];
         double top = NiceTop(points.Select(p => Math.Max(p.Down, p.Up)).DefaultIfEmpty(0).Max());
-        var plot = Grid(dc, top, v => Units.Speed(v));
-        Label(dc, Lang.T("60 seconds"), new Point(plot.Left, plot.Bottom + AxisHeight / 2 + 2), LabelBrush);
-        Label(dc, Lang.T("now"), new Point(plot.Right, plot.Bottom + AxisHeight / 2 + 2), LabelBrush, right: true);
+        dc.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize));
+        var plot = new Rect(0, LabelRoom, Math.Max(1, ActualWidth), Math.Max(1, ActualHeight - AxisHeight - LabelRoom));
+        var pen = new Pen(GridBrush, 1) { DashStyle = new DashStyle([3, 4], 0) };
+        pen.Freeze();
+        for (int i = 0; i <= 4; i++)
+        {
+            double y = Math.Round(plot.Bottom - plot.Height * i / 4) + 0.5;
+            dc.DrawLine(pen, new Point(plot.Left, y), new Point(plot.Right, y));
+            // Each line's figure just over it, at the text's edge; "0" goes without saying.
+            if (i > 0) Label(dc, Units.Speed(top * i / 4), new Point(Inset, y - 8), LabelBrush);
+        }
+        Label(dc, Lang.T("60 seconds"), new Point(Inset, plot.Bottom + AxisHeight / 2 + 2), LabelBrush);
+        Label(dc, Lang.T("now"), new Point(ActualWidth - Inset, plot.Bottom + AxisHeight / 2 + 2), LabelBrush, right: true);
         if (points.Count < 2) return;
 
         long last = points[^1].Time;

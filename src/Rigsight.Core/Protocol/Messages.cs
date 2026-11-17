@@ -244,6 +244,37 @@ public sealed class LineLive
     public double LostPercent { get; set; }
     /// <summary>The provider's router was found: without it only the home side is checked.</summary>
     public bool ProviderFound { get; set; }
+    /// <summary>The server of each game, call or picked app being checked now (null: none, or no admin trace to find them).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ServerLive>? Servers { get; set; }
+}
+
+/// <summary>
+/// One app's server as checked now: its last minute's middle, the last 10 minutes' checks (null for one that didn't come
+/// back), how many of those were lost, and its usual range when there's one.
+/// </summary>
+public sealed class ServerLive
+{
+    public string Exe { get; set; } = "";
+    /// <summary>game · call · remote · picked</summary>
+    public string Kind { get; set; } = "";
+    public string Server { get; set; } = "";
+    /// <summary>The city the server's name gives, when it gives one.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Place { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Ms { get; set; }
+    public int Sent { get; set; }
+    public int Lost { get; set; }
+    /// <summary>The server doesn't answer any way it's checked: its ping can't be shown.</summary>
+    public bool NoAnswer { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? UsualLow { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? UsualHigh { get; set; }
+    /// <summary>The last 10 minutes' checks, oldest first (-1 for one that didn't come back).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<int>? Recent { get; set; }
 }
 
 public sealed class NetAppLive
@@ -285,6 +316,8 @@ public sealed class AgentMessage
 
     // hello / settings
     public RigsightSettings? Settings { get; set; }
+    /// <summary>Which of the agent's copies <see cref="Settings"/> is: the app sends it back with a change, as the copy it was made on.</summary>
+    public long? SettingsRev { get; set; }
 
     // tick
     public long Time { get; set; }
@@ -331,6 +364,11 @@ public sealed class UiMessage
     /// <summary>settings · cmd</summary>
     public string T { get; set; } = "";
     public RigsightSettings? Settings { get; set; }
+    /// <summary>
+    /// The agent's copy (its <see cref="AgentMessage.SettingsRev"/>) the change was made on: what the agent changed since
+    /// (a tray switch, a widget's to-do) is kept, not undone by a copy that crossed it on the way. Null from an older app.
+    /// </summary>
+    public long? SettingsBase { get; set; }
     /// <summary>clear-history · startup-on · startup-off · pause · resume · quit · overlay-toggle · overlay-status · install-rtss · start-rtss · install-update · scan-now · task-ended …</summary>
     public string? Cmd { get; set; }
     public string? Arg { get; set; }

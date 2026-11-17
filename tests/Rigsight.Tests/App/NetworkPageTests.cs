@@ -31,6 +31,16 @@ public sealed class NetworkPageTests
 
     private static readonly DateTime Yesterday = DateTime.Today.AddDays(-1);
 
+    /// <summary>Today's page with its settings, for what it changes in them.</summary>
+    private static (NetworkViewModel Vm, LiveData Live, SettingsModel Settings) PageWithSettings()
+    {
+        SharedData.EnsureSeeded();
+        var (settings, live) = Kit.Greeted(hello: Fixtures.Hello());
+        var vm = Ui.Run(() => new NetworkViewModel(new ReportService(settings), live, settings));
+        Kit.Wait(vm.RefreshAsync);
+        return (vm, live, settings);
+    }
+
     [Fact]
     public void A_day_shows_its_figures_its_apps_and_its_hours()
     {
@@ -588,6 +598,79 @@ public sealed class NetworkPageTests
             Assert.False(vm.NobodyNow);
             Assert.Single(live.NetHistory);
         });
+    }
+
+    [Fact]
+    public void A_calls_ping_shows_in_its_row_and_in_the_top_line_while_other_apps_leave_it_empty()
+    {
+        var (vm, live) = Page();
+        var tick = Fixtures.Tick();
+        tick.Net = new NetLive
+        {
+            Time = 1000, Down = 12_000_000, Up = 300_000,
+            Apps = [new() { Exe = "steam.exe", Name = "Steam", Down = 11_900_000, Up = 40_000 }, new() { Exe = "Discord.exe", Name = "Discord", Down = 46_000, Up = 52_000 }],
+        };
+        tick.Line = new LineLive
+        {
+            LanMs = 0, IspMs = 1, Jitter = 0, ProviderFound = true,
+            Servers = [new ServerLive { Exe = "Discord.exe", Kind = "call", Server = "104.29.141.190", Place = "Singapore", Ms = 97, Sent = 120, UsualLow = 90, UsualHigh = 100 }],
+        };
+        Ui.Run(() => live.ApplyTick(tick));
+        Ui.Run(() =>
+        {
+            var discord = vm.UsingNow.Single(r => r.Name == "Discord");
+            Assert.Equal(("97 ms", "Call, Singapore", false), (discord.PingText, discord.Under, discord.PingWarm));
+            Assert.Contains("Usual 90 to 100 ms.", discord.PingTip);
+            var steam = vm.UsingNow.Single(r => r.Name == "Steam");
+            Assert.Equal(("", null), (steam.PingText, steam.Under));
+            // The strip, one line: the way out, the call's server last with its usual and lost checks.
+            Assert.Equal(("0 ms", "1 ms"), (vm.RouterMs, vm.ProviderMs));
+            Assert.True(vm.HasFar);
+            Assert.Equal(("Discord, Singapore", "97 ms"), (vm.FarName, vm.FarMs));
+            Assert.Equal("Discord, Singapore 97 ms  ·  usual 90 to 100 ms, none of the last 120 checks lost", vm.FarName + " " + vm.FarMs + vm.FarUsual + vm.FarLost);
+            Assert.False(vm.HasRest);
+            // Steam isn't checked anyway, so it can be picked; Discord is (a call), so it isn't offered.
+            Assert.True(steam.CanPick);
+            Assert.False(discord.CanPick);
+        });
+
+        // Far above its usual: the row's figure and the strip's turn to the warning colour; the lost checks only once they're lost.
+        tick.Line.Servers![0].Ms = 168;
+        Ui.Run(() => live.ApplyTick(tick));
+        Ui.Run(() => Assert.True(vm.UsingNow.Single(r => r.Name == "Discord").PingWarm && vm.FarMsWarm && !vm.FarLosing));
+        tick.Line.Servers![0].Ms = 97;
+        tick.Line.Servers![0].Lost = 6;
+        Ui.Run(() => live.ApplyTick(tick));
+        Ui.Run(() => Assert.Equal((false, true, ", 6 of the last 120 checks lost"), (vm.FarMsWarm, vm.FarLosing, vm.FarLost)));
+
+        // No game or call: the far stop goes and the line says so.
+        tick.Line.Servers = null;
+        Ui.Run(() => live.ApplyTick(tick));
+        Ui.Run(() =>
+        {
+            Assert.False(vm.HasFar);
+            Assert.Equal("No games or calls online.", vm.RestText);
+        });
+    }
+
+    [Fact]
+    public void Check_its_ping_adds_the_app_to_the_checked_ones_and_takes_it_off_again()
+    {
+        var (vm, live, settings) = PageWithSettings();
+        var tick = Fixtures.Tick();
+        tick.Net = new NetLive { Time = 1000, Down = 50_000, Up = 20_000, Apps = [new() { Exe = "trader.exe", Name = "Trader", Down = 50_000, Up = 20_000 }] };
+        Ui.Run(() => live.ApplyTick(tick));
+        var row = Ui.Run(() => vm.UsingNow.Single());
+        Ui.Run(() =>
+        {
+            Assert.Equal("Check its ping", row.PickText);
+            row.PickCommand.Execute(null);
+            Assert.True(row.Picked);
+            Assert.Equal("Stop checking its ping", row.PickText);
+        });
+        Assert.Contains("trader.exe", Ui.Run(() => settings.Current.Tracking.PingApps));
+        Ui.Run(() => row.PickCommand.Execute(null));
+        Assert.DoesNotContain("trader.exe", Ui.Run(() => settings.Current.Tracking.PingApps));
     }
 
     [Fact]

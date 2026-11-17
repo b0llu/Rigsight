@@ -54,6 +54,7 @@ public sealed class SchemaTests
         ["net_drop"] = ["start", "end", "kind"],
         ["net_ping"] = ["ts", "sent", "lan_ms", "lan_max", "lan_lost", "isp_ms", "isp_max", "isp_lost", "jitter"],
         ["net_ping_switch"] = ["ts", "turned_on"],
+        ["net_server"] = ["ts", "exe", "server", "kind", "sent", "ms", "max", "lost"],
         ["changes"] = ["id", "ts", "kind", "subject", "title", "was", "now", "from_ts"],
         ["inventory"] = ["kind", "key", "name", "value"],
         ["steam_download"] = ["app", "started", "ended", "bytes", "new_install", "how", "name"],
@@ -63,6 +64,9 @@ public sealed class SchemaTests
         // What each app read and wrote on each physical drive (2026-11-14), the drive by its key.
         ["disk_app_hour"] = ["ts", "app", "disk", "read", "write"],
         ["disk_app_day"] = ["day", "app", "disk", "read", "write"],
+        // Each app's CPU and GPU time (milliseconds), in front too; the days also how long it ran and its memory.
+        ["app_cpu_hour"] = ["ts", "app", "cpu_ms", "gpu_ms", "fg_cpu_ms", "fg_sec"],
+        ["app_cpu_day"] = ["day", "app", "cpu_ms", "gpu_ms", "fg_cpu_ms", "fg_sec", "run_sec", "mem_mbs"],
     };
 
     public static readonly Dictionary<string, string> Indexes = new()
@@ -134,8 +138,11 @@ public sealed class SchemaTests
     [InlineData("net_drop", "start")]
     [InlineData("net_ping", "ts")]
     [InlineData("net_ping_switch", "ts")]
+    [InlineData("net_server", "ts,exe")]
     [InlineData("disk_app_hour", "ts,app,disk")]
     [InlineData("disk_app_day", "day,app,disk")]
+    [InlineData("app_cpu_hour", "ts,app")]
+    [InlineData("app_cpu_day", "day,app")]
     [InlineData("changes", "id")]
     [InlineData("inventory", "kind,key")]
     public void Tables_are_keyed_as_the_queries_expect(string table, string key)

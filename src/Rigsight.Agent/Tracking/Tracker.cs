@@ -92,6 +92,22 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         /// <summary>How many process samples the minute has had, and what each app with something to show added up to over them.</summary>
         public int Samples;
         public readonly Dictionary<string, AppAcc> Apps = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>
+        /// Every running app's CPU and GPU time over the minute, by exe (null: one that isn't kept, as a part of Windows
+        /// without a file or an app left out), and every process's CPU time together, in 100 ns ticks.
+        /// </summary>
+        public readonly Dictionary<string, TimeAcc?> Times = new(StringComparer.OrdinalIgnoreCase);
+        public long CpuTimeAll;
+    }
+
+    /// <summary>One app's times over a minute's process samples (see <see cref="RecordTimes"/>).</summary>
+    internal sealed class TimeAcc
+    {
+        /// <summary>CPU time, GPU time and the CPU time while in front and in use, in 100 ns ticks.</summary>
+        public long Cpu, Gpu, FgCpu;
+        /// <summary>Seconds in front and in use, seconds running, and its memory (MB) times the seconds it held it.</summary>
+        public double FgSec, RunSec, MemMbSec;
+        public int Pid;
     }
 
     /// <summary>One app over a minute's process samples: sums, to be averaged (see <see cref="TopApps"/>).</summary>
@@ -338,6 +354,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     }
 
     private bool IsGame(AppInfo app) => AppResolver.Category(app, _settings) == AppCategory.Game;
+
+    /// <summary>Whether a running exe is a game, as the Games library and its category say (sampler thread).</summary>
+    internal bool IsGameExe(string exe, int pid) => IsGame(apps.Get(exe, pid));
 
     /// <summary>
     /// The log's word on the game in front, said once and again only on change: which game, whether its time counts and
@@ -631,6 +650,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         if (Paused) return;
         RecordLoad(snapshot);
         RecordMinute(snapshot);
+        RecordTimes(snapshot, dt);
         RingApps(snapshot);
 
         // Open-but-not-in-front time.
@@ -689,6 +709,55 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             acc.Disk += usage.Disk;
             acc.Pid = usage.FirstPid;
             acc.VramMax = Max(acc.VramMax, vram);
+        }
+    }
+
+    /// <summary>
+    /// Adds this sample's CPU and GPU time to the minute, for every app running (the per-app CPU time of the Processes
+    /// page and the Apps page): one dictionary entry per app, from figures the sample has already worked out.
+    /// </summary>
+    private void RecordTimes(ProcessSnapshot snapshot, double dt)
+    {
+        var m = _minute;
+        m.CpuTimeAll += snapshot.CpuTime;
+        string? front = _present ? _foreground?.Exe : null;
+        foreach (var usage in snapshot.Apps.Values)
+        {
+            if (!m.Times.TryGetValue(usage.Exe, out var t))
+                m.Times[usage.Exe] = t = Nameable(usage.Exe) ? new TimeAcc() : null;
+            if (t is null) continue;
+            t.Cpu += usage.CpuTime;
+            t.Gpu += snapshot.GpuTime.GetValueOrDefault(usage.Exe);
+            t.RunSec += dt;
+            t.MemMbSec += usage.MemMB * dt;
+            t.Pid = usage.FirstPid;
+            if (front is not null && front.Equals(usage.Exe, StringComparison.OrdinalIgnoreCase))
+            {
+                t.FgCpu += usage.CpuTime;
+                t.FgSec += dt;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The least CPU or GPU time (ms) in a minute for an app with no record yet to get one here: the apps list keeps the
+    /// apps worth naming, not every small helper that wakes now and then.
+    /// </summary>
+    internal const long NewAppTimeMs = 1000;
+
+    /// <summary>Writes the minute's times (see <see cref="RecordTimes"/>) into the hour <paramref name="hour"/> and its day, in milliseconds.</summary>
+    private void WriteTimes(MinuteAcc m, long hour)
+    {
+        static long Ms(long ticks) => (ticks + 5_000) / 10_000;
+        if (m.CpuTimeAll > 0) db.AddAppCpuUse(new AppCpuUse(hour, AppCpuUse.AllApps, Ms(m.CpuTimeAll)));
+        foreach (var (exe, t) in m.Times)
+        {
+            if (t is null) continue;
+            var use = new AppCpuUse(hour, 0, Ms(t.Cpu), Ms(t.Gpu), Ms(t.FgCpu), (long)Math.Round(t.FgSec), (long)Math.Round(t.RunSec),
+                (long)Math.Round(t.MemMbSec));
+            if (use is { CpuMs: 0, GpuMs: 0, RunSec: 0 }) continue;
+            var app = apps.Known(exe) ?? (use.CpuMs >= NewAppTimeMs || use.GpuMs >= NewAppTimeMs ? apps.Get(exe, t.Pid) : null);
+            if (app is not null) db.AddAppCpuUse(use with { App = app.Id });
         }
     }
 
@@ -860,6 +929,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         if (_cleared) return;
         long now = NowUnix();
         bool saved = false;
+        int pruned = 0;
         try
         {
             using var tx = db.BeginTransaction();
@@ -928,6 +998,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
             // The minute's hour, counted back from the minute itself (at an hour's first minute the clock is already past it).
             _net.Write(_minuteTs, _minuteTs - TimeUtil.FromUnix(_minuteTs).Minute * 60, closing: closeAllSessions);
             _disk.Write(_minuteTs - TimeUtil.FromUnix(_minuteTs).Minute * 60);
+            WriteTimes(m, _minuteTs - TimeUtil.FromUnix(_minuteTs).Minute * 60);
 
             foreach (var session in _sessions.Values.ToList())
             {
@@ -944,7 +1015,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                 _lastPrune = LocalToday;
                 FrameStore.Prune(LocalToday, FramesFolder);
                 if (_settings.Tracking.KeepHistoryDays > 0)
-                    db.Prune(TimeUtil.ToUnix(PruneDay(LocalToday, db.LastMinuteBefore(_minuteTs)).AddDays(-_settings.Tracking.KeepHistoryDays)));
+                    pruned = db.Prune(TimeUtil.ToUnix(PruneDay(LocalToday, db.LastMinuteBefore(_minuteTs)).AddDays(-_settings.Tracking.KeepHistoryDays)));
             }
             tx.Commit();
             saved = true;
@@ -958,10 +1029,32 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         // The minute itself carries on until it ends (see RollMinute): saved early (Windows signing out), it's written
         // again in full, not with only its last part. App times are added up, so those start again from zero; when the
         // save didn't go through (a full disk, a busy database) nothing of them was written, and they wait for the next.
-        if (saved) _deltas.Clear();
+        if (saved)
+        {
+            _deltas.Clear();
+            // Times are added up too: a minute saved early goes on from zero.
+            _minute.Times.Clear();
+            _minute.CpuTimeAll = 0;
+        }
+        if (saved && pruned >= RigsightDb.ShrinkAfterMinutes) ShrinkAfterPrune(pruned);
 
         if (LocalToday != _today.Day)
             _today = new TodayState { Day = LocalToday };
+    }
+
+    /// <summary>A month or more of history just went (a shorter history picked): the file gives that space back.</summary>
+    private void ShrinkAfterPrune(int minutes)
+    {
+        long start = Environment.TickCount64;
+        try
+        {
+            db.Shrink();
+            Log.Write("tracker", $"{minutes} minutes of old history deleted: the file shrunk in {Environment.TickCount64 - start} ms");
+        }
+        catch (Exception ex)
+        {
+            Log.Write("tracker", $"{minutes} minutes of old history deleted, but the file couldn't be shrunk: {ex.Message}");
+        }
     }
 
     /// <summary>

@@ -342,6 +342,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public int IdleMinutes { get => S.Tracking.IdleMinutes; set => Set(s => s.Tracking.IdleMinutes = value); }
     public bool FullscreenCountsAsActive { get => S.Tracking.FullscreenCountsAsActive; set => Set(s => s.Tracking.FullscreenCountsAsActive = value); }
     public bool PingChecks { get => S.Tracking.PingChecks; set => Set(s => s.Tracking.PingChecks = value); }
+    public bool ServerPings { get => S.Tracking.ServerPings; set => Set(s => s.Tracking.ServerPings = value); }
     public int KeepHistoryDays
     {
         get => S.Tracking.KeepHistoryDays;

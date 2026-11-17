@@ -163,6 +163,7 @@ internal sealed partial class AgentContext : ApplicationContext
 
         _settings = SettingsStore.Load();
         ForgetRiggySetting();
+        _settingsCopies[0] = SettingsStore.Serialize(_settings); // copy 0, the one the first hello carries
         Units.Fahrenheit = _settings.UseFahrenheit;
         TimeText.Style = _settings.ClockStyle;
         LanguageStore.Apply(_settings.Language);
@@ -502,7 +503,9 @@ internal sealed partial class AgentContext : ApplicationContext
                 catch (Exception ex) { _errors.Failed("network", ex); }
                 Measure("network", t0);
 
-                if (now >= nextSensor || _sensorsNow)
+                // The same slack as the network's: each pass wakes a few ms after the second, by a little more or less each
+                // time, and without it a pass 1 ms earlier than the last would wait a whole extra second.
+                if (now + TurnSlackMs >= nextSensor || _sensorsNow)
                 {
                     _sensorsNow = false;
                     int interval = live ? Math.Min(settings.LiveRefreshMs, settings.Tracking.SensorIntervalMs) : settings.Tracking.SensorIntervalMs;
@@ -575,7 +578,7 @@ internal sealed partial class AgentContext : ApplicationContext
                                 ExtremesFull = full,
                                 // No trace on an agent that should have one, after the remedies: the page says it isn't recording.
                                 Net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : _isAdmin && _traceWatch.Stalled ? NotRecording : null,
-                                Line = _line?.Live(),
+                                Line = LineNow(),
                                 TrayWaiting = _trayWaiting is { Count: > 0 } waiting ? [.. waiting] : null,
                             });
                         }
@@ -583,7 +586,7 @@ internal sealed partial class AgentContext : ApplicationContext
                     catch (Exception ex) { _errors.Failed("sensors", ex); }
                 }
 
-                if (now >= nextProc || _procsNow)
+                if (now + TurnSlackMs >= nextProc || _procsNow)
                 {
                     _procsNow = false;
                     double pdt = lastProc == 0 ? settings.Tracking.ProcessIntervalSeconds : ProcessStep(lastProc, now, settings.Tracking.ProcessIntervalSeconds);
@@ -638,14 +641,14 @@ internal sealed partial class AgentContext : ApplicationContext
                 if (now >= nextCrashScan)
                 {
                     nextCrashScan = now + 10 * 60_000;
-                    bool long_ = !_crashesScanned || _crashFillDue;
+                    bool long_ = !CrashScan.Scanned || CrashScan.FillDue;
                     try
                     {
                         MemoryAt("before the crash scan");
                         ScanCrashes();
                         // The one-time catch-up of crashes stored by earlier versions is the next scan's, two minutes on:
                         // a PC that has just started has enough to do.
-                        if (_crashFillDue) nextCrashScan = now + 2 * 60_000;
+                        if (CrashScan.FillDue) nextCrashScan = now + 2 * 60_000;
                         // A long scan (the first after starting, the catch-up) reads days to months of Windows' logs:
                         // thousands of short-lived records, which the agent would otherwise sit on for as long as it
                         // runs (26 MB more in Task Manager than the version before, measured on the first start after updating).
@@ -683,26 +686,38 @@ internal sealed partial class AgentContext : ApplicationContext
         }
 
         // Each closing step on its own too: a full disk at quit must not end the agent with a crash report.
-        Step("last minute", () => _tracker.Flush(closeAllSessions: true));
-        Step("extremes", () => SaveExtremes(force: true));
-        Step("crash watch", () => _appCrashWatch?.Dispose());
-        Step("network trace", () => _netTrace?.Dispose());
-        Step("disk trace", () => _diskTrace?.Dispose());
-        Step("line check", () => _line?.Dispose());
+        // The database closes and the marker clears first, straight after the last writes: Quit waits only 5 s for
+        // this thread, and the traces and the sensors after them can take longer (the RAM scan up to 30 s). A marker
+        // left behind would mean a full check at the next start and a sudden close that never happened.
+        var took = new List<string>();
+        Step("last minute", () => _tracker.Flush(closeAllSessions: true), took);
+        Step("extremes", () => SaveExtremes(force: true), took);
+        Step("database", _db.Dispose, took);
+        Step("history marker", () => HistoryRepair.MarkStopped(RigsightPaths.DataDir), took); // closed normally: no check at the next start
+        Step("crash watch", () => _appCrashWatch?.Dispose(), took);
+        Step("network trace", () => _netTrace?.Dispose(), took);
+        Step("disk trace", () => _diskTrace?.Dispose(), took);
+        Step("line check", () => _line?.Dispose(), took);
+        Step("server ping", () => _serverPing?.Dispose(), took);
         NetworkChange.NetworkAddressChanged -= OnAddressChanged;
         NetworkChange.NetworkAvailabilityChanged -= OnAvailabilityChanged;
-        Step("sensors", _sensors.Close);
-        Step("GPU sampler", _gpuSampler.Dispose);
-        Step("GPU memory sampler", _gpuMemory.Dispose);
-        Step("database", _db.Dispose);
-        Step("history marker", () => HistoryRepair.MarkStopped(RigsightPaths.DataDir)); // closed normally: no check at the next start
+        Step("sensors", _sensors.Close, took);
+        Step("GPU sampler", _gpuSampler.Dispose, took);
+        Step("GPU memory sampler", _gpuMemory.Dispose, took);
+        Log.Write("sampler", $"Closed in {string.Join(", ", took)}");
     }
 
+    /// <summary>How early a timed read may come (ms): see the sensors' turn in the sampler.</summary>
+    internal const int TurnSlackMs = 100;
+
     /// <summary>One step of the sampler thread's start or end: an error is logged with what failed, and the rest goes on.</summary>
-    private static void Step(string what, Action step)
+    /// <param name="took">When given, gets "what N ms": a slow quit can then be traced to its step.</param>
+    private static void Step(string what, Action step, List<string>? took = null)
     {
+        long start = Environment.TickCount64;
         try { step(); }
         catch (Exception ex) { Log.Write("sampler", $"{what} failed: {ex}"); }
+        took?.Add($"{what} {Environment.TickCount64 - start} ms");
     }
 
     /// <summary>
@@ -1325,6 +1340,16 @@ internal sealed partial class AgentContext : ApplicationContext
                     OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
                     Second: id == TrayParts.NetBoth ? up : null);
             }
+            else if (id == TrayParts.Ping)
+            {
+                // The game's or call's server when one is checked, else the provider's first router (else the router).
+                var line = LineNow();
+                double? ms = Core.Net.ServerWords.Lead(line?.Servers)?.Ms ?? line?.IspMs ?? line?.LanMs;
+                reading = new TrayReading(id, own ?? Lang.T("Ping"), SensorKind.Latency, ms, TrayPart.Network, Lang.T("The game or call you're on, else your internet provider"),
+                    TrayParts.ShortLabel(SensorKind.Latency, "", TrayPart.Network, own),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id));
+            }
             else if (id == TrayParts.Fps)
             {
                 double? fps = Rtss.ReadFrameStats(WidgetManager.ForegroundPid()) is { Fps: > 0 } f ? f.Fps : null;
@@ -1510,6 +1535,7 @@ internal sealed partial class AgentContext : ApplicationContext
     }
 
     private bool _drivesLogged;
+    private readonly Rigsight.Core.Storage.DriveTempPace _driveTempPace = new();
 
     /// <summary>
     /// The drives were just read: today's health row for each (see RigsightDb.UpsertDriveHealth), and their readings to
@@ -1521,7 +1547,14 @@ internal sealed partial class AgentContext : ApplicationContext
         try
         {
             long day = TimeUtil.ToUnix(DateTime.Today);
-            foreach (var d in drives) _db.UpsertDriveHealth(day, d);
+            long nowMs = Environment.TickCount64;
+            // One commit for every drive, not one each (every 10 s while the app is open).
+            using (var tx = _db.BeginTransaction())
+            {
+                foreach (var d in drives)
+                    _db.UpsertDriveHealth(day, d, countTemp: !string.IsNullOrEmpty(d.Key) && _driveTempPace.Counts(d.Key, day, nowMs));
+                tx.Commit();
+            }
             if (!_drivesLogged)
             {
                 _drivesLogged = true;
@@ -1581,6 +1614,7 @@ internal sealed partial class AgentContext : ApplicationContext
         _connection.Settle(TimeUtil.NowUnix());
         if (_isAdmin) _netTrace = NetworkTrace.Start(NetTraceName, () => _addresses);
         _line = LineCheck.Start(_settings.Tracking.PingChecks);
+        _serverPing = ServerPing.Start();
         MemoryAt("network");
     }
 
@@ -1731,9 +1765,36 @@ internal sealed partial class AgentContext : ApplicationContext
     private void WriteLineMinutes()
     {
         if (_line is null) return;
-        var minutes = _line.TakeMinutes(TimeUtil.NowUnix());
-        if (_settings.Tracking.IsPaused(TimeUtil.NowUnix())) return;
+        long now = TimeUtil.NowUnix();
+        var minutes = _line.TakeMinutes(now);
+        var servers = _serverPing?.TakeMinutes(now) ?? [];
+        if (_settings.Tracking.IsPaused(now)) return;
         foreach (var m in minutes) _db.WriteNetPing(m);
+        foreach (var s in servers) _db.WriteNetServer(s);
+    }
+
+    // The ping to each game's, call's and picked app's server (see ServerPing): needs the admin trace to see the servers.
+    private ServerPing? _serverPing;
+
+    /// <summary>The line check's live figures with each app's server beside them (sampler thread, for the tick).</summary>
+    private LineLive? LineNow()
+    {
+        var line = _line?.Live();
+        var servers = _serverPing?.Live(_db);
+        if (servers is null) return line;
+        line ??= new LineLive();
+        line.Servers = servers;
+        return line;
+    }
+
+    /// <summary>Sampler thread, each second: the servers the games, calls and picked apps talk to, from the trace's flows.</summary>
+    private void SampleServers(NetworkTrace trace)
+    {
+        if (_serverPing is not { } servers) return;
+        var t = _settings.Tracking;
+        bool on = t.PingChecks && t.ServerPings && !t.IsPaused(TimeUtil.NowUnix());
+        trace.WatchTcp(on ? ServerPing.PickedPids(_running, t.PingApps) : null);
+        servers.OnSecond(trace.TakeFlows(), _running, _tracker.IsGameExe, t.PingApps, on);
     }
 
     /// <summary>Sampler thread, each second: what each app moved since the last time, and whether the internet is there.</summary>
@@ -1745,6 +1806,8 @@ internal sealed partial class AgentContext : ApplicationContext
         if (_netTrace is { } trace)
         {
             var counts = trace.Take();
+            try { SampleServers(trace); }
+            catch (Exception ex) { _errors.Failed("server ping", ex); }
             long down = 0;
             foreach (var c in counts.Values) down += c.InternetDown;
             internetDown = down;
@@ -1976,120 +2039,14 @@ internal sealed partial class AgentContext : ApplicationContext
     private readonly CrashNoticeGate _crashNotices = new();
     private CloseUpKeeper _closeUps = null!;
 
-    private bool _crashesScanned;
-    private const string ShutdownTimesKey = "shutdown_times_placed";
-    private const string CrashFactsKey = "crash_facts_filled";
-    private const string ResetsReadKey = "gpu_resets_read";
-    private const string CrashScannedKey = RigsightDb.CrashScannedKey;
-    /// <summary>The one-time catch-up (see <see cref="CrashFactsKey"/>) is still to do: it is the scan after the first.</summary>
-    private bool _crashFillDue;
-
-    /// <summary>
-    /// How far back the first scan after starting reads: a day before the last scan ended (Windows files a crash's
-    /// report, and a blue screen's driver, some minutes after the crash's own entry), and never more than 90 days. On a
-    /// PC never scanned, the 90 days. It used to be 90 days at every start: about 100 ms of CPU on a PC a few weeks old.
-    /// </summary>
-    internal static DateTime FirstScanFrom(string? scannedTo, DateTime now)
-    {
-        var furthest = now.AddDays(-90);
-        if (!long.TryParse(scannedTo, out long ts)) return furthest;
-        var from = TimeUtil.FromUnix(ts).AddDays(-1);
-        return from < furthest ? furthest : from > now ? now.AddDays(-1) : from;
-    }
+    // Crash records from Windows' logs into the history, and which become a card (see CrashScanner). Made on first use:
+    // the database and the close-ups are ready by then.
+    private CrashScanner? _crashScanner;
+    private CrashScanner CrashScan => _crashScanner ??= new CrashScanner(_db, CrashScanner.Source.WindowsLogs, () => DateTime.Now,
+        () => _settings, _crashNotices, added => _closeUps.OnStored(added), Notify);
 
     /// <summary>Sampler thread: copies new crash records from the Windows event logs into the database.</summary>
-    private void ScanCrashes()
-    {
-        try
-        {
-            var now = DateTime.Now;
-            bool firstScan = !_crashesScanned;
-            var since = firstScan ? FirstScanFrom(_db.GetMeta(CrashScannedKey), now) : now.AddMinutes(-30);
-            // Once: the PC going down, stored under Windows' time (often half an hour early) by versions before 0.19.1,
-            // is put at the time it was last known to be running. The scan below does that for the last 90 days; this
-            // is for the ones stored from before, as far back as Windows' log still has them.
-            if (_db.GetMeta(ShutdownTimesKey) is null)
-            {
-                if (_db.FirstCrashTime() is long first && TimeUtil.FromUnix(first) < since)
-                    _db.InsertCrashes(CrashLogReader.ReadSince(TimeUtil.FromUnix(first).AddDays(-1), systemOnly: true).Where(e => e.NextStart is not null), knownOnly: true);
-                _db.SetMeta(ShutdownTimesKey, "1");
-            }
-            // Once: what else Windows wrote about the crashes stored before that was kept (versions, the driver a blue
-            // screen names, a held power button…), as far back as its logs still reach; and the trouble it logged
-            // around them. The scan below does both for what it reads.
-            // That one time the logs are read once for both, from the first stored crash; and not by the first scan
-            // after starting, which stays short (see FirstScanFrom).
-            var from = since;
-            bool fillDue = _db.GetMeta(CrashFactsKey) is null;
-            bool fill = fillDue && !firstScan;
-            // A first scan that reads the whole 90 days finds the resets itself: nothing to catch up on.
-            if (firstScan && since <= now.AddDays(-89) && _db.GetMeta(ResetsReadKey) is null) _db.SetMeta(ResetsReadKey, "1");
-            _crashFillDue = (fillDue || _db.GetMeta(ResetsReadKey) is null) && firstScan;
-            if (fill && _db.FirstCrashTime() is long oldest && TimeUtil.FromUnix(oldest).AddDays(-1) is var earliest && earliest < since) from = earliest;
-            _db.InsertSigns(CrashLogReader.ReadSigns(from));
-            var read = CrashLogReader.ReadSince(from);
-            long sinceTs = TimeUtil.ToUnix(since);
-            // Older than the scan's own reach: only what is stored already gets its facts, nothing is added.
-            if (from < since) _db.InsertCrashes(read.Where(e => e.Ts < sinceTs), knownOnly: true);
-            var added = _db.InsertCrashes(read.Where(e => e.Ts >= sinceTs));
-            // An app's crash the ring of readings still reaches gets its close-up.
-            try { _closeUps.OnStored(added); }
-            catch (Exception ex) { Log.Error("closeup", ex); }
-            if (fill) _db.SetMeta(CrashFactsKey, "1");
-            // Once, from 0.25.0 on: the graphics driver resets Windows recorded as hang reports, which earlier versions
-            // didn't read, as far back as a first scan reads; and the moment each hang really happened, for a shut-off
-            // that came with one. On the scan after the first, as the catch-up above, to keep starting light.
-            if (!firstScan && _db.GetMeta(ResetsReadKey) is null)
-            {
-                var back = now.AddDays(-90);
-                var resets = _db.InsertCrashes(CrashLogReader.ReadResets(back));
-                _db.InsertSigns(CrashLogReader.ReadSigns(back));
-                // A shut-off that came right after the card hung was running until then: placed again (later, never earlier).
-                _db.InsertCrashes(CrashLogReader.ReadSince(back, systemOnly: true).Where(e => e.NextStart is not null), knownOnly: true);
-                _db.SetMeta(ResetsReadKey, "1");
-                Log.Write("crash", $"Read the graphics driver resets of the last 90 days: {resets.Count} found");
-            }
-            _db.SetMeta(CrashScannedKey, TimeUtil.ToUnix(now).ToString());
-            _crashesScanned = true;
-            // Rigsight's own crashes, and the PC's, as Windows logged them: a program that died wrote nothing here itself.
-            foreach (var e in added.Where(e => e.Time > DateTime.Now.AddDays(-7)
-                         && (e.AppExe.StartsWith("Rigsight", StringComparison.OrdinalIgnoreCase) || e.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown or CrashKind.GpuDriverReset)).TakeLast(15))
-                Log.Write("crash", $"Windows logged at {e.Time:yyyy-MM-dd HH:mm:ss}: {e.Kind}{(e.AppExe.Length > 0 ? " of " + e.AppExe : "")}"
-                    + $"{(e.Module is null ? "" : ", in " + e.Module)}{(e.Code is null ? "" : ", code " + e.Code)}{(e.Kind == CrashKind.UnexpectedShutdown ? ", " + e.Moment : "")}");
-            if (!_settings.Alerts.CrashNotifications) return;
-            // A new install's first look at Windows' logs: nothing as a card (the Crashes page has them, and the welcome
-            // is up). Cards popped up beside the welcome for a crash the day before RigSight was installed (2026-10-30).
-            if (firstScan && (_db.FirstDataTime() is not long recordedFrom || DateTime.Now - Core.Data.TimeUtil.FromUnix(recordedFrom) < TimeSpan.FromHours(1)))
-            {
-                Log.Write("crash", "First look on a new install: no crash cards, the Crashes page has them");
-                return;
-            }
-
-            // Tell the user about system-level problems they may not have noticed (app crashes are covered by sessions).
-            // A shutdown that didn't finish is usually harmless and on some PCs happens every day: the Crashes page has it.
-            var recent = added.Where(e => e.Kind is CrashKind.SystemCrash or CrashKind.UnexpectedShutdown or CrashKind.GpuDriverReset
-                                          && e.Moment != PowerMoment.ShuttingDown
-                                          && e.Time > DateTime.Now.AddHours(firstScan ? -24 : -1)).ToList();
-            if (recent.Count == 0) return;
-            // As stored (a PC going down is given the time it was last seen running), with each one's finding.
-            var stored = _db.GetCrashes(recent.Min(e => e.Ts) - 1, recent.Max(e => e.Ts) + 1)
-                .Where(s => recent.Any(e => e.Kind == s.Kind && e.Ts == s.Ts)).OrderBy(s => s.Ts).ToList();
-            var findings = CrashCases.Of(_db, stored, _settings);
-            foreach (var e in stored.TakeLast(2))
-            {
-                // A graphics card that hangs again and again within minutes: the first is said, the rest are on the page.
-                if (e.Kind == CrashKind.GpuDriverReset && !_crashNotices.Allow("graphics driver", e.Time)) continue;
-                var ex = CrashExplainer.Explain(e);
-                // The title says what happened ("Your PC shut off suddenly"); when and why under it, not the event again.
-                string said = NoticeWords.PcDownBody(e.Time, DateTime.Now, findings.GetValueOrDefault(e.Id), ex.Reason);
-                Notify(new Notice(NoticeKind.Crash, NoticeWords.PcDownTitle(e.Kind), said, Page: "crashes", Arg: e.Time.Ticks.ToString()));
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error("crashes", ex);
-        }
-    }
+    private void ScanCrashes() => CrashScan.Scan();
 
     /// <summary>When the fans' speeds were last looked through for a setting changed while the PC was off.</summary>
     private DateTime? _fanSettingsRead;
@@ -2272,6 +2229,9 @@ internal sealed partial class AgentContext : ApplicationContext
 
     private AgentMessage BuildHello()
     {
+        RigsightSettings helloSettings;
+        long helloRev;
+        lock (_settingsLock) (helloSettings, helloRev) = (_settings, _settingsRev);
         var hello = new AgentMessage
         {
             T = "hello",
@@ -2281,7 +2241,8 @@ internal sealed partial class AgentContext : ApplicationContext
             Everyone = MachineSetup.Everyone,
             KeepUpdated = MachineSetup.KeepUpdated,
             StartupEnabled = _startupEnabled,
-            Settings = _settings,
+            Settings = helloSettings,
+            SettingsRev = helloRev,
             Page = _pendingPage,
             Arg = _pendingArg,
             OverlayVisible = _overlayVisible,
@@ -2314,7 +2275,7 @@ internal sealed partial class AgentContext : ApplicationContext
             // Through the store, so the app's copy gets the same repairs and limits as a file on disk
             // (case-insensitive app lookups, clamped intervals, a valid shortcut...).
             var incoming = SettingsStore.Deserialize(SettingsStore.Serialize(msg.Settings));
-            MutateSettings(s => KeepAgentFields(incoming, s), replaceWith: incoming);
+            MutateSettings(_ => { }, replaceWith: incoming, appBase: msg.SettingsBase);
             return;
         }
 
@@ -2584,15 +2545,32 @@ internal sealed partial class AgentContext : ApplicationContext
     /// </summary>
     private void MutateSettings(Action<RigsightSettings> change) => MutateSettings(change, replaceWith: null);
 
-    private void MutateSettings(Action<RigsightSettings> change, RigsightSettings? replaceWith)
+    // Each copy of the settings is numbered, and the last few kept as written: the app says which copy its change was made
+    // on (UiMessage.SettingsBase), so what the agent changed since is kept when the two cross (see SettingsFromApp).
+    private long _settingsRev;
+    private readonly Dictionary<long, string> _settingsCopies = [];
+    private const int SettingsCopiesKept = 32;
+
+    /// <param name="replaceWith">A copy from the app: its change, merged onto the agent's copy, with the agent's own fields kept.</param>
+    /// <param name="appBase">The agent's copy the app's change was made on, when the app said.</param>
+    private void MutateSettings(Action<RigsightSettings> change, RigsightSettings? replaceWith, long? appBase = null)
     {
         RigsightSettings updated;
         bool yieldChanged, trayChanged, pingChanged;
+        long rev;
         lock (_settingsLock)
         {
             var current = _settings;
-            updated = replaceWith ?? current.Clone();
-            change(replaceWith is null ? updated : current);
+            if (replaceWith is not null)
+            {
+                updated = SettingsFromApp(replaceWith, current, appBase);
+                KeepAgentFields(updated, current);
+            }
+            else
+            {
+                updated = current.Clone();
+                change(updated);
+            }
             yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
             pingChanged = updated.Tracking.PingChecks != current.Tracking.PingChecks;
             trayChanged = updated.TrayStyle != current.TrayStyle || updated.TrayGrayscale != current.TrayGrayscale
@@ -2604,6 +2582,9 @@ internal sealed partial class AgentContext : ApplicationContext
             LogSettingsChanges(current, updated, replaceWith is null ? "agent" : "app");
             _settings = updated;
             SettingsStore.Save(updated);
+            rev = ++_settingsRev;
+            _settingsCopies[rev] = SettingsStore.Serialize(updated);
+            _settingsCopies.Remove(rev - SettingsCopiesKept);
         }
 
         Units.Fahrenheit = updated.UseFahrenheit;
@@ -2633,20 +2614,55 @@ internal sealed partial class AgentContext : ApplicationContext
             _overlay.Apply(updated.Overlay);
             ApplyAskShortcut(updated);
             if (NeedsRtss(updated) && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
-            // Keep the app's widget previews in sync with theme changes.
-            if (_pipe.ClientCount > 0) RenderPreviews(updated);
+            // The overlay's picture on its page, only when something it shows changed: a to-do ticked or a note typed on
+            // a widget is a settings change too, and drawing for each was work nobody saw.
+            if (_pipe.ClientCount > 0 && OverlayLook(updated) != _overlayLook) RenderPreviews(updated);
         }, null);
-        _pipe.Broadcast(new AgentMessage { T = "settings", Settings = updated });
+        _pipe.Broadcast(new AgentMessage { T = "settings", Settings = updated, SettingsRev = rev });
     }
 
     /// <summary>
-    /// Writes widget and overlay preview images and tells the app they're ready. The overlay's sensors are read
-    /// on the sampler thread for these settings (so one just added shows straight away), then drawn on the UI thread.
+    /// The app's copy, as it goes in: made on the agent's latest copy, it's taken as it is. Made on an earlier one (the
+    /// agent switched the tray or a widget's to-do was ticked while the app's change was on its way), only what the app
+    /// changed is laid onto the agent's copy now, value by value, so the agent's change isn't undone. An older app, or a
+    /// copy too old to still be kept, is taken as it is, as before. Under the settings lock.
     /// </summary>
+    private RigsightSettings SettingsFromApp(RigsightSettings incoming, RigsightSettings current, long? appBase)
+    {
+        if (appBase is not long b || b >= _settingsRev) return incoming;
+        if (!_settingsCopies.TryGetValue(b, out var baseJson))
+        {
+            Log.Write("settings", $"The app's change was made on copy {b}, no longer kept (now {_settingsRev}): taken as it is");
+            return incoming;
+        }
+        Log.Write("settings", $"The app's change was made on copy {b} (now {_settingsRev}): laid onto the agent's copy, keeping what changed here since");
+        return LayOnto(incoming, current, baseJson);
+    }
+
+    /// <summary>What the app changed from <paramref name="baseJson"/> to <paramref name="incoming"/>, made on <paramref name="current"/>.</summary>
+    internal static RigsightSettings LayOnto(RigsightSettings incoming, RigsightSettings current, string baseJson)
+    {
+        var merged = SettingsMerge.Merge(System.Text.Json.Nodes.JsonNode.Parse(baseJson),
+            System.Text.Json.Nodes.JsonNode.Parse(SettingsStore.Serialize(incoming)), System.Text.Json.Nodes.JsonNode.Parse(SettingsStore.Serialize(current)));
+        return merged is null ? incoming : SettingsStore.Deserialize(merged.ToJsonString());
+    }
+
     /// <summary>The overlay draws in games through RivaTuner, and the FPS widget and the taskbar's FPS read the frame rate from it.</summary>
     private static bool NeedsRtss(RigsightSettings s) =>
         s.Overlay.Enabled || s.WidgetsShown && s.Widgets.Any(w => w.Enabled && WidgetManager.ShowsFrameRate(w)) || s.TrayShown && s.TraySensors.Contains(TrayParts.Fps);
 
+    // What the overlay's picture was last drawn for (UI thread): see OverlayLook.
+    private string? _overlayLook;
+
+    /// <summary>Everything the overlay's picture depends on: its own settings, and the units, language, clock and theme it's drawn in.</summary>
+    private static string OverlayLook(RigsightSettings s) =>
+        $"{System.Text.Json.JsonSerializer.Serialize(s.Overlay, SettingsStore.JsonOptions)}|{s.UseFahrenheit}|{s.Language}|{s.ClockStyle}|{s.Theme}|{s.DarkTheme}|{s.LightTheme}|{s.Accent}";
+
+    /// <summary>
+    /// Writes the overlay's picture for its page (the Widgets page draws widgets itself) and tells the app it's ready. The
+    /// overlay's sensors are read on the sampler thread for these settings (so one just added shows straight away), then
+    /// drawn on the UI thread.
+    /// </summary>
     private void RenderPreviews(RigsightSettings settings) =>
         RunOnSampler(() =>
         {
@@ -2656,7 +2672,7 @@ internal sealed partial class AgentContext : ApplicationContext
 
     private void DrawPreviews(RigsightSettings settings, List<OverlaySensorReading> sensors)
     {
-        _widgets.RenderPreviews(settings);
+        _overlayLook = OverlayLook(settings);
         try
         {
             _overlay.RenderPreview(Path.Combine(RigsightPaths.DataDir, "previews"), sensors);
@@ -2907,6 +2923,11 @@ internal sealed partial class AgentContext : ApplicationContext
         _quitWait?.Unregister(null);
         _displayWatch.Dispose();
         _stopping = true;
+        // The taskbar strip first: its look-up of the taskbar's buttons asks Explorer through UI Automation, and a quit
+        // often comes with the taskbar being rebuilt (after a graphics driver change). On 13 Nov the agent crashed inside
+        // UI Automation 50 s into such a quit, with the strip still there.
+        try { _taskbarStrip.Dispose(); }
+        catch (Exception ex) { Log.Error("agent", ex); }
         _updateTimer?.Dispose();
         _wake.Set();
         _sampler.Join(5000);

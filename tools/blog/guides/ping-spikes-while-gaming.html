@@ -26,7 +26,7 @@
 
 <h2>How RigSight caught it</h2>
 
-<p>Since version 1.4.0, RigSight checks the line every 5 seconds in two places. One ping goes to your router, which is the home side of the line, your cable or Wi-Fi. The other goes to your internet provider's first router after it, which is the provider's side. RigSight finds that router the way a traceroute does, without asking any outside server. The pings leave from the network card itself, so a VPN in between doesn't hide the real line. A ping that isn't back within a second counts as lost.</p>
+<p>Since version 1.4.0, RigSight checks the line every 5 seconds in two places. One ping goes to your router, which is the home side of the line, your cable or Wi-Fi. The other goes to your internet provider's first router after it, which is the provider's side. RigSight finds that router the way a traceroute does, without asking any outside server. The pings leave from the network card itself, so a VPN in between doesn't hide the real line. A ping that isn't back within a second counts as lost. Since version 1.14.0, while a game or a call is online, RigSight also checks the server it's talking to, so a slow route past your provider shows too.</p>
 
 <p>Two pings at once tell you where a spike starts. If the router is slow, the problem is inside your home. If the router is quick and the provider's side is slow, the problem is on the line, at the provider, or in whatever is filling the line. On my PC the router never went past 3 ms in the 484 minutes of checks so far, and 4 of 5,767 pings to the provider got no reply.</p>
 

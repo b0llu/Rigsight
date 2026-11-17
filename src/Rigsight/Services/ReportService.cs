@@ -84,6 +84,9 @@ public sealed class ReportService(SettingsModel settings)
     /// <summary>What is on record about one running app (the Processes page's box under its row).</summary>
     public Task<AppPast?> AppPastAsync(string exe) => Run(db => AppPast.Read(db, exe, DateTime.Now));
 
+    /// <summary>Every app's CPU time, GPU time, running time and memory today (the Processes page's LOAD TODAY), by exe.</summary>
+    public Task<Dictionary<string, AppDayUse>?> AppsTodayAsync() => Run(db => AppLoad.ReadToday(db, DateTime.Now));
+
     /// <summary>What is on record about every app's memory (the Memory page's list, its marked rows and today's fullest line).</summary>
     public Task<MemoryPast?> MemoryPastAsync() => Run(db => MemoryPast.Read(db, DateTime.Now));
 

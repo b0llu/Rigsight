@@ -49,7 +49,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
             Def("get_pc_info", "The PC's parts: CPU, graphics card with driver version, motherboard, RAM, Windows version, and each screen with its resolution and the refresh rate it runs at now.", new JsonObject()),
             Def("get_report", "RigSight's report for a period: time on, peaks for CPU and GPU temperature, what stood out, this period against the PC's own usual (temperatures, fans, problems), apps used with their peaks, crashes, and the electricity the CPU and graphics card used (kWh, average and highest watts). Dates are the user's local dates.", Dates()),
             Def("get_crashes", "Every crash, hang, graphics driver reset, blue screen and sudden shut-off in a period, each with what was going on (app in front, loads, temperatures, power), RigSight's finding with how sure it is, and changes in the 7 days before.", Dates()),
-            Def("get_changes", "What changed on the PC in a period: drivers, Windows updates, hardware, BIOS/firmware, settings, fan settings, apps installed or updated.", Dates()),
+            Def("get_changes", "What changed on the PC in a period: drivers, Windows updates, hardware, BIOS/firmware, settings, fan settings, apps installed or updated; and RigSight's own before-and-after result for each big change whose days compared touch the period, with every figure it rests on.", Dates()),
             Def("list_games", "The games played on this PC with hours played, plays, launcher and how hard each works the graphics card. With from and to: only the games played in that period, with the time played in it. Without them: all of RigSight's history, not any one day.", new JsonObject
             {
                 ["type"] = "object",
@@ -392,13 +392,48 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         return sb.ToString();
     }
 
-    private static string Changes(RigsightDb db, DateTime from, DateTime to)
+    private string Changes(RigsightDb db, DateTime from, DateTime to)
     {
         var list = db.GetChanges(TimeUtil.ToUnix(from), TimeUtil.ToUnix(to.AddDays(1)));
-        if (list.Count == 0) return "No changes recorded in that time.";
+        // A result's days run on past its change, so one from before the period can still be the one asked about.
+        var results = ChangeEffects.Read(db, settings).Values.Where(r => r.From <= to.Date.AddDays(1) && r.To >= from.Date).OrderBy(r => r.Day).ToList();
+        if (list.Count == 0 && results.Count == 0) return "No changes recorded in that time.";
         var sb = new StringBuilder();
         if (list.Count > 120) { sb.AppendLine($"(The newest 120 of {list.Count}.)"); list = list[^120..]; }
         foreach (var c in list) sb.AppendLine($"{c.Time:ddd d MMM yyyy h:mm tt}  [{c.Kind}]  {c.Shown}");
+        if (results.Count > 0) sb.Append(ChangeResults(results));
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// What RigSight worked out a big change did, with every figure it rests on. Without it a model asked to explain "ran
+    /// 6° hotter on the CPU in the 9 days after the changes on 3 Nov" had only the plays after the change to look at, set
+    /// them against a usual made of those same plays, and told the person RigSight was wrong (2026-11-16).
+    /// </summary>
+    internal static string ChangeResults(IReadOnlyList<ChangeResult> results)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine("RIGSIGHT'S BEFORE-AND-AFTER RESULTS. These are RigSight's own comparisons of the days before a big change with the days after it, " +
+            "made like for like: the same game at the same GPU power, only its steady minutes (after the first 10 minutes of a play), with any change at rest taken out; " +
+            "problems counted against the hours the PC was used. Averages of whole plays, a game's usual or a day's average from other look-ups are different measures, " +
+            "taken over different minutes and days, so they can't confirm or overturn these figures. Explain a result from its own figures, and say so if another look-up " +
+            "seems to differ and why.");
+        foreach (var r in results)
+        {
+            string changes = string.Join("; ", r.Changes.Select(c => $"{c.Shown} [{c.Kind}]").Distinct()); // a driver Windows put on several devices is one change
+            sb.AppendLine($"{r.Day:ddd d MMM yyyy}: {changes}");
+            sb.AppendLine($"  Result: {r.Said}. {r.HowSure}.");
+            string after = r.Open ? $"{r.Day.AddDays(1):d MMM} to today" : $"{r.Day.AddDays(1):d MMM} to {r.To.AddDays(-1):d MMM yyyy}";
+            sb.AppendLine($"  Days compared: {r.From:d MMM} to {r.Day.AddDays(-1):d MMM} before ({r.DaysBefore} days), {after} after ({r.DaysAfter} days). The day of the change itself is on neither side.");
+            if (r.Context.Length > 0) sb.AppendLine($"  How: {r.Context}");
+            foreach (var f in r.Rows)
+                sb.AppendLine($"  {f.Label}: {f.Before} before, {f.After} after, {(f.Meaning.Length > 0 ? f.Meaning : f.Tone.ToString())}" +
+                              $"{(f.Detail.Length > 0 ? $" ({f.Detail})" : "")}{(f.Counted ? "" : " [shown only, not something this change can cause]")}");
+            foreach (var c in r.Checks) sb.AppendLine($"  {(c.Ok ? "Rests on" : "Less sure because")}: {c.Title}. {c.Detail}");
+            if (r.Why.Length > 0) sb.AppendLine($"  Why: {r.Why}");
+            if (r.Advice is { Length: > 0 } advice) sb.AppendLine($"  RigSight's advice: {advice}");
+        }
         return sb.ToString();
     }
 

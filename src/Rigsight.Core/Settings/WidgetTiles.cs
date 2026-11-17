@@ -32,7 +32,7 @@ public static class WidgetTiles
     // from RigSight's records, each read the way its page reads it.
     public const string CpuGauge = "cpugauge", GpuGauge = "gpugauge", Fans = "fans", Drives = "drives", Cores = "cores",
         TopCpu = "topcpu", TopMemory = "topmem",
-        NetSpeed = "netspeed", NetNow = "netnow", NetToday = "nettoday", NetApps = "netapps", NetHours = "nethours", NetDrops = "netdrops",
+        NetSpeed = "netspeed", NetNow = "netnow", NetToday = "nettoday", NetApps = "netapps", NetHours = "nethours", NetDrops = "netdrops", Ping = "ping",
         TodaySoFar = "todayso", MostUsed = "mostused", StandOut = "standout", Peaks = "peaks", Yesterday = "yesterday",
         Crashes = "crashes", Health = "health", Changed = "changed", Week = "week", LastGame = "lastgame";
 
@@ -71,6 +71,7 @@ public static class WidgetTiles
         new(NetApps, Lang.Key("Top internet users today"), Lang.Key("The apps that used the most internet today."), Lang.Key("Internet"), 6, 3, 5, 2),
         new(NetHours, Lang.Key("Internet use by hour"), Lang.Key("Each hour of today, split by app."), Lang.Key("Internet"), 9, 3, 6, 3),
         new(NetDrops, Lang.Key("Connection today"), Lang.Key("Whether the internet dropped today."), Lang.Key("Internet"), 6, 2, 4, 2),
+        new(Ping, Lang.Key("Ping"), Lang.Key("The ping to the game or call you're on, else to your internet provider."), Lang.Key("Internet"), 5, 3, 3, 2),
         new(Today, Lang.Key("Today"), Lang.Key("Screen time so far today, your most-used app and today's peaks."), Lang.Key("Your day"), 7, 5, 6, 4),
         new(NowPlaying, Lang.Key("Now playing"), Lang.Key("The app or game you're using, for how long, and its peak temperatures."), Lang.Key("Your day"), 8, 3, 6, 2),
         new(TodaySoFar, Lang.Key("Today so far"), Lang.Key("Active time, PC on and away."), Lang.Key("Your day"), 9, 2, 6, 2),
@@ -138,6 +139,7 @@ public static class WidgetTiles
         NetToday => [(Medium, 6, 2), (Large, 9, 3)],
         NetHours => [(Small, 6, 3), (Medium, 9, 3), (Large, 12, 5)],
         NetDrops => [(Small, 4, 2), (Medium, 6, 2), (Large, 9, 3)],
+        Ping => [(Small, 3, 2), (Medium, 5, 3), (Large, 8, 3)],
         TodaySoFar => [(Small, 6, 2), (Medium, 9, 2)],
         MostUsed or Yesterday => [(Small, 5, 3), (Medium, 6, 4), (Large, 6, 6)],
         StandOut => [(Small, 7, 2), (Medium, 9, 3), (Large, 12, 5)],

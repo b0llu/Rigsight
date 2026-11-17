@@ -58,6 +58,7 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
     /// <summary>Keeps asking where the buttons on <paramref name="taskbar"/> are (a new taskbar: asked afresh).</summary>
     public void Watch(IntPtr taskbar)
     {
+        if (_disposed) return; // the agent is closing: nothing is asked again
         if (taskbar != Interlocked.Exchange(ref _taskbar, taskbar)) _latest = null;
         if (_watching) return;
         _watching = true;
@@ -68,7 +69,12 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
     }
 
     /// <summary>Asks now, not at the next turn (the apps' buttons moved).</summary>
-    public void Check() => _wake.Set();
+    public void Check()
+    {
+        if (!_disposed) _wake.Set();
+    }
+
+    private volatile bool _disposed;
 
     /// <summary>Stops asking (the strip went back next to the clock, or away).</summary>
     public void Stop()
@@ -77,9 +83,19 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
         _watching = false;
         Interlocked.Increment(ref _turn);
         _wake.Set();
+        _ending = _thread;
         _thread = null;
         _latest = null;
     }
+
+    /// <summary>The last thread stopped, until it has ended: waited for before its wake-up goes.</summary>
+    private Thread? _ending;
+
+    /// <summary>The asking thread is still going (for tests).</summary>
+    internal bool Asking => (_thread ?? _ending) is { IsAlive: true };
+
+    /// <summary>How long <see cref="Dispose"/> waits for a call to UI Automation to come back.</summary>
+    internal static readonly TimeSpan EndWait = TimeSpan.FromSeconds(2);
 
     private void Run(int turn)
     {
@@ -123,7 +139,14 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
                 start = widgets = null;
                 if (_latest is null && !Stopped()) { _latest = new Places(Rectangle.Empty, Rectangle.Empty); moved(); }
             }
-            _wake.WaitOne(Every);
+            try
+            {
+                _wake.WaitOne(Every);
+            }
+            catch (ObjectDisposedException)
+            {
+                return; // closed while a call was out (Dispose only waits so long): nothing more to ask
+            }
         }
     }
 
@@ -154,17 +177,43 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string? cls, string? name);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
 
+    /// <summary>
+    /// Where a button is, in screen pixels; empty for one that isn't shown. Asked as a plain rectangle, never as a property
+    /// value: that comes back as an array inside a VARIANT, which .NET copies out of Explorer's answer itself, and an
+    /// answer from a taskbar being rebuilt (the PC locked or unlocked, a graphics driver changing) made that copy read
+    /// memory that was gone. An access violation inside .NET can't be caught: it ended the agent with ".NET Runtime
+    /// internal error", at memcpy in coreclr.dll (issue #10, 2026-11-16).
+    /// </summary>
     private static Rectangle Bounds(IUIAutomationElement element)
     {
-        // Left, top, width, height, in screen pixels; all zero for a button that isn't shown.
-        if (element.GetCurrentPropertyValue(UIA_BoundingRectanglePropertyId) is not double[] { Length: 4 } r) return Rectangle.Empty;
-        var rect = new Rectangle((int)r[0], (int)r[1], (int)r[2], (int)r[3]);
+        if (element.get_CurrentBoundingRectangle(out var r) < 0) return Rectangle.Empty;
+        var rect = Rectangle.FromLTRB(r.L, r.T, r.R, r.B);
         return rect.Width <= 0 || rect.Height <= 0 ? Rectangle.Empty : rect;
     }
 
+    /// <summary>A button's place both ways, for the test that checks the rectangle's slot in the interface on a real taskbar.</summary>
+    internal static (Rectangle Rect, Rectangle Property)? StartBoth(IntPtr taskbar)
+    {
+        var uia = (IUIAutomation)new CUIAutomation();
+        var start = uia.ElementFromHandle(taskbar).FindFirst(TreeScope_Descendants, uia.CreatePropertyCondition(UIA_AutomationIdPropertyId, "StartButton"));
+        if (start is null) return null;
+        var property = start.GetCurrentPropertyValue(UIA_BoundingRectanglePropertyId) is double[] { Length: 4 } d
+            ? new Rectangle((int)d[0], (int)d[1], (int)d[2], (int)d[3]) : Rectangle.Empty;
+        return (Bounds(start), property);
+    }
+
+    /// <summary>
+    /// Stops asking and waits for the thread to end before letting go of its wake-up: a thread left mid-call (a taskbar
+    /// being rebuilt answers slowly, as after a graphics driver change) then waited on a handle that was gone, which ends
+    /// the agent. A call that doesn't come back in <see cref="EndWait"/> is left to end on its own.
+    /// </summary>
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         Stop();
+        if (_ending is { } thread && thread != Thread.CurrentThread && !thread.Join(EndWait))
+            Rigsight.Core.Log.Write("taskbar", $"Finding the taskbar's buttons hadn't ended after {EndWait.TotalSeconds:0} s; closing without it");
         _wake.Dispose();
     }
 
@@ -221,5 +270,39 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
         void BuildUpdatedCache();
         [return: MarshalAs(UnmanagedType.Struct)]
         object GetCurrentPropertyValue(int propertyId);
+        // The places up to the bounding rectangle (UIAutomationClient.h), unused.
+        void GetCurrentPropertyValueEx();
+        void GetCachedPropertyValue();
+        void GetCachedPropertyValueEx();
+        void GetCurrentPatternAs();
+        void GetCachedPatternAs();
+        void GetCurrentPattern();
+        void GetCachedPattern();
+        void GetCachedParent();
+        void GetCachedChildren();
+        void get_CurrentProcessId();
+        void get_CurrentControlType();
+        void get_CurrentLocalizedControlType();
+        void get_CurrentName();
+        void get_CurrentAcceleratorKey();
+        void get_CurrentAccessKey();
+        void get_CurrentHasKeyboardFocus();
+        void get_CurrentIsKeyboardFocusable();
+        void get_CurrentIsEnabled();
+        void get_CurrentAutomationId();
+        void get_CurrentClassName();
+        void get_CurrentHelpText();
+        void get_CurrentCulture();
+        void get_CurrentIsControlElement();
+        void get_CurrentIsContentElement();
+        void get_CurrentIsPassword();
+        void get_CurrentNativeWindowHandle();
+        void get_CurrentItemType();
+        void get_CurrentIsOffscreen();
+        void get_CurrentOrientation();
+        void get_CurrentFrameworkId();
+        void get_CurrentIsRequiredForForm();
+        void get_CurrentItemStatus();
+        [PreserveSig] int get_CurrentBoundingRectangle(out RECT rect);
     }
 }

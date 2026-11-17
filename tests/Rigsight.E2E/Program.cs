@@ -145,14 +145,26 @@ internal static class Program
             Record("agent.startup_ms", sw.ElapsedMilliseconds, "ms", "Agent start until its sensors are ready", budget: 15_000);
             Console.WriteLine($"  {LogLine("Sensors ready")}");
 
+            // The RAM sticks are found in the background after that, and the sampler then rebuilds its list with them and
+            // hands memory back: start-up work, not the agent at rest. Probing takes about 2 s a stick (this PC went from 2
+            // sticks to 4 on 14 Nov and the probe from 4.3 s to 8.4 s, which then ran into the 30 s below and failed it
+            // with one 172 ms second). Waited for, so the figures below are the agent at rest on any number of sticks.
+            if (WaitFor(() => LogHas("RAM sticks found"), 30_000))
+                WaitFor(() => LogHas("[sensors] Now "), 10_000);
+            else
+                Notes.Add("The agent didn't say it had found the RAM sticks within 30 s; the agent's figures at rest may include that work.");
+            Console.WriteLine($"  {LogLine("RAM sticks found") ?? "RAM sticks: not found in the log"}");
             // The agent hands back discovery's memory right after; give it a moment to settle.
             Thread.Sleep(5000);
             Step("Agent alone, no window open (30 s)");
             var alone = Sample(30, agent);
             Record("agent.idle.cpu_pct_core", alone[agent].CpuPctCore, "% of one core", "Agent CPU with the app closed", budget: 1.0);
             Record("agent.idle.private_mb", alone[agent].PrivateEndMb, "MB", "Agent memory (private) with the app closed", budget: 80);
-            Record("agent.idle.memory_mb", alone[agent].MemoryEndMb, "MB", "Agent memory as Task Manager shows it, with the app closed", budget: 60);
-            Record("agent.idle.working_set_mb", alone[agent].WorkingSetEndMb, "MB", "Agent working set with the app closed", budget: 150);
+            // 65 and 165 (were 60 and 150) since 2026-11-17, at the user's word: on this PC with 4 RAM sticks (2 until
+            // 14 Nov) and measured after they're in, released 1.13.1 read 59-61 and 153-157 like the build tested; its
+            // managed memory was 9.3 MB, the same as the new build's.
+            Record("agent.idle.memory_mb", alone[agent].MemoryEndMb, "MB", "Agent memory as Task Manager shows it, with the app closed", budget: 65);
+            Record("agent.idle.working_set_mb", alone[agent].WorkingSetEndMb, "MB", "Agent working set with the app closed", budget: 165);
             Record("agent.idle.handles", alone[agent].HandlesEnd, "", "Agent handles", budget: 1500);
             Record("agent.idle.gdi", alone[agent].GdiEnd, "", "Agent GDI objects", budget: 150);
             Record("agent.idle.threads", alone[agent].ThreadsEnd, "", "Agent threads", budget: 40);
@@ -186,9 +198,24 @@ internal static class Program
 
             // --probe Games,Timeline: only those pages, each opened once and then again from Home a few times, for
             // speed work (no baseline, no report): the run ends here.
-            if (Arg("--probe") is { } probe)
+            // --steady Temperatures [--seconds 60] [--rounds 3]: only that page at rest, measured that long that many
+            // times (back to Home between), for a steady figure the full run takes in 15 s (2026-11-17).
+            if (Arg("--probe") is not null || Arg("--steady") is not null)
             {
-                string[] probed = [.. probe.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
+                if (Arg("--steady") is { } steady)
+                {
+                    int seconds = int.TryParse(Arg("--seconds"), out int s) ? s : 60, looks = int.TryParse(Arg("--rounds"), out int r) ? r : 3;
+                    for (int round = 1; round <= looks; round++)
+                    {
+                        ui.Press("Home");
+                        Thread.Sleep(2000);
+                        ui.Press(steady);
+                        Thread.Sleep(4000);
+                        Step($"{steady} at rest, round {round} ({seconds} s)");
+                        Sample(seconds, app!, agent);
+                    }
+                }
+                string[] probed = Arg("--probe") is { } pr ? [.. pr.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)] : [];
                 Probe(app!, ui, probed, int.TryParse(Arg("--visits"), out int visits) ? visits : 5, args.Contains("--scroll"));
                 // --reopen: the app closed and opened again on the same data, each page's first visit once more (what a
                 // page keeps between starts, as Storage's folder sizes, shows here).
@@ -298,7 +325,9 @@ internal static class Program
             Record("app.home.private_mb", open[app!].PrivateEndMb, "MB", "App memory (private) on Home", budget: 250);
             Record("app.home.working_set_mb", open[app!].WorkingSetEndMb, "MB", "App working set on Home", budget: 300);
             Record("app.home.memory_mb", open[app!].MemoryEndMb, "MB", "App memory as Task Manager shows it, on Home", budget: 220);
-            Record("agent.live.cpu_pct_core", open[agent].CpuPctCore, "% of one core", "Agent CPU while the app is open (every sensor each second)", budget: 4.0);
+            // 5.0 since 1.14.0 (was 4.0), at the user's word: the sampler's turns now come every second as set (a turn a few
+            // ms early used to wait a whole extra second, so about one in three was skipped): ~31 ms a second, was ~19.
+            Record("agent.live.cpu_pct_core", open[agent].CpuPctCore, "% of one core", "Agent CPU while the app is open (every sensor each second)", budget: 5.0);
             Record("agent.live.private_mb", open[agent].PrivateEndMb, "MB", "Agent memory while the app is open", budget: 150);
             Record("agent.live.memory_mb", open[agent].MemoryEndMb, "MB", "Agent memory as Task Manager shows it, while the app is open", budget: 90);
 
@@ -307,6 +336,7 @@ internal static class Program
             ui.Press("Temperatures");
             Thread.Sleep(3000);
             Step("App open on Temperatures (15 s)");
+            using var tempsTrace = TraceSteady(app!, "temperatures-steady", 15);
             var temps = Sample(15, app!);
             Record("app.temperatures.cpu_pct_core", temps[app!].CpuPctCore, "% of one core", "App CPU on Temperatures (live chart)", budget: 5.0);
             RefreshOf("Temperatures", temps[app!].CpuPctCore);
@@ -517,7 +547,10 @@ internal static class Program
             try { File.Copy(RigsightPaths.LogFile, Path.Combine(output, "rigsight.log"), overwrite: true); } catch { }
         }
 
-        CompareWithBaseline(baselineFile, quick);
+        // --new-baseline: this run is the new measure of what things cost, so the old one is not held against it
+        // (the budgets still are).
+        if (args.Contains("--new-baseline")) Notes.Add("The baseline starts over from this run: it was not compared with the old one.");
+        else CompareWithBaseline(baselineFile, quick);
         if (OtherLoad.Seen.Count > 0)
         {
             var most = OtherLoad.Seen.MaxBy(x => x.PctCore);
@@ -664,6 +697,22 @@ internal static class Program
             }
         }
     }
+
+    /// <summary>
+    /// --trace &lt;folder&gt;: a page at rest recorded by dotnet-trace (sampled threads) while it is measured, for where a
+    /// steady figure's time goes (Temperatures' live chart, 2026-11-17). Null without --trace; disposing waits for it.
+    /// </summary>
+    private static IDisposable? TraceSteady(Process app, string name, int seconds)
+    {
+        if (TraceDir is not { } dir) return null;
+        Directory.CreateDirectory(dir);
+        var trace = Process.Start(new ProcessStartInfo("dotnet-trace", ["collect", "-p", app.Id.ToString(CultureInfo.InvariantCulture), "--profile", "dotnet-sampled-thread-time",
+            "--duration", $"00:00:00:{seconds:00}", "-o", Path.Combine(dir, $"{name}.nettrace")]) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true })!;
+        Thread.Sleep(1500); // the session is open before the sample starts
+        return new Waiter(() => { trace.WaitForExit(30_000); Console.WriteLine($"  traced {name}: {trace.StandardOutput.ReadToEnd().Trim().Split('\n').LastOrDefault()}"); });
+    }
+
+    private sealed class Waiter(Action done) : IDisposable { public void Dispose() => done(); }
 
     private static TimeSpan Settle(Process p)
     {

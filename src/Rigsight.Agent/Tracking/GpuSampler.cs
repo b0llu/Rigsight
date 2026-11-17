@@ -52,7 +52,10 @@ internal sealed unsafe class GpuSampler : IDisposable
     /// <summary>Whether this PC's GPU can be read at all (false when Windows can't say which one is main).</summary>
     public bool Available => _nodes > 0;
 
-    /// <summary>The apps' GPU shares (0–100, by exe) since the last sample; empty on the first one or when unavailable.</summary>
+    /// <summary>
+    /// The apps' GPU shares (0–100, by exe) since the last sample; empty on the first one or when unavailable. Each app's
+    /// busy time behind its share goes into the snapshot's <see cref="ProcessSnapshot.GpuTime"/>, the small shares too.
+    /// </summary>
     public Dictionary<string, double> Sample(ProcessSnapshot snapshot)
     {
         var result = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
@@ -65,7 +68,7 @@ internal sealed unsafe class GpuSampler : IDisposable
         _sample++;
 
         // Per app, per engine: the busy time of all its processes added up; the busiest engine is the app's share.
-        var perApp = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+        var perApp = new Dictionary<string, long[]>(StringComparer.OrdinalIgnoreCase);
         var seen = new HashSet<(int, long)>();
         foreach (var key in snapshot.Processes)
         {
@@ -94,9 +97,9 @@ internal sealed unsafe class GpuSampler : IDisposable
             p.Running = running;
             if (before is null || elapsed100ns <= 0 || !snapshot.PidToExe.TryGetValue(key.Pid, out var exe)) continue;
 
-            if (!perApp.TryGetValue(exe, out var engines)) perApp[exe] = engines = new double[_nodes];
+            if (!perApp.TryGetValue(exe, out var engines)) perApp[exe] = engines = new long[_nodes];
             for (int n = 0; n < _nodes; n++)
-                engines[n] += Math.Max(0, running[n] - before[n]) / elapsed100ns * 100;
+                engines[n] += Math.Max(0, running[n] - before[n]);
         }
 
         // Processes that have ended.
@@ -108,7 +111,10 @@ internal sealed unsafe class GpuSampler : IDisposable
 
         foreach (var (exe, engines) in perApp)
         {
-            double busiest = Math.Min(100, engines.Max());
+            // Never more than the time that went by: an engine can't be busier than all of it.
+            long busy = Math.Min(engines.Max(), (long)elapsed100ns);
+            if (busy > 0) snapshot.GpuTime[exe] = busy;
+            double busiest = Math.Min(100, busy / elapsed100ns * 100);
             if (busiest >= MinShare) result[exe] = busiest;
         }
         return result;

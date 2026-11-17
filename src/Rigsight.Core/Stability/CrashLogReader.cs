@@ -617,12 +617,19 @@ public static partial class CrashLogReader
         }
         using (reader)
         {
+            int read = 0;
             while (true)
             {
                 EventRecord? record;
                 try { record = reader.ReadEvent(); }
-                catch { yield break; }
+                catch (Exception ex)
+                {
+                    // What's left of the log goes unread, so say where it stopped: a missed crash should leave a trace.
+                    Log.Write("crashes", $"Stopped reading the {log} log after {read} entries, at a read error: {ex}");
+                    yield break;
+                }
                 if (record is null) yield break;
+                read++;
                 yield return record;
             }
         }
@@ -651,9 +658,16 @@ public static partial class CrashLogReader
             foreach (var d in doc.Descendants(ns + "Data"))
                 if (d.Attribute("Name")?.Value is { } name) result[name] = d.Value;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // Once per run: an entry whose details can't be read loses its named fields, and every later one likely would too.
+            if (Interlocked.Exchange(ref _namedFailed, 1) == 0)
+                Log.Write("crashes", $"Couldn't read the details of event {r.Id} from {r.ProviderName}: {ex.Message}");
+        }
         return result;
     }
+
+    private static int _namedFailed;
 
     [GeneratedRegex(@"[^ -~]")]
     private static partial Regex NonPrintable();

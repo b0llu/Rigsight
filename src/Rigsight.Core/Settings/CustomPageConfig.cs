@@ -3,6 +3,10 @@ namespace Rigsight.Core.Settings;
 /// <summary>A dashboard the user builds from tiles ("Dashboards" in the sidebar).</summary>
 public sealed class CustomPageConfig
 {
+    /// <summary>Fields this version doesn't know (written by a newer RigSight): kept and written back as they were, never dropped.</summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
+
     public string Id { get; set; } = NewId();
     public string Name { get; set; } = "Dashboard";
 

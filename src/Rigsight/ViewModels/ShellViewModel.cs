@@ -692,7 +692,8 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "memory": await Memory.RefreshAsync(); break;
                 // Free space changes slowly: every five minutes is plenty.
                 case "storage": if (_tickCount % 5 == 0) await Storage.RefreshAsync(); break;
-                case "fans": await Fans.RefreshAsync(); break;
+                // A day moves each minute; a week or a month is read again every five (all of its minutes, every time).
+                case "fans": if (Fans.IsDay || _tickCount % 5 == 0) await Fans.RefreshAsync(); break;
                 case "network": await Network.RefreshAsync(); break;
                 case "temperatures": if (ChartDueNow) await LoadTemperatureHistoryAsync(); break;
                 default:
@@ -1159,9 +1160,11 @@ public sealed partial class ShellViewModel : ObservableObject
                     UpdateSettingsAttention();
                 }
                 if (msg.StartupEnabled is bool startup) SettingsPage.StartupEnabled = startup;
-                if (msg.Settings is not null) Settings.ApplyFromAgent(msg.Settings);
+                if (msg.Settings is not null) Settings.ApplyFromAgent(msg.Settings, msg.SettingsRev);
                 // A change made while the agent was away goes out now, after the hello: sent as soon as the pipe
                 // connected, the hello's older copy would undo it (and flip the page back) until the agent echoed it.
+                // Not to an agent of another version (see SettingsModel.Held).
+                Settings.HoldFor(OtherAgentVersion);
                 Settings.OnConnected();
                 Live.LoadHello(msg);
                 if (Live.ExpandedApps is { } expanded) _client.SendCommand("procs-detail", expanded); // a restarted agent
@@ -1175,7 +1178,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 if (msg.Procs is not null) _ = ApplyProcsAsync(msg.Procs, msg.Disk);
                 break;
             case "settings":
-                if (msg.Settings is not null) Settings.ApplyFromAgent(msg.Settings);
+                if (msg.Settings is not null) Settings.ApplyFromAgent(msg.Settings, msg.SettingsRev);
                 break;
             case "status":
                 if (msg.StartupEnabled is bool enabled)

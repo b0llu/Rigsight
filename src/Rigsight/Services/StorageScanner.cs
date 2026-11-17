@@ -316,18 +316,27 @@ public static class StorageScanner
     /// name) and one list is used for every folder: a folder tree of hundreds of thousands of files (Windows' update
     /// cache during an update) used to cost about a hundred megabytes of short-lived strings.
     /// </summary>
-    public static long FolderSize(string path, Func<DiskEntry, bool>? filter = null)
+    public static long FolderSize(string path, Func<DiskEntry, bool>? filter = null) =>
+        Directory.Exists(path) ? SizeUnder(System.IO.Path.GetFullPath(path), filter) : 0;
+
+    /// <summary>
+    /// <see cref="FolderSize(string, Func{DiskEntry, bool}?)"/> for a folder already known by its full path (one just
+    /// listed): nothing asked twice. Each folder under it is opened once and nothing more: a %TEMP% of 19,500 folders
+    /// with no counts kept spent a quarter of Storage's first visit (9.7 s of a core) asking whether each folder it had
+    /// just listed was there, and putting its already full path in full again (2026-11-17). One that went in between
+    /// reads as empty.
+    /// </summary>
+    private static long SizeUnder(string full, Func<DiskEntry, bool>? filter)
     {
-        if (!Directory.Exists(path)) return 0;
         long total = 0;
         var seen = new HashSet<long>();
-        var folders = new Stack<string>([path]);
+        var folders = new Stack<string>([full]);
         var entries = new List<DiskEntry>();
         while (folders.Count > 0)
         {
             var folder = folders.Pop();
             entries.Clear();
-            Read(folder, entries, fileNames: false);
+            Read(folder, entries, fileNames: false, isFull: true);
             foreach (var e in entries)
             {
                 if (e.IsFolder)
@@ -354,8 +363,9 @@ public static class StorageScanner
     public static long FolderSize(string path, IReadOnlyDictionary<string, KeptFolder>? kept, Dictionary<string, KeptFolder> counted, DateTime now, TimeSpan keepFor)
     {
         if (!Directory.Exists(path)) return 0;
+        string full = System.IO.Path.GetFullPath(path);
         var top = new List<DiskEntry>();
-        Read(path, top, fileNames: false);
+        Read(full, top, fileNames: false, isFull: true);
         long total = 0, at = Rigsight.Core.Data.TimeUtil.ToUnix(now);
         var seen = new HashSet<long>();
         foreach (var e in top)
@@ -369,7 +379,7 @@ public static class StorageScanner
             long write = e.LastWrite.Ticks;
             var mine = kept is not null && kept.TryGetValue(e.Name, out var k) && write != 0 && k.Write == write && k.At <= at && at - k.At < keepFor.TotalSeconds
                 ? k
-                : new KeptFolder(write, at, FolderSize(System.IO.Path.Combine(path, e.Name)));
+                : new KeptFolder(write, at, SizeUnder(System.IO.Path.Combine(full, e.Name), null));
             counted[e.Name] = mine;
             total += mine.Size;
         }
@@ -390,10 +400,13 @@ public static class StorageScanner
         return list;
     }
 
-    /// <summary>Adds a folder's entries to <paramref name="list"/>; without <paramref name="fileNames"/> a file's name is left empty (a folder's never is).</summary>
-    private static unsafe void Read(string folder, List<DiskEntry> list, bool fileNames)
+    /// <summary>
+    /// Adds a folder's entries to <paramref name="list"/>; without <paramref name="fileNames"/> a file's name is left empty
+    /// (a folder's never is). <paramref name="isFull"/>: the path is already full (a full one with a listed name added).
+    /// </summary>
+    private static unsafe void Read(string folder, List<DiskEntry> list, bool fileNames, bool isFull = false)
     {
-        string full = System.IO.Path.GetFullPath(folder);
+        string full = isFull ? folder : System.IO.Path.GetFullPath(folder);
         // The long-path form, so folders deeper than 260 characters are read too.
         string name = full.StartsWith(@"\\", StringComparison.Ordinal) ? @"\\?\UNC\" + full[2..] : @"\\?\" + full;
         using var handle = CreateFileW(name, FileListDirectory, FileShareAll, IntPtr.Zero, OpenExisting, BackupSemantics, IntPtr.Zero);

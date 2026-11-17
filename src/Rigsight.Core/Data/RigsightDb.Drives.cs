@@ -38,27 +38,33 @@ public sealed partial class RigsightDb
     /// and its temperature added to the day's average. Called each time the drives are read (every 5 minutes, or 10
     /// seconds while the app is open); a drive with no lasting key is left out.
     /// </summary>
-    public void UpsertDriveHealth(long day, DriveHealthInfo d)
+    /// <param name="countTemp">
+    /// False keeps the temperature out of the day's average (it still counts toward the highest): the drives are read 30
+    /// times as often while the app is open, so the caller counts one reading per 5 minutes (see Storage.DriveTempPace)
+    /// and the average isn't mostly the hours the window was open.
+    /// </param>
+    public void UpsertDriveHealth(long day, DriveHealthInfo d, bool countTemp = true)
     {
         if (string.IsNullOrEmpty(d.Key)) return;
         double? t = d.Temperature;
+        double? counted = countTemp ? t : null;
         using var cmd = Cmd("""
             INSERT INTO drive_health_day(day, drive, name, life, hours, power_ons, read_gb, written_gb, temp_max, temp_sum, temp_n,
                 reallocated, pending, uncorrectable, status, crc, uncorrectable_reported, timeouts, media_errors, spare, warning, shut_offs)
-            VALUES($day, $drive, $name, $life, $hours, $ons, $read, $written, $t, coalesce($t, 0), $tn, $re, $pe, $un, $status,
+            VALUES($day, $drive, $name, $life, $hours, $ons, $read, $written, $t, coalesce($ct, 0), $tn, $re, $pe, $un, $status,
                 $crc, $ur, $to, $me, $sp, $wa, $so)
             ON CONFLICT(day, drive) DO UPDATE SET name = $name,
                 life = coalesce($life, life), hours = coalesce($hours, hours), power_ons = coalesce($ons, power_ons),
                 read_gb = coalesce($read, read_gb), written_gb = coalesce($written, written_gb),
                 temp_max = CASE WHEN $t IS NULL THEN temp_max WHEN temp_max IS NULL OR $t > temp_max THEN $t ELSE temp_max END,
-                temp_sum = temp_sum + coalesce($t, 0), temp_n = temp_n + $tn,
+                temp_sum = temp_sum + coalesce($ct, 0), temp_n = temp_n + $tn,
                 reallocated = coalesce($re, reallocated), pending = coalesce($pe, pending), uncorrectable = coalesce($un, uncorrectable),
                 status = $status, crc = coalesce($crc, crc), uncorrectable_reported = coalesce($ur, uncorrectable_reported),
                 timeouts = coalesce($to, timeouts), media_errors = coalesce($me, media_errors), spare = coalesce($sp, spare),
                 warning = coalesce($wa, warning), shut_offs = coalesce($so, shut_offs)
             """,
             ("$day", day), ("$drive", d.Key), ("$name", d.Name), ("$life", d.Life), ("$hours", d.PowerOnHours), ("$ons", d.PowerOnCount),
-            ("$read", d.ReadGb), ("$written", d.WrittenGb), ("$t", t), ("$tn", t is null ? 0 : 1),
+            ("$read", d.ReadGb), ("$written", d.WrittenGb), ("$t", t), ("$ct", counted), ("$tn", counted is null ? 0 : 1),
             ("$re", d.ReallocatedSectors), ("$pe", d.PendingSectors), ("$un", d.UncorrectableSectors), ("$status", d.Status),
             ("$crc", DriveCounts.CableErrors(d)), ("$ur", DriveCounts.ReportedUncorrectable(d)), ("$to", DriveCounts.Timeouts(d)),
             ("$me", DriveCounts.MediaErrors(d)), ("$sp", DriveCounts.Spare(d)), ("$wa", DriveCounts.Warning(d)), ("$so", DriveCounts.ShutOffs(d)));

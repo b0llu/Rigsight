@@ -31,7 +31,7 @@ public class WidgetPcTests : IDisposable
     private static readonly string[] PcKinds =
     [
         WidgetTiles.CpuGauge, WidgetTiles.GpuGauge, WidgetTiles.Fans, WidgetTiles.Drives, WidgetTiles.Cores, WidgetTiles.TopCpu, WidgetTiles.TopMemory,
-        WidgetTiles.NetSpeed, WidgetTiles.NetNow, WidgetTiles.NetToday, WidgetTiles.NetApps, WidgetTiles.NetHours, WidgetTiles.NetDrops,
+        WidgetTiles.NetSpeed, WidgetTiles.NetNow, WidgetTiles.NetToday, WidgetTiles.NetApps, WidgetTiles.NetHours, WidgetTiles.NetDrops, WidgetTiles.Ping,
         WidgetTiles.TodaySoFar, WidgetTiles.MostUsed, WidgetTiles.StandOut, WidgetTiles.Peaks, WidgetTiles.Yesterday, WidgetTiles.Crashes,
         WidgetTiles.Health, WidgetTiles.Changed, WidgetTiles.Week, WidgetTiles.LastGame,
     ];
@@ -117,7 +117,7 @@ public class WidgetPcTests : IDisposable
         Assert.Equal(PcNeeds.Internet | PcNeeds.Today | PcNeeds.Health,
             PcFacts.NeedsOf([Box(new WidgetTile { Kind = WidgetTiles.NetHours }), Box(new WidgetTile { Kind = WidgetTiles.Health }, new WidgetTile { Kind = WidgetTiles.NetDrops })]));
         foreach (var kind in PcKinds.Where(k => k is not (WidgetTiles.CpuGauge or WidgetTiles.GpuGauge or WidgetTiles.Fans or WidgetTiles.Drives or WidgetTiles.Cores
-                     or WidgetTiles.TopCpu or WidgetTiles.TopMemory or WidgetTiles.NetSpeed or WidgetTiles.NetNow or WidgetTiles.TodaySoFar or WidgetTiles.Peaks)))
+                     or WidgetTiles.TopCpu or WidgetTiles.TopMemory or WidgetTiles.NetSpeed or WidgetTiles.NetNow or WidgetTiles.Ping or WidgetTiles.TodaySoFar or WidgetTiles.Peaks)))
             Assert.NotEqual(PcNeeds.None, PcFacts.NeedsOf(kind));
     }
 

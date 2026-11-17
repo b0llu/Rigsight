@@ -3,6 +3,10 @@ namespace Rigsight.Core.Settings;
 /// <summary>How the app's sidebar is arranged (all by page key, e.g. "reports", "fans"; a dashboard's is "custom:" and its ID).</summary>
 public sealed class SidebarSettings
 {
+    /// <summary>Fields this version doesn't know (written by a newer RigSight): kept and written back as they were, never dropped.</summary>
+    [System.Text.Json.Serialization.JsonExtensionData]
+    public Dictionary<string, System.Text.Json.JsonElement>? Unknown { get; set; }
+
     /// <summary>Pages in the order picked; pages not listed follow in their usual order, at the end of their group.</summary>
     public List<string> Order { get; set; } = [];
 

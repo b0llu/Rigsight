@@ -30,6 +30,10 @@ public sealed record NetBin(DateTime Start, long Down, long BgDown, long Up)
     public IReadOnlyList<GameDownload> Steam { get; init; } = [];
     /// <summary>Ping checks were off for the whole of it (stopped from Settings or the Network page).</summary>
     public bool PingOff { get; init; }
+    /// <summary>The ping to each game's, call's and picked app's server in it, slowest first (none: none checked then).</summary>
+    public IReadOnlyList<NetServerHour> Servers { get; init; } = [];
+    /// <summary>The slowest of <see cref="Servers"/>: the graph's games and calls line.</summary>
+    public int? ServerMs => Servers.Count > 0 ? Servers[0].Ms : null;
     /// <summary>Why nothing at all was recorded in it, where Windows' log says ("PC was off", "PC was asleep"): an
     /// empty bar of a PC that was off isn't "no internet use". Null for a bar with anything in it, or one still to come.</summary>
     public string? OffWhy { get; init; }
@@ -39,12 +43,18 @@ public sealed record NetBin(DateTime Start, long Down, long BgDown, long Up)
     public bool Equals(NetBin? other) =>
         other is not null && Start == other.Start && Down == other.Down && BgDown == other.BgDown && Up == other.Up
         && Background == other.Background && Away == other.Away && UnrecordedMinutes == other.UnrecordedMinutes
-        && AppCount == other.AppCount && Ping == other.Ping && Game == other.Game && OffWhy == other.OffWhy && PingOff == other.PingOff && Steam.SequenceEqual(other.Steam)
+        && AppCount == other.AppCount && Ping == other.Ping && Servers.SequenceEqual(other.Servers) && Game == other.Game && OffWhy == other.OffWhy && PingOff == other.PingOff && Steam.SequenceEqual(other.Steam)
         && Apps.Count == other.Apps.Count
         && Apps.Zip(other.Apps).All(p => p.First.App == p.Second.App && p.First.Down == p.Second.Down && p.First.Up == p.Second.Up && p.First.Background == p.Second.Background);
 
     public override int GetHashCode() => HashCode.Combine(Start, Down, Up, Background);
 }
+
+/// <summary>
+/// One app's server in a bar: the middle of its minutes' figures, its highest, and its checks lost of those made. Its
+/// name and program (for the icon) are the app's as the page names it.
+/// </summary>
+public sealed record NetServerHour(string Exe, string Name, string? Path, string Kind, int Ms, int Highest, int Lost, int Sent);
 
 /// <summary>One app's internet use over a period, and when it used the most.</summary>
 public sealed class NetAppStat
@@ -368,6 +378,18 @@ public static class NetReportBuilder
     {
         DateTime End(NetBin b) => r.Hourly ? b.Start.AddHours(1) : r.Range == ReportRange.Year ? b.Start.AddMonths(1) : b.Start.AddDays(1);
         var pings = db.GetNetPings(f, t);
+        var serverMinutes = db.GetNetServers(f, t);
+        var byExe = apps.Values.GroupBy(a => a.Exe, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        List<NetServerHour> ServersIn(long bf, long bt) => [.. serverMinutes.Where(m => m.Ts >= bf && m.Ts < bt).GroupBy(m => m.Exe, StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var answered = g.Select(m => m.Ms).OfType<int>().Order().ToList();
+                if (answered.Count == 0) return null;
+                var app = byExe.GetValueOrDefault(g.Key);
+                string name = app is not null ? NameOf(apps, settings, app.Id) : g.Key.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? g.Key[..^4] : g.Key;
+                return new NetServerHour(g.Key, name, app?.Path, g.Last().Kind, answered[answered.Count / 2], g.Max(m => m.Max ?? 0), g.Sum(m => m.Lost), g.Sum(m => m.Sent));
+            })
+            .OfType<NetServerHour>().OrderByDescending(s => s.Ms)];
         r.Line = NetLine.Of(pings);
         r.PingSince = db.FirstNetPing() is long firstPing ? TimeUtil.FromUnix(firstPing) : null;
         var switches = db.GetNetPingSwitches(f, t);
@@ -400,7 +422,7 @@ public static class NetReportBuilder
             bool off = ping is null && b.Start < r.BuiltAt && !OnAt(b.Start) && !r.PingSwitches.Any(s => s.On && s.At > b.Start && s.At < End(b));
             return b with
             {
-                Ping = ping, PingOff = off,
+                Ping = ping, PingOff = off, Servers = ServersIn(bf, bt),
                 Game = game.Name, GamePath = game.Path,
                 Steam = [.. steam.Where(d => d.Started >= b.Start && d.Started < End(b))],
             };

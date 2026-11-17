@@ -497,7 +497,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
     }
 
     /// <summary>Every sensor on this PC, for the picker, and RigSight's own network speeds.</summary>
-    public IReadOnlyList<SensorItem> AllSensors => [.. _live.PickableSensors, .. _live.NetSensors, .. _live.FpsSensors];
+    public IReadOnlyList<SensorItem> AllSensors => [.. _live.PickableSensors, .. _live.NetSensors, .. _live.PingSensors, .. _live.FpsSensors];
 
     /// <summary>Every reading in the taskbar, in its order.</summary>
     public ObservableCollection<TaskbarSensorRow> Sensors { get; } = [];
@@ -533,6 +533,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
             One(Lang.T("Download speed"), _live.NetSensors[0]);
             One(Lang.T("Upload speed"), _live.NetSensors[1]);
             One(Lang.T("Download and upload"), _live.NetSensors[2]);
+            One(Lang.T("Ping"), _live.PingSensors[0]);
             One(Lang.T("FPS"), _live.FpsSensors[0]);
             return picks;
         }
@@ -1382,6 +1383,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
         foreach (var item in _live.NetSensors) byId.TryAdd(item.Id, item);
         // The game's frame rate (it was "not found" here: its spot drew a bare "–" with no name).
         foreach (var item in _live.FpsSensors) byId.TryAdd(item.Id, item);
+        foreach (var item in _live.PingSensors) byId.TryAdd(item.Id, item);
         bool same = wanted.Count == Sensors.Count && wanted.SequenceEqual(Sensors.Select(r => r.Id))
                     && Sensors.All(r => r.Sensor is { } s ? byId.GetValueOrDefault(r.Id) == s : !byId.ContainsKey(r.Id));
         if (!same)

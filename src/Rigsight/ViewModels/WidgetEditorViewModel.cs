@@ -99,7 +99,29 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
 
     public string Id { get; }
 
-    public void Close() => _tick.Stop();
+    public void Close()
+    {
+        _closed = true;
+        _tick.Stop();
+    }
+
+    private bool _closed;
+
+    /// <summary>
+    /// The page left or the window minimized with the editor open: no drawing each second for a picture nobody sees
+    /// (it went on for the rest of the session otherwise). <see cref="Resume"/> draws it again at once.
+    /// </summary>
+    public void Pause() => _tick.Stop();
+
+    public void Resume()
+    {
+        if (_closed || _tick.IsEnabled) return;
+        Draw();
+        _tick.Start();
+    }
+
+    /// <summary>Whether the picture is being drawn each second (for tests).</summary>
+    internal bool Drawing => _tick.IsEnabled;
 
     internal static WidgetConfig Clone(WidgetConfig w) =>
         JsonSerializer.Deserialize<WidgetConfig>(JsonSerializer.Serialize(w, SettingsStore.JsonOptions), SettingsStore.JsonOptions)!;
@@ -599,7 +621,7 @@ public sealed partial class WidgetEditorViewModel : ObservableObject
         WidgetTiles.Drives => "\uEDA2",
         WidgetTiles.Cores or WidgetTiles.TopCpu => "\uE950",
         WidgetTiles.TopMemory => "\uE964",
-        WidgetTiles.NetSpeed or WidgetTiles.NetNow or WidgetTiles.NetToday or WidgetTiles.NetApps or WidgetTiles.NetDrops => "\uE839",
+        WidgetTiles.NetSpeed or WidgetTiles.NetNow or WidgetTiles.NetToday or WidgetTiles.NetApps or WidgetTiles.NetDrops or WidgetTiles.Ping => "\uE839",
         WidgetTiles.NetHours or WidgetTiles.Week => "\uE9D2",
         WidgetTiles.TodaySoFar => "\uE823",
         WidgetTiles.MostUsed or WidgetTiles.Yesterday => "\uE8A9",

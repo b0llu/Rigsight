@@ -978,8 +978,12 @@
                         </VisualStateManager.VisualStateGroups>
                         <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Choice}" Opacity="0" />
                         <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Choice}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S14}" />
+                            <Grid>
+                                <ContentPresenter x:Name="Cp" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S14}" />
+                                <!-- The glyph drawn by its outline's middle: at a zoom, text is moved to whole pixels and sat off the middle. -->
+                                <ctl:GlyphPresenter Content="{TemplateBinding Content}" Target="{Binding ElementName=Cp}" />
+                            </Grid>
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
@@ -1049,8 +1053,9 @@
                     <Grid x:Name="Root">
                         <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="{x:Static ctl:Corner.Choice}" />
                         <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Choice}" />
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.FontFamily="{StaticResource IconFont}"
+                        <ContentPresenter x:Name="Cp" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.FontFamily="{StaticResource IconFont}"
                                           TextElement.FontSize="{x:Static ctl:IconSize.S14}" />
+                        <ctl:GlyphPresenter Content="{TemplateBinding Content}" Target="{Binding ElementName=Cp}" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">

@@ -511,15 +511,21 @@ public sealed partial class FansViewModel : ObservableObject
         if (id != _load) return;
         FirstDay = first ?? today;
 
-        // The first of any two rows for one sensor: a duplicate must not leave the page loading for good.
-        var bySensor = history.Fans.GroupBy(f => f.Sensor).ToDictionary(g => g.Key, g => g.First().Id);
-        var spun = history.Days.Where(d => d.RpmMax >= FanCard.MinSpinRpm).Select(d => d.Fan).ToHashSet();
-        var minutes = history.System.ToDictionary(m => m.Ts);
-        var byFan = history.Minutes.GroupBy(m => m.Fan).ToDictionary(g => g.Key, g => g.ToList());
-        var apps = history.Apps.ToDictionary(a => a.Id);
         var s = _settings.Current;
-        // A launcher named for the GPU's work while a game was in front: the game's (see GameWork).
-        GameWork.Settle(history.System, app => app is long i && apps.TryGetValue(i, out var row) ? CategoryOf(row, s) : Core.Settings.AppCategory.Other);
+        // Sorted out off the window's thread: a week or a month is every minute of every fan.
+        var (bySensor, spun, minutes, byFan, apps) = await Task.Run(() =>
+        {
+            // The first of any two rows for one sensor: a duplicate must not leave the page loading for good.
+            var bySensor = history.Fans.GroupBy(f => f.Sensor).ToDictionary(g => g.Key, g => g.First().Id);
+            var spun = history.Days.Where(d => d.RpmMax >= FanCard.MinSpinRpm).Select(d => d.Fan).ToHashSet();
+            var minutes = history.System.ToDictionary(m => m.Ts);
+            var byFan = history.Minutes.GroupBy(m => m.Fan).ToDictionary(g => g.Key, g => g.ToList());
+            var apps = history.Apps.ToDictionary(a => a.Id);
+            // A launcher named for the GPU's work while a game was in front: the game's (see GameWork).
+            GameWork.Settle(history.System, app => app is long i && apps.TryGetValue(i, out var row) ? CategoryOf(row, s) : Core.Settings.AppCategory.Other);
+            return (bySensor, spun, minutes, byFan, apps);
+        });
+        if (id != _load) return;
         List<FanMinute> MinutesOf(SensorItem x) => bySensor.TryGetValue(x.Id, out var f) && byFan.TryGetValue(f, out var list) ? list : [];
 
         // A graphics card's fans always show, as one row per card (they stand still for days on a light load); a board
@@ -541,7 +547,9 @@ public sealed partial class FansViewModel : ObservableObject
             DateTime? changed = !card.IsGpu && !IsYear && FanSetting.ChangedOn(fanDays) is long day ? TimeUtil.FromUnix(day).Date : null;
             long since = changed > from ? TimeUtil.ToUnix(changed.Value) : 0;
             List<FanMinute> Current(SensorItem x) => since > 0 ? [.. MinutesOf(x).Where(m => m.Ts >= since)] : MinutesOf(x);
-            var each = fans.Select(x => FanAnalysis.Of(card.IsGpu, Current(x), minutes)).ToList();
+            bool isGpu = card.IsGpu;
+            var each = await Task.Run(() => fans.Select(x => FanAnalysis.Of(isGpu, Current(x), minutes)).ToList());
+            if (id != _load) return;
             card.Facts = FanCard.Merge(each);
             card.FastestLine = card.Facts.Fastest is { } p
                 ? PeakWords.Line(p.Rpm, p.App is long a && apps.TryGetValue(a, out var app) ? NameOf(app, s) : null, p.Ts,

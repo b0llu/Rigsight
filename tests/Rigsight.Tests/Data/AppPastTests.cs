@@ -107,6 +107,53 @@ public sealed class AppPastTests
     }
 
     [Fact]
+    public void Its_cpu_time_is_read_by_the_hour_today_and_by_the_day_before()
+    {
+        using var t = new TestDb();
+        long discord = t.Db.UpsertApp("Discord.exe", "Discord", null, AppCategory.Communication);
+        int threads = Environment.ProcessorCount;
+        // Recorded from 9 AM today (every process's total has a row), and on the 4 days before but not the 3 before those.
+        for (int h = 9; h <= 15; h++) t.Db.AddAppCpuUse(new AppCpuUse(Hour(Today, h), AppCpuUse.AllApps, 100_000));
+        foreach (int d in new[] { 1, 2, 3, 4, 8 })
+            t.Db.AddAppCpuUse(new AppCpuUse(Hour(Today.AddDays(-d), 12), AppCpuUse.AllApps, 100_000));
+        // Today: CPU time in three hours (the other recorded hours none); the hour now is 20 minutes old.
+        t.Db.AddAppCpuUse(new AppCpuUse(Hour(Today, 10), discord, 36_000L * threads, 0, 0, 0, 3600, 3600L * 500));  // 1% of the CPU
+        t.Db.AddAppCpuUse(new AppCpuUse(Hour(Today, 11), discord, 122_000, 0, 0, 0, 3600, 3600L * 500));
+        t.Db.AddAppCpuUse(new AppCpuUse(Hour(Today, 15), discord, 12_000L * threads, 0, 0, 0, 1200, 1200L * 600)); // 1% of 20 minutes
+        // The days before: three days with CPU time (a usual), one it didn't run.
+        foreach (int d in new[] { 1, 2, 3 })
+            t.Db.AddAppCpuUse(new AppCpuUse(Hour(Today.AddDays(-d), 12), discord, 72_000L * threads, 0, 0, 0, 7200, 7200L * 400)); // 2% of an hour
+
+        var past = AppPast.Read(t.Db, "discord.exe", Now);
+        Assert.Equal(16, past.CpuHourMs.Length);
+        Assert.All(past.CpuHourMs.Take(9), h => Assert.Null(h)); // before recording started today
+        Assert.Equal(new long?[] { 0, 36_000L * threads, 122_000, 0, 0, 0, 12_000L * threads }, past.CpuHourMs.Skip(9));
+        Assert.Equal(1, past.CpuPct(10)!.Value, 6);
+        Assert.Equal(1, past.CpuPct(15)!.Value, 6); // over the 20 minutes gone
+        Assert.Equal(0, past.CpuPct(9));
+        Assert.Null(past.CpuPct(3));
+        Assert.Equal(2, past.CpuUsualPct!.Value, 6);
+
+        Assert.Equal(AppPast.UsualDays, past.Days.Count);
+        Assert.Equal(Today, past.Days[^1].Day);
+        var today = past.Days[^1];
+        Assert.Equal((true, 48_000L * threads + 122_000, 8400.0), (today.Recorded, today.CpuMs, today.RunSec));
+        Assert.Equal((3600 * 500.0 * 2 + 1200 * 600) / 8400, today.MemMb!.Value, 6);
+        Assert.True(past.Days[^2].Ran);
+        Assert.Equal((true, false), (past.Days[^5].Recorded, past.Days[^5].Ran)); // recorded, but it didn't run
+        Assert.False(past.Days[^6].Recorded);                                      // nothing recorded at all that day
+        Assert.Equal(72_000.0 * threads, past.CpuUsualDayMs!.Value, 6);
+
+        // Nothing recorded at all yet: nothing about CPU time.
+        using var none = new TestDb();
+        none.Db.UpsertApp("Discord.exe", "Discord", null, AppCategory.Communication);
+        var bare = AppPast.Read(none.Db, "discord.exe", Now);
+        Assert.Empty(bare.CpuHourMs);
+        Assert.Empty(bare.Days);
+        Assert.Null(bare.CpuUsualPct);
+    }
+
+    [Fact]
     public void Something_ended_from_Processes_is_kept_as_a_change_and_read_back()
     {
         using var t = new TestDb();

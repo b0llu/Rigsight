@@ -30,7 +30,9 @@ public sealed partial class RigsightDb : IDisposable
         {
             conn.Open();
             var db = new RigsightDb(conn);
-            db.Exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;");
+            // The write-ahead file is cut back to 64 MB after each checkpoint: one big delete (a shorter history picked)
+            // otherwise left it at its largest for as long as the agent ran, which is all day.
+            db.Exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA journal_size_limit=67108864;");
             // All of an upgrade or none of it: a step is "done" when its table or column exists, so an agent ended between
             // making a table and filling it from the older history (the installer restarting it) left that table empty for good.
             using (var upgrade = db.BeginTransaction())
@@ -239,6 +241,7 @@ public sealed partial class RigsightDb : IDisposable
         EnsureNoticeSchema();
         EnsureDiskSchema();
         EnsureDriveHealthSchema();
+        EnsureAppCpuSchema();
     }
 
     private const string FansFreshKey = "fans_fresh";
@@ -1032,9 +1035,11 @@ public sealed partial class RigsightDb : IDisposable
     }
 
     /// <summary>Deletes all history older than <paramref name="before"/>: every table uses the same cutoff.</summary>
-    public void Prune(long before)
+    /// <returns>How many minutes of readings went: a month or more is worth <see cref="Shrink"/> afterwards.</returns>
+    public int Prune(long before)
     {
-        using (var c1 = Cmd("DELETE FROM system_minute WHERE ts < $t", ("$t", before))) c1.ExecuteNonQuery();
+        int minutes;
+        using (var c1 = Cmd("DELETE FROM system_minute WHERE ts < $t", ("$t", before))) minutes = c1.ExecuteNonQuery();
         using (var c1a = Cmd("DELETE FROM app_minute WHERE ts < $t", ("$t", before))) c1a.ExecuteNonQuery();
         using (var c2 = Cmd("DELETE FROM app_hour WHERE ts < $t", ("$t", before))) c2.ExecuteNonQuery();
         using (var c2m = Cmd($"""
@@ -1078,9 +1083,25 @@ public sealed partial class RigsightDb : IDisposable
         using (var c6 = Cmd("DELETE FROM frame_minute WHERE ts < $t; DELETE FROM stutter WHERE ts_ms < $t * 1000", ("$t", before))) c6.ExecuteNonQuery();
         PruneNetwork(before);
         PruneDisk(before);
+        PruneAppCpu(before);
         PruneDriveHealth(before);
         PruneChanges(before);
         if (HasSteamDownloads) using (var c7 = Cmd("DELETE FROM steam_download WHERE ended < $t", ("$t", before))) c7.ExecuteNonQuery();
+        return minutes;
+    }
+
+    /// <summary>Minutes of readings deleted at once past which the file is worth shrinking (about a month).</summary>
+    public const int ShrinkAfterMinutes = 30 * 1440;
+
+    /// <summary>
+    /// Gives the space of deleted history back to the disk: deleted rows only go to SQLite's free list, so someone who picks
+    /// a shorter history to free space got none. Outside any transaction; it rewrites the whole file, so only after a big prune.
+    /// </summary>
+    public void Shrink()
+    {
+        Exec("PRAGMA wal_checkpoint(TRUNCATE);");
+        Exec("VACUUM;");
+        Exec("PRAGMA wal_checkpoint(TRUNCATE);");
     }
 
     /// <summary>
@@ -1106,9 +1127,9 @@ public sealed partial class RigsightDb : IDisposable
     {
         Exec("DELETE FROM system_minute; DELETE FROM system_day; DELETE FROM app_hour; DELETE FROM app_month; DELETE FROM sessions; DELETE FROM drive_day; DELETE FROM drive_health_day; DELETE FROM crashes; DELETE FROM crash_signs; DELETE FROM close_up;"
             + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM fan_level_day; DELETE FROM app_minute;"
-            + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop; DELETE FROM net_ping; DELETE FROM net_ping_switch;"
+            + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop; DELETE FROM net_ping; DELETE FROM net_ping_switch; DELETE FROM net_server;"
             + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter; DELETE FROM steam_download;"
-            + " DELETE FROM disk_app_hour; DELETE FROM disk_app_day;");
+            + " DELETE FROM disk_app_hour; DELETE FROM disk_app_day; DELETE FROM app_cpu_hour; DELETE FROM app_cpu_day;");
     }
 
     // ── Reader ────────────────────────────────────────────────────────────

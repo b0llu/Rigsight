@@ -116,7 +116,7 @@ internal static class BackgroundUpdater
     {
         var settings = SettingsStore.Load();
         var attempt = UpdateStore.ReadAttempt();
-        if (attempt is not null && attempt.Version <= ReleaseFeed.Current) UpdateStore.ClearAttempt(); // it worked
+        if (UpdatePolicy.Worked(attempt, ReleaseFeed.Current)) UpdateStore.ClearAttempt();
 
         // Automatic updates off: RigSight doesn't contact GitHub by itself at all (not even to look). The app's
         // "Check for updates" still asks when it's pressed.
@@ -149,33 +149,36 @@ internal static class BackgroundUpdater
 
         bool newer = ReleaseFeed.IsNewer(latest);
         UpdateStore.Tidy(newer ? latest : null);
-        if (!newer) return UpToDate;
+        var ready = newer ? await UpdateStore.DownloadedAsync() : null;
 
-        if (await UpdateStore.DownloadedAsync() is { } ready)
+        // Downloaded in an earlier session and still not installed: installed at startup, once. The window is checked
+        // last, right before: opened in the meantime, it's left alone (the app offers the update).
+        switch (UpdatePolicy.Decide(UpdateRules.Background, ReleaseFeed.Current, latest?.Version, ready?.Version, attempt,
+                    atStartup, mayDownload: download, appOpen: AppIsOpen(), askedNow: false, now: DateTime.Now))
         {
-            // Downloaded in an earlier session and still not installed: install it now, once. A version that
-            // was already tried and didn't take is left to the app, which offers "Try again" and the download page.
-            // The window is checked again right before: opened in the meantime, it's left alone (the app offers the update).
-            if (atStartup && settings.AutoUpdate && ReleaseFeed.Normalize(attempt?.Version ?? new Version()) != ready.Version
-                && !AppIsOpen() && await UpdateInstaller.RunAsync(ReleaseFeed.BackgroundArguments))
-                return Installing;
-            return Downloaded;
-        }
-        if (!settings.AutoUpdate || !download) return Available;
-
-        try
-        {
-            await UpdateStore.DownloadAsync(latest!);
-            Log.Write("update", $"Downloaded {latest!.Version}");
-            // The language pack for it too, so the updated app starts in the same language.
-            await LanguageStore.PrepareForUpdateAsync(settings.Language, latest.Version);
-            return Downloaded;
-        }
-        catch (Exception ex)
-        {
-            // Tried again at the next check; meanwhile the app offers the download itself.
-            Log.Write("update", $"Download failed: {ex.Message}");
-            return Available;
+            case UpdateStep.UpToDate:
+                return UpToDate;
+            case UpdateStep.Install:
+                return await UpdateInstaller.RunAsync(ReleaseFeed.BackgroundArguments) ? Installing : Downloaded;
+            case UpdateStep.Download:
+                try
+                {
+                    await UpdateStore.DownloadAsync(latest!);
+                    Log.Write("update", $"Downloaded {latest!.Version}");
+                    // The language pack for it too, so the updated app starts in the same language.
+                    await LanguageStore.PrepareForUpdateAsync(settings.Language, latest.Version);
+                    return Downloaded;
+                }
+                catch (Exception ex)
+                {
+                    // Tried again at the next check; meanwhile the app offers the download itself.
+                    Log.Write("update", $"Download failed: {ex.Message}");
+                    return Available;
+                }
+            case UpdateStep.Offer:
+                return Available;
+            default: // Wait, TriedBefore (left to the app, which offers "Try again" and the download page), WindowOpen
+                return Downloaded;
         }
     }
 }

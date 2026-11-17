@@ -115,19 +115,27 @@ internal static class SystemUpdater
         bool newer = ReleaseFeed.IsNewer(latest);
         UpdateStore.Tidy(newer ? latest : null);
         var attempt = UpdateStore.ReadAttempt();
-        if (attempt is not null && attempt.Version <= ReleaseFeed.Current) UpdateStore.ClearAttempt(); // it worked
+        if (UpdatePolicy.Worked(attempt, ReleaseFeed.Current)) UpdateStore.ClearAttempt();
         // Said every run: this log (the system's own) is the only place that tells what the updater found.
         Log.Write("update", newer ? $"{latest!.Version} is out, this is {ReleaseFeed.Current}" : $"Up to date ({ReleaseFeed.Current})");
-        if (!newer) return UpToDate;
 
-        if (attempt is not null && ReleaseFeed.Normalize(attempt.Version) == latest!.Version && DateTime.Now - attempt.At < TimeSpan.FromHours(20))
-            return Later;
         var windows = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(RigsightPaths.AppExe));
         foreach (var p in windows) p.Dispose();
-        if (windows.Length > 0 && !SomeoneAskedNow())
+        bool appOpen = windows.Length > 0;
+        switch (UpdatePolicy.Decide(UpdateRules.SystemTask, ReleaseFeed.Current, latest?.Version, downloaded: null, attempt,
+                    atStartup: false, mayDownload: true, appOpen, askedNow: appOpen && SomeoneAskedNow(), now: DateTime.Now))
         {
-            Log.Write("update", $"{latest!.Version} is out, and a Rigsight window is open: left for the next run");
-            return Later;
+            case UpdateStep.UpToDate:
+                return UpToDate;
+            case UpdateStep.TriedBefore:
+                return Later;
+            case UpdateStep.WindowOpen:
+                Log.Write("update", $"{latest!.Version} is out, and a Rigsight window is open: left for the next run");
+                return Later;
+            case UpdateStep.Install:
+                break;
+            default: // never with these rules: they install at every run
+                return Failed;
         }
 
         try

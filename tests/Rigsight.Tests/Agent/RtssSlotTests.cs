@@ -135,7 +135,8 @@ public sealed unsafe class RtssSlotTests : IDisposable
     public void While_RivaTuner_is_busy_nothing_is_written_and_its_flag_is_kept()
     {
         *(int*)(_memory + 36) = 1;
-        Assert.True(Write("later"));
+        // Nothing written: false, so the overlay tries again on its next update rather than taking it as done (audit CQ-5).
+        Assert.False(Write("later"));
         Assert.Equal("", OwnerOf(1));
         Assert.Equal(1, Busy);
     }
