@@ -19,6 +19,9 @@ public sealed partial class AiTools
 {
     private const int MaxRows = 48;
 
+    /// <summary>Apps get_apps lists one by one; the rest are counted.</summary>
+    internal const int MostApps = 25;
+
     private static JsonArray MoreDefinitions() =>
     [
         Def("get_moment", "Everything RigSight recorded around one time (10 minutes either side): temperatures, loads, power, fans, memory, the app in front and the busiest apps, internet use, and any crash then. For \"what happened at 3 PM\" or right before something.", new JsonObject
@@ -158,7 +161,37 @@ public sealed partial class AiTools
         if (settings.Ai.Sends(AiPages.Memory))
             try { usual = WithDb(db => MemoryPast.UsualOf(db, DateTime.Now)); }
             catch (Exception ex) { Log.Write("ai", $"running now: the usual memory couldn't be read ({ex.GetType().Name}: {ex.Message})"); }
-        return snapshot.Text(usual);
+        return snapshot.Text(usual) + RivaTunerNow(snapshot);
+    }
+
+    /// <summary>
+    /// Whether RivaTuner Statistics Server is running now, which every frame rate RigSight records comes from. It uses
+    /// too little memory and CPU to make the list, so "RTSS isn't in the list of running apps" was told to a person whose
+    /// game minutes had frame rates from it (audit Q125, Q128, 2026-11-17). Said as running only from the process list or
+    /// the agent's own check now, never from old readings; a frame rate in the last few minutes is added to that.
+    /// </summary>
+    private string RivaTunerNow(RunningSnapshot snapshot)
+    {
+        var rtss = snapshot.Apps.FirstOrDefault(a => a.Exe.Equals("RTSS.exe", StringComparison.OrdinalIgnoreCase));
+        string? state = RivaTuner?.Invoke();
+        if (rtss is null && state != "running")
+            return state is "stopped" or "missing" or "install-failed"
+                ? "RivaTuner Statistics Server isn't running now, so no frame rates are being recorded (RigSight reads them only from it).\n" : "";
+        string fps = "";
+        if (settings.Ai.Sends(AiPages.Apps))
+            try
+            {
+                fps = WithDb(db =>
+                {
+                    long now = TimeUtil.ToUnix(DateTime.Now);
+                    var last = db.GetMinutes(now - 240, now + 60).LastOrDefault(m => m.Fps is not null);
+                    return last is { Fps: double f } ? $" It is supplying frame rates now: it gave {(last.FgApp is long app ? Namer(db)(app) : "the app in front")} {f:0} fps in the minute at {TimeUtil.FromUnix(last.Ts):h:mm tt}." : "";
+                });
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { Log.Write("ai", $"running now: the last frame rate couldn't be read ({ex.GetType().Name}: {ex.Message})"); }
+        bool listed = rtss is not null && snapshot.Shown().Contains(rtss);
+        return "RivaTuner Statistics Server (RTSS.exe) is running now: RigSight records every game's frame rate, lows and stutters from it."
+            + (listed ? "" : " It isn't in the list above only because it uses little memory and CPU.") + fps + "\n";
     }
 
     private static DateTime At(JsonObject args)
@@ -217,6 +250,8 @@ public sealed partial class AiTools
             if (a.Sends(AiPages.Temperatures) && minutes.All(m => m.GpuPower is null))
                 sb.AppendLine("The graphics card's power wasn't read in any of these minutes (the card gave no power reading), so it isn't below. Don't guess it.");
             sb.AppendLine("Each recorded minute:");
+            if (a.Sends(AiPages.Apps) && minutes.Any(m => m.Fps is not null))
+                sb.AppendLine("  (A minute with fps had RivaTuner Statistics Server running then: RigSight's frame rates come only from it.)");
             foreach (var m in minutes)
             {
                 var parts = new List<string>();
@@ -308,6 +343,7 @@ public sealed partial class AiTools
             foreach (var g in groups.Except(still))
             {
                 sb.AppendLine($"  {FanName(g.Key)}:");
+                if (g.Count() > 14) sb.AppendLine($"    (the newest 14 of {g.Count()} days)");
                 foreach (var d in g.TakeLast(14))
                     sb.AppendLine($"    {TimeUtil.FromUnix(d.Day):ddd d MMM}: {d.Rpm:0} rpm, at rest {(d.IdleRpm is double i ? $"{i:0} rpm" : "-")}, up to {d.RpmMax} rpm");
             }
@@ -328,8 +364,8 @@ public sealed partial class AiTools
         if (totals.Count == 0) return $"No apps recorded on {said}.";
         var net = settings.Ai.Sends(AiPages.Network) ? db.GetNetAppTotals(f, t).ToDictionary(n => n.App) : [];
         var sb = new StringBuilder();
-        sb.AppendLine($"Apps on {said}, most time in front first (at most 25):");
-        foreach (var a in totals.Take(25))
+        sb.AppendLine($"Apps on {said}, most time in front first" + (totals.Count > MostApps ? $" (showing the top {MostApps} of {totals.Count} apps):" : $" (all {totals.Count}):"));
+        foreach (var a in totals.Take(MostApps))
         {
             var parts = new List<string> { $"{Units.Duration(a.FgSec)} in front", $"{Units.Duration(a.BgSec + a.MinSec)} open behind" };
             if (a.CpuN > 0) parts.Add($"CPU {a.CpuSum / a.CpuN:0}% on average (up to {a.CpuMax:0}%)");
@@ -340,7 +376,10 @@ public sealed partial class AiTools
             if (net.TryGetValue(a.AppId, out var n) && n.Down + n.Up > 0) parts.Add($"internet {Units.Data(n.Down)} down, {Units.Data(n.Up)} up");
             sb.AppendLine($"  {name(a.AppId)}: {string.Join(", ", parts)}");
         }
-        if (totals.Count > 25) sb.AppendLine($"  ({totals.Count - 25} more with less time)");
+        // Said with how to see the rest: a 30-day list left an app out and the answer said it had no history (audit Q094, 2026-11-17).
+        if (totals.Count > MostApps)
+            sb.AppendLine($"Showing the top {MostApps} of {totals.Count} apps; the other {totals.Count - MostApps} had less time in front and aren't listed. An app missing here may still have run in this period: "
+                + "ask get_apps again for a shorter period (a day or a week) before saying it has no records.");
         return sb.ToString();
     }
 
@@ -357,6 +396,7 @@ public sealed partial class AiTools
         var groups = minutes.GroupBy(m => { var d = TimeUtil.FromUnix(m.Ts); return byDay ? d.Date : d.Date.AddHours(d.Hour); }).ToList();
         foreach (var g in groups.TakeLast(MaxRows))
             sb.AppendLine($"  {g.Key.ToString(byDay ? "ddd d MMM" : "ddd h tt", CultureInfo.InvariantCulture)}: {g.Average(m => m.RamUsed!.Value):0.0} / {g.Max(m => m.RamUsed!.Value):0.0} GB");
+        if (groups.Count > MaxRows) sb.AppendLine($"  (the {groups.Count - MaxRows} earlier rows left out)");
         var full = minutes.MaxBy(m => m.RamUsed!.Value)!;
         sb.Append($"Fullest minute: {full.RamUsed:0.0} GB at {TimeUtil.FromUnix(full.Ts):ddd d MMM h:mm tt}");
         var name = Namer(db);
@@ -370,12 +410,14 @@ public sealed partial class AiTools
             sb.AppendLine($"Closest Windows came to running out: {c:0}% of what it can promise (RAM and page file together) at {TimeUtil.FromUnix(tight.Ts):ddd d MMM h:mm tt}. Near 100% is about to run out.");
         if (settings.Ai.Sends(AiPages.Apps))
         {
-            var most = db.GetAppMemoryTotals(f, t).Where(x => x.MemN > 0).OrderByDescending(x => x.MemSum / x.MemN).Take(8).ToList();
+            var all = db.GetAppMemoryTotals(f, t).Where(x => x.MemN > 0).ToList();
+            var most = all.OrderByDescending(x => x.MemSum / x.MemN).Take(8).ToList();
             // Each with its usual, the Memory page's figure (30 days before today), so "usual" means one thing everywhere.
             var usual = MemoryPast.UsualOf(db, DateTime.Now);
             var exes = db.LoadApps().ToDictionary(a => a.Id, a => a.Exe);
             string Usual(long app) => exes.TryGetValue(app, out var exe) && usual.TryGetValue(exe, out double u) ? $" (usual {Units.Megabytes(u)})" : "";
-            if (most.Count > 0) sb.AppendLine($"Apps using the most memory on average while open on {said}: " + string.Join(", ", most.Select(m => $"{name(m.AppId)} {Units.Megabytes(m.MemSum / m.MemN)}{Usual(m.AppId)}")) + ".");
+            if (most.Count > 0) sb.AppendLine($"Apps using the most memory on average while open on {said}" + (all.Count > most.Count ? $" (the top {most.Count} of {all.Count} apps; get_apps has each app's memory)" : "") + ": "
+                + string.Join(", ", most.Select(m => $"{name(m.AppId)} {Units.Megabytes(m.MemSum / m.MemN)}{Usual(m.AppId)}")) + ".");
             if (most.Count > 0 && usual.Count > 0) sb.AppendLine($"An app's usual is its average memory over the {AppPast.UsualDays} days before today, the figure the Memory page shows; use it when they say \"usual\".");
         }
         return sb.ToString();
@@ -411,13 +453,15 @@ public sealed partial class AiTools
         var name = Namer(db);
         var sb = new StringBuilder();
         sb.AppendLine($"Internet on {said}: {Units.Data(days.Sum(d => d.Down))} downloaded, {Units.Data(days.Sum(d => d.Up))} uploaded. Day by day:");
+        if (days.Count > 31) sb.AppendLine($"  (the newest 31 of {days.Count} days; the totals above count them all)");
         foreach (var d in days.TakeLast(31))
             sb.AppendLine($"  {TimeUtil.FromUnix(d.Day):ddd d MMM}: {Units.Data(d.Down)} down, {Units.Data(d.Up)} up, {Units.Data(d.Background)} of it by apps not in front"
                 + (d.Best is long best ? $", fastest steady download {Units.Speed(best)}" : ""));
         if (settings.Ai.Sends(AiPages.Apps))
         {
-            var apps = db.GetNetAppTotals(f, t).OrderByDescending(a => a.Down + a.Up).Take(10).ToList();
-            if (apps.Count > 0) sb.AppendLine("Apps that used the most: " + string.Join(", ", apps.Select(a => $"{name(a.App)} {Units.Data(a.Down)} down, {Units.Data(a.Up)} up")) + ".");
+            var used = db.GetNetAppTotals(f, t).Where(a => a.Down + a.Up > 0).ToList();
+            var apps = used.OrderByDescending(a => a.Down + a.Up).Take(10).ToList();
+            if (apps.Count > 0) sb.AppendLine("Apps that used the most" + (used.Count > apps.Count ? $" (the top {apps.Count} of {used.Count} apps)" : "") + ": " + string.Join(", ", apps.Select(a => $"{name(a.App)} {Units.Data(a.Down)} down, {Units.Data(a.Up)} up")) + ".");
             var big = db.GetNetTransfers(f, t, 8);
             // What Steam downloaded, from its own log: a big Steam download is named by the game whose download was
             // running then, for certain (the user, 2026-10-30: the AI called Phantom Blade Zero "a likely candidate"
@@ -438,7 +482,7 @@ public sealed partial class AiTools
             if (big.Count > 0) sb.AppendLine("Only Steam keeps a record of what it downloaded: a big download by another launcher (Epic, EA, Ubisoft, Battle.net) can't be named.");
         }
         var drops = db.GetNetDrops(f, t);
-        sb.AppendLine(drops.Count == 0 ? "The connection didn't drop." : $"The connection dropped {drops.Count} times: " + string.Join("; ", drops.TakeLast(10).Select(d =>
+        sb.AppendLine(drops.Count == 0 ? "The connection didn't drop." : $"The connection dropped {drops.Count} times" + (drops.Count > 10 ? " (the newest 10)" : "") + ": " + string.Join("; ", drops.TakeLast(10).Select(d =>
             $"{TimeUtil.FromUnix(d.Start):d MMM h:mm tt} for {Units.Duration(d.Seconds)} ({(d.Kind == NetDropKind.Link ? "the cable or Wi-Fi itself" : "past the PC: the router or the provider")})")) + ".");
         // The line check (1.3.0): the ping to the router and to the provider's first router, every few seconds.
         var pings = db.GetNetPings(f, t);
@@ -503,6 +547,7 @@ public sealed partial class AiTools
             else runs.Add((m.Ts, m.Ts + 60, m.ActiveSec));
         }
         sb.AppendLine($"The PC on {said}. Between these stretches nothing was recorded: the PC was off or asleep, or RigSight wasn't recording (the records can't tell which):");
+        if (runs.Count > 40) sb.AppendLine($"  (the newest 40 of {runs.Count} stretches; ask a shorter period for the older ones)");
         foreach (var r in runs.TakeLast(40))
             sb.AppendLine($"  {TimeUtil.FromUnix(r.Start):ddd d MMM h:mm tt} to {TimeUtil.FromUnix(r.End):h:mm tt}: on {Units.Duration(r.End - r.Start)}, in use {Units.Duration(r.Active)}");
         if (settings.Ai.Sends(AiPages.Crashes) && db.GetCrashes(f, t).Where(c => c.Kind is CrashKind.UnexpectedShutdown or CrashKind.SystemCrash).ToList() is { Count: > 0 } downs)

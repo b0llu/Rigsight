@@ -39,6 +39,15 @@ public sealed record RunningSnapshot(DateTime At, IReadOnlyList<RunningApp> Apps
             ?? Apps.FirstOrDefault(a => a.Name.Equals(n, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>The apps the look-up lists: those using 150 MB, 2% of the CPU or 2% of the graphics card or more, busiest first, at most 20 (the 8 busiest when none do).</summary>
+    public IReadOnlyList<RunningApp> Shown()
+    {
+        var shown = Apps.Where(a => a.MemMb >= 150 || a.Cpu >= 2 || a.Gpu >= 2).Take(MostShown).ToList();
+        return shown.Count == 0 ? [.. Apps.Take(8)] : shown;
+    }
+
+    private const int MostShown = 20;
+
     /// <summary>
     /// The look-up's answer for the model: the apps using the most memory, CPU or graphics card now, each with its usual
     /// memory when one is known (<see cref="Reports.MemoryPast.UsualOf"/>, the Memory page's own figure).
@@ -47,8 +56,7 @@ public sealed record RunningSnapshot(DateTime At, IReadOnlyList<RunningApp> Apps
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Apps running now (looked at {At.ToString("h:mm:ss tt", CultureInfo.InvariantCulture)}, CPU and graphics card over one second):");
-        var shown = Apps.Where(a => a.MemMb >= 150 || a.Cpu >= 2 || a.Gpu >= 2).Take(20).ToList();
-        if (shown.Count == 0) shown = [.. Apps.Take(8)];
+        var shown = Shown();
         foreach (var a in shown)
         {
             var notes = new List<string>();
@@ -65,6 +73,9 @@ public sealed record RunningSnapshot(DateTime At, IReadOnlyList<RunningApp> Apps
             sb.AppendLine($"  {a.Name} ({a.Exe}{(a.Processes > 1 ? $", {a.Processes} processes" : "")}): memory {Units.Megabytes(a.MemMb)}{usualMb}, CPU {a.Cpu:0}%, graphics card {a.Gpu:0}%"
                 + (notes.Count > 0 ? $"; {string.Join(", ", notes)}" : "") + (a.CanClose ? "; can be closed from an answer" : ""));
         }
+        // Said with how many there are: a model took an app missing from the busiest as not running (audit Q125, 2026-11-17).
+        if (Apps.Count > shown.Count)
+            sb.AppendLine($"Showing {shown.Count} of the {Apps.Count} apps running now (those using 150 MB of memory or 2% of the CPU or graphics card, at most {MostShown}); the other {Apps.Count - shown.Count} aren't listed. An app missing from this list may still be running: never say it isn't from this list alone.");
         if (usual is not null) sb.AppendLine($"An app's usual is its average memory over the {Reports.AppPast.UsualDays} days before today, the figure the Memory page shows.");
         sb.AppendLine("This is a moment, not history: an app's usual use is in get_apps and get_memory.");
         return sb.ToString();
