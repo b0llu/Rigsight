@@ -282,5 +282,20 @@
     "in one chat about blue screens"
    ]
   ]
+ },
+ "pc-year-in-review": {
+  "colour": "hot",
+  "tiles": [
+   [
+    "October, PC on",
+    "385 h",
+    "on 29 of 31 days"
+   ],
+   [
+    "Most played",
+    "33 h",
+    "Risk of Rain 2, 22 plays"
+   ]
+  ]
  }
 }

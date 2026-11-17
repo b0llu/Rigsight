@@ -1,0 +1,69 @@
+<!--meta
+{"slug": "what-to-upgrade-in-my-pc-first", "series": "guide", "published": "2026-11-17", "updated": "2026-11-17",
+ "topic": "FPS and games",
+ "keyword": "what to upgrade in my pc first",
+ "also": ["should i upgrade cpu or gpu first", "is it worth upgrading from 16gb to 32gb ram", "is 16gb ram enough for gaming", "what to upgrade on my pc for better fps", "do i need to upgrade cpu when upgrading gpu", "is black friday a good time to buy pc parts", "what to upgrade in my pc"],
+ "title": "What to upgrade in my PC first? Ask it before Black Friday",
+ "summary": "I went from 16 to 32 GB of memory on 14 November. Windows' committed memory dropped from 94% in my heaviest game to never above 62%, but Dota 2 ran about the same. How to find what to upgrade in your PC first, from what it already does.",
+ "description": "What to upgrade in my PC first? The part your games run out of. Check GPU load, CPU load and committed memory before you buy on Black Friday.",
+ "short": "Upgrade the part your games run out of. If the GPU sits at 95% or more in your games, a faster GPU gives more frames. If the GPU waits well below that with no frame limit, look at the CPU. If Windows' committed memory gets near its limit, add RAM. Check your own games before you buy.",
+ "faq": [
+  ["What to upgrade in my PC first, the CPU or the GPU?", "Check GPU usage in the games you play most. At 95% or more, the GPU is the limit, so a better GPU helps first. Well below that with no frame cap, the CPU or the game sets the pace, and a GPU upgrade gives little. Most gaming PCs gain the most from the GPU."],
+  ["Is it worth upgrading from 16GB to 32GB RAM?", "If Windows' committed memory gets close to its limit while you game, yes. On my PC it averaged 94% in my heaviest game before the upgrade and never went above 62% after. In games that weren't near the limit, like Dota 2, the frame rate barely changed."],
+  ["Is 16GB RAM enough for gaming?", "For many games, yes, but with little room if you keep a browser and other apps open. Big new games can push a 16 GB PC close to full. Check Committed in Task Manager while you play your heaviest game."],
+  ["Is Black Friday a good time to buy PC parts?", "Often, for parts that are already a generation old, like memory, SSDs and last year's GPUs. Compare the price with its usual over the last months in a price tracker, since some deals are the normal price with a new label."]
+ ],
+ "cover_tiles": [["16 GB, committed", "94%", "average, Phantom Blade Zero"], ["32 GB, committed", "62%", "highest since the upgrade"]],
+ "app": ["Timeline: 'Memory changed to 32 GB' (14 Nov 2026, Inventory hardware change)", "Committed memory each minute (system_minute.commit_pct, SystemState.CommitPct); stutters named 'while Windows was nearly out of memory' at 90%+ (StutterCauses)", "Games page Can it run better?: GPU full load share (95%+) and 'something else sets the pace, most likely the CPU' (GamesViewModel)", "CPU and GPU usage per minute; Memory page apps and their usual; 1.13.0 Memory says when RAM was 85%+ full today and which apps held the most"],
+ "sources": ["https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/introduction-to-the-page-file", "https://www.digitalcitizen.life/how-to-tell-whether-your-cpu-or-gpu-is-limiting-gaming-performance/", "https://camelcamelcamel.com/"]}
+-->
+<p>On 14 November I took my PC from 16 to 32 GB of memory. In the two weeks before, Windows' committed memory, what apps have asked for against the limit of memory plus the page file, reached 90% or more in 2,106 minutes, and averaged 94% while I played Phantom Blade Zero. Since the upgrade it has averaged 45% and never gone above 62%. But in Dota 2, the one game I played on both sides, the frame rate went from 203 to 208 FPS. Barely a change. That's the whole question of what to upgrade in my PC first, in two numbers. An upgrade helps where the PC was running out, and only there.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records the CPU, GPU and memory every minute while you play, so the answer is already in your history before you shop. Three readings point at the part to upgrade.</p>
+
+<ul>
+  <li>GPU load. On the Games page, each game's <b>Can it run better?</b> card says how often the GPU was at full load, 95% busy or more. Most of the time means the GPU is the limit.</li>
+  <li>When the GPU rarely or never reaches full load and there's no frame limit, the same card says something else sets the pace, most likely the CPU.</li>
+  <li>Committed memory. When stutters bunch up while it's at 90% or more, RigSight names that as "while Windows was nearly out of memory". Since 1.13.0, the Memory page also says when RAM was 85% full or more today, and which apps held the most then.</li>
+</ul>
+
+<p>The Timeline lists the upgrade itself, mine as "Memory changed to 32 GB", so you can compare before and after. RigSight is free and open source.</p>
+
+<h2>What to upgrade in my PC first, from my own history</h2>
+
+<ul>
+  <li>The GPU, an RTX 3080 Ti, was at full load 87% of the time in Phantom Blade Zero, and 89% in Crimson Desert. In those games, it was the limit.</li>
+  <li>The CPU, a Ryzen 7 5700X3D, averaged 13 to 47% across my games and never reached 90% in any minute. Nothing pointed at it.</li>
+  <li>Memory was the one that ran out. 16 GB with my usual apps open left Windows' committed memory near its limit for hours.</li>
+</ul>
+
+<p>The after side so far is a few days and mostly other games. Phantom Blade Zero, the game that pushed memory to 99%, I haven't played since, so it's too soon to say what the upgrade did there. Dota 2 never got near the limit, at 85% at most, which is why more memory changed little in it. Its 1% low went from 102 to 105 FPS, and it didn't stutter less.</p>
+
+<h2>Should I upgrade my CPU or GPU first?</h2>
+
+<p>Play the games you care about with GPU usage on screen, from an overlay or Task Manager.</p>
+
+<ul>
+  <li>GPU at 95% or more most of the time. A faster GPU gives more frames. This is the usual answer for gaming PCs.</li>
+  <li>GPU well below that, with no frame limit or V-Sync, and the frame rate lower than you want. The CPU or the game sets the pace. A new GPU would wait like the old one. <a href="normal-cpu-usage-while-gaming">Normal CPU usage while gaming</a> explains why a CPU can be the limit at 30%.</li>
+  <li>Both fine, but stutters or slow alt-tabs. Look at memory next.</li>
+</ul>
+
+<h2>Is it worth upgrading from 16GB to 32GB RAM?</h2>
+
+<p>Open Task Manager's <b>Memory</b> page while you play your heaviest game, with the apps you usually keep open. <b>Committed</b> shows two numbers. When the first gets close to the second, Windows is nearly out of memory and starts leaning on the page file, which is far slower. Then 32 GB helps, as it did on my PC. When it stays well below, more memory won't change your frame rate. <a href="normal-ram-usage-while-gaming">Normal RAM usage while gaming</a> has more.</p>
+
+<p>Buy memory that matches what's in the PC, same type and speed, or replace all of it as a matched kit. Check the motherboard's supported list, and turn on XMP or EXPO in the BIOS afterwards.</p>
+
+<h2>Before you buy on Black Friday</h2>
+
+<ol>
+  <li>Decide the part from your own games first, then look at deals. A discount on the wrong part is still the wrong part.</li>
+  <li>Check the price history in a price tracker. Some Black Friday prices are the usual price with a new label.</li>
+  <li>Check it fits. For a GPU, the case's length and the power supply's wattage and cables. For memory, the type and the slots.</li>
+  <li>Note how your PC runs now, so you can tell what the upgrade changed.</li>
+</ol>
+
+<p>Your next step is to play your two most played games with GPU usage and memory on screen this week. Whatever runs out first is what to upgrade, and once it's in, <a href="how-to-test-a-new-gpu">how to test a new GPU or PC</a> covers the first week.</p>
