@@ -82,6 +82,24 @@ public sealed class AiRunningAndListsTests
     }
 
     [Fact]
+    public void A_temperature_peak_names_the_app_in_front_apart_from_the_one_working_the_part()
+    {
+        using var t = new TestDb("ai-peak-front");
+        long chrome = t.Db.UpsertApp("chrome.exe", "Google Chrome", @"C:\Apps\chrome.exe", AppCategory.Browser);
+        long steam = t.Db.UpsertApp("steam.exe", "Steam", @"C:\Apps\steam.exe", AppCategory.Launcher);
+        long s = U(DateTime.Today.AddDays(-1).AddHours(15));
+        t.Db.WriteMinute(Minute(s, cpu: 60, app: chrome, cpuApp: chrome, gpuApp: chrome));
+        t.Db.WriteMinute(Minute(s + 60, cpu: 90, cpuMax: 95, gpu: 40, gpuMax: 41, app: chrome, cpuApp: steam, gpuApp: chrome));
+        string day = DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd");
+
+        string said = new AiTools(Settings(), t.Path).Run("get_temperatures", $$"""{"from":"{{day}}","to":"{{day}}"}""");
+
+        Assert.Contains("CPU peak: 95 °C at", said);
+        Assert.Contains(", with Steam working it hardest; Google Chrome was the app in front.", said);
+        Assert.Contains(", with Google Chrome working it hardest (also the app in front).", said);
+    }
+
+    [Fact]
     public void The_running_list_says_how_many_it_leaves_out()
     {
         using var t = new TestDb("ai-running-count");

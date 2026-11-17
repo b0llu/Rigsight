@@ -314,8 +314,16 @@ public sealed partial class AiTools
         void Peak(string part, string column, string appColumn, double? value)
         {
             if (value is not double v) return;
-            string when = db.FindMinute(column, v, f, t, settings.Ai.Sends(AiPages.Apps) ? appColumn : null) is { } m
-                ? $" at {TimeUtil.FromUnix(m.Ts):ddd d MMM h:mm tt}" + (m.App is long app ? $", with {name(app)} working it hardest" : "") : "";
+            bool apps = settings.Ai.Sends(AiPages.Apps);
+            string when = db.FindMinute(column, v, f, t, apps ? appColumn : null) is { } m
+                ? $" at {TimeUtil.FromUnix(m.Ts):ddd d MMM h:mm tt}" + (m.App is long app ? $", with {name(app)} working it hardest" : "") + InFront(m.Ts, m.App) : "";
+            // The app in front that minute, said apart from the one working the part hardest: they differ when a game
+            // waits in the background or a download runs behind a browser, and one was read as the other.
+            string InFront(long ts, long? hardest)
+            {
+                if (!apps || db.GetMinutes(ts, ts + 60).FirstOrDefault()?.FgApp is not long front) return "";
+                return front == hardest ? " (also the app in front)" : $"; {name(front)} was the app in front";
+            }
             sb.AppendLine($"{part} peak: {v:0} °C{when}.");
         }
         Peak("CPU", "cpu_temp_max", "cpu_app", range.CpuMax);
