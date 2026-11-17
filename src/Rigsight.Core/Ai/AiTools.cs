@@ -131,10 +131,11 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
                 "get_crashes" => WithDb(db => Crashes(db, Day(args, "from"), Day(args, "to"))),
                 "get_changes" => WithDb(db => Changes(db, Day(args, "from"), Day(args, "to"))),
                 "list_games" when args["from"] is not null || args["to"] is not null =>
-                    WithDb(db => GamesIn(db, Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to"))),
+                    WithDb(db => NotRecorded(db, Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to")) + GamesIn(db,Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to"))),
                 "list_games" => WithDb(ListGames),
                 "get_game" when args["from"] is not null || args["to"] is not null =>
-                    WithDb(db => Game(db, AiArgs.Text(args["name"]) ?? "", (Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to")))),
+                    WithDb(db => NotRecorded(db, Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to"))
+                        + Game(db, AiArgs.Text(args["name"]) ?? "", (Day(args, args["from"] is null ? "to" : "from"), Day(args, args["to"] is null ? "from" : "to")))),
                 "get_game" => WithDb(db => Game(db, AiArgs.Text(args["name"]) ?? "")),
                 _ => RunMore(name, args) ?? RunPages(name, args) ?? $"Error: there is no tool called {name}.",
             };
@@ -203,7 +204,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         var report = BuildReport(db, from, to);
         Trim(report);
         string title = from == to ? from.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture) : $"{from:d MMM yyyy} to {to:d MMM yyyy}";
-        string start = began && Began(db, from, to.AddDays(1), report.Usual) is { } b ? b + "\n" : "";
+        string start = (began && Began(db, from, to.AddDays(1), report.Usual) is { } b ? b + "\n" : "") + NotRecorded(db, from, to, began: false);
         return start + WithoutMaker(ReadableExport.ReportText(report, title, "RigSight", times: settings.Ai.Sends(AiPages.Reports), tight: true)) + UsualDays(report) + Energy(report, from, to)
             + LeftOut(Switch.Crashes, Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Usage);
     }
@@ -263,11 +264,13 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
     private string Crashes(RigsightDb db, DateTime from, DateTime to)
     {
         var stories = Stories(db, from, to);
-        if (stories.Count == 0) return $"No crashes, hangs, driver resets or sudden shut-offs from {from:d MMM yyyy} to {to:d MMM yyyy}.";
+        // Stretches with no records said with the crashes, after when RigSight's records begin (audit Q062, 2026-11-17).
+        string gaps = NotRecorded(db, from, to, began: false, crashes: true);
+        if (stories.Count == 0) return gaps + $"No crashes, hangs, driver resets or sudden shut-offs from {from:d MMM yyyy} to {to:d MMM yyyy}.";
         // Every one of them counted first, by kind and by RigSight's finding: the details below stop at the newest 15,
         // and a model left to count from those guesses (it once called 46 shut-offs, nearly all likely power cuts, a
         // failing power supply from the one it saw under load).
-        string summary = (RecordsFrom(db, from) is { } records ? records + "\n" : "") + Summary(stories);
+        string summary = (RecordsFrom(db, from) is { } records ? records + "\n" : "") + gaps + Summary(stories);
         // The newest 30 at most, laid out without padding (2026-10-26: was 15 with each field padded to a column, and a
         // model asking again for the older ones pushed answers over their budget; about the same size now holds twice as many).
         int all = stories.Count;

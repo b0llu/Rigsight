@@ -132,13 +132,13 @@ public sealed partial class AiTools
     private string? RunMore(string name, JsonObject args) => name switch
     {
         "get_moment" => WithDb(db => Moment(db, At(args))) + LeftOut(Switch.Heat, Switch.Apps, Switch.Memory, Switch.Network, Switch.Crashes, Switch.Usage),
-        "get_temperatures" => WithDb(db => Temperatures(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Apps),
-        "get_fans" => WithDb(db => Fans(db, Day(args, "from"), Day(args, "to"))),
-        "get_apps" => WithDb(db => Apps(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Memory, Switch.Heat, Switch.Network),
-        "get_memory" => WithDb(db => Memory(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Apps),
+        "get_temperatures" => WithDb(db => NotRecorded(db, Day(args, "from"), Day(args, "to")) + Temperatures(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Apps),
+        "get_fans" => WithDb(db => NotRecorded(db, Day(args, "from"), Day(args, "to")) + Fans(db, Day(args, "from"), Day(args, "to"))),
+        "get_apps" => WithDb(db => NotRecorded(db, Day(args, "from"), Day(args, "to")) + Apps(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Memory, Switch.Heat, Switch.Network),
+        "get_memory" => WithDb(db => NotRecorded(db, Day(args, "from"), Day(args, "to")) + Memory(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Apps),
         "get_storage" => WithDb(Storage),
-        "get_network" => WithDb(db => Network(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Apps),
-        "get_on_times" => WithDb(db => OnTimes(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Crashes),
+        "get_network" => WithDb(db => NotRecorded(db, Day(args, "from"), Day(args, "to")) + Network(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Apps),
+        "get_on_times" => WithDb(db => NotRecorded(db, Day(args, "from"), Day(args, "to")) + OnTimes(db, Day(args, "from"), Day(args, "to"))) + LeftOut(Switch.Crashes),
         "get_running_now" => RunningText(),
         _ => null,
     };
@@ -198,9 +198,16 @@ public sealed partial class AiTools
         sb.AppendLine($"Around {at:dddd d MMM yyyy, h:mm tt} (10 minutes either side).");
         if (minutes.Count == 0)
         {
-            string before = db.LastMinuteBefore(t) is long b ? TimeUtil.FromUnix(b).ToString("d MMM h:mm tt", CultureInfo.InvariantCulture) : "never";
-            string after = db.GetMinutes(t, t + 86400).FirstOrDefault() is { } next ? TimeUtil.FromUnix(next.Ts).ToString("d MMM h:mm tt", CultureInfo.InvariantCulture) : "not within a day";
-            sb.AppendLine($"Nothing was recorded then: the PC was off or asleep (or recording wasn't running). Last minute recorded before: {before}. First after: {after}.");
+            // The whole stretch with no records, how long and why where Windows' logs can say: "last minute before: 15 Oct,
+            // first after: 7 Nov" alone was read as nothing recorded at one minute, not three weeks (audit Q062, 2026-11-17).
+            long? last = db.LastMinuteBefore(t), next = db.FirstMinuteFrom(t);
+            long now = TimeUtil.ToUnix(DateTime.Now);
+            if (last is long b)
+                sb.AppendLine("Nothing was recorded then. " + GapWords(db, b + 60, next, now));
+            else
+                sb.AppendLine("Nothing was recorded then: RigSight's records on this PC begin "
+                    + (next is long n ? $"{TimeUtil.FromUnix(n).ToString("ddd d MMM yyyy h:mm tt", CultureInfo.InvariantCulture)}, after this time." : "later.")
+                    + " Say that, not that nothing happened.");
         }
         else
         {
@@ -482,6 +489,8 @@ public sealed partial class AiTools
             if (use.Count == 0) return $"Not recorded on {said}: the PC was off, or recording wasn't running.";
             sb.AppendLine($"The PC on {said}, day by day (on, and in use):");
             foreach (var d in use) sb.AppendLine($"  {TimeUtil.FromUnix(d.Day):ddd d MMM}: on {Units.Duration(d.OnSec)}, in use {Units.Duration(d.ActiveSec)}");
+            int days = (int)Math.Round((Math.Min(t, TimeUtil.ToUnix(DateTime.Today.AddDays(1))) - f) / 86400.0);
+            if (use.Count < days) sb.AppendLine($"The other {days - use.Count} days of the period have nothing recorded: the PC was off or asleep, or RigSight wasn't recording.");
             return sb.ToString();
         }
         var minutes = db.GetMinutes(f, t);
@@ -493,7 +502,7 @@ public sealed partial class AiTools
             if (runs.Count > 0 && m.Ts - runs[^1].End <= 180) runs[^1] = (runs[^1].Start, m.Ts + 60, runs[^1].Active + m.ActiveSec);
             else runs.Add((m.Ts, m.Ts + 60, m.ActiveSec));
         }
-        sb.AppendLine($"The PC on {said}. Between these stretches it was off or asleep (the records can't tell which):");
+        sb.AppendLine($"The PC on {said}. Between these stretches nothing was recorded: the PC was off or asleep, or RigSight wasn't recording (the records can't tell which):");
         foreach (var r in runs.TakeLast(40))
             sb.AppendLine($"  {TimeUtil.FromUnix(r.Start):ddd d MMM h:mm tt} to {TimeUtil.FromUnix(r.End):h:mm tt}: on {Units.Duration(r.End - r.Start)}, in use {Units.Duration(r.Active)}");
         if (settings.Ai.Sends(AiPages.Crashes) && db.GetCrashes(f, t).Where(c => c.Kind is CrashKind.UnexpectedShutdown or CrashKind.SystemCrash).ToList() is { Count: > 0 } downs)

@@ -1680,6 +1680,44 @@ public sealed partial class RigsightDb : IDisposable
         return cmd.ExecuteScalar() is long v ? v : null;
     }
 
+    /// <summary>
+    /// The stretches with no recorded minute, at least <paramref name="minGap"/> seconds long, that reach into
+    /// <paramref name="from"/> to <paramref name="to"/>: each from the end of the last minute recorded before it to the first
+    /// minute recorded after it, wherever those are (a gap is said whole, not cut at the period's edges). Start is null when
+    /// nothing was ever recorded before it (recording began after); End is null when nothing has been recorded since, and
+    /// then <paramref name="now"/> closes it. One pass over the minutes' own key, so a year of minutes is a few milliseconds.
+    /// </summary>
+    public List<(long? Start, long? End)> GetMinuteGaps(long from, long to, long minGap, long now)
+    {
+        var gaps = new List<(long? Start, long? End)>();
+        long? first = null, last = null;
+        using (var span = Cmd("SELECT min(ts), max(ts) FROM system_minute WHERE ts >= $f AND ts < $t", ("$f", from), ("$t", to)))
+        using (var r = span.ExecuteReader())
+            if (r.Read() && !r.IsDBNull(0)) (first, last) = (r.GetInt64(0), r.GetInt64(1));
+        long Long(long? start, long? end) => (end ?? now) - (start ?? long.MinValue / 2);
+        if (first is null)
+        {
+            long? before = LastMinuteBefore(from) is long b ? b + 60 : null, after = FirstMinuteFrom(to);
+            if ((before is not null || after is not null) && Math.Min(to, now) > from && Long(before ?? from, after) >= minGap) gaps.Add((before, after));
+            return gaps;
+        }
+        long? head = LastMinuteBefore(from) is long hb ? hb + 60 : null;
+        if (head is not null && first.Value - head.Value >= minGap) gaps.Add((head, first));
+        using (var cmd = Cmd("""
+            SELECT prev, ts FROM (SELECT ts, lag(ts) OVER (ORDER BY ts) AS prev FROM system_minute WHERE ts >= $f AND ts < $t)
+            WHERE prev IS NOT NULL AND ts - prev - 60 >= $gap ORDER BY ts
+            """, ("$f", from), ("$t", to), ("$gap", minGap)))
+        using (var r = cmd.ExecuteReader())
+            while (r.Read()) gaps.Add((r.GetInt64(0) + 60, r.GetInt64(1)));
+        long tail = last.Value + 60;
+        if (tail < Math.Min(to, now))
+        {
+            long? next = FirstMinuteFrom(to);
+            if (Long(tail, next) >= minGap) gaps.Add((tail, next));
+        }
+        return gaps;
+    }
+
     /// <summary>Whether any minute was recorded from <paramref name="from"/> to <paramref name="to"/>: the PC was on with RigSight running.</summary>
     public bool HasMinutes(long from, long to)
     {
