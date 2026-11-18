@@ -21,6 +21,9 @@ internal sealed class NetCounts
 /// <summary>One process's traffic with one server: its address (an IPv4 one in <see cref="Lo"/>), port, and UDP or TCP.</summary>
 internal readonly record struct FlowKey(int Pid, ulong Hi, ulong Lo, ushort Port, bool Udp);
 
+/// <summary>One UDP packet with a server whose echoes are timed: when (UTC file time, 100 ns steps), which way, its size.</summary>
+internal readonly record struct EchoPacket(FlowKey Server, long FileTime, bool Sent, int Size);
+
 /// <summary>What went each way with one server since the last <see cref="NetworkTrace.TakeFlows"/>.</summary>
 internal sealed class FlowCount
 {
@@ -57,6 +60,26 @@ internal sealed unsafe class NetworkTrace : IDisposable
 
     /// <summary>The processes whose TCP servers are noted too (null: none).</summary>
     public void WatchTcp(HashSet<int>? pids) => _tcpPids = pids;
+
+    // Each packet with the servers whose echoes are timed (a call's: see EchoTimer), keyed by server with Pid 0.
+    private List<EchoPacket> _echoes = [], _spareEchoes = [];
+    private volatile HashSet<FlowKey>? _echoServers;
+
+    /// <summary>The UDP servers (Pid 0) whose every packet is kept for <see cref="TakeEchoes"/> (null: none).</summary>
+    public void WatchEchoes(HashSet<FlowKey>? servers) => _echoServers = servers;
+
+    /// <summary>The packets with the watched servers since the last call (taken on the sampler thread).</summary>
+    public List<EchoPacket> TakeEchoes()
+    {
+        lock (_gate)
+        {
+            var taken = _echoes;
+            _spareEchoes.Clear();
+            _echoes = _spareEchoes;
+            _spareEchoes = taken;
+            return taken;
+        }
+    }
 
     /// <summary>Each process's traffic with each server since the last call (taken on the sampler thread).</summary>
     public Dictionary<FlowKey, FlowCount> TakeFlows()
@@ -305,8 +328,11 @@ internal sealed unsafe class NetworkTrace : IDisposable
             key = v6 ? new FlowKey(pid, *(ulong*)remote, *(ulong*)(remote + 8), port, udp) : new FlowKey(pid, 0, *(uint*)remote, port, udp);
         }
 
+        // The event's time: ProcessTrace gives it as a UTC file time, made from the precise clock (ClientContext 1).
+        bool echo = flow && udp && _echoServers is { } servers && servers.Contains(key with { Pid = 0 });
         lock (_gate)
         {
+            if (echo) _echoes.Add(new EchoPacket(key with { Pid = 0 }, *(long*)(r + 16), send, (int)size));
             if (flow)
             {
                 if (!_flows.TryGetValue(key, out var f)) _flows[key] = f = new FlowCount();

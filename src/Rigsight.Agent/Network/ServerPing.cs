@@ -12,7 +12,8 @@ namespace Rigsight.Agent.Network;
 /// The ping to the server each game, call or picked app is talking to: found in the admin network trace (the app's busiest
 /// server), checked every 5 seconds on a thread of its own while the app keeps talking to it, and added up a minute at a
 /// time. Only servers the apps already use are asked anything, and only these apps': a download or a browser tab doesn't
-/// care how far its server is, so it gets no checks.
+/// care how far its server is, so it gets no checks. A call's or remote play's server is timed by the app's own echoes
+/// where it has them (see <see cref="EchoTimer"/>), with no check of ours.
 /// </summary>
 internal sealed class ServerPing : IDisposable
 {
@@ -24,6 +25,19 @@ internal sealed class ServerPing : IDisposable
 
     /// <summary>At most this many servers are checked at once.</summary>
     public const int MostTargets = 4;
+
+    /// <summary>How long a call's or remote play's server is left unchecked while its own echoes are waited for (ms).</summary>
+    public const int EchoWaitMs = 20_000;
+
+    /// <summary>
+    /// How late the trace's events can come (ms): Windows hands them over a buffer at a time, about a second apart, so a
+    /// packet's answer can be in the next one. A packet is called lost only by the trace's own times or after this long,
+    /// never by the clock alone (the first build called 3 of 16 of Discord's lost that had all come back).
+    /// </summary>
+    public const int TraceLagMs = 3000;
+
+    /// <summary>An app whose echoes stopped this long ago (ms) is checked by us again.</summary>
+    public const int EchoGoneMs = 30_000;
 
     /// <summary>The checks kept for the live view: the last 10 minutes.</summary>
     private const int Kept = 600 / EverySeconds;
@@ -51,9 +65,21 @@ internal sealed class ServerPing : IDisposable
         public List<(long Time, int? Ms)> Checks { get; } = [];
         /// <summary>The minutes before this (unix seconds) are written already.</summary>
         public long WrittenTo { get; set; }
+        /// <summary>The app's own echoes with this server, and the size they have once found.</summary>
+        public EchoTimer Echoes { get; } = new();
+        public int? EchoSize { get; set; }
+        /// <summary>Its echoes sent before this (ms, the trace's clock) are in <see cref="Checks"/> already.</summary>
+        public double EchoesTo { get; set; }
+        public double Since { get; } = NowMs();
     }
 
-    internal enum ProbeWay { Unknown, Echo, Tcp443, TcpPort, None }
+    /// <summary>How a server is checked: Echo is a ping of ours, Own the app's own echoes timed.</summary>
+    internal enum ProbeWay { Unknown, Echo, Tcp443, TcpPort, None, Own }
+
+    /// <summary>Now in ms on the trace's clock: the time of day as a file time, which is how the trace gives each event's.</summary>
+    private static double NowMs() => DateTime.UtcNow.ToFileTimeUtc() / 10_000.0;
+
+    private static bool TimesEchoes(string kind) => kind is "call" or "remote";
 
     private ServerPing()
     {
@@ -71,8 +97,8 @@ internal sealed class ServerPing : IDisposable
     /// Sampler thread, each second: what each process sent to and got from each server, turned into the servers to check.
     /// <paramref name="enabled"/> off forgets every target (nothing is asked until it's on again).
     /// </summary>
-    public void OnSecond(Dictionary<FlowKey, FlowCount> flows, IReadOnlyDictionary<int, string> pidToExe, Func<string, int, bool> isGame,
-        IReadOnlyCollection<string> picked, bool enabled)
+    public void OnSecond(Dictionary<FlowKey, FlowCount> flows, List<EchoPacket> echoes, IReadOnlyDictionary<int, string> pidToExe,
+        Func<string, int, bool> isGame, IReadOnlyCollection<string> picked, bool enabled)
     {
         _enabled = enabled;
         if (!enabled)
@@ -110,6 +136,15 @@ internal sealed class ServerPing : IDisposable
                     _targets[c.Exe] = new Target(c.Exe, c.Server, c.Kind) { LastSeen = now };
                 }
             }
+            // The packets with each call's server, for its echoes.
+            double nowMs = NowMs();
+            foreach (var e in echoes)
+            {
+                var server = new IPEndPoint(Address(e.Server), e.Server.Port);
+                foreach (var t in _targets.Values)
+                    if (t.Server.Equals(server)) t.Echoes.Packet(e.FileTime / 10_000.0, e.Sent, e.Size);
+            }
+            foreach (var t in _targets.Values) t.Echoes.Expire(nowMs - TraceLagMs);
             // An app that stopped talking for 15 s: its server isn't checked any more.
             foreach (var gone in _targets.Values.Where(t => now - t.LastSeen > 15).ToList())
             {
@@ -117,6 +152,24 @@ internal sealed class ServerPing : IDisposable
                 _targets.Remove(gone.Exe);
             }
         }
+    }
+
+    /// <summary>The servers of the calls and remote play being checked, whose every packet the trace keeps (null: none).</summary>
+    public HashSet<FlowKey>? EchoServers()
+    {
+        lock (_lock)
+        {
+            var set = _targets.Values.Where(t => TimesEchoes(t.Kind) || t.Way == ProbeWay.Own).Select(t => Key(t.Server)).ToHashSet();
+            return set.Count == 0 ? null : set;
+        }
+    }
+
+    /// <summary>A server as the trace keys it (Pid 0): an IPv4 address's 4 bytes in <see cref="FlowKey.Lo"/>, as they come.</summary>
+    internal static FlowKey Key(IPEndPoint server)
+    {
+        var bytes = server.Address.GetAddressBytes();
+        return bytes.Length == 4 ? new FlowKey(0, 0, BitConverter.ToUInt32(bytes), (ushort)server.Port, true)
+            : new FlowKey(0, BitConverter.ToUInt64(bytes, 0), BitConverter.ToUInt64(bytes, 8), (ushort)server.Port, true);
     }
 
     /// <summary>The processes of picked apps, whose TCP servers the trace notes too.</summary>
@@ -129,7 +182,7 @@ internal sealed class ServerPing : IDisposable
         return set.Count == 0 ? null : set;
     }
 
-    private static IPAddress Address(FlowKey key)
+    internal static IPAddress Address(FlowKey key)
     {
         if (key.Hi == 0 && key.Lo <= uint.MaxValue) return new IPAddress((long)key.Lo);
         var bytes = new byte[16];
@@ -207,11 +260,10 @@ internal sealed class ServerPing : IDisposable
                 foreach (var t in targets)
                 {
                     if (_stop.IsSet) break;
-                    int? ms = Check(t);
-                    long now = TimeUtil.NowUnix();
+                    var checks = Check(t);
                     lock (_lock)
                     {
-                        t.Checks.Add((now, ms));
+                        t.Checks.AddRange(checks);
                         if (t.Checks.Count > Kept) t.Checks.RemoveRange(0, t.Checks.Count - Kept);
                     }
                     if (!t.PlaceAsked) Name(t);
@@ -230,7 +282,57 @@ internal sealed class ServerPing : IDisposable
     /// don't), else the time to connect to its port 443, else to the app's own port, where a refusal is an answer too
     /// (it came from the server). A server that answers none of them after six tries is said to, not counted as all lost.
     /// </summary>
-    private static int? Check(Target t)
+    private List<(long Time, int? Ms)> Check(Target t)
+    {
+        if (OwnEchoes(t) is { } own) return own;
+        // A call's or remote play's server: its own echoes are waited for a while before a check of ours is sent.
+        if (t.Way == ProbeWay.Unknown && TimesEchoes(t.Kind) && NowMs() - t.Since < EchoWaitMs) return [];
+        return [(TimeUtil.NowUnix(), Probe(t))];
+    }
+
+    /// <summary>
+    /// The checks from the app's own echoes since the last time, one per <see cref="EverySeconds"/>: the middle of those
+    /// back, or lost when none came back. Null while the app has no echo (or it stopped: then it's checked by us again).
+    /// Once its echoes are found, the checks of ours before are dropped, so the two are never mixed in one figure.
+    /// </summary>
+    private List<(long Time, int? Ms)>? OwnEchoes(Target t)
+    {
+        double now = NowMs();
+        long unix = TimeUtil.NowUnix();
+        lock (_lock)
+        {
+            if (t.Way != ProbeWay.Own)
+            {
+                if (!TimesEchoes(t.Kind) || t.Echoes.Size() is not int found) return null;
+                var back = t.Echoes.Between(found, 0, double.MaxValue).Select(e => e.Ms).OfType<int>().Order().ToList();
+                string dropped = t.Way is ProbeWay.Unknown ? "" : $"; {t.Checks.Count} checks of ours dropped";
+                Log.Write("server ping", $"{t.Exe}'s server {t.Server}: timing {t.Exe}'s own {found}-byte packets, which come back from it"
+                    + $" (middle {back[back.Count / 2]} ms of {back.Count}){dropped}");
+                (t.Way, t.EchoSize, t.EchoesTo, t.Misses) = (ProbeWay.Own, found, 0, 0);
+                t.Checks.Clear();
+            }
+            int size = t.EchoSize!.Value;
+            if (t.Echoes.LastSent(size) is not double last || now - last > EchoGoneMs)
+            {
+                Log.Write("server ping", $"{t.Exe} stopped sending its {size}-byte packets to {t.Server}: checking the server ourselves again");
+                (t.Way, t.EchoSize) = (ProbeWay.Unknown, null);
+                t.Checks.Clear();
+                return null;
+            }
+            // Only packets whose wait is over, with the trace's lag and a second spare for the sampler's next pass.
+            double to = now - EchoTimer.WaitMs - TraceLagMs - 1000;
+            var echoes = t.Echoes.Between(size, t.EchoesTo, to);
+            t.EchoesTo = Math.Max(t.EchoesTo, to);
+            return [.. echoes.GroupBy(e => Math.Floor(e.At / (EverySeconds * 1000.0))).Select(g =>
+            {
+                var answered = g.Select(e => e.Ms).OfType<int>().Order().ToList();
+                long time = unix - (long)Math.Round((now - g.Max(e => e.At)) / 1000);
+                return (time, answered.Count > 0 ? answered[answered.Count / 2] : (int?)null);
+            })];
+        }
+    }
+
+    private static int? Probe(Target t)
     {
         if (t.Way == ProbeWay.None) return null;
         if (t.Way != ProbeWay.Unknown) return Probe(t.Way, t.Server);

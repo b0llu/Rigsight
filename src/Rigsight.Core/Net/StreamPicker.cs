@@ -6,7 +6,7 @@ namespace Rigsight.Core.Net;
 /// Which apps' servers get a ping, from what each app sent to and got from each server second by second: a game's busiest
 /// server, a call's, remote play's, and any app picked with "Check its ping". The rest (a download, a browser tab, a
 /// sync) get none: their delay isn't felt. A stream counts once it has gone both ways in 20 of the last 30 seconds, so a
-/// short exchange never gets a check.
+/// short exchange never gets a check; a call app's counts sooner and stays counted while it's quiet (see <see cref="InCall"/>).
 /// </summary>
 public sealed class StreamPicker
 {
@@ -21,6 +21,15 @@ public sealed class StreamPicker
 
     /// <summary>…while getting less than this (bytes a second): more is a download or a video, not a call.</summary>
     public const long LiveMostBytesPerSecond = 1_500_000;
+
+    /// <summary>A call app's stream is a call from this many seconds with traffic…</summary>
+    public const int CallSeconds = 4;
+
+    /// <summary>…spread over at least this many seconds…</summary>
+    public const int CallSpan = 10;
+
+    /// <summary>…the last of them at most this many seconds ago.</summary>
+    public const int CallRecent = 10;
 
     /// <summary>One second's traffic between one process and one server.</summary>
     public readonly record struct Seen(string Exe, int Pid, IPAddress Address, ushort Port, bool Udp, int Sent, int Received, long ReceivedBytes);
@@ -71,22 +80,47 @@ public sealed class StreamPicker
         foreach (var app in _streams.Values.GroupBy(x => x.Exe, StringComparer.OrdinalIgnoreCase))
         {
             bool isPicked = picked.Contains(app.Key, StringComparer.OrdinalIgnoreCase);
-            // Its busiest server over the window; UDP only unless the app was picked (TCP is noted only for those).
-            var best = app.Where(x => x.Udp || isPicked).OrderByDescending(x => x.Seconds.Sum(s => s.Sent + s.Received)).FirstOrDefault();
-            if (best is null || Steady(best) < SteadySeconds) continue;
-            string? kind = isPicked ? "picked"
-                : isGame(best.Exe, best.Pid) ? "game"
-                : AppKinds.IsCall(best.Exe) && Live(best) ? "call"
-                : AppKinds.IsRemote(best.Exe) ? "remote"
-                : Live(best) ? "live"
-                : null;
-            if (kind is null) continue;
-            chosen.Add((new Chosen(best.Exe, best.Server, kind), Rank(kind), best.Seconds.Sum(s => (long)s.Sent + s.Received)));
+            // Its server that matters most (a game's before a call's…), the busiest of those over the window; UDP only
+            // unless the app was picked (TCP is noted only for those). A busier stream that matters less doesn't hide it: a
+            // call app loading pictures over QUIC while its call is quiet.
+            var best = app.Where(x => x.Udp || isPicked)
+                .Select(x => (Stream: x, Kind: KindOf(x, isPicked, isGame, now), Packets: x.Seconds.Sum(s => (long)s.Sent + s.Received)))
+                .Where(x => x.Kind is not null)
+                .OrderBy(x => Rank(x.Kind!)).ThenByDescending(x => x.Packets).FirstOrDefault();
+            if (best.Stream is null) continue;
+            chosen.Add((new Chosen(best.Stream.Exe, best.Stream.Server, best.Kind!), Rank(best.Kind!), best.Packets));
         }
         return [.. chosen.OrderBy(x => x.Rank).ThenByDescending(x => x.Packets).Take(most).Select(x => x.Pick)];
     }
 
+    private static string? KindOf(Stream s, bool isPicked, Func<string, int, bool> isGame, long now)
+    {
+        bool steady = Steady(s) >= SteadySeconds;
+        return isPicked && steady ? "picked"
+            : steady && isGame(s.Exe, s.Pid) ? "game"
+            : AppKinds.IsCall(s.Exe) && InCall(s, now) ? "call"
+            : steady && AppKinds.IsRemote(s.Exe) ? "remote"
+            : steady && Live(s) ? "live"
+            : null;
+    }
+
     private static int Steady(Stream s) => s.Seconds.Count(x => x.Sent > 0 && x.Received > 0);
+
+    /// <summary>
+    /// A call app's stream in a call, talked in or not. A call where only one side talks, or nobody does, sends next to
+    /// nothing: Discord then only trades a keep-alive with its voice server every 5 seconds, so the steady two-way rule
+    /// never saw it (the user, 2026-11-17: in a Discord call to Hong Kong, "nothing is shown"). So: traffic both ways
+    /// over the window, in <see cref="CallSeconds"/> seconds spread over <see cref="CallSpan"/>, the last one recent, not
+    /// a download, and not port 443 (that's QUIC, the app's web traffic, never its call).
+    /// </summary>
+    private static bool InCall(Stream s, long now)
+    {
+        if (s.Server.Port == 443 || s.Seconds.Count < CallSeconds) return false;
+        var active = s.Seconds.Where(x => x.Sent > 0 || x.Received > 0).ToList();
+        return active.Count >= CallSeconds && active[^1].Time - active[0].Time >= CallSpan && active[^1].Time >= now - CallRecent
+            && active.Sum(x => x.Sent) > 0 && active.Sum(x => x.Received) > 0
+            && s.Seconds.Sum(x => x.ReceivedBytes) / (double)Window < LiveMostBytesPerSecond;
+    }
 
     /// <summary>Small packets both ways, many a second, and not a download: how voice and games talk.</summary>
     private static bool Live(Stream s)

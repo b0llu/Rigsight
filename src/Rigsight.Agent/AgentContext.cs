@@ -1794,7 +1794,8 @@ internal sealed partial class AgentContext : ApplicationContext
         var t = _settings.Tracking;
         bool on = t.PingChecks && t.ServerPings && !t.IsPaused(TimeUtil.NowUnix());
         trace.WatchTcp(on ? ServerPing.PickedPids(_running, t.PingApps) : null);
-        servers.OnSecond(trace.TakeFlows(), _running, _tracker.IsGameExe, t.PingApps, on);
+        servers.OnSecond(trace.TakeFlows(), trace.TakeEchoes(), _running, _tracker.IsGameExe, t.PingApps, on);
+        trace.WatchEchoes(on ? servers.EchoServers() : null);
     }
 
     /// <summary>Sampler thread, each second: what each app moved since the last time, and whether the internet is there.</summary>

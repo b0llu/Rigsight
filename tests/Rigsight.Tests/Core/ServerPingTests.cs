@@ -18,21 +18,57 @@ public sealed class ServerPingTests
         new(exe, 100, at, port, udp, sent, received, bytes);
 
     private static List<StreamPicker.Chosen> Run(StreamPicker picker, int seconds, Func<long, IEnumerable<StreamPicker.Seen>> each,
-        Func<string, int, bool>? isGame = null, IReadOnlyCollection<string>? picked = null)
+        Func<string, int, bool>? isGame = null, IReadOnlyCollection<string>? picked = null, long start = 1)
     {
         List<StreamPicker.Chosen> chosen = [];
-        for (long t = 1; t <= seconds; t++) chosen = picker.Second(t, each(t), isGame ?? ((_, _) => false), picked ?? [], 4);
+        for (long t = start; t < start + seconds; t++) chosen = picker.Second(t, each(t), isGame ?? ((_, _) => false), picked ?? [], 4);
         return chosen;
     }
 
     [Fact]
-    public void A_call_is_found_from_a_steady_two_way_stream_and_only_after_20_seconds()
+    public void A_call_is_found_from_a_two_way_stream_once_it_has_gone_on_10_seconds()
     {
         var picker = new StreamPicker();
-        Assert.Empty(Run(picker, 19, _ => [S("Discord.exe", Singapore, 19310, 50, 50)]));
-        var chosen = picker.Second(20, [S("Discord.exe", Singapore, 19310, 50, 50)], (_, _) => false, [], 4);
+        Assert.Empty(Run(picker, 10, _ => [S("Discord.exe", Singapore, 19310, 50, 50)]));
+        var chosen = picker.Second(11, [S("Discord.exe", Singapore, 19310, 50, 50)], (_, _) => false, [], 4);
         var call = Assert.Single(chosen);
         Assert.Equal(("Discord.exe", "call", 19310), (call.Exe, call.Kind, call.Server.Port));
+    }
+
+    [Fact]
+    public void A_quiet_call_is_found_from_its_keep_alive_every_5_seconds()
+    {
+        // Nobody talking: one small packet out every 5 seconds, its answer back a moment later (the next second here).
+        var picker = new StreamPicker();
+        var chosen = Run(picker, 40, t => t % 5 == 0 ? [S("Discord.exe", Singapore, 50010, 1, 0, bytes: 0)]
+            : t % 5 == 1 && t > 1 ? [S("Discord.exe", Singapore, 50010, 0, 1, bytes: 8)] : []);
+        Assert.Equal(("Discord.exe", "call", 50010), (Assert.Single(chosen).Exe, chosen[0].Kind, chosen[0].Server.Port));
+    }
+
+    [Fact]
+    public void A_call_only_listened_to_is_found_and_the_apps_web_traffic_beside_it_isnt_taken_for_it()
+    {
+        var picker = new StreamPicker();
+        var chosen = Run(picker, 30, t =>
+        [
+            // Someone else talking: 50 packets a second in, only the keep-alive out.
+            S("Discord.exe", Singapore, 50010, t % 5 == 0 ? 1 : 0, 50),
+            // Discord loading pictures over QUIC at the same time, busier than the call.
+            S("Discord.exe", Steam, 443, 80, 120, bytes: 90_000),
+        ]);
+        Assert.Equal(("call", 50010), (Assert.Single(chosen).Kind, chosen[0].Server.Port));
+    }
+
+    [Fact]
+    public void A_call_apps_short_exchange_or_ended_call_gets_no_check()
+    {
+        var picker = new StreamPicker();
+        // 8 seconds of traffic, then nothing.
+        Assert.Empty(Run(picker, 20, t => t <= 8 ? [S("Discord.exe", Singapore, 50010, 20, 20)] : []));
+        // A call that ended 11 seconds ago.
+        picker = new StreamPicker();
+        Assert.NotEmpty(Run(picker, 25, _ => [S("Discord.exe", Singapore, 50010, 20, 20)]));
+        Assert.Empty(Run(picker, 11, _ => [], start: 26));
     }
 
     [Fact]
@@ -76,6 +112,67 @@ public sealed class ServerPingTests
         var picker = new StreamPicker();
         var chosen = Run(picker, 30, _ => [S("Discord.exe", Singapore, 19310, 50, 50), S("Discord.exe", Steam, 19315, 5, 5)]);
         Assert.Equal(Singapore, Assert.Single(chosen).Server.Address);
+    }
+
+    /// <summary>A quiet Discord call as the trace saw it (2026-11-17): 8 bytes out every 5 s and back in about 104 ms, 52 bytes
+    /// in every second unasked, 60 bytes out every 5 s never answered.</summary>
+    private static EchoTimer QuietCall(int seconds, Func<int, int?>? back = null)
+    {
+        var timer = new EchoTimer();
+        for (int s = 0; s < seconds; s++)
+        {
+            double at = s * 1000.0;
+            timer.Packet(at, sent: false, 52);
+            if (s % 5 == 2) timer.Packet(at + 275, sent: true, 60);
+            if (s % 5 == 3)
+            {
+                timer.Packet(at + 54, sent: true, 8);
+                if ((back ?? (_ => 104))(s) is int ms) timer.Packet(at + 54 + ms, sent: false, 8);
+            }
+        }
+        timer.Expire(seconds * 1000.0);
+        return timer;
+    }
+
+    [Fact]
+    public void A_calls_own_keep_alive_is_found_after_three_and_timed()
+    {
+        Assert.Null(QuietCall(10).Size());
+        var timer = QuietCall(30, s => s == 18 ? 155 : 104);
+        Assert.Equal(8, timer.Size());
+        Assert.Equal([104, 104, 104, 155, 104, 104], timer.Between(8, 0, 30_000).Select(e => e.Ms));
+        // The 60 bytes that never come back are no echo, and the 52 that come unasked aren't one either.
+        Assert.All(timer.Between(60, 0, 30_000), e => Assert.Null(e.Ms));
+    }
+
+    [Fact]
+    public void A_keep_alive_not_back_within_a_second_is_lost()
+    {
+        var timer = QuietCall(30, s => s == 13 ? null : 104);
+        Assert.Equal(8, timer.Size());
+        Assert.Equal([104, 104, null, 104, 104, 104], timer.Between(8, 0, 30_000).Select(e => e.Ms));
+    }
+
+    [Fact]
+    public void A_talking_calls_voice_is_never_taken_for_an_echo()
+    {
+        // Small voice packets both ways every 20 ms, of every size: some sizes match by chance, but they also come unasked.
+        var timer = new EchoTimer();
+        var random = new Random(4);
+        for (int i = 0; i < 1500; i++)
+        {
+            timer.Packet(i * 20.0, sent: true, random.Next(30, 65));
+            timer.Packet(i * 20.0 + 7, sent: false, random.Next(30, 65));
+        }
+        timer.Expire(30_000);
+        Assert.Null(timer.Size());
+    }
+
+    [Fact]
+    public void Times_that_jump_around_are_no_echo()
+    {
+        var timer = QuietCall(40, s => 40 + s * 37 % 700);
+        Assert.Null(timer.Size());
     }
 
     private static ServerLive Live(int? ms = 97, int lost = 0, int sent = 120, int? low = 90, int? high = 100, string kind = "call", string? place = "Singapore", bool noAnswer = false) =>
