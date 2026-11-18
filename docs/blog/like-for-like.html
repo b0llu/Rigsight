@@ -218,6 +218,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -230,7 +255,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
   <h1>The day RigSight told me my healthy fan was clogged</h1>
   <p class="dek">A warning that compared a resting PC with a gaming one, and the rule it left behind. Compare like with like, or say nothing.</p>
-  <p class="byline"><b>Dhruv Samant</b> · 29 September 2026 · Version 0.11.0 · 3 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · 29 September 2026 · Version 0.11.0 · 3 min read</p>
   <figure class="cover"><img class="" src="../img/blog/like-for-like.webp" srcset="../img/blog/like-for-like-600.webp 600w, ../img/blog/like-for-like.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight Reports for a Saturday: where the time went, the day minute by minute, what stood out and the peaks" fetchpriority="high" decoding="async"><figcaption>A day on Reports. "What stood out" at the bottom is where insights live, and each one has to pass the like-for-like test.</figcaption></figure>
   <div class="short"><p class="short-k">The short version</p><p>RigSight warned my healthy GPU fan might be clogged. It had compared a stopped fan at rest with a spinning one in a game. Since then, every comparison is like for like, or not shown.</p></div>
   <div class="body">
@@ -285,6 +310,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 <p>Three weeks later, version 0.28.0 took the same idea further and called it "Normal for this PC". Each game's temperatures are set against that same game on the same PC over the two months before, at steady load and the same GPU power. Fans that change speed after a restart are read as a BIOS change and start a fresh "usual" instead of raising an alarm.</p>
 
 <p>I think about that fan warning a lot. A missing warning costs you nothing today. A wrong one costs you an evening with a can of air, and the next time RigSight says something, you trust it a little less.</p>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next" aria-label="More posts"><a class="more" href="overlay-in-fullscreen-games"><span>Before this</span><b>Getting numbers inside a fullscreen game</b></a><a class="more" href="how-light"><span>What happened next</span><b>How light is light? Measuring an app that never closes</b></a></nav>
   <aside class="get">

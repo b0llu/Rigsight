@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Normal CPU temp at idle, and the GPU's, from 150 hours of mine", "description": "A normal CPU temp at idle is about 35 to 55\u00b0C, and a GPU's is about 30 to 50\u00b0C, higher if its fans stop. Why idle temps jump, and when warm is too warm.", "datePublished": "2026-11-18", "dateModified": "2026-11-18", "image": "https://rigsight.app/img/blog/normal-cpu-temp-idle.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/normal-cpu-temp-idle", "keywords": "normal cpu temp idle, normal gpu temp idle, average cpu temp idle, average gpu temp idle, normal cpu and gpu temps idle, ideal cpu temp idle, cpu temp idle 50c, high cpu temp at idle, normal cpu idle temp ryzen 7 5800x"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Normal CPU temp at idle, and the GPU's, from 150 hours of mine", "item": "https://rigsight.app/blog/normal-cpu-temp-idle"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is a normal CPU temp at idle?", "acceptedAnswer": {"@type": "Answer", "text": "Roughly 35 to 55\u00b0C for most desktop CPUs. Ryzen CPUs often idle a little higher than Intel ones, in the 40s or 50s, because they boost briefly even at light load. My Ryzen 7 5700X3D idles at about 48\u00b0C, and 9 in 10 idle minutes stay under 53\u00b0C."}}, {"@type": "Question", "name": "What is a normal GPU temp at idle?", "acceptedAnswer": {"@type": "Answer", "text": "Roughly 30 to 50\u00b0C. Many modern cards stop their fans while cool, so they idle warmer, often in the high 40s or low 50s, and the fans start once the card warms past a set point. My RTX 3080 Ti idles at about 48\u00b0C with its fans mostly stopped."}}, {"@type": "Question", "name": "Is 50\u00b0C idle bad for a CPU?", "acceptedAnswer": {"@type": "Answer", "text": "No. 50\u00b0C at idle is normal for many CPUs, especially Ryzen chips and small cases. It's worth a look if the idle temperature climbs over weeks, or if it sits above about 60\u00b0C with nothing running."}}, {"@type": "Question", "name": "Why does my CPU temperature jump at idle?", "acceptedAnswer": {"@type": "Answer", "text": "Opening an app, a background task starting or Windows checking for updates makes the CPU boost for a moment, and its temperature follows within a second. Jumps of 10 to 20\u00b0 that fall back quickly are normal. What matters is where it settles."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,17 +256,13 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Temperatures</p>
   <h1>Normal CPU temp at idle, and the GPU's, from 150 hours of mine</h1>
   <p class="dek">Idle, my Ryzen 7 5700X3D sat at about 48°C and my RTX 3080 Ti at about 48°C too, over about 150 hours of minutes. What a normal CPU and GPU temp at idle is, why it jumps around, and when a warm idle is worth fixing.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 18 November 2026 · 3 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 18 November 2026 · 3 min read</p>
   <figure class="cover"><img class="" src="../img/blog/normal-cpu-temp-idle.webp" srcset="../img/blog/normal-cpu-temp-idle-600.webp 600w, ../img/blog/normal-cpu-temp-idle.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="CPU at idle: 48°C, Ryzen 7 5700X3D. GPU at idle: 48°C, RTX 3080 Ti, fans mostly still" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A normal CPU temp at idle is roughly 35 to 55°C for most desktop CPUs, and some AMD Ryzen chips sit in the 40s and 50s. A normal GPU temp at idle is roughly 30 to 50°C, and cards whose fans stop when cool often idle in the high 40s or 50s. Short jumps of 10 to 20° when you open something are normal.</p></div>
   <div class="body">
 <p>RigSight has about 150 hours of minutes where my PC sat nearly idle, with the CPU and GPU both under 10% busy while I was at the desk. In those minutes my Ryzen 7 5700X3D averaged 48°C, and 9 in 10 of them stayed under 53°C. My RTX 3080 Ti averaged 48°C too, with most minutes between 45 and 50°C. That's a normal CPU temp at idle and a normal GPU one, and it's warmer than many people expect.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight records the CPU and GPU temperature every minute along with how busy each was, so it can pick out the minutes when the PC was resting. That's where the numbers above come from. Since 1.12.0, the Temperatures page uses them in its <b>Over the months</b> card, which shows how far each part climbs above its resting temperature under the same load, week by week or month by month.</p>
-
-<p>Measuring from rest is what makes slow changes visible. As the card puts it, a warmer room lifts load and rest together, so the gap shows the cooling itself, and a slow climb can come from dust or aging thermal paste. When the CPU or GPU runs hotter at the same load than it used to, Home's PC health card says so. CPU temperature needs RigSight to run with admin rights. RigSight is free and open source.</p>
+<div class="testbed"><p class="testbed-k">Test setup</p><dl><dt>GPU</dt><dd>NVIDIA GeForce RTX 3080 Ti, 12 GB</dd><dt>CPU</dt><dd>AMD Ryzen 7 5700X3D</dd><dt>Memory</dt><dd>16 GB, 32 GB from 14 November 2026</dd><dt>Windows</dt><dd>Windows 11</dd><dt>Recorded</dt><dd>23 September to 13 November 2026, every minute</dd><dt>Counted</dt><dd>Minutes with the CPU and GPU both under 10% busy</dd></dl></div>
 
 <h2>Normal CPU temp at idle</h2>
 
@@ -259,7 +279,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <h2>Normal GPU temp at idle</h2>
 
-<p>Roughly 30 to 50°C. Many current cards stop their fans when cool and start them once the GPU passes a set point, often around 50 to 60°C. A card like that idles warmer, in the high 40s or low 50s, because nothing is moving air until it needs to. That's why my GPU's idle is so steady at 45 to 50°C. Its fans sit still below about 52°C. <a href="gpu-fan-not-spinning">GPU fan not spinning</a> has more on that.</p>
+<p>Roughly 30 to 50°C. Many current cards stop their fans when cool and start them once the GPU passes a set point, often around 50 to 60°C. A card like that idles warmer, in the high 40s or low 50s, because nothing is moving air until it needs to. That's why my GPU's idle is so steady at 45 to 50°C. Its fans sit still below about 52°C. <a href="gpu-fan-not-spinning">GPU fan not spinning</a> has more on that. For the GPU under load, see <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a>.</p>
 
 <p>Two screens, a high refresh rate or video playing can keep a GPU's memory clock up at idle, which adds a few degrees.</p>
 
@@ -277,8 +297,17 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>If so, check Task Manager for an app keeping the CPU busy first. Then clean dust from the filters, the CPU cooler and the GPU, check that the case fans pull air in at the front and push it out at the back, and set Windows to the <b>Balanced</b> power plan. If it still idles hot on an older PC, new thermal paste on the CPU often helps.</p>
 
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records the CPU and GPU temperature every minute along with how busy each was, so it can pick out the minutes when the PC was resting. That's where the numbers above come from. Since 1.12.0, the Temperatures page uses them in its <b>Over the months</b> card, which shows how far each part climbs above its resting temperature under the same load, week by week or month by month.</p>
+
+<p>Measuring from rest is what makes slow changes visible. As the card puts it, a warmer room lifts load and rest together, so the gap shows the cooling itself, and a slow climb can come from dust or aging thermal paste. When the CPU or GPU runs hotter at the same load than it used to, Home's PC health card says so. CPU temperature needs RigSight to run with admin rights. RigSight is free and open source.</p>
+
+
 <p>Your next step is to note your idle temperatures today, with nothing running. That number is your own normal, and it's the one to compare against in a few months.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://www.amd.com/en/support/kb/faq/cpu-temp" rel="noopener">AMD, Cpu temp</a></li><li><a href="https://www.intel.com/content/www/us/en/support/articles/000005597/processors.html" rel="noopener">Intel, Processors</a></li><li><a href="https://www.amd.com/en/resources/support-articles/faqs/DH3-020.html" rel="noopener">AMD</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>What is a normal CPU temp at idle?</summary><p>Roughly 35 to 55°C for most desktop CPUs. Ryzen CPUs often idle a little higher than Intel ones, in the 40s or 50s, because they boost briefly even at light load. My Ryzen 7 5700X3D idles at about 48°C, and 9 in 10 idle minutes stay under 53°C.</p></details><details class="qa"><summary>What is a normal GPU temp at idle?</summary><p>Roughly 30 to 50°C. Many modern cards stop their fans while cool, so they idle warmer, often in the high 40s or low 50s, and the fans start once the card warms past a set point. My RTX 3080 Ti idles at about 48°C with its fans mostly stopped.</p></details><details class="qa"><summary>Is 50°C idle bad for a CPU?</summary><p>No. 50°C at idle is normal for many CPUs, especially Ryzen chips and small cases. It's worth a look if the idle temperature climbs over weeks, or if it sits above about 60°C with nothing running.</p></details><details class="qa"><summary>Why does my CPU temperature jump at idle?</summary><p>Opening an app, a background task starting or Windows checking for updates makes the CPU boost for a moment, and its temperature follows within a second. Jumps of 10 to 20° that fall back quickly are normal. What matters is where it settles.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="gpu-thermal-throttling"><span>Temperatures</span><b>GPU thermal throttling, and how to tell if yours is</b></a><a class="more" href="check-gpu-temperature-history"><span>Temperatures</span><b>How to check GPU temperature history without being misled</b></a><a class="more" href="how-to-test-a-new-gpu"><span>Temperatures</span><b>How to test a new PC or GPU you got for Christmas</b></a><a class="more" href="normal-cpu-temperature-while-gaming"><span>Temperatures</span><b>Normal CPU temperature while gaming, and why yours jumps around</b></a></nav>
   <aside class="get">

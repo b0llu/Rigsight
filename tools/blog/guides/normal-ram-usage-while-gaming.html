@@ -19,13 +19,7 @@
 -->
 <p>Until 14 November my PC had 16 GB of memory. While I played Phantom Blade Zero, the game itself used about 4 GB on average and 6.8 GB at its highest. The whole PC meanwhile sat at 13.8 GB on average and reached 15.6 GB. So the game was well under half of what Task Manager showed. The rest was Windows and the apps I keep open. That gap is the first thing to understand about normal RAM usage while gaming.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight records memory every minute twice, once for the whole PC and once for each app. That's what splits the 13.8 GB into the game's own 4 GB and everything else. The Memory page lists each app's memory next to its usual, so an app holding more than it normally does stands out. Since 1.13.0 it also says when RAM was 85% full or more today, and which apps held the most then.</p>
-
-<p>It also watches Windows' committed memory, which is what apps have asked for, against the limit of memory plus the page file. During Phantom Blade Zero mine averaged 94% of that limit. When stutters bunch up, five or more within 15 minutes, while committed memory is at 90% or more, RigSight names that as what was going on, "while Windows was nearly out of memory". Since 1.7.0 it can also tell you when an app keeps growing in memory for hours, under <b>Apps that keep growing in memory</b> in Settings, off at first. RigSight is free and open source.</p>
-
-<p>On 14 November I went to 32 GB. Since then committed memory has averaged about 45% and never gone above 62%, against 94% on average in Phantom Blade Zero before. What that did to my games is in <a href="what-to-upgrade-in-my-pc-first">what to upgrade in my PC first</a>.</p>
+{{testbed Recorded=18 October to 18 November 2026, every minute | Counted=Minutes with a game in front and a frame rate}}
 
 <h2>How much RAM do games use?</h2>
 
@@ -72,4 +66,21 @@
   <li>If you're always near full, more memory is the real fix. Going from 16 to 32 GB is the usual step for gaming now.</li>
 </ol>
 
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records memory every minute twice, once for the whole PC and once for each app. That's what splits the 13.8 GB into the game's own 4 GB and everything else. The Memory page lists each app's memory next to its usual, so an app holding more than it normally does stands out. Since 1.13.0 it also says when RAM was 85% full or more today, and which apps held the most then.</p>
+
+<p>It also watches Windows' committed memory, which is what apps have asked for, against the limit of memory plus the page file. During Phantom Blade Zero mine averaged 94% of that limit. When stutters bunch up, five or more within 15 minutes, while committed memory is at 90% or more, RigSight names that as what was going on, "while Windows was nearly out of memory". Since 1.7.0 it can also tell you when an app keeps growing in memory for hours, under <b>Apps that keep growing in memory</b> in Settings, off at first. RigSight is free and open source.</p>
+
+<p>On 14 November I went to 32 GB. Since then committed memory has averaged about 45% and never gone above 62%, against 94% on average in Phantom Blade Zero before. What that did to my games is in <a href="what-to-upgrade-in-my-pc-first">what to upgrade in my PC first</a>.</p>
+
+
 <p>Your next step is to check <b>Committed</b> in Task Manager during your heaviest game. If it stays well below its limit, your memory is fine, however high <b>In use</b> looks. If it gets close and the game stutters, close apps first. For what's holding memory on the desktop, see <a href="what-is-using-my-ram">what is using my RAM</a>.</p>
+
+<h2>More on memory</h2>
+
+<ul>
+  <li><a href="what-is-using-my-ram">What is using my RAM</a>, finding the apps that hold it on the desktop.</li>
+  <li><a href="how-to-check-vram-usage">How to check VRAM usage</a>, the GPU's own memory.</li>
+  <li><a href="what-to-upgrade-in-my-pc-first">What to upgrade in my PC first</a>, with my move from 16 to 32 GB.</li>
+</ul>

@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Why Kernel-Power 41 happens, and how RigSight caught mine", "description": "Kernel-Power 41 means Windows didn't shut down cleanly. It's the record, not the cause. How to read its BugcheckCode, find the real cause and fix it.", "datePublished": "2026-10-26", "dateModified": "2026-10-26", "image": "https://rigsight.app/img/blog/kernel-power-41.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/kernel-power-41", "keywords": "kernel power 41, kernel power 41 while gaming, kernel-power 41 (63), what causes kernel power error 41, how to fix kernel power 41, kernel power 41 windows 11, what is kernel power 41 critical error"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Why Kernel-Power 41 happens, and how RigSight caught mine", "item": "https://rigsight.app/blog/kernel-power-41"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is Kernel-Power 41 (63)?", "acceptedAnswer": {"@type": "Answer", "text": "It's the same event. 41 is the event ID and 63 is its task category, which Event Viewer shows in brackets. The long number like (70368744177664),(2) is the event's keywords. None of these numbers say what caused the shut-off. The fields on the Details tab do."}}, {"@type": "Question", "name": "Why does Kernel Power 41 happen while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "Under a game the GPU and CPU draw the most power and run hottest, so a power supply that can't keep up, an unstable overclock or overheating shows up there first. If BugcheckCode is 0 and nobody touched the power button, start with the power supply and the temperatures in the minutes before."}}, {"@type": "Question", "name": "Is Kernel-Power 41 a hardware problem?", "acceptedAnswer": {"@type": "Answer", "text": "Not always. It's logged after a power cut, a held power button, a blue screen caused by a driver, or a shutdown that didn't finish. If it keeps happening with a code of 0 while the PC is working hard, hardware, usually the power supply, is the most likely cause."}}, {"@type": "Question", "name": "How do I fix Kernel Power 41?", "acceptedAnswer": {"@type": "Answer", "text": "Fix what caused it, since the event is only the record. Read the BugcheckCode first. With a code, follow the stop code. With all zeros, undo overclocks and XMP or EXPO, check temperatures, plug the PC straight into the wall, and test or replace the power supply if it only happens under load."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,31 +256,11 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Crashes</p>
   <h1>Why Kernel-Power 41 happens, and how RigSight caught mine</h1>
   <p class="dek">My PC logged Kernel-Power 41 again and again. How RigSight caught and explained it, what causes Kernel Power 41, including while gaming, and how to fix it.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 26 October 2026 · 7 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 26 October 2026 · 7 min read</p>
   <figure class="cover"><img class="" src="../img/blog/kernel-power-41.webp" srcset="../img/blog/kernel-power-41-600.webp 600w, ../img/blog/kernel-power-41.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="KERNEL-POWER EVENT: 41, Windows started again after it didn&#x27;t shut down cleanly" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Kernel-Power 41 is the critical error Windows logs when it starts after not shutting down cleanly. It's the record, not the cause. A BugcheckCode above 0 means a blue screen, a PowerButtonTimestamp means the button was held, and all zeros usually means power was lost or a shutdown never finished.</p></div>
   <div class="body">
 <p>In the 30 days up to 1 October, my own PC logged Kernel-Power 41 again and again. There were 22 shutdowns that didn't finish cleanly, against 7 that did. I don't switch my PC off at the wall, and my lights weren't flickering 22 times a month. RigSight is what put that number in front of me, and working out what it really meant changed how RigSight reads this event for everyone.</p>
-
-<h2>How RigSight caught it</h2>
-
-<p>RigSight reads Windows' crash records every time it starts, so every Kernel Power 41 shows up on its Crashes page as a sudden shut-off, with the time it happened and what the PC was doing in the minutes before. That's how I saw how often it was happening. Without it, each one was a single red line in Event Viewer that I would never have gone looking for.</p>
-
-<p>At first, RigSight called them power loss while the PC was asleep. That was my mistake, and it came from one field in the event. The full story is in <a href="power-loss-while-asleep">My PC wasn't losing power in its sleep</a>. In short, the field <code>SleepInProgress</code> holds the power state Windows was moving into, not a yes or no. On my PC it was a 6, switching off. These were shutdowns that never quite finished, not power cuts.</p>
-
-<p>Today, every sudden shut-off on the Crashes page gets a cause and one word for how sure RigSight is.</p>
-
-<ul>
-  <li>A held power button reads as Confirmed.</li>
-  <li>A <code>SleepInProgress</code> of 5 or 6 says Windows was already shutting down.</li>
-  <li>An error the hardware couldn't correct, logged around it, makes it Likely a hardware fault.</li>
-  <li>A shut-off is only "Likely a power cut" when the PC was doing little, nobody held the button and Windows logged no error.</li>
-  <li>A shut-off under load is only "Possibly mains or power supply", because from inside the PC those two look the same.</li>
-</ul>
-
-<figure class="shot"><img src="../img/pages/crashes.webp" srcset="../img/pages/crashes-720.webp 720w, ../img/pages/crashes.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Crashes page with tiles for app crashes, graphics driver resets, and blue screens with sudden shut-offs, above a timeline and the list of what went wrong" loading="lazy" decoding="async"><figcaption>RigSight's Crashes page. Blue screens and sudden shut-offs have their own tile, and shut-offs that look like the power are counted apart.</figcaption></figure>
-
-<p>Open a shut-off and you see the 45 minutes before it. It shows temperatures, load, GPU power draw, memory and fans, with the game in front. If the GPU was drawing 320 W at normal temperatures when it went off, that points toward the power supply rather than heat. The shut-off is timed by the last minute RigSight recorded, not by Windows' 6008 time, which can be some minutes early. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
 
 <h2>Why Kernel-Power 41 happens</h2>
 
@@ -306,8 +310,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>Also check whether the 41 is alone. Filter the System log for <code>WHEA-Logger</code> as the event source. An error the hardware couldn't correct around the same time points at the CPU, memory or motherboard, or at tuning that's too tight for them.</p>
 
+<h2>How RigSight caught it</h2>
+
+<p>RigSight reads Windows' crash records every time it starts, so every Kernel Power 41 shows up on its Crashes page as a sudden shut-off, with the time it happened and what the PC was doing in the minutes before. That's how I saw how often it was happening. Without it, each one was a single red line in Event Viewer that I would never have gone looking for.</p>
+
+<p>At first, RigSight called them power loss while the PC was asleep. That was my mistake, and it came from one field in the event. The full story is in <a href="power-loss-while-asleep">My PC wasn't losing power in its sleep</a>. In short, the field <code>SleepInProgress</code> holds the power state Windows was moving into, not a yes or no. On my PC it was a 6, switching off. These were shutdowns that never quite finished, not power cuts.</p>
+
+<p>Today, every sudden shut-off on the Crashes page gets a cause and one word for how sure RigSight is.</p>
+
+<ul>
+  <li>A held power button reads as Confirmed.</li>
+  <li>A <code>SleepInProgress</code> of 5 or 6 says Windows was already shutting down.</li>
+  <li>An error the hardware couldn't correct, logged around it, makes it Likely a hardware fault.</li>
+  <li>A shut-off is only "Likely a power cut" when the PC was doing little, nobody held the button and Windows logged no error.</li>
+  <li>A shut-off under load is only "Possibly mains or power supply", because from inside the PC those two look the same.</li>
+</ul>
+
+<figure class="shot"><img src="../img/pages/crashes.webp" srcset="../img/pages/crashes-720.webp 720w, ../img/pages/crashes.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Crashes page with tiles for app crashes, graphics driver resets, and blue screens with sudden shut-offs, above a timeline and the list of what went wrong" loading="lazy" decoding="async"><figcaption>RigSight's Crashes page. Blue screens and sudden shut-offs have their own tile, and shut-offs that look like the power are counted apart.</figcaption></figure>
+
+<p>Open a shut-off and you see the 45 minutes before it. It shows temperatures, load, GPU power draw, memory and fans, with the game in front. If the GPU was drawing 320 W at normal temperatures when it went off, that points toward the power supply rather than heat. The shut-off is timed by the last minute RigSight recorded, not by Windows' 6008 time, which can be some minutes early. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
+
+
 <p>Your next step is to open the latest event 41 and read <code>BugcheckCode</code> and <code>PowerButtonTimestamp</code>. If both are 0 and it happens while gaming, start with tuning and the power supply. If <code>SleepInProgress</code> is 5 or 6 and it only happens at shutdown, you're probably looking at what I was. Those are shutdowns that didn't finish, and nothing to panic about.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/event-id-41-restart" rel="noopener">Microsoft Learn, Event id 41 restart</a></li><li><a href="https://learn.microsoft.com/en-us/windows/win32/api/winnt/ne-winnt-system_power_state" rel="noopener">Microsoft Learn, Ne winnt system power state</a></li><li><a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-code-reference2" rel="noopener">Microsoft Learn, Bug check code reference2</a></li><li><a href="https://support.microsoft.com/en-us/windows/troubleshooting-windows-unexpected-restarts-and-stop-code-errors-60b01860-58f2-be66-7516-5c45a66ae3c6" rel="noopener">Microsoft Support, Troubleshooting windows unexpected restarts and stop code errors</a></li><li><a href="https://www.pcworld.com/article/3631488/one-cable-or-two-for-powering-a-graphics-card-heres-the-answer.html" rel="noopener">PCWorld, One cable or two for powering a graphics card heres the answer</a></li><li><a href="https://www.pcgamesn.com/amd/ryzen-7000-temperatures" rel="noopener">pcgamesn.com, Ryzen 7000 temperatures</a></li><li><a href="https://community.intel.com/t5/Processors/i9-14900K-Temperatures-100%C2%BA/m-p/1545026" rel="noopener">community.intel.com, I9 14900K Temperatures 100º</a></li><li><a href="https://www.intel.com/content/www/us/en/products/sku/236773/intel-core-i9-processor-14900k-36m-cache-up-to-6-00-ghz/specifications.html" rel="noopener">Intel, Specifications</a></li><li><a href="https://www.profesionalreview.com/2023/01/07/amd-ryzen-7000-x3d-tjmax-89/amp/" rel="noopener">profesionalreview.com, Amd ryzen 7000 x3d tjmax</a></li><li><a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/distinguishing-fast-startup-from-wake-from-hibernation" rel="noopener">Microsoft Learn, Distinguishing fast startup from wake from hibernation</a></li><li><a href="https://learn.microsoft.com/en-us/answers/questions/2084205/does-anyone-know-how-to-fix-kernel-power-41-error" rel="noopener">Microsoft Learn, Does anyone know how to fix kernel power 41 error</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>What is Kernel-Power 41 (63)?</summary><p>It's the same event. 41 is the event ID and 63 is its task category, which Event Viewer shows in brackets. The long number like (70368744177664),(2) is the event's keywords. None of these numbers say what caused the shut-off. The fields on the Details tab do.</p></details><details class="qa"><summary>Why does Kernel Power 41 happen while gaming?</summary><p>Under a game the GPU and CPU draw the most power and run hottest, so a power supply that can't keep up, an unstable overclock or overheating shows up there first. If BugcheckCode is 0 and nobody touched the power button, start with the power supply and the temperatures in the minutes before.</p></details><details class="qa"><summary>Is Kernel-Power 41 a hardware problem?</summary><p>Not always. It's logged after a power cut, a held power button, a blue screen caused by a driver, or a shutdown that didn't finish. If it keeps happening with a code of 0 while the PC is working hard, hardware, usually the power supply, is the most likely cause.</p></details><details class="qa"><summary>How do I fix Kernel Power 41?</summary><p>Fix what caused it, since the event is only the record. Read the BugcheckCode first. With a code, follow the stop code. With all zeros, undo overclocks and XMP or EXPO, check temperatures, plug the PC straight into the wall, and test or replace the power supply if it only happens under load.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="blue-screen-of-death-causes"><span>Crashes</span><b>Blue screen of death causes on Windows 11, and the three on my PC</b></a><a class="more" href="game-crashes-to-desktop-no-error"><span>Crashes</span><b>Game crashes to desktop with no error? How RigSight finds why</b></a><a class="more" href="pc-restarts-randomly-while-gaming"><span>Crashes</span><b>PC restarts randomly while gaming? Rule things out first</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>Why did my PC crash? How RigSight caught one on mine</b></a></nav>
   <aside class="get">

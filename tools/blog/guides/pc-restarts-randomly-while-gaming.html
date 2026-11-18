@@ -19,27 +19,6 @@
 -->
 <p>Between 17 and 29 September my PC went off eleven times without shutting down properly, five of them on 29 September alone. There was no blue screen and nobody touched the power button. When your PC restarts randomly while gaming, the first job is the one I had. Before you replace anything, use what happened in the minutes before to rule causes out.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight's Crashes page lists every sudden shut-off and blue screen, read from Windows' own records, and on its first run it reads them from up to 90 days back. Each shut-off is timed by the last minute RigSight recorded, not by Windows' own guess, which can be some minutes early.</p>
-
-<p>For six of my eleven, RigSight had already been recording the minutes before. In every one the GPU was between 1 and 18% busy, drawing 33 to 55 W. The CPU was under 65° and the GPU around 50°. So whatever switched my PC off, it wasn't heat, and it wasn't a power supply struggling under a game. Windows' record of all eleven shows no blue screen code and no power button press. That's as far as the records go, and RigSight doesn't claim more than that.</p>
-
-<p>Each shut-off gets a cause with one word for how sure RigSight is.</p>
-
-<ul>
-  <li>A shut-off under heavy load reads Possibly mains or power supply, because from inside the PC those two look the same.</li>
-  <li>One while a part was above your alert temperature reads Possibly heat.</li>
-  <li>An error the hardware couldn't correct, logged around it, makes it Likely a hardware fault.</li>
-  <li>A held power button reads Confirmed.</li>
-  <li>Only a shut-off while the PC was doing little, with no button press and nothing logged, is called Likely a power cut. Those are counted apart, so they don't hide the PC's own problems.</li>
-  <li>A PC running again within two minutes reads as a power dip or a reset.</li>
-</ul>
-
-{{fig pages/crash-around | The minutes around a problem on RigSight's demo PC: lanes for temperature, load, power, memory, fans and network on one time axis, with the moment marked and a panel with every reading at that minute | Around a crash on RigSight's demo PC. A sudden shut-off opens the same way, with the minutes before it on one time axis.}}
-
-<p>Open a shut-off to see the 45 minutes before it, minute by minute. It shows CPU and GPU temperatures, load, how many watts the GPU was drawing, memory and fans, with the game in front. A shut-off at 300 W and normal temperatures points at power, and one at 90° points at heat. The Temperatures graph leaves a gap where nothing was recorded and says whether the PC was off, shut off suddenly, crashed or was asleep. On the Games page, the play itself says it ended in a shut-off or a power cut. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
-
 <h2>Why a PC restarts randomly while gaming</h2>
 
 <p>These are the usual causes, and how to tell them apart.</p>
@@ -93,3 +72,24 @@
 </ol>
 
 <p>Turn off automatic restart now, then reset your tuning to defaults and play the game that restarts most. If it still goes off with no blue screen and your temperatures were normal just before, the power supply is the part to test next.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight's Crashes page lists every sudden shut-off and blue screen, read from Windows' own records, and on its first run it reads them from up to 90 days back. Each shut-off is timed by the last minute RigSight recorded, not by Windows' own guess, which can be some minutes early.</p>
+
+<p>For six of my eleven, RigSight had already been recording the minutes before. In every one the GPU was between 1 and 18% busy, drawing 33 to 55 W. The CPU was under 65° and the GPU around 50°. So whatever switched my PC off, it wasn't heat, and it wasn't a power supply struggling under a game. Windows' record of all eleven shows no blue screen code and no power button press. That's as far as the records go, and RigSight doesn't claim more than that.</p>
+
+<p>Each shut-off gets a cause with one word for how sure RigSight is.</p>
+
+<ul>
+  <li>A shut-off under heavy load reads Possibly mains or power supply, because from inside the PC those two look the same.</li>
+  <li>One while a part was above your alert temperature reads Possibly heat.</li>
+  <li>An error the hardware couldn't correct, logged around it, makes it Likely a hardware fault.</li>
+  <li>A held power button reads Confirmed.</li>
+  <li>Only a shut-off while the PC was doing little, with no button press and nothing logged, is called Likely a power cut. Those are counted apart, so they don't hide the PC's own problems.</li>
+  <li>A PC running again within two minutes reads as a power dip or a reset.</li>
+</ul>
+
+{{fig pages/crash-around | The minutes around a problem on RigSight's demo PC: lanes for temperature, load, power, memory, fans and network on one time axis, with the moment marked and a panel with every reading at that minute | Around a crash on RigSight's demo PC. A sudden shut-off opens the same way, with the minutes before it on one time axis.}}
+
+<p>Open a shut-off to see the 45 minutes before it, minute by minute. It shows CPU and GPU temperatures, load, how many watts the GPU was drawing, memory and fans, with the game in front. A shut-off at 300 W and normal temperatures points at power, and one at 90° points at heat. The Temperatures graph leaves a gap where nothing was recorded and says whether the PC was off, shut off suddenly, crashed or was asleep. On the Games page, the play itself says it ended in a shut-off or a power cut. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>

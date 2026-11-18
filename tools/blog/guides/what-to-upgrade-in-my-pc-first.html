@@ -19,17 +19,7 @@
 -->
 <p>On 14 November I took my PC from 16 to 32 GB of memory. In the two weeks before, Windows' committed memory, what apps have asked for against the limit of memory plus the page file, reached 90% or more in 2,106 minutes, and averaged 94% while I played Phantom Blade Zero. Since the upgrade it has averaged about 45% and never gone above 62%. But in Dota 2, the one game I played on both sides, the frame rate went from 203 to 208 FPS. Barely a change. That's the whole question of what to upgrade in my PC first, in two numbers. An upgrade helps where the PC was running out, and only there.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight records the CPU, GPU and memory every minute while you play, so the answer is already in your history before you shop. Three readings point at the part to upgrade.</p>
-
-<ul>
-  <li>GPU load. On the Games page, each game's <b>Can it run better?</b> card says how often the GPU was at full load, 95% busy or more. Most of the time means the GPU is the limit.</li>
-  <li>When the GPU rarely or never reaches full load and there's no frame limit, the same card says something else sets the pace, most likely the CPU.</li>
-  <li>Committed memory. When stutters bunch up while it's at 90% or more, RigSight names that as "while Windows was nearly out of memory". Since 1.13.0, the Memory page also says when RAM was 85% full or more today, and which apps held the most then.</li>
-</ul>
-
-<p>The Timeline lists the upgrade itself, mine as "Memory changed to 32 GB", so you can compare before and after. RigSight is free and open source.</p>
+{{testbed Recorded=31 October to 17 November 2026, every minute | Counted=The two weeks before the RAM upgrade on 14 November, and the days after}}
 
 <h2>What to upgrade in my PC first, from my own history</h2>
 
@@ -55,6 +45,8 @@
 
 <p>Open Task Manager's <b>Memory</b> page while you play your heaviest game, with the apps you usually keep open. <b>Committed</b> shows two numbers. When the first gets close to the second, Windows is nearly out of memory and starts leaning on the page file, which is far slower. Then 32 GB helps, as it did on my PC. When it stays well below, more memory won't change your frame rate. <a href="normal-ram-usage-while-gaming">Normal RAM usage while gaming</a> has more.</p>
 
+{{webimg https://thumb.wikimedia.org/wikipedia/commons/thumb/8/85/16_GiB-DDR4-RAM-Riegel_RAM019FIX_Small_Crop_90_PCNT.png/1280px-16_GiB-DDR4-RAM-Riegel_RAM019FIX_Small_Crop_90_PCNT.png | A 16 GB DDR4 memory stick | A 16 GB DDR4 memory stick, the kind of part a RAM upgrade adds. | PantheraLeo1359531, CC BY 4.0, via Wikimedia Commons | https://commons.wikimedia.org/wiki/File:16_GiB-DDR4-RAM-Riegel_RAM019FIX_Small_Crop_90_PCNT.png}}
+
 <p>Buy memory that matches what's in the PC, same type and speed, or replace all of it as a matched kit. Check the motherboard's supported list, and turn on XMP or EXPO in the BIOS afterwards.</p>
 
 <h2>Before you buy on Black Friday</h2>
@@ -65,5 +57,18 @@
   <li>Check it fits. For a GPU, the case's length and the power supply's wattage and cables. For memory, the type and the slots.</li>
   <li>Note how your PC runs now, so you can tell what the upgrade changed.</li>
 </ol>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records the CPU, GPU and memory every minute while you play, so the answer is already in your history before you shop. Three readings point at the part to upgrade.</p>
+
+<ul>
+  <li>GPU load. On the Games page, each game's <b>Can it run better?</b> card says how often the GPU was at full load, 95% busy or more. Most of the time means the GPU is the limit.</li>
+  <li>When the GPU rarely or never reaches full load and there's no frame limit, the same card says something else sets the pace, most likely the CPU.</li>
+  <li>Committed memory. When stutters bunch up while it's at 90% or more, RigSight names that as "while Windows was nearly out of memory". Since 1.13.0, the Memory page also says when RAM was 85% full or more today, and which apps held the most then.</li>
+</ul>
+
+<p>The Timeline lists the upgrade itself, mine as "Memory changed to 32 GB", so you can compare before and after. RigSight is free and open source.</p>
+
 
 <p>Your next step is to play your two most played games with GPU usage and memory on screen this week. Whatever runs out first is what to upgrade, and once it's in, <a href="how-to-test-a-new-gpu">how to test a new GPU or PC</a> covers the first week.</p>

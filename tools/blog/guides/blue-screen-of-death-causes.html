@@ -19,22 +19,6 @@
 -->
 <p>Between 11 August and 9 September my PC hit three blue screens, and each one had a different stop code. The usual advice says that different codes every time point at hardware. The real answer was in the drivers Windows named. Two of the three were the graphics driver, and the third was a USB audio driver. The blue screen of death causes on Windows 11 are fewer than they seem, and Windows writes down which one it was if you know where to look.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight reads Windows' own crash records, and when it is first installed it reads them from up to 90 days back. So all three blue screens are on my Crashes page, each with its stop code named and explained.</p>
-
-<ul>
-  <li>On 22 August it was <code>0x116</code> VIDEO_TDR_FAILURE. At the next start Windows named <code>nvlddmkm.sys</code> as the driver involved. RigSight says "Windows crashed inside nvlddmkm.sys, the NVIDIA driver" and marks it Confirmed, because Windows' own record says so. It was the worst moment of the graphics driver hangs I wrote about in <a href="display-driver-stopped-responding">display driver stopped responding and has recovered</a>.</li>
-  <li>On 9 September it was <code>0x3B</code> SYSTEM_SERVICE_EXCEPTION, and Windows named <code>RtUsbA64.sys</code>. RigSight doesn't keep its own name for that file, so it reads the description the file carries and says Windows crashed inside the Realtek USB audio driver. That one is Confirmed too, and it adds "It wasn't the graphics driver", so the NVIDIA driver doesn't get the blame for all three.</li>
-  <li>On 11 August it was <code>0x119</code> VIDEO_SCHEDULER_INTERNAL_ERROR, and Windows named no driver at the next start. RigSight says the graphics scheduler hit an error, which is usually the graphics driver, and marks it only Possibly. Under what's still unknown it says which driver or part was at fault, because Windows didn't name one. The error report Windows filed later does name <code>nvlddmkm</code> in its fault bucket line, which I found in Event Viewer.</li>
-</ul>
-
-<p>So two of my three codes were the same driver, and the codes themselves are from the same family. <code>0x116</code> and <code>0x119</code> are both graphics stop codes. There hasn't been a blue screen since 9 September, as of 5 November in Windows' own log.</p>
-
-{{fig pages/crash-open | An opened crash on RigSight's demo PC with its cause marked Confirmed, What to try, What points to this, and What it wasn't with the temperatures, memory and installs ruled out | An opened crash on RigSight's demo PC. A blue screen opens the same way, with its code and the driver Windows named.}}
-
-<p>Each opened crash also checks the things you would otherwise check by hand. It looks for a driver or Windows update installed in the 7 days before. It names that update, or rules it out when the same blue screen had already happened before it. It also shows any hardware errors handed over at the next start, says whether the CPU or GPU was over your alert limit, and counts how many times the same blue screen has happened before. A 0x124 or 0x101 with no driver named reads Likely a hardware fault. Open a crash for the 45 minutes before it, minute by minute, and use <strong>Copy report</strong> to paste the whole thing into a forum post. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
-
 <h2>Blue screen of death causes on Windows 11</h2>
 
 <p>Microsoft calls a blue screen a stop error or bug check. Drivers and the core of Windows run with full access to the system. When one of them does something that could corrupt memory or your files if it carried on, Windows stops everything on purpose. It saves a dump file and shows a stop code that names the kind of fault. On current Windows 11 that screen can be a plain black one with the same "Your device ran into a problem" message, and it only stays up for about two seconds.</p>
@@ -100,5 +84,22 @@
 </ol>
 
 <p>Updating the BIOS can fix 0x124 and 0x101 crashes on some boards, but a failed BIOS update can leave the PC unable to start. Only do it with your motherboard maker's instructions, on a stable PC, and never during a storm or on a laptop without its charger.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight reads Windows' own crash records, and when it is first installed it reads them from up to 90 days back. So all three blue screens are on my Crashes page, each with its stop code named and explained.</p>
+
+<ul>
+  <li>On 22 August it was <code>0x116</code> VIDEO_TDR_FAILURE. At the next start Windows named <code>nvlddmkm.sys</code> as the driver involved. RigSight says "Windows crashed inside nvlddmkm.sys, the NVIDIA driver" and marks it Confirmed, because Windows' own record says so. It was the worst moment of the graphics driver hangs I wrote about in <a href="display-driver-stopped-responding">display driver stopped responding and has recovered</a>.</li>
+  <li>On 9 September it was <code>0x3B</code> SYSTEM_SERVICE_EXCEPTION, and Windows named <code>RtUsbA64.sys</code>. RigSight doesn't keep its own name for that file, so it reads the description the file carries and says Windows crashed inside the Realtek USB audio driver. That one is Confirmed too, and it adds "It wasn't the graphics driver", so the NVIDIA driver doesn't get the blame for all three.</li>
+  <li>On 11 August it was <code>0x119</code> VIDEO_SCHEDULER_INTERNAL_ERROR, and Windows named no driver at the next start. RigSight says the graphics scheduler hit an error, which is usually the graphics driver, and marks it only Possibly. Under what's still unknown it says which driver or part was at fault, because Windows didn't name one. The error report Windows filed later does name <code>nvlddmkm</code> in its fault bucket line, which I found in Event Viewer.</li>
+</ul>
+
+<p>So two of my three codes were the same driver, and the codes themselves are from the same family. <code>0x116</code> and <code>0x119</code> are both graphics stop codes. There hasn't been a blue screen since 9 September, as of 5 November in Windows' own log.</p>
+
+{{fig pages/crash-open | An opened crash on RigSight's demo PC with its cause marked Confirmed, What to try, What points to this, and What it wasn't with the temperatures, memory and installs ruled out | An opened crash on RigSight's demo PC. A blue screen opens the same way, with its code and the driver Windows named.}}
+
+<p>Each opened crash also checks the things you would otherwise check by hand. It looks for a driver or Windows update installed in the 7 days before. It names that update, or rules it out when the same blue screen had already happened before it. It also shows any hardware errors handed over at the next start, says whether the CPU or GPU was over your alert limit, and counts how many times the same blue screen has happened before. A 0x124 or 0x101 with no driver named reads Likely a hardware fault. Open a crash for the 45 minutes before it, minute by minute, and use <strong>Copy report</strong> to paste the whole thing into a forum post. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
+
 
 <p>Your next step is to find the BCCode of your last blue screen in Reliability Monitor, then look for event 1019 beside it in the System log. If your last few crashes share a code or a named driver, fix that one thing first. If the codes differ and no driver repeats, start with memory and tuning.</p>

@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Ping spikes while gaming, and the download behind mine", "description": "Ping spikes while gaming usually mean a download, an upload or Wi-Fi is getting in the way. Ping your router and the internet at once to find which side.", "datePublished": "2026-11-06", "dateModified": "2026-11-06", "image": "https://rigsight.app/img/blog/ping-spikes-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/ping-spikes-while-gaming", "keywords": "ping spikes while gaming, lag spikes while gaming, lag spikes while gaming pc, random ping spikes while gaming, high ping in games but good internet, ping spikes on wifi, ping spikes on ethernet, packet loss meaning, internet drops while gaming"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Ping spikes while gaming, and the download behind mine", "item": "https://rigsight.app/blog/ping-spikes-while-gaming"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why do I get ping spikes while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "Often something else on your connection is downloading or uploading at the same moment, like a launcher update, Windows Update or a cloud backup, and the game's packets wait behind it. Wi-Fi trouble and a busy route to the game server are the other usual reasons. Pinging your router and the internet at once tells you which side it's on."}}, {"@type": "Question", "name": "Why is my ping high in games but my internet is good?", "acceptedAnswer": {"@type": "Answer", "text": "A speed test measures how much data your connection can move each second. Ping is how long one small packet takes to get there and back. A fast connection can still have high ping when the game server is far away, the route to it is busy, or something else is filling the line while you play."}}, {"@type": "Question", "name": "Are ping spikes worse on Wi-Fi than on Ethernet?", "acceptedAnswer": {"@type": "Answer", "text": "They can be. Wi-Fi shares the air with other networks and devices, and walls and distance make it resend packets. If pings to your own router jump around, try a cable. If the spikes happen on a cable too, look past your home network."}}, {"@type": "Question", "name": "What does packet loss mean?", "acceptedAnswer": {"@type": "Answer", "text": "Packet loss means some packets never arrive. In a game it shows as rubber-banding or actions that don't register. A lost ping now and then is normal. RigSight only mentions it once 1% or more of its pings get no reply."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,23 +256,11 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Internet and screen time</p>
   <h1>Ping spikes while gaming, and the download behind mine</h1>
   <p class="dek">My ping to my internet provider jumped to 155 ms in the minute Steam pulled 175 MB, while my own router stayed under a millisecond. How RigSight shows where ping spikes while gaming start, why they happen, and how to fix them.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 6 November 2026 · 5 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 6 November 2026 · 5 min read</p>
   <figure class="cover"><img class="" src="../img/blog/ping-spikes-while-gaming.webp" srcset="../img/blog/ping-spikes-while-gaming-600.webp 600w, ../img/blog/ping-spikes-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Ping to my router: &lt;1 ms, the same minute. Ping to my provider: 155 ms, during a Steam download" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Ping spikes while gaming usually come from something else filling your connection, like a launcher or Windows downloading in the background, or from Wi-Fi. Ping your router and something on the internet at the same time. If only the internet side spikes, pause downloads and uploads first. If your router spikes too, it's your Wi-Fi or cable.</p></div>
   <div class="body">
 <p>On 5 November at 10:32 PM, RigSight's ping check to my internet provider's first router came back in 155 ms. A minute before it was 1 ms, and a minute after it was 1 ms again. My own router answered in under a millisecond the whole time. In that minute Steam pulled 175 MB, more than thirty times what it pulled the minute before. I wasn't in a game, but it's a common story behind ping spikes while gaming. Something else fills the connection, and the game's packets wait in line behind it.</p>
-
-<h2>How RigSight caught it</h2>
-
-<p>Since version 1.4.0, RigSight checks the line every 5 seconds in two places. One ping goes to your router, which is the home side of the line, your cable or Wi-Fi. The other goes to your internet provider's first router after it, which is the provider's side. RigSight finds that router the way a traceroute does, without asking any outside server. The pings leave from the network card itself, so a VPN in between doesn't hide the real line. A ping that isn't back within a second counts as lost. Since version 1.14.0, while a game or a call is online, RigSight also checks the server it's talking to, so a slow route past your provider shows too.</p>
-
-<p>Two pings at once tell you where a spike starts. If the router is slow, the problem is inside your home. If the router is quick and the provider's side is slow, the problem is on the line, at the provider, or in whatever is filling the line. On my PC the router never went past 3 ms in the 484 minutes of checks so far, and 4 of 5,767 pings to the provider got no reply.</p>
-
-<p>The Network page shows it in a few places. Right now has your speeds, whether the connection is working well, its ping and packet loss, and every app using it. The graph of each hour has a Ping view, and any hour that went past 80 ms is marked, because that's where online games start to feel it. On a line that's never that fast, the mark starts at twice its usual. A sentence above the graph gives the usual ping and how many hours went past the mark. When the same app was uploading a lot in most of them, it names that app.</p>
-
-<p>Mine was a download, so the sentence doesn't name it, but the hour does. Click the marked hour and Steam is at the top of its apps, with 334 MB downloaded. The second spike in my history was the same kind. At 7:16 AM on 6 November the provider's side hit 105 ms. In that hour Epic's installer pulled 292 MB and Ubisoft Connect 216 MB, and those two were the top of the list. Drag across the graph to zoom into a busy evening.</p>
-
-<p>If the internet drops altogether, RigSight tells you when it went and when it's back, and a strip under the graph shows each drop. <a href="internet-keeps-disconnecting">Internet keeps disconnecting on PC</a> covers that side. You can pause the ping checks under the graph or in Settings. Seeing each app's internet use needs RigSight running with admin rights. RigSight is free and open source.</p>
 
 <h2>Why ping spikes happen</h2>
 
@@ -277,8 +289,23 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>If the provider's side spikes with nothing else using the internet, write down the times and call your provider. A record of when it happened helps more than "my internet is bad".</li>
 </ol>
 
+<h2>How RigSight caught it</h2>
+
+<p>Since version 1.4.0, RigSight checks the line every 5 seconds in two places. One ping goes to your router, which is the home side of the line, your cable or Wi-Fi. The other goes to your internet provider's first router after it, which is the provider's side. RigSight finds that router the way a traceroute does, without asking any outside server. The pings leave from the network card itself, so a VPN in between doesn't hide the real line. A ping that isn't back within a second counts as lost. Since version 1.14.0, while a game or a call is online, RigSight also checks the server it's talking to, so a slow route past your provider shows too.</p>
+
+<p>Two pings at once tell you where a spike starts. If the router is slow, the problem is inside your home. If the router is quick and the provider's side is slow, the problem is on the line, at the provider, or in whatever is filling the line. On my PC the router never went past 3 ms in the 484 minutes of checks so far, and 4 of 5,767 pings to the provider got no reply.</p>
+
+<p>The Network page shows it in a few places. Right now has your speeds, whether the connection is working well, its ping and packet loss, and every app using it. The graph of each hour has a Ping view, and any hour that went past 80 ms is marked, because that's where online games start to feel it. On a line that's never that fast, the mark starts at twice its usual. A sentence above the graph gives the usual ping and how many hours went past the mark. When the same app was uploading a lot in most of them, it names that app.</p>
+
+<p>Mine was a download, so the sentence doesn't name it, but the hour does. Click the marked hour and Steam is at the top of its apps, with 334 MB downloaded. The second spike in my history was the same kind. At 7:16 AM on 6 November the provider's side hit 105 ms. In that hour Epic's installer pulled 292 MB and Ubisoft Connect 216 MB, and those two were the top of the list. Drag across the graph to zoom into a busy evening.</p>
+
+<p>If the internet drops altogether, RigSight tells you when it went and when it's back, and a strip under the graph shows each drop. <a href="internet-keeps-disconnecting">Internet keeps disconnecting on PC</a> covers that side. You can pause the ping checks under the graph or in Settings. Seeing each app's internet use needs RigSight running with admin rights. RigSight is free and open source.</p>
+
+
 <p>Your next step is the two ping windows from the first step, left running during your next match. One look at which one jumps tells you whether to fix your Wi-Fi or your downloads.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ping" rel="noopener">Microsoft Learn, Ping</a></li><li><a href="https://support.microsoft.com/en-us/windows/deployment/updates-lifecycle/delivery-optimization-in-windows" rel="noopener">Microsoft Support, Delivery optimization in windows</a></li><li><a href="https://learn.microsoft.com/en-us/windows/deployment/do/waas-delivery-optimization-faq" rel="noopener">Microsoft Learn, Waas delivery optimization faq</a></li><li><a href="https://arxiv.org/pdf/2107.13968" rel="noopener">arxiv.org</a></li><li><a href="https://arxiv.org/pdf/1703.00064" rel="noopener">arxiv.org</a></li><li><a href="https://www.pcgamer.com/uk/steam-update-allows-background-downloading-while-playing-a-game" rel="noopener">PC Gamer, Steam update allows background downloading while playing a game</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Why do I get ping spikes while gaming?</summary><p>Often something else on your connection is downloading or uploading at the same moment, like a launcher update, Windows Update or a cloud backup, and the game's packets wait behind it. Wi-Fi trouble and a busy route to the game server are the other usual reasons. Pinging your router and the internet at once tells you which side it's on.</p></details><details class="qa"><summary>Why is my ping high in games but my internet is good?</summary><p>A speed test measures how much data your connection can move each second. Ping is how long one small packet takes to get there and back. A fast connection can still have high ping when the game server is far away, the route to it is busy, or something else is filling the line while you play.</p></details><details class="qa"><summary>Are ping spikes worse on Wi-Fi than on Ethernet?</summary><p>They can be. Wi-Fi shares the air with other networks and devices, and walls and distance make it resend packets. If pings to your own router jump around, try a cable. If the spikes happen on a cable too, look past your home network.</p></details><details class="qa"><summary>What does packet loss mean?</summary><p>Packet loss means some packets never arrive. In a game it shows as rubber-banding or actions that don't register. A lost ping now and then is normal. RigSight only mentions it once 1% or more of its pings get no reply.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="internet-keeps-disconnecting"><span>Internet and screen time</span><b>Internet keeps disconnecting on PC? Find which side drops</b></a><a class="more" href="blue-screen-of-death-causes"><span>Crashes</span><b>Blue screen of death causes on Windows 11, and the three on my PC</b></a><a class="more" href="game-crashes-to-desktop-no-error"><span>Crashes</span><b>Game crashes to desktop with no error? How RigSight finds why</b></a><a class="more" href="pc-restarts-randomly-while-gaming"><span>Crashes</span><b>PC restarts randomly while gaming? Rule things out first</b></a></nav>
   <aside class="get">

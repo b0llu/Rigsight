@@ -64,13 +64,7 @@
 -->
 <p>On 23 September my C drive had 198 GB used. Seven weeks later it had 271 GB, out of 446. On 30 October alone it grew by 68 GB. That morning Steam downloaded a 58 GB game update, which looks like the obvious answer. It isn't, because every Steam game I have lives on my E drive. Something else filled C, and I'd never have known the day without a record. Here is how to see what is taking up space on your C drive in Windows 11, what you can safely clear, and what to leave alone.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>Windows shows what fills a drive today. RigSight also keeps track of how it got there. Its Storage page lists the drives inside your PC, fullest first, with USB and network drives below them, and shows how much each has grown over the last few days, such as +3.7 GB in 8 days. A drive that fills fast stands out before it is full. With admin rights, each drive also shows its health in plain words.</p>
-<p>Below the drives, Space you could free lists what RigSight found. That can include temporary files, the Windows temp folder, downloads you haven't touched in 90 days, the Windows Update cache, NVIDIA, AMD and DirectX shader caches, crash dumps, a previous Windows installation and the Recycle Bin. Nothing is deleted for you. Each line opens its folder or a list to review, and only the Recycle Bin has an Empty button.</p>
-<p>Scan a drive and RigSight shows its folders as a list and a map side by side, coloured by kind of file, and you can open any folder down to its files or switch to the largest files. A scan also finds big files you haven't changed in a year. Each drive keeps its last scan after a restart, so you can come back to it. On the Games page every game shows its size and the drive it sits on, and you can uninstall it through its own launcher. The Timeline notes when a drive's used space jumped or dropped within a day, and by how much.</p>
-
-<p>That's how I found the 30 October jump, and why I knew not to blame Steam. RigSight records each drive's used space every day. Steam's own download log, which RigSight reads, says what Steam fetched, and Steam's library list says which drive each game sits on. The rest of the 68 GB is what a scan of C is for. RigSight is free and open source.</p>
+{{testbed Drives=C drive, a 446 GB Kingston SATA SSD | Recorded=23 September to 11 November 2026, once a day}}
 
 <h2>What is taking up space on my C drive in Windows 11? Check Settings first</h2>
 <ol>
@@ -117,3 +111,11 @@
 <p>For your own files, OneDrive's Files On-Demand keeps files online and frees the local copy until you open one. Videos, old phone backups and the Downloads folder are the usual surprises, and typing <code>size:gigantic</code> into Explorer's search box while C is open finds files over 4 GB on the whole drive.</p>
 
 <p>Start with Settings > System > Storage and Cleanup recommendations, then Disk Cleanup's system files. If C is still tight after that, move a game library to another drive. If the drive also feels slow or throws errors, run an <a href="ssd-health-check">SSD health check</a>.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>Windows shows what fills a drive today. RigSight also keeps track of how it got there. Its Storage page lists the drives inside your PC, fullest first, with USB and network drives below them, and shows how much each has grown over the last few days, such as +3.7 GB in 8 days. A drive that fills fast stands out before it is full. With admin rights, each drive also shows its health in plain words.</p>
+<p>Below the drives, Space you could free lists what RigSight found. That can include temporary files, the Windows temp folder, downloads you haven't touched in 90 days, the Windows Update cache, NVIDIA, AMD and DirectX shader caches, crash dumps, a previous Windows installation and the Recycle Bin. Nothing is deleted for you. Each line opens its folder or a list to review, and only the Recycle Bin has an Empty button.</p>
+<p>Scan a drive and RigSight shows its folders as a list and a map side by side, coloured by kind of file, and you can open any folder down to its files or switch to the largest files. A scan also finds big files you haven't changed in a year. Each drive keeps its last scan after a restart, so you can come back to it. On the Games page every game shows its size and the drive it sits on, and you can uninstall it through its own launcher. The Timeline notes when a drive's used space jumped or dropped within a day, and by how much.</p>
+
+<p>That's how I found the 30 October jump, and why I knew not to blame Steam. RigSight records each drive's used space every day. Steam's own download log, which RigSight reads, says what Steam fetched, and Steam's library list says which drive each game sits on. The rest of the 68 GB is what a scan of C is for. RigSight is free and open source.</p>

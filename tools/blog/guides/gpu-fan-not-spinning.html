@@ -23,15 +23,7 @@
 -->
 <p>Since 29 September, RigSight has recorded about 29,700 minutes of my GPU's two fans. They stood still for 42% of that time. They were never still with the GPU above 52°C, and from 52°C up they spun every single minute. A GPU fan not spinning is usually the card doing what it was built to do. What matters is whether the fan stays still when the GPU is hot, and here's how to tell the two apart.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight records every fan's speed each minute next to the temperature of the part it cools. On the Fans page, a GPU fan at 0 rpm with a cool GPU shows as "Resting while cool". The same fan at 0 rpm with the GPU at 70°C or more shows as "Stopped while hot" and counts as needing a look. For a card with fan stop, the page also works out where the fans start, and says it as "Silent below that, faster as it warms". It shows how long they stood still and how many times they started up, for a day, a week, a month or a year.</p>
-
-<p>My fans also stop between about 42 and 50°C some of the time and spin the rest. That's the gap cards keep on purpose. Once spinning, they keep going until the GPU has cooled a few degrees, so they don't flick on and off. RigSight once read a stopped fan as a clogged one, and that story is in <a href="like-for-like">The day RigSight told me my healthy fan was clogged</a>. Since then it compares a fan only with itself at the same heat.</p>
-
-<p>Since version 1.7.0 you don't have to be watching. If a GPU fan shows 0 rpm for 3 minutes or more with the GPU at 70°C or more, and it always turns at that heat, you get a notification titled "Your GPU fan stopped". It says how long, from when and how hot the GPU was, and ends with "Check it isn't blocked or unplugged." RigSight also tells you when fans spin slower than usual at the same heat. The bell in the title bar keeps every notification from the last 30 days, so one you missed while gaming is still there. GPU fans show without admin rights. RigSight is free and open source.</p>
-
-{{fig pages/fans | RigSight's Fans page on the demo PC with GPU fans that start spinning around 51 degrees, a speed chart for each day and a chart of speed at each GPU temperature | RigSight's Fans page on the demo PC. The shaded band on the speed at each GPU temperature chart is where the card keeps its fans off on purpose.}}
+{{testbed Recorded=29 September to 9 November 2026, every minute | Counted=Each minute of the GPU fans next to the GPU temperature}}
 
 <h2>Why most GPU fans stop on purpose</h2>
 
@@ -111,3 +103,13 @@
 
 
 <p>If your GPU fan isn't spinning right now, start with the heat test above. Five minutes in a game with the temperature and fan speed on screen tells you whether you have a quiet card or a broken fan.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records every fan's speed each minute next to the temperature of the part it cools. On the Fans page, a GPU fan at 0 rpm with a cool GPU shows as "Resting while cool". The same fan at 0 rpm with the GPU at 70°C or more shows as "Stopped while hot" and counts as needing a look. For a card with fan stop, the page also works out where the fans start, and says it as "Silent below that, faster as it warms". It shows how long they stood still and how many times they started up, for a day, a week, a month or a year.</p>
+
+<p>My fans also stop between about 42 and 50°C some of the time and spin the rest. That's the gap cards keep on purpose. Once spinning, they keep going until the GPU has cooled a few degrees, so they don't flick on and off. RigSight once read a stopped fan as a clogged one, and that story is in <a href="like-for-like">The day RigSight told me my healthy fan was clogged</a>. Since then it compares a fan only with itself at the same heat.</p>
+
+<p>Since version 1.7.0 you don't have to be watching. If a GPU fan shows 0 rpm for 3 minutes or more with the GPU at 70°C or more, and it always turns at that heat, you get a notification titled "Your GPU fan stopped". It says how long, from when and how hot the GPU was, and ends with "Check it isn't blocked or unplugged." RigSight also tells you when fans spin slower than usual at the same heat. The bell in the title bar keeps every notification from the last 30 days, so one you missed while gaming is still there. GPU fans show without admin rights. RigSight is free and open source.</p>
+
+{{fig pages/fans | RigSight's Fans page on the demo PC with GPU fans that start spinning around 51 degrees, a speed chart for each day and a chart of speed at each GPU temperature | RigSight's Fans page on the demo PC. The shaded band on the speed at each GPU temperature chart is where the card keeps its fans off on purpose.}}

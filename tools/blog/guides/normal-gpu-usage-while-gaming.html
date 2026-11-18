@@ -19,11 +19,7 @@
 -->
 <p>Two of my games show how wide normal GPU usage while gaming can be. In Phantom Blade Zero, my RTX 3080 Ti was at full load, 95% busy or more, in 87% of the minutes I played, at about 68 FPS. In Risk of Rain 2 on the same PC, it was at full load in 1% of the minutes and averaged 55% busy, at about 151 FPS. Neither one is a problem. They just tell you different things about what holds the frame rate back.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight records the GPU's usage every minute, next to the frame rate from RivaTuner and the game in front. On the Games page, each game's <b>Can it run better?</b> card turns that into one line. When the GPU was at full load most of the time, it says so and that lower settings would give more frames. When it was at full load only some of the time, it says the GPU is the limit in busy scenes. When it rarely or never was, it says something else sets the pace, most likely the CPU.</p>
-
-<p>If the game holds a flat frame rate, the card names what holds it there, the game's own frame limit or V-Sync, from the game's saved settings when RigSight can read them. You can also put GPU usage in the overlay, the taskbar or a widget to watch it live. RigSight is free and open source.</p>
+{{testbed Recorded=18 October to 13 November 2026, frame rates from RivaTuner | Counted=Minutes with a game in front and a frame rate}}
 
 <h2>Normal GPU usage while gaming</h2>
 
@@ -68,5 +64,12 @@
   <li>For the game itself, the <b>Processes</b> tab has a <b>GPU</b> column you can sort by.</li>
   <li>To see it while you play, use an overlay that shows GPU usage, like Xbox Game Bar's Performance widget, the NVIDIA app or RivaTuner. <a href="how-to-show-fps-overlay">How to show FPS on PC</a> covers each.</li>
 </ol>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records the GPU's usage every minute, next to the frame rate from RivaTuner and the game in front. On the Games page, each game's <b>Can it run better?</b> card turns that into one line. When the GPU was at full load most of the time, it says so and that lower settings would give more frames. When it was at full load only some of the time, it says the GPU is the limit in busy scenes. When it rarely or never was, it says something else sets the pace, most likely the CPU.</p>
+
+<p>If the game holds a flat frame rate, the card names what holds it there, the game's own frame limit or V-Sync, from the game's saved settings when RigSight can read them. You can also put GPU usage in the overlay, the taskbar or a widget to watch it live. RigSight is free and open source.</p>
+
 
 <p>Your next step is to check GPU usage and the frame rate together in your heaviest game. Near 100% means the GPU is the limit, so lower settings or upscaling give more frames. Well below that, with a frame rate you're unhappy with, means look at the CPU or a frame cap next.</p>

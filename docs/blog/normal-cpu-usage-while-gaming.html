@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Normal CPU usage while gaming, and when 100% isn't", "description": "Normal CPU usage while gaming is often 20 to 60% on a 6 or 8 core CPU. Unlike the GPU, 100% CPU usage isn't normal. What causes it and how to fix it.", "datePublished": "2026-11-16", "dateModified": "2026-11-16", "image": "https://rigsight.app/img/blog/normal-cpu-usage-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/normal-cpu-usage-while-gaming", "keywords": "normal cpu usage while gaming, average cpu usage while gaming, is 100 cpu usage normal while gaming, cpu 100 while gaming, cpu usage 100 while gaming, normal cpu utilization while gaming, normal gpu and cpu usage while gaming, cpu at 100 while gaming fix"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Normal CPU usage while gaming, and when 100% isn't", "item": "https://rigsight.app/blog/normal-cpu-usage-while-gaming"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is 100% CPU usage normal while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "Not on most PCs. Games rarely use every core fully, so a CPU pinned at 100% usually means a background app is busy, the CPU has few cores for that game, or something is wrong like a stuck process. Short spikes while a game loads or builds shaders are fine."}}, {"@type": "Question", "name": "What is normal CPU usage while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "It depends on the game and the CPU. On my 8-core Ryzen 7 5700X3D it ranged from 13% in Slay the Spire 2 to 47% in Phantom Blade Zero. A 4-core CPU in the same games would read much higher."}}, {"@type": "Question", "name": "Why is my CPU usage low but the CPU is still the bottleneck?", "acceptedAnswer": {"@type": "Answer", "text": "Total CPU usage averages every core. A game whose main thread fills one or two cores can be held back while the total reads 25 or 30%. Look at the per-core graphs in Task Manager, or at GPU usage. A GPU well below 95% with no frame limit points at the CPU."}}, {"@type": "Question", "name": "How do I fix 100% CPU usage while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "Close background apps, especially browsers, launchers that download, and cloud sync. Check Task Manager for anything busy that isn't the game. Update the game and the chipset driver, use the Balanced power plan, and lower settings that lean on the CPU, like crowd density, view distance and physics."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,17 +256,13 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · FPS and games</p>
   <h1>Normal CPU usage while gaming, and when 100% isn't</h1>
   <p class="dek">My Ryzen 7 5700X3D averaged between 13% and 47% busy across six games and never reached 90% in any minute of play. What normal CPU usage while gaming looks like, why 100% is different from GPU usage, and how to fix it.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 16 November 2026 · 4 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 16 November 2026 · 4 min read</p>
   <figure class="cover"><img class="" src="../img/blog/normal-cpu-usage-while-gaming.webp" srcset="../img/blog/normal-cpu-usage-while-gaming-600.webp 600w, ../img/blog/normal-cpu-usage-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Busiest game: 47%, Phantom Blade Zero, 5700X3D. Minutes at 90%+: 0, in about 88 hours of play" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Normal CPU usage while gaming is often 20 to 60% on a modern 6 or 8 core processor, depending on the game. Unlike the GPU, a CPU at 100% while gaming isn't the normal state. It usually means a CPU with few cores, a background app, or a game that needs more than the CPU has, and it often comes with stutters.</p></div>
   <div class="body">
 <p>Across six games since 18 October, my Ryzen 7 5700X3D averaged between 13% and 47% busy. In about 88 hours of play it never reached 90% in a single minute. The highest minute was 87%, in Phantom Blade Zero. That's what normal CPU usage while gaming looks like on a current 8-core processor, and it isn't like the GPU, which in the same game sat near 100% most of the time.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight records the CPU's usage every minute, for the whole PC and for each app, next to the frame rate and the game in front. That's how I can see not only how busy the CPU was, but whether the game or something else made it busy.</p>
-
-<p>When stutters bunch up, five or more within 15 minutes, and you open the play frame by frame, RigSight checks what else was going on. If another app used 20% of the CPU or more there, and at least twice what it used in the rest of the play, it names that app as busy in the background. On the Games page, a game whose GPU rarely or never reached full load gets the line that something else sets the pace, most likely the CPU. RigSight is free and open source.</p>
+<div class="testbed"><p class="testbed-k">Test setup</p><dl><dt>GPU</dt><dd>NVIDIA GeForce RTX 3080 Ti, 12 GB</dd><dt>CPU</dt><dd>AMD Ryzen 7 5700X3D</dd><dt>Memory</dt><dd>16 GB, 32 GB from 14 November 2026</dd><dt>Windows</dt><dd>Windows 11</dd><dt>Recorded</dt><dd>18 October to 13 November 2026, frame rates from RivaTuner</dd><dt>Counted</dt><dd>Minutes with a game in front and a frame rate</dd></dl></div>
 
 <h2>Normal CPU usage while gaming</h2>
 
@@ -290,10 +310,19 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>Check the CPU's temperature. A CPU that gets too hot slows itself. <a href="normal-cpu-temperature-while-gaming">Normal CPU temperature while gaming</a> has the numbers.</li>
 </ol>
 
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records the CPU's usage every minute, for the whole PC and for each app, next to the frame rate and the game in front. That's how I can see not only how busy the CPU was, but whether the game or something else made it busy.</p>
+
+<p>When stutters bunch up, five or more within 15 minutes, and you open the play frame by frame, RigSight checks what else was going on. If another app used 20% of the CPU or more there, and at least twice what it used in the rest of the play, it names that app as busy in the background. On the Games page, a game whose GPU rarely or never reached full load gets the line that something else sets the pace, most likely the CPU. RigSight is free and open source.</p>
+
+
 <p>Your next step is to watch CPU and GPU usage together in a game that feels slow. A GPU near 100% means the CPU is fine. A GPU well below that, with no frame limit, means the CPU or the game sets the pace, so start with the list above. <a href="normal-gpu-usage-while-gaming">Normal GPU usage while gaming</a> covers the GPU side.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://www.digitalcitizen.life/how-to-tell-whether-your-cpu-or-gpu-is-limiting-gaming-performance/" rel="noopener">Digital Citizen, How to tell whether your cpu or gpu is limiting gaming performance</a></li><li><a href="https://support.microsoft.com/en-us/windows/power-settings-in-windows-11-0d6a2b6b-2e87-4611-9980-ac9ea2175734" rel="noopener">Microsoft Support, Power settings in windows</a></li><li><a href="https://www.amd.com/en/support/download/drivers.html" rel="noopener">AMD, Drivers</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Is 100% CPU usage normal while gaming?</summary><p>Not on most PCs. Games rarely use every core fully, so a CPU pinned at 100% usually means a background app is busy, the CPU has few cores for that game, or something is wrong like a stuck process. Short spikes while a game loads or builds shaders are fine.</p></details><details class="qa"><summary>What is normal CPU usage while gaming?</summary><p>It depends on the game and the CPU. On my 8-core Ryzen 7 5700X3D it ranged from 13% in Slay the Spire 2 to 47% in Phantom Blade Zero. A 4-core CPU in the same games would read much higher.</p></details><details class="qa"><summary>Why is my CPU usage low but the CPU is still the bottleneck?</summary><p>Total CPU usage averages every core. A game whose main thread fills one or two cores can be held back while the total reads 25 or 30%. Look at the per-core graphs in Task Manager, or at GPU usage. A GPU well below 95% with no frame limit points at the CPU.</p></details><details class="qa"><summary>How do I fix 100% CPU usage while gaming?</summary><p>Close background apps, especially browsers, launchers that download, and cloud sync. Check Task Manager for anything busy that isn't the game. Update the game and the chipset driver, use the Balanced power plan, and lower settings that lean on the CPU, like crowd density, view distance and physics.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
-  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="one-percent-low-fps"><span>FPS and games</span><b>1% low FPS meaning, and why my 116 was really 69</b></a><a class="more" href="can-my-pc-run-gta-6"><span>FPS and games</span><b>Can my PC run GTA 6? What's known, and how to check yours</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games and how to catch what causes them</b></a><a class="more" href="games-stuttering-on-pc"><span>FPS and games</span><b>Games stuttering on PC? Find out if it's the game or the PC</b></a></nav>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="one-percent-low-fps"><span>FPS and games</span><b>1% low FPS meaning, and why my 116 was really 69</b></a><a class="more" href="can-my-pc-run-gta-6"><span>FPS and games</span><b>Can my PC run GTA 6? What's known about the PC version</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games and how to catch what causes them</b></a><a class="more" href="games-stuttering-on-pc"><span>FPS and games</span><b>Games stuttering on PC? Find out if it's the game or the PC</b></a></nav>
   <aside class="get">
     <img src="../img/logo-144.webp" alt="" width="40" height="40">
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>

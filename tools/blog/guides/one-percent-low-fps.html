@@ -20,17 +20,7 @@
 -->
 <p>On 28 October I played Risk of Rain 2 for about four hours, at an average of 187 FPS. If you take the 1% low of each minute and average them, you get 116, which looks fine. Counting every frame of those four hours together, the real 1% low was 69, and RigSight found 3,281 stutters. Two numbers from the same hours of play told different stories. Here is the 1% low FPS meaning in plain words, why the way it's measured matters, and what to do when yours is bad.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>Before version 0.35.0, RigSight's 1% low was an average of RivaTuner's own 1% lows, each worked out over the last 1,024 frames. Averaging lows from short windows smooths the worst moments away, the same way my minutes averaged out to 116. On 25 October I asked for something better, a record of every frame instead of an average. Since 0.35.0, RigSight keeps every frame's time from RivaTuner, sorted into narrow bands each minute. That takes about 60 bytes a minute, and it lets RigSight work out the true 1% and 0.1% lows for any stretch of play, from a single minute to a whole month.</p>
-
-<p>It also counts stutters. A stutter is one frame that took at least 2.5 times as long as the frames just before it, and at least 20 ms. A game running at 144 FPS that jumps from 7 ms frames to 20 ms is a hitch you feel, while 8 to 12 ms isn't. Nothing is counted while a game runs under 20 FPS overall, so loading screens don't count. When five or more stutters bunch up within 15 minutes, RigSight names what else was busy at that time, like another app reading the disk hard.</p>
-
-<p>On the Games page, each game says how smooth it plays, as Smooth, Mostly smooth or It stutters, from how many stutters an hour it had, with the 0.1% low beside it. My Risk of Rain 2 day had about 780 stutters an hour, so it stutters. The Can it run better? card compares the 1% low with the average. At 70% of the average or above, it says the game plays smoothly. Between 50 and 70% it says you may feel the odd stutter, and below 50% it says it stutters. My 69 against 187 is 37%.</p>
-
-<p>The How it runs chart draws each play's average as a line with a dot for each play, and the 1% low dashed under it. Graphics driver installs and game updates are marked between plays, so a gap that grew after one of them stands out. Every play below lists its stutters. While you play, the overlay and widgets can show the 1% low live next to the frame rate. Frame times come from RivaTuner Statistics Server, which has to be running before the game starts, and the Games page has a button to install or start it. RigSight is free and open source.</p>
-
-{{fig pages/game | RigSight's page for Dota 2 on the demo PC: How it runs with average 235 fps and 1% low 170 fps, with a chart of both for each play | A game on RigSight's demo PC. The solid line is each play's average FPS, and the dashed line under it is the 1% low.}}
+{{testbed Recorded=Risk of Rain 2 on 28 October 2026, every frame from RivaTuner}}
 
 <h2>1% low FPS meaning, and why it tells you more than the average</h2>
 
@@ -87,3 +77,15 @@
 </ol>
 
 <p>For finding what causes the hitches themselves, see <a href="games-stuttering-on-pc">games stuttering on PC</a>. Next time a game feels off, look at the 1% low before the average, and check how your tool works it out. If the 1% low is under half the average, work through the fixes above in order.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>Before version 0.35.0, RigSight's 1% low was an average of RivaTuner's own 1% lows, each worked out over the last 1,024 frames. Averaging lows from short windows smooths the worst moments away, the same way my minutes averaged out to 116. On 25 October I asked for something better, a record of every frame instead of an average. Since 0.35.0, RigSight keeps every frame's time from RivaTuner, sorted into narrow bands each minute. That takes about 60 bytes a minute, and it lets RigSight work out the true 1% and 0.1% lows for any stretch of play, from a single minute to a whole month.</p>
+
+<p>It also counts stutters. A stutter is one frame that took at least 2.5 times as long as the frames just before it, and at least 20 ms. A game running at 144 FPS that jumps from 7 ms frames to 20 ms is a hitch you feel, while 8 to 12 ms isn't. Nothing is counted while a game runs under 20 FPS overall, so loading screens don't count. When five or more stutters bunch up within 15 minutes, RigSight names what else was busy at that time, like another app reading the disk hard.</p>
+
+<p>On the Games page, each game says how smooth it plays, as Smooth, Mostly smooth or It stutters, from how many stutters an hour it had, with the 0.1% low beside it. My Risk of Rain 2 day had about 780 stutters an hour, so it stutters. The Can it run better? card compares the 1% low with the average. At 70% of the average or above, it says the game plays smoothly. Between 50 and 70% it says you may feel the odd stutter, and below 50% it says it stutters. My 69 against 187 is 37%.</p>
+
+<p>The How it runs chart draws each play's average as a line with a dot for each play, and the 1% low dashed under it. Graphics driver installs and game updates are marked between plays, so a gap that grew after one of them stands out. Every play below lists its stutters. While you play, the overlay and widgets can show the 1% low live next to the frame rate. Frame times come from RivaTuner Statistics Server, which has to be running before the game starts, and the Games page has a button to install or start it. RigSight is free and open source.</p>
+
+{{fig pages/game | RigSight's page for Dota 2 on the demo PC: How it runs with average 235 fps and 1% low 170 fps, with a chart of both for each play | A game on RigSight's demo PC. The solid line is each play's average FPS, and the dashed line under it is the 1% low.}}

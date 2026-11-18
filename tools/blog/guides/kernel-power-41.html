@@ -19,26 +19,6 @@
 -->
 <p>In the 30 days up to 1 October, my own PC logged Kernel-Power 41 again and again. There were 22 shutdowns that didn't finish cleanly, against 7 that did. I don't switch my PC off at the wall, and my lights weren't flickering 22 times a month. RigSight is what put that number in front of me, and working out what it really meant changed how RigSight reads this event for everyone.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight reads Windows' crash records every time it starts, so every Kernel Power 41 shows up on its Crashes page as a sudden shut-off, with the time it happened and what the PC was doing in the minutes before. That's how I saw how often it was happening. Without it, each one was a single red line in Event Viewer that I would never have gone looking for.</p>
-
-<p>At first, RigSight called them power loss while the PC was asleep. That was my mistake, and it came from one field in the event. The full story is in <a href="power-loss-while-asleep">My PC wasn't losing power in its sleep</a>. In short, the field <code>SleepInProgress</code> holds the power state Windows was moving into, not a yes or no. On my PC it was a 6, switching off. These were shutdowns that never quite finished, not power cuts.</p>
-
-<p>Today, every sudden shut-off on the Crashes page gets a cause and one word for how sure RigSight is.</p>
-
-<ul>
-  <li>A held power button reads as Confirmed.</li>
-  <li>A <code>SleepInProgress</code> of 5 or 6 says Windows was already shutting down.</li>
-  <li>An error the hardware couldn't correct, logged around it, makes it Likely a hardware fault.</li>
-  <li>A shut-off is only "Likely a power cut" when the PC was doing little, nobody held the button and Windows logged no error.</li>
-  <li>A shut-off under load is only "Possibly mains or power supply", because from inside the PC those two look the same.</li>
-</ul>
-
-{{fig pages/crashes | RigSight's Crashes page with tiles for app crashes, graphics driver resets, and blue screens with sudden shut-offs, above a timeline and the list of what went wrong | RigSight's Crashes page. Blue screens and sudden shut-offs have their own tile, and shut-offs that look like the power are counted apart.}}
-
-<p>Open a shut-off and you see the 45 minutes before it. It shows temperatures, load, GPU power draw, memory and fans, with the game in front. If the GPU was drawing 320 W at normal temperatures when it went off, that points toward the power supply rather than heat. The shut-off is timed by the last minute RigSight recorded, not by Windows' 6008 time, which can be some minutes early. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
-
 <h2>Why Kernel-Power 41 happens</h2>
 
 <p>When you shut down normally, Windows closes everything and marks the shutdown as clean. When it starts and finds no clean mark, it logs event 41 from the source Kernel-Power, with the text "The system has rebooted without cleanly shutting down first." So the event is written at the next start, not at the moment the PC went down. It sounds like a diagnosis. It isn't. It only says the last shutdown wasn't clean.</p>
@@ -86,5 +66,26 @@
 </ol>
 
 <p>Also check whether the 41 is alone. Filter the System log for <code>WHEA-Logger</code> as the event source. An error the hardware couldn't correct around the same time points at the CPU, memory or motherboard, or at tuning that's too tight for them.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight reads Windows' crash records every time it starts, so every Kernel Power 41 shows up on its Crashes page as a sudden shut-off, with the time it happened and what the PC was doing in the minutes before. That's how I saw how often it was happening. Without it, each one was a single red line in Event Viewer that I would never have gone looking for.</p>
+
+<p>At first, RigSight called them power loss while the PC was asleep. That was my mistake, and it came from one field in the event. The full story is in <a href="power-loss-while-asleep">My PC wasn't losing power in its sleep</a>. In short, the field <code>SleepInProgress</code> holds the power state Windows was moving into, not a yes or no. On my PC it was a 6, switching off. These were shutdowns that never quite finished, not power cuts.</p>
+
+<p>Today, every sudden shut-off on the Crashes page gets a cause and one word for how sure RigSight is.</p>
+
+<ul>
+  <li>A held power button reads as Confirmed.</li>
+  <li>A <code>SleepInProgress</code> of 5 or 6 says Windows was already shutting down.</li>
+  <li>An error the hardware couldn't correct, logged around it, makes it Likely a hardware fault.</li>
+  <li>A shut-off is only "Likely a power cut" when the PC was doing little, nobody held the button and Windows logged no error.</li>
+  <li>A shut-off under load is only "Possibly mains or power supply", because from inside the PC those two look the same.</li>
+</ul>
+
+{{fig pages/crashes | RigSight's Crashes page with tiles for app crashes, graphics driver resets, and blue screens with sudden shut-offs, above a timeline and the list of what went wrong | RigSight's Crashes page. Blue screens and sudden shut-offs have their own tile, and shut-offs that look like the power are counted apart.}}
+
+<p>Open a shut-off and you see the 45 minutes before it. It shows temperatures, load, GPU power draw, memory and fans, with the game in front. If the GPU was drawing 320 W at normal temperatures when it went off, that points toward the power supply rather than heat. The shut-off is timed by the last minute RigSight recorded, not by Windows' 6008 time, which can be some minutes early. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
+
 
 <p>Your next step is to open the latest event 41 and read <code>BugcheckCode</code> and <code>PowerButtonTimestamp</code>. If both are 0 and it happens while gaming, start with tuning and the power supply. If <code>SleepInProgress</code> is 5 or 6 and it only happens at shutdown, you're probably looking at what I was. Those are shutdowns that didn't finish, and nothing to panic about.</p>

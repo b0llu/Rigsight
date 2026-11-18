@@ -19,27 +19,6 @@
 -->
 <p>You're mid-match, the screen flicks, and you're looking at your desktop. There's no message and no report. The game is just gone. A game that crashes to desktop with no error feels like it left nothing behind, but Windows almost always wrote down what happened. RigSight reads that record for you, and you can read it yourself too.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>The picture on this post is an example from RigSight's demo PC, not a crash of mine. Crimson Desert closed at 10:06 PM with no message. RigSight put it on the Crashes page as "The NVIDIA graphics driver failed while running Crimson Desert", marked Confirmed, with "Update the NVIDIA driver" as the first thing to try.</p>
-
-<p>That headline comes from the same entry you'd find in Event Viewer. Windows named <code>nvwgf2umx.dll</code> as the file the game crashed in. RigSight knows that file belongs to the NVIDIA driver, so it says so in plain words. It does the same for AMD and Intel drivers, DirectX, Vulkan, Unity, Unreal, and the Steam, Discord, RivaTuner and NVIDIA overlays.</p>
-
-<p>Every crash carries one word for how sure the cause is.</p>
-
-<ul>
-  <li>Confirmed means Windows named a file RigSight knows.</li>
-  <li>Likely means the evidence points one way.</li>
-  <li>Possibly means other causes fit too.</li>
-  <li>Not enough to say means it can't tell, and it says that instead of guessing.</li>
-</ul>
-
-<p>RigSight also looks for patterns across crashes. A game that crashes within a minute of starting reads "crashed as it was starting", which points at its files, an add-on or its anti-cheat, not at heat. Three crashes at the same place in the same file read "crashes at the same spot every time". That's a fault in the game, not your hardware. A crash while a graphics driver was being installed is put down to the install.</p>
-
-{{fig pages/crash-around | The minutes around a game crash in RigSight, with lanes for temperature, load, power, memory, fans and network on one time axis, the crash marked, and a panel with every reading at that minute | Around the crash on the demo PC. Every lane shares one time axis, and the panel shows every reading at the minute you point at.}}
-
-<p>Open a crash and you see the 45 minutes before it and the 10 after. You see temperatures, load, power, memory, fans and network, and which app was using the CPU and GPU. For a game, RigSight also keeps the last five minutes before the crash at a reading every 2 to 3 seconds. In the example, What it wasn't says "It wasn't overheating" and "Memory wasn't full", so you can stop worrying about those two. RigSight also says when graphics memory was well above that game's usual. You get a notification with the game's name the moment it happens, and the play on the Games page says it ended in a crash. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>
-
 <h2>Why a game crashes to desktop with no error</h2>
 
 <p>When a program hits a fault it can't handle, Windows ends it at once and logs an Application Error. The game often has no time to show its own message. So the crash looks silent, but the record is there.</p>
@@ -95,5 +74,27 @@
   <li>Check temperatures and memory use while playing. A GPU near its limit or RAM nearly full can both end a game. Windows logs event 2004, Resource-Exhaustion-Detector, in the System log when it's running out of memory.</li>
   <li>Repair Windows files. Open <strong>Terminal (Admin)</strong> and run <code>sfc /scannow</code>. If it finds problems it can't fix, run <code>DISM /Online /Cleanup-Image /RestoreHealth</code> and then <code>sfc /scannow</code> again.</li>
 </ol>
+
+<h2>How RigSight caught it</h2>
+
+<p>The picture on this post is an example from RigSight's demo PC, not a crash of mine. Crimson Desert closed at 10:06 PM with no message. RigSight put it on the Crashes page as "The NVIDIA graphics driver failed while running Crimson Desert", marked Confirmed, with "Update the NVIDIA driver" as the first thing to try.</p>
+
+<p>That headline comes from the same entry you'd find in Event Viewer. Windows named <code>nvwgf2umx.dll</code> as the file the game crashed in. RigSight knows that file belongs to the NVIDIA driver, so it says so in plain words. It does the same for AMD and Intel drivers, DirectX, Vulkan, Unity, Unreal, and the Steam, Discord, RivaTuner and NVIDIA overlays.</p>
+
+<p>Every crash carries one word for how sure the cause is.</p>
+
+<ul>
+  <li>Confirmed means Windows named a file RigSight knows.</li>
+  <li>Likely means the evidence points one way.</li>
+  <li>Possibly means other causes fit too.</li>
+  <li>Not enough to say means it can't tell, and it says that instead of guessing.</li>
+</ul>
+
+<p>RigSight also looks for patterns across crashes. A game that crashes within a minute of starting reads "crashed as it was starting", which points at its files, an add-on or its anti-cheat, not at heat. Three crashes at the same place in the same file read "crashes at the same spot every time". That's a fault in the game, not your hardware. A crash while a graphics driver was being installed is put down to the install.</p>
+
+{{fig pages/crash-around | The minutes around a game crash in RigSight, with lanes for temperature, load, power, memory, fans and network on one time axis, the crash marked, and a panel with every reading at that minute | Around the crash on the demo PC. Every lane shares one time axis, and the panel shows every reading at the minute you point at.}}
+
+<p>Open a crash and you see the 45 minutes before it and the 10 after. You see temperatures, load, power, memory, fans and network, and which app was using the CPU and GPU. For a game, RigSight also keeps the last five minutes before the crash at a reading every 2 to 3 seconds. In the example, What it wasn't says "It wasn't overheating" and "Memory wasn't full", so you can stop worrying about those two. RigSight also says when graphics memory was well above that game's usual. You get a notification with the game's name the moment it happens, and the play on the Games page says it ended in a crash. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>
+
 
 <p>Your next step is to find the Application Error 1000 for your last crash and read its faulting module. If it's the game's own file, verify the files first. If it's an overlay's file, turn that overlay off and play again.</p>

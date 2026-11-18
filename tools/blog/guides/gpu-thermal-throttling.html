@@ -18,17 +18,11 @@
 -->
 <p>In 5,128 minutes with my GPU at least 80% busy, the hottest it got was 73°C, in No Man's Sky on 7 October. RigSight starts looking for GPU thermal throttling at 83°C, so my card never had a reason to slow itself down. That's what most healthy PCs look like. Throttling is worth knowing about because when it does happen, it looks like the game got slower for no reason.</p>
 
-<h2>How RigSight catches it</h2>
-
-<p>A GPU's clock speed moves all the time, so a lower clock on its own proves nothing. As a card warms up, its boost lets the clock ease down a step or two. A heavier scene draws more power and can hit the card's power limit. A different game runs at different clocks altogether. None of that is the card slowing down to stay cool.</p>
-
-<p>So RigSight compares the GPU with itself, inside one stretch of one game at heavy load. It takes the clocks from that same stretch while the GPU was cooler, and looks for minutes where the GPU sat at 83°C or more with its clocks below 88% of that, without drawing more power than before. Three minutes or more of that counts as throttling.</p>
-
-<p>Since version 1.7.0, when it happens you get a notification afterwards, such as "Your GPU slowed itself for 12 minutes to stay cool", with how far the clocks fell and the temperature it started at. RigSight also tells you after a game when it ran hotter than usual at the same power. The bell in the title bar keeps every notification from the last 30 days. RigSight is free and open source.</p>
+{{testbed Recorded=23 September to 9 November 2026, every minute | Counted=Minutes with the GPU 80% busy or more}}
 
 <h2>What GPU thermal throttling is</h2>
 
-<p>Every GPU has a maximum temperature set by its maker. NVIDIA lists 85 to 93°C for its recent GeForce GPUs, depending on the model. As a card gets close to its limit, it lowers its clock speed and power so it makes less heat. The card stays safe, but it does less work, so the frame rate falls.</p>
+<p>Every GPU has a maximum temperature set by its maker. NVIDIA lists 85 to 93°C for its recent GeForce GPUs, depending on the model. As a card gets close to its limit, it lowers its clock speed and power so it makes less heat. The card stays safe, but it does less work, so the frame rate falls. <a href="normal-gpu-temperature-while-gaming">Normal GPU temperature while gaming</a> has the usual ranges and each maker's limits.</p>
 
 <p>The usual symptoms are these.</p>
 
@@ -61,3 +55,11 @@
 </ol>
 
 <p>For the whole PC running hot, <a href="pc-overheating-while-gaming">PC overheating while gaming</a> has the full list. Your next step is the 15-minute check above. If the clocks hold while the temperature stays below the high 80s, your GPU isn't throttling.</p>
+
+<h2>How RigSight catches it</h2>
+
+<p>A GPU's clock speed moves all the time, so a lower clock on its own proves nothing. As a card warms up, its boost lets the clock ease down a step or two. A heavier scene draws more power and can hit the card's power limit. A different game runs at different clocks altogether. None of that is the card slowing down to stay cool.</p>
+
+<p>So RigSight compares the GPU with itself, inside one stretch of one game at heavy load. It takes the clocks from that same stretch while the GPU was cooler, and looks for minutes where the GPU sat at 83°C or more with its clocks below 88% of that, without drawing more power than before. Three minutes or more of that counts as throttling.</p>
+
+<p>Since version 1.7.0, when it happens you get a notification afterwards, such as "Your GPU slowed itself for 12 minutes to stay cool", with how far the clocks fell and the temperature it started at. RigSight also tells you after a game when it ran hotter than usual at the same power. The bell in the title bar keeps every notification from the last 30 days. RigSight is free and open source.</p>

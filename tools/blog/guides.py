@@ -124,12 +124,14 @@ def guide_html(g, guides, mode, img):
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · {g['topic']}</p>
   <h1>{g['title']}</h1>
   <p class="dek">{g['summary']}</p>
-  <p class="byline"><b>{B().AUTHOR}</b> · Updated {upd} · {g['minutes']} min read</p>
+  <p class="byline"><b>{B().byline_name(mode)}</b> · Updated {upd} · {g['minutes']} min read</p>
   <figure class="cover">{B().cover_img(g, img, "", eager=True, sizes="(max-width: 760px) 92vw, 1152px")}{cap}</figure>
   <div class="short"><p class="short-k">The short answer</p><p>{g['short']}</p></div>
   <div class="body">
 {B().expand(g['body'], img, mode == "artifact", [x['slug'] for x in guides], mode)}
+  {B().sources_html(g.get('sources'), mode)}
   {faq_html(g)}
+  {B().author_box(img, mode)}
   </div>
   <nav class="next rel" aria-label="More on PC problems">{rel}</nav>
   <aside class="get">
@@ -197,9 +199,7 @@ def build_guides():
                    "author": {"@type": "Person", "name": b.AUTHOR}, "publisher": {"@type": "Organization", "name": "RigSight", "url": b.SITE},
                    "mainEntityOfPage": url, "keywords": ", ".join([g["keyword"]] + g.get("also", []))},
                   {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": crumbs}]
-            if g.get("faq"):
-                ld.append({"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
-                    {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": re.sub(r"<[^>]+>", "", a)}} for q, a in g["faq"]]})
+            # No FAQPage data since 2026-11-18: Google shows FAQ results only for government and health sites (Aug 2023).
             extra = (f'  <meta property="og:image" content="{b.SITE}/img/blog/{g["slug"]}.webp" />\n  <meta property="og:image:width" content="1200" />\n'
                      f'  <meta property="og:image:height" content="800" />\n  <meta property="og:type" content="article" />\n'
                      + "".join(f'  <script type="application/ld+json">{json.dumps(x)}</script>\n' for x in ld))

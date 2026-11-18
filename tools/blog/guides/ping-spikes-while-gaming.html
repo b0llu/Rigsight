@@ -24,18 +24,6 @@
 -->
 <p>On 5 November at 10:32 PM, RigSight's ping check to my internet provider's first router came back in 155 ms. A minute before it was 1 ms, and a minute after it was 1 ms again. My own router answered in under a millisecond the whole time. In that minute Steam pulled 175 MB, more than thirty times what it pulled the minute before. I wasn't in a game, but it's a common story behind ping spikes while gaming. Something else fills the connection, and the game's packets wait in line behind it.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>Since version 1.4.0, RigSight checks the line every 5 seconds in two places. One ping goes to your router, which is the home side of the line, your cable or Wi-Fi. The other goes to your internet provider's first router after it, which is the provider's side. RigSight finds that router the way a traceroute does, without asking any outside server. The pings leave from the network card itself, so a VPN in between doesn't hide the real line. A ping that isn't back within a second counts as lost. Since version 1.14.0, while a game or a call is online, RigSight also checks the server it's talking to, so a slow route past your provider shows too.</p>
-
-<p>Two pings at once tell you where a spike starts. If the router is slow, the problem is inside your home. If the router is quick and the provider's side is slow, the problem is on the line, at the provider, or in whatever is filling the line. On my PC the router never went past 3 ms in the 484 minutes of checks so far, and 4 of 5,767 pings to the provider got no reply.</p>
-
-<p>The Network page shows it in a few places. Right now has your speeds, whether the connection is working well, its ping and packet loss, and every app using it. The graph of each hour has a Ping view, and any hour that went past 80 ms is marked, because that's where online games start to feel it. On a line that's never that fast, the mark starts at twice its usual. A sentence above the graph gives the usual ping and how many hours went past the mark. When the same app was uploading a lot in most of them, it names that app.</p>
-
-<p>Mine was a download, so the sentence doesn't name it, but the hour does. Click the marked hour and Steam is at the top of its apps, with 334 MB downloaded. The second spike in my history was the same kind. At 7:16 AM on 6 November the provider's side hit 105 ms. In that hour Epic's installer pulled 292 MB and Ubisoft Connect 216 MB, and those two were the top of the list. Drag across the graph to zoom into a busy evening.</p>
-
-<p>If the internet drops altogether, RigSight tells you when it went and when it's back, and a strip under the graph shows each drop. <a href="internet-keeps-disconnecting">Internet keeps disconnecting on PC</a> covers that side. You can pause the ping checks under the graph or in Settings. Seeing each app's internet use needs RigSight running with admin rights. RigSight is free and open source.</p>
-
 <h2>Why ping spikes happen</h2>
 
 <p>Ping is how long one small packet takes to reach a place and come back. A game sends small updates many times a second, so when one waits, you see players jump or your shots land late. A speed test doesn't show this. It measures how much your connection can move, not how quickly one packet comes back.</p>
@@ -62,5 +50,18 @@
   <li>If the spikes happen in only one game, check which server region it puts you on. A closer region usually means lower ping.</li>
   <li>If the provider's side spikes with nothing else using the internet, write down the times and call your provider. A record of when it happened helps more than "my internet is bad".</li>
 </ol>
+
+<h2>How RigSight caught it</h2>
+
+<p>Since version 1.4.0, RigSight checks the line every 5 seconds in two places. One ping goes to your router, which is the home side of the line, your cable or Wi-Fi. The other goes to your internet provider's first router after it, which is the provider's side. RigSight finds that router the way a traceroute does, without asking any outside server. The pings leave from the network card itself, so a VPN in between doesn't hide the real line. A ping that isn't back within a second counts as lost. Since version 1.14.0, while a game or a call is online, RigSight also checks the server it's talking to, so a slow route past your provider shows too.</p>
+
+<p>Two pings at once tell you where a spike starts. If the router is slow, the problem is inside your home. If the router is quick and the provider's side is slow, the problem is on the line, at the provider, or in whatever is filling the line. On my PC the router never went past 3 ms in the 484 minutes of checks so far, and 4 of 5,767 pings to the provider got no reply.</p>
+
+<p>The Network page shows it in a few places. Right now has your speeds, whether the connection is working well, its ping and packet loss, and every app using it. The graph of each hour has a Ping view, and any hour that went past 80 ms is marked, because that's where online games start to feel it. On a line that's never that fast, the mark starts at twice its usual. A sentence above the graph gives the usual ping and how many hours went past the mark. When the same app was uploading a lot in most of them, it names that app.</p>
+
+<p>Mine was a download, so the sentence doesn't name it, but the hour does. Click the marked hour and Steam is at the top of its apps, with 334 MB downloaded. The second spike in my history was the same kind. At 7:16 AM on 6 November the provider's side hit 105 ms. In that hour Epic's installer pulled 292 MB and Ubisoft Connect 216 MB, and those two were the top of the list. Drag across the graph to zoom into a busy evening.</p>
+
+<p>If the internet drops altogether, RigSight tells you when it went and when it's back, and a strip under the graph shows each drop. <a href="internet-keeps-disconnecting">Internet keeps disconnecting on PC</a> covers that side. You can pause the ping checks under the graph or in Settings. Seeing each app's internet use needs RigSight running with admin rights. RigSight is free and open source.</p>
+
 
 <p>Your next step is the two ping windows from the first step, left running during your next match. One look at which one jumps tells you whether to fix your Wi-Fi or your downloads.</p>

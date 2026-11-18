@@ -72,18 +72,6 @@
 -->
 <p>On 7 October I updated my NVIDIA graphics driver. Ten seconds after the new driver started, a program on my PC crashed. It happened to be RigSight's own recorder, caught asking the GPU for its temperature at the exact moment the old driver disappeared. Windows wrote it down like any other crash, as one line in a log I'd never have opened. That's the problem when you try to find out why a PC crashed on Windows 11. The record is there, but nobody shows it to you.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight is a free, open-source Windows monitor. Its Crashes page reads the same Windows records this post walks through, for blue screens, sudden shut-offs, app crashes and freezes, and graphics driver resets. It lists them on one timeline with the stop codes and file names already pulled out. When it first runs, it reads up to 90 days back from Windows' logs, as far as they still reach.</p>
-
-<p>My crash taught it something. Since 0.17.1, when an app goes down within two minutes of a graphics driver install, the Crashes page says which driver was being installed at that moment. That's the answer I had to work out by hand that day.</p>
-
-<p>Every crash gets a plain sentence for the most likely cause and one word for how sure that is. The words are Confirmed when Windows' own record says so, Likely, Possibly, and Not enough to say. A blue screen whose driver Windows named reads as Confirmed. A shut-off that neither Windows nor RigSight has anything on says Not enough to say, rather than guessing.</p>
-
-{{fig pages/crash-open | An opened crash in RigSight: the cause marked Confirmed, What to try, What points to this, What it wasn't with temperatures and memory, and the minutes around the crash | An opened crash on RigSight's Crashes page. What it wasn't rules things out with the readings from those minutes.}}
-
-<p>Open one and you get what Windows can't give you. RigSight shows the 45 minutes before the crash and the 10 after. You see temperatures, load, power, memory, fans and the network, with the apps doing the work. It lists what it ruled out, such as "It wasn't overheating", and any driver, Windows update, BIOS or hardware change from the week before. <strong>Copy report</strong> puts it all in a block of text for a forum post, and the <strong>Event Viewer</strong> button opens Windows' own log. CPU temperature and power need RigSight running with admin rights. The readings only exist from when RigSight started recording, so older crashes from Windows' logs show without them.</p>
-
 <h2>Why PCs crash</h2>
 
 <p>"Crash" covers a few different things, and each one has its own usual causes and leaves a different trail.</p>
@@ -155,5 +143,18 @@
 </ul>
 
 <p>Also look at what changed. Reliability Monitor lists installs under <strong>Informational events</strong>, and <strong>Settings &gt; Windows Update &gt; Update history</strong> shows what Windows installed. A crash that began right after a new driver arrived has a likely suspect, as mine did.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight is a free, open-source Windows monitor. Its Crashes page reads the same Windows records this post walks through, for blue screens, sudden shut-offs, app crashes and freezes, and graphics driver resets. It lists them on one timeline with the stop codes and file names already pulled out. When it first runs, it reads up to 90 days back from Windows' logs, as far as they still reach.</p>
+
+<p>My crash taught it something. Since 0.17.1, when an app goes down within two minutes of a graphics driver install, the Crashes page says which driver was being installed at that moment. That's the answer I had to work out by hand that day.</p>
+
+<p>Every crash gets a plain sentence for the most likely cause and one word for how sure that is. The words are Confirmed when Windows' own record says so, Likely, Possibly, and Not enough to say. A blue screen whose driver Windows named reads as Confirmed. A shut-off that neither Windows nor RigSight has anything on says Not enough to say, rather than guessing.</p>
+
+{{fig pages/crash-open | An opened crash in RigSight: the cause marked Confirmed, What to try, What points to this, What it wasn't with temperatures and memory, and the minutes around the crash | An opened crash on RigSight's Crashes page. What it wasn't rules things out with the readings from those minutes.}}
+
+<p>Open one and you get what Windows can't give you. RigSight shows the 45 minutes before the crash and the 10 after. You see temperatures, load, power, memory, fans and the network, with the apps doing the work. It lists what it ruled out, such as "It wasn't overheating", and any driver, Windows update, BIOS or hardware change from the week before. <strong>Copy report</strong> puts it all in a block of text for a forum post, and the <strong>Event Viewer</strong> button opens Windows' own log. CPU temperature and power need RigSight running with admin rights. The readings only exist from when RigSight started recording, so older crashes from Windows' logs show without them.</p>
+
 
 <p>Your next step is to open Reliability Monitor now and find the red X for your crash. If it says BlueScreen, take the stop code to <a href="blue-screen-of-death-causes">blue screen causes</a>. If it says Windows was not properly shut down, go to <a href="kernel-power-41">Kernel-Power 41</a>.</p>

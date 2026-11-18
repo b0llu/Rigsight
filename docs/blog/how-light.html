@@ -218,6 +218,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -230,7 +255,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
   <h1>How light is light? Measuring an app that never closes</h1>
   <p class="dek">Someone suggested rewriting RigSight's sensor reading in C++. Measuring first showed where the time really goes, and that I had read the wrong memory number.</p>
-  <p class="byline"><b>Dhruv Samant</b> · 30 September 2026 · Version 0.13.2 · 3 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · 30 September 2026 · Version 0.13.2 · 3 min read</p>
   <figure class="cover"><img class="" src="../img/blog/how-light.webp" srcset="../img/blog/how-light-600.webp 600w, ../img/blog/how-light.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Inside Windows and drivers: 73%, of the recorder&#x27;s processor time. RigSight&#x27;s own code: 27%, all a C++ rewrite could touch" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short version</p><p>A user suggested rewriting the sensor reading in C++. Measuring showed 73% of the recorder's time was Windows and drivers talking to hardware, which a rewrite can't speed up. I also caught myself reading the wrong memory number.</p></div>
   <div class="body">
@@ -285,6 +310,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 <p>Not every idea that makes RigSight faster is worth its cost either. Later, in 0.19.2, I tried sending readings to the open window every second instead of every two. With the window open, the recorder went from 0.13% to 0.22% of the PC. Smoother numbers weren't worth that, so I left it at two seconds.</p>
 
 <p>Today the site says about 0.02% of the PC on my test machine, a Ryzen 7 5700X3D, with the window closed, measured in Task Manager. It's a small number, and I check it before every release. If it ever grows, I want to know before you do.</p>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next" aria-label="More posts"><a class="more" href="like-for-like"><span>Before this</span><b>The day RigSight told me my healthy fan was clogged</b></a><a class="more" href="power-loss-while-asleep"><span>What happened next</span><b>My PC wasn't losing power in its sleep</b></a></nav>
   <aside class="get">

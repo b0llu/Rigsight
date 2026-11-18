@@ -33,15 +33,7 @@
 -->
 <p>My PC has three drives, and every health check I run calls all of them Healthy. But the Kingston SSD that Windows runs on reports 69% of its rated life left today, after 12,387 hours on. The newer Samsung SSD my games sit on reports 97%. Both are Healthy, and they're in very different places. That's the thing to know before an SSD health check on Windows 11. It gives you two readings, and they answer different questions.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight's Storage page lists every drive with its health, the life left an SSD reports, its temperature and how much was written in the last 7 days. A drive that needs a look sits on top. Open one and it answers "Is this drive okay?" in plain words, with its hours on, how it compares with weeks or months ago, and every reading it gives in plain words. The health is one word, Healthy, Early warning or Failing.</p>
-
-<p>That word takes the worse of two things. One is SMART, the drive's own health check. The other is life left, because SMART can still say Good on an SSD that has used nearly all of its rated writes. An SSD at 10% life left or less shows Early warning, with "The drive reports almost all of its rated life used. Keep a backup of what's on it." Bad sectors give "Bad sectors are an early warning. Keep a backup, and watch whether the count grows." Only SMART reporting a failure makes a drive Failing.</p>
-
-<p>RigSight also tells you when a drive changes, so you don't have to remember to look. Since 1.7.0, a failure comes as an urgent notification, "Your Samsung SSD 980 1TB reports a failure", telling you to back up now. Early warning signs, new or more bad sectors, and 10% life left or less each come once, and the bad sectors one gives the count and what it was before. Since 1.12.0, an SSD that reaches half or a quarter of its life left gets a notification with how fast it has been wearing, and a drive that reaches its own warning temperature gets one too. Each has its own switch in Settings, <b>Drive health</b>, <b>Drive life milestones</b>, <b>Drive temperature</b> and <b>Drive almost full</b>.</p>
-
-<p>On my PC, RigSight's log shows it checking all three drives several times an hour, and they're still Good. My Kingston went from 70% in October to 69% now, about 500 hours on later. RigSight hasn't sent a single drive notification, which is how it should be. Drive health needs RigSight to run with admin rights, and RigSight is free and open source.</p>
+{{testbed Drives=Kingston SATA SSD (Windows), Samsung SSD 980 NVMe (games), Seagate 2 TB hard drive | Recorded=October and 16 November 2026}}
 
 <h2>Healthy and life left are different readings</h2>
 
@@ -54,6 +46,8 @@
 <h2>How to do an SSD health check on Windows 11 in Settings</h2>
 
 <p>Windows has a drive health page built in, but Microsoft says it only covers NVMe SSDs, which most of the small stick drives in an M.2 slot are. My Kingston is a SATA SSD, so this page has nothing to say about the drive Windows itself runs on. SATA SSDs, M.2 SATA drives and hard drives need PowerShell or software instead.</p>
+
+{{webimg https://thumb.wikimedia.org/wikipedia/commons/thumb/7/75/Samsung_980_PRO_PCIe_4.0_NVMe_SSD_1TB-top_PNr%C2%B00915.jpg/1280px-Samsung_980_PRO_PCIe_4.0_NVMe_SSD_1TB-top_PNr%C2%B00915.jpg | A Samsung 980 PRO M.2 NVMe SSD | An M.2 NVMe SSD, a Samsung 980 PRO. Windows' own drive health page covers drives like this one, but not SATA SSDs. | D-Kuru, CC BY-SA 4.0, via Wikimedia Commons | https://commons.wikimedia.org/wiki/File:Samsung_980_PRO_PCIe_4.0_NVMe_SSD_1TB-top_PNr%C2%B00915.jpg}}
 
 <ol>
   <li>Open <b>Settings</b> with <b>Windows+I</b>.</li>
@@ -108,5 +102,16 @@
 </ol>
 
 <p>If the drive is just full, that's a different problem, and <a href="what-is-taking-up-space-on-c-drive">what is taking up space on your C drive</a> helps with that.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight's Storage page lists every drive with its health, the life left an SSD reports, its temperature and how much was written in the last 7 days. A drive that needs a look sits on top. Open one and it answers "Is this drive okay?" in plain words, with its hours on, how it compares with weeks or months ago, and every reading it gives in plain words. The health is one word, Healthy, Early warning or Failing.</p>
+
+<p>That word takes the worse of two things. One is SMART, the drive's own health check. The other is life left, because SMART can still say Good on an SSD that has used nearly all of its rated writes. An SSD at 10% life left or less shows Early warning, with "The drive reports almost all of its rated life used. Keep a backup of what's on it." Bad sectors give "Bad sectors are an early warning. Keep a backup, and watch whether the count grows." Only SMART reporting a failure makes a drive Failing.</p>
+
+<p>RigSight also tells you when a drive changes, so you don't have to remember to look. Since 1.7.0, a failure comes as an urgent notification, "Your Samsung SSD 980 1TB reports a failure", telling you to back up now. Early warning signs, new or more bad sectors, and 10% life left or less each come once, and the bad sectors one gives the count and what it was before. Since 1.12.0, an SSD that reaches half or a quarter of its life left gets a notification with how fast it has been wearing, and a drive that reaches its own warning temperature gets one too. Each has its own switch in Settings, <b>Drive health</b>, <b>Drive life milestones</b>, <b>Drive temperature</b> and <b>Drive almost full</b>.</p>
+
+<p>On my PC, RigSight's log shows it checking all three drives several times an hour, and they're still Good. My Kingston went from 70% in October to 69% now, about 500 hours on later. RigSight hasn't sent a single drive notification, which is how it should be. Drive health needs RigSight to run with admin rights, and RigSight is free and open source.</p>
+
 
 <p>Your next step is to run the first PowerShell command or the Settings check today, and write down each SSD's life left. Checking again in a few months tells you how fast it wears, which one reading never can.</p>

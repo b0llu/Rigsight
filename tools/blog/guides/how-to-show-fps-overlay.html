@@ -18,17 +18,7 @@
 -->
 <p>My PC already has four ways to show FPS on screen. Xbox Game Bar came with Windows, Steam has its own counter, the NVIDIA app has one, and RivaTuner is installed too. Since 18 October, RigSight has also kept about 88 hours of my games' frame rates, read from RivaTuner. That's about 38 hours of Risk of Rain 2 at 151 FPS on average and about 36 hours of Phantom Blade Zero at 68. Here's how to show FPS on PC with each overlay, which one to pick, and what to do when the RivaTuner overlay is not showing.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>A counter in the corner tells you the frame rate right now, and it's gone when you close the game. RigSight reads every frame from RivaTuner Statistics Server while you play and keeps it. On the Games page, every play has its average FPS and its 1% low, so the numbers above come from what RigSight kept, not from catching them in the corner.</p>
-
-<p>For the moment itself, RigSight has its own overlay on its Overlay page. You pick the readings, like frame rate, frame time and 1% low for the game, and temperature, load, clock speed and power for the CPU and GPU. Press Alt + Shift + O to show or hide it, or click the shortcut on the Overlay page to pick another. Since version 1.8.0, an <b>Only over games</b> switch keeps it hidden over the desktop and other apps, and it comes back as soon as a game is in front.</p>
-
-<p>In windowed and borderless games, RigSight draws the overlay as its own see-through window. In exclusive fullscreen, where no window can appear on top, it hands the same overlay to RivaTuner, and both look the same. When RivaTuner draws it, the overlay doesn't turn off G-Sync.</p>
-
-{{fig cards/overlay | RigSight's overlay reading picker with frame rate, frame time and 1% low under Game, and CPU, GPU, memory and other readings below | RigSight's overlay reading picker. Game readings appear while a game runs, measured by RivaTuner.}}
-
-<p>Since 1.8.0 you can also put FPS in the taskbar, where it shows a dash while no game is running. The taskbar readings, the widgets and the overlay can each be turned off and on from the tray menu. Widgets have an FPS tile and a Last game tile with its average frame rate, and they sit on the desktop under your windows. The frame rate always comes from RivaTuner, so it has to be running before the game starts, and the Games page has <b>Install RivaTuner</b> and <b>Start RivaTuner</b> buttons. RigSight is free and open source.</p>
+{{testbed Recorded=18 October to 11 November 2026, frame rates from RivaTuner}}
 
 <h2>How to show FPS on PC with Xbox Game Bar</h2>
 
@@ -113,5 +103,18 @@
 </ul>
 
 <p>Show one at a time. Two or three overlays drawing over the same game is a common cause of crashes, missing overlays and lost frames.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>A counter in the corner tells you the frame rate right now, and it's gone when you close the game. RigSight reads every frame from RivaTuner Statistics Server while you play and keeps it. On the Games page, every play has its average FPS and its 1% low, so the numbers above come from what RigSight kept, not from catching them in the corner.</p>
+
+<p>For the moment itself, RigSight has its own overlay on its Overlay page. You pick the readings, like frame rate, frame time and 1% low for the game, and temperature, load, clock speed and power for the CPU and GPU. Press Alt + Shift + O to show or hide it, or click the shortcut on the Overlay page to pick another. Since version 1.8.0, an <b>Only over games</b> switch keeps it hidden over the desktop and other apps, and it comes back as soon as a game is in front.</p>
+
+<p>In windowed and borderless games, RigSight draws the overlay as its own see-through window. In exclusive fullscreen, where no window can appear on top, it hands the same overlay to RivaTuner, and both look the same. When RivaTuner draws it, the overlay doesn't turn off G-Sync.</p>
+
+{{fig cards/overlay | RigSight's overlay reading picker with frame rate, frame time and 1% low under Game, and CPU, GPU, memory and other readings below | RigSight's overlay reading picker. Game readings appear while a game runs, measured by RivaTuner.}}
+
+<p>Since 1.8.0 you can also put FPS in the taskbar, where it shows a dash while no game is running. The taskbar readings, the widgets and the overlay can each be turned off and on from the tray menu. Widgets have an FPS tile and a Last game tile with its average frame rate, and they sit on the desktop under your windows. The frame rate always comes from RivaTuner, so it has to be running before the game starts, and the Games page has <b>Install RivaTuner</b> and <b>Start RivaTuner</b> buttons. RigSight is free and open source.</p>
+
 
 <p>Your next step is to pick one overlay, set it up once, and turn the rest off. If the number you see looks wrong, <a href="fps-drops-in-games">FPS drops in games</a> is the place to go next.</p>

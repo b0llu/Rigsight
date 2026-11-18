@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "FPS drops in games and how to catch what causes them", "description": "FPS drops that start after 10 or 20 minutes point to heat. Low GPU load points to the CPU or a cap. How to find what causes FPS drops in games, and fix it.", "datePublished": "2026-10-26", "dateModified": "2026-10-26", "image": "https://rigsight.app/img/blog/fps-drops-in-games.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/fps-drops-in-games", "keywords": "fps drops in games, fps drops in games all of a sudden, fps drop in games after windows update, why my fps drops in games, fps drops in games windows 11, fps drops in game while streaming"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "FPS drops in games and how to catch what causes them", "item": "https://rigsight.app/blog/fps-drops-in-games"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does my FPS drop in games all of a sudden?", "acceptedAnswer": {"@type": "Answer", "text": "Look at what changed that day first, such as a Windows update, a new graphics driver, a game patch or a power setting. If nothing changed, check temperatures and background apps, since a hot GPU or an app updating itself can pull frames away mid game."}}, {"@type": "Question", "name": "Can a Windows update cause FPS drops in games?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, sometimes. An update can replace your graphics driver, reset a power setting or turn a setting back on. Check Settings > Windows Update > Update history for the date, reinstall your graphics driver from NVIDIA, AMD or Intel, and only remove the update if that doesn't help."}}, {"@type": "Question", "name": "Why my FPS drops in games when the PC is new or fast?", "acceptedAnswer": {"@type": "Answer", "text": "Fast parts still slow down when they get too hot, when Windows runs them in a power saving mode or when a frame cap holds them back. A laptop on battery also runs slower than on the charger. Check power mode and temperatures before blaming the hardware."}}, {"@type": "Question", "name": "Why does FPS drop in game while streaming?", "acceptedAnswer": {"@type": "Answer", "text": "Streaming adds a video encoder and often a browser or chat app on top of the game. Use the hardware encoder on your GPU in your streaming app, lower the stream resolution, and close anything else that plays video."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,22 +256,11 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · FPS and games</p>
   <h1>FPS drops in games and how to catch what causes them</h1>
   <p class="dek">FPS drops in games come from heat, background apps, power settings, drivers, a full graphics memory or a frame cap. How RigSight records every play so you can see which one, and how to fix it.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 26 October 2026 · 7 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 26 October 2026 · 7 min read</p>
   <figure class="cover"><img class="" src="../img/blog/fps-drops-in-games.webp" srcset="../img/blog/fps-drops-in-games-600.webp 600w, ../img/blog/fps-drops-in-games.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Dota 2 on RigSight&#x27;s Games page: How it runs with a 235 fps average, a 170 fps 1% low and a driver update marked on the chart, above the Can it run better card" fetchpriority="high" decoding="async"><figcaption>RigSight's How it runs chart on a game's page, with each play's average FPS and 1% low and a graphics driver install marked between plays.</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Measure before you change anything. Turn on an FPS counter with GPU load and temperature, then watch when the drop happens. A drop after 10 or 20 minutes points to heat. Low GPU load points to the CPU or a cap. A drop that started on one day points to an update or a driver.</p></div>
   <div class="body">
 <p>A commenter told me their Windows power plan kept switching from High performance to Balanced on its own, and they couldn't tell when it happened. That is the trouble with FPS drops in games. The cause usually changes quietly, before you start looking. It can be a power plan, a driver, a Windows update, a background download or a warm room. By the time the game feels slow, the moment that caused it is gone.</p>
-
-<h2>How RigSight catches an FPS drop</h2>
-
-<p>The power plan now has its own line on RigSight's Timeline. Every switch is listed with the day and time and what the plan was before, next to every driver, Windows update and setting change. So a drop that started on Thursday can be laid next to whatever changed on Thursday.</p>
-
-
-<p>RigSight is free and open source, and it records each play of each game on its Games page, so you can look back at a drop after it happened. A game's page shows How it runs, a chart of the average FPS and the 1% low of every play, with a mark wherever a graphics driver or a game update came between two plays. Since the last update compares the frame rate of the plays before and after the game's last update. The frame rate comes from RivaTuner Statistics Server, which has to be running before the game starts. The Games page has a button to install or start it.</p>
-
-<p>Under it, Every play lists each session with its FPS and 1% low, and puts Windows updates, graphics drivers, BIOS updates, hardware changes and game updates between the plays where they happened. If the numbers fell right after one of them, you know where to start. The Heat and power card shows the GPU and CPU temperature while playing against what is usual for this game, the hot spot peak, and how much graphics memory the game used, its own share where Windows reports it. The CPU temperature needs RigSight to run with admin rights.</p>
-
-<p>The Timeline lists every driver, Windows update and setting change by day, including the power plan. While you play, RigSight's overlay can show frame rate, GPU load, temperatures and video memory, inside exclusive fullscreen games too through RivaTuner.</p>
 
 <h2>Why FPS drops in games happen</h2>
 
@@ -329,9 +342,22 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 </ul>
 
 <p>Start with the pattern. Play one normal session with a counter on, note when the frames fall and what the GPU load and temperature were at that moment, and work through the matching section of this post.</p>
+
+<h2>How RigSight catches an FPS drop</h2>
+
+<p>The power plan now has its own line on RigSight's Timeline. Every switch is listed with the day and time and what the plan was before, next to every driver, Windows update and setting change. So a drop that started on Thursday can be laid next to whatever changed on Thursday.</p>
+
+
+<p>RigSight is free and open source, and it records each play of each game on its Games page, so you can look back at a drop after it happened. A game's page shows How it runs, a chart of the average FPS and the 1% low of every play, with a mark wherever a graphics driver or a game update came between two plays. Since the last update compares the frame rate of the plays before and after the game's last update. The frame rate comes from RivaTuner Statistics Server, which has to be running before the game starts. The Games page has a button to install or start it.</p>
+
+<p>Under it, Every play lists each session with its FPS and 1% low, and puts Windows updates, graphics drivers, BIOS updates, hardware changes and game updates between the plays where they happened. If the numbers fell right after one of them, you know where to start. The Heat and power card shows the GPU and CPU temperature while playing against what is usual for this game, the hot spot peak, and how much graphics memory the game used, its own share where Windows reports it. The CPU temperature needs RigSight to run with admin rights.</p>
+
+<p>The Timeline lists every driver, Windows update and setting change by day, including the power plan. While you play, RigSight's overlay can show frame rate, GPU load, temperatures and video memory, inside exclusive fullscreen games too through RivaTuner.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://support.microsoft.com/en-us/windows/change-the-power-mode-for-your-windows-pc-c2aff038-22c9-f46d-5ca0-78696fdf2de8" rel="noopener">Microsoft Support, Change the power mode for your windows pc</a></li><li><a href="https://support.microsoft.com/en-us/help/4028293/windows-using-game-mode-on-your-pc" rel="noopener">Microsoft Support, Windows using game mode on your pc</a></li><li><a href="https://support.microsoft.com/en-us/windows/deployment/updates-lifecycle/how-to-uninstall-a-windows-update" rel="noopener">Microsoft Support, How to uninstall a windows update</a></li><li><a href="https://www.nvidia.com/content/Control-Panel-Help/vLatest/en-us/mergedProjects/nv3d/Manage_3D_Settings_(reference).htm" rel="noopener">NVIDIA, Manage 3D Settings (reference)</a></li><li><a href="https://www.amd.com/en/products/software/adrenalin/frtc.html" rel="noopener">AMD, Frtc</a></li><li><a href="https://www.digitalcitizen.life/how-to-tell-whether-your-cpu-or-gpu-is-limiting-gaming-performance/" rel="noopener">Digital Citizen, How to tell whether your cpu or gpu is limiting gaming performance</a></li><li><a href="https://support.xbox.com/en-US/help/games-apps/game-setup-and-play/use-game-mode-gaming-on-pc" rel="noopener">Xbox Support, Use game mode gaming on pc</a></li><li><a href="https://help.steampowered.com/en/faqs/view/3462-CD4C-36BD-5767" rel="noopener">Steam Support, 3462 CD4C 36BD</a></li><li><a href="https://nvidia.custhelp.com/app/answers/detail/a_id/5084/~/nvidia-app-in-game-performance-and-latency-overlay" rel="noopener">NVIDIA support, Nvidia app in game performance and latency overlay</a></li><li><a href="https://www.amd.com/en/resources/support-articles/faqs/DH3-038.html" rel="noopener">AMD</a></li><li><a href="https://www.howtogeek.com/706162/how-to-see-fps-in-any-windows-10-game-without-extra-software/" rel="noopener">How-To Geek, How to see fps in any windows 10 game without extra software</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Why does my FPS drop in games all of a sudden?</summary><p>Look at what changed that day first, such as a Windows update, a new graphics driver, a game patch or a power setting. If nothing changed, check temperatures and background apps, since a hot GPU or an app updating itself can pull frames away mid game.</p></details><details class="qa"><summary>Can a Windows update cause FPS drops in games?</summary><p>Yes, sometimes. An update can replace your graphics driver, reset a power setting or turn a setting back on. Check Settings > Windows Update > Update history for the date, reinstall your graphics driver from NVIDIA, AMD or Intel, and only remove the update if that doesn't help.</p></details><details class="qa"><summary>Why my FPS drops in games when the PC is new or fast?</summary><p>Fast parts still slow down when they get too hot, when Windows runs them in a power saving mode or when a frame cap holds them back. A laptop on battery also runs slower than on the charger. Check power mode and temperatures before blaming the hardware.</p></details><details class="qa"><summary>Why does FPS drop in game while streaming?</summary><p>Streaming adds a video encoder and often a browser or chat app on top of the game. Use the hardware encoder on your GPU in your streaming app, lower the stream resolution, and close anything else that plays video.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
-  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="one-percent-low-fps"><span>FPS and games</span><b>1% low FPS meaning, and why my 116 was really 69</b></a><a class="more" href="can-my-pc-run-gta-6"><span>FPS and games</span><b>Can my PC run GTA 6? What's known, and how to check yours</b></a><a class="more" href="games-stuttering-on-pc"><span>FPS and games</span><b>Games stuttering on PC? Find out if it's the game or the PC</b></a><a class="more" href="gpu-not-at-100-usage-low-fps"><span>FPS and games</span><b>GPU not at 100% usage but low FPS? Find what your card waits for</b></a></nav>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="one-percent-low-fps"><span>FPS and games</span><b>1% low FPS meaning, and why my 116 was really 69</b></a><a class="more" href="can-my-pc-run-gta-6"><span>FPS and games</span><b>Can my PC run GTA 6? What's known about the PC version</b></a><a class="more" href="games-stuttering-on-pc"><span>FPS and games</span><b>Games stuttering on PC? Find out if it's the game or the PC</b></a><a class="more" href="gpu-not-at-100-usage-low-fps"><span>FPS and games</span><b>GPU not at 100% usage but low FPS? Find what your card waits for</b></a></nav>
   <aside class="get">
     <img src="../img/logo-144.webp" alt="" width="40" height="40">
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>

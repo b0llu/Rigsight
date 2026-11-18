@@ -17,9 +17,9 @@
   "average gpu temp while gaming",
   "is 68 degrees hot for a gpu"
  ],
- "title": "Normal GPU temperature while gaming, and when 85°C is too hot",
+ "title": "Normal GPU temperature while gaming: is 85°C too hot?",
  "summary": "What a normal GPU temperature while gaming is, the limits NVIDIA and AMD give, and why RigSight only ever compares your card with itself, after it once told me my healthy fan was clogged.",
- "description": "A normal GPU temperature while gaming is roughly 60 to 80°C. 85°C is warm but within spec for most cards. The NVIDIA and AMD limits, and when to worry.",
+ "description": "Most desktop GPUs run 60 to 80°C while gaming, and 85°C is warm but within spec for most cards. The NVIDIA and AMD limits, and when a hot GPU needs a look.",
  "short": "A normal GPU temperature while gaming is roughly 60 to 80°C on a desktop card with a working cooler. Each card has its own limit, and NVIDIA lists 85 to 93°C depending on the model. 85°C is warm but within spec for most cards. Worry when it keeps rising, or sits right at the limit.",
  "faq": [
   [
@@ -84,18 +84,15 @@
 -->
 <p>On 29 September RigSight told me my GPU fan was running 1,473 rpm faster than usual at the same temperature, and that my cooler might be clogging. Nothing was wrong. It had compared minutes when my card's fans were stopped at rest with minutes in a game. That mistake is the best answer I have to "what's a normal GPU temperature while gaming?" Normal is what your own card does in the same game, at the same load. Charts of other people's cards give you a rough range and nothing more.</p>
 
-<h2>How RigSight checks your GPU temperature</h2>
-
-<p>After that false alarm, every temperature comparison in RigSight became like for like. The full story is in <a href="like-for-like">The day RigSight told me my healthy fan was clogged</a>. Here is what it does now for your GPU.</p>
-
-
-<p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. Its Temperatures page shows the GPU's temperature with its lowest and highest of the day under it, plus the hot spot and memory junction readings when the card reports them. Below that, the history graph covers any range from the last 5 minutes to the last 12 months, or a Custom range, and can show each minute's average, highest or lowest reading. So you can see the exact peak of last night's session, not only how warm the card is now.</p>
-
-{{fig pages/temperatures | RigSight's Temperatures page with CPU and GPU gauges, the GPU's hot spot and memory junction, and a 24 hour history graph | RigSight's Temperatures page. The history graph below the gauges can show each minute's average, highest or lowest.}}
-
-<p>The part that answers "is this normal?" is that RigSight compares your card with itself. For a week, a month or a custom range, Reports has an Against your usual table. It takes the game you played most and sets its GPU temperature against your own usual in that game from the weeks before, at the same power, with the room taken out. If a game now runs hotter than usual, the PC health card on Home says so in one line. That answers the question better than any chart of other people's cards.</p>
-
-<p>If you'd rather be told than check, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong>. The GPU limit starts at 83° and can be set from 60 to 100°. When the GPU stays over it for a few seconds, the alert names the app that was running.</p>
+<div class="tbl"><table>
+<thead><tr><th>GPU temperature while gaming</th><th>What it means</th></tr></thead>
+<tbody>
+<tr><td>Under 60°C</td><td>Cool. A light game, or a big cooler.</td></tr>
+<tr><td>60 to 80°C</td><td>Normal for most desktop cards.</td></tr>
+<tr><td>80 to 85°C</td><td>Warm, and still within spec for most cards.</td></tr>
+<tr><td>Above 85°C</td><td>Close to the limit on many cards. Check airflow, dust and the fan curve.</td></tr>
+<tr><td>At the card's limit, 83 to 93°C on NVIDIA cards</td><td>The card slows itself to stay there.</td></tr>
+</tbody></table></div>
 
 <h2>Why a GPU runs as hot as it does</h2>
 
@@ -178,3 +175,27 @@
 
 <p>Next, look up your card's maximum on the maker's spec page, then play your usual game for half an hour and note where the temperature levels off. If it's well under the maximum, you can stop worrying. If it's close, start with the dust.</p>
 
+<h2>How RigSight checks your GPU temperature</h2>
+
+<p>After that false alarm, every temperature comparison in RigSight became like for like. The full story is in <a href="like-for-like">The day RigSight told me my healthy fan was clogged</a>. Here is what it does now for your GPU.</p>
+
+
+<p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. Its Temperatures page shows the GPU's temperature with its lowest and highest of the day under it, plus the hot spot and memory junction readings when the card reports them. Below that, the history graph covers any range from the last 5 minutes to the last 12 months, or a Custom range, and can show each minute's average, highest or lowest reading. So you can see the exact peak of last night's session, not only how warm the card is now.</p>
+
+{{fig pages/temperatures | RigSight's Temperatures page with CPU and GPU gauges, the GPU's hot spot and memory junction, and a 24 hour history graph | RigSight's Temperatures page. The history graph below the gauges can show each minute's average, highest or lowest.}}
+
+<p>The part that answers "is this normal?" is that RigSight compares your card with itself. For a week, a month or a custom range, Reports has an Against your usual table. It takes the game you played most and sets its GPU temperature against your own usual in that game from the weeks before, at the same power, with the room taken out. If a game now runs hotter than usual, the PC health card on Home says so in one line. That answers the question better than any chart of other people's cards.</p>
+
+<p>If you'd rather be told than check, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong>. The GPU limit starts at 83° and can be set from 60 to 100°. When the GPU stays over it for a few seconds, the alert names the app that was running.</p>
+
+<h2>More on GPU temperatures</h2>
+
+<ul>
+  <li><a href="gpu-hotspot-temperature">GPU hot spot temperature</a>, the warmest point on the chip and the gap to the main reading.</li>
+  <li><a href="vram-temperature">VRAM temperature while gaming</a>, the memory around the GPU.</li>
+  <li><a href="gpu-thermal-throttling">GPU thermal throttling</a>, when a hot card slows itself.</li>
+  <li><a href="gpu-fan-not-spinning">GPU fan not spinning</a>, and when that's normal.</li>
+  <li><a href="normal-cpu-temp-idle">Normal CPU and GPU temperature at idle</a>.</li>
+  <li><a href="check-gpu-temperature-history">How to check GPU temperature history</a>.</li>
+  <li><a href="pc-overheating-while-gaming">PC overheating while gaming, or just warm</a>.</li>
+</ul>

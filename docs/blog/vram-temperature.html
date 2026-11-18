@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "VRAM temperature while gaming, and what's normal for GPU memory", "description": "Normal VRAM temperature while gaming is often 70 to 90\u00b0C, and GDDR6X cards run hotter, with slowdowns reported near 110\u00b0C. How to check it and cool it.", "datePublished": "2026-11-14", "dateModified": "2026-11-14", "image": "https://rigsight.app/img/blog/vram-temperature.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/vram-temperature", "keywords": "vram temperature, gpu memory temperature, gpu memory temperature while gaming, vram temperature range, vram temperature max, gpu memory temperature normal, vram temperature 3080, gpu memory junction temperature, vram temperature monitor"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "VRAM temperature while gaming, and what's normal for GPU memory", "item": "https://rigsight.app/blog/vram-temperature"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is a normal VRAM temperature while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "Often somewhere between 70 and 90\u00b0C. Memory usually runs warmer than the GPU core next to it. GDDR6X cards like the RTX 3080 and 3090 can read in the 90s and close to 100\u00b0C in heavy games and still work as designed. My RTX 3080 Ti averaged 78\u00b0C."}}, {"@type": "Question", "name": "What is the max VRAM temperature?", "acceptedAnswer": {"@type": "Answer", "text": "It depends on the memory. GDDR6X is commonly reported to slow itself at about 110\u00b0C, and Micron's rated range for it is often quoted up to 95\u00b0C or a little more. Treat readings that stay above 100\u00b0C as too hot, even if nothing slows down yet."}}, {"@type": "Question", "name": "How do I check GPU memory temperature?", "acceptedAnswer": {"@type": "Answer", "text": "Task Manager doesn't show it. Free tools like HWiNFO and GPU-Z show it on cards that report it, often as Memory Junction Temperature or Memory Temperature. RigSight records it every minute as GPU memory, so you can look back at a whole session."}}, {"@type": "Question", "name": "Is GPU memory temperature the same as hot spot?", "acceptedAnswer": {"@type": "Answer", "text": "No. The hot spot is the warmest point on the GPU chip itself. Memory temperature is the memory chips around it. Both run above the core temperature, and each has its own limit."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,21 +256,19 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Temperatures</p>
   <h1>VRAM temperature while gaming, and what's normal for GPU memory</h1>
   <p class="dek">My RTX 3080 Ti's memory averaged 78°C over about 100 hours of heavy gaming and never went above 84°C. What VRAM temperature is normal, where it gets too hot, how to check it, and how to bring it down.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 14 November 2026 · 4 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 14 November 2026 · 4 min read</p>
   <figure class="cover"><img class="" src="../img/blog/vram-temperature.webp" srcset="../img/blog/vram-temperature-600.webp 600w, ../img/blog/vram-temperature.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="GPU memory, gaming: 78°C, on average, RTX 3080 Ti. Highest, 7 weeks: 84°C, never higher since 23 Sep" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>VRAM temperature, also called GPU memory or memory junction temperature, is often 70 to 90°C while gaming. Cards with GDDR6X memory run hotter, and RTX 3080 and 3090 cards are reported to slow their memory near 110°C. Readings that stay above 100°C are worth fixing with better airflow or new thermal pads.</p></div>
   <div class="body">
 <p>Since 23 September, RigSight has recorded my RTX 3080 Ti's memory temperature every minute. In about 100 hours of heavy gaming, with the GPU 80% busy or more, the memory averaged about 78°C. The highest it reached was 84°C, on 30 September in a game that kept the GPU 99% busy. That card uses GDDR6X, the memory known for running hot, so I expected worse. Here's what VRAM temperature is normal while gaming, where it gets too hot, and how to check yours.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight records three GPU temperatures each minute, the core, the hot spot and the memory, and keeps the highest of each minute so a short peak doesn't get averaged away. On the Temperatures page, GPU memory has its own line next to the others. You can also put it in the taskbar, the overlay, a widget or a dashboard from its row on All sensors.</p>
-
-<p>Seeing it next to the core is what makes the number useful. In those heavy minutes my GPU core averaged 69°C and the memory 78°C, so the memory ran about 9° above the core. With the GPU nearly idle, the core sat around 48°C and the memory around 53°C. In the heavy minutes, the memory's highest stayed between 68 and 84°C, and none reached 85. RigSight is free and open source.</p>
+<div class="testbed"><p class="testbed-k">Test setup</p><dl><dt>GPU</dt><dd>NVIDIA GeForce RTX 3080 Ti, 12 GB</dd><dt>CPU</dt><dd>AMD Ryzen 7 5700X3D</dd><dt>Memory</dt><dd>16 GB, 32 GB from 14 November 2026</dd><dt>Windows</dt><dd>Windows 11</dd><dt>Recorded</dt><dd>23 September to 13 November 2026, every minute</dd><dt>Counted</dt><dd>Minutes with the GPU 80% busy or more</dd></dl></div>
 
 <h2>What VRAM temperature is normal</h2>
 
 <p>VRAM is the GPU's own memory, the chips around the GPU on the card. They get warm because games keep them busy, and they sit under the same cooler as the GPU, often with less of it touching them. That's why memory usually reads warmer than the core.</p>
+
+<figure class="webimg"><img src="https://www.nvidia.com/content/dam/en-zz/Solutions/geforce/ampere/rtx-3080-3080ti/geforce-rtx-3080-ti-og-1200x630.jpg" alt="The NVIDIA GeForce RTX 3080 Ti graphics card" loading="lazy" decoding="async" referrerpolicy="no-referrer"><figcaption>The GeForce RTX 3080 Ti, the card behind the numbers in this guide. Its 12 GB of GDDR6X memory sits around the GPU, under the same cooler. Image: <a href="https://www.nvidia.com/en-us/geforce/graphics-cards/30-series/rtx-3080-3080ti/" rel="noopener">NVIDIA</a></figcaption></figure>
 
 <ul>
   <li>Somewhere around 70 to 90°C while gaming is common for many cards.</li>
@@ -284,8 +306,17 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>On an older card, new thermal pads on the memory can drop it a lot. This means opening the card, which can affect its warranty, so check that first or ask the maker.</li>
 </ol>
 
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records three GPU temperatures each minute, the core, the hot spot and the memory, and keeps the highest of each minute so a short peak doesn't get averaged away. On the Temperatures page, GPU memory has its own line next to the others. You can also put it in the taskbar, the overlay, a widget or a dashboard from its row on All sensors.</p>
+
+<p>Seeing it next to the core is what makes the number useful. In those heavy minutes my GPU core averaged 69°C and the memory 78°C, so the memory ran about 9° above the core. With the GPU nearly idle, the core sat around 48°C and the memory around 53°C. In the heavy minutes, the memory's highest stayed between 68 and 84°C, and none reached 85. RigSight is free and open source.</p>
+
+
 <p>Your next step is to check your memory's highest reading after a long game. If it's in the 80s or low 90s, leave it alone. If it stays above 100°C, start with airflow and the fan curve. For the GPU chip itself, see <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a> and <a href="gpu-hotspot-temperature">GPU hot spot temperature</a>.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://www.tomshardware.com/news/hwinfo64-adds-gddr6x-temp-monitoring-rtx30series" rel="noopener">Tom&#x27;s Hardware, Hwinfo64 adds gddr6x temp monitoring rtx30series</a></li><li><a href="https://www.pcgameshardware.de/Geforce-RTX-3080-Grafikkarte-276730/News/GDDR6X-100-Grad-heiss-Temperatur-1358476/" rel="noopener">PC Games Hardware, GDDR6X 100 Grad heiss Temperatur</a></li><li><a href="https://www.igorslab.de/gddr6x-am-limit-ueber-100-grad-bei-der-geforce-rtx-3080-fe-im-chip-gemessen/" rel="noopener">Igor&#x27;s Lab, Gddr6x am limit ueber 100 grad bei der geforce rtx 3080 fe im chip gemessen</a></li><li><a href="https://forums.tomshardware.com/threads/gddr6x-in-3080-and-3090-hits-110c-while-mining-ethereum.3683309" rel="noopener">Tom&#x27;s Hardware forums, Gddr6x in 3080 and 3090 hits 110c while mining ethereum</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>What is a normal VRAM temperature while gaming?</summary><p>Often somewhere between 70 and 90°C. Memory usually runs warmer than the GPU core next to it. GDDR6X cards like the RTX 3080 and 3090 can read in the 90s and close to 100°C in heavy games and still work as designed. My RTX 3080 Ti averaged 78°C.</p></details><details class="qa"><summary>What is the max VRAM temperature?</summary><p>It depends on the memory. GDDR6X is commonly reported to slow itself at about 110°C, and Micron's rated range for it is often quoted up to 95°C or a little more. Treat readings that stay above 100°C as too hot, even if nothing slows down yet.</p></details><details class="qa"><summary>How do I check GPU memory temperature?</summary><p>Task Manager doesn't show it. Free tools like HWiNFO and GPU-Z show it on cards that report it, often as Memory Junction Temperature or Memory Temperature. RigSight records it every minute as GPU memory, so you can look back at a whole session.</p></details><details class="qa"><summary>Is GPU memory temperature the same as hot spot?</summary><p>No. The hot spot is the warmest point on the GPU chip itself. Memory temperature is the memory chips around it. Both run above the core temperature, and each has its own limit.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="gpu-thermal-throttling"><span>Temperatures</span><b>GPU thermal throttling, and how to tell if yours is</b></a><a class="more" href="check-gpu-temperature-history"><span>Temperatures</span><b>How to check GPU temperature history without being misled</b></a><a class="more" href="how-to-test-a-new-gpu"><span>Temperatures</span><b>How to test a new PC or GPU you got for Christmas</b></a><a class="more" href="normal-cpu-temp-idle"><span>Temperatures</span><b>Normal CPU temp at idle, and the GPU's, from 150 hours of mine</b></a></nav>
   <aside class="get">

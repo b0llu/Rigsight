@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "GPU thermal throttling, and how to tell if yours is", "description": "GPU thermal throttling is the GPU lowering its clocks to stay under its temperature limit. How to check if your GPU is throttling, and how to fix it.", "datePublished": "2026-11-09", "dateModified": "2026-11-09", "image": "https://rigsight.app/img/blog/gpu-thermal-throttling.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/gpu-thermal-throttling", "keywords": "gpu thermal throttling, is my gpu thermal throttling, how to check if gpu is throttling, gpu thermal throttling temp, gpu thermal throttling symptoms, gpu thermal throttling fix, how to check if gpu is power throttling"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "GPU thermal throttling, and how to tell if yours is", "item": "https://rigsight.app/blog/gpu-thermal-throttling"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "At what temperature does a GPU thermal throttle?", "acceptedAnswer": {"@type": "Answer", "text": "It depends on the card. NVIDIA lists maximum temperatures of 85 to 93\u00b0C for its recent GeForce GPUs, and cards start lowering clocks as they get close to that. Check the maker's page for your model."}}, {"@type": "Question", "name": "What are the symptoms of GPU thermal throttling?", "acceptedAnswer": {"@type": "Answer", "text": "The game runs well for the first few minutes, then the frame rate drops and stays lower. The GPU's temperature sits near its limit, the fans run fast, and the clock speed falls while the load stays the same."}}, {"@type": "Question", "name": "How do I check if my GPU is power throttling?", "acceptedAnswer": {"@type": "Answer", "text": "GPU-Z's Sensors tab has a PerfCap Reason line that names what is holding the clocks back, such as power or temperature. A card at its power limit lowers its clocks at normal temperatures, which is how the card is designed to run, not a fault."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,23 +256,17 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Temperatures</p>
   <h1>GPU thermal throttling, and how to tell if yours is</h1>
   <p class="dek">In 5,128 minutes of heavy load my GPU never passed 73°C, so it never had a reason to slow down. What GPU thermal throttling is, how RigSight tells it apart from normal boost and power limits, and how to check and fix it.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 9 November 2026 · 3 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 9 November 2026 · 3 min read</p>
   <figure class="cover"><img class="" src="../img/blog/gpu-thermal-throttling.webp" srcset="../img/blog/gpu-thermal-throttling-600.webp 600w, ../img/blog/gpu-thermal-throttling.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Hottest heavy minute on my GPU: 73°C, in 5,128 minutes at 80% load or more" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>GPU thermal throttling is the GPU lowering its clock speed to stay under its maker's temperature limit, so the frame rate drops after a few minutes of play. To check, watch the GPU's temperature and clock in the same game. Clocks falling while the temperature sits at its limit is throttling. Clean the cooler, improve airflow and cap the frame rate.</p></div>
   <div class="body">
 <p>In 5,128 minutes with my GPU at least 80% busy, the hottest it got was 73°C, in No Man's Sky on 7 October. RigSight starts looking for GPU thermal throttling at 83°C, so my card never had a reason to slow itself down. That's what most healthy PCs look like. Throttling is worth knowing about because when it does happen, it looks like the game got slower for no reason.</p>
 
-<h2>How RigSight catches it</h2>
-
-<p>A GPU's clock speed moves all the time, so a lower clock on its own proves nothing. As a card warms up, its boost lets the clock ease down a step or two. A heavier scene draws more power and can hit the card's power limit. A different game runs at different clocks altogether. None of that is the card slowing down to stay cool.</p>
-
-<p>So RigSight compares the GPU with itself, inside one stretch of one game at heavy load. It takes the clocks from that same stretch while the GPU was cooler, and looks for minutes where the GPU sat at 83°C or more with its clocks below 88% of that, without drawing more power than before. Three minutes or more of that counts as throttling.</p>
-
-<p>Since version 1.7.0, when it happens you get a notification afterwards, such as "Your GPU slowed itself for 12 minutes to stay cool", with how far the clocks fell and the temperature it started at. RigSight also tells you after a game when it ran hotter than usual at the same power. The bell in the title bar keeps every notification from the last 30 days. RigSight is free and open source.</p>
+<div class="testbed"><p class="testbed-k">Test setup</p><dl><dt>GPU</dt><dd>NVIDIA GeForce RTX 3080 Ti, 12 GB</dd><dt>CPU</dt><dd>AMD Ryzen 7 5700X3D</dd><dt>Memory</dt><dd>16 GB, 32 GB from 14 November 2026</dd><dt>Windows</dt><dd>Windows 11</dd><dt>Recorded</dt><dd>23 September to 9 November 2026, every minute</dd><dt>Counted</dt><dd>Minutes with the GPU 80% busy or more</dd></dl></div>
 
 <h2>What GPU thermal throttling is</h2>
 
-<p>Every GPU has a maximum temperature set by its maker. NVIDIA lists 85 to 93°C for its recent GeForce GPUs, depending on the model. As a card gets close to its limit, it lowers its clock speed and power so it makes less heat. The card stays safe, but it does less work, so the frame rate falls.</p>
+<p>Every GPU has a maximum temperature set by its maker. NVIDIA lists 85 to 93°C for its recent GeForce GPUs, depending on the model. As a card gets close to its limit, it lowers its clock speed and power so it makes less heat. The card stays safe, but it does less work, so the frame rate falls. <a href="normal-gpu-temperature-while-gaming">Normal GPU temperature while gaming</a> has the usual ranges and each maker's limits.</p>
 
 <p>The usual symptoms are these.</p>
 
@@ -281,7 +299,17 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 </ol>
 
 <p>For the whole PC running hot, <a href="pc-overheating-while-gaming">PC overheating while gaming</a> has the full list. Your next step is the 15-minute check above. If the clocks hold while the temperature stays below the high 80s, your GPU isn't throttling.</p>
+
+<h2>How RigSight catches it</h2>
+
+<p>A GPU's clock speed moves all the time, so a lower clock on its own proves nothing. As a card warms up, its boost lets the clock ease down a step or two. A heavier scene draws more power and can hit the card's power limit. A different game runs at different clocks altogether. None of that is the card slowing down to stay cool.</p>
+
+<p>So RigSight compares the GPU with itself, inside one stretch of one game at heavy load. It takes the clocks from that same stretch while the GPU was cooler, and looks for minutes where the GPU sat at 83°C or more with its clocks below 88% of that, without drawing more power than before. Three minutes or more of that counts as throttling.</p>
+
+<p>Since version 1.7.0, when it happens you get a notification afterwards, such as "Your GPU slowed itself for 12 minutes to stay cool", with how far the clocks fell and the temperature it started at. RigSight also tells you after a game when it ran hotter than usual at the same power. The bell in the title bar keeps every notification from the last 30 days. RigSight is free and open source.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4070-family/" rel="noopener">NVIDIA, Rtx 4070 family</a></li><li><a href="https://www.techpowerup.com/gpuz/" rel="noopener">TechPowerUp, Gpuz</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>At what temperature does a GPU thermal throttle?</summary><p>It depends on the card. NVIDIA lists maximum temperatures of 85 to 93°C for its recent GeForce GPUs, and cards start lowering clocks as they get close to that. Check the maker's page for your model.</p></details><details class="qa"><summary>What are the symptoms of GPU thermal throttling?</summary><p>The game runs well for the first few minutes, then the frame rate drops and stays lower. The GPU's temperature sits near its limit, the fans run fast, and the clock speed falls while the load stays the same.</p></details><details class="qa"><summary>How do I check if my GPU is power throttling?</summary><p>GPU-Z's Sensors tab has a PerfCap Reason line that names what is holding the clocks back, such as power or temperature. A card at its power limit lowers its clocks at normal temperatures, which is how the card is designed to run, not a fault.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="check-gpu-temperature-history"><span>Temperatures</span><b>How to check GPU temperature history without being misled</b></a><a class="more" href="how-to-test-a-new-gpu"><span>Temperatures</span><b>How to test a new PC or GPU you got for Christmas</b></a><a class="more" href="normal-cpu-temp-idle"><span>Temperatures</span><b>Normal CPU temp at idle, and the GPU's, from 150 hours of mine</b></a><a class="more" href="normal-cpu-temperature-while-gaming"><span>Temperatures</span><b>Normal CPU temperature while gaming, and why yours jumps around</b></a></nav>
   <aside class="get">

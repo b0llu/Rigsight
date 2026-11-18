@@ -28,27 +28,6 @@
 -->
 <p>Your fans roar, the case is warm to the touch, and the frame rate sags after twenty minutes of play. That feels like a PC overheating while gaming, but a hot PC and an overheating PC are different things. A PC is meant to get warm in games. The question is whether yours runs hotter than it used to in the same game, and RigSight answers that from your PC's own history.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>The picture at the top is RigSight's demo PC, not mine. Its Reports page for October has a table called Against your usual. In Counter-Strike 2, the game it played most that month, its GPU ran at 65° in steady play. Its usual in that game was 66 to 71°, from 46 days and 132 hours of play before. RigSight called that "3° cooler, too little to count". The CPU in the same minutes read the same way, the fans were at their usual speeds and PC problems were as usual. That PC gets warm in games. It isn't overheating.</p>
-
-<p>The comparison is strict on purpose.</p>
-
-<ul>
-  <li>It only uses steady play. That means the GPU at least 80% busy, after the first 10 minutes, so the cooler has warmed up.</li>
-  <li>Both sides need the same GPU power, within 15%. If the game ran much heavier, RigSight doesn't compare it at all.</li>
-  <li>It reads the PC at rest on both sides, so a warmer room isn't blamed on the PC.</li>
-  <li>A game only reads hotter when it is at least 5° warmer, and at least 3° more than the change at rest, with an hour of play now and two hours over three days before.</li>
-</ul>
-
-<p>I built it that strict after RigSight once warned me that a healthy fan was clogging. That story is in <a href="like-for-like">The day RigSight told me my healthy fan was clogged</a>.</p>
-
-<p>When a game does run hotter, RigSight says so in a few places. The PC health card on Home gets one line naming the game, the part, how many degrees hotter at the same power, and the usual range. With no change it says "Temperatures as usual". On the Games page every play keeps its GPU temperature and power, and a play at the usual power says how far it was from that game's usual. So you can see which evening it started.</p>
-
-{{fig pages/home | RigSight's Home page on the demo PC with today's activity, CPU and GPU peaks with the app in use, and a PC health card that says temperatures are as usual | Home on RigSight's demo PC. The PC health card says whether temperatures are as usual for this PC.}}
-
-<p>If the PC shut off in a game, the crash's close-up says whether it was running hot just before. It also points out that a power cut at the same moment would look the same. You can turn on <strong>Temperature alerts</strong> under <strong>Notifications</strong> in Settings to get a warning that names the game when a part stays over your limit. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>
-
 <h2>Why a PC is overheating while gaming</h2>
 
 <p>A GPU can draw a few hundred watts in a game, and nearly all of that power turns into heat inside the case. Warm air out of the back and fans that speed up are signs the cooling is working.</p>
@@ -86,3 +65,24 @@
 <p>Test each fix like for like. Use the same game, the same settings and the same scene or map. Play long enough for temperatures to level off, about 10 to 15 minutes, and note how warm the room is, because a room 5°C warmer makes every part run warmer too. A light game in winter against a heavy one in summer will always look like your PC got worse.</p>
 
 <p>Start with the dust and the frame cap tonight. Then play your usual game for 15 minutes and compare the highest temperatures with what you had before.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>The picture at the top is RigSight's demo PC, not mine. Its Reports page for October has a table called Against your usual. In Counter-Strike 2, the game it played most that month, its GPU ran at 65° in steady play. Its usual in that game was 66 to 71°, from 46 days and 132 hours of play before. RigSight called that "3° cooler, too little to count". The CPU in the same minutes read the same way, the fans were at their usual speeds and PC problems were as usual. That PC gets warm in games. It isn't overheating.</p>
+
+<p>The comparison is strict on purpose.</p>
+
+<ul>
+  <li>It only uses steady play. That means the GPU at least 80% busy, after the first 10 minutes, so the cooler has warmed up.</li>
+  <li>Both sides need the same GPU power, within 15%. If the game ran much heavier, RigSight doesn't compare it at all.</li>
+  <li>It reads the PC at rest on both sides, so a warmer room isn't blamed on the PC.</li>
+  <li>A game only reads hotter when it is at least 5° warmer, and at least 3° more than the change at rest, with an hour of play now and two hours over three days before.</li>
+</ul>
+
+<p>I built it that strict after RigSight once warned me that a healthy fan was clogging. That story is in <a href="like-for-like">The day RigSight told me my healthy fan was clogged</a>.</p>
+
+<p>When a game does run hotter, RigSight says so in a few places. The PC health card on Home gets one line naming the game, the part, how many degrees hotter at the same power, and the usual range. With no change it says "Temperatures as usual". On the Games page every play keeps its GPU temperature and power, and a play at the usual power says how far it was from that game's usual. So you can see which evening it started.</p>
+
+{{fig pages/home | RigSight's Home page on the demo PC with today's activity, CPU and GPU peaks with the app in use, and a PC health card that says temperatures are as usual | Home on RigSight's demo PC. The PC health card says whether temperatures are as usual for this PC.}}
+
+<p>If the PC shut off in a game, the crash's close-up says whether it was running hot just before. It also points out that a power cut at the same moment would look the same. You can turn on <strong>Temperature alerts</strong> under <strong>Notifications</strong> in Settings to get a warning that names the game when a part stays over your limit. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>

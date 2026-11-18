@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "PC restarts randomly while gaming? Rule things out first", "description": "A PC that restarts randomly while gaming is usually the power supply, unstable tuning or heat. Check Event Viewer for Kernel-Power 41, then rule each out.", "datePublished": "2026-11-06", "dateModified": "2026-11-06", "image": "https://rigsight.app/img/blog/pc-restarts-randomly-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/pc-restarts-randomly-while-gaming", "keywords": "pc restarts randomly while gaming, check why pc randomly restarts, pc restarts randomly no blue screen, pc randomly shuts off while gaming not overheating, pc restarts randomly after windows update, pc restarts randomly when idle, pc shuts down randomly while gaming"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "PC restarts randomly while gaming? Rule things out first", "item": "https://rigsight.app/blog/pc-restarts-randomly-while-gaming"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does my PC restart randomly with no blue screen?", "acceptedAnswer": {"@type": "Answer", "text": "Either Windows had no time to show one, because power was lost, or it showed one and restarted straight away. Turn off Automatically restart under Startup and Recovery to catch the second kind. If Kernel-Power 41 has a BugcheckCode of 0, it was a real loss of power or a reset, not a blue screen."}}, {"@type": "Question", "name": "My PC randomly shuts off while gaming but it's not overheating. Why?", "acceptedAnswer": {"@type": "Answer", "text": "Then the power supply and tuning are the main suspects. A supply that can't handle the GPU's short power spikes switches off to protect itself, and an unstable overclock, undervolt or XMP or EXPO profile can reset the PC with no blue screen. Reset tuning to defaults first, since it costs nothing."}}, {"@type": "Question", "name": "Why does my PC restart randomly after a Windows update?", "acceptedAnswer": {"@type": "Answer", "text": "Look for event 1074 from User32 in the System log at that time. If it's there, Windows restarted on purpose to finish an update. Set your Active hours in Windows Update so it doesn't happen while you play. If it's a Kernel-Power 41 instead, a new driver from the update is worth suspecting."}}, {"@type": "Question", "name": "Why does my PC restart randomly when idle?", "acceptedAnswer": {"@type": "Answer", "text": "Restarts at idle point away from heat and the power supply's limit and toward the mains, sleep and wake problems, or memory and CPU tuning that is unstable at low load. Check whether other devices flickered, turn off Fast Startup for a test, and try with XMP or EXPO off."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,32 +256,11 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Crashes</p>
   <h1>PC restarts randomly while gaming? Rule things out first</h1>
   <p class="dek">My PC went off eleven times in two weeks with no blue screen, and the minutes before each one ruled out heat and the power supply. How to check why a PC randomly restarts while gaming, and how to tell heat, the power supply, tuning and Windows apart.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 6 November 2026 · 6 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 6 November 2026 · 6 min read</p>
   <figure class="cover"><img class="" src="../img/blog/pc-restarts-randomly-while-gaming.webp" srcset="../img/blog/pc-restarts-randomly-while-gaming-600.webp 600w, ../img/blog/pc-restarts-randomly-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Sudden shut-offs on my PC: 11, in 13 days, with no blue screen and no button pressed" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A PC that restarts randomly while gaming is most often the power supply, an unstable overclock or memory profile, or heat. Check why first. Event Viewer's System log shows Kernel-Power 41 for a sudden stop and User32 1074 for a planned restart. Turn off automatic restart to catch any hidden blue screen.</p></div>
   <div class="body">
 <p>Between 17 and 29 September my PC went off eleven times without shutting down properly, five of them on 29 September alone. There was no blue screen and nobody touched the power button. When your PC restarts randomly while gaming, the first job is the one I had. Before you replace anything, use what happened in the minutes before to rule causes out.</p>
-
-<h2>How RigSight caught it</h2>
-
-<p>RigSight's Crashes page lists every sudden shut-off and blue screen, read from Windows' own records, and on its first run it reads them from up to 90 days back. Each shut-off is timed by the last minute RigSight recorded, not by Windows' own guess, which can be some minutes early.</p>
-
-<p>For six of my eleven, RigSight had already been recording the minutes before. In every one the GPU was between 1 and 18% busy, drawing 33 to 55 W. The CPU was under 65° and the GPU around 50°. So whatever switched my PC off, it wasn't heat, and it wasn't a power supply struggling under a game. Windows' record of all eleven shows no blue screen code and no power button press. That's as far as the records go, and RigSight doesn't claim more than that.</p>
-
-<p>Each shut-off gets a cause with one word for how sure RigSight is.</p>
-
-<ul>
-  <li>A shut-off under heavy load reads Possibly mains or power supply, because from inside the PC those two look the same.</li>
-  <li>One while a part was above your alert temperature reads Possibly heat.</li>
-  <li>An error the hardware couldn't correct, logged around it, makes it Likely a hardware fault.</li>
-  <li>A held power button reads Confirmed.</li>
-  <li>Only a shut-off while the PC was doing little, with no button press and nothing logged, is called Likely a power cut. Those are counted apart, so they don't hide the PC's own problems.</li>
-  <li>A PC running again within two minutes reads as a power dip or a reset.</li>
-</ul>
-
-<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="The minutes around a problem on RigSight&#x27;s demo PC: lanes for temperature, load, power, memory, fans and network on one time axis, with the moment marked and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around a crash on RigSight's demo PC. A sudden shut-off opens the same way, with the minutes before it on one time axis.</figcaption></figure>
-
-<p>Open a shut-off to see the 45 minutes before it, minute by minute. It shows CPU and GPU temperatures, load, how many watts the GPU was drawing, memory and fans, with the game in front. A shut-off at 300 W and normal temperatures points at power, and one at 90° points at heat. The Temperatures graph leaves a gap where nothing was recorded and says whether the PC was off, shut off suddenly, crashed or was asleep. On the Games page, the play itself says it ended in a shut-off or a power cut. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
 
 <h2>Why a PC restarts randomly while gaming</h2>
 
@@ -312,7 +315,30 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 </ol>
 
 <p>Turn off automatic restart now, then reset your tuning to defaults and play the game that restarts most. If it still goes off with no blue screen and your temperatures were normal just before, the power supply is the part to test next.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight's Crashes page lists every sudden shut-off and blue screen, read from Windows' own records, and on its first run it reads them from up to 90 days back. Each shut-off is timed by the last minute RigSight recorded, not by Windows' own guess, which can be some minutes early.</p>
+
+<p>For six of my eleven, RigSight had already been recording the minutes before. In every one the GPU was between 1 and 18% busy, drawing 33 to 55 W. The CPU was under 65° and the GPU around 50°. So whatever switched my PC off, it wasn't heat, and it wasn't a power supply struggling under a game. Windows' record of all eleven shows no blue screen code and no power button press. That's as far as the records go, and RigSight doesn't claim more than that.</p>
+
+<p>Each shut-off gets a cause with one word for how sure RigSight is.</p>
+
+<ul>
+  <li>A shut-off under heavy load reads Possibly mains or power supply, because from inside the PC those two look the same.</li>
+  <li>One while a part was above your alert temperature reads Possibly heat.</li>
+  <li>An error the hardware couldn't correct, logged around it, makes it Likely a hardware fault.</li>
+  <li>A held power button reads Confirmed.</li>
+  <li>Only a shut-off while the PC was doing little, with no button press and nothing logged, is called Likely a power cut. Those are counted apart, so they don't hide the PC's own problems.</li>
+  <li>A PC running again within two minutes reads as a power dip or a reset.</li>
+</ul>
+
+<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="The minutes around a problem on RigSight&#x27;s demo PC: lanes for temperature, load, power, memory, fans and network on one time axis, with the moment marked and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around a crash on RigSight's demo PC. A sudden shut-off opens the same way, with the minutes before it on one time axis.</figcaption></figure>
+
+<p>Open a shut-off to see the 45 minutes before it, minute by minute. It shows CPU and GPU temperatures, load, how many watts the GPU was drawing, memory and fans, with the game in front. A shut-off at 300 W and normal temperatures points at power, and one at 90° points at heat. The Temperatures graph leaves a gap where nothing was recorded and says whether the PC was off, shut off suddenly, crashed or was asleep. On the Games page, the play itself says it ended in a shut-off or a power cut. CPU temperature and power need RigSight running with admin rights. RigSight is free and open source.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/event-id-41-restart" rel="noopener">Microsoft Learn, Event id 41 restart</a></li><li><a href="https://support.microsoft.com/en-us/windows/troubleshooting-windows-unexpected-restarts-and-stop-code-errors-60b01860-58f2-be66-7516-5c45a66ae3c6" rel="noopener">Microsoft Support, Troubleshooting windows unexpected restarts and stop code errors</a></li><li><a href="https://www.elevenforum.com/t/enable-or-disable-bsod-automatic-restart-in-windows-11.8084/" rel="noopener">Eleven Forum, Enable or disable bsod automatic restart in windows 11</a></li><li><a href="https://www.pcworld.com/article/3631488/one-cable-or-two-for-powering-a-graphics-card-heres-the-answer.html" rel="noopener">PCWorld, One cable or two for powering a graphics card heres the answer</a></li><li><a href="https://www.pcgamesn.com/amd/ryzen-7000-temperatures" rel="noopener">pcgamesn.com, Ryzen 7000 temperatures</a></li><li><a href="https://www.intel.com/content/www/us/en/products/sku/236773/intel-core-i9-processor-14900k-36m-cache-up-to-6-00-ghz/specifications.html" rel="noopener">Intel, Specifications</a></li><li><a href="https://www.profesionalreview.com/2023/01/07/amd-ryzen-7000-x3d-tjmax-89/amp/" rel="noopener">profesionalreview.com, Amd ryzen 7000 x3d tjmax</a></li><li><a href="https://techcommunity.microsoft.com/blog/windows-itpro-blog/-/4434571" rel="noopener">techcommunity.microsoft.com, Windows itpro blog</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Why does my PC restart randomly with no blue screen?</summary><p>Either Windows had no time to show one, because power was lost, or it showed one and restarted straight away. Turn off Automatically restart under Startup and Recovery to catch the second kind. If Kernel-Power 41 has a BugcheckCode of 0, it was a real loss of power or a reset, not a blue screen.</p></details><details class="qa"><summary>My PC randomly shuts off while gaming but it&#x27;s not overheating. Why?</summary><p>Then the power supply and tuning are the main suspects. A supply that can't handle the GPU's short power spikes switches off to protect itself, and an unstable overclock, undervolt or XMP or EXPO profile can reset the PC with no blue screen. Reset tuning to defaults first, since it costs nothing.</p></details><details class="qa"><summary>Why does my PC restart randomly after a Windows update?</summary><p>Look for event 1074 from User32 in the System log at that time. If it's there, Windows restarted on purpose to finish an update. Set your Active hours in Windows Update so it doesn't happen while you play. If it's a Kernel-Power 41 instead, a new driver from the update is worth suspecting.</p></details><details class="qa"><summary>Why does my PC restart randomly when idle?</summary><p>Restarts at idle point away from heat and the power supply's limit and toward the mains, sleep and wake problems, or memory and CPU tuning that is unstable at low load. Check whether other devices flickered, turn off Fast Startup for a test, and try with XMP or EXPO off.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="blue-screen-of-death-causes"><span>Crashes</span><b>Blue screen of death causes on Windows 11, and the three on my PC</b></a><a class="more" href="game-crashes-to-desktop-no-error"><span>Crashes</span><b>Game crashes to desktop with no error? How RigSight finds why</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>Why did my PC crash? How RigSight caught one on mine</b></a><a class="more" href="kernel-power-41"><span>Crashes</span><b>Why Kernel-Power 41 happens, and how RigSight caught mine</b></a></nav>
   <aside class="get">

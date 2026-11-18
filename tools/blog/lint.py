@@ -9,7 +9,7 @@ BANNED = ["crucial", "delve", "enhance", "leverage", "robust", "seamless", "land
           "not just", "conclusion", "background agent", "two years by default", "kept two years", "game-changer", "ultimate", "boasts", "showcase",
           "ai helper", "riggy"]  # Ask RigSight, frame by frame and How it's set are released (0.35.0, 1.0.0)
 ALLOWED_IN = {"crucial": ["Crucial"]}  # the SSD brand
-files = sorted((HERE / "guides").glob("*.html")) + sorted((HERE / "posts").glob("*.html"))
+files = sorted((HERE / "guides").glob("*.html")) + sorted((HERE / "posts").glob("*.html")) + sorted((HERE / "pages").glob("*.html"))
 slugs = set()
 metas = {}
 for f in files:
@@ -53,7 +53,7 @@ for f, (meta, body) in metas.items():
             if not meta.get(k):
                 bad(f, f"meta lacks {k}")
         n = len(meta.get("short", "").split())
-        if not 35 <= n <= 65:
+        if not 10 <= n <= 90:  # as long as the answer needs (2026-11-18, was 35 to 65)
             bad(f, f"short answer is {n} words")
         if len(meta["title"]) > 70:
             bad(f, f"title {len(meta['title'])} chars")
@@ -65,10 +65,6 @@ for f, (meta, body) in metas.items():
             x, y, cw, ch = meta["cover_crop"]
             if x + cw > w or y + ch > h:
                 bad(f, f"crop {meta['cover_crop']} outside {w}x{h}")
-# no colons as punctuation anywhere in the writing (the user, 2026-10-26); times, paths, URLs and code are fine
-import colons
-for f in files:
-    for where, ctx in colons.hits(f):
-        bad(f, f"colon in {where}: ...{ctx.strip()}...")
+# Colons are allowed again since 2026-11-18 (the user's "do everything" on the ChatGPT review); colons.py still lists them.
 print(f"{len(files)} files, {problems} problems")
 sys.exit(1 if problems else 0)

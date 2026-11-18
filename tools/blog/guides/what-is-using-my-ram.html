@@ -24,17 +24,7 @@
 -->
 <p>When I sorted RigSight's history by memory, the biggest user on my PC wasn't a game. It was Llama Server, a local AI model I run, at up to 7.8 GB. The heaviest game came next, Phantom Blade Zero at up to 6.9 GB, then Apex Legends at 6.6 GB. Task Manager would only have shown me whichever was open at that moment. Here is how to find out what is using your RAM on Windows 11, which numbers are normal, and what to do when one app keeps taking more.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>Task Manager shows what is using memory right now. It doesn't tell you whether an app always uses that much, or only started today. RigSight keeps a record of each app's memory all day, so it can.</p>
-
-<p>The Memory page shows how full your RAM is, with today's lowest and highest, and splits it into apps, compressed and free. Below that, every running app is listed with what it holds now beside its usual, which is its average over the days before today. An app well above its usual is marked, such as "Twice its usual", and a Worth a look card points it out. When nothing is above its usual, the page shows the apps holding the most instead. Today's biggest memory users lists each app's peak and average, and a card shows when memory was fullest today and which apps held the most around then.</p>
-
-<p>Since version 1.7.0, RigSight can also tell you about a leak while it happens. Turn on <strong>Apps that keep growing in memory</strong> in Settings, and when an app's memory has risen every hour for three hours, ending at 2 GB or more and at least twice where it started, you get a notification such as "Google Chrome keeps using more memory". It says how far it went and how fast, and that it hasn't come back down. The bell in the title bar keeps it for 30 days.</p>
-
-{{fig pages/memory | RigSight's Memory page on the demo PC with a RAM gauge, the breakdown into apps, compressed and free, today's biggest memory users and the list of apps using memory right now with their usual amount | RigSight's Memory page on the demo PC. Each app's memory now sits beside its usual, so a leak stands out from an app that is always big.}}
-
-<p>On the Processes page, open a browser or another app made of many processes, and RigSight splits its memory into its tabs, its extensions and the app itself, with its recorded history beside it. You can end an app there too, with a warning before you end a part of Windows. RigSight is free and open source.</p>
+{{testbed Recorded=23 September to 10 November 2026, each app every minute}}
 
 <h2>What is using my RAM on Windows 11? Check Task Manager</h2>
 <ol>
@@ -93,7 +83,19 @@
 <p>To find the one heavy tab, press Shift + Esc inside Chrome or Edge. The browser's own task manager lists every tab and extension with its memory.</p>
 
 <h2>When high memory use is a real problem</h2>
-<p>High In use on its own is fine. It is a problem when Available is close to zero, the drive light stays busy while apps stutter, or Windows tells you the PC is low on memory. Then the fix is to run less at once, find the leaking app, or add RAM. Windows 11 needs at least 4 GB to run, and games and browsers with many tabs need a lot more than that. Leave the page file on and let Windows manage its size. Without it, apps can close without warning when memory runs out.</p>
+<p>High In use on its own is fine. It is a problem when Available is close to zero, the drive light stays busy while apps stutter, or Windows tells you the PC is low on memory. Then the fix is to run less at once, find the leaking app, or add RAM. Windows 11 needs at least 4 GB to run, and games and browsers with many tabs need a lot more than that. Leave the page file on and let Windows manage its size. Without it, apps can close without warning when memory runs out. For how much memory games use and what's normal while you play, see <a href="normal-ram-usage-while-gaming">normal RAM usage while gaming</a>.</p>
 
 
 <p>Start with Task Manager's Memory column and the Available figure. If nothing stands out, check Startup apps and your browser's settings. If something keeps growing, restart it and update it, and if the Non-paged pool is the one growing, update your drivers next.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>Task Manager shows what is using memory right now. It doesn't tell you whether an app always uses that much, or only started today. RigSight keeps a record of each app's memory all day, so it can.</p>
+
+<p>The Memory page shows how full your RAM is, with today's lowest and highest, and splits it into apps, compressed and free. Below that, every running app is listed with what it holds now beside its usual, which is its average over the days before today. An app well above its usual is marked, such as "Twice its usual", and a Worth a look card points it out. When nothing is above its usual, the page shows the apps holding the most instead. Today's biggest memory users lists each app's peak and average, and a card shows when memory was fullest today and which apps held the most around then.</p>
+
+<p>Since version 1.7.0, RigSight can also tell you about a leak while it happens. Turn on <strong>Apps that keep growing in memory</strong> in Settings, and when an app's memory has risen every hour for three hours, ending at 2 GB or more and at least twice where it started, you get a notification such as "Google Chrome keeps using more memory". It says how far it went and how fast, and that it hasn't come back down. The bell in the title bar keeps it for 30 days.</p>
+
+{{fig pages/memory | RigSight's Memory page on the demo PC with a RAM gauge, the breakdown into apps, compressed and free, today's biggest memory users and the list of apps using memory right now with their usual amount | RigSight's Memory page on the demo PC. Each app's memory now sits beside its usual, so a leak stands out from an app that is always big.}}
+
+<p>On the Processes page, open a browser or another app made of many processes, and RigSight splits its memory into its tabs, its extensions and the app itself, with its recorded history beside it. You can end an app there too, with a warning before you end a part of Windows. RigSight is free and open source.</p>

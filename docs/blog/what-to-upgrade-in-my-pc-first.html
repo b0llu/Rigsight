@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "What to upgrade in my PC first? My RAM upgrade, before and after", "description": "What to upgrade in my PC first? The part your games run out of. Check GPU load, CPU load and committed memory before you buy on Black Friday.", "datePublished": "2026-11-17", "dateModified": "2026-11-17", "image": "https://rigsight.app/img/blog/what-to-upgrade-in-my-pc-first.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/what-to-upgrade-in-my-pc-first", "keywords": "what to upgrade in my pc first, upgrade ram, pc upgrade, should i upgrade cpu or gpu first, is it worth upgrading from 16gb to 32gb ram, is 16gb ram enough for gaming, what to upgrade on my pc for better fps, do i need to upgrade cpu when upgrading gpu, is black friday a good time to buy pc parts, what to upgrade in my pc"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "What to upgrade in my PC first? My RAM upgrade, before and after", "item": "https://rigsight.app/blog/what-to-upgrade-in-my-pc-first"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What to upgrade in my PC first, the CPU or the GPU?", "acceptedAnswer": {"@type": "Answer", "text": "Check GPU usage in the games you play most. At 95% or more, the GPU is the limit, so a better GPU helps first. Well below that with no frame cap, the CPU or the game sets the pace, and a GPU upgrade gives little. Most gaming PCs gain the most from the GPU."}}, {"@type": "Question", "name": "Is it worth upgrading from 16GB to 32GB RAM?", "acceptedAnswer": {"@type": "Answer", "text": "If Windows' committed memory gets close to its limit while you game, yes. On my PC it averaged 94% in my heaviest game before the upgrade and never went above 62% after. In games that weren't near the limit, like Dota 2, the frame rate barely changed."}}, {"@type": "Question", "name": "Is 16GB RAM enough for gaming?", "acceptedAnswer": {"@type": "Answer", "text": "For many games, yes, but with little room if you keep a browser and other apps open. Big new games can push a 16 GB PC close to full. Check Committed in Task Manager while you play your heaviest game."}}, {"@type": "Question", "name": "Is Black Friday a good time to buy PC parts?", "acceptedAnswer": {"@type": "Answer", "text": "Often, for parts that are already a generation old, like memory, SSDs and last year's GPUs. Compare the price with its usual over the last months in a price tracker, since some deals are the normal price with a new label."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,23 +256,13 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · FPS and games</p>
   <h1>What to upgrade in my PC first? My RAM upgrade, before and after</h1>
   <p class="dek">I went from 16 to 32 GB of memory on 14 November. Windows' committed memory dropped from 94% in my heaviest game to never above 62%, but Dota 2 ran about the same. How to find what to upgrade in your PC first, from what it already does.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 17 November 2026 · 4 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 17 November 2026 · 4 min read</p>
   <figure class="cover"><img class="" src="../img/blog/what-to-upgrade-in-my-pc-first.webp" srcset="../img/blog/what-to-upgrade-in-my-pc-first-600.webp 600w, ../img/blog/what-to-upgrade-in-my-pc-first.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="16 GB, committed: 94%, average, Phantom Blade Zero. 32 GB, committed: 62%, highest since the upgrade" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Upgrade the part your games run out of. If the GPU sits at 95% or more in your games, a faster GPU gives more frames. If the GPU waits well below that with no frame limit, look at the CPU. If Windows' committed memory gets near its limit, add RAM. Check your own games before you buy.</p></div>
   <div class="body">
 <p>On 14 November I took my PC from 16 to 32 GB of memory. In the two weeks before, Windows' committed memory, what apps have asked for against the limit of memory plus the page file, reached 90% or more in 2,106 minutes, and averaged 94% while I played Phantom Blade Zero. Since the upgrade it has averaged about 45% and never gone above 62%. But in Dota 2, the one game I played on both sides, the frame rate went from 203 to 208 FPS. Barely a change. That's the whole question of what to upgrade in my PC first, in two numbers. An upgrade helps where the PC was running out, and only there.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight records the CPU, GPU and memory every minute while you play, so the answer is already in your history before you shop. Three readings point at the part to upgrade.</p>
-
-<ul>
-  <li>GPU load. On the Games page, each game's <b>Can it run better?</b> card says how often the GPU was at full load, 95% busy or more. Most of the time means the GPU is the limit.</li>
-  <li>When the GPU rarely or never reaches full load and there's no frame limit, the same card says something else sets the pace, most likely the CPU.</li>
-  <li>Committed memory. When stutters bunch up while it's at 90% or more, RigSight names that as "while Windows was nearly out of memory". Since 1.13.0, the Memory page also says when RAM was 85% full or more today, and which apps held the most then.</li>
-</ul>
-
-<p>The Timeline lists the upgrade itself, mine as "Memory changed to 32 GB", so you can compare before and after. RigSight is free and open source.</p>
+<div class="testbed"><p class="testbed-k">Test setup</p><dl><dt>GPU</dt><dd>NVIDIA GeForce RTX 3080 Ti, 12 GB</dd><dt>CPU</dt><dd>AMD Ryzen 7 5700X3D</dd><dt>Memory</dt><dd>16 GB, 32 GB from 14 November 2026</dd><dt>Windows</dt><dd>Windows 11</dd><dt>Recorded</dt><dd>31 October to 17 November 2026, every minute</dd><dt>Counted</dt><dd>The two weeks before the RAM upgrade on 14 November, and the days after</dd></dl></div>
 
 <h2>What to upgrade in my PC first, from my own history</h2>
 
@@ -274,6 +288,8 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>Open Task Manager's <b>Memory</b> page while you play your heaviest game, with the apps you usually keep open. <b>Committed</b> shows two numbers. When the first gets close to the second, Windows is nearly out of memory and starts leaning on the page file, which is far slower. Then 32 GB helps, as it did on my PC. When it stays well below, more memory won't change your frame rate. <a href="normal-ram-usage-while-gaming">Normal RAM usage while gaming</a> has more.</p>
 
+<figure class="webimg"><img src="https://thumb.wikimedia.org/wikipedia/commons/thumb/8/85/16_GiB-DDR4-RAM-Riegel_RAM019FIX_Small_Crop_90_PCNT.png/1280px-16_GiB-DDR4-RAM-Riegel_RAM019FIX_Small_Crop_90_PCNT.png" alt="A 16 GB DDR4 memory stick" loading="lazy" decoding="async" referrerpolicy="no-referrer"><figcaption>A 16 GB DDR4 memory stick, the kind of part a RAM upgrade adds. Image: <a href="https://commons.wikimedia.org/wiki/File:16_GiB-DDR4-RAM-Riegel_RAM019FIX_Small_Crop_90_PCNT.png" rel="noopener">PantheraLeo1359531, CC BY 4.0, via Wikimedia Commons</a></figcaption></figure>
+
 <p>Buy memory that matches what's in the PC, same type and speed, or replace all of it as a matched kit. Check the motherboard's supported list, and turn on XMP or EXPO in the BIOS afterwards.</p>
 
 <h2>Before you buy on Black Friday</h2>
@@ -285,10 +301,25 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>Note how your PC runs now, so you can tell what the upgrade changed.</li>
 </ol>
 
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records the CPU, GPU and memory every minute while you play, so the answer is already in your history before you shop. Three readings point at the part to upgrade.</p>
+
+<ul>
+  <li>GPU load. On the Games page, each game's <b>Can it run better?</b> card says how often the GPU was at full load, 95% busy or more. Most of the time means the GPU is the limit.</li>
+  <li>When the GPU rarely or never reaches full load and there's no frame limit, the same card says something else sets the pace, most likely the CPU.</li>
+  <li>Committed memory. When stutters bunch up while it's at 90% or more, RigSight names that as "while Windows was nearly out of memory". Since 1.13.0, the Memory page also says when RAM was 85% full or more today, and which apps held the most then.</li>
+</ul>
+
+<p>The Timeline lists the upgrade itself, mine as "Memory changed to 32 GB", so you can compare before and after. RigSight is free and open source.</p>
+
+
 <p>Your next step is to play your two most played games with GPU usage and memory on screen this week. Whatever runs out first is what to upgrade, and once it's in, <a href="how-to-test-a-new-gpu">how to test a new GPU or PC</a> covers the first week.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://learn.microsoft.com/en-us/troubleshoot/windows-client/performance/introduction-to-the-page-file" rel="noopener">Microsoft Learn, Introduction to the page file</a></li><li><a href="https://www.digitalcitizen.life/how-to-tell-whether-your-cpu-or-gpu-is-limiting-gaming-performance/" rel="noopener">Digital Citizen, How to tell whether your cpu or gpu is limiting gaming performance</a></li><li><a href="https://camelcamelcamel.com/" rel="noopener">camelcamelcamel.com</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>What to upgrade in my PC first, the CPU or the GPU?</summary><p>Check GPU usage in the games you play most. At 95% or more, the GPU is the limit, so a better GPU helps first. Well below that with no frame cap, the CPU or the game sets the pace, and a GPU upgrade gives little. Most gaming PCs gain the most from the GPU.</p></details><details class="qa"><summary>Is it worth upgrading from 16GB to 32GB RAM?</summary><p>If Windows' committed memory gets close to its limit while you game, yes. On my PC it averaged 94% in my heaviest game before the upgrade and never went above 62% after. In games that weren't near the limit, like Dota 2, the frame rate barely changed.</p></details><details class="qa"><summary>Is 16GB RAM enough for gaming?</summary><p>For many games, yes, but with little room if you keep a browser and other apps open. Big new games can push a 16 GB PC close to full. Check Committed in Task Manager while you play your heaviest game.</p></details><details class="qa"><summary>Is Black Friday a good time to buy PC parts?</summary><p>Often, for parts that are already a generation old, like memory, SSDs and last year's GPUs. Compare the price with its usual over the last months in a price tracker, since some deals are the normal price with a new label.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
-  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="one-percent-low-fps"><span>FPS and games</span><b>1% low FPS meaning, and why my 116 was really 69</b></a><a class="more" href="can-my-pc-run-gta-6"><span>FPS and games</span><b>Can my PC run GTA 6? What's known, and how to check yours</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games and how to catch what causes them</b></a><a class="more" href="games-stuttering-on-pc"><span>FPS and games</span><b>Games stuttering on PC? Find out if it's the game or the PC</b></a></nav>
+  <nav class="next rel" aria-label="More on PC problems"><a class="more" href="one-percent-low-fps"><span>FPS and games</span><b>1% low FPS meaning, and why my 116 was really 69</b></a><a class="more" href="can-my-pc-run-gta-6"><span>FPS and games</span><b>Can my PC run GTA 6? What's known about the PC version</b></a><a class="more" href="fps-drops-in-games"><span>FPS and games</span><b>FPS drops in games and how to catch what causes them</b></a><a class="more" href="games-stuttering-on-pc"><span>FPS and games</span><b>Games stuttering on PC? Find out if it's the game or the PC</b></a></nav>
   <aside class="get">
     <img src="../img/logo-144.webp" alt="" width="40" height="40">
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, crashes, app time and internet use all day, and keeps them as history on your PC.</p>

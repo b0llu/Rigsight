@@ -83,19 +83,6 @@
 -->
 <p>Your monitoring app shows two GPU temperatures. One says 72°C and the other, labelled hot spot, says 94°C. The GPU hotspot temperature always reads higher, and that's by design. What tells you whether something is wrong is how far apart the two are, and whether that gap has grown. A gap that grows does it slowly, over weeks, which is exactly what nobody notices by glancing at a number.</p>
 
-<h2>How RigSight spots a bad hotspot gap</h2>
-
-<p>Here is what it looks like on the demo PC in RigSight's own pictures, an RTX 3080 Ti. The GPU reads 68° and its hot spot 78°, a 10° gap, which is healthy. RigSight keeps that gap as history, so a gap that creeps up shows in the history.</p>
-
-
-<p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. When your card reports a hotspot, the GPU card on the Temperatures page shows it as its own tile, next to the memory junction, with today's lowest and highest under it. The history graph draws GPU hot spot as a line beside the main GPU line, so you can see the gap across a whole evening of play.</p>
-
-{{fig pages/temperatures | RigSight's Temperatures page with the GPU at 68° and its hot spot at 78°, above a history graph with CPU, GPU, GPU hot spot and GPU memory lines | RigSight's Temperatures page. The hot spot tile sits next to the GPU gauge, and the graph below draws it as its own line.}}
-
-<p>RigSight also watches the gap for you. When the hotspot runs 30° or more above the core over 20 minutes or more of steady heavy load, Reports says so and adds that the thermal paste or cooler contact may have worn. Reports' Peaks list includes the day's highest GPU hot spot reading and the app that was running.</p>
-
-<p>For a warning while you play, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong> with a GPU hot spot limit. It starts at 100° and can be set from 70 to 110°, so a Radeon owner can set it just under AMD's 110°C.</p>
-
 <h2>Why the GPU hotspot runs hotter</h2>
 
 <p>A modern graphics chip has many temperature sensors spread across it. AMD explained this in 2019 for its RX 5700 cards. An array of sensors is spread across the chip, and the highest reading from any of them is the hotspot, which AMD also calls the junction temperature.</p>
@@ -151,3 +138,15 @@
 
 <p>Next, write down your gap after 10 minutes in your usual game. If it's under 20°C, leave it alone. If it's past 30°C, clean the card, check the warranty and plan the repaste or the return.</p>
 
+<h2>How RigSight spots a bad hotspot gap</h2>
+
+<p>Here is what it looks like on the demo PC in RigSight's own pictures, an RTX 3080 Ti. The GPU reads 68° and its hot spot 78°, a 10° gap, which is healthy. RigSight keeps that gap as history, so a gap that creeps up shows in the history.</p>
+
+
+<p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. When your card reports a hotspot, the GPU card on the Temperatures page shows it as its own tile, next to the memory junction, with today's lowest and highest under it. The history graph draws GPU hot spot as a line beside the main GPU line, so you can see the gap across a whole evening of play.</p>
+
+{{fig pages/temperatures | RigSight's Temperatures page with the GPU at 68° and its hot spot at 78°, above a history graph with CPU, GPU, GPU hot spot and GPU memory lines | RigSight's Temperatures page. The hot spot tile sits next to the GPU gauge, and the graph below draws it as its own line.}}
+
+<p>RigSight also watches the gap for you. When the hotspot runs 30° or more above the core over 20 minutes or more of steady heavy load, Reports says so and adds that the thermal paste or cooler contact may have worn. Reports' Peaks list includes the day's highest GPU hot spot reading and the app that was running.</p>
+
+<p>For a warning while you play, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong> with a GPU hot spot limit. It starts at 100° and can be set from 70 to 110°, so a Radeon owner can set it just under AMD's 110°C.</p>

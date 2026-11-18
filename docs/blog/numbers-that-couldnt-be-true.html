@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Two numbers from my own PC that couldn&#x27;t be true · The RigSight log</title>
+  <title>My PC reported 146 GB of VRAM. Here&#x27;s what happened · The RigSight log</title>
   <meta name="description" content="RigSight showed a game using 146 GB of a 12 GB GPU and 20.8 GB of RAM on a 16 GB PC. How writing guides from my own data found both, and the fixes." />
   <meta name="theme-color" content="#000000" />
   <meta name="color-scheme" content="dark" />
@@ -11,7 +11,7 @@
   <link rel="icon" href="/favicon.ico" sizes="48x48" />
   <link rel="icon" type="image/png" sizes="192x192" href="../img/icon-192.png" />
   <meta property="og:site_name" content="RigSight" />
-  <meta property="og:title" content="Two numbers from my own PC that couldn&#x27;t be true · The RigSight log" />
+  <meta property="og:title" content="My PC reported 146 GB of VRAM. Here&#x27;s what happened · The RigSight log" />
   <meta property="og:description" content="RigSight showed a game using 146 GB of a 12 GB GPU and 20.8 GB of RAM on a 16 GB PC. How writing guides from my own data found both, and the fixes." />
   <meta property="og:url" content="https://rigsight.app/blog/numbers-that-couldnt-be-true" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -21,7 +21,7 @@
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="800" />
   <meta property="og:type" content="article" />
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "Two numbers from my own PC that couldn't be true", "description": "RigSight showed a game using 146 GB of a 12 GB GPU and 20.8 GB of RAM on a 16 GB PC. How writing guides from my own data found both, and the fixes.", "datePublished": "2026-11-15", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/numbers-that-couldnt-be-true", "image": "https://rigsight.app/img/blog/numbers-that-couldnt-be-true.webp"}</script>
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BlogPosting", "headline": "My PC reported 146 GB of VRAM. Here's what happened", "description": "RigSight showed a game using 146 GB of a 12 GB GPU and 20.8 GB of RAM on a 16 GB PC. How writing guides from my own data found both, and the fixes.", "datePublished": "2026-11-15", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/numbers-that-couldnt-be-true", "image": "https://rigsight.app/img/blog/numbers-that-couldnt-be-true.webp"}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -218,6 +218,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -228,9 +253,9 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 </div><div class="progress" aria-hidden="true"><i></i></div></header><main><article class="post wrap-narrow">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="../">Home</a><span>/</span><a href="./">Blog</a></nav>
   <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-  <h1>Two numbers from my own PC that couldn't be true</h1>
+  <h1>My PC reported 146 GB of VRAM. Here's what happened</h1>
   <p class="dek">Writing these guides from my own history, I found a game using 146 GB of a 12 GB GPU and a 16 GB PC using 20.8 GB of RAM. Neither was real. Where each came from, and what 1.10.0 changed.</p>
-  <p class="byline"><b>Dhruv Samant</b> · 11 November 2026 · Version 1.10.0 · 3 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · 11 November 2026 · Version 1.10.0 · 3 min read</p>
   <figure class="cover"><img class="" src="../img/blog/numbers-that-couldnt-be-true.webp" srcset="../img/blog/numbers-that-couldnt-be-true-600.webp 600w, ../img/blog/numbers-that-couldnt-be-true.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="GPU memory, one game: 146 GB, on a 12 GB card. RAM in use: 20.8 GB, on a 16 GB PC" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short version</p><p>Writing guides from my own history turned up two impossible readings. Crimson Desert showed 146 GB of GPU memory on a 12 GB card, because Windows' per-app figure isn't held to the card's size. And my first day of history had RAM at 20.8 GB on a 16 GB PC, read from virtual memory. 1.10.0 handles both.</p></div>
   <div class="body">
@@ -259,6 +284,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 <p>Both readings sat in my own history for weeks, and I look at RigSight every day. A number on a page gets a glance. A number I'm about to publish gets questioned, because someone else will read it and maybe act on it. Writing from my own data has turned out to be one of the better tests RigSight has.</p>
 
 <p>It's also why the guides say what they don't know. When a reading looks wrong and I can't explain it, it stays out of the post until I can.</p>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next" aria-label="More posts"><a class="more" href="widgets-from-tiles"><span>Before this</span><b>Rebuilding RigSight's widgets as boxes of tiles</b></a><a class="more" href="tray-open-speed"><span>What happened next</span><b>Why opening RigSight from the tray waited up to a second</b></a></nav>
   <aside class="get">

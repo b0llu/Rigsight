@@ -18,13 +18,7 @@
 -->
 <p>On 28 October, in one stretch of Risk of Rain 2 starting at 10:35 PM, RigSight counted 369 stutters in 15 minutes. That's more than one hitch every three seconds. My first guess was something in the background. But in those 15 minutes nothing else on the PC was busy. Steam used about 3 MB a second of disk, and no other app used more than about 1% of the CPU. The stutter was coming from the game itself. When games keep stuttering on PC, that's the question to answer first, because the fixes for each side have nothing in common.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>Since version 0.35.0, RigSight reads every frame's time from RivaTuner Statistics Server while you play. It counts a stutter when one frame takes at least 2.5 times as long as the frames just before it, and at least 20 ms. A game at 144 FPS jumping from 7 ms frames to 20 ms is a hitch you feel, while 8 to 12 ms isn't. Nothing counts while a game runs under 20 FPS overall, so loading screens stay out.</p>
-
-<p>When you open a play frame by frame and five or more stutters bunched up within 15 minutes, RigSight looks at what else was going on in those minutes, against the rest of the play. It names another app reading or writing the disk heavily, the GPU's memory nearly full, another app busy on the CPU, or Windows nearly out of memory. If none of those stood out, it says so. That last answer is useful too, because it tells you to look at the game.</p>
-
-<p>On the Games page, each game says how smooth it plays, as Smooth, Mostly smooth or It stutters, from how many stutters an hour it had, with the 0.1% low beside it. Every play lists its stutters. My Phantom Blade Zero days have run at between about 160 and 270 stutters an hour, so that game reads as It stutters too. RivaTuner has to be running before the game starts, and the Games page has a button to install or start it. RigSight is free and open source.</p>
+{{testbed Recorded=Risk of Rain 2 and Phantom Blade Zero plays, every frame from RivaTuner}}
 
 <h2>Why games stutter on PC</h2>
 
@@ -55,5 +49,14 @@
 </ol>
 
 <p>If nothing else on the PC was busy and the stutter survives all of that, it's likely the game's own. Look for a patch, or check the game's forums for others with the same hardware.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>Since version 0.35.0, RigSight reads every frame's time from RivaTuner Statistics Server while you play. It counts a stutter when one frame takes at least 2.5 times as long as the frames just before it, and at least 20 ms. A game at 144 FPS jumping from 7 ms frames to 20 ms is a hitch you feel, while 8 to 12 ms isn't. Nothing counts while a game runs under 20 FPS overall, so loading screens stay out.</p>
+
+<p>When you open a play frame by frame and five or more stutters bunched up within 15 minutes, RigSight looks at what else was going on in those minutes, against the rest of the play. It names another app reading or writing the disk heavily, the GPU's memory nearly full, another app busy on the CPU, or Windows nearly out of memory. If none of those stood out, it says so. That last answer is useful too, because it tells you to look at the game.</p>
+
+<p>On the Games page, each game says how smooth it plays, as Smooth, Mostly smooth or It stutters, from how many stutters an hour it had, with the 0.1% low beside it. Every play lists its stutters. My Phantom Blade Zero days have run at between about 160 and 270 stutters an hour, so that game reads as It stutters too. RivaTuner has to be running before the game starts, and the Games page has a button to install or start it. RigSight is free and open source.</p>
+
 
 <p>Your next step is to catch the next bad session and see what was running when the stutters bunched up. If it's another app, close it. If it's nothing, the game is the place to look.</p>

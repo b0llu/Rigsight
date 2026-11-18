@@ -26,20 +26,6 @@
 -->
 <p>In the first week of October, RigSight's own temperature chart showed a GPU topping out at 68° on a day whose highest reading was 74°. Both numbers were right, and the chart still told the wrong story. If you want to check GPU temperature history in Windows, that's the trap to know about. First you need a history at all, because Windows doesn't keep one. Then you need to read it in a way that doesn't hide the moment the card got hot.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>The line on the chart showed each minute's average. Inside one of those minutes the GPU had touched 74° for a few seconds, and an average of sixty seconds smoothed that away. The day's high said 74°, and the line never got there. That's confusing when you're looking for the moment it got hot.</p>
-
-<p>So since version 0.18.0, the Temperatures chart has a switch for each minute's <b>Average</b>, <b>Highest</b> or <b>Lowest</b>. Pointing at a minute shows all three. The average stays the default because it shows the trend, and the highest is one click away when you're hunting a spike.</p>
-
-<p>The same week, someone on X pointed out a second problem. A stretch where RigSight recorded nothing looked exactly like a PC that had stayed cool. Now any stretch with nothing recorded is shaded and labelled "Not recorded". Pointing at it gives the times and, when Windows' own log says, the reason, such as the PC being off or asleep. The whole story, with a third way the chart misled people, is in <a href="honest-charts">Three ways my temperature chart was lying</a>.</p>
-
-<p>Today RigSight records CPU, GPU, GPU hot spot and GPU memory temperatures all day, with no log to start, and the Temperatures page shows them. Its range menu goes from the last 5 minutes to the last 12 months, plus a custom range. Week, Month and Year are the last 7 days, 30 days and 12 months. Drag across any stretch to zoom in. The same page shows the warmest hours of the past week and the CPU's and GPU's resting temperature over the last 30 days. Motherboard and drive temperatures show live on the page but aren't kept. CPU temperature, motherboard and drive readings need RigSight to run with admin rights. RigSight keeps the history as long as you choose, and it's free and open source.</p>
-
-{{fig pages/reports-day | RigSight's Reports for one day on the demo PC, with a minute by minute graph of CPU and GPU temperature under a strip showing the app in front, and the day's peaks with the game behind each | RigSight's Reports for one day on the demo PC. The temperature lines sit under the app that was in front, and Peaks names the game behind each high.}}
-
-<p>Reports covers any day, week, month, year or custom range. For a single day, its minute by minute graph lines temperatures up with the app in front. For any period, Peaks lists the highest CPU, GPU and GPU hot spot readings with the app that was running. If you want the raw numbers, the Export button on the page saves what it shows, and the Export in Settings can save temperatures as CSV files for a spreadsheet.</p>
-
 <h2>Why Windows keeps no temperature history</h2>
 
 <p>Windows records crashes, updates and errors in its logs, but not temperatures. Task Manager can show the temperature of a dedicated GPU, and that's the only temperature Windows itself shows. It has no CPU temperature reading at all, and it saves neither.</p>
@@ -104,3 +90,17 @@
 <p>For what counts as normal, see <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a> and <a href="normal-cpu-temperature-while-gaming">normal CPU temperature while gaming</a>. If the history shows a real problem, <a href="pc-overheating-while-gaming">PC overheating while gaming</a> has the fixes.</p>
 
 <p>Whichever tool you pick, start recording today. The next time a game stutters or the PC shuts off, you'll have the hour before it to look at instead of a blank.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>The line on the chart showed each minute's average. Inside one of those minutes the GPU had touched 74° for a few seconds, and an average of sixty seconds smoothed that away. The day's high said 74°, and the line never got there. That's confusing when you're looking for the moment it got hot.</p>
+
+<p>So since version 0.18.0, the Temperatures chart has a switch for each minute's <b>Average</b>, <b>Highest</b> or <b>Lowest</b>. Pointing at a minute shows all three. The average stays the default because it shows the trend, and the highest is one click away when you're hunting a spike.</p>
+
+<p>The same week, someone on X pointed out a second problem. A stretch where RigSight recorded nothing looked exactly like a PC that had stayed cool. Now any stretch with nothing recorded is shaded and labelled "Not recorded". Pointing at it gives the times and, when Windows' own log says, the reason, such as the PC being off or asleep. The whole story, with a third way the chart misled people, is in <a href="honest-charts">Three ways my temperature chart was lying</a>.</p>
+
+<p>Today RigSight records CPU, GPU, GPU hot spot and GPU memory temperatures all day, with no log to start, and the Temperatures page shows them. Its range menu goes from the last 5 minutes to the last 12 months, plus a custom range. Week, Month and Year are the last 7 days, 30 days and 12 months. Drag across any stretch to zoom in. The same page shows the warmest hours of the past week and the CPU's and GPU's resting temperature over the last 30 days. Motherboard and drive temperatures show live on the page but aren't kept. CPU temperature, motherboard and drive readings need RigSight to run with admin rights. RigSight keeps the history as long as you choose, and it's free and open source.</p>
+
+{{fig pages/reports-day | RigSight's Reports for one day on the demo PC, with a minute by minute graph of CPU and GPU temperature under a strip showing the app in front, and the day's peaks with the game behind each | RigSight's Reports for one day on the demo PC. The temperature lines sit under the app that was in front, and Peaks names the game behind each high.}}
+
+<p>Reports covers any day, week, month, year or custom range. For a single day, its minute by minute graph lines temperatures up with the app in front. For any period, Peaks lists the highest CPU, GPU and GPU hot spot readings with the app that was running. If you want the raw numbers, the Export button on the page saves what it shows, and the Export in Settings can save temperatures as CSV files for a spreadsheet.</p>

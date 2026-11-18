@@ -19,11 +19,7 @@
 -->
 <p>Across six games since 18 October, my Ryzen 7 5700X3D averaged between 13% and 47% busy. In about 88 hours of play it never reached 90% in a single minute. The highest minute was 87%, in Phantom Blade Zero. That's what normal CPU usage while gaming looks like on a current 8-core processor, and it isn't like the GPU, which in the same game sat near 100% most of the time.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight records the CPU's usage every minute, for the whole PC and for each app, next to the frame rate and the game in front. That's how I can see not only how busy the CPU was, but whether the game or something else made it busy.</p>
-
-<p>When stutters bunch up, five or more within 15 minutes, and you open the play frame by frame, RigSight checks what else was going on. If another app used 20% of the CPU or more there, and at least twice what it used in the rest of the play, it names that app as busy in the background. On the Games page, a game whose GPU rarely or never reached full load gets the line that something else sets the pace, most likely the CPU. RigSight is free and open source.</p>
+{{testbed Recorded=18 October to 13 November 2026, frame rates from RivaTuner | Counted=Minutes with a game in front and a frame rate}}
 
 <h2>Normal CPU usage while gaming</h2>
 
@@ -70,5 +66,12 @@
   <li>Lower the settings that lean on the CPU, such as crowd or unit density, view distance, physics and shadows' draw distance.</li>
   <li>Check the CPU's temperature. A CPU that gets too hot slows itself. <a href="normal-cpu-temperature-while-gaming">Normal CPU temperature while gaming</a> has the numbers.</li>
 </ol>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records the CPU's usage every minute, for the whole PC and for each app, next to the frame rate and the game in front. That's how I can see not only how busy the CPU was, but whether the game or something else made it busy.</p>
+
+<p>When stutters bunch up, five or more within 15 minutes, and you open the play frame by frame, RigSight checks what else was going on. If another app used 20% of the CPU or more there, and at least twice what it used in the rest of the play, it names that app as busy in the background. On the Games page, a game whose GPU rarely or never reached full load gets the line that something else sets the pace, most likely the CPU. RigSight is free and open source.</p>
+
 
 <p>Your next step is to watch CPU and GPU usage together in a game that feels slow. A GPU near 100% means the CPU is fine. A GPU well below that, with no frame limit, means the CPU or the game sets the pace, so start with the list above. <a href="normal-gpu-usage-while-gaming">Normal GPU usage while gaming</a> covers the GPU side.</p>

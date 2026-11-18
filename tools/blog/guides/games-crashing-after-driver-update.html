@@ -17,28 +17,6 @@
 -->
 <p>On 7 October at 5:40 PM I installed a new NVIDIA driver. Within ten seconds, two programs on my PC had crashed. Cloudflare WARP went down seven seconds after Windows put the new driver in, and RigSight's own recorder went down three seconds after that. Neither crash meant the new driver was bad. Games crashing after a graphics driver update can mean two different things, and each one has its own fix.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>That evening RigSight couldn't tell me much, because it was one of the two programs that crashed. The recorder had been asking the GPU for its temperature through NVIDIA's own library. The old driver went away in the middle of that call, and the call landed on memory that wasn't there any more. WARP crashed in dcomp.dll, a part of Windows that draws app windows. Both programs were open while the driver was swapped under them. The full story of my bug is in <a href="driver-update-crash">The driver update that knocked RigSight out</a>. Since version 0.17.1, RigSight stops reading the GPU while its driver changes.</p>
-
-<p>That night also changed how RigSight reads crashes. It now checks every app crash and freeze against the graphics driver installs Windows logged. A crash within two minutes of one gets "Likely the driver install" on the Crashes page. A line names the driver, says it "was being installed at that moment" and gives the time of the install and of the crash. The advice is to do nothing. An app that crashed while a driver was replaced under it says nothing about the new driver.</p>
-
-<p>Crashes in the days after are the ones that point at the driver. When a game crashes inside a graphics driver file, RigSight names it in plain words, such as "The NVIDIA graphics driver failed while running Crimson Desert". It marks that Confirmed, because Windows named the file. The picture at the top is that example from RigSight's demo PC, not a crash of mine.</p>
-
-<p>Then the opened crash looks at the week before it. If a new graphics driver, Windows update or BIOS went in during those seven days, RigSight checks whether the same game crashed in the same file in the 30 days before that install.</p>
-
-<ul>
-<li>If it did, the crash says the driver didn't cause it, with how many times it happened before the install and since.</li>
-<li>If it didn't, the crash says how many days before the driver went in, and that this crash hadn't happened in the 30 days before it.</li>
-<li>If nothing new went in, it says "Nothing new was installed".</li>
-</ul>
-
-<p>On the Games page, each game lists every play and how it ended, newest first. The graphics driver, Windows and game updates that came between plays sit in the same list. The How it runs chart marks every driver and game update against the frame rate. Frame rates need RivaTuner Statistics Server running.</p>
-
-{{fig pages/game | RigSight's page for Dota 2 on the demo PC, with a How it runs chart of average FPS and 1% lows over a year and a mark for driver 617.42 | A game's page on RigSight's demo PC. The How it runs chart marks driver and game updates, so a change in frame rate lines up with the update that came before it.}}
-
-<p>The Timeline lists every graphics driver install with its time, the new version and the one it replaced. Its "This PC now" panel shows the driver you're on and since when. When a driver made a measurable difference, the <b>Before and after</b> filter shows it. That filter counts graphics driver resets, blue screens inside a graphics driver and shut-offs after the GPU hung. It doesn't count game crashes, so for those the Games and Crashes pages are where to look. RigSight is free and open source.</p>
-
 <h2>Why games crash after a graphics driver update</h2>
 
 <p>A graphics driver sits between every game and the GPU. A new version changes that layer for every game at once, so a bug in it can crash one game and leave the rest alone. NVIDIA lists the problems it knows about as open issues in each driver's release notes, and often ships a hotfix driver for the worst ones.</p>
@@ -71,5 +49,28 @@
 </ol>
 
 <p>If every game crashes and the screen goes black before Windows recovers, you are probably seeing graphics driver resets rather than ordinary game crashes. For those, read <a href="display-driver-stopped-responding">display driver stopped responding and has recovered</a>.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>That evening RigSight couldn't tell me much, because it was one of the two programs that crashed. The recorder had been asking the GPU for its temperature through NVIDIA's own library. The old driver went away in the middle of that call, and the call landed on memory that wasn't there any more. WARP crashed in dcomp.dll, a part of Windows that draws app windows. Both programs were open while the driver was swapped under them. The full story of my bug is in <a href="driver-update-crash">The driver update that knocked RigSight out</a>. Since version 0.17.1, RigSight stops reading the GPU while its driver changes.</p>
+
+<p>That night also changed how RigSight reads crashes. It now checks every app crash and freeze against the graphics driver installs Windows logged. A crash within two minutes of one gets "Likely the driver install" on the Crashes page. A line names the driver, says it "was being installed at that moment" and gives the time of the install and of the crash. The advice is to do nothing. An app that crashed while a driver was replaced under it says nothing about the new driver.</p>
+
+<p>Crashes in the days after are the ones that point at the driver. When a game crashes inside a graphics driver file, RigSight names it in plain words, such as "The NVIDIA graphics driver failed while running Crimson Desert". It marks that Confirmed, because Windows named the file. The picture at the top is that example from RigSight's demo PC, not a crash of mine.</p>
+
+<p>Then the opened crash looks at the week before it. If a new graphics driver, Windows update or BIOS went in during those seven days, RigSight checks whether the same game crashed in the same file in the 30 days before that install.</p>
+
+<ul>
+<li>If it did, the crash says the driver didn't cause it, with how many times it happened before the install and since.</li>
+<li>If it didn't, the crash says how many days before the driver went in, and that this crash hadn't happened in the 30 days before it.</li>
+<li>If nothing new went in, it says "Nothing new was installed".</li>
+</ul>
+
+<p>On the Games page, each game lists every play and how it ended, newest first. The graphics driver, Windows and game updates that came between plays sit in the same list. The How it runs chart marks every driver and game update against the frame rate. Frame rates need RivaTuner Statistics Server running.</p>
+
+{{fig pages/game | RigSight's page for Dota 2 on the demo PC, with a How it runs chart of average FPS and 1% lows over a year and a mark for driver 617.42 | A game's page on RigSight's demo PC. The How it runs chart marks driver and game updates, so a change in frame rate lines up with the update that came before it.}}
+
+<p>The Timeline lists every graphics driver install with its time, the new version and the one it replaced. Its "This PC now" panel shows the driver you're on and since when. When a driver made a measurable difference, the <b>Before and after</b> filter shows it. That filter counts graphics driver resets, blue screens inside a graphics driver and shut-offs after the GPU hung. It doesn't count game crashes, so for those the Games and Crashes pages are where to look. RigSight is free and open source.</p>
+
 
 <p>Your next step is the rollback. It takes about five minutes and answers the question directly. If the old driver crashes too, look at the game, your clocks and your temperatures. If the game just closes with no message at all, read <a href="game-crashes-to-desktop-no-error">why a game crashes to desktop with no error</a>.</p>

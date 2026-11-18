@@ -37,25 +37,29 @@ installs RigSight. The model post is `kernel-power-41.html`.
 - `sources`: the pages you checked the fix advice against (Microsoft, NVIDIA, AMD, Intel docs first; well-known sites second).
 - Body pictures: `{{fig pages/NAME | alt text | caption}}` uses a picture from docs/img/pages. At most two in a guide.
 
-## Shape of the body (about 1,000 to 1,600 words)
+## Shape of the body (about 1,000 to 1,600 words; changed 2026-11-18 after a ChatGPT review)
 
-1. **How RigSight caught it.** Open with a real moment: the user's own PC where there is one (from the log posts and
-   memory: the 22 unclean shutdowns before 1 Oct, the NVIDIA driver update that crashed the recorder on 7 Oct, the
-   graphics driver resets on 22 Oct, the Cyberpunk frame limit misread, the Discord update 45 minutes early...), told in
-   the first person and linked to its log post. With no real moment, show what RigSight displays for this problem, with a
-   showcase picture, and say plainly that it's an example. NEVER invent a user, an event or a number.
-   Then what RigSight reads, shows and concludes for this problem, with its real page names, and how sure it is.
-2. **Why it happens.** The causes, in plain words, with real numbers (makers' limits, what an error code means).
-3. **How to check it yourself and fix it.** Numbered Windows steps with exact menu and button names, safest first.
-4. A closing paragraph with the next step to take, not a summary. Then the FAQ (built from the meta).
+1. **The real observation, then the answer.** Open with a real moment or number from the user's own PC, told in the first
+   person (or, with none, say plainly the example is the showcase PC). NEVER invent a user, an event or a number. Then
+   answer the search right away: the short answer box does that, and a quick reference table or checklist follows where
+   it helps. A data post gets `{{testbed Recorded=... | Counted=...}}` under the opening.
+2. **What you need to know.** Only the background needed to solve the problem, with real numbers (makers' limits, what
+   an error code means), and pictures where they help: `{{fig ...}}` for RigSight, `{{webimg ...}}` for a real thing from
+   the web, with its credit.
+3. **How to check it yourself and fix it.** Numbered Windows steps with exact menu and button names, safest first. Shape
+   the order to the search: a how-to search opens with the steps.
+4. **How RigSight caught it**, near the end: what RigSight reads, shows and concludes for this problem, with its real page
+   names, and how sure it is. RigSight is about 15% of a post; the post must make sense with it removed.
+5. A closing paragraph with the next step, not a summary. Then Sources (built from meta `sources`, shown on the page),
+   the FAQ (from the meta, no FAQ schema) and the author box (both automatic).
 
-The searched phrase goes in the title, the first paragraph, one heading and the FAQ. Titles can carry the story:
-"Kernel-Power 41: why it happens, and how RigSight caught mine". Never call the post a "guide" in its text.
+Use the searched phrase naturally in the title and early on. Titles can carry the story or a question:
+"Normal GPU temperature while gaming: is 85°C too hot?". Never call the post a "guide" in its text.
 
 ## Voice
 
 Write like a person who builds PCs explaining it to a friend. Plain words, short sentences, one idea each. "You" for the reader.
-No em dashes or en dashes, no hyphen used as a dash, no parentheses for asides. No colons as punctuation anywhere, titles included (the user's rule, stricter than unslop rule 14). Introduce a list with a full sentence ending in a period, and turn "label: explanation" into a sentence. Times, drive paths, URLs and code keep theirs. Every rule in Cursor's unslop skill applies (copy in %LOCALAPPDATA%\RigsightKeywords\unslop\SKILL.md, source https://github.com/cursor/plugins/tree/main/pstack/skills/unslop). No "not just X, but Y". No groups of three for
+No em dashes or en dashes, no hyphen used as a dash, no parentheses for asides. Colons are allowed since 2026-11-18, but prefer a sentence over "label: explanation". Every rule in Cursor's unslop skill applies (copy in %LOCALAPPDATA%\RigsightKeywords\unslop\SKILL.md, source https://github.com/cursor/plugins/tree/main/pstack/skills/unslop). No "not just X, but Y". No groups of three for
 rhythm. No slogans or aphorisms. No AI words (crucial, delve, enhance, leverage, robust, seamless, landscape, testament,
 navigate, unlock, elevate). No "In this guide we will". No "Conclusion" heading. No emoji. Bold only for the name of a button or menu.
 

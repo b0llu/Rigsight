@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Game crashes to desktop with no error? How RigSight finds why", "description": "A game that crashes to desktop with no error still leaves Application Error 1000 in Event Viewer. Its faulting module names what to fix first.", "datePublished": "2026-10-27", "dateModified": "2026-10-27", "image": "https://rigsight.app/img/blog/game-crashes-to-desktop-no-error.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/game-crashes-to-desktop-no-error", "keywords": "game crashes to desktop no error, game randomly crashes to desktop without error, games crashing to desktop windows 11, why does my game keep crashing pc, every game crashes to desktop, what causes a game to crash on pc"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Game crashes to desktop with no error? How RigSight finds why", "item": "https://rigsight.app/blog/game-crashes-to-desktop-no-error"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does my game keep crashing on PC?", "acceptedAnswer": {"@type": "Answer", "text": "Most often it's the game itself, its files or mods, an overlay hooking into it, or the graphics driver. If one game crashes in the same file every time, look at that game. If every game crashes, look at the whole PC. Check memory settings, overclocks, temperatures and the power supply."}}, {"@type": "Question", "name": "Why does every game crash to desktop?", "acceptedAnswer": {"@type": "Answer", "text": "When several games crash, the cause is usually something they share. That can be the graphics driver, an overlay that hooks every game, an unstable overclock or XMP or EXPO memory profile, or heat. Turn overlays off, reset tuning to defaults and run Windows Memory Diagnostic before reinstalling games."}}, {"@type": "Question", "name": "What causes a game to crash on PC with no error message?", "acceptedAnswer": {"@type": "Answer", "text": "A crash to desktop means the game hit a fault it couldn't handle and Windows ended it, often too fast for the game to show anything. Windows still logs it as event 1000 in the Application log, with the faulting module and an exception code such as 0xc0000005."}}, {"@type": "Question", "name": "Are games crashing to desktop on Windows 11 different from Windows 10?", "acceptedAnswer": {"@type": "Answer", "text": "No. The logs, the fields and the fixes are the same on both. Windows 11 just moves some settings, and the steps here use the Windows 11 names."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,32 +256,11 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Crashes</p>
   <h1>Game crashes to desktop with no error? How RigSight finds why</h1>
   <p class="dek">When a game crashes to desktop with no error, Windows still logs the crash. How RigSight reads that record and names the cause, why games crash with no message, and how to find and fix it yourself.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 27 October 2026 · 7 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 27 October 2026 · 7 min read</p>
   <figure class="cover"><img class="" src="../img/blog/game-crashes-to-desktop-no-error.webp" srcset="../img/blog/game-crashes-to-desktop-no-error-600.webp 600w, ../img/blog/game-crashes-to-desktop-no-error.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="An opened game crash in RigSight marked Confirmed. The NVIDIA graphics driver failed while running the game, with what to try, what it wasn&#x27;t and the minutes around the crash" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A game that crashes to desktop with no error still leaves an entry in Windows. Open Event Viewer, Windows Logs, Application, and find Application Error 1000 at that time. The faulting module names the file it crashed in, which can be the game, the graphics driver, an overlay or Windows. That tells you what to fix first.</p></div>
   <div class="body">
 <p>You're mid-match, the screen flicks, and you're looking at your desktop. There's no message and no report. The game is just gone. A game that crashes to desktop with no error feels like it left nothing behind, but Windows almost always wrote down what happened. RigSight reads that record for you, and you can read it yourself too.</p>
-
-<h2>How RigSight caught it</h2>
-
-<p>The picture on this post is an example from RigSight's demo PC, not a crash of mine. Crimson Desert closed at 10:06 PM with no message. RigSight put it on the Crashes page as "The NVIDIA graphics driver failed while running Crimson Desert", marked Confirmed, with "Update the NVIDIA driver" as the first thing to try.</p>
-
-<p>That headline comes from the same entry you'd find in Event Viewer. Windows named <code>nvwgf2umx.dll</code> as the file the game crashed in. RigSight knows that file belongs to the NVIDIA driver, so it says so in plain words. It does the same for AMD and Intel drivers, DirectX, Vulkan, Unity, Unreal, and the Steam, Discord, RivaTuner and NVIDIA overlays.</p>
-
-<p>Every crash carries one word for how sure the cause is.</p>
-
-<ul>
-  <li>Confirmed means Windows named a file RigSight knows.</li>
-  <li>Likely means the evidence points one way.</li>
-  <li>Possibly means other causes fit too.</li>
-  <li>Not enough to say means it can't tell, and it says that instead of guessing.</li>
-</ul>
-
-<p>RigSight also looks for patterns across crashes. A game that crashes within a minute of starting reads "crashed as it was starting", which points at its files, an add-on or its anti-cheat, not at heat. Three crashes at the same place in the same file read "crashes at the same spot every time". That's a fault in the game, not your hardware. A crash while a graphics driver was being installed is put down to the install.</p>
-
-<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="The minutes around a game crash in RigSight, with lanes for temperature, load, power, memory, fans and network on one time axis, the crash marked, and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around the crash on the demo PC. Every lane shares one time axis, and the panel shows every reading at the minute you point at.</figcaption></figure>
-
-<p>Open a crash and you see the 45 minutes before it and the 10 after. You see temperatures, load, power, memory, fans and network, and which app was using the CPU and GPU. For a game, RigSight also keeps the last five minutes before the crash at a reading every 2 to 3 seconds. In the example, What it wasn't says "It wasn't overheating" and "Memory wasn't full", so you can stop worrying about those two. RigSight also says when graphics memory was well above that game's usual. You get a notification with the game's name the moment it happens, and the play on the Games page says it ended in a crash. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>
 
 <h2>Why a game crashes to desktop with no error</h2>
 
@@ -315,8 +318,32 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>Repair Windows files. Open <strong>Terminal (Admin)</strong> and run <code>sfc /scannow</code>. If it finds problems it can't fix, run <code>DISM /Online /Cleanup-Image /RestoreHealth</code> and then <code>sfc /scannow</code> again.</li>
 </ol>
 
+<h2>How RigSight caught it</h2>
+
+<p>The picture on this post is an example from RigSight's demo PC, not a crash of mine. Crimson Desert closed at 10:06 PM with no message. RigSight put it on the Crashes page as "The NVIDIA graphics driver failed while running Crimson Desert", marked Confirmed, with "Update the NVIDIA driver" as the first thing to try.</p>
+
+<p>That headline comes from the same entry you'd find in Event Viewer. Windows named <code>nvwgf2umx.dll</code> as the file the game crashed in. RigSight knows that file belongs to the NVIDIA driver, so it says so in plain words. It does the same for AMD and Intel drivers, DirectX, Vulkan, Unity, Unreal, and the Steam, Discord, RivaTuner and NVIDIA overlays.</p>
+
+<p>Every crash carries one word for how sure the cause is.</p>
+
+<ul>
+  <li>Confirmed means Windows named a file RigSight knows.</li>
+  <li>Likely means the evidence points one way.</li>
+  <li>Possibly means other causes fit too.</li>
+  <li>Not enough to say means it can't tell, and it says that instead of guessing.</li>
+</ul>
+
+<p>RigSight also looks for patterns across crashes. A game that crashes within a minute of starting reads "crashed as it was starting", which points at its files, an add-on or its anti-cheat, not at heat. Three crashes at the same place in the same file read "crashes at the same spot every time". That's a fault in the game, not your hardware. A crash while a graphics driver was being installed is put down to the install.</p>
+
+<figure class="shot"><img src="../img/pages/crash-around.webp" srcset="../img/pages/crash-around-720.webp 720w, ../img/pages/crash-around.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="The minutes around a game crash in RigSight, with lanes for temperature, load, power, memory, fans and network on one time axis, the crash marked, and a panel with every reading at that minute" loading="lazy" decoding="async"><figcaption>Around the crash on the demo PC. Every lane shares one time axis, and the panel shows every reading at the minute you point at.</figcaption></figure>
+
+<p>Open a crash and you see the 45 minutes before it and the 10 after. You see temperatures, load, power, memory, fans and network, and which app was using the CPU and GPU. For a game, RigSight also keeps the last five minutes before the crash at a reading every 2 to 3 seconds. In the example, What it wasn't says "It wasn't overheating" and "Memory wasn't full", so you can stop worrying about those two. RigSight also says when graphics memory was well above that game's usual. You get a notification with the game's name the moment it happens, and the play on the Games page says it ended in a crash. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>
+
+
 <p>Your next step is to find the Application Error 1000 for your last crash and read its faulting module. If it's the game's own file, verify the files first. If it's an overlay's file, turn that overlay off and play again.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/596a1078-e883-4972-9bbc-49e60bebca55" rel="noopener">Microsoft Learn, Ms erref</a></li><li><a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/bug-check-code-reference2" rel="noopener">Microsoft Learn, Bug check code reference2</a></li><li><a href="https://support.microsoft.com/en-us/topic/use-the-system-file-checker-tool-to-repair-missing-or-corrupted-system-files-79aa86cb-ca52-166a-92a3-966e85d4094e" rel="noopener">Microsoft Support, Use the system file checker tool to repair missing or corrupted system files</a></li><li><a href="https://help.steampowered.com/en/faqs/view/0C48-FCBD-DA71-93EB" rel="noopener">Steam Support, 0C48 FCBD DA71 93EB</a></li><li><a href="https://support.microsoft.com/en-us/windows/troubleshooting-windows-unexpected-restarts-and-stop-code-errors-60b01860-58f2-be66-7516-5c45a66ae3c6" rel="noopener">Microsoft Support, Troubleshooting windows unexpected restarts and stop code errors</a></li><li><a href="https://www.easy.ac/support/articles/eac-windows-service" rel="noopener">easy.ac, Eac windows service</a></li><li><a href="https://www.trustedreviews.com/how-to/how-to-verify-game-files-on-steam-4429171" rel="noopener">trustedreviews.com, How to verify game files on steam</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Why does my game keep crashing on PC?</summary><p>Most often it's the game itself, its files or mods, an overlay hooking into it, or the graphics driver. If one game crashes in the same file every time, look at that game. If every game crashes, look at the whole PC. Check memory settings, overclocks, temperatures and the power supply.</p></details><details class="qa"><summary>Why does every game crash to desktop?</summary><p>When several games crash, the cause is usually something they share. That can be the graphics driver, an overlay that hooks every game, an unstable overclock or XMP or EXPO memory profile, or heat. Turn overlays off, reset tuning to defaults and run Windows Memory Diagnostic before reinstalling games.</p></details><details class="qa"><summary>What causes a game to crash on PC with no error message?</summary><p>A crash to desktop means the game hit a fault it couldn't handle and Windows ended it, often too fast for the game to show anything. Windows still logs it as event 1000 in the Application log, with the faulting module and an exception code such as 0xc0000005.</p></details><details class="qa"><summary>Are games crashing to desktop on Windows 11 different from Windows 10?</summary><p>No. The logs, the fields and the fixes are the same on both. Windows 11 just moves some settings, and the steps here use the Windows 11 names.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="blue-screen-of-death-causes"><span>Crashes</span><b>Blue screen of death causes on Windows 11, and the three on my PC</b></a><a class="more" href="pc-restarts-randomly-while-gaming"><span>Crashes</span><b>PC restarts randomly while gaming? Rule things out first</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>Why did my PC crash? How RigSight caught one on mine</b></a><a class="more" href="kernel-power-41"><span>Crashes</span><b>Why Kernel-Power 41 happens, and how RigSight caught mine</b></a></nav>
   <aside class="get">

@@ -16,6 +16,61 @@ DOCS = ROOT / "docs"
 POSTS = Path(__file__).resolve().parent / "posts"
 SITE = "https://rigsight.app"
 AUTHOR = "Dhruv Samant"
+AUTHOR_SLUG, METHOD_SLUG = "author", "how-rigsight-measures"  # pages inside the blog, not in its list (2026-11-18)
+PAGES = Path(__file__).resolve().parent / "pages"
+# What my PC is, for a post's "Test setup" block; a post adds or overrides rows ({{testbed Recorded=... | Counted=...}}).
+TESTBED = [("GPU", "NVIDIA GeForce RTX 3080 Ti, 12 GB"), ("CPU", "AMD Ryzen 7 5700X3D"), ("Memory", "16 GB, 32 GB from 14 November 2026"),
+           ("Windows", "Windows 11")]
+HOSTS = {"learn.microsoft.com": "Microsoft Learn", "support.microsoft.com": "Microsoft Support", "blogs.windows.com": "Windows blog",
+         "www.nvidia.com": "NVIDIA", "nvidia.custhelp.com": "NVIDIA support", "www.amd.com": "AMD", "www.intel.com": "Intel",
+         "www.tomshardware.com": "Tom's Hardware", "forums.tomshardware.com": "Tom's Hardware forums", "www.pcgamer.com": "PC Gamer",
+         "www.pcgameshardware.de": "PC Games Hardware", "www.igorslab.de": "Igor's Lab", "www.techpowerup.com": "TechPowerUp",
+         "www.howtogeek.com": "How-To Geek", "www.pcworld.com": "PCWorld", "www.digitalcitizen.life": "Digital Citizen",
+         "www.blurbusters.com": "Blur Busters", "crystalmark.info": "CrystalDiskInfo", "help.steampowered.com": "Steam Support",
+         "gamesbeat.com": "GamesBeat", "www.tweaktown.com": "TweakTown", "www.rockstargames.com": "Rockstar Games",
+         "www.capframex.com": "CapFrameX", "www.elevenforum.com": "Eleven Forum", "www.sandisk.com": "Sandisk", "www.crucial.com": "Crucial", "www.kingston.com": "Kingston", "www.samsung.com": "Samsung", "support.xbox.com": "Xbox Support", "answers.microsoft.com": "Microsoft Community", "steamcommunity.com": "Steam Community", "www.techradar.com": "TechRadar", "www.windowscentral.com": "Windows Central", "www.reddit.com": "Reddit", "superuser.com": "Super User", "www.overclock.net": "Overclock.net", "linustechtips.com": "Linus Tech Tips forum", "www.anandtech.com": "AnandTech", "en.wikipedia.org": "Wikipedia", "www.makeuseof.com": "MakeUseOf", "www.windowsdigitals.com": "Windows Digitals", "pureinfotech.com": "Pureinfotech", "developer.android.com": "Android Developers", "www.msi.com": "MSI"}
+
+
+def source_label(url):
+    """"Microsoft Learn, Get physicaldisk": who published it and which page, from the address alone."""
+    from urllib.parse import urlparse, unquote
+    u = urlparse(url)
+    who = HOSTS.get(u.netloc) or u.netloc.removeprefix("www.")
+    generic = {"help", "topic", "t", "faq", "faqs", "blog", "blogs", "news", "article", "articles", "post", "p", "answers",
+               "questions", "forum", "forums", "threads", "detail", "a_id", "app", "solutions", "en-us", "en-US", "en", "us", "au",
+               "zh", "br", "hub", "games", "bytes", "insights", "reviews", "media", "support", "kb", "resources", "support-articles"}
+    segs = [unquote(s) for s in u.path.split("/") if s]
+    what = ""
+    for s in reversed(segs):
+        s = re.sub(r"\.(html?|aspx|php|md)$", "", s)
+        s = re.sub(r"-?[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$", "", s)   # a trailing GUID
+        s = re.sub(r"[.-]\d+$", "", s)                                        # a trailing page id
+        if not s or s in generic or len(s) <= 3 or s.lower() == "www" or re.fullmatch(r"[\d_~%-]+|[0-9a-f]{12,}", s):
+            continue
+        what = re.sub(r"[-_]+", " ", s).strip()
+        break
+    if not what or what.replace(" ", "").lower() == who.replace(" ", "").lower():
+        return who
+    return f"{who}, {what[0].upper() + what[1:]}"
+
+
+def sources_html(urls, mode="site"):
+    if not urls:
+        return ""
+    items = "".join(f'<li><a href="{html.escape(u)}" rel="noopener">{html.escape(source_label(u))}</a></li>' for u in urls)
+    me = f'<li><a href="{"#" if mode == "artifact" else ""}{METHOD_SLUG}">How RigSight measures</a>, how the numbers from my PC were recorded</li>'
+    return f'<section class="sources"><h2>Sources</h2><ol>{items}{me}</ol></section>'
+
+
+def author_box(img_prefix, mode="site"):
+    pre = "#" if mode == "artifact" else ""
+    return (f'<aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span>'
+            f"<div><b>{AUTHOR}</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, "
+            f'checked against the released app. <a href="{pre}{AUTHOR_SLUG}">About me</a> · <a href="{pre}{METHOD_SLUG}">How RigSight measures</a></p></div></aside>')
+
+
+def byline_name(mode="site"):
+    return f'<a href="{"#" if mode == "artifact" else ""}{AUTHOR_SLUG}" rel="author">{AUTHOR}</a>'
 SERIES = {
     "build": ("Building RigSight", "What broke, what I got wrong, and how it got fixed."),
     "ai": ("The AI journey", "From a helper I removed to a real one that only says what it can back up."),
@@ -102,6 +157,26 @@ def expand(body, img_prefix, keep_review, slugs=(), mode="site"):
         first[0] = False
         return out
     body = re.sub(r"\{\{fig (.*?)\}\}", fig, body)
+
+    def webimg(m):
+        # A picture from elsewhere on the web, shown from its own address with a credit (the user, 2026-11-18):
+        # {{webimg URL | alt | caption | credit name | credit page URL}}
+        u, alt, cap, who, page = ([x.strip() for x in m.group(1).split("|")] + [""] * 5)[:5]
+        credit = f'Image: <a href="{html.escape(page or u)}" rel="noopener">{html.escape(who)}</a>' if who else ""
+        cap = (cap + (" " if cap and credit else "") + credit).strip()
+        return (f'<figure class="webimg"><img src="{html.escape(u)}" alt="{html.escape(alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">'
+                + (f"<figcaption>{cap}</figcaption>" if cap else "") + "</figure>")
+    body = re.sub(r"\{\{webimg (.*?)\}\}", webimg, body)
+
+    def testbed(m):
+        rows = dict(TESTBED)
+        for part in (m.group(1) or "").split("|"):
+            if "=" in part:
+                k, v = part.split("=", 1)
+                rows[k.strip()] = v.strip()
+        dl = "".join(f"<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>" for k, v in rows.items())
+        return f'<div class="testbed"><p class="testbed-k">Test setup</p><dl>{dl}</dl></div>'
+    body = re.sub(r"\{\{testbed ?(.*?)\}\}", testbed, body)
     if not keep_review:
         body = re.sub(r'\s*<(p|div) class="rv">.*?</\1>', "", body, flags=re.S)
     return body
@@ -206,11 +281,12 @@ def article_html(p, posts, mode, img_prefix, keep_review):
   <p class="eyebrow"><span class="dot s-{p['series']}"></span>{series_line}</p>
   <h1>{p['title']}</h1>
   <p class="dek">{p['summary']}</p>
-  <p class="byline"><b>{AUTHOR}</b> · {nice_date(p['happened'])}{(' · Version ' + p['version']) if p.get('version') else ''} · {p['minutes']} min read</p>
+  <p class="byline"><b>{byline_name(mode)}</b> · {nice_date(p['happened'])}{(' · Version ' + p['version']) if p.get('version') else ''} · {p['minutes']} min read</p>
   <figure class="cover">{cover_img(p, img_prefix, "", eager=True, sizes="(max-width: 760px) 92vw, 1152px")}{('<figcaption>' + p['cover_cap'] + '</figcaption>') if p['cover_cap'] else ''}</figure>
   <div class="short"><p class="short-k">The short version</p><p>{p['short']}</p></div>
   <div class="body">
 {expand(p['body'], img_prefix, keep_review, [q['slug'] for q in posts], mode)}
+  {author_box(img_prefix, mode)}
   </div>
   <nav class="next" aria-label="More posts">{''.join(nav)}</nav>
   <aside class="get">
@@ -218,6 +294,32 @@ def article_html(p, posts, mode, img_prefix, keep_review):
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, app time, internet use and crashes, and keeps them as history on your PC.</p>
     <a class="btn" href="https://github.com/b0llu/Rigsight/releases/latest">Download for Windows</a>
   </aside>
+</article>'''
+
+
+def load_pages():
+    """The blog's own pages (author, how RigSight measures): written like posts, not listed or dated."""
+    out = []
+    for f in sorted(PAGES.glob("*.html")):
+        m = re.match(r"\s*<!--meta\s*(\{.*?\})\s*-->\s*(.*)", f.read_text(encoding="utf-8"), re.S)
+        meta = json.loads(m.group(1))
+        meta["body"] = m.group(2)
+        out.append(meta)
+    ALL_SLUGS.update(x["slug"] for x in out)
+    return out
+
+
+def page_html(pg, mode, img_prefix):
+    back = "#all" if mode == "artifact" else "./"
+    home = "#all" if mode == "artifact" else "../"
+    return f'''<article class="post wrap-narrow page">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="{home}">Home</a><span>/</span><a href="{back}">Blog</a></nav>
+  <p class="eyebrow">The RigSight log</p>
+  <h1>{pg['title']}</h1>
+  <p class="dek">{pg['summary']}</p>
+  <div class="body">
+{expand(pg['body'], img_prefix, False, [], mode)}
+  </div>
 </article>'''
 
 
@@ -320,6 +422,8 @@ def build_site():
               index_html(posts, "site", img, fixes), None)]
     for p in posts:
         pages.append((p["slug"], f"{p['title']} · The RigSight log", p.get("description") or p["summary"], article_html(p, posts, "site", img, False), p))
+    for pg in load_pages():
+        pages.append((pg["slug"], f"{pg['title']} · The RigSight log", pg["description"], page_html(pg, "site", img), None))
     for slug, title, desc, inner, p in pages:
         url = f"{SITE}/blog/{slug}"
         extra = ""

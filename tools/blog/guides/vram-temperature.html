@@ -19,15 +19,13 @@
 -->
 <p>Since 23 September, RigSight has recorded my RTX 3080 Ti's memory temperature every minute. In about 100 hours of heavy gaming, with the GPU 80% busy or more, the memory averaged about 78°C. The highest it reached was 84°C, on 30 September in a game that kept the GPU 99% busy. That card uses GDDR6X, the memory known for running hot, so I expected worse. Here's what VRAM temperature is normal while gaming, where it gets too hot, and how to check yours.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight records three GPU temperatures each minute, the core, the hot spot and the memory, and keeps the highest of each minute so a short peak doesn't get averaged away. On the Temperatures page, GPU memory has its own line next to the others. You can also put it in the taskbar, the overlay, a widget or a dashboard from its row on All sensors.</p>
-
-<p>Seeing it next to the core is what makes the number useful. In those heavy minutes my GPU core averaged 69°C and the memory 78°C, so the memory ran about 9° above the core. With the GPU nearly idle, the core sat around 48°C and the memory around 53°C. In the heavy minutes, the memory's highest stayed between 68 and 84°C, and none reached 85. RigSight is free and open source.</p>
+{{testbed Recorded=23 September to 13 November 2026, every minute | Counted=Minutes with the GPU 80% busy or more}}
 
 <h2>What VRAM temperature is normal</h2>
 
 <p>VRAM is the GPU's own memory, the chips around the GPU on the card. They get warm because games keep them busy, and they sit under the same cooler as the GPU, often with less of it touching them. That's why memory usually reads warmer than the core.</p>
+
+{{webimg https://www.nvidia.com/content/dam/en-zz/Solutions/geforce/ampere/rtx-3080-3080ti/geforce-rtx-3080-ti-og-1200x630.jpg | The NVIDIA GeForce RTX 3080 Ti graphics card | The GeForce RTX 3080 Ti, the card behind the numbers in this guide. Its 12 GB of GDDR6X memory sits around the GPU, under the same cooler. | NVIDIA | https://www.nvidia.com/en-us/geforce/graphics-cards/30-series/rtx-3080-3080ti/}}
 
 <ul>
   <li>Somewhere around 70 to 90°C while gaming is common for many cards.</li>
@@ -64,5 +62,12 @@
   <li>Lower the memory clock if you overclocked it.</li>
   <li>On an older card, new thermal pads on the memory can drop it a lot. This means opening the card, which can affect its warranty, so check that first or ask the maker.</li>
 </ol>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight records three GPU temperatures each minute, the core, the hot spot and the memory, and keeps the highest of each minute so a short peak doesn't get averaged away. On the Temperatures page, GPU memory has its own line next to the others. You can also put it in the taskbar, the overlay, a widget or a dashboard from its row on All sensors.</p>
+
+<p>Seeing it next to the core is what makes the number useful. In those heavy minutes my GPU core averaged 69°C and the memory 78°C, so the memory ran about 9° above the core. With the GPU nearly idle, the core sat around 48°C and the memory around 53°C. In the heavy minutes, the memory's highest stayed between 68 and 84°C, and none reached 85. RigSight is free and open source.</p>
+
 
 <p>Your next step is to check your memory's highest reading after a long game. If it's in the 80s or low 90s, leave it alone. If it stays above 100°C, start with airflow and the fan curve. For the GPU chip itself, see <a href="normal-gpu-temperature-while-gaming">normal GPU temperature while gaming</a> and <a href="gpu-hotspot-temperature">GPU hot spot temperature</a>.</p>

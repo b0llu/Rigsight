@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "How to test a new PC or GPU you got for Christmas", "description": "How to test a new GPU or PC in its first week. Check it's detected, play your heaviest game, watch temperatures and crashes, and keep a baseline for later.", "datePublished": "2026-11-17", "dateModified": "2026-11-17", "image": "https://rigsight.app/img/blog/how-to-test-a-new-gpu.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/how-to-test-a-new-gpu", "keywords": "how to test a new gpu, new pc, after installing new gpu what to do, how to stress test a new gpu, how to test if new gpu is working, new pc checklist, what to do after building a new pc, how to check used gpu before buying, games to test a new gpu, new gpu what to do"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "How to test a new PC or GPU you got for Christmas", "item": "https://rigsight.app/blog/how-to-test-a-new-gpu"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How to test a new GPU and see it's working?", "acceptedAnswer": {"@type": "Answer", "text": "Open Task Manager, go to Performance and check the GPU shows its full name and memory. Then play your heaviest game or run a benchmark like 3DMark or Unigine Superposition for 20 to 30 minutes. No crashes, no artifacts like flickering shapes, and temperatures within the card's limits mean it's working."}}, {"@type": "Question", "name": "How do I stress test a new GPU?", "acceptedAnswer": {"@type": "Answer", "text": "Play your most demanding game at high settings for 30 minutes or more, or loop a benchmark like 3DMark Time Spy or Unigine Superposition. Watch the core, hot spot and memory temperatures. FurMark loads a card harder than any game, so it's an extreme test, not a needed one."}}, {"@type": "Question", "name": "What should I do after installing a new GPU?", "acceptedAnswer": {"@type": "Answer", "text": "Plug the monitor into the GPU, not the motherboard. Install the latest driver from NVIDIA, AMD or Intel. Set your monitor's refresh rate in Windows display settings. Then test it in a game, and keep the box until you're sure it's fine."}}, {"@type": "Question", "name": "How do I check a used GPU before buying?", "acceptedAnswer": {"@type": "Answer", "text": "See it running a game or benchmark for at least 15 minutes. Check that GPU-Z shows the model you were sold, that the fans all spin under load, and that the hot spot and memory temperatures aren't far above the core. Look for artifacts and listen for fan rattle."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,19 +256,13 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Temperatures</p>
   <h1>How to test a new PC or GPU you got for Christmas</h1>
   <p class="dek">A new GPU or PC is easiest to check in its first week, while it can still go back, and its first two weeks become the normal you compare against for years. How to test a new GPU or PC, what to look at on a used one, and what RigSight records from day one.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 17 November 2026 · 4 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 17 November 2026 · 4 min read</p>
   <figure class="cover"><img class="" src="../img/blog/how-to-test-a-new-gpu.webp" srcset="../img/blog/how-to-test-a-new-gpu-600.webp 600w, ../img/blog/how-to-test-a-new-gpu.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="GPU, first two weeks: 68.0°C, gaming, about 290 W. GPU, last two weeks: 69.6°C, gaming, about 280 W" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>To test a new GPU, install its latest driver, check Task Manager shows its full name and memory, then play your heaviest game for 30 minutes with an overlay on. Watch the GPU temperature, hot spot and memory temperature, the frame rate, and whether anything crashes. Do it in the first week, while it can still go back.</p></div>
   <div class="body">
 <p>On 14 November I put 32 GB of memory in my PC, up from 16. RigSight's Timeline lists that day as "Memory changed to 32 GB", and from then on, everything it records is the PC with the new part. That's worth knowing if a new GPU or a whole new PC turns up this Christmas. Its first week is when you can still send it back, and its first two weeks become the normal you'll compare it against for years. Here's how to test a new GPU or PC while both still matter.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight reads the PC's parts and records when one changes, as "Graphics card added", "Drive added", "CPU changed to" or "Memory changed to" on the Timeline page. Once there's history on both sides, the change's <b>Before and after</b> shows any game that ran better or worse since, marked as the new hardware. On a brand new PC there's no before, so the history starts that day.</p>
-
-<p>The first weeks matter most for later. On the Temperatures page, <b>Over the months</b> takes the first two weeks of history as each part's usual and shows how far it has moved since, at the same load. On a new PC, those are the new parts' own first weeks. Until there's enough history it says so, "Too soon to say", with what it still needs. My own GPU averaged 68.0°C while gaming in its first two weeks of history, at about 290 W, and 69.6°C in the last two at about 280 W. At rest it was 47.6°C then and 47.7°C now. That's a part holding steady, and I can only say so because the first two weeks were recorded.</p>
-
-<p>For a used drive, Storage shows the hours it has been on and the life left it reports, which tells you how much use it had before you. RigSight is free and open source.</p>
+<div class="testbed"><p class="testbed-k">Test setup</p><dl><dt>GPU</dt><dd>NVIDIA GeForce RTX 3080 Ti, 12 GB</dd><dt>CPU</dt><dd>AMD Ryzen 7 5700X3D</dd><dt>Memory</dt><dd>16 GB, 32 GB from 14 November 2026</dd><dt>Windows</dt><dd>Windows 11</dd><dt>Recorded</dt><dd>23 September to 17 November 2026, every minute</dd><dt>Counted</dt><dd>The first two weeks against the last two, GPU 80% busy or more</dd></dl></div>
 
 <h2>On the first day</h2>
 
@@ -293,8 +311,19 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>Use it normally and watch for problems. A game crashing now and then can be the game. The same game crashing again and again, a black screen that recovers, or the PC shutting off on its own is worth reporting while the return window is open. Keep the box and receipt until you're sure.</p>
 
+<h2>How RigSight caught it</h2>
+
+<p>RigSight reads the PC's parts and records when one changes, as "Graphics card added", "Drive added", "CPU changed to" or "Memory changed to" on the Timeline page. Once there's history on both sides, the change's <b>Before and after</b> shows any game that ran better or worse since, marked as the new hardware. On a brand new PC there's no before, so the history starts that day.</p>
+
+<p>The first weeks matter most for later. On the Temperatures page, <b>Over the months</b> takes the first two weeks of history as each part's usual and shows how far it has moved since, at the same load. On a new PC, those are the new parts' own first weeks. Until there's enough history it says so, "Too soon to say", with what it still needs. My own GPU averaged 68.0°C while gaming in its first two weeks of history, at about 290 W, and 69.6°C in the last two at about 280 W. At rest it was 47.6°C then and 47.7°C now. That's a part holding steady, and I can only say so because the first two weeks were recorded.</p>
+
+<p>For a used drive, Storage shows the hours it has been on and the life left it reports, which tells you how much use it had before you. RigSight is free and open source.</p>
+
+
 <p>Your next step is to play your heaviest game on the first day with an overlay on, and write down the GPU's temperature and frame rate. That's your new part's normal, and the number you'll want in a year.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://www.nvidia.com/en-us/drivers/" rel="noopener">NVIDIA, Drivers</a></li><li><a href="https://www.amd.com/en/support/download/drivers.html" rel="noopener">AMD, Drivers</a></li><li><a href="https://benchmark.unigine.com/superposition" rel="noopener">benchmark.unigine.com, Superposition</a></li><li><a href="https://www.techpowerup.com/gpuz/" rel="noopener">TechPowerUp, Gpuz</a></li><li><a href="https://support.microsoft.com/en-us/windows/change-your-display-refresh-rate-in-windows-c8ccf0d3-0b9d-4c1c-8bd2-0fb0b8f8f8e0" rel="noopener">Microsoft Support, Change your display refresh rate in windows</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>How to test a new GPU and see it&#x27;s working?</summary><p>Open Task Manager, go to Performance and check the GPU shows its full name and memory. Then play your heaviest game or run a benchmark like 3DMark or Unigine Superposition for 20 to 30 minutes. No crashes, no artifacts like flickering shapes, and temperatures within the card's limits mean it's working.</p></details><details class="qa"><summary>How do I stress test a new GPU?</summary><p>Play your most demanding game at high settings for 30 minutes or more, or loop a benchmark like 3DMark Time Spy or Unigine Superposition. Watch the core, hot spot and memory temperatures. FurMark loads a card harder than any game, so it's an extreme test, not a needed one.</p></details><details class="qa"><summary>What should I do after installing a new GPU?</summary><p>Plug the monitor into the GPU, not the motherboard. Install the latest driver from NVIDIA, AMD or Intel. Set your monitor's refresh rate in Windows display settings. Then test it in a game, and keep the box until you're sure it's fine.</p></details><details class="qa"><summary>How do I check a used GPU before buying?</summary><p>See it running a game or benchmark for at least 15 minutes. Check that GPU-Z shows the model you were sold, that the fans all spin under load, and that the hot spot and memory temperatures aren't far above the core. Look for artifacts and listen for fan rattle.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="gpu-thermal-throttling"><span>Temperatures</span><b>GPU thermal throttling, and how to tell if yours is</b></a><a class="more" href="check-gpu-temperature-history"><span>Temperatures</span><b>How to check GPU temperature history without being misled</b></a><a class="more" href="normal-cpu-temp-idle"><span>Temperatures</span><b>Normal CPU temp at idle, and the GPU's, from 150 hours of mine</b></a><a class="more" href="normal-cpu-temperature-while-gaming"><span>Temperatures</span><b>Normal CPU temperature while gaming, and why yours jumps around</b></a></nav>
   <aside class="get">

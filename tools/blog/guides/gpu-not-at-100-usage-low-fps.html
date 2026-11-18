@@ -17,18 +17,6 @@
 -->
 <p>Your GPU is not at 100% usage but your FPS is low, and that feels wrong. Why would the GPU rest while the game struggles? The card is waiting. Something else decides how many frames get made, and the GPU finishes its share early. RigSight works out what it waits for from every play you've recorded, and below is how it does that and how you can check it yourself.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>Here is Dota 2 on the example PC that RigSight's site uses for its pictures. Over its plays the GPU averaged 68% busy and never reached full load. On a live counter that looks like a card being held back by something. RigSight's <b>Can it run better?</b> card on the game's page reads it the other way round. The frame rate sat flat at 236 fps across the plays, so a frame cap or VSync set the pace, and the card had room to spare. Its answer is that you can raise the settings and keep 236 fps.</p>
-
-{{fig pages/game | RigSight's Games page for Dota 2 on the example PC, with How it runs at 235 fps average and 170 fps 1% low, and Can it run better? saying the frame rate is flat at 236 fps and the GPU averaged 68% busy and never hit full load | Dota 2 on the site's example PC. Low GPU load with a flat frame rate means a cap, not a weak card.}}
-
-<p>The card works from all your plays together, once a game has three plays with frame rates. When the frame rate stays flat at one number across them, it says a cap sets the pace. It says what share of the time your GPU spent at full load, counting 95% and up as full. The cut-offs are RigSight's own rules of thumb. At full load 70% of the time or more, it says lower settings would give more frames. From 30%, it says the card is the limit in busy scenes. Below 30% with a cap in play, it says you can raise the settings and keep that frame rate, as with Dota above. Below 30% with no cap, it says something else sets the pace, most likely the CPU.</p>
-
-<p>RigSight also reads the game's own saved graphics settings and shows them on the game's page under <b>How it's set</b>. That lets the card name the cap. It says when the game's own frame limit or VSync holds the frame rate, and it says when a game runs with no limit and VSync off faster than your screen can show. Reading those files right took some care. My own Cyberpunk 2077 settings file stores its frame limit as a number with a separate on or off switch, and RigSight first read the number and missed the switch. A limit I had turned off came through as 30 fps. I found it while <a href="testing-ai-on-fake-pcs">testing the AI on pretend PCs</a> and fixed it in RigSight's reading. The lesson carries over to anyone checking by hand. A cap can hide in more than one place, so check every one.</p>
-
-<p>The FPS readings come from RivaTuner Statistics Server, which needs to be running before the game starts. RigSight's Games page has a button to install or start it. RigSight is free and open source.</p>
-
 <h2>Why a GPU is not at 100% usage</h2>
 
 <p>In most games, a GPU that works as hard as it can sits at 95 to 100% load. Below that, it finishes each frame and then waits for the next one. That waiting is fine when you have the frames you want. It only matters when FPS is also lower than you expect.</p>
@@ -126,3 +114,15 @@
 <p>These are rules of thumb. Some games never quite reach 99% even when the card is the limit, so read the trend rather than one number. One session can mislead you too, which is why RigSight looks at every play. For a live look while you play, its overlay can show frame rate, GPU load, CPU load and clock speeds in a corner of the game, through RivaTuner in exclusive fullscreen games.</p>
 
 <p>Do the resolution test tonight in your most demanding scene. It takes two minutes and tells you which part to spend money or settings on.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>Here is Dota 2 on the example PC that RigSight's site uses for its pictures. Over its plays the GPU averaged 68% busy and never reached full load. On a live counter that looks like a card being held back by something. RigSight's <b>Can it run better?</b> card on the game's page reads it the other way round. The frame rate sat flat at 236 fps across the plays, so a frame cap or VSync set the pace, and the card had room to spare. Its answer is that you can raise the settings and keep 236 fps.</p>
+
+{{fig pages/game | RigSight's Games page for Dota 2 on the example PC, with How it runs at 235 fps average and 170 fps 1% low, and Can it run better? saying the frame rate is flat at 236 fps and the GPU averaged 68% busy and never hit full load | Dota 2 on the site's example PC. Low GPU load with a flat frame rate means a cap, not a weak card.}}
+
+<p>The card works from all your plays together, once a game has three plays with frame rates. When the frame rate stays flat at one number across them, it says a cap sets the pace. It says what share of the time your GPU spent at full load, counting 95% and up as full. The cut-offs are RigSight's own rules of thumb. At full load 70% of the time or more, it says lower settings would give more frames. From 30%, it says the card is the limit in busy scenes. Below 30% with a cap in play, it says you can raise the settings and keep that frame rate, as with Dota above. Below 30% with no cap, it says something else sets the pace, most likely the CPU.</p>
+
+<p>RigSight also reads the game's own saved graphics settings and shows them on the game's page under <b>How it's set</b>. That lets the card name the cap. It says when the game's own frame limit or VSync holds the frame rate, and it says when a game runs with no limit and VSync off faster than your screen can show. Reading those files right took some care. My own Cyberpunk 2077 settings file stores its frame limit as a number with a separate on or off switch, and RigSight first read the number and missed the switch. A limit I had turned off came through as 30 fps. I found it while <a href="testing-ai-on-fake-pcs">testing the AI on pretend PCs</a> and fixed it in RigSight's reading. The lesson carries over to anyone checking by hand. A cap can hide in more than one place, so check every one.</p>
+
+<p>The FPS readings come from RivaTuner Statistics Server, which needs to be running before the game starts. RigSight's Games page has a button to install or start it. RigSight is free and open source.</p>

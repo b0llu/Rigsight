@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Internet keeps disconnecting on PC? Find which side drops", "description": "Internet keeps disconnecting on PC? First find which side drops, your Wi-Fi or cable, or the router and provider. Then fix it with the right Windows steps.", "datePublished": "2026-11-07", "dateModified": "2026-11-07", "image": "https://rigsight.app/img/blog/internet-keeps-disconnecting.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/internet-keeps-disconnecting", "keywords": "internet keeps disconnecting on pc, pc internet keeps disconnecting windows 11, internet keeps disconnecting and reconnecting, internet keeps disconnecting every few minutes, why does my internet keep dropping, internet drops while gaming, wifi keeps disconnecting windows 11"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Internet keeps disconnecting on PC? Find which side drops", "item": "https://rigsight.app/blog/internet-keeps-disconnecting"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why does my internet keep disconnecting and reconnecting?", "acceptedAnswer": {"@type": "Answer", "text": "Either the PC's own link to the network keeps dropping, which points at Wi-Fi signal, the network card, its driver or its power saving, or the link stays up and the internet beyond the router goes. Watch whether Windows shows the Wi-Fi or Ethernet as disconnected, or connected with no internet."}}, {"@type": "Question", "name": "Why does my internet keep disconnecting every few minutes?", "acceptedAnswer": {"@type": "Answer", "text": "Regular drops every few minutes often come from the network card being put to sleep to save power, a weak Wi-Fi signal, or a router that keeps restarting. Turn off the card's power saving in Device Manager, try a cable, and check whether other devices drop at the same moment."}}, {"@type": "Question", "name": "How do I fix internet that keeps disconnecting on Windows 11?", "acceptedAnswer": {"@type": "Answer", "text": "Start with Windows' own network troubleshooter in the Get Help app. Then forget and re-join the Wi-Fi network, update the network card's driver, turn off its power saving, and as a last step use Network reset under Advanced network settings, which reinstalls your network adapters."}}, {"@type": "Question", "name": "Why does my internet only drop while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "Often it doesn't drop more while gaming, you just notice it more then. If it really does, a big download or upload at the same time can make the connection look dead, and a network card with power saving or an old driver can also give up under load."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,21 +256,11 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Internet and screen time</p>
   <h1>Internet keeps disconnecting on PC? Find which side drops</h1>
   <p class="dek">My PC lost the internet six times since October, once for 44 minutes, and every time the PC's own connection was fine. How RigSight tells you when the internet drops and which side it was, why it happens, and how to fix it on Windows 11.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 7 November 2026 · 4 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 7 November 2026 · 4 min read</p>
   <figure class="cover"><img class="" src="../img/blog/internet-keeps-disconnecting.webp" srcset="../img/blog/internet-keeps-disconnecting-600.webp 600w, ../img/blog/internet-keeps-disconnecting.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Internet drops on my PC: 6, since 2 October, the longest 44 minutes" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>When your internet keeps disconnecting on PC, first find which side drops. If Windows shows the Wi-Fi or Ethernet itself as disconnected, look at the network card, its driver and its power saving. If the PC stays connected but has no internet, the router or the provider is the problem. Note the times, since a record helps when you call them.</p></div>
   <div class="body">
 <p>Since October my PC has lost the internet six times. The longest was 44 minutes on the morning of 2 October, and two came within ten minutes of each other on 4 November. In every one, the PC's own connection to the network was fine. The internet went somewhere past it. When your internet keeps disconnecting on PC, that's the first thing to find out, because the fix for each side is different.</p>
-
-<h2>How RigSight caught it</h2>
-
-<p>RigSight watches the connection the same way the taskbar's network icon does, and checks it against what actually moved. A "drop" while apps were still downloading is Windows' check being wrong, so it doesn't count. Drops under 10 seconds don't count either, since Windows' own check flickers now and then. Neither does the first minute and a half after the PC starts or wakes, while the network is still coming up.</p>
-
-<p>Each drop gets one of two kinds. Either the cable or Wi-Fi itself went, or the PC stayed connected and the internet went past it, at the router or the provider. All six of mine were the second kind. That rules out my network card, its driver and my cable in one go.</p>
-
-<p>Since version 1.4.0 RigSight also tells you as it happens. Once a drop has lasted 15 seconds you get "Your internet is down", and when it comes back, how long it was gone. If the third drop comes within 10 minutes, you get one "Your internet keeps dropping" instead of a pile of notices. RigSight also pings your router every 5 seconds. During a drop where the router still answers, the notice says "Your router is reachable, but there's no internet connection". That points straight at the provider or the line into your home. You can turn the alerts off with <b>Internet drop alerts</b> in Settings.</p>
-
-<p>On the Network page, a strip under the graph shows when the internet was up and when it dropped, with Windows' own icon for each kind. Every drop is also listed under What happened, so you have the dates and how long each lasted when you call your provider. My pings to the provider also showed short spikes while big downloads ran, which is a different problem covered in <a href="ping-spikes-while-gaming">ping spikes while gaming</a>. RigSight is free and open source.</p>
 
 <h2>Why the internet keeps disconnecting</h2>
 
@@ -286,8 +300,21 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <li>Write down when each drop happened and how long it lasted, and call your provider. A list of dates and times gets taken more seriously than "it keeps dropping".</li>
 </ol>
 
+<h2>How RigSight caught it</h2>
+
+<p>RigSight watches the connection the same way the taskbar's network icon does, and checks it against what actually moved. A "drop" while apps were still downloading is Windows' check being wrong, so it doesn't count. Drops under 10 seconds don't count either, since Windows' own check flickers now and then. Neither does the first minute and a half after the PC starts or wakes, while the network is still coming up.</p>
+
+<p>Each drop gets one of two kinds. Either the cable or Wi-Fi itself went, or the PC stayed connected and the internet went past it, at the router or the provider. All six of mine were the second kind. That rules out my network card, its driver and my cable in one go.</p>
+
+<p>Since version 1.4.0 RigSight also tells you as it happens. Once a drop has lasted 15 seconds you get "Your internet is down", and when it comes back, how long it was gone. If the third drop comes within 10 minutes, you get one "Your internet keeps dropping" instead of a pile of notices. RigSight also pings your router every 5 seconds. During a drop where the router still answers, the notice says "Your router is reachable, but there's no internet connection". That points straight at the provider or the line into your home. You can turn the alerts off with <b>Internet drop alerts</b> in Settings.</p>
+
+<p>On the Network page, a strip under the graph shows when the internet was up and when it dropped, with Windows' own icon for each kind. Every drop is also listed under What happened, so you have the dates and how long each lasted when you call your provider. My pings to the provider also showed short spikes while big downloads ran, which is a different problem covered in <a href="ping-spikes-while-gaming">ping spikes while gaming</a>. RigSight is free and open source.</p>
+
+
 <p>Your next step is to catch the next drop and see which side it is. Once you know that, you only have half the list to work through.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://support.microsoft.com/en-us/windows/experience/connectivity-networking/fix-wi-fi-connection-issues-in-windows" rel="noopener">Microsoft Support, Fix wi fi connection issues in windows</a></li><li><a href="https://learn.microsoft.com/en-US/troubleshoot/windows-client/networking/power-management-on-network-adapter" rel="noopener">Microsoft Learn, Power management on network adapter</a></li><li><a href="https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/ping" rel="noopener">Microsoft Learn, Ping</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Why does my internet keep disconnecting and reconnecting?</summary><p>Either the PC's own link to the network keeps dropping, which points at Wi-Fi signal, the network card, its driver or its power saving, or the link stays up and the internet beyond the router goes. Watch whether Windows shows the Wi-Fi or Ethernet as disconnected, or connected with no internet.</p></details><details class="qa"><summary>Why does my internet keep disconnecting every few minutes?</summary><p>Regular drops every few minutes often come from the network card being put to sleep to save power, a weak Wi-Fi signal, or a router that keeps restarting. Turn off the card's power saving in Device Manager, try a cable, and check whether other devices drop at the same moment.</p></details><details class="qa"><summary>How do I fix internet that keeps disconnecting on Windows 11?</summary><p>Start with Windows' own network troubleshooter in the Get Help app. Then forget and re-join the Wi-Fi network, update the network card's driver, turn off its power saving, and as a last step use Network reset under Advanced network settings, which reinstalls your network adapters.</p></details><details class="qa"><summary>Why does my internet only drop while gaming?</summary><p>Often it doesn't drop more while gaming, you just notice it more then. If it really does, a big download or upload at the same time can make the connection look dead, and a network card with power saving or an old driver can also give up under load.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="ping-spikes-while-gaming"><span>Internet and screen time</span><b>Ping spikes while gaming, and the download behind mine</b></a><a class="more" href="blue-screen-of-death-causes"><span>Crashes</span><b>Blue screen of death causes on Windows 11, and the three on my PC</b></a><a class="more" href="game-crashes-to-desktop-no-error"><span>Crashes</span><b>Game crashes to desktop with no error? How RigSight finds why</b></a><a class="more" href="pc-restarts-randomly-while-gaming"><span>Crashes</span><b>PC restarts randomly while gaming? Rule things out first</b></a></nav>
   <aside class="get">

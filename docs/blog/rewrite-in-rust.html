@@ -218,6 +218,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -230,7 +255,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
   <h1>Should RigSight be rewritten in Rust? I measured first</h1>
   <p class="dek">RigSight felt slow to open, and I wondered whether parts of it should be rewritten in Rust. Measuring every part said no. The slow parts were drivers, Windows and the way the window started, and fixing those made it open in about 1.1 seconds instead of 1.9.</p>
-  <p class="byline"><b>Dhruv Samant</b> · 7 November 2026 · Version 1.6.2 · 3 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · 7 November 2026 · Version 1.6.2 · 3 min read</p>
   <figure class="cover"><img class="" src="../img/blog/rewrite-in-rust.webp" srcset="../img/blog/rewrite-in-rust-600.webp 600w, ../img/blog/rewrite-in-rust.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Window opens: 1.1 s, was about 1.9 s. Recorder CPU: 1.1%, of a core, was 2.2%" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short version</p><p>RigSight felt slow to open, so I asked whether to rewrite parts in Rust. Measured, its own code was a sliver of the cost. Fixing how the window starts and one sensor bug made it open in about 1.1 seconds and use half the CPU.</p></div>
   <div class="body">
@@ -277,6 +302,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 <p>If I had rewritten the recorder in Rust, it would have called the same drivers the same slow way, and nothing would have changed. The numbers said where to look, and it was one rule, not the language.</p>
 
 <p>The lesson I'm keeping is boring, and that's fine. When something feels slow, measure where the time goes before deciding what to rewrite. Most of the time, the answer is doing less, not doing it in another language.</p>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next" aria-label="More posts"><a class="more" href="plain-words"><span>Before this</span><b>Rewriting all 5,445 sentences RigSight shows</b></a><a class="more" href="widgets-from-tiles"><span>What happened next</span><b>Rebuilding RigSight's widgets as boxes of tiles</b></a></nav>
   <aside class="get">

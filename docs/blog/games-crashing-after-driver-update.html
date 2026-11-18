@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Games crashing after a graphics driver update, and how to tell why", "description": "Games crashing after a graphics driver update? Roll the driver back in Device Manager first. If the crashes stay, clean install it and reset GPU clocks.", "datePublished": "2026-11-03", "dateModified": "2026-11-03", "image": "https://rigsight.app/img/blog/games-crashing-after-driver-update.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/games-crashing-after-driver-update", "keywords": "games crashing after graphics driver update, game crashing after nvidia driver update, nvidia driver causing crashes, games crashing after amd driver update, nvidia driver causing game crashes, latest nvidia driver causing crashes, why does my graphics driver keep crashing"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Games crashing after a graphics driver update, and how to tell why", "item": "https://rigsight.app/blog/games-crashing-after-driver-update"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Why are games crashing after an NVIDIA driver update?", "acceptedAnswer": {"@type": "Answer", "text": "A new driver changes how every game talks to the GPU, and a bug in it can crash some games and not others. NVIDIA lists known problems as open issues in each driver's release notes and often ships a hotfix driver for the worst ones."}}, {"@type": "Question", "name": "Why does my graphics driver keep crashing?", "acceptedAnswer": {"@type": "Answer", "text": "The usual causes are a bad driver version, leftovers from older drivers, an unstable GPU overclock or undervolt, heat, or a power supply that can't hold up under load. Rolling back and doing a clean install rules out the driver. If it still crashes on a driver that used to work, look at clocks, temperatures and power next."}}, {"@type": "Question", "name": "Should I use DDU every time I update my graphics driver?", "acceptedAnswer": {"@type": "Answer", "text": "No. Its own developer says DDU was designed for cases where the normal driver uninstall fails, and its guide also covers switching between NVIDIA and AMD cards. For an everyday update, the installer's clean install option is enough."}}, {"@type": "Question", "name": "Is it safe to roll back a graphics driver?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Roll Back Driver puts back the version Windows kept from before the update, and you can update again whenever you like. If the button is greyed out, Windows didn't keep one, and you install the older version from NVIDIA or AMD instead."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,33 +256,11 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Drivers and updates</p>
   <h1>Games crashing after a graphics driver update, and how to tell why</h1>
   <p class="dek">Two apps crashed on my PC within ten seconds of a new NVIDIA driver going in. How RigSight tells a crash during the install from a bad driver, why games crash after a graphics driver update, and how to roll back or clean install.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 3 November 2026 · 8 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 3 November 2026 · 8 min read</p>
   <figure class="cover"><img class="" src="../img/blog/games-crashing-after-driver-update.webp" srcset="../img/blog/games-crashing-after-driver-update-600.webp 600w, ../img/blog/games-crashing-after-driver-update.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Crashes page with an opened crash on the demo PC. The NVIDIA graphics driver failed while running Crimson Desert, marked Confirmed, with what to try and what it wasn&#x27;t" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>If games started crashing right after a graphics driver update, roll the driver back first. Open Device Manager, Display adapters, your card, the Driver tab, and press Roll Back Driver. If the crashes stop, wait for the next driver. If they don't, do a clean install, set the GPU back to stock clocks and check your overlays.</p></div>
   <div class="body">
 <p>On 7 October at 5:40 PM I installed a new NVIDIA driver. Within ten seconds, two programs on my PC had crashed. Cloudflare WARP went down seven seconds after Windows put the new driver in, and RigSight's own recorder went down three seconds after that. Neither crash meant the new driver was bad. Games crashing after a graphics driver update can mean two different things, and each one has its own fix.</p>
-
-<h2>How RigSight caught it</h2>
-
-<p>That evening RigSight couldn't tell me much, because it was one of the two programs that crashed. The recorder had been asking the GPU for its temperature through NVIDIA's own library. The old driver went away in the middle of that call, and the call landed on memory that wasn't there any more. WARP crashed in dcomp.dll, a part of Windows that draws app windows. Both programs were open while the driver was swapped under them. The full story of my bug is in <a href="driver-update-crash">The driver update that knocked RigSight out</a>. Since version 0.17.1, RigSight stops reading the GPU while its driver changes.</p>
-
-<p>That night also changed how RigSight reads crashes. It now checks every app crash and freeze against the graphics driver installs Windows logged. A crash within two minutes of one gets "Likely the driver install" on the Crashes page. A line names the driver, says it "was being installed at that moment" and gives the time of the install and of the crash. The advice is to do nothing. An app that crashed while a driver was replaced under it says nothing about the new driver.</p>
-
-<p>Crashes in the days after are the ones that point at the driver. When a game crashes inside a graphics driver file, RigSight names it in plain words, such as "The NVIDIA graphics driver failed while running Crimson Desert". It marks that Confirmed, because Windows named the file. The picture at the top is that example from RigSight's demo PC, not a crash of mine.</p>
-
-<p>Then the opened crash looks at the week before it. If a new graphics driver, Windows update or BIOS went in during those seven days, RigSight checks whether the same game crashed in the same file in the 30 days before that install.</p>
-
-<ul>
-<li>If it did, the crash says the driver didn't cause it, with how many times it happened before the install and since.</li>
-<li>If it didn't, the crash says how many days before the driver went in, and that this crash hadn't happened in the 30 days before it.</li>
-<li>If nothing new went in, it says "Nothing new was installed".</li>
-</ul>
-
-<p>On the Games page, each game lists every play and how it ended, newest first. The graphics driver, Windows and game updates that came between plays sit in the same list. The How it runs chart marks every driver and game update against the frame rate. Frame rates need RivaTuner Statistics Server running.</p>
-
-<figure class="shot"><img src="../img/pages/game.webp" srcset="../img/pages/game-720.webp 720w, ../img/pages/game.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s page for Dota 2 on the demo PC, with a How it runs chart of average FPS and 1% lows over a year and a mark for driver 617.42" loading="lazy" decoding="async"><figcaption>A game's page on RigSight's demo PC. The How it runs chart marks driver and game updates, so a change in frame rate lines up with the update that came before it.</figcaption></figure>
-
-<p>The Timeline lists every graphics driver install with its time, the new version and the one it replaced. Its "This PC now" panel shows the driver you're on and since when. When a driver made a measurable difference, the <b>Before and after</b> filter shows it. That filter counts graphics driver resets, blue screens inside a graphics driver and shut-offs after the GPU hung. It doesn't count game crashes, so for those the Games and Crashes pages are where to look. RigSight is free and open source.</p>
 
 <h2>Why games crash after a graphics driver update</h2>
 
@@ -293,8 +295,33 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>If every game crashes and the screen goes black before Windows recovers, you are probably seeing graphics driver resets rather than ordinary game crashes. For those, read <a href="display-driver-stopped-responding">display driver stopped responding and has recovered</a>.</p>
 
+<h2>How RigSight caught it</h2>
+
+<p>That evening RigSight couldn't tell me much, because it was one of the two programs that crashed. The recorder had been asking the GPU for its temperature through NVIDIA's own library. The old driver went away in the middle of that call, and the call landed on memory that wasn't there any more. WARP crashed in dcomp.dll, a part of Windows that draws app windows. Both programs were open while the driver was swapped under them. The full story of my bug is in <a href="driver-update-crash">The driver update that knocked RigSight out</a>. Since version 0.17.1, RigSight stops reading the GPU while its driver changes.</p>
+
+<p>That night also changed how RigSight reads crashes. It now checks every app crash and freeze against the graphics driver installs Windows logged. A crash within two minutes of one gets "Likely the driver install" on the Crashes page. A line names the driver, says it "was being installed at that moment" and gives the time of the install and of the crash. The advice is to do nothing. An app that crashed while a driver was replaced under it says nothing about the new driver.</p>
+
+<p>Crashes in the days after are the ones that point at the driver. When a game crashes inside a graphics driver file, RigSight names it in plain words, such as "The NVIDIA graphics driver failed while running Crimson Desert". It marks that Confirmed, because Windows named the file. The picture at the top is that example from RigSight's demo PC, not a crash of mine.</p>
+
+<p>Then the opened crash looks at the week before it. If a new graphics driver, Windows update or BIOS went in during those seven days, RigSight checks whether the same game crashed in the same file in the 30 days before that install.</p>
+
+<ul>
+<li>If it did, the crash says the driver didn't cause it, with how many times it happened before the install and since.</li>
+<li>If it didn't, the crash says how many days before the driver went in, and that this crash hadn't happened in the 30 days before it.</li>
+<li>If nothing new went in, it says "Nothing new was installed".</li>
+</ul>
+
+<p>On the Games page, each game lists every play and how it ended, newest first. The graphics driver, Windows and game updates that came between plays sit in the same list. The How it runs chart marks every driver and game update against the frame rate. Frame rates need RivaTuner Statistics Server running.</p>
+
+<figure class="shot"><img src="../img/pages/game.webp" srcset="../img/pages/game-720.webp 720w, ../img/pages/game.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s page for Dota 2 on the demo PC, with a How it runs chart of average FPS and 1% lows over a year and a mark for driver 617.42" loading="lazy" decoding="async"><figcaption>A game's page on RigSight's demo PC. The How it runs chart marks driver and game updates, so a change in frame rate lines up with the update that came before it.</figcaption></figure>
+
+<p>The Timeline lists every graphics driver install with its time, the new version and the one it replaced. Its "This PC now" panel shows the driver you're on and since when. When a driver made a measurable difference, the <b>Before and after</b> filter shows it. That filter counts graphics driver resets, blue screens inside a graphics driver and shut-offs after the GPU hung. It doesn't count game crashes, so for those the Games and Crashes pages are where to look. RigSight is free and open source.</p>
+
+
 <p>Your next step is the rollback. It takes about five minutes and answers the question directly. If the old driver crashes too, look at the game, your clocks and your temperatures. If the game just closes with no message at all, read <a href="game-crashes-to-desktop-no-error">why a game crashes to desktop with no error</a>.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://support.microsoft.com/en-us/windows/update-drivers-through-device-manager-in-windows-ec62f46c-ff14-c91d-eead-d7126dc1f7b6" rel="noopener">Microsoft Support, Update drivers through device manager in windows</a></li><li><a href="https://www.nvidia.com/en-us/drivers/" rel="noopener">NVIDIA, Drivers</a></li><li><a href="https://www.amd.com/en/resources/support-articles/faqs/RSX2-UNINSTALL.html" rel="noopener">AMD, RSX2 UNINSTALL</a></li><li><a href="https://www.dell.com/support/kbdoc/en-id/000190215/installing-nvidia-video-drivers-with-the-clean-installation-option" rel="noopener">dell.com, Installing nvidia video drivers with the clean installation option</a></li><li><a href="https://www.wagnardsoft.com/content/ddu-guide-tutorial" rel="noopener">wagnardsoft.com, Ddu guide tutorial</a></li><li><a href="https://us.msi.com/support/technical_details/NB_NV_Driver_Clean_Installation" rel="noopener">us.msi.com, NB NV Driver Clean Installation</a></li><li><a href="https://learn.microsoft.com/en-us/answers/a/12345883" rel="noopener">Microsoft Learn</a></li><li><a href="https://www.wagnardsoft.com/display-driver-uninstaller-DDU-" rel="noopener">wagnardsoft.com, Display driver uninstaller DDU</a></li><li><a href="https://www.amd.com/en/resources/support-articles/faqs/RSX2-INSTALL.html" rel="noopener">AMD, RSX2 INSTALL</a></li><li><a href="https://www.amd.com/en/resources/support-articles/faqs/GPU-601.html" rel="noopener">AMD</a></li><li><a href="https://support.iracing.com/support/solutions/articles/31000165397-performing-a-clean-install-of-graphics-drivers" rel="noopener">support.iracing.com, 31000165397 performing a clean install of graphics drivers</a></li><li><a href="https://learn.microsoft.com/archive/technet-wiki/53184.show-or-hide-updates-utility-fixing-automatic-installation-of-a-problematic-update-in-windows-10-version-1903" rel="noopener">Microsoft Learn, 53184.show or hide updates utility fixing automatic installation of a problematic update in windows 10 version</a></li><li><a href="https://pureinfotech.com/show-hide-updates-windows-11/" rel="noopener">Pureinfotech, Show hide updates windows</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Why are games crashing after an NVIDIA driver update?</summary><p>A new driver changes how every game talks to the GPU, and a bug in it can crash some games and not others. NVIDIA lists known problems as open issues in each driver's release notes and often ships a hotfix driver for the worst ones.</p></details><details class="qa"><summary>Why does my graphics driver keep crashing?</summary><p>The usual causes are a bad driver version, leftovers from older drivers, an unstable GPU overclock or undervolt, heat, or a power supply that can't hold up under load. Rolling back and doing a clean install rules out the driver. If it still crashes on a driver that used to work, look at clocks, temperatures and power next.</p></details><details class="qa"><summary>Should I use DDU every time I update my graphics driver?</summary><p>No. Its own developer says DDU was designed for cases where the normal driver uninstall fails, and its guide also covers switching between NVIDIA and AMD cards. For an everyday update, the installer's clean install option is enough.</p></details><details class="qa"><summary>Is it safe to roll back a graphics driver?</summary><p>Yes. Roll Back Driver puts back the version Windows kept from before the update, and you can update again whenever you like. If the button is greyed out, Windows didn't keep one, and you install the older version from NVIDIA or AMD instead.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="blue-screen-of-death-causes"><span>Crashes</span><b>Blue screen of death causes on Windows 11, and the three on my PC</b></a><a class="more" href="game-crashes-to-desktop-no-error"><span>Crashes</span><b>Game crashes to desktop with no error? How RigSight finds why</b></a><a class="more" href="pc-restarts-randomly-while-gaming"><span>Crashes</span><b>PC restarts randomly while gaming? Rule things out first</b></a><a class="more" href="find-out-why-pc-crashed"><span>Crashes</span><b>Why did my PC crash? How RigSight caught one on mine</b></a></nav>
   <aside class="get">

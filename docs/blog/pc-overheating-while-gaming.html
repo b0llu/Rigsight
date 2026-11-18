@@ -23,7 +23,6 @@
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "PC overheating while gaming, or just warm? How RigSight tells", "description": "A PC overheating while gaming is usually dust, poor airflow or too many frames. Clean the coolers, cap the frame rate, then check the fans and paste.", "datePublished": "2026-11-04", "dateModified": "2026-11-04", "image": "https://rigsight.app/img/blog/pc-overheating-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/pc-overheating-while-gaming", "keywords": "pc overheating while gaming, how to stop computer from overheating when playing games, how to prevent pc from overheating while gaming, is it normal for pc to get hot when gaming, why does my pc get hot when i play games, laptop overheating when gaming, cpu overheating while gaming"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "PC overheating while gaming, or just warm? How RigSight tells", "item": "https://rigsight.app/blog/pc-overheating-while-gaming"}]}</script>
-  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is it normal for a PC to get hot when gaming?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Games load the GPU and CPU hard, and both turn that power into heat. GPU temperatures in the 60s to 80s \u00b0C and CPU temperatures in the 60s to mid 80s \u00b0C are common. It's overheating when a part sits at its maker's maximum and slows down, or the PC shuts off."}}, {"@type": "Question", "name": "Why does my PC get hot when I play games?", "acceptedAnswer": {"@type": "Answer", "text": "A GPU can draw a few hundred watts in a game, and almost all of it ends up as heat inside the case. If the case can't move that heat out fast enough, everything inside warms up. Dust, blocked vents and uncapped frame rates make it worse."}}, {"@type": "Question", "name": "How do I stop my laptop overheating when gaming?", "acceptedAnswer": {"@type": "Answer", "text": "Play on a hard, flat surface so the vents underneath aren't blocked, clean the vents, cap the frame rate and use the maker's balanced or quiet mode. A stand that lifts the back edge helps air reach the fans."}}, {"@type": "Question", "name": "Can overheating make my PC shut off while gaming?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. When a part reaches a temperature it can't safely run at, the PC can switch itself off to protect it. A sudden power cut looks the same afterwards, so check the temperatures just before the shut-off before blaming heat."}}]}</script>
   <style>
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 300 700; font-display: swap; src: url("../fonts/geist-latin.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("../fonts/geist-mono-latin.woff2") format("woff2"); }
@@ -220,6 +219,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -232,32 +256,11 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-guide"></span>PC problems · Temperatures</p>
   <h1>PC overheating while gaming, or just warm? How RigSight tells</h1>
   <p class="dek">How RigSight tells a PC overheating while gaming from one that is only warm, by setting each game against its own usual. Why PCs get hot in games, and how to stop it, from dust and airflow to frame caps, fan curves and thermal paste.</p>
-  <p class="byline"><b>Dhruv Samant</b> · Updated 4 November 2026 · 7 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 4 November 2026 · 7 min read</p>
   <figure class="cover"><img class="" src="../img/blog/pc-overheating-while-gaming.webp" srcset="../img/blog/pc-overheating-while-gaming-600.webp 600w, ../img/blog/pc-overheating-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Reports for October on the demo PC with an Against your usual table. GPU and CPU in Counter-Strike 2 are 3° cooler, too little to count, and fans and PC problems are as usual" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A PC overheating while gaming is usually dust, poor airflow, or a game running far more frames than your screen shows. Clean the filters and coolers, give the case room to breathe, and cap the frame rate. Check fan curves and paste after that. Compare the same game before and after each change.</p></div>
   <div class="body">
 <p>Your fans roar, the case is warm to the touch, and the frame rate sags after twenty minutes of play. That feels like a PC overheating while gaming, but a hot PC and an overheating PC are different things. A PC is meant to get warm in games. The question is whether yours runs hotter than it used to in the same game, and RigSight answers that from your PC's own history.</p>
-
-<h2>How RigSight caught it</h2>
-
-<p>The picture at the top is RigSight's demo PC, not mine. Its Reports page for October has a table called Against your usual. In Counter-Strike 2, the game it played most that month, its GPU ran at 65° in steady play. Its usual in that game was 66 to 71°, from 46 days and 132 hours of play before. RigSight called that "3° cooler, too little to count". The CPU in the same minutes read the same way, the fans were at their usual speeds and PC problems were as usual. That PC gets warm in games. It isn't overheating.</p>
-
-<p>The comparison is strict on purpose.</p>
-
-<ul>
-  <li>It only uses steady play. That means the GPU at least 80% busy, after the first 10 minutes, so the cooler has warmed up.</li>
-  <li>Both sides need the same GPU power, within 15%. If the game ran much heavier, RigSight doesn't compare it at all.</li>
-  <li>It reads the PC at rest on both sides, so a warmer room isn't blamed on the PC.</li>
-  <li>A game only reads hotter when it is at least 5° warmer, and at least 3° more than the change at rest, with an hour of play now and two hours over three days before.</li>
-</ul>
-
-<p>I built it that strict after RigSight once warned me that a healthy fan was clogging. That story is in <a href="like-for-like">The day RigSight told me my healthy fan was clogged</a>.</p>
-
-<p>When a game does run hotter, RigSight says so in a few places. The PC health card on Home gets one line naming the game, the part, how many degrees hotter at the same power, and the usual range. With no change it says "Temperatures as usual". On the Games page every play keeps its GPU temperature and power, and a play at the usual power says how far it was from that game's usual. So you can see which evening it started.</p>
-
-<figure class="shot"><img src="../img/pages/home.webp" srcset="../img/pages/home-720.webp 720w, ../img/pages/home.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Home page on the demo PC with today&#x27;s activity, CPU and GPU peaks with the app in use, and a PC health card that says temperatures are as usual" loading="lazy" decoding="async"><figcaption>Home on RigSight's demo PC. The PC health card says whether temperatures are as usual for this PC.</figcaption></figure>
-
-<p>If the PC shut off in a game, the crash's close-up says whether it was running hot just before. It also points out that a power cut at the same moment would look the same. You can turn on <strong>Temperature alerts</strong> under <strong>Notifications</strong> in Settings to get a warning that names the game when a part stays over your limit. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>
 
 <h2>Why a PC is overheating while gaming</h2>
 
@@ -296,7 +299,30 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 <p>Test each fix like for like. Use the same game, the same settings and the same scene or map. Play long enough for temperatures to level off, about 10 to 15 minutes, and note how warm the room is, because a room 5°C warmer makes every part run warmer too. A light game in winter against a heavy one in summer will always look like your PC got worse.</p>
 
 <p>Start with the dust and the frame cap tonight. Then play your usual game for 15 minutes and compare the highest temperatures with what you had before.</p>
+
+<h2>How RigSight caught it</h2>
+
+<p>The picture at the top is RigSight's demo PC, not mine. Its Reports page for October has a table called Against your usual. In Counter-Strike 2, the game it played most that month, its GPU ran at 65° in steady play. Its usual in that game was 66 to 71°, from 46 days and 132 hours of play before. RigSight called that "3° cooler, too little to count". The CPU in the same minutes read the same way, the fans were at their usual speeds and PC problems were as usual. That PC gets warm in games. It isn't overheating.</p>
+
+<p>The comparison is strict on purpose.</p>
+
+<ul>
+  <li>It only uses steady play. That means the GPU at least 80% busy, after the first 10 minutes, so the cooler has warmed up.</li>
+  <li>Both sides need the same GPU power, within 15%. If the game ran much heavier, RigSight doesn't compare it at all.</li>
+  <li>It reads the PC at rest on both sides, so a warmer room isn't blamed on the PC.</li>
+  <li>A game only reads hotter when it is at least 5° warmer, and at least 3° more than the change at rest, with an hour of play now and two hours over three days before.</li>
+</ul>
+
+<p>I built it that strict after RigSight once warned me that a healthy fan was clogging. That story is in <a href="like-for-like">The day RigSight told me my healthy fan was clogged</a>.</p>
+
+<p>When a game does run hotter, RigSight says so in a few places. The PC health card on Home gets one line naming the game, the part, how many degrees hotter at the same power, and the usual range. With no change it says "Temperatures as usual". On the Games page every play keeps its GPU temperature and power, and a play at the usual power says how far it was from that game's usual. So you can see which evening it started.</p>
+
+<figure class="shot"><img src="../img/pages/home.webp" srcset="../img/pages/home-720.webp 720w, ../img/pages/home.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Home page on the demo PC with today&#x27;s activity, CPU and GPU peaks with the app in use, and a PC health card that says temperatures are as usual" loading="lazy" decoding="async"><figcaption>Home on RigSight's demo PC. The PC health card says whether temperatures are as usual for this PC.</figcaption></figure>
+
+<p>If the PC shut off in a game, the crash's close-up says whether it was running hot just before. It also points out that a power cut at the same moment would look the same. You can turn on <strong>Temperature alerts</strong> under <strong>Notifications</strong> in Settings to get a warning that names the game when a part stays over your limit. CPU temperature needs RigSight running with admin rights. RigSight is free and open source.</p>
+  <section class="sources"><h2>Sources</h2><ol><li><a href="https://www.intel.com/content/www/us/en/support/articles/000005791/processors.html" rel="noopener">Intel, Processors</a></li><li><a href="https://intel.com/content/www/us/en/support/articles/000088048.html" rel="noopener">intel.com, Content</a></li><li><a href="https://www.intel.com/content/www/us/en/support/articles/000090029.html" rel="noopener">Intel, Content</a></li><li><a href="https://www.amd.com/en/resources/support-articles/faqs/DH-033.html" rel="noopener">AMD</a></li><li><a href="https://www.nvidia.com/content/Control-Panel-Help/vLatest/en-us/mergedProjects/nv3d/Manage_3D_Settings_(reference).htm" rel="noopener">NVIDIA, Manage 3D Settings (reference)</a></li><li><a href="https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7800x3d.html" rel="noopener">AMD, Amd ryzen 7 7800x3d</a></li><li><a href="https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9800x3d.html" rel="noopener">AMD, Amd ryzen 7 9800x3d</a></li><li><a href="https://www.intel.com/content/www/us/en/products/sku/236773/intel-core-i9-processor-14900k-36m-cache-up-to-6-00-ghz/specifications.html" rel="noopener">Intel, Specifications</a></li><li><a href="https://www.intel.com/content/www/us/en/products/sku/241060/intel-core-ultra-9-processor-285k-36m-cache-up-to-5-70-ghz/specifications.html" rel="noopener">Intel, Specifications</a></li><li><a href="https://www.pcworld.com/article/3105980/gpu-running-hot-heres-how-to-diagnose-and-fix-it-yourself.html" rel="noopener">PCWorld, Gpu running hot heres how to diagnose and fix it yourself</a></li><li><a href="https://www.igorslab.de/en/using-a-frame-limiter-might-de-noise-your-gaming-laptop-without-losing-performance-and-its-now-easier-to-do-than-ever-before/" rel="noopener">Igor&#x27;s Lab, Using a frame limiter might de noise your gaming laptop without losing performance and its now easier to do than ever before</a></li><li><a href="https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4070-family/" rel="noopener">NVIDIA, Rtx 4070 family</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Is it normal for a PC to get hot when gaming?</summary><p>Yes. Games load the GPU and CPU hard, and both turn that power into heat. GPU temperatures in the 60s to 80s °C and CPU temperatures in the 60s to mid 80s °C are common. It's overheating when a part sits at its maker's maximum and slows down, or the PC shuts off.</p></details><details class="qa"><summary>Why does my PC get hot when I play games?</summary><p>A GPU can draw a few hundred watts in a game, and almost all of it ends up as heat inside the case. If the case can't move that heat out fast enough, everything inside warms up. Dust, blocked vents and uncapped frame rates make it worse.</p></details><details class="qa"><summary>How do I stop my laptop overheating when gaming?</summary><p>Play on a hard, flat surface so the vents underneath aren't blocked, clean the vents, cap the frame rate and use the maker's balanced or quiet mode. A stand that lifts the back edge helps air reach the fans.</p></details><details class="qa"><summary>Can overheating make my PC shut off while gaming?</summary><p>Yes. When a part reaches a temperature it can't safely run at, the PC can switch itself off to protect it. A sudden power cut looks the same afterwards, so check the temperatures just before the shut-off before blaming heat.</p></details></section>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
   <nav class="next rel" aria-label="More on PC problems"><a class="more" href="gpu-thermal-throttling"><span>Temperatures</span><b>GPU thermal throttling, and how to tell if yours is</b></a><a class="more" href="check-gpu-temperature-history"><span>Temperatures</span><b>How to check GPU temperature history without being misled</b></a><a class="more" href="how-to-test-a-new-gpu"><span>Temperatures</span><b>How to test a new PC or GPU you got for Christmas</b></a><a class="more" href="normal-cpu-temp-idle"><span>Temperatures</span><b>Normal CPU temp at idle, and the GPU's, from 150 hours of mine</b></a></nav>
   <aside class="get">

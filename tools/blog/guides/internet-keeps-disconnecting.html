@@ -19,16 +19,6 @@
 -->
 <p>Since October my PC has lost the internet six times. The longest was 44 minutes on the morning of 2 October, and two came within ten minutes of each other on 4 November. In every one, the PC's own connection to the network was fine. The internet went somewhere past it. When your internet keeps disconnecting on PC, that's the first thing to find out, because the fix for each side is different.</p>
 
-<h2>How RigSight caught it</h2>
-
-<p>RigSight watches the connection the same way the taskbar's network icon does, and checks it against what actually moved. A "drop" while apps were still downloading is Windows' check being wrong, so it doesn't count. Drops under 10 seconds don't count either, since Windows' own check flickers now and then. Neither does the first minute and a half after the PC starts or wakes, while the network is still coming up.</p>
-
-<p>Each drop gets one of two kinds. Either the cable or Wi-Fi itself went, or the PC stayed connected and the internet went past it, at the router or the provider. All six of mine were the second kind. That rules out my network card, its driver and my cable in one go.</p>
-
-<p>Since version 1.4.0 RigSight also tells you as it happens. Once a drop has lasted 15 seconds you get "Your internet is down", and when it comes back, how long it was gone. If the third drop comes within 10 minutes, you get one "Your internet keeps dropping" instead of a pile of notices. RigSight also pings your router every 5 seconds. During a drop where the router still answers, the notice says "Your router is reachable, but there's no internet connection". That points straight at the provider or the line into your home. You can turn the alerts off with <b>Internet drop alerts</b> in Settings.</p>
-
-<p>On the Network page, a strip under the graph shows when the internet was up and when it dropped, with Windows' own icon for each kind. Every drop is also listed under What happened, so you have the dates and how long each lasted when you call your provider. My pings to the provider also showed short spikes while big downloads ran, which is a different problem covered in <a href="ping-spikes-while-gaming">ping spikes while gaming</a>. RigSight is free and open source.</p>
-
 <h2>Why the internet keeps disconnecting</h2>
 
 <p>These are the usual reasons, split by side.</p>
@@ -66,5 +56,16 @@
   <li>Look for a firmware update in the router's own settings page.</li>
   <li>Write down when each drop happened and how long it lasted, and call your provider. A list of dates and times gets taken more seriously than "it keeps dropping".</li>
 </ol>
+
+<h2>How RigSight caught it</h2>
+
+<p>RigSight watches the connection the same way the taskbar's network icon does, and checks it against what actually moved. A "drop" while apps were still downloading is Windows' check being wrong, so it doesn't count. Drops under 10 seconds don't count either, since Windows' own check flickers now and then. Neither does the first minute and a half after the PC starts or wakes, while the network is still coming up.</p>
+
+<p>Each drop gets one of two kinds. Either the cable or Wi-Fi itself went, or the PC stayed connected and the internet went past it, at the router or the provider. All six of mine were the second kind. That rules out my network card, its driver and my cable in one go.</p>
+
+<p>Since version 1.4.0 RigSight also tells you as it happens. Once a drop has lasted 15 seconds you get "Your internet is down", and when it comes back, how long it was gone. If the third drop comes within 10 minutes, you get one "Your internet keeps dropping" instead of a pile of notices. RigSight also pings your router every 5 seconds. During a drop where the router still answers, the notice says "Your router is reachable, but there's no internet connection". That points straight at the provider or the line into your home. You can turn the alerts off with <b>Internet drop alerts</b> in Settings.</p>
+
+<p>On the Network page, a strip under the graph shows when the internet was up and when it dropped, with Windows' own icon for each kind. Every drop is also listed under What happened, so you have the dates and how long each lasted when you call your provider. My pings to the provider also showed short spikes while big downloads ran, which is a different problem covered in <a href="ping-spikes-while-gaming">ping spikes while gaming</a>. RigSight is free and open source.</p>
+
 
 <p>Your next step is to catch the next drop and see which side it is. Once you know that, you only have half the list to work through.</p>

@@ -68,19 +68,6 @@
 -->
 <p>A commenter told me their Windows power plan kept switching from High performance to Balanced on its own, and they couldn't tell when it happened. That is the trouble with FPS drops in games. The cause usually changes quietly, before you start looking. It can be a power plan, a driver, a Windows update, a background download or a warm room. By the time the game feels slow, the moment that caused it is gone.</p>
 
-<h2>How RigSight catches an FPS drop</h2>
-
-<p>The power plan now has its own line on RigSight's Timeline. Every switch is listed with the day and time and what the plan was before, next to every driver, Windows update and setting change. So a drop that started on Thursday can be laid next to whatever changed on Thursday.</p>
-
-
-<p>RigSight is free and open source, and it records each play of each game on its Games page, so you can look back at a drop after it happened. A game's page shows How it runs, a chart of the average FPS and the 1% low of every play, with a mark wherever a graphics driver or a game update came between two plays. Since the last update compares the frame rate of the plays before and after the game's last update. The frame rate comes from RivaTuner Statistics Server, which has to be running before the game starts. The Games page has a button to install or start it.</p>
-
-{{fig pages/game | RigSight's How it runs chart for a game, average FPS and 1% low per play with a graphics driver marked between plays | RigSight's How it runs chart on a game's page, with each play's average FPS and 1% low and a graphics driver install marked between plays.}}
-
-<p>Under it, Every play lists each session with its FPS and 1% low, and puts Windows updates, graphics drivers, BIOS updates, hardware changes and game updates between the plays where they happened. If the numbers fell right after one of them, you know where to start. The Heat and power card shows the GPU and CPU temperature while playing against what is usual for this game, the hot spot peak, and how much graphics memory the game used, its own share where Windows reports it. The CPU temperature needs RigSight to run with admin rights.</p>
-
-<p>The Timeline lists every driver, Windows update and setting change by day, including the power plan. While you play, RigSight's overlay can show frame rate, GPU load, temperatures and video memory, inside exclusive fullscreen games too through RivaTuner.</p>
-
 <h2>Why FPS drops in games happen</h2>
 
 <p>FPS drops in games feel random, but they almost never are. Something takes a share of the PC away from the game. It may be heat, another app, a power setting, a driver, or settings that ask for more graphics memory than your card has. The fix depends on which one it is, so the first job is to measure, not to tweak.</p>
@@ -162,3 +149,15 @@
 
 <p>Start with the pattern. Play one normal session with a counter on, note when the frames fall and what the GPU load and temperature were at that moment, and work through the matching section of this post.</p>
 
+<h2>How RigSight catches an FPS drop</h2>
+
+<p>The power plan now has its own line on RigSight's Timeline. Every switch is listed with the day and time and what the plan was before, next to every driver, Windows update and setting change. So a drop that started on Thursday can be laid next to whatever changed on Thursday.</p>
+
+
+<p>RigSight is free and open source, and it records each play of each game on its Games page, so you can look back at a drop after it happened. A game's page shows How it runs, a chart of the average FPS and the 1% low of every play, with a mark wherever a graphics driver or a game update came between two plays. Since the last update compares the frame rate of the plays before and after the game's last update. The frame rate comes from RivaTuner Statistics Server, which has to be running before the game starts. The Games page has a button to install or start it.</p>
+
+{{fig pages/game | RigSight's How it runs chart for a game, average FPS and 1% low per play with a graphics driver marked between plays | RigSight's How it runs chart on a game's page, with each play's average FPS and 1% low and a graphics driver install marked between plays.}}
+
+<p>Under it, Every play lists each session with its FPS and 1% low, and puts Windows updates, graphics drivers, BIOS updates, hardware changes and game updates between the plays where they happened. If the numbers fell right after one of them, you know where to start. The Heat and power card shows the GPU and CPU temperature while playing against what is usual for this game, the hot spot peak, and how much graphics memory the game used, its own share where Windows reports it. The CPU temperature needs RigSight to run with admin rights.</p>
+
+<p>The Timeline lists every driver, Windows update and setting change by day, including the power plan. While you play, RigSight's overlay can show frame rate, GPU load, temperatures and video memory, inside exclusive fullscreen games too through RivaTuner.</p>

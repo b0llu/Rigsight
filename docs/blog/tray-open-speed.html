@@ -218,6 +218,31 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 
 
+/* 2026-11-18, from the ChatGPT review: a picture from the web with its credit, a post's test setup, its sources and
+   who wrote it (mock-up F3fofACS5MB9NhTpRszA6Q). */
+.byline a[rel="author"] { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.byline a[rel="author"]:hover { border-bottom-color: var(--fg); }
+.webimg { margin: 32px 0; }
+.webimg img { display: block; width: 100%; height: auto; max-height: 560px; object-fit: contain; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.webimg figcaption a { color: var(--muted); }
+.testbed { background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 20px; margin: 24px 0; }
+.testbed .testbed-k { font: 500 12px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; }
+.testbed dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-variant-numeric: tabular-nums; }
+.testbed dt { color: var(--faint); }
+.testbed dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.sources { margin-top: 2.4em; }
+.sources ol { padding-left: 20px; margin: 0; }
+.sources li { margin: .35em 0; color: var(--muted); overflow-wrap: anywhere; }
+.authorbox { display: flex; gap: 16px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-top: 2.4em; }
+.authorbox .avatar { flex: none; width: 52px; height: 52px; border-radius: 50%; background: rgba(34,211,238,.12); color: var(--gpu); display: grid; place-items: center; font: 700 17px/1 var(--display); }
+.authorbox b { color: var(--fg); }
+.authorbox p { margin: .25em 0 0; color: var(--text); font-size: 15.5px; }
+.body table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 20px 0; }
+.body th, .body td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.body th { color: var(--faint); font-weight: 500; font-size: 14px; }
+.tbl { overflow-x: auto; }
+@media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
+
   </style>
 </head>
 <body>
@@ -230,7 +255,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
   <h1>Why opening RigSight from the tray waited up to a second</h1>
   <p class="dek">Every time you opened RigSight from the tray, a notification or a widget, it waited 290 ms to over a second before the window even started. The tests never saw it, because they started the window another way. How 1.11.0 cut it to tens of milliseconds.</p>
-  <p class="byline"><b>Dhruv Samant</b> · 12 November 2026 · Version 1.11.0 · 3 min read</p>
+  <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · 12 November 2026 · Version 1.11.0 · 3 min read</p>
   <figure class="cover"><img class="" src="../img/blog/tray-open-speed.webp" srcset="../img/blog/tray-open-speed-600.webp 600w, ../img/blog/tray-open-speed.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Tray open, before: 1,150 ms, at worst, as administrator. Tray open, 1.11.0: 23 ms, at best on my PC" fetchpriority="high" decoding="async"></figure>
   <div class="short"><p class="short-k">The short version</p><p>RigSight's background part runs as administrator, so it asked a new copy of Explorer to start the window with normal rights. That hop took 290 ms to over a second. In 1.11.0 it asks the desktop's own Explorer directly, and on my PC the window now starts 23 to 92 ms after the click.</p></div>
   <div class="body">
@@ -263,8 +288,9 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 <p>The same release counts Storage's space you could free faster, by recounting only the folders that changed since the last count. On my folders that went from about 3.8 seconds of CPU time to under 0.1 when nothing had changed. The window also compiles about a third fewer methods while opening, because the messages between the two programs are now read with generated code.</p>
 
 <p>The lesson I took is about where I measure. The tests timed everything they could reach, and the slowest part sat just outside them. Now the log times the real click, so the next time something like this creeps in, it shows up where I'll see it.</p>
+  <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
   </div>
-  <nav class="next" aria-label="More posts"><a class="more" href="numbers-that-couldnt-be-true"><span>Before this</span><b>Two numbers from my own PC that couldn't be true</b></a><a class="more" href="pc-year-in-review"><span>What happened next</span><b>A year in review from your own PC, not only Steam</b></a></nav>
+  <nav class="next" aria-label="More posts"><a class="more" href="numbers-that-couldnt-be-true"><span>Before this</span><b>My PC reported 146 GB of VRAM. Here's what happened</b></a><a class="more" href="pc-year-in-review"><span>What happened next</span><b>A year in review from your own PC, not only Steam</b></a></nav>
   <aside class="get">
     <img src="../img/logo-144.webp" alt="" width="40" height="40">
     <p><b>RigSight is free and open source.</b> It records your PC's temperatures, app time, internet use and crashes, and keeps them as history on your PC.</p>
