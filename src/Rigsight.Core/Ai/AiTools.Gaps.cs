@@ -20,7 +20,7 @@ public sealed partial class AiTools
     private const int MostGaps = 6;
 
     /// <summary>
-    /// When RigSight's records on this PC begin (Unix seconds): the first minute, when it's in the first hour of the app
+    /// When our records on this PC begin (Unix seconds): the first minute, when it's in the first hour of the app
     /// totals (those are by the hour), as <see cref="Began"/> and <see cref="RecordsFrom"/> read it. Null: nothing yet.
     /// </summary>
     internal static long? RecordingStart(RigsightDb db) =>
@@ -31,7 +31,7 @@ public sealed partial class AiTools
     /// in it with no records, said whole, with what can be known of why. "" when the records cover it.
     /// </summary>
     /// <param name="began">Whether to say that recording began inside or after the period (get_report and get_crashes say it themselves).</param>
-    /// <param name="crashes">For get_crashes: the crashes in a stretch come from Windows' logs, without RigSight's readings around them.</param>
+    /// <param name="crashes">For get_crashes: the crashes in a stretch come from Windows' logs, without our readings around them.</param>
     private string NotRecorded(RigsightDb db, DateTime from, DateTime to, bool began = true, bool crashes = false)
     {
         if (to < from) (from, to) = (to, from);
@@ -42,8 +42,8 @@ public sealed partial class AiTools
         {
             var at = TimeUtil.FromUnix(start);
             sb.AppendLine(start >= t
-                ? $"NOT RECORDED: RigSight's records on this PC begin {GapTime(at)}, after this period, so nothing in it was recorded. Say that, not that nothing happened."
-                : $"NOT RECORDED: RigSight's records on this PC begin {GapTime(at)}; nothing before then in this period was recorded.");
+                ? $"NOT RECORDED: Our records on this PC begin {GapTime(at)}, after this period, so nothing in it was recorded. Say that, not that nothing happened."
+                : $"NOT RECORDED: Our records on this PC begin {GapTime(at)}; nothing before then in this period was recorded.");
         }
         long end = Math.Min(t, now);
         var gaps = db.GetMinuteGaps(f, t, GapSeconds, now)
@@ -72,8 +72,8 @@ public sealed partial class AiTools
         string span = Length(stop - start);
         var sb = new StringBuilder();
         sb.Append(end is long e
-            ? $"RigSight has no records from {GapTime(TimeUtil.FromUnix(start))} to {GapTime(TimeUtil.FromUnix(e))} ({span})"
-            : $"RigSight has no records since {GapTime(TimeUtil.FromUnix(start))} ({span} up to now)");
+            ? $"We have no records from {GapTime(TimeUtil.FromUnix(start))} to {GapTime(TimeUtil.FromUnix(e))} ({span})"
+            : $"We have no records since {GapTime(TimeUtil.FromUnix(start))} ({span} up to now)");
         if (periodFrom is long pf && periodTo is long pt) sb.Append(start <= pf && stop >= pt ? ", which is all of this period" : ", which covers part of this period");
         sb.Append(". ");
 
@@ -95,13 +95,13 @@ public sealed partial class AiTools
             }
         }
         if (on.Count > 0)
-            sb.Append($"Windows' own logs show the PC was on during it ({string.Join("; ", on)}), so RigSight wasn't recording for at least part of it. ");
+            sb.Append($"Windows' own logs show the PC was on during it ({string.Join("; ", on)}), so we weren't recording for at least part of it. ");
         else if (end is null && Recording?.Invoke() == false)
             sb.Append("RigSight's background agent, which records, isn't running now, so nothing is being recorded. ");
         else
-            sb.Append("The PC was off or asleep, or RigSight wasn't recording; its records can't tell which, so don't say which. ");
+            sb.Append("The PC was off or asleep, or we weren't recording; its records can't tell which, so don't say which. ");
         sb.Append(crashes
-            ? "Crashes in that time come from Windows' own logs, without RigSight's readings around them (temperatures, load, the app in front), so those can't be checked for them."
+            ? "Crashes in that time come from Windows' own logs, without our readings around them (temperatures, load, the app in front), so those can't be checked for them."
             : "Temperatures, loads and apps in that time can't be checked: say so when the question touches it, and never read the missing time as nothing happening.");
         return sb.ToString();
     }

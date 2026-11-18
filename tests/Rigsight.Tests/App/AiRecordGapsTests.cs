@@ -39,7 +39,7 @@ public sealed class AiRecordGapsTests : IDisposable
         more?.Invoke(w);
     }
 
-    private const string Gap = "RigSight has no records from Thu 15 Oct 2026 11:45 AM to Sat 7 Nov 2026 1:06 AM (22 days 13 hours)";
+    private const string Gap = "We have no records from Thu 15 Oct 2026 11:45 AM to Sat 7 Nov 2026 1:06 AM (22 days 13 hours)";
 
     [Theory]
     [InlineData("get_temperatures")]
@@ -79,7 +79,7 @@ public sealed class AiRecordGapsTests : IDisposable
 
         string said = Tools().Run("get_temperatures", """{"from":"2026-10-20","to":"2026-11-08"}""");
 
-        Assert.Contains("Windows' own logs show the PC was on during it (1 app crash or freeze, the first on 20 Oct; 1 driver or Windows update installed, the first on 22 Oct), so RigSight wasn't recording for at least part of it.", said);
+        Assert.Contains("Windows' own logs show the PC was on during it (1 app crash or freeze, the first on 20 Oct; 1 driver or Windows update installed, the first on 22 Oct), so we weren't recording for at least part of it.", said);
         Assert.DoesNotContain("can't tell which", said);
     }
 
@@ -90,7 +90,7 @@ public sealed class AiRecordGapsTests : IDisposable
 
         string said = Tools().Run("get_crashes", """{"from":"2026-11-01","to":"2026-11-07"}""");
 
-        Assert.Contains("Crashes in that time come from Windows' own logs, without RigSight's readings around them", said);
+        Assert.Contains("Crashes in that time come from Windows' own logs, without our readings around them", said);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public sealed class AiRecordGapsTests : IDisposable
 
         string said = tools.Run("get_temperatures", $$"""{"from":"{{DateTime.Today.AddDays(-1):yyyy-MM-dd}}","to":"{{DateTime.Today:yyyy-MM-dd}}"}""");
 
-        Assert.Contains("RigSight has no records since", said);
+        Assert.Contains("We have no records since", said);
         Assert.Contains("up to now)", said);
         Assert.Contains("RigSight's background agent, which records, isn't running now", said);
     }
@@ -136,7 +136,7 @@ public sealed class AiRecordGapsTests : IDisposable
 
         string said = Tools().Run("get_temperatures", """{"from":"2026-10-01","to":"2026-10-05"}""");
 
-        Assert.Contains("NOT RECORDED: RigSight's records on this PC begin Sat 10 Oct 2026 8:00 PM, after this period", said);
+        Assert.Contains("NOT RECORDED: Our records on this PC begin Sat 10 Oct 2026 8:00 PM, after this period", said);
     }
 
     [Fact]

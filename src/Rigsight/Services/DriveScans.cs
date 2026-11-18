@@ -184,7 +184,7 @@ public static class DriveScans
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Space that could be freed on {letter}: (as RigSight's Storage page lists it{(scanned ? "" : ", without a scan")}; all {Units.Bytes(free.Sum(i => i.Size))}). "
-            + "These are RigSight's own cards with their sizes: take a card's group and size as true.");
+            + "These are our own cards with their sizes: take a card's group and size as true.");
         foreach (var (title, why, size) in free.OrderByDescending(i => i.Size)) sb.AppendLine($"  {title}: {Units.Bytes(size)}. {why}");
         return sb.ToString();
     }

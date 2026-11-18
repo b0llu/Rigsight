@@ -27,7 +27,7 @@ public sealed class AiRunningAndListsTests
 
         string said = Tools(t.Path, snapshot, null).Run("get_running_now", "{}");
 
-        Assert.Contains("RivaTuner Statistics Server (RTSS.exe) is running now: RigSight records every game's frame rate, lows and stutters from it.", said);
+        Assert.Contains("RivaTuner Statistics Server (RTSS.exe) is running now: we record every game's frame rate, lows and stutters from it.", said);
         Assert.Contains("It isn't in the list above only because it uses little memory and CPU.", said);
     }
 

@@ -176,7 +176,7 @@ public sealed partial class AiTools
         string? state = RivaTuner?.Invoke();
         if (rtss is null && state != "running")
             return state is "stopped" or "missing" or "install-failed"
-                ? "RivaTuner Statistics Server isn't running now, so no frame rates are being recorded (RigSight reads them only from it).\n" : "";
+                ? "RivaTuner Statistics Server isn't running now, so no frame rates are being recorded (we read them only from it).\n" : "";
         string fps = "";
         if (settings.Ai.Sends(AiPages.Apps))
             try
@@ -190,7 +190,7 @@ public sealed partial class AiTools
             }
             catch (Exception ex) when (ex is not OutOfMemoryException) { Log.Write("ai", $"running now: the last frame rate couldn't be read ({ex.GetType().Name}: {ex.Message})"); }
         bool listed = rtss is not null && snapshot.Shown().Contains(rtss);
-        return "RivaTuner Statistics Server (RTSS.exe) is running now: RigSight records every game's frame rate, lows and stutters from it."
+        return "RivaTuner Statistics Server (RTSS.exe) is running now: we record every game's frame rate, lows and stutters from it."
             + (listed ? "" : " It isn't in the list above only because it uses little memory and CPU.") + fps + "\n";
     }
 
@@ -238,7 +238,7 @@ public sealed partial class AiTools
             if (last is long b)
                 sb.AppendLine("Nothing was recorded then. " + GapWords(db, b + 60, next, now));
             else
-                sb.AppendLine("Nothing was recorded then: RigSight's records on this PC begin "
+                sb.AppendLine("Nothing was recorded then: our records on this PC begin "
                     + (next is long n ? $"{TimeUtil.FromUnix(n).ToString("ddd d MMM yyyy h:mm tt", CultureInfo.InvariantCulture)}, after this time." : "later.")
                     + " Say that, not that nothing happened.");
         }
@@ -251,7 +251,7 @@ public sealed partial class AiTools
                 sb.AppendLine("The graphics card's power wasn't read in any of these minutes (the card gave no power reading), so it isn't below. Don't guess it.");
             sb.AppendLine("Each recorded minute:");
             if (a.Sends(AiPages.Apps) && minutes.Any(m => m.Fps is not null))
-                sb.AppendLine("  (A minute with fps had RivaTuner Statistics Server running then: RigSight's frame rates come only from it.)");
+                sb.AppendLine("  (A minute with fps had RivaTuner Statistics Server running then: our frame rates come only from it.)");
             foreach (var m in minutes)
             {
                 var parts = new List<string>();
@@ -542,7 +542,7 @@ public sealed partial class AiTools
             sb.AppendLine($"The PC on {said}, day by day (on, and in use):");
             foreach (var d in use) sb.AppendLine($"  {TimeUtil.FromUnix(d.Day):ddd d MMM}: on {Units.Duration(d.OnSec)}, in use {Units.Duration(d.ActiveSec)}");
             int days = (int)Math.Round((Math.Min(t, TimeUtil.ToUnix(DateTime.Today.AddDays(1))) - f) / 86400.0);
-            if (use.Count < days) sb.AppendLine($"The other {days - use.Count} days of the period have nothing recorded: the PC was off or asleep, or RigSight wasn't recording.");
+            if (use.Count < days) sb.AppendLine($"The other {days - use.Count} days of the period have nothing recorded: the PC was off or asleep, or we weren't recording.");
             return sb.ToString();
         }
         var minutes = db.GetMinutes(f, t);
@@ -554,7 +554,7 @@ public sealed partial class AiTools
             if (runs.Count > 0 && m.Ts - runs[^1].End <= 180) runs[^1] = (runs[^1].Start, m.Ts + 60, runs[^1].Active + m.ActiveSec);
             else runs.Add((m.Ts, m.Ts + 60, m.ActiveSec));
         }
-        sb.AppendLine($"The PC on {said}. Between these stretches nothing was recorded: the PC was off or asleep, or RigSight wasn't recording (the records can't tell which):");
+        sb.AppendLine($"The PC on {said}. Between these stretches nothing was recorded: the PC was off or asleep, or we weren't recording (the records can't tell which):");
         if (runs.Count > 40) sb.AppendLine($"  (the newest 40 of {runs.Count} stretches; ask a shorter period for the older ones)");
         foreach (var r in runs.TakeLast(40))
             sb.AppendLine($"  {TimeUtil.FromUnix(r.Start):ddd d MMM h:mm tt} to {TimeUtil.FromUnix(r.End):h:mm tt}: on {Units.Duration(r.End - r.Start)}, in use {Units.Duration(r.Active)}");

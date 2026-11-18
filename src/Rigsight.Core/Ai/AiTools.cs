@@ -545,7 +545,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (NoFrameRate(story) is { } noFps) sb.AppendLine(noFps);
         // RivaTuner was running for any play with a frame rate: the only place RigSight's frame rates come from (audit Q125, Q128).
         if (story.Plays.Any(p => p.Stats.Fps is not null))
-            sb.AppendLine("Every play with an FPS figure had RivaTuner Statistics Server (RTSS) running during it: RigSight's frame rates come only from it. Whether it runs now is in get_running_now.");
+            sb.AppendLine("Every play with an FPS figure had RivaTuner Statistics Server (RTSS) running during it: our frame rates come only from it. Whether it runs now is in get_running_now.");
         if (story.All.FrameMinutes > 0)
             sb.AppendLine("A stutter is one frame taking at least 2.5 times as long as the frames just before it, and at least 20 ms: a hitch you feel. Lows and stutters come from every frame RivaTuner drew; more stutters an hour than the game's own other plays means it ran less smoothly.");
         if (settings.Ai.Sends(AiPages.Memory)) sb.AppendLine("\"Graphics card memory in use\" is the whole card, every app together. \"The game's own video memory\" is the game alone, recorded only for plays from 20 Oct 2026 on: for older plays, check what else was using the card before saying a game uses more.");
