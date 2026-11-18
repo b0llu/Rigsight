@@ -190,8 +190,8 @@ public sealed partial class PlansViewModel : ObservableObject
     private static readonly IReadOnlyList<RelayPlanOffer> Defaults =
     [
         new("free", "Free", "$0", 0, 10, "week", AiPages.DefaultFor(0), "") { Search = false },
-        new("essentials", "Essentials", "$4.99", 499, 100, "day", AiPages.DefaultFor(1), ""),
-        new("complete", "Complete", "$9.99", 999, 300, "day", AiPages.DefaultFor(2), ""),
+        new("essentials", "Essentials", "$2.99", 299, 100, "day", AiPages.DefaultFor(1), ""),
+        new("complete", "Complete", "$5.99", 599, 300, "day", AiPages.DefaultFor(2), ""),
     ];
 
     public IReadOnlyList<PlanColumn> Columns { get; private set; } = [];

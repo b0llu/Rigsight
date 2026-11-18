@@ -187,6 +187,14 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.15.0", 11, 18,
+            better: [Lang.T("Essentials now costs $2.99 a month or $29.99 a year, and Complete $5.99 a month or $59.99 a year."),
+                Lang.T("RigSight AI now says when there are days it has no history for, instead of reading them as a quiet stretch."),
+                Lang.T("RigSight AI sees the cards under Space you could free on Storage, so it can answer about them."),
+                Lang.T("RigSight AI knows when RivaTuner is giving your frame rates, and whether your PC is a laptop or a desktop."),
+                Lang.T("RigSight AI can tell a CPU temperature that spiked for a minute from one that stayed high, and names the app in front at each peak."),
+                Lang.T("Asked about a part you swapped, RigSight AI now knows what it was before."),
+                Lang.T("Network now finds a call in Discord even when nobody is talking, and times the call's ping from its own traffic.")]),
         V("1.14.0", 11, 17,
             feature: new(Lang.T("Ping to your games"), Lang.T("See the ping to the server your game, call or remote play uses, not just your provider."),
                 [Lang.T("Network shows that server's ping after your router and your provider, with its usual and how many checks were lost."),
