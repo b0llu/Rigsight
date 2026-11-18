@@ -200,7 +200,9 @@
                                            Visibility="{Binding Stalled, Converter={StaticResource Vis}}" />
                             </StackPanel>
                         </Border>
-                        <DockPanel Grid.Column="1" Margin="22,16,8,14">
+                        <!-- As tall as the speeds and chart beside it, never taller: more apps scroll inside it and the card keeps its height. -->
+                        <ctl:TakeRowHeight Grid.Column="1">
+                        <DockPanel Margin="22,16,8,14">
                             <DockPanel DockPanel.Dock="Top" Margin="0,0,12,6">
                                 <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'PING'}" Style="{StaticResource Caption}" Width="64" TextAlignment="Right" />
                                 <TextBlock DockPanel.Dock="Right" Text="↑" Style="{StaticResource Caption}" Width="72" TextAlignment="Right" />
@@ -212,7 +214,7 @@
                             <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Each app\'s speed shows here while RigSight runs with admin rights.'}" Style="{StaticResource Note}"
                                        Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                             <!-- More apps than fit scroll inside the card. -->
-                            <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" MaxHeight="200">
+                            <ScrollViewer Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding UsingNow}" Focusable="False" Margin="0,0,12,0" AutomationProperties.Name="{ctl:T 'Using it now'}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:NetLiveRow}">
@@ -256,6 +258,7 @@
                                 </ItemsControl>
                             </ScrollViewer>
                         </DockPanel>
+                        </ctl:TakeRowHeight>
                     </Grid>
                 </DockPanel>
             </ctl:SmoothBorder>
