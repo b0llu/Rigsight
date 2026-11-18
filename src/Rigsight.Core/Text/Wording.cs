@@ -4,7 +4,7 @@ namespace Rigsight.Core;
 
 /// <summary>
 /// The app's words for the ideas it says on more than one page, kept in one place so every page, notification and
-/// export says them the same way (the rule set is WORDING.md at the repo root; a test fails on the forms it retired).
+/// export says them the same way (the rule set is WORDING.md, kept with the tests outside this repo; a test there fails on the forms it retired).
 /// </summary>
 public static class Wording
 {
