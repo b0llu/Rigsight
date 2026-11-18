@@ -1596,6 +1596,24 @@ public sealed partial class RigsightDb : IDisposable
     }
 
     /// <summary>
+    /// The minutes in a range whose highest CPU reading was at least <paramref name="atLeast"/>, oldest first, with only
+    /// what the AI's heat line needs (the time, the CPU's average and highest, its load, power and clock): a period's hot
+    /// minutes without reading every minute of it.
+    /// </summary>
+    public List<SystemMinute> GetHotCpuMinutes(long from, long to, double atLeast)
+    {
+        using var cmd = Cmd($"""
+            SELECT ts, cpu_temp, cpu_temp_max, cpu_load, cpu_power, {(HasClocks ? "cpu_clock" : "NULL")}
+            FROM system_minute WHERE ts >= $from AND ts < $to AND cpu_temp_max >= $t ORDER BY ts
+            """, ("$from", from), ("$to", to), ("$t", atLeast));
+        using var r = cmd.ExecuteReader();
+        var list = new List<SystemMinute>();
+        while (r.Read())
+            list.Add(new SystemMinute { Ts = r.GetInt64(0), CpuTemp = D(r, 1), CpuTempMax = D(r, 2), CpuLoad = D(r, 3), CpuPower = D(r, 4), CpuClock = D(r, 5) });
+        return list;
+    }
+
+    /// <summary>
     /// The last day before <paramref name="before"/> (a local midnight) with at least <paramref name="minActiveSec"/> of
     /// use: its local midnight (Unix seconds), if any.
     /// </summary>

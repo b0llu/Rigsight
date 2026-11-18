@@ -267,6 +267,7 @@ public sealed partial class AiTools
                 if (a.Sends(AiPages.Reports) && m.ActiveSec == 0) parts.Add("nobody at the PC");
                 sb.AppendLine($"  {TimeUtil.FromUnix(m.Ts):h:mm tt}: {string.Join("; ", parts)}");
             }
+            if (a.Sends(AiPages.Temperatures) && CpuHeatInMinutes(minutes) is { Length: > 0 } heat) sb.AppendLine(heat);
             if (a.Sends(AiPages.Temperatures))
             {
                 var fans = db.GetFans().ToDictionary(f => f.Id);
@@ -327,6 +328,7 @@ public sealed partial class AiTools
             sb.AppendLine($"{part} peak: {v:0} °C{when}.");
         }
         Peak("CPU", "cpu_temp_max", "cpu_app", range.CpuMax);
+        if (CpuHeatInPeriod(db, f, t) is { Length: > 0 } heat) sb.AppendLine(heat);
         Peak("GPU", "gpu_temp_max", "gpu_app", range.GpuMax);
         if (range.HotMax is double hot) sb.AppendLine($"GPU hot spot peak: {hot:0} °C.");
         sb.AppendLine("For how this compares with the PC's usual, see get_report for the same period.");
