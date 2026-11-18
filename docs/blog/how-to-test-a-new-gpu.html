@@ -15,11 +15,14 @@
   <meta property="og:description" content="How to test a new GPU or PC in its first week. Check it&#x27;s detected, play your heaviest game, watch temperatures and crashes, and keep a baseline for later." />
   <meta property="og:url" content="https://rigsight.app/blog/how-to-test-a-new-gpu" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <meta property="og:image" content="https://rigsight.app/img/blog/how-to-test-a-new-gpu.webp" />
+  <meta property="og:image" content="https://rigsight.app/img/blog/how-to-test-a-new-gpu-og.jpg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="800" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A graphics card with three fans on a dark background" />
+  <meta name="twitter:image" content="https://rigsight.app/img/blog/how-to-test-a-new-gpu-og.jpg" />
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "How to test a new PC or GPU you got for Christmas", "description": "How to test a new GPU or PC in its first week. Check it's detected, play your heaviest game, watch temperatures and crashes, and keep a baseline for later.", "datePublished": "2026-11-17", "dateModified": "2026-11-17", "image": "https://rigsight.app/img/blog/how-to-test-a-new-gpu.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/how-to-test-a-new-gpu", "keywords": "how to test a new gpu, new pc, after installing new gpu what to do, how to stress test a new gpu, how to test if new gpu is working, new pc checklist, what to do after building a new pc, how to check used gpu before buying, games to test a new gpu, new gpu what to do"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "How to test a new PC or GPU you got for Christmas", "item": "https://rigsight.app/blog/how-to-test-a-new-gpu"}]}</script>
@@ -111,7 +114,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -244,6 +247,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -257,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>How to test a new PC or GPU you got for Christmas</h1>
   <p class="dek">A new GPU or PC is easiest to check in its first week, while it can still go back, and its first two weeks become the normal you compare against for years. How to test a new GPU or PC, what to look at on a used one, and what RigSight records from day one.</p>
   <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 17 November 2026 · 4 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/how-to-test-a-new-gpu.webp" srcset="../img/blog/how-to-test-a-new-gpu-600.webp 600w, ../img/blog/how-to-test-a-new-gpu.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="GPU, first two weeks: 68.0°C, gaming, about 290 W. GPU, last two weeks: 69.6°C, gaming, about 280 W" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/how-to-test-a-new-gpu.webp" srcset="../img/blog/how-to-test-a-new-gpu-600.webp 600w, ../img/blog/how-to-test-a-new-gpu.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="675" alt="A graphics card with three fans on a dark background" fetchpriority="high" decoding="async"><figcaption>Photo: <a href="https://commons.wikimedia.org/wiki/File:RTX_4070_Ti_SUPER_im_Vergleich_mit_anderen_RTX_40er-Karten_(%E6%9E%81%E5%AE%A2%E6%B9%BEGeekerwan)_001.png" rel="noopener">极客湾Geekerwan</a>, CC BY 3.0, via Wikimedia Commons</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>To test a new GPU, install its latest driver, check Task Manager shows its full name and memory, then play your heaviest game for 30 minutes with an overlay on. Watch the GPU temperature, hot spot and memory temperature, the frame rate, and whether anything crashes. Do it in the first week, while it can still go back.</p></div>
   <div class="body">
 <p>On 14 November I put 32 GB of memory in my PC, up from 16. RigSight's Timeline lists that day as "Memory changed to 32 GB", and from then on, everything it records is the PC with the new part. That's worth knowing if a new GPU or a whole new PC turns up this Christmas. Its first week is when you can still send it back, and its first two weeks become the normal you'll compare it against for years. Here's how to test a new GPU or PC while both still matter.</p>
@@ -348,15 +369,6 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('scroll', tick, { passive: true });
   addEventListener('resize', tick);
   window.__tick = tick; tick();
-})();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

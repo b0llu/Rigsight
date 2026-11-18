@@ -15,11 +15,14 @@
   <meta property="og:description" content="GPU thermal throttling is the GPU lowering its clocks to stay under its temperature limit. How to check if your GPU is throttling, and how to fix it." />
   <meta property="og:url" content="https://rigsight.app/blog/gpu-thermal-throttling" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <meta property="og:image" content="https://rigsight.app/img/blog/gpu-thermal-throttling.webp" />
+  <meta property="og:image" content="https://rigsight.app/img/blog/gpu-thermal-throttling-og.jpg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="800" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Close-up of a graphics card&#x27;s three fans" />
+  <meta name="twitter:image" content="https://rigsight.app/img/blog/gpu-thermal-throttling-og.jpg" />
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "GPU thermal throttling, and how to tell if yours is", "description": "GPU thermal throttling is the GPU lowering its clocks to stay under its temperature limit. How to check if your GPU is throttling, and how to fix it.", "datePublished": "2026-11-09", "dateModified": "2026-11-09", "image": "https://rigsight.app/img/blog/gpu-thermal-throttling.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/gpu-thermal-throttling", "keywords": "gpu thermal throttling, is my gpu thermal throttling, how to check if gpu is throttling, gpu thermal throttling temp, gpu thermal throttling symptoms, gpu thermal throttling fix, how to check if gpu is power throttling"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "GPU thermal throttling, and how to tell if yours is", "item": "https://rigsight.app/blog/gpu-thermal-throttling"}]}</script>
@@ -111,7 +114,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -244,6 +247,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -257,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>GPU thermal throttling, and how to tell if yours is</h1>
   <p class="dek">In 5,128 minutes of heavy load my GPU never passed 73°C, so it never had a reason to slow down. What GPU thermal throttling is, how RigSight tells it apart from normal boost and power limits, and how to check and fix it.</p>
   <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 9 November 2026 · 3 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/gpu-thermal-throttling.webp" srcset="../img/blog/gpu-thermal-throttling-600.webp 600w, ../img/blog/gpu-thermal-throttling.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Hottest heavy minute on my GPU: 73°C, in 5,128 minutes at 80% load or more" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/gpu-thermal-throttling.webp" srcset="../img/blog/gpu-thermal-throttling-600.webp 600w, ../img/blog/gpu-thermal-throttling.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="675" alt="Close-up of a graphics card&#x27;s three fans" fetchpriority="high" decoding="async"><figcaption>Photo: <a href="https://commons.wikimedia.org/wiki/File:MSI_GeForce_RTX_3070_VENTUS_3X_OC.jpg" rel="noopener">TheStriker</a>, CC BY 4.0, via Wikimedia Commons</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>GPU thermal throttling is the GPU lowering its clock speed to stay under its maker's temperature limit, so the frame rate drops after a few minutes of play. To check, watch the GPU's temperature and clock in the same game. Clocks falling while the temperature sits at its limit is throttling. Clean the cooler, improve airflow and cap the frame rate.</p></div>
   <div class="body">
 <p>In 5,128 minutes with my GPU at least 80% busy, the hottest it got was 73°C, in No Man's Sky on 7 October. RigSight starts looking for GPU thermal throttling at 83°C, so my card never had a reason to slow itself down. That's what most healthy PCs look like. Throttling is worth knowing about because when it does happen, it looks like the game got slower for no reason.</p>
@@ -334,15 +355,6 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('scroll', tick, { passive: true });
   addEventListener('resize', tick);
   window.__tick = tick; tick();
-})();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

@@ -15,11 +15,14 @@
   <meta property="og:description" content="FPS drops that start after 10 or 20 minutes point to heat. Low GPU load points to the CPU or a cap. How to find what causes FPS drops in games, and fix it." />
   <meta property="og:url" content="https://rigsight.app/blog/fps-drops-in-games" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <meta property="og:image" content="https://rigsight.app/img/blog/fps-drops-in-games.webp" />
+  <meta property="og:image" content="https://rigsight.app/img/blog/fps-drops-in-games-og.jpg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="800" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A gaming keyboard lit in several colours" />
+  <meta name="twitter:image" content="https://rigsight.app/img/blog/fps-drops-in-games-og.jpg" />
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "FPS drops in games and how to catch what causes them", "description": "FPS drops that start after 10 or 20 minutes point to heat. Low GPU load points to the CPU or a cap. How to find what causes FPS drops in games, and fix it.", "datePublished": "2026-10-26", "dateModified": "2026-10-26", "image": "https://rigsight.app/img/blog/fps-drops-in-games.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/fps-drops-in-games", "keywords": "fps drops in games, fps drops in games all of a sudden, fps drop in games after windows update, why my fps drops in games, fps drops in games windows 11, fps drops in game while streaming"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "FPS drops in games and how to catch what causes them", "item": "https://rigsight.app/blog/fps-drops-in-games"}]}</script>
@@ -111,7 +114,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -244,6 +247,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -257,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>FPS drops in games and how to catch what causes them</h1>
   <p class="dek">FPS drops in games come from heat, background apps, power settings, drivers, a full graphics memory or a frame cap. How RigSight records every play so you can see which one, and how to fix it.</p>
   <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 26 October 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/fps-drops-in-games.webp" srcset="../img/blog/fps-drops-in-games-600.webp 600w, ../img/blog/fps-drops-in-games.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Dota 2 on RigSight&#x27;s Games page: How it runs with a 235 fps average, a 170 fps 1% low and a driver update marked on the chart, above the Can it run better card" fetchpriority="high" decoding="async"><figcaption>RigSight's How it runs chart on a game's page, with each play's average FPS and 1% low and a graphics driver install marked between plays.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/fps-drops-in-games.webp" srcset="../img/blog/fps-drops-in-games-600.webp 600w, ../img/blog/fps-drops-in-games.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="675" alt="A gaming keyboard lit in several colours" fetchpriority="high" decoding="async"><figcaption>Photo: <a href="https://commons.wikimedia.org/wiki/File:Mars_Gaming-_MK6_gaming_keyboard.jpg" rel="noopener">Jorge Franganillo</a>, CC BY 2.0, via Wikimedia Commons</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Measure before you change anything. Turn on an FPS counter with GPU load and temperature, then watch when the drop happens. A drop after 10 or 20 minutes points to heat. Low GPU load points to the CPU or a cap. A drop that started on one day points to an update or a driver.</p></div>
   <div class="body">
 <p>A commenter told me their Windows power plan kept switching from High performance to Balanced on its own, and they couldn't tell when it happened. That is the trouble with FPS drops in games. The cause usually changes quietly, before you start looking. It can be a power plan, a driver, a Windows update, a background download or a warm room. By the time the game feels slow, the moment that caused it is gone.</p>
@@ -350,6 +371,8 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>RigSight is free and open source, and it records each play of each game on its Games page, so you can look back at a drop after it happened. A game's page shows How it runs, a chart of the average FPS and the 1% low of every play, with a mark wherever a graphics driver or a game update came between two plays. Since the last update compares the frame rate of the plays before and after the game's last update. The frame rate comes from RivaTuner Statistics Server, which has to be running before the game starts. The Games page has a button to install or start it.</p>
 
+<figure class="shot"><img src="../img/pages/game.webp" srcset="../img/pages/game-720.webp 720w, ../img/pages/game.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s How it runs chart for a game, average FPS and 1% low per play with a graphics driver marked between plays" loading="lazy" decoding="async"><figcaption>RigSight's How it runs chart on a game's page, with each play's average FPS and 1% low and a graphics driver install marked between plays.</figcaption></figure>
+
 <p>Under it, Every play lists each session with its FPS and 1% low, and puts Windows updates, graphics drivers, BIOS updates, hardware changes and game updates between the plays where they happened. If the numbers fell right after one of them, you know where to start. The Heat and power card shows the GPU and CPU temperature while playing against what is usual for this game, the hot spot peak, and how much graphics memory the game used, its own share where Windows reports it. The CPU temperature needs RigSight to run with admin rights.</p>
 
 <p>The Timeline lists every driver, Windows update and setting change by day, including the power plan. While you play, RigSight's overlay can show frame rate, GPU load, temperatures and video memory, inside exclusive fullscreen games too through RivaTuner.</p>
@@ -380,15 +403,6 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('scroll', tick, { passive: true });
   addEventListener('resize', tick);
   window.__tick = tick; tick();
-})();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

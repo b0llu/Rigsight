@@ -15,11 +15,14 @@
   <meta property="og:description" content="A normal CPU temperature while gaming is roughly 60 to 85°C on a desktop. AMD lists 89 to 95°C for recent Ryzen, Intel 100 to 105°C. When to worry." />
   <meta property="og:url" content="https://rigsight.app/blog/normal-cpu-temperature-while-gaming" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <meta property="og:image" content="https://rigsight.app/img/blog/normal-cpu-temperature-while-gaming.webp" />
+  <meta property="og:image" content="https://rigsight.app/img/blog/normal-cpu-temperature-while-gaming-og.jpg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="800" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A tower CPU cooler on a motherboard" />
+  <meta name="twitter:image" content="https://rigsight.app/img/blog/normal-cpu-temperature-while-gaming-og.jpg" />
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Normal CPU temperature while gaming, and why yours jumps around", "description": "A normal CPU temperature while gaming is roughly 60 to 85\u00b0C on a desktop. AMD lists 89 to 95\u00b0C for recent Ryzen, Intel 100 to 105\u00b0C. When to worry.", "datePublished": "2026-10-29", "dateModified": "2026-11-16", "image": "https://rigsight.app/img/blog/normal-cpu-temperature-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/normal-cpu-temperature-while-gaming", "keywords": "normal cpu temperature while gaming, normal cpu temperature while gaming ryzen, normal cpu temperature while gaming with aio, normal cpu temperature while gaming laptop, normal cpu temperature while gaming fahrenheit, cpu temperature monitor windows 11"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Normal CPU temperature while gaming, and why yours jumps around", "item": "https://rigsight.app/blog/normal-cpu-temperature-while-gaming"}]}</script>
@@ -111,7 +114,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -244,6 +247,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -257,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Normal CPU temperature while gaming, and why yours jumps around</h1>
   <p class="dek">How RigSight shows a CPU temperature that jumps around in games, what a normal CPU temperature while gaming is on Ryzen, Intel, an AIO and laptops, and the limits AMD and Intel give.</p>
   <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 16 November 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/normal-cpu-temperature-while-gaming.webp" srcset="../img/blog/normal-cpu-temperature-while-gaming-600.webp 600w, ../img/blog/normal-cpu-temperature-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s CPU card on the Temperatures page: a Ryzen 7 5700X3D at 65° with load, power, clock and voltage readings" fetchpriority="high" decoding="async"><figcaption>RigSight's Temperatures page on the site's example PC. The chart can show each minute's average, highest or lowest.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/normal-cpu-temperature-while-gaming.webp" srcset="../img/blog/normal-cpu-temperature-while-gaming-600.webp 600w, ../img/blog/normal-cpu-temperature-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="675" alt="A tower CPU cooler on a motherboard" fetchpriority="high" decoding="async"><figcaption>Photo: <a href="https://commons.wikimedia.org/wiki/File:MSI_Z590_Torpedo_motherboard._be_quiet_CPU_tower_cooler_(52189123647).jpg" rel="noopener">Chi Ho Chan from Hong Kong</a>, CC BY 2.0, via Wikimedia Commons</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A normal CPU temperature while gaming is roughly 60 to 85°C on a desktop, lower with a strong cooler and higher on laptops and X3D chips. The limit depends on the model. AMD lists 89 to 95°C for recent Ryzen chips, Intel 100 to 105°C for recent Core chips. Worry when you sit at that limit.</p></div>
   <div class="body">
 <p>A RigSight user on a laptop once wrote to me that the peaks on the one hour temperature chart jumped around every second. Part of that was my bug. The other part is something every gamer runs into when they ask what a normal CPU temperature while gaming is. A CPU's temperature doesn't sit still. It can go from 55 to 80°C and back within a second, and the number you happen to look at decides whether you worry.</p>
@@ -322,6 +343,8 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>That left the real question. If a CPU spikes for a few seconds, what should you look at? In RigSight's temperature chart each minute can be shown as its average, its highest or its lowest, and hovering a minute shows all three. The average shows where the CPU settles in a game. The highest shows the short spikes that an average hides.</p>
 
+<figure class="shot"><img src="../img/pages/temperatures.webp" srcset="../img/pages/temperatures-720.webp 720w, ../img/pages/temperatures.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Temperatures page with CPU and GPU gauges and a 24 hour history chart, with switches for average, highest and lowest" loading="lazy" decoding="async"><figcaption>RigSight's Temperatures page on the site's example PC. The chart can show each minute's average, highest or lowest.</figcaption></figure>
+
 <p>RigSight records the CPU temperature all day and keeps it as history, so you can see how hot it got during last night's game without starting a log first. The Temperatures page shows today's lowest and highest under the gauge and a chart for any range up to the last 12 months. Since 1.12.0, its <b>Over the months</b> card shows how far the CPU climbs above its resting temperature under the same load, week by week or month by month. A warmer room lifts load and rest together, so that gap shows the cooling itself, and a slow climb there points to dust or old paste.</p>
 
 <p>Reports puts each peak next to the app that was doing the work. For a week, a month or a custom range, its Against your usual card compares the CPU in the game you played most with your own usual in that game from the weeks before. That tells you whether 83°C is normal for your PC, which matters more than any range online. Under <strong>Notifications</strong> > <strong>Temperature alerts</strong> in Settings you can set a CPU limit from 60 to 100°. It starts at 85°, and Reports tells you how many minutes the CPU spent at it. Like most tools that read the CPU's own sensors, RigSight needs admin rights for CPU temperature and power, and it says so when they're missing. RigSight is free and open source.</p>
@@ -352,15 +375,6 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('scroll', tick, { passive: true });
   addEventListener('resize', tick);
   window.__tick = tick; tick();
-})();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

@@ -15,11 +15,14 @@
   <meta property="og:description" content="Normal RAM usage while gaming is often 60 to 90% of your memory, and a game itself uses 2 to 8 GB. When high RAM usage is a problem and how to free some." />
   <meta property="og:url" content="https://rigsight.app/blog/normal-ram-usage-while-gaming" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <meta property="og:image" content="https://rigsight.app/img/blog/normal-ram-usage-while-gaming.webp" />
+  <meta property="og:image" content="https://rigsight.app/img/blog/normal-ram-usage-while-gaming-og.jpg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="800" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A DDR4 memory stick" />
+  <meta name="twitter:image" content="https://rigsight.app/img/blog/normal-ram-usage-while-gaming-og.jpg" />
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Normal RAM usage while gaming, and how much games really use", "description": "Normal RAM usage while gaming is often 60 to 90% of your memory, and a game itself uses 2 to 8 GB. When high RAM usage is a problem and how to free some.", "datePublished": "2026-11-18", "dateModified": "2026-11-18", "image": "https://rigsight.app/img/blog/normal-ram-usage-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/normal-ram-usage-while-gaming", "keywords": "normal ram usage while gaming, how much ram do games use, how much ram do games actually use, is 80 ram usage normal while gaming, what percentage of ram usage is normal while gaming, average ram usage while gaming, how much ram should be used while gaming, is 16gb ram enough for gaming"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Normal RAM usage while gaming, and how much games really use", "item": "https://rigsight.app/blog/normal-ram-usage-while-gaming"}]}</script>
@@ -111,7 +114,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -244,6 +247,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -257,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Normal RAM usage while gaming, and how much games really use</h1>
   <p class="dek">When my PC had 16 GB, Phantom Blade Zero used about 4 GB of memory itself, while the whole PC sat at nearly 14 GB. What normal RAM usage while gaming looks like, how much games use, and when it's too much.</p>
   <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 18 November 2026 · 4 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/normal-ram-usage-while-gaming.webp" srcset="../img/blog/normal-ram-usage-while-gaming-600.webp 600w, ../img/blog/normal-ram-usage-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Phantom Blade Zero itself: 4.1 GB, on average, up to 6.8 GB. The whole PC meanwhile: 13.8 GB, of 16 GB, on average" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/normal-ram-usage-while-gaming.webp" srcset="../img/blog/normal-ram-usage-while-gaming-600.webp 600w, ../img/blog/normal-ram-usage-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="675" alt="A DDR4 memory stick" fetchpriority="high" decoding="async"><figcaption>Photo: <a href="https://commons.wikimedia.org/wiki/File:16_GiB-DDR4-RAM-Riegel_RAM019FIX_Small_Crop_90_PCNT.png" rel="noopener">PantheraLeo1359531</a>, CC BY 4.0, via Wikimedia Commons</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Normal RAM usage while gaming is often 60 to 90% of your total memory. The game itself usually takes 2 to 8 GB, and Windows, browsers and other apps take the rest. High usage alone is fine, since Windows uses spare memory on purpose. It's a problem when the PC stutters or Windows' committed memory gets close to its limit.</p></div>
   <div class="body">
 <p>Until 14 November my PC had 16 GB of memory. While I played Phantom Blade Zero, the game itself used about 4 GB on average and 6.8 GB at its highest. The whole PC meanwhile sat at 13.8 GB on average and reached 15.6 GB. So the game was well under half of what Task Manager showed. The rest was Windows and the apps I keep open. That gap is the first thing to understand about normal RAM usage while gaming.</p>
@@ -354,15 +375,6 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('scroll', tick, { passive: true });
   addEventListener('resize', tick);
   window.__tick = tick; tick();
-})();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

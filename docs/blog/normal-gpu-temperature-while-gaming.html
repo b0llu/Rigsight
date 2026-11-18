@@ -15,11 +15,14 @@
   <meta property="og:description" content="Most desktop GPUs run 60 to 80°C while gaming, and 85°C is warm but within spec for most cards. The NVIDIA and AMD limits, and when a hot GPU needs a look." />
   <meta property="og:url" content="https://rigsight.app/blog/normal-gpu-temperature-while-gaming" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <meta property="og:image" content="https://rigsight.app/img/blog/normal-gpu-temperature-while-gaming.webp" />
+  <meta property="og:image" content="https://rigsight.app/img/blog/normal-gpu-temperature-while-gaming-og.jpg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="800" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A graphics card with three fans on a dark background" />
+  <meta name="twitter:image" content="https://rigsight.app/img/blog/normal-gpu-temperature-while-gaming-og.jpg" />
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Normal GPU temperature while gaming: is 85\u00b0C too hot?", "description": "Most desktop GPUs run 60 to 80\u00b0C while gaming, and 85\u00b0C is warm but within spec for most cards. The NVIDIA and AMD limits, and when a hot GPU needs a look.", "datePublished": "2026-10-26", "dateModified": "2026-11-11", "image": "https://rigsight.app/img/blog/normal-gpu-temperature-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/normal-gpu-temperature-while-gaming", "keywords": "normal gpu temperature while gaming, is 85 degrees hot for a gpu while gaming, average gpu temperature while gaming, normal gpu temperature while gaming laptop, what temperature is normal for gpu, when should i worry about gpu temp, normal gpu temp while gaming, gpu 85 degrees while gaming, average gpu temp while gaming, is 68 degrees hot for a gpu"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Normal GPU temperature while gaming: is 85\u00b0C too hot?", "item": "https://rigsight.app/blog/normal-gpu-temperature-while-gaming"}]}</script>
@@ -111,7 +114,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -244,6 +247,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -257,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Normal GPU temperature while gaming: is 85°C too hot?</h1>
   <p class="dek">What a normal GPU temperature while gaming is, the limits NVIDIA and AMD give, and why RigSight only ever compares your card with itself, after it once told me my healthy fan was clogged.</p>
   <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 11 November 2026 · 8 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/normal-gpu-temperature-while-gaming.webp" srcset="../img/blog/normal-gpu-temperature-while-gaming-600.webp 600w, ../img/blog/normal-gpu-temperature-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s GPU card on the Temperatures page: an RTX 3080 Ti at 68° with load, power, hot spot and memory junction readings" fetchpriority="high" decoding="async"><figcaption>RigSight's Temperatures page. The history graph below the gauges can show each minute's average, highest or lowest.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/normal-gpu-temperature-while-gaming.webp" srcset="../img/blog/normal-gpu-temperature-while-gaming-600.webp 600w, ../img/blog/normal-gpu-temperature-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="675" alt="A graphics card with three fans on a dark background" fetchpriority="high" decoding="async"><figcaption>Photo: <a href="https://commons.wikimedia.org/wiki/File:RTX_4070_Ti_SUPER_im_Vergleich_mit_anderen_RTX_40er-Karten_(%E6%9E%81%E5%AE%A2%E6%B9%BEGeekerwan)_001.png" rel="noopener">极客湾Geekerwan</a>, CC BY 3.0, via Wikimedia Commons</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A normal GPU temperature while gaming is roughly 60 to 80°C on a desktop card with a working cooler. Each card has its own limit, and NVIDIA lists 85 to 93°C depending on the model. 85°C is warm but within spec for most cards. Worry when it keeps rising, or sits right at the limit.</p></div>
   <div class="body">
 <p>On 29 September RigSight told me my GPU fan was running 1,473 rpm faster than usual at the same temperature, and that my cooler might be clogging. Nothing was wrong. It had compared minutes when my card's fans were stopped at rest with minutes in a game. That mistake is the best answer I have to "what's a normal GPU temperature while gaming?" Normal is what your own card does in the same game, at the same load. Charts of other people's cards give you a rough range and nothing more.</p>
@@ -360,6 +381,8 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>RigSight is a free, open-source PC monitor for Windows that records your temperatures all day and keeps them as history. Its Temperatures page shows the GPU's temperature with its lowest and highest of the day under it, plus the hot spot and memory junction readings when the card reports them. Below that, the history graph covers any range from the last 5 minutes to the last 12 months, or a Custom range, and can show each minute's average, highest or lowest reading. So you can see the exact peak of last night's session, not only how warm the card is now.</p>
 
+<figure class="shot"><img src="../img/pages/temperatures.webp" srcset="../img/pages/temperatures-720.webp 720w, ../img/pages/temperatures.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Temperatures page with CPU and GPU gauges, the GPU&#x27;s hot spot and memory junction, and a 24 hour history graph" loading="lazy" decoding="async"><figcaption>RigSight's Temperatures page. The history graph below the gauges can show each minute's average, highest or lowest.</figcaption></figure>
+
 <p>The part that answers "is this normal?" is that RigSight compares your card with itself. For a week, a month or a custom range, Reports has an Against your usual table. It takes the game you played most and sets its GPU temperature against your own usual in that game from the weeks before, at the same power, with the room taken out. If a game now runs hotter than usual, the PC health card on Home says so in one line. That answers the question better than any chart of other people's cards.</p>
 
 <p>If you'd rather be told than check, Settings has <strong>Notifications</strong> > <strong>Temperature alerts</strong>. The GPU limit starts at 83° and can be set from 60 to 100°. When the GPU stays over it for a few seconds, the alert names the app that was running.</p>
@@ -402,15 +425,6 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('scroll', tick, { passive: true });
   addEventListener('resize', tick);
   window.__tick = tick; tick();
-})();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

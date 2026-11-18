@@ -15,11 +15,14 @@
   <meta property="og:description" content="How to show FPS on PC with Xbox Game Bar (Win + G), Steam, the NVIDIA app, AMD Software or RivaTuner, and how to fix a RivaTuner overlay that won&#x27;t show." />
   <meta property="og:url" content="https://rigsight.app/blog/how-to-show-fps-overlay" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <meta property="og:image" content="https://rigsight.app/img/blog/how-to-show-fps-overlay.webp" />
+  <meta property="og:image" content="https://rigsight.app/img/blog/how-to-show-fps-overlay-og.jpg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="800" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A gaming keyboard lit in several colours" />
+  <meta name="twitter:image" content="https://rigsight.app/img/blog/how-to-show-fps-overlay-og.jpg" />
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "How to show FPS on PC with an overlay, and fix RivaTuner", "description": "How to show FPS on PC with Xbox Game Bar (Win + G), Steam, the NVIDIA app, AMD Software or RivaTuner, and how to fix a RivaTuner overlay that won't show.", "datePublished": "2026-11-13", "dateModified": "2026-11-13", "image": "https://rigsight.app/img/blog/how-to-show-fps-overlay.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/how-to-show-fps-overlay", "keywords": "how to show fps on pc, how to show fps overlay, fps overlay windows 11, fps counter windows 11, how to see fps in games, how to show fps on steam, fps overlay nvidia, fps overlay amd, fps overlay hotkey, rivatuner overlay not showing"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "How to show FPS on PC with an overlay, and fix RivaTuner", "item": "https://rigsight.app/blog/how-to-show-fps-overlay"}]}</script>
@@ -111,7 +114,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -244,6 +247,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -257,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>How to show FPS on PC with an overlay, and fix RivaTuner</h1>
   <p class="dek">My PC already has four FPS overlays, from Windows, Steam, NVIDIA and RivaTuner. How to show FPS on PC with each of them, which to pick, what to do when the RivaTuner overlay is not showing, and how RigSight keeps the numbers after the game.</p>
   <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 13 November 2026 · 6 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/how-to-show-fps-overlay.webp" srcset="../img/blog/how-to-show-fps-overlay-600.webp 600w, ../img/blog/how-to-show-fps-overlay.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s overlay reading picker with frame rate, frame time and 1% low under Game, and CPU and GPU readings below" fetchpriority="high" decoding="async"><figcaption>RigSight's overlay reading picker. Game readings appear while a game runs, measured by RivaTuner.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/how-to-show-fps-overlay.webp" srcset="../img/blog/how-to-show-fps-overlay-600.webp 600w, ../img/blog/how-to-show-fps-overlay.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="675" alt="A gaming keyboard lit in several colours" fetchpriority="high" decoding="async"><figcaption>Photo: <a href="https://commons.wikimedia.org/wiki/File:Mars_Gaming-_MK6_gaming_keyboard.jpg" rel="noopener">Jorge Franganillo</a>, CC BY 2.0, via Wikimedia Commons</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>To show FPS on PC, press Win + G and pin Xbox Game Bar's Performance widget. Steam has a Performance Monitor under Settings > In Game, the NVIDIA app uses Alt + R and AMD Software uses Ctrl + Shift + O. RivaTuner works in almost every game, including exclusive fullscreen.</p></div>
   <div class="body">
 <p>My PC already has four ways to show FPS on screen. Xbox Game Bar came with Windows, Steam has its own counter, the NVIDIA app has one, and RivaTuner is installed too. Since 18 October, RigSight has also kept about 88 hours of my games' frame rates, read from RivaTuner. That's about 38 hours of Risk of Rain 2 at 151 FPS on average and about 36 hours of Phantom Blade Zero at 68. Here's how to show FPS on PC with each overlay, which one to pick, and what to do when the RivaTuner overlay is not showing.</p>
@@ -356,6 +377,8 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>In windowed and borderless games, RigSight draws the overlay as its own see-through window. In exclusive fullscreen, where no window can appear on top, it hands the same overlay to RivaTuner, and both look the same. When RivaTuner draws it, the overlay doesn't turn off G-Sync.</p>
 
+<figure class="shot"><img src="../img/cards/overlay.webp" width="980" height="320" alt="RigSight&#x27;s overlay reading picker with frame rate, frame time and 1% low under Game, and CPU, GPU, memory and other readings below" loading="lazy" decoding="async"><figcaption>RigSight's overlay reading picker. Game readings appear while a game runs, measured by RivaTuner.</figcaption></figure>
+
 <p>Since 1.8.0 you can also put FPS in the taskbar, where it shows a dash while no game is running. The taskbar readings, the widgets and the overlay can each be turned off and on from the tray menu. Widgets have an FPS tile and a Last game tile with its average frame rate, and they sit on the desktop under your windows. The frame rate always comes from RivaTuner, so it has to be running before the game starts, and the Games page has <b>Install RivaTuner</b> and <b>Start RivaTuner</b> buttons. RigSight is free and open source.</p>
 
 
@@ -387,15 +410,6 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('scroll', tick, { passive: true });
   addEventListener('resize', tick);
   window.__tick = tick; tick();
-})();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

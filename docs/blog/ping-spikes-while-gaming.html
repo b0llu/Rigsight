@@ -15,11 +15,14 @@
   <meta property="og:description" content="Ping spikes while gaming usually mean a download, an upload or Wi-Fi is getting in the way. Ping your router and the internet at once to find which side." />
   <meta property="og:url" content="https://rigsight.app/blog/ping-spikes-while-gaming" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <meta property="og:image" content="https://rigsight.app/img/blog/ping-spikes-while-gaming.webp" />
+  <meta property="og:image" content="https://rigsight.app/img/blog/ping-spikes-while-gaming-og.jpg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="800" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A Wi-Fi router" />
+  <meta name="twitter:image" content="https://rigsight.app/img/blog/ping-spikes-while-gaming-og.jpg" />
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Ping spikes while gaming, and the download behind mine", "description": "Ping spikes while gaming usually mean a download, an upload or Wi-Fi is getting in the way. Ping your router and the internet at once to find which side.", "datePublished": "2026-11-06", "dateModified": "2026-11-06", "image": "https://rigsight.app/img/blog/ping-spikes-while-gaming.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/ping-spikes-while-gaming", "keywords": "ping spikes while gaming, lag spikes while gaming, lag spikes while gaming pc, random ping spikes while gaming, high ping in games but good internet, ping spikes on wifi, ping spikes on ethernet, packet loss meaning, internet drops while gaming"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "Ping spikes while gaming, and the download behind mine", "item": "https://rigsight.app/blog/ping-spikes-while-gaming"}]}</script>
@@ -111,7 +114,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -244,6 +247,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -257,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>Ping spikes while gaming, and the download behind mine</h1>
   <p class="dek">My ping to my internet provider jumped to 155 ms in the minute Steam pulled 175 MB, while my own router stayed under a millisecond. How RigSight shows where ping spikes while gaming start, why they happen, and how to fix them.</p>
   <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 6 November 2026 · 5 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/ping-spikes-while-gaming.webp" srcset="../img/blog/ping-spikes-while-gaming-600.webp 600w, ../img/blog/ping-spikes-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="Ping to my router: &lt;1 ms, the same minute. Ping to my provider: 155 ms, during a Steam download" fetchpriority="high" decoding="async"></figure>
+  <figure class="cover"><img class="" src="../img/blog/ping-spikes-while-gaming.webp" srcset="../img/blog/ping-spikes-while-gaming-600.webp 600w, ../img/blog/ping-spikes-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="675" alt="A Wi-Fi router" fetchpriority="high" decoding="async"><figcaption>Photo: <a href="https://commons.wikimedia.org/wiki/File:ASUS_Wi-Fi_ROUTER_TUF_6500.jpg" rel="noopener">Dinkun Chen</a>, CC BY-SA 4.0, via Wikimedia Commons</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Ping spikes while gaming usually come from something else filling your connection, like a launcher or Windows downloading in the background, or from Wi-Fi. Ping your router and something on the internet at the same time. If only the internet side spikes, pause downloads and uploads first. If your router spikes too, it's your Wi-Fi or cable.</p></div>
   <div class="body">
 <p>On 5 November at 10:32 PM, RigSight's ping check to my internet provider's first router came back in 155 ms. A minute before it was 1 ms, and a minute after it was 1 ms again. My own router answered in under a millisecond the whole time. In that minute Steam pulled 175 MB, more than thirty times what it pulled the minute before. I wasn't in a game, but it's a common story behind ping spikes while gaming. Something else fills the connection, and the game's packets wait in line behind it.</p>
@@ -330,15 +351,6 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('scroll', tick, { passive: true });
   addEventListener('resize', tick);
   window.__tick = tick; tick();
-})();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

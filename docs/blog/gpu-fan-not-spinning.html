@@ -15,11 +15,14 @@
   <meta property="og:description" content="A GPU fan not spinning at idle is usually fan stop, a normal mode. It&#x27;s a fault when the fan stays at 0 rpm while the GPU is hot. How to tell and fix it." />
   <meta property="og:url" content="https://rigsight.app/blog/gpu-fan-not-spinning" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <meta property="og:image" content="https://rigsight.app/img/blog/gpu-fan-not-spinning.webp" />
+  <meta property="og:image" content="https://rigsight.app/img/blog/gpu-fan-not-spinning-og.jpg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="800" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Close-up of a graphics card&#x27;s three fans" />
+  <meta name="twitter:image" content="https://rigsight.app/img/blog/gpu-fan-not-spinning-og.jpg" />
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "GPU fan not spinning? When it's normal and when it's a fault", "description": "A GPU fan not spinning at idle is usually fan stop, a normal mode. It's a fault when the fan stays at 0 rpm while the GPU is hot. How to tell and fix it.", "datePublished": "2026-11-09", "dateModified": "2026-11-09", "image": "https://rigsight.app/img/blog/gpu-fan-not-spinning.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/gpu-fan-not-spinning", "keywords": "gpu fan not spinning, gpu fan not spinning while gaming, gpu fan not spinning on startup, gpu fan not spinning when idle, why is one gpu fan not spinning, gpu fan not spinning under load"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "GPU fan not spinning? When it's normal and when it's a fault", "item": "https://rigsight.app/blog/gpu-fan-not-spinning"}]}</script>
@@ -111,7 +114,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -244,6 +247,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -257,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>GPU fan not spinning? When it's normal and when it's a fault</h1>
   <p class="dek">My GPU's fans stood still 42% of the time since late September, and never once above 52°C. When a GPU fan not spinning is normal, how RigSight tells it apart from a stuck fan, and what to check when it really is a fault.</p>
   <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 9 November 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/gpu-fan-not-spinning.webp" srcset="../img/blog/gpu-fan-not-spinning-600.webp 600w, ../img/blog/gpu-fan-not-spinning.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Fans page on the demo PC showing GPU fans that start spinning around 51 degrees and stood still for 16 hours while the GPU was cool" fetchpriority="high" decoding="async"><figcaption>RigSight's Fans page on the demo PC. The shaded band on the speed at each GPU temperature chart is where the card keeps its fans off on purpose.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/gpu-fan-not-spinning.webp" srcset="../img/blog/gpu-fan-not-spinning-600.webp 600w, ../img/blog/gpu-fan-not-spinning.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="675" alt="Close-up of a graphics card&#x27;s three fans" fetchpriority="high" decoding="async"><figcaption>Photo: <a href="https://commons.wikimedia.org/wiki/File:MSI_GeForce_RTX_3070_VENTUS_3X_OC.jpg" rel="noopener">TheStriker</a>, CC BY 4.0, via Wikimedia Commons</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>A GPU fan not spinning at idle is usually normal. Most modern cards stop their fans while cool to stay silent, often until somewhere around 50 to 60°C. It's a fault when the fan stays at 0 rpm while the GPU is hot in a game. Then check the fan software, cables and dust, and stop gaming until it spins.</p></div>
   <div class="body">
 <p>Since 29 September, RigSight has recorded about 29,700 minutes of my GPU's two fans. They stood still for 42% of that time. They were never still with the GPU above 52°C, and from 52°C up they spun every single minute. A GPU fan not spinning is usually the card doing what it was built to do. What matters is whether the fan stays still when the GPU is hot, and here's how to tell the two apart.</p>
@@ -351,7 +372,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>Since version 1.7.0 you don't have to be watching. If a GPU fan shows 0 rpm for 3 minutes or more with the GPU at 70°C or more, and it always turns at that heat, you get a notification titled "Your GPU fan stopped". It says how long, from when and how hot the GPU was, and ends with "Check it isn't blocked or unplugged." RigSight also tells you when fans spin slower than usual at the same heat. The bell in the title bar keeps every notification from the last 30 days, so one you missed while gaming is still there. GPU fans show without admin rights. RigSight is free and open source.</p>
 
-
+<figure class="shot"><img src="../img/pages/fans.webp" srcset="../img/pages/fans-720.webp 720w, ../img/pages/fans.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Fans page on the demo PC with GPU fans that start spinning around 51 degrees, a speed chart for each day and a chart of speed at each GPU temperature" loading="lazy" decoding="async"><figcaption>RigSight's Fans page on the demo PC. The shaded band on the speed at each GPU temperature chart is where the card keeps its fans off on purpose.</figcaption></figure>
   <section class="sources"><h2>Sources</h2><ol><li><a href="https://www.amd.com/en/resources/support-articles/faqs/DH3-020.html" rel="noopener">AMD</a></li><li><a href="https://www.amd.com/en/resources/support-articles/faqs/DH3-038.html" rel="noopener">AMD</a></li><li><a href="https://www.dell.com/support/kbdoc/en-us/000179087/how-to-troubleshoot-fan-issues" rel="noopener">dell.com, How to troubleshoot fan issues</a></li><li><a href="https://helpdeskgeek.com/why-your-gpu-fans-arent-spinning-and-how-to-fix/" rel="noopener">helpdeskgeek.com, Why your gpu fans arent spinning and how to fix</a></li><li><a href="https://evezone.evetech.co.za/quick-bytes/zero-rpm-mode-explained-gpu-fans-do-not" rel="noopener">evezone.evetech.co.za, Zero rpm mode explained gpu fans do not</a></li><li><a href="https://guru3d.com/story/amd-adrenalin-2651-reportedly-triggers-radeon-zero-rpm-fan-issue/" rel="noopener">guru3d.com, Amd adrenalin 2651 reportedly triggers radeon zero rpm fan issue</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Is it normal for GPU fans to not spin?</summary><p>Yes, at idle. Most current NVIDIA and AMD cards have a zero RPM or fan stop mode that keeps the fans still while the GPU is cool, often below somewhere around 50 to 60°C. The exact point depends on the card. The fans start once the card warms past that point.</p></details><details class="qa"><summary>Why are my GPU fans not spinning on startup?</summary><p>When the PC first starts, the GPU is cold, so a card with fan stop has no reason to spin. Some cards give the fans a short spin at power on and some don't. As long as they start once you game, nothing is wrong.</p></details><details class="qa"><summary>Why is one GPU fan not spinning?</summary><p>Some cards stop one fan before the others at light load, and some run only part of their fans until the card is warm. If one fan stays still while the others spin hard in a game, it may be stuck, unplugged at its small connector on the card, or worn out.</p></details><details class="qa"><summary>What should I do if my GPU fan is not spinning while gaming?</summary><p>Watch the GPU temperature. If it climbs past about 70°C and the fan still reads 0 rpm, close the game. Reset any custom fan curve to default, update the graphics driver, and check the fan isn't blocked by a cable or dust. If it still won't spin, contact the card maker about the warranty.</p></details><details class="qa"><summary>Can a GPU fan not spinning and no display be the same problem?</summary><p>Often, yes. If the fans don't move and there's no picture, the card may not be getting power. Check that the PCIe power cables are pushed fully into the card and the power supply, and that the card sits firmly in its slot.</p></details></section>
   <aside class="authorbox"><span class="avatar" aria-hidden="true">DS</span><div><b>Dhruv Samant</b><p>I build RigSight on my own. The numbers in these posts come from my own PC's recorded history, checked against the released app. <a href="author">About me</a> · <a href="how-rigsight-measures">How RigSight measures</a></p></div></aside>
@@ -379,15 +400,6 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('scroll', tick, { passive: true });
   addEventListener('resize', tick);
   window.__tick = tick; tick();
-})();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

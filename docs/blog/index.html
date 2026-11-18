@@ -15,6 +15,7 @@
   <meta property="og:description" content="How RigSight, a free PC monitor for Windows, gets made, and the PC problems it catches, why they happen and how to fix them." />
   <meta property="og:url" content="https://rigsight.app/blog/" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
   <meta property="og:image" content="https://rigsight.app/img/og.png" />
@@ -107,7 +108,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -240,6 +241,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -254,6 +273,12 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <p class="starts">Start at the beginning with <a href="day-one">Day one, and 25 versions before midnight</a> or <a href="riggy">part 1 of the AI journey</a>.</p>
 </section>
 <section class="wrap">
+  <div class="search" role="search">
+    <label class="vh" for="blog-search">Search the blog</label>
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15ZM16 16l5 5"/></svg>
+    <input id="blog-search" type="search" placeholder="Search 61 posts, like GPU temperature or crash" autocomplete="off" aria-controls="rows">
+    <p class="search-status" id="search-status" aria-live="polite"></p>
+  </div>
   <div class="filter" role="group" aria-label="Show posts from">
     <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>61</span></button><button class="chip" type="button" data-series="build" aria-pressed="false">Building RigSight <span>20</span></button><button class="chip" type="button" data-series="ai" aria-pressed="false">The AI journey <span>6</span></button><button class="chip" type="button" data-series="fix" aria-pressed="false">PC problems <span>35</span></button>
     <a class="rss" href="feed.xml">RSS</a>
@@ -261,7 +286,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <ol class="rows" id="rows">
     <li class="row" data-series="fix">
   <a href="normal-cpu-temp-idle">
-    <div class="thumb"><img class="" src="../img/blog/normal-cpu-temp-idle.webp" srcset="../img/blog/normal-cpu-temp-idle-600.webp 600w, ../img/blog/normal-cpu-temp-idle.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="CPU at idle: 48°C, Ryzen 7 5700X3D. GPU at idle: 48°C, RTX 3080 Ti, fans mostly still" fetchpriority="high" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/normal-cpu-temp-idle.webp" srcset="../img/blog/normal-cpu-temp-idle-600.webp 600w, ../img/blog/normal-cpu-temp-idle.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="675" alt="Close-up of a processor chip" fetchpriority="high" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
       <h2>Normal CPU temp at idle, and the GPU's, from 150 hours of mine</h2>
@@ -271,7 +296,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   </a>
 </li><li class="row" data-series="fix">
   <a href="can-my-pc-run-gta-6">
-    <div class="thumb"><img class="" src="../img/blog/can-my-pc-run-gta-6.webp" srcset="../img/blog/can-my-pc-run-gta-6-600.webp 600w, ../img/blog/can-my-pc-run-gta-6.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Phantom Blade Zero: 87%, of minutes at full GPU load. Graphics memory: 7 GB, of the RTX 3080 Ti&#x27;s 12" loading="lazy" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/can-my-pc-run-gta-6.webp" srcset="../img/blog/can-my-pc-run-gta-6-600.webp 600w, ../img/blog/can-my-pc-run-gta-6.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="675" alt="A gaming desk with two monitors and a keyboard" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
       <h2>Can my PC run GTA 6? What's known about the PC version</h2>
@@ -281,7 +306,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   </a>
 </li><li class="row" data-series="fix">
   <a href="normal-ram-usage-while-gaming">
-    <div class="thumb"><img class="" src="../img/blog/normal-ram-usage-while-gaming.webp" srcset="../img/blog/normal-ram-usage-while-gaming-600.webp 600w, ../img/blog/normal-ram-usage-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Phantom Blade Zero itself: 4.1 GB, on average, up to 6.8 GB. The whole PC meanwhile: 13.8 GB, of 16 GB, on average" loading="lazy" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/normal-ram-usage-while-gaming.webp" srcset="../img/blog/normal-ram-usage-while-gaming-600.webp 600w, ../img/blog/normal-ram-usage-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="675" alt="A DDR4 memory stick" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Storage and memory</p>
       <h2>Normal RAM usage while gaming, and how much games really use</h2>
@@ -291,7 +316,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   </a>
 </li><li class="row" data-series="build">
   <a href="pc-year-in-review">
-    <div class="thumb"><img class="" src="../img/blog/pc-year-in-review.webp" srcset="../img/blog/pc-year-in-review-600.webp 600w, ../img/blog/pc-year-in-review.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="October, PC on: 385 h, on 29 of 31 days. Most played: 33 h, Risk of Rain 2, 22 plays" loading="lazy" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/pc-year-in-review.webp" srcset="../img/blog/pc-year-in-review-600.webp 600w, ../img/blog/pc-year-in-review.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="675" alt="RigSight&#x27;s monthly report, with 385 h" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
       <h2>A year in review from your own PC, not only Steam</h2>
@@ -301,7 +326,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   </a>
 </li><li class="row" data-series="fix">
   <a href="how-to-test-a-new-gpu">
-    <div class="thumb"><img class="" src="../img/blog/how-to-test-a-new-gpu.webp" srcset="../img/blog/how-to-test-a-new-gpu-600.webp 600w, ../img/blog/how-to-test-a-new-gpu.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="GPU, first two weeks: 68.0°C, gaming, about 290 W. GPU, last two weeks: 69.6°C, gaming, about 280 W" loading="lazy" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/how-to-test-a-new-gpu.webp" srcset="../img/blog/how-to-test-a-new-gpu-600.webp 600w, ../img/blog/how-to-test-a-new-gpu.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="675" alt="A graphics card with three fans on a dark background" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
       <h2>How to test a new PC or GPU you got for Christmas</h2>
@@ -311,7 +336,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   </a>
 </li><li class="row" data-series="fix">
   <a href="what-to-upgrade-in-my-pc-first">
-    <div class="thumb"><img class="" src="../img/blog/what-to-upgrade-in-my-pc-first.webp" srcset="../img/blog/what-to-upgrade-in-my-pc-first-600.webp 600w, ../img/blog/what-to-upgrade-in-my-pc-first.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="16 GB, committed: 94%, average, Phantom Blade Zero. 32 GB, committed: 62%, highest since the upgrade" loading="lazy" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/what-to-upgrade-in-my-pc-first.webp" srcset="../img/blog/what-to-upgrade-in-my-pc-first-600.webp 600w, ../img/blog/what-to-upgrade-in-my-pc-first.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="675" alt="Inside a PC case with a large CPU cooler and fans" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
       <h2>What to upgrade in my PC first? My RAM upgrade, before and after</h2>
@@ -321,7 +346,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   </a>
 </li><li class="row" data-series="fix">
   <a href="normal-cpu-usage-while-gaming">
-    <div class="thumb"><img class="" src="../img/blog/normal-cpu-usage-while-gaming.webp" srcset="../img/blog/normal-cpu-usage-while-gaming-600.webp 600w, ../img/blog/normal-cpu-usage-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Busiest game: 47%, Phantom Blade Zero, 5700X3D. Minutes at 90%+: 0, in about 88 hours of play" loading="lazy" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/normal-cpu-usage-while-gaming.webp" srcset="../img/blog/normal-cpu-usage-while-gaming-600.webp 600w, ../img/blog/normal-cpu-usage-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="675" alt="Close-up of a processor chip" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
       <h2>Normal CPU usage while gaming, and when 100% isn't</h2>
@@ -331,7 +356,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   </a>
 </li><li class="row" data-series="fix">
   <a href="normal-gpu-usage-while-gaming">
-    <div class="thumb"><img class="" src="../img/blog/normal-gpu-usage-while-gaming.webp" srcset="../img/blog/normal-gpu-usage-while-gaming-600.webp 600w, ../img/blog/normal-gpu-usage-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Phantom Blade Zero: 87%, of minutes at full GPU load. Risk of Rain 2: 1%, same PC, same GPU" loading="lazy" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/normal-gpu-usage-while-gaming.webp" srcset="../img/blog/normal-gpu-usage-while-gaming-600.webp 600w, ../img/blog/normal-gpu-usage-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="675" alt="Close-up of a graphics card&#x27;s three fans" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
       <h2>Normal GPU usage while gaming, and why 99% is a good sign</h2>
@@ -341,7 +366,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   </a>
 </li><li class="row" data-series="fix">
   <a href="vram-temperature">
-    <div class="thumb"><img class="" src="../img/blog/vram-temperature.webp" srcset="../img/blog/vram-temperature-600.webp 600w, ../img/blog/vram-temperature.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="GPU memory, gaming: 78°C, on average, RTX 3080 Ti. Highest, 7 weeks: 84°C, never higher since 23 Sep" loading="lazy" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/vram-temperature.webp" srcset="../img/blog/vram-temperature-600.webp 600w, ../img/blog/vram-temperature.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="675" alt="A graphics card with three fans on a dark background" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
       <h2>VRAM temperature while gaming, and what's normal for GPU memory</h2>
@@ -351,7 +376,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   </a>
 </li><li class="row" data-series="fix">
   <a href="how-to-show-fps-overlay">
-    <div class="thumb"><img class="" src="../img/blog/how-to-show-fps-overlay.webp" srcset="../img/blog/how-to-show-fps-overlay-600.webp 600w, ../img/blog/how-to-show-fps-overlay.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s overlay reading picker with frame rate, frame time and 1% low under Game, and CPU and GPU readings below" loading="lazy" decoding="async"></div>
+    <div class="thumb"><img class="" src="../img/blog/how-to-show-fps-overlay.webp" srcset="../img/blog/how-to-show-fps-overlay-600.webp 600w, ../img/blog/how-to-show-fps-overlay.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="675" alt="A gaming keyboard lit in several colours" loading="lazy" decoding="async"></div>
     <div class="row-text">
       <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
       <h2>How to show FPS on PC with an overlay, and fix RivaTuner</h2>
@@ -359,518 +384,9 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
       <p class="meta">13 November 2026 · 6 min read</p>
     </div>
   </a>
-</li><li class="row" data-series="build">
-  <a href="tray-open-speed">
-    <div class="thumb"><img class="" src="../img/blog/tray-open-speed.webp" srcset="../img/blog/tray-open-speed-600.webp 600w, ../img/blog/tray-open-speed.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Tray open, before: 1,150 ms, at worst, as administrator. Tray open, 1.11.0: 23 ms, at best on my PC" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Why opening RigSight from the tray waited up to a second</h2>
-      <p class="sum">Every time you opened RigSight from the tray, a notification or a widget, it waited 290 ms to over a second before the window even started. The tests never saw it, because they started the window another way. How 1.11.0 cut it to tens of milliseconds.</p>
-      <p class="meta">12 November 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="ai">
-  <a href="fixing-the-ai-from-my-own-chats">
-    <div class="thumb"><img class="" src="../img/blog/fixing-the-ai-from-my-own-chats.webp" srcset="../img/blog/fixing-the-ai-from-my-own-chats-600.webp 600w, ../img/blog/fixing-the-ai-from-my-own-chats.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Same fix suggested: 3 times, in one chat about blue screens" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-ai"></span>The AI journey, part 6 of 6</p>
-      <h2>What my own chats with RigSight AI got wrong</h2>
-      <p class="sum">For two weeks I asked RigSight AI about my own PC like anyone would, then read every answer. It assumed a 144 Hz screen, suggested the same fix three times, and blamed a September crash on a November update. What I changed after each.</p>
-      <p class="meta">12 November 2026 · 4 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="ssd-health-check">
-    <div class="thumb"><img class="" src="../img/blog/ssd-health-check.webp" srcset="../img/blog/ssd-health-check-600.webp 600w, ../img/blog/ssd-health-check.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s drive health on my PC in October: a Samsung SSD 980 with 98% life left, a Kingston SSD with 70% life left and a Seagate hard drive with no bad sectors, all marked Healthy" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Storage and memory</p>
-      <h2>SSD health check on Windows 11, and why mine says Healthy at 70%</h2>
-      <p class="sum">The SSD Windows runs on in my PC says Healthy and has used 30% of its rated life. How to do an SSD health check on Windows 11, why Healthy and life left are two different readings, and what RigSight tells you when either one changes.</p>
-      <p class="meta">12 November 2026 · 6 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="widgets-from-tiles">
-    <div class="thumb"><img class="" src="../img/blog/widgets-from-tiles.webp" srcset="../img/blog/widgets-from-tiles-600.webp 600w, ../img/blog/widgets-from-tiles.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Three RigSight widgets built from tiles, a clock with the date, the weather and the music playing, a sticky note with a to-do list, and CPU and GPU rings beside a temperature graph" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Rebuilding RigSight's widgets as boxes of tiles</h2>
-      <p class="sum">RigSight 1.9.0 turned every widget into a box you fill with tiles, your readings next to a clock, notes, a to-do list or the weather. Getting there meant centring clocks by their ink and making a picture on the desktop take clicks and typing.</p>
-      <p class="meta">11 November 2026 · 6 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="numbers-that-couldnt-be-true">
-    <div class="thumb"><img class="" src="../img/blog/numbers-that-couldnt-be-true.webp" srcset="../img/blog/numbers-that-couldnt-be-true-600.webp 600w, ../img/blog/numbers-that-couldnt-be-true.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="GPU memory, one game: 146 GB, on a 12 GB card. RAM in use: 20.8 GB, on a 16 GB PC" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>My PC reported 146 GB of VRAM. Here's what happened</h2>
-      <p class="sum">Writing these guides from my own history, I found a game using 146 GB of a 12 GB GPU and a 16 GB PC using 20.8 GB of RAM. Neither was real. Where each came from, and what 1.10.0 changed.</p>
-      <p class="meta">11 November 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="what-is-taking-up-space-on-c-drive">
-    <div class="thumb"><img class="" src="../img/blog/what-is-taking-up-space-on-c-drive.webp" srcset="../img/blog/what-is-taking-up-space-on-c-drive-600.webp 600w, ../img/blog/what-is-taking-up-space-on-c-drive.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Storage page with my drives: four drives fullest first with how much each grew in 8 days, and space you could free on C such as the NVIDIA shader cache, temporary files and the Recycle Bin, beside drive health" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Storage and memory</p>
-      <h2>What is taking up space on my C drive in Windows 11</h2>
-      <p class="sum">My C drive grew from 198 to 271 GB in seven weeks, 68 GB of it in one day, and my Steam games aren't even on it. How to see what is taking up space on your C drive in Windows 11, what you can safely clear, and what to leave alone.</p>
-      <p class="meta">11 November 2026 · 6 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="desktop-widgets-windows-11">
-    <div class="thumb"><img class="" src="../img/blog/desktop-widgets-windows-11.webp" srcset="../img/blog/desktop-widgets-windows-11-600.webp 600w, ../img/blog/desktop-widgets-windows-11.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Three RigSight desktop widgets built from tiles, a clock with the date, the weather and the music playing, a sticky note with a to-do list, and CPU and GPU rings beside a temperature graph" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Tools</p>
-      <h2>How to get desktop widgets on Windows 11, with CPU temperature</h2>
-      <p class="sum">Windows 11 keeps its widgets on a board beside the taskbar. How to get desktop widgets on Windows 11 that stay where you put them, with a clock, notes, the weather and your CPU and GPU temperature, and the other options people use.</p>
-      <p class="meta">11 November 2026 · 5 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="what-is-using-my-ram">
-    <div class="thumb"><img class="" src="../img/blog/what-is-using-my-ram.webp" srcset="../img/blog/what-is-using-my-ram-600.webp 600w, ../img/blog/what-is-using-my-ram.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Memory page on the demo PC with a 68 percent memory gauge, the breakdown into apps, compressed and free, and today&#x27;s biggest memory users" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Storage and memory</p>
-      <h2>What is using my RAM? How to find it on Windows 11</h2>
-      <p class="sum">The biggest memory user on my PC isn't a game, it's a local AI model at up to 7.8 GB. How to find what is using your RAM on Windows 11, what the numbers in Task Manager mean, and how RigSight spots an app that keeps growing.</p>
-      <p class="meta">10 November 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="gpu-thermal-throttling">
-    <div class="thumb"><img class="" src="../img/blog/gpu-thermal-throttling.webp" srcset="../img/blog/gpu-thermal-throttling-600.webp 600w, ../img/blog/gpu-thermal-throttling.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Hottest heavy minute on my GPU: 73°C, in 5,128 minutes at 80% load or more" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
-      <h2>GPU thermal throttling, and how to tell if yours is</h2>
-      <p class="sum">In 5,128 minutes of heavy load my GPU never passed 73°C, so it never had a reason to slow down. What GPU thermal throttling is, how RigSight tells it apart from normal boost and power limits, and how to check and fix it.</p>
-      <p class="meta">9 November 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="gpu-fan-not-spinning">
-    <div class="thumb"><img class="" src="../img/blog/gpu-fan-not-spinning.webp" srcset="../img/blog/gpu-fan-not-spinning-600.webp 600w, ../img/blog/gpu-fan-not-spinning.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Fans page on the demo PC showing GPU fans that start spinning around 51 degrees and stood still for 16 hours while the GPU was cool" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Fans</p>
-      <h2>GPU fan not spinning? When it's normal and when it's a fault</h2>
-      <p class="sum">My GPU's fans stood still 42% of the time since late September, and never once above 52°C. When a GPU fan not spinning is normal, how RigSight tells it apart from a stuck fan, and what to check when it really is a fault.</p>
-      <p class="meta">9 November 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="rewrite-in-rust">
-    <div class="thumb"><img class="" src="../img/blog/rewrite-in-rust.webp" srcset="../img/blog/rewrite-in-rust-600.webp 600w, ../img/blog/rewrite-in-rust.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Window opens: 1.1 s, was about 1.9 s. Recorder CPU: 1.1%, of a core, was 2.2%" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Should RigSight be rewritten in Rust? I measured first</h2>
-      <p class="sum">RigSight felt slow to open, and I wondered whether parts of it should be rewritten in Rust. Measuring every part said no. The slow parts were drivers, Windows and the way the window started, and fixing those made it open in about 1.1 seconds instead of 1.9.</p>
-      <p class="meta">7 November 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="one-percent-low-fps">
-    <div class="thumb"><img class="" src="../img/blog/one-percent-low-fps.webp" srcset="../img/blog/one-percent-low-fps-600.webp 600w, ../img/blog/one-percent-low-fps.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Minute lows averaged: 116, 4 hours of Risk of Rain 2. Every frame counted: 69, the true 1% low" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
-      <h2>1% low FPS meaning, and why my 116 was really 69</h2>
-      <p class="sum">Four hours of Risk of Rain 2 at 187 FPS. Each minute's 1% low, averaged, said 116. Counting every frame together, it was 69. The 1% low FPS meaning in plain words, what a good gap to the average looks like, and how to see and fix it.</p>
-      <p class="meta">7 November 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="games-stuttering-on-pc">
-    <div class="thumb"><img class="" src="../img/blog/games-stuttering-on-pc.webp" srcset="../img/blog/games-stuttering-on-pc-600.webp 600w, ../img/blog/games-stuttering-on-pc.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Stutters in 15 minutes: 369, Risk of Rain 2, nothing else busy" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
-      <h2>Games stuttering on PC? Find out if it's the game or the PC</h2>
-      <p class="sum">My worst stutter burst was 369 hitches in 15 minutes of Risk of Rain 2, and nothing else on the PC was busy. How RigSight counts every stutter and names what else was running, why games stutter on PC, and how to fix it.</p>
-      <p class="meta">7 November 2026 · 4 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="how-to-check-vram-usage">
-    <div class="thumb"><img class="" src="../img/blog/how-to-check-vram-usage.webp" srcset="../img/blog/how-to-check-vram-usage-600.webp 600w, ../img/blog/how-to-check-vram-usage.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Phantom Blade Zero: 7.2 GB, of a 12 GB card, at most. Risk of Rain 2: 2 GB, about, same card" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
-      <h2>How to check VRAM usage in games, and what too high looks like</h2>
-      <p class="sum">On my 12 GB card, one game used up to 7.2 GB of graphics memory and another about 2. How to check VRAM usage in games on Windows 11, how much games really use, when it's too high, and what RigSight shows.</p>
-      <p class="meta">7 November 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="internet-keeps-disconnecting">
-    <div class="thumb"><img class="" src="../img/blog/internet-keeps-disconnecting.webp" srcset="../img/blog/internet-keeps-disconnecting-600.webp 600w, ../img/blog/internet-keeps-disconnecting.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Internet drops on my PC: 6, since 2 October, the longest 44 minutes" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Internet and screen time</p>
-      <h2>Internet keeps disconnecting on PC? Find which side drops</h2>
-      <p class="sum">My PC lost the internet six times since October, once for 44 minutes, and every time the PC's own connection was fine. How RigSight tells you when the internet drops and which side it was, why it happens, and how to fix it on Windows 11.</p>
-      <p class="meta">7 November 2026 · 4 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="pc-restarts-randomly-while-gaming">
-    <div class="thumb"><img class="" src="../img/blog/pc-restarts-randomly-while-gaming.webp" srcset="../img/blog/pc-restarts-randomly-while-gaming-600.webp 600w, ../img/blog/pc-restarts-randomly-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Sudden shut-offs on my PC: 11, in 13 days, with no blue screen and no button pressed" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Crashes</p>
-      <h2>PC restarts randomly while gaming? Rule things out first</h2>
-      <p class="sum">My PC went off eleven times in two weeks with no blue screen, and the minutes before each one ruled out heat and the power supply. How to check why a PC randomly restarts while gaming, and how to tell heat, the power supply, tuning and Windows apart.</p>
-      <p class="meta">6 November 2026 · 6 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="ping-spikes-while-gaming">
-    <div class="thumb"><img class="" src="../img/blog/ping-spikes-while-gaming.webp" srcset="../img/blog/ping-spikes-while-gaming-600.webp 600w, ../img/blog/ping-spikes-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Ping to my router: &lt;1 ms, the same minute. Ping to my provider: 155 ms, during a Steam download" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Internet and screen time</p>
-      <h2>Ping spikes while gaming, and the download behind mine</h2>
-      <p class="sum">My ping to my internet provider jumped to 155 ms in the minute Steam pulled 175 MB, while my own router stayed under a millisecond. How RigSight shows where ping spikes while gaming start, why they happen, and how to fix them.</p>
-      <p class="meta">6 November 2026 · 5 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="plain-words">
-    <div class="thumb"><img class="" src="../img/blog/plain-words.webp" srcset="../img/blog/plain-words-600.webp 600w, ../img/blog/plain-words.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Texts checked: 5,445, every line RigSight shows" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Rewriting all 5,445 sentences RigSight shows</h2>
-      <p class="sum">On 5 November I wrote down how RigSight should talk, then checked every one of the 5,445 texts the app shows against it. The rule that mattered most was to say what happened and never guess at why.</p>
-      <p class="meta">5 November 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="blue-screen-of-death-causes">
-    <div class="thumb"><img class="" src="../img/blog/blue-screen-of-death-causes.webp" srcset="../img/blog/blue-screen-of-death-causes-600.webp 600w, ../img/blog/blue-screen-of-death-causes.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Blue screens on my PC: 3, two in the graphics driver, one in a USB audio driver" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Crashes</p>
-      <h2>Blue screen of death causes on Windows 11, and the three on my PC</h2>
-      <p class="sum">My PC had three blue screens in four weeks, each with a different stop code. Two were the graphics driver and one a USB audio driver. The common blue screen of death causes on Windows 11, how to find the stop code and the driver Windows names, and the fixes.</p>
-      <p class="meta">5 November 2026 · 8 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="ping-without-a-server">
-    <div class="thumb"><img class="" src="../img/blog/ping-without-a-server.webp" srcset="../img/blog/ping-without-a-server-600.webp 600w, ../img/blog/ping-without-a-server.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Ping checked every: 5 s, router and provider, no outside server" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Checking ping without asking anyone's server</h2>
-      <p class="sum">The rebuilt Network page checks your ping every 5 seconds, and it doesn't ask any outside server to do it. How RigSight finds your provider's first router, the router that ignored empty pings, and the colour rule the page follows.</p>
-      <p class="meta">4 November 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="check-gpu-temperature-history">
-    <div class="thumb"><img class="" src="../img/blog/check-gpu-temperature-history.webp" srcset="../img/blog/check-gpu-temperature-history-600.webp 600w, ../img/blog/check-gpu-temperature-history.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Temperatures page on the demo PC with CPU and GPU gauges and a 24 hour temperature history graph with Average, Highest and Lowest switches" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
-      <h2>How to check GPU temperature history without being misled</h2>
-      <p class="sum">RigSight's own chart once showed a GPU topping out at 68° on a day that hit 74°. How to check GPU temperature history on Windows with HWiNFO, GPU-Z or Afterburner logs, or a temperature monitor with history, and how to read it.</p>
-      <p class="meta">4 November 2026 · 6 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="pc-overheating-while-gaming">
-    <div class="thumb"><img class="" src="../img/blog/pc-overheating-while-gaming.webp" srcset="../img/blog/pc-overheating-while-gaming-600.webp 600w, ../img/blog/pc-overheating-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Reports for October on the demo PC with an Against your usual table. GPU and CPU in Counter-Strike 2 are 3° cooler, too little to count, and fans and PC problems are as usual" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
-      <h2>PC overheating while gaming, or just warm? How RigSight tells</h2>
-      <p class="sum">How RigSight tells a PC overheating while gaming from one that is only warm, by setting each game against its own usual. Why PCs get hot in games, and how to stop it, from dust and airflow to frame caps, fan curves and thermal paste.</p>
-      <p class="meta">4 November 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="free-pc-monitoring-software">
-    <div class="thumb"><img class="" src="../img/blog/free-pc-monitoring-software.webp" srcset="../img/blog/free-pc-monitoring-software-600.webp 600w, ../img/blog/free-pc-monitoring-software.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Home page on the demo PC with today&#x27;s time on the PC, CPU and GPU peaks with the app in use, yesterday&#x27;s summary and PC health" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Tools</p>
-      <h2>Free PC monitoring software, and why I built an HWiNFO alternative</h2>
-      <p class="sum">HWiNFO showed me every sensor but not what my PC did yesterday, so I built RigSight. Free PC monitoring software compared, from Task Manager and HWiNFO to MSI Afterburner, LibreHardwareMonitor and RigSight, and which one answers your question.</p>
-      <p class="meta">4 November 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="taskbar-tiles">
-    <div class="thumb"><img class="" src="../img/blog/taskbar-tiles.webp" srcset="../img/blog/taskbar-tiles-600.webp 600w, ../img/blog/taskbar-tiles.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="My taskbar: 48 px, every look drew as picked. Their taskbar: 32 px, three looks showed only the number" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Taskbar tiles worked on my taskbar, not on theirs</h2>
-      <p class="sum">A GitHub issue asked for more colourful taskbar readings. RigSight 1.2.0 gave every reading a tile and a look of its own, and a bug report 94 minutes later showed a fallback I had never told anyone about.</p>
-      <p class="meta">3 November 2026 · 4 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="games-crashing-after-driver-update">
-    <div class="thumb"><img class="" src="../img/blog/games-crashing-after-driver-update.webp" srcset="../img/blog/games-crashing-after-driver-update-600.webp 600w, ../img/blog/games-crashing-after-driver-update.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Crashes page with an opened crash on the demo PC. The NVIDIA graphics driver failed while running Crimson Desert, marked Confirmed, with what to try and what it wasn&#x27;t" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Drivers and updates</p>
-      <h2>Games crashing after a graphics driver update, and how to tell why</h2>
-      <p class="sum">Two apps crashed on my PC within ten seconds of a new NVIDIA driver going in. How RigSight tells a crash during the install from a bad driver, why games crash after a graphics driver update, and how to roll back or clean install.</p>
-      <p class="meta">3 November 2026 · 8 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="gpu-not-at-100-usage-low-fps">
-    <div class="thumb"><img class="" src="../img/blog/gpu-not-at-100-usage-low-fps.webp" srcset="../img/blog/gpu-not-at-100-usage-low-fps-600.webp 600w, ../img/blog/gpu-not-at-100-usage-low-fps.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Can it run better? card for Dota 2 on the example PC, saying the frame rate is flat at 236 fps and the GPU averaged 68% busy and never hit full load" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
-      <h2>GPU not at 100% usage but low FPS? Find what your card waits for</h2>
-      <p class="sum">How RigSight tells whether a frame cap, VSync or the CPU keeps your GPU under 100% usage, why the card waits, and how to check a CPU bottleneck yourself.</p>
-      <p class="meta">30 October 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="normal-cpu-temperature-while-gaming">
-    <div class="thumb"><img class="" src="../img/blog/normal-cpu-temperature-while-gaming.webp" srcset="../img/blog/normal-cpu-temperature-while-gaming-600.webp 600w, ../img/blog/normal-cpu-temperature-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s CPU card on the Temperatures page: a Ryzen 7 5700X3D at 65° with load, power, clock and voltage readings" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
-      <h2>Normal CPU temperature while gaming, and why yours jumps around</h2>
-      <p class="sum">How RigSight shows a CPU temperature that jumps around in games, what a normal CPU temperature while gaming is on Ryzen, Intel, an AIO and laptops, and the limits AMD and Intel give.</p>
-      <p class="meta">29 October 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="display-driver-stopped-responding">
-    <div class="thumb"><img class="" src="../img/blog/display-driver-stopped-responding.webp" srcset="../img/blog/display-driver-stopped-responding-600.webp 600w, ../img/blog/display-driver-stopped-responding.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Crashes page for a month: tiles for app and game crashes, graphics driver resets, and blue screens and sudden shut-offs, a timeline of problems and a list of what went wrong" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Crashes</p>
-      <h2>Why my display driver stopped responding and has recovered</h2>
-      <p class="sum">"Display driver stopped responding and has recovered" means the GPU took too long to answer and Windows reset its driver. How RigSight caught the resets on my own PC, what LiveKernelEvent 141 and nvlddmkm events mean, and how to fix it.</p>
-      <p class="meta">28 October 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="game-crashes-to-desktop-no-error">
-    <div class="thumb"><img class="" src="../img/blog/game-crashes-to-desktop-no-error.webp" srcset="../img/blog/game-crashes-to-desktop-no-error-600.webp 600w, ../img/blog/game-crashes-to-desktop-no-error.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="An opened game crash in RigSight marked Confirmed. The NVIDIA graphics driver failed while running the game, with what to try, what it wasn&#x27;t and the minutes around the crash" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Crashes</p>
-      <h2>Game crashes to desktop with no error? How RigSight finds why</h2>
-      <p class="sum">When a game crashes to desktop with no error, Windows still logs the crash. How RigSight reads that record and names the cause, why games crash with no message, and how to find and fix it yourself.</p>
-      <p class="meta">27 October 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="find-out-why-pc-crashed">
-    <div class="thumb"><img class="" src="../img/blog/find-out-why-pc-crashed.webp" srcset="../img/blog/find-out-why-pc-crashed-600.webp 600w, ../img/blog/find-out-why-pc-crashed.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Crashes page for a month: tiles for app crashes, graphics driver resets and blue screens with sudden shut-offs, a timeline, and a list of crashes each with a cause and how sure it is" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Crashes</p>
-      <h2>Why did my PC crash? How RigSight caught one on mine</h2>
-      <p class="sum">How to find out why your PC crashed on Windows 11 or 10, from a crash RigSight caught on my own PC. It covers what Windows records, why PCs crash, and where to look.</p>
-      <p class="meta">26 October 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="kernel-power-41">
-    <div class="thumb"><img class="" src="../img/blog/kernel-power-41.webp" srcset="../img/blog/kernel-power-41-600.webp 600w, ../img/blog/kernel-power-41.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="KERNEL-POWER EVENT: 41, Windows started again after it didn&#x27;t shut down cleanly" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Crashes</p>
-      <h2>Why Kernel-Power 41 happens, and how RigSight caught mine</h2>
-      <p class="sum">My PC logged Kernel-Power 41 again and again. How RigSight caught and explained it, what causes Kernel Power 41, including while gaming, and how to fix it.</p>
-      <p class="meta">26 October 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="normal-gpu-temperature-while-gaming">
-    <div class="thumb"><img class="" src="../img/blog/normal-gpu-temperature-while-gaming.webp" srcset="../img/blog/normal-gpu-temperature-while-gaming-600.webp 600w, ../img/blog/normal-gpu-temperature-while-gaming.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s GPU card on the Temperatures page: an RTX 3080 Ti at 68° with load, power, hot spot and memory junction readings" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
-      <h2>Normal GPU temperature while gaming: is 85°C too hot?</h2>
-      <p class="sum">What a normal GPU temperature while gaming is, the limits NVIDIA and AMD give, and why RigSight only ever compares your card with itself, after it once told me my healthy fan was clogged.</p>
-      <p class="meta">26 October 2026 · 8 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="gpu-hotspot-temperature">
-    <div class="thumb"><img class="" src="../img/blog/gpu-hotspot-temperature.webp" srcset="../img/blog/gpu-hotspot-temperature-600.webp 600w, ../img/blog/gpu-hotspot-temperature.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="HOT SPOT: 78°, hottest sensor on the chip. GPU: 68°, the main reading. GAP: 10°, a normal spread in a game" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · Temperatures</p>
-      <h2>Why GPU hotspot temperature runs high, and when the gap is bad</h2>
-      <p class="sum">Why the GPU hotspot temperature always reads higher than the GPU, what gap is normal, when 100°C is a problem, and how RigSight watches the gap for you over weeks of play.</p>
-      <p class="meta">26 October 2026 · 6 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="fix">
-  <a href="fps-drops-in-games">
-    <div class="thumb"><img class="" src="../img/blog/fps-drops-in-games.webp" srcset="../img/blog/fps-drops-in-games-600.webp 600w, ../img/blog/fps-drops-in-games.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Dota 2 on RigSight&#x27;s Games page: How it runs with a 235 fps average, a 170 fps 1% low and a driver update marked on the chart, above the Can it run better card" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-fix"></span>PC problems · FPS and games</p>
-      <h2>FPS drops in games and how to catch what causes them</h2>
-      <p class="sum">FPS drops in games come from heat, background apps, power settings, drivers, a full graphics memory or a frame cap. How RigSight records every play so you can see which one, and how to fix it.</p>
-      <p class="meta">26 October 2026 · 7 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="ai">
-  <a href="testing-ai-on-fake-pcs">
-    <div class="thumb"><img class="" src="../img/blog/testing-ai-on-fake-pcs.webp" srcset="../img/blog/testing-ai-on-fake-pcs-600.webp 600w, ../img/blog/testing-ai-on-fake-pcs.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Checks passed, first run: 7 of 11, on five pretend PCs" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-ai"></span>The AI journey, part 5 of 6</p>
-      <h2>Testing an AI on PCs that don't exist</h2>
-      <p class="sum">To check the helper's advice on games, I built pretend PCs with known problems. Most of what went wrong wasn't the AI. It was what I was feeding it.</p>
-      <p class="meta">25 October 2026 · 4 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="ai">
-  <a href="choosing-a-model-blind">
-    <div class="thumb"><img class="" src="../img/blog/choosing-a-model-blind.webp" srcset="../img/blog/choosing-a-model-blind-600.webp 600w, ../img/blog/choosing-a-model-blind.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Blind votes on 19 questions. F, Gemini 3.8 Flash, won my vote. E, Claude Haiku 5.5, got the job." loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-ai"></span>The AI journey, part 4 of 6</p>
-      <h2>Picking an AI model blind, and not picking my favourite</h2>
-      <p class="sum">Six AI models answered the same questions about my PC, hidden behind letters A to F. Gemini 3.8 Flash won my vote. Claude Haiku 5.5 got the job.</p>
-      <p class="meta">21 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="ai">
-  <a href="three-ways-to-ask">
-    <div class="thumb"><img class="" src="../img/blog/three-ways-to-ask.webp" srcset="../img/blog/three-ways-to-ask-600.webp 600w, ../img/blog/three-ways-to-ask.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Three ways to ask: On your PC, where nothing leaves it; Your own key, with the provider you pick; RigSight AI, with nothing to set up" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-ai"></span>The AI journey, part 3 of 6</p>
-      <h2>Three ways to ask, including one that never leaves your PC</h2>
-      <p class="sum">The helper can run on your own PC, on your own AI account, or through RigSight. Why there are three, and what each one sends.</p>
-      <p class="meta">20 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="rigsight-in-spanish">
-    <div class="thumb"><img class="" src="../img/blog/rigsight-in-spanish.webp" srcset="../img/blog/rigsight-in-spanish-600.webp 600w, ../img/blog/rigsight-in-spanish.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Texts in the app: 3,097, every one in English and Spanish" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Putting RigSight into Spanish, all 3,097 lines of it</h2>
-      <p class="sum">People asked for Spanish. Translating the words was the easy part. Sentences built from English pieces, and a history stored in English, were the hard part.</p>
-      <p class="meta">19 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="ai">
-  <a href="bringing-ai-back">
-    <div class="thumb"><img class="" src="../img/blog/bringing-ai-back.webp" srcset="../img/blog/bringing-ai-back-600.webp 600w, ../img/blog/bringing-ai-back.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Every answer is one of: Here&#x27;s the problem; This is normal for your PC; I can&#x27;t tell, here&#x27;s what I&#x27;d need" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-ai"></span>The AI journey, part 2 of 6</p>
-      <h2>Bringing AI back, with rules this time</h2>
-      <p class="sum">Nine days after removing Riggy, I started on a real AI helper. Before writing any of it, I wrote down what it would never be allowed to do.</p>
-      <p class="meta">17 October 2026 · 4 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="how-sure-is-it">
-    <div class="thumb"><img class="" src="../img/blog/how-sure-is-it.webp" srcset="../img/blog/how-sure-is-it-600.webp 600w, ../img/blog/how-sure-is-it.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Crashes page: three crashes, each with a word for how sure the cause is: Possibly a fault in the app, Confirmed, Not enough to say" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Teaching crashes to say how sure they are</h2>
-      <p class="sum">Every crash now says what most likely caused it and how sure that is. Getting there meant one big feature, and cutting most of the next one.</p>
-      <p class="meta">14 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="standard-accounts">
-    <div class="thumb"><img class="" src="../img/blog/standard-accounts.webp" srcset="../img/blog/standard-accounts-600.webp 600w, ../img/blog/standard-accounts.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Admin prompts on a standard account: 0, Readings it can&#x27;t take are named, never stored as zero" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Making RigSight work without admin rights</h2>
-      <p class="sum">On a standard Windows account RigSight asked for an admin password at every start and recorded nothing without one. Here's how it learned to do what it can, and say what it can't.</p>
-      <p class="meta">13 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="tests-passed-app-froze">
-    <div class="thumb"><img class="" src="../img/blog/tests-passed-app-froze.webp" srcset="../img/blog/tests-passed-app-froze-600.webp 600w, ../img/blog/tests-passed-app-froze.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Made-up history: 15 ms, a page switch, said the tests. My real history: 205 ms, the window froze on Network" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>The tests said 15 milliseconds. The app froze.</h2>
-      <p class="sum">Switching pages felt slow, but every test passed. Made-up history was too tidy to show the problem. Real history showed it at once.</p>
-      <p class="meta">8 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="driver-update-crash">
-    <div class="thumb"><img class="" src="../img/blog/driver-update-crash.webp" srcset="../img/blog/driver-update-crash-600.webp 600w, ../img/blog/driver-update-crash.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="An opened crash in RigSight: the NVIDIA graphics driver failed while running Crimson Desert, Confirmed, with what it wasn&#x27;t and the minutes around it" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>The driver update that knocked RigSight out</h2>
-      <p class="sum">An NVIDIA driver update crashed RigSight's recorder ten seconds after the new driver started, and nothing brought it back.</p>
-      <p class="meta">7 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="honest-charts">
-    <div class="thumb"><img class="" src="../img/blog/honest-charts.webp" srcset="../img/blog/honest-charts-600.webp 600w, ../img/blog/honest-charts.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Temperatures page: CPU and GPU gauges and a 24 hour history with Average, Highest and Lowest switches" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Three ways my temperature chart was lying</h2>
-      <p class="sum">Peaks that moved every second, a 74° high that never showed on the line, and a gap that looked exactly like a cool PC.</p>
-      <p class="meta">7 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="ai">
-  <a href="riggy">
-    <div class="thumb"><img class="" src="../img/blog/riggy.webp" srcset="../img/blog/riggy-600.webp 600w, ../img/blog/riggy.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Kinds of question Riggy knew: 17, each answer written ahead of time. Time it was out: 2 days, then removed" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-ai"></span>The AI journey, part 1 of 6</p>
-      <h2>Riggy, the helper I shipped and removed two days later</h2>
-      <p class="sum">The first try at letting you ask RigSight questions. It was clever, it was careful, and it wasn't really AI. So it went.</p>
-      <p class="meta">6 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="quiet-bugs">
-    <div class="thumb"><img class="" src="../img/blog/quiet-bugs.webp" srcset="../img/blog/quiet-bugs-600.webp 600w, ../img/blog/quiet-bugs.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Timeline listing app updates, a power plan change and a Windows update, day by day" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Bugs that make no noise</h2>
-      <p class="sum">Internet use that silently stopped being recorded, an app 'updated' 45 minutes early, and a game 'installed' ten minutes into a 55 GB download.</p>
-      <p class="meta">6 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="power-loss-while-asleep">
-    <div class="thumb"><img class="" src="../img/blog/power-loss-while-asleep.webp" srcset="../img/blog/power-loss-while-asleep-600.webp 600w, ../img/blog/power-loss-while-asleep.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Kernel-Power 41, SleepInProgress: 6, Switching off. Read as &quot;asleep&quot; until 0.14.2" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>My PC wasn't losing power in its sleep</h2>
-      <p class="sum">RigSight said my PC kept losing power while asleep. It didn't. I had misread a number in Windows' own crash record.</p>
-      <p class="meta">1 October 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="how-light">
-    <div class="thumb"><img class="" src="../img/blog/how-light.webp" srcset="../img/blog/how-light-600.webp 600w, ../img/blog/how-light.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="Inside Windows and drivers: 73%, of the recorder&#x27;s processor time. RigSight&#x27;s own code: 27%, all a C++ rewrite could touch" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>How light is light? Measuring an app that never closes</h2>
-      <p class="sum">Someone suggested rewriting RigSight's sensor reading in C++. Measuring first showed where the time really goes, and that I had read the wrong memory number.</p>
-      <p class="meta">30 September 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="like-for-like">
-    <div class="thumb"><img class="" src="../img/blog/like-for-like.webp" srcset="../img/blog/like-for-like-600.webp 600w, ../img/blog/like-for-like.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight Reports for a Saturday: where the time went, the day minute by minute, what stood out and the peaks" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>The day RigSight told me my healthy fan was clogged</h2>
-      <p class="sum">A warning that compared a resting PC with a gaming one, and the rule it left behind. Compare like with like, or say nothing.</p>
-      <p class="meta">29 September 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="overlay-in-fullscreen-games">
-    <div class="thumb"><img class="" src="../img/blog/overlay-in-fullscreen-games.webp" srcset="../img/blog/overlay-in-fullscreen-games-600.webp 600w, ../img/blog/overlay-in-fullscreen-games.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="See-through value sent to RivaTuner: 00, read as fully solid, a black box" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Getting numbers inside a fullscreen game</h2>
-      <p class="sum">Why a normal window can't draw over some games, how RivaTuner gets around it, and the see-through panel that turned solid black.</p>
-      <p class="meta">27 September 2026 · 3 min read</p>
-    </div>
-  </a>
-</li><li class="row" data-series="build">
-  <a href="day-one">
-    <div class="thumb"><img class="" src="../img/blog/day-one.webp" srcset="../img/blog/day-one-600.webp 600w, ../img/blog/day-one.webp 1200w" sizes="(max-width: 760px) 92vw, 460px" width="1200" height="800" alt="RigSight&#x27;s Home card for today: time active, PC on and away, CPU and GPU peaks with the app in use, and the most used apps" loading="lazy" decoding="async"></div>
-    <div class="row-text">
-      <p class="eyebrow"><span class="dot s-build"></span>Building RigSight</p>
-      <h2>Day one, and 25 versions before midnight</h2>
-      <p class="sum">The first public day of RigSight, what it set out to do, and the first mistake it shipped, which counted the page file as RAM.</p>
-      <p class="meta">23 September 2026 · 3 min read</p>
-    </div>
-  </a>
 </li>
   </ol>
+  <div class="more" id="more"><button type="button" class="btn-more">More posts</button></div>
 </section></main><footer class="foot"><div class="wrap foot-in">
   <a class="brand" href="../"><img src="../img/logo-144.webp" alt="" width="20" height="20"><span>RigSight</span></a>
   <nav aria-label="Links"><a href="../">Home</a><a href="./">Blog</a><a href="https://github.com/b0llu/Rigsight">GitHub</a><a href="https://github.com/b0llu/Rigsight/releases">Releases</a><a href="../privacy.html">Privacy policy</a><a class="coffee" href="https://buymeacoffee.com/bollu">Buy me a coffee</a></nav>
@@ -889,14 +405,141 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('resize', tick);
   window.__tick = tick; tick();
 })();
+</script><script>/* The blog list (2026-11-18): the first rows come with the page, the rest load from list.json as you scroll, the
+   chips filter by series, and the search box finds posts by their words, typos and half-typed words included,
+   from search.json (title, summary and the whole text), loaded the first time someone searches. */
 (function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
+  var list = document.getElementById('rows');
+  if (!list) return;
+  var PAGE = 10, more = document.getElementById('more'), box = document.getElementById('blog-search'),
+      status = document.getElementById('search-status'), chips = document.querySelectorAll('.chip[data-series]');
+  var all = null, docs = null, entries = null, shown = list.children.length, series = 'all', query = '', timer = 0;
+
+  function getList() { return all ? Promise.resolve(all) : fetch('list.json').then(function (r) { return r.json(); }).then(function (d) { return (all = d); }); }
+  function getDocs() {
+    if (docs) return Promise.resolve(docs);
+    return Promise.all([getList(), fetch('search.json').then(function (r) { return r.json(); })]).then(function (res) {
+      docs = res[1].map(function (d, i) {
+        return { i: i, text: d.b, title: set(d.t), desc: set(d.d + ' ' + d.l), body: set(d.b), full: norm(d.t + ' ' + d.d + ' ' + d.b) };
+      });
+      return docs;
+    });
   }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
+  function norm(s) { return s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, ''); }
+  function words(s) { return norm(s).match(/[a-z0-9]+/g) || []; }
+  function set(s) { var o = new Set(words(s)); return o; }
+  function esc(s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // How far apart two words are (letters added, removed, changed or swapped), stopping past max.
+  function dist(a, b, max) {
+    if (Math.abs(a.length - b.length) > max) return max + 1;
+    var prev2 = null, prev = [], cur, i, j;
+    for (j = 0; j <= b.length; j++) prev[j] = j;
+    for (i = 1; i <= a.length; i++) {
+      cur = [i]; var low = i;
+      for (j = 1; j <= b.length; j++) {
+        var c = a[i - 1] === b[j - 1] ? 0 : 1;
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + c);
+        if (prev2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1);
+        if (cur[j] < low) low = cur[j];
+      }
+      if (low > max) return max + 1;
+      prev2 = prev; prev = cur;
+    }
+    return prev[b.length];
+  }
+  // The best a word does in one part of a post: the word itself, a word it starts, or one a typo or two away.
+  function inField(term, field, hits) {
+    if (field.has(term)) { hits.push(term); return 1; }
+    var best = 0, max = term.length >= 8 ? 2 : 1;
+    field.forEach(function (w) {
+      if (best < 0.7 && term.length >= 2 && w.indexOf(term) === 0) { best = 0.7; hits.push(w); }
+      else if (best < 0.5 && term.length >= 4 && dist(term, w, max) <= max) { best = 0.5; hits.push(w); }
+    });
+    return best;
+  }
+  var SMALL = new Set(['a', 'an', 'the', 'is', 'it', 'my', 'i', 'to', 'of', 'in', 'on', 'and', 'or', 'for', 'do', 'does', 'how', 'what', 'why',
+    'much', 'can', 'with', 'while', 'when', 'your', 'you', 'are', 'be', 'at', 'this', 'that']);
+  function search(q) {
+    var terms = words(q), phrase = norm(q).trim(), out = [];
+    var big = terms.filter(function (t) { return !SMALL.has(t); });
+    if (big.length) terms = big;
+    if (!terms.length) return out;
+    docs.forEach(function (d) {
+      var score = 0, matched = 0, hits = [];
+      terms.forEach(function (t) {
+        var s = 10 * inField(t, d.title, hits) + 4 * inField(t, d.desc, hits) + inField(t, d.body, hits);
+        if (s > 0) matched++;
+        score += s;
+      });
+      if (!matched) return;
+      if (phrase.length > 3 && d.full.indexOf(phrase) >= 0) score += 15;
+      out.push({ d: d, score: score, all: matched === terms.length, hits: hits });
+    });
+    var strict = out.filter(function (r) { return r.all; });
+    return (strict.length ? strict : out).sort(function (a, b) { return b.score - a.score; });
+  }
+  function snippet(r) {
+    var text = r.d.text, low = norm(text), at = -1, word = '';
+    r.hits.forEach(function (h) { var k = low.search(new RegExp('\\b' + h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))); if (k >= 0 && (at < 0 || k < at)) { at = k; word = h; } });
+    if (at < 0) return '';
+    var from = Math.max(0, text.lastIndexOf(' ', Math.max(0, at - 70)) + 1), to = Math.min(text.length, at + 130);
+    var part = esc(text.slice(from, to));
+    var marks = Array.from(new Set(r.hits)).sort(function (a, b) { return b.length - a.length; }).map(function (h) { return h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+    part = part.replace(new RegExp('\\b(' + marks.join('|') + ')\\w*', 'gi'), '<mark>$&</mark>');
+    return (from > 0 ? '… ' : '') + part + (to < text.length ? ' …' : '');
+  }
+
+  function render(from) {
+    var html = '';
+    for (var k = from; k < Math.min(entries.length, from + PAGE); k++) html += entries[k];
+    list.insertAdjacentHTML('beforeend', html);
+    shown = Math.min(entries.length, from + PAGE);
+    more.hidden = shown >= entries.length;
+  }
+  function reset(newEntries) {
+    entries = newEntries; list.innerHTML = ''; shown = 0; render(0);
+  }
+  function bySeries() { return all.filter(function (r) { return series === 'all' || r.s === series; }).map(function (r) { return r.h; }); }
+  function showSeries() {
+    getList().then(function () { reset(bySeries()); status.textContent = ''; });
+  }
+  function runSearch() {
+    query = box.value.trim();
+    if (!query) { showSeries(); return; }
+    status.textContent = 'Searching…';
+    getDocs().then(function () {
+      var found = search(query).filter(function (r) { return series === 'all' || all[r.d.i].s === series; });
+      reset(found.map(function (r) {
+        var s = snippet(r);
+        return all[r.d.i].h.replace('<p class="meta">', (s ? '<p class="hit">' + s + '</p>' : '') + '<p class="meta">');
+      }));
+      status.textContent = found.length ? (found.length === 1 ? '1 post matches.' : found.length + ' posts match.') : 'No posts match. Try fewer or shorter words.';
+    });
+  }
+
+  chips.forEach(function (c) {
+    c.addEventListener('click', function () {
+      series = c.dataset.series;
+      chips.forEach(function (x) { x.setAttribute('aria-pressed', x === c ? 'true' : 'false'); });
+      if (query) runSearch(); else showSeries();
+    });
+  });
+  if (box) {
+    box.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(runSearch, 160); });
+    box.addEventListener('focus', function () { getDocs(); }, { once: true });
+  }
+  if (more && 'IntersectionObserver' in window) {
+    new IntersectionObserver(function (es) {
+      if (!es[0].isIntersecting) return;
+      if (entries) { if (shown < entries.length) render(shown); return; }
+      getList().then(function () { entries = bySeries(); render(shown); });
+    }, { rootMargin: '600px 0px' }).observe(more);
+  } else if (more) {
+    more.querySelector('button') && more.querySelector('button').addEventListener('click', function () {
+      getList().then(function () { if (!entries) entries = bySeries(); render(shown); });
+    });
+  }
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

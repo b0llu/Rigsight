@@ -109,12 +109,14 @@ def load_posts():
         else:
             p["cover_alt"] = c["label"] + ". " + c["sub"]
         p["cover_cap"] = ""
-        if "img" in c:
+        if "img" in c and p["slug"] not in COVERS2:
             # the cover is cut from this picture: drop the same picture from the body, keep its caption under the cover
             m = re.search(r"\{\{fig " + re.escape(c["img"]) + r" \|[^|}]*\|([^}]*)\}\}\s*", p["body"])
             if m:
                 p["cover_cap"] = m.group(1).strip()
                 p["body"] = p["body"][:m.start()] + p["body"][m.end():]
+    for p in posts:
+        apply_cover2(p)
     posts.sort(key=lambda p: (p["happened"], p.get("order", 0)))
     ALL_SLUGS.update(p["slug"] for p in posts)
     for s in SERIES:
@@ -201,10 +203,66 @@ def cover_img(p, img_prefix, cls, eager=False, sizes="(max-width: 760px) 92vw, 4
         sys.exit(f"{p['slug']}: no cover, run covers.py")
     load = 'fetchpriority="high"' if eager else 'loading="lazy"'
     return (f'<img class="{cls}" src="{img_prefix}blog/{p["slug"]}.webp" srcset="{img_prefix}blog/{p["slug"]}-600.webp 600w, '
-            f'{img_prefix}blog/{p["slug"]}.webp 1200w" sizes="{sizes}" width="1200" height="800" alt="{html.escape(p["cover_alt"])}" {load} decoding="async">')
+            f'{img_prefix}blog/{p["slug"]}.webp 1200w" sizes="{sizes}" width="1200" height="675" alt="{html.escape(p.get("cover_alt", ""))}" {load} decoding="async">')
+
+
+FIRST_ROWS = 10  # rows that come with the list page; the rest load from list.json as you scroll (2026-11-18)
+LIST_ROWS = []
+BLOG_LIST_JS = "<script>" + (Path(__file__).resolve().parent / "blog-list.js").read_text(encoding="utf-8") + "</script>"
+
+
+def plain(body):
+    """A post's words for search: no tags, macros or markup."""
+    body = re.sub(r"\{\{[^}]*\}\}", " ", body)
+    body = re.sub(r"<(script|style|svg)\b.*?</\1>", " ", body, flags=re.S)
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", body))).strip()
+
+
+def write_list_files(out):
+    """list.json (each row's HTML, newest first) and search.json (its words), for the list page's script."""
+    (out / "list.json").write_text(json.dumps([{"s": p["series"], "h": r} for p, r in LIST_ROWS], ensure_ascii=False, separators=(",", ":")),
+                                   encoding="utf-8", newline="\n")
+    idx = [{"t": html.unescape(re.sub(r"<[^>]+>", "", p["title"])), "d": html.unescape(re.sub(r"<[^>]+>", "", p["summary"])),
+            "l": " ".join(filter(None, [SERIES[p["series"]][0], p.get("topic", ""), p.get("keyword", ""), " ".join(p.get("also", []))])),
+            "b": plain(p["body"]) + " " + " ".join(q + " " + re.sub(r"<[^>]+>", "", a) for q, a in p.get("faq", []))} for p, _ in LIST_ROWS]
+    (out / "search.json").write_text(json.dumps(idx, ensure_ascii=False, separators=(",", ":")), encoding="utf-8", newline="\n")
 
 
 ALL_SLUGS = set()  # every post and guide slug, so links between them work in the one-page preview
+
+# Covers since 2026-11-18 (covers2.py): a subject photo (credit shown under the cover) or RigSight's own picture.
+COVERS2 = {k: v for k, v in json.loads((Path(__file__).resolve().parent / "covers2.json").read_text(encoding="utf-8")).items() if k != "_"}
+PHOTO_CREDITS = json.loads((Path(__file__).resolve().parent / "photos" / "photos.json").read_text(encoding="utf-8"))
+PHOTO_ALT = {"gpu-dark": "A graphics card with three fans on a dark background", "gpu-fans": "Close-up of a graphics card's three fans",
+             "cpu-cooler": "A tower CPU cooler on a motherboard", "cpu-die": "Close-up of a processor chip",
+             "case-inside": "Inside a PC case with a large CPU cooler and fans", "hdd": "A desktop hard drive",
+             "hdd-open": "An opened hard drive", "ssd-sata": "A 2.5-inch SATA SSD held in a hand", "ssd-nvme": "An M.2 NVMe SSD",
+             "ram": "A DDR4 memory stick", "router": "A Wi-Fi router", "bsod": "A blue screen on a laptop",
+             "psu": "A PC power supply", "rgb-keyboard": "A gaming keyboard lit in several colours",
+             "gaming-desk": "A gaming desk with two monitors and a keyboard", "desk": "A computer desk with a monitor"}
+SHOT_ALT = {"pages/home": "RigSight's Home page", "pages/fans": "RigSight's Fans page", "pages/processes": "RigSight's Processes page",
+            "pages/crashes": "RigSight's Crashes page", "pages/temperatures": "RigSight's Temperatures page",
+            "pages/crash-open": "An opened crash in RigSight", "pages/crash-around": "What happened around a crash, in RigSight",
+            "pages/reports-day": "RigSight's daily report", "pages/reports-month": "RigSight's monthly report",
+            "pages/network": "RigSight's Network page", "pages/game": "A game's page in RigSight",
+            "cards/overlay": "RigSight's overlay settings", "cards/taskbar": "RigSight's readings in the taskbar",
+            "cards/widgets": "RigSight's desktop widgets"}
+
+
+def apply_cover2(p):
+    """Gives a post its new cover's description and, for a photo, the credit under it."""
+    c = COVERS2.get(p["slug"])
+    if not c:
+        return p
+    if c["t"] == "A":
+        p["cover_alt"] = PHOTO_ALT.get(c["photo"], p.get("cover_alt", ""))
+        cr = PHOTO_CREDITS.get(c["photo"])
+        if cr and not p.get("cover_cap"):
+            p["cover_cap"] = (f'Photo: <a href="{html.escape(cr["page"])}" rel="noopener">{html.escape(cr["artist"])}</a>, '
+                              f'{html.escape(cr["license"])}, via Wikimedia Commons')
+    else:
+        p["cover_alt"] = SHOT_ALT.get(c["shot"], "A RigSight screen") + (f', with {c["num"]}' if c.get("num") else "")
+    return p
 
 # ---------- pieces shared by the site and the artifact ----------
 
@@ -237,6 +295,9 @@ def index_html(posts, mode, img_prefix, fixes=()):
     </div>
   </a>
 </li>''')
+    global LIST_ROWS
+    LIST_ROWS = [(p, r) for p, r in zip(newest, rows)]
+    first = rows if mode == "artifact" else rows[:FIRST_ROWS]
     first_build = next((p for p in posts if p["series"] == "build"), None)
     first_ai = next((p for p in posts if p["series"] == "ai"), None)
     starts = " or ".join(x for x in [
@@ -249,13 +310,20 @@ def index_html(posts, mode, img_prefix, fixes=()):
   <p class="starts">Start at the beginning with {starts}.</p>
 </section>
 <section class="wrap">
+  <div class="search" role="search">
+    <label class="vh" for="blog-search">Search the blog</label>
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15ZM16 16l5 5"/></svg>
+    <input id="blog-search" type="search" placeholder="Search {len(everything)} posts, like GPU temperature or crash" autocomplete="off" aria-controls="rows">
+    <p class="search-status" id="search-status" aria-live="polite"></p>
+  </div>
   <div class="filter" role="group" aria-label="Show posts from">
     <button class="chip" type="button" data-series="all" aria-pressed="true">All <span>{len(everything)}</span></button>{chips}
     {'' if mode == "artifact" else '<a class="rss" href="feed.xml">RSS</a>'}
   </div>
   <ol class="rows" id="rows">
-    {''.join(rows)}
+    {''.join(first)}
   </ol>
+  <div class="more" id="more"{' hidden' if len(first) >= len(rows) else ''}><button type="button" class="btn-more">More posts</button></div>
 </section>'''
 
 
@@ -349,15 +417,6 @@ PROGRESS_JS = '''<script>
   addEventListener('resize', tick);
   window.__tick = tick; tick();
 })();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
-})();
 </script>'''
 
 
@@ -379,6 +438,7 @@ def head(title, desc, url, img, extra=""):
   <meta property="og:description" content="{html.escape(desc)}" />
   <meta property="og:url" content="{url}" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="{SITE}/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
 {extra}  <style>
@@ -389,6 +449,13 @@ def head(title, desc, url, img, extra=""):
 </head>
 <body>
 '''
+
+
+def og_image(p):
+    alt = html.escape(p.get("cover_alt", ""))
+    return (f'  <meta property="og:image" content="{SITE}/img/blog/{p["slug"]}-og.jpg" />\n  <meta property="og:image:width" content="1200" />\n'
+            f'  <meta property="og:image:height" content="630" />\n  <meta property="og:image:alt" content="{alt}" />\n'
+            f'  <meta name="twitter:image" content="{SITE}/img/blog/{p["slug"]}-og.jpg" />\n')
 
 
 UMAMI = '''<script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>'''
@@ -433,14 +500,15 @@ def build_site():
                   "publisher": {"@type": "Organization", "name": "RigSight", "url": SITE}, "mainEntityOfPage": url}
             ld["image"] = f"{SITE}/img/blog/{p['slug']}.webp"
             ld["author"]["name"] = AUTHOR
-            extra += f'  <meta property="og:image" content="{SITE}/img/blog/{p["slug"]}.webp" />\n  <meta property="og:image:width" content="1200" />\n  <meta property="og:image:height" content="800" />\n'
+            extra += og_image(p)
             extra += '  <meta property="og:type" content="article" />\n'
             extra += f'  <script type="application/ld+json">{json.dumps(ld)}</script>\n'
         else:
             extra += f'  <meta property="og:image" content="{SITE}/img/og.png" />\n  <meta property="og:type" content="website" />\n'
         doc = (head(title, desc, url, img, extra) + HEADER.format(**links) + f"<main>{inner}</main>"
-               + FOOTER.format(**links) + PROGRESS_JS + UMAMI + "\n</body>\n</html>\n")
+               + FOOTER.format(**links) + PROGRESS_JS + (BLOG_LIST_JS if not slug else "") + UMAMI + "\n</body>\n</html>\n")
         (out / (f"{slug}.html" if slug else "index.html")).write_text(doc, encoding="utf-8", newline="\n")
+    write_list_files(out)
     # RSS, newest first
     from email.utils import format_datetime
     from datetime import datetime, timezone

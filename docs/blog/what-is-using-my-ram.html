@@ -15,11 +15,14 @@
   <meta property="og:description" content="What is using my RAM on Windows 11? Find it in Task Manager&#x27;s Memory column, read what cached and compressed mean, and spot an app that keeps growing." />
   <meta property="og:url" content="https://rigsight.app/blog/what-is-using-my-ram" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="max-image-preview:large" />
   <link rel="alternate" type="application/rss+xml" title="The RigSight log" href="https://rigsight.app/blog/feed.xml" />
   <link rel="preload" href="../fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <meta property="og:image" content="https://rigsight.app/img/blog/what-is-using-my-ram.webp" />
+  <meta property="og:image" content="https://rigsight.app/img/blog/what-is-using-my-ram-og.jpg" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="800" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A DDR4 memory stick" />
+  <meta name="twitter:image" content="https://rigsight.app/img/blog/what-is-using-my-ram-og.jpg" />
   <meta property="og:type" content="article" />
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "What is using my RAM? How to find it on Windows 11", "description": "What is using my RAM on Windows 11? Find it in Task Manager's Memory column, read what cached and compressed mean, and spot an app that keeps growing.", "datePublished": "2026-11-10", "dateModified": "2026-11-10", "image": "https://rigsight.app/img/blog/what-is-using-my-ram.webp", "author": {"@type": "Person", "name": "Dhruv Samant"}, "publisher": {"@type": "Organization", "name": "RigSight", "url": "https://rigsight.app"}, "mainEntityOfPage": "https://rigsight.app/blog/what-is-using-my-ram", "keywords": "what is using my ram windows 11, high memory usage windows 11 nothing running, what is using all my ram, high memory usage windows 11 not showing in task manager, high memory usage windows 11 chrome, high memory usage windows 11 idle, high memory usage windows 11 after update"}</script>
   <script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://rigsight.app/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://rigsight.app/blog/"}, {"@type": "ListItem", "position": 3, "name": "What is using my RAM? How to find it on Windows 11", "item": "https://rigsight.app/blog/what-is-using-my-ram"}]}</script>
@@ -111,7 +114,7 @@ img { max-width: 100%; height: auto; }
 .row h2 { font: 600 clamp(22px, 2.4vw, 28px)/1.2 var(--display); letter-spacing: -0.025em; margin: 0 0 10px; color: var(--fg); text-wrap: balance; }
 .row a:hover h2 { text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 6px; }
 .row .sum { color: var(--muted); margin: 0 0 14px; font-size: 16px; line-height: 1.6; }
-.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 3 / 2; }
+.thumb { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); aspect-ratio: 16 / 9; }
 .thumb img { width: 100%; height: 100%; display: block; transition: transform .3s ease; }
 .row a:hover .thumb img { transform: scale(1.015); }
 
@@ -244,6 +247,24 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 .tbl { overflow-x: auto; }
 @media (max-width: 520px) { .testbed dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .testbed dd { margin-bottom: 8px; } }
 
+/* 2026-11-18: search and rows that load as you scroll on the blog list (mock-up first, then the user's OK). */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.search { position: relative; max-width: 640px; margin: 0 0 18px; }
+.search svg { position: absolute; left: 16px; top: 15px; color: var(--faint); pointer-events: none; }
+.search input { width: 100%; height: 48px; padding: 0 16px 0 44px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface);
+  color: var(--fg); font: 400 16px/1 var(--body); }
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: rgba(34,211,238,.6); box-shadow: 0 0 0 3px rgba(34,211,238,.15); }
+.search-status { margin: 10px 4px 0; min-height: 1.4em; color: var(--muted); font-size: 14.5px; }
+.search-status:empty { margin: 0; min-height: 0; }
+.row .hit { color: var(--text); font-size: 15px; line-height: 1.55; margin: -4px 0 12px; overflow-wrap: anywhere; }
+.row mark { background: rgba(34,211,238,.18); color: var(--fg); border-radius: 3px; padding: 0 2px; }
+.more { display: flex; justify-content: center; padding: 8px 0 72px; }
+.btn-more { height: 42px; padding: 0 22px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg);
+  font: 500 15px/1 var(--body); cursor: pointer; }
+.btn-more:hover { background: var(--surface-2); }
+.cover figcaption a { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -257,7 +278,7 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   <h1>What is using my RAM? How to find it on Windows 11</h1>
   <p class="dek">The biggest memory user on my PC isn't a game, it's a local AI model at up to 7.8 GB. How to find what is using your RAM on Windows 11, what the numbers in Task Manager mean, and how RigSight spots an app that keeps growing.</p>
   <p class="byline"><b><a href="author" rel="author">Dhruv Samant</a></b> · Updated 10 November 2026 · 7 min read</p>
-  <figure class="cover"><img class="" src="../img/blog/what-is-using-my-ram.webp" srcset="../img/blog/what-is-using-my-ram-600.webp 600w, ../img/blog/what-is-using-my-ram.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="800" alt="RigSight&#x27;s Memory page on the demo PC with a 68 percent memory gauge, the breakdown into apps, compressed and free, and today&#x27;s biggest memory users" fetchpriority="high" decoding="async"><figcaption>RigSight's Memory page on the demo PC. Each app's memory now sits beside its usual, so a leak stands out from an app that is always big.</figcaption></figure>
+  <figure class="cover"><img class="" src="../img/blog/what-is-using-my-ram.webp" srcset="../img/blog/what-is-using-my-ram-600.webp 600w, ../img/blog/what-is-using-my-ram.webp 1200w" sizes="(max-width: 760px) 92vw, 1152px" width="1200" height="675" alt="A DDR4 memory stick" fetchpriority="high" decoding="async"><figcaption>Photo: <a href="https://commons.wikimedia.org/wiki/File:16_GiB-DDR4-RAM-Riegel_RAM019FIX_Small_Crop_90_PCNT.png" rel="noopener">PantheraLeo1359531</a>, CC BY 4.0, via Wikimedia Commons</figcaption></figure>
   <div class="short"><p class="short-k">The short answer</p><p>Open Task Manager with Ctrl + Shift + Esc, go to Processes and click the Memory column to put the biggest users on top. If the total is high but the list looks small, check Performance > Memory. Cached and compressed memory are normal, and memory that keeps growing for hours points to a leak.</p></div>
   <div class="body">
 <p>When I sorted RigSight's history by memory, the biggest user on my PC wasn't a game. It was Llama Server, a local AI model I run, at up to 7.8 GB. The heaviest game came next, Phantom Blade Zero at up to 6.9 GB, then Apex Legends at 6.6 GB. Task Manager would only have shown me whichever was open at that moment. Here is how to find out what is using your RAM on Windows 11, which numbers are normal, and what to do when one app keeps taking more.</p>
@@ -334,6 +355,8 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
 
 <p>Since version 1.7.0, RigSight can also tell you about a leak while it happens. Turn on <strong>Apps that keep growing in memory</strong> in Settings, and when an app's memory has risen every hour for three hours, ending at 2 GB or more and at least twice where it started, you get a notification such as "Google Chrome keeps using more memory". It says how far it went and how fast, and that it hasn't come back down. The bell in the title bar keeps it for 30 days.</p>
 
+<figure class="shot"><img src="../img/pages/memory.webp" srcset="../img/pages/memory-720.webp 720w, ../img/pages/memory.webp 1424w" sizes="(max-width: 760px) 92vw, 1152px" width="1424" height="924" alt="RigSight&#x27;s Memory page on the demo PC with a RAM gauge, the breakdown into apps, compressed and free, today&#x27;s biggest memory users and the list of apps using memory right now with their usual amount" loading="lazy" decoding="async"><figcaption>RigSight's Memory page on the demo PC. Each app's memory now sits beside its usual, so a leak stands out from an app that is always big.</figcaption></figure>
+
 <p>On the Processes page, open a browser or another app made of many processes, and RigSight splits its memory into its tabs, its extensions and the app itself, with its recorded history beside it. You can end an app there too, with a warning before you end a part of Windows. RigSight is free and open source.</p>
   <section class="sources"><h2>Sources</h2><ol><li><a href="https://support.microsoft.com/en-us/windows/tips-to-improve-pc-performance-in-windows-b3b3ef5b-5953-fb6a-2528-4bbed82fba96" rel="noopener">Microsoft Support, Tips to improve pc performance in windows</a></li><li><a href="https://learn.microsoft.com/sysinternals/downloads/rammap" rel="noopener">Microsoft Learn, Rammap</a></li><li><a href="https://www.microsoft.com/windows/windows-11-specifications" rel="noopener">microsoft.com, Windows 11 specifications</a></li><li><a href="https://support.google.com/chrome/answer/12929150" rel="noopener">support.google.com, Answer</a></li><li><a href="https://support.microsoft.com/en-us/edge/learn-about-performance-features-in-microsoft-edge" rel="noopener">Microsoft Support, Learn about performance features in microsoft edge</a></li><li><a href="https://www.techrepublic.com/article/how-to-use-windows-10s-resource-monitor-to-track-memory-usage/" rel="noopener">techrepublic.com, How to use windows 10s resource monitor to track memory usage</a></li><li><a href="https://helpdeskgeek.com/task-manager-ram-meaning-explained/" rel="noopener">helpdeskgeek.com, Task manager ram meaning explained</a></li><li><a href="how-rigsight-measures">How RigSight measures</a>, how the numbers from my PC were recorded</li></ol></section>
   <section class="faq"><h2>Questions people ask</h2><details class="qa"><summary>Why is my memory usage high on Windows 11 with nothing running?</summary><p>Usually it's apps that start with Windows and sit in the tray, a browser that keeps running after you close its window, and memory Windows keeps as a cache. Cached memory is handed back as soon as an app needs it, so it isn't a problem. Check Task Manager's Startup apps page and turn off what you don't need.</p></details><details class="qa"><summary>Why is high memory usage not showing in Task Manager&#x27;s list?</summary><p>The Processes list only shows what apps hold. Memory used by drivers, the Windows kernel and hardware such as integrated graphics isn't listed there. If the Non-paged pool figure on Performance > Memory keeps climbing for hours, a driver may be leaking memory, and Microsoft's free RAMMap tool shows where it went.</p></details><details class="qa"><summary>Is high memory usage at idle bad?</summary><p>Not by itself. Windows uses spare RAM to cache files you might open again, and gives it back the moment an app asks. It's a problem when Available memory is close to zero, the PC stutters or Windows warns that it is low on memory.</p></details><details class="qa"><summary>Why does Chrome use so much RAM?</summary><p>Chrome runs each tab and extension as its own process, so its memory adds up quickly with many tabs open. Turn on Memory Saver in Settings > Performance, and press Shift + Esc in Chrome to open its own task manager and see which tab or extension holds the most.</p></details><details class="qa"><summary>Why is my memory usage high after a Windows update?</summary><p>Right after a big update Windows often does background work, such as indexing files again. Give it a few hours and a restart before you go looking. If one process still holds far more than it used to, update or reinstall that app or driver.</p></details></section>
@@ -362,15 +385,6 @@ figcaption { font-size: 14px; line-height: 1.55; color: var(--faint); margin-top
   addEventListener('scroll', tick, { passive: true });
   addEventListener('resize', tick);
   window.__tick = tick; tick();
-})();
-(function () {
-  var chips = document.querySelectorAll('.chip[data-series]');
-  if (!chips.length) return;
-  function show(s) {
-    chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.series === s ? 'true' : 'false'); });
-    document.querySelectorAll('#rows .row').forEach(function (r) { r.hidden = s !== 'all' && r.dataset.series !== s; });
-  }
-  chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.series); }); });
 })();
 </script><script defer src="https://cloud.umami.is/script.js" data-website-id="d4359802-485d-4a07-97c4-6a8083d4a95d"></script>
 </body>

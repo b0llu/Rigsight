@@ -50,11 +50,12 @@ def load_guides():
         g.setdefault("updated", g["published"])
         g["cover_alt"] = g.get("cover_alt") or (". ".join(f"{k}: {v}, {s}" for k, v, s in g["cover_tiles"]) if g.get("cover_tiles") else g["title"])
         g["cover_cap"] = ""
-        if g.get("cover_img"):
+        if g.get("cover_img") and g["slug"] not in B().COVERS2:
             mm = re.search(r"\{\{fig " + re.escape(g["cover_img"]) + r" \|[^|}]*\|([^}]*)\}\}\s*", g["body"])
             if mm:
                 g["cover_cap"] = mm.group(1).strip()
                 g["body"] = g["body"][:mm.start()] + g["body"][mm.end():]
+        B().apply_cover2(g)
         out.append(g)
     order = {t: i for i, t in enumerate(TOPICS)}
     out.sort(key=lambda g: (order.get(g["topic"], 99), g["title"].lower()))
@@ -200,8 +201,7 @@ def build_guides():
                    "mainEntityOfPage": url, "keywords": ", ".join([g["keyword"]] + g.get("also", []))},
                   {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": crumbs}]
             # No FAQPage data since 2026-11-18: Google shows FAQ results only for government and health sites (Aug 2023).
-            extra = (f'  <meta property="og:image" content="{b.SITE}/img/blog/{g["slug"]}.webp" />\n  <meta property="og:image:width" content="1200" />\n'
-                     f'  <meta property="og:image:height" content="800" />\n  <meta property="og:type" content="article" />\n'
+            extra = (b.og_image(g) + '  <meta property="og:type" content="article" />\n'
                      + "".join(f'  <script type="application/ld+json">{json.dumps(x)}</script>\n' for x in ld))
         else:
             extra = (f'  <meta property="og:image" content="{b.SITE}/img/og.png" />\n  <meta property="og:type" content="website" />\n'
