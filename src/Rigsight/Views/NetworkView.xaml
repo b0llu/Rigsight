@@ -190,8 +190,8 @@
                                         <TextBlock Text="{Binding UpNow}" FontSize="{x:Static ctl:TextSize.Display}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
                                     </StackPanel>
                                 </StackPanel>
-                                <!-- Edge to edge of its half, through the card's padding; its labels stay level with the text. -->
-                                <ctl:NetLiveChart Height="128" Margin="-22,10,-22,0" Inset="22" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
+                                <!-- Inside the card's padding, level with the text on both sides (the user, 2026-11-17). -->
+                                <ctl:NetLiveChart Height="128" Margin="0,10,0,0" History="{Binding Live.NetHistory}" Version="{Binding Live.Tick}" />
                                 <TextBlock Text="{ctl:T 'Each app\'s internet use is read while RigSight runs with admin rights.'}" Style="{StaticResource Note}" Margin="0,8,0,0"
                                            Visibility="{Binding HasLive, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
                                 <!-- Windows stopped delivering network events and the agent couldn't get them back. -->

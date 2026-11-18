@@ -734,14 +734,6 @@ public sealed class NetLiveChart : NetChartBase
     /// <summary>Bumped each second (the live tick) to redraw.</summary>
     public long Version { get => (long)GetValue(VersionProperty); set => SetValue(VersionProperty, value); }
 
-    public static readonly DependencyProperty InsetProperty = DependencyProperty.Register(
-        nameof(Inset), typeof(double), typeof(NetLiveChart), new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
-    /// <summary>
-    /// The card's own padding: the chart is drawn from edge to edge of its half (the user, 2026-11-16: "extra space on left and
-    /// right"), and its labels sit this far in, level with the card's text, inside the chart over its lines.
-    /// </summary>
-    public double Inset { get => (double)GetValue(InsetProperty); set => SetValue(InsetProperty, value); }
-
     /// <summary>Room over the top line for its label.</summary>
     private const double LabelRoom = 14;
 
@@ -758,10 +750,10 @@ public sealed class NetLiveChart : NetChartBase
             double y = Math.Round(plot.Bottom - plot.Height * i / 4) + 0.5;
             dc.DrawLine(pen, new Point(plot.Left, y), new Point(plot.Right, y));
             // Each line's figure just over it, at the text's edge; "0" goes without saying.
-            if (i > 0) Label(dc, Units.Speed(top * i / 4), new Point(Inset, y - 8), LabelBrush);
+            if (i > 0) Label(dc, Units.Speed(top * i / 4), new Point(0, y - 8), LabelBrush);
         }
-        Label(dc, Lang.T("60 seconds"), new Point(Inset, plot.Bottom + AxisHeight / 2 + 2), LabelBrush);
-        Label(dc, Lang.T("now"), new Point(ActualWidth - Inset, plot.Bottom + AxisHeight / 2 + 2), LabelBrush, right: true);
+        Label(dc, Lang.T("60 seconds"), new Point(0, plot.Bottom + AxisHeight / 2 + 2), LabelBrush);
+        Label(dc, Lang.T("now"), new Point(ActualWidth, plot.Bottom + AxisHeight / 2 + 2), LabelBrush, right: true);
         if (points.Count < 2) return;
 
         long last = points[^1].Time;
