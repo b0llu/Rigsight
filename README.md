@@ -101,7 +101,14 @@ dotnet build Rigsight.slnx
 .\bin\Debug\Rigsight.exe         # the app window
 ```
 
-To make the installer, install [Inno Setup](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`) and run `tools\build-installer.ps1`. The version comes from `Directory.Build.props`.
+To make the installer, install [Inno Setup](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`), publish both programs into `publish\`, then compile `installer\Rigsight.iss` with the version from `Directory.Build.props`.
+
+```powershell
+dotnet publish src\Rigsight.Agent -c Release -r win-x64 --self-contained true -o publish
+dotnet publish src\Rigsight -c Release -r win-x64 --self-contained true -o publish
+$version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" installer\Rigsight.iss
+```
 
 ## Credits
 

@@ -1,5 +1,5 @@
-; Rigsight installer (Inno Setup 6). Build it with tools\build-installer.ps1, which publishes
-; the programs first and passes the version in.
+; Rigsight installer (Inno Setup 6). Publish both programs into ..\publish first and pass the
+; version in (/DAppVersion=x.y.z), as README.md's "Building from source" shows.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
