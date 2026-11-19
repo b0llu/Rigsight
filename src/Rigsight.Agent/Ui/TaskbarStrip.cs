@@ -30,8 +30,19 @@ namespace Rigsight.Agent.Ui;
 /// </summary>
 internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> remove, Action<TrayStyle> setStyle, Action openPage,
     Action<TraySide> setSide, Action<string, TrayLook> setLook, Action<IReadOnlyList<string>, Rectangle, float> openCard, Func<bool> cardShowing,
-    Action<IReadOnlyList<string>, TrayStyle> setStyleOf) : IDisposable
+    Action<IReadOnlyList<string>, TrayStyle> setStyleOf, Action<TrayScreens>? setScreens = null, IntPtr other = default) : IDisposable
 {
+    /// <summary>
+    /// Whether this strip is the main taskbar's (else <paramref name="other"/>'s, another screen's taskbar: see
+    /// <see cref="TaskbarStrips"/>). That one has no tray window to sit beside, only the clock Windows draws inside it,
+    /// found by <see cref="TaskbarButtons"/>.
+    /// </summary>
+    private bool OnMainTaskbar => other == IntPtr.Zero;
+
+    /// <summary>Which screens show the readings, and whether there's a choice (more than one taskbar): for the right-click menu.</summary>
+    private TrayScreens _screens;
+    private bool _manyTaskbars;
+
     /// <summary>Each reading's right edge within its part, as last drawn (null for a cell not on the strip): a click opens the one under it.</summary>
     private float[]?[] _valueEdges = [];
 
@@ -114,9 +125,12 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     /// in bits when <paramref name="speedBits"/>; false when it can't (nothing is shown then).
     /// </summary>
     public bool Update(IReadOnlyList<TrayReading> readings, bool gray = false, TraySide side = TraySide.Right, TrayStyle style = TrayStyle.Strip,
-        bool tiles = true, TrayWidth width = TrayWidth.Standard, bool letters = false, bool speedBits = false, TrayGap spacing = TrayGap.Normal)
+        bool tiles = true, TrayWidth width = TrayWidth.Standard, bool letters = false, bool speedBits = false, TrayGap spacing = TrayGap.Normal,
+        TrayScreens screens = TrayScreens.Main, bool manyTaskbars = false)
     {
         _side = side;
+        _screens = screens;
+        _manyTaskbars = manyTaskbars;
         _style = style;
         long now = Environment.TickCount64;
         _composer.Remember(readings, now);
@@ -136,9 +150,14 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         }
         try
         {
-            IntPtr taskbar = FindWindow("Shell_TrayWnd", null);
-            IntPtr tray = taskbar == IntPtr.Zero ? IntPtr.Zero : FindWindowEx(taskbar, IntPtr.Zero, "TrayNotifyWnd", null);
-            if (tray == IntPtr.Zero || !GetWindowRect(taskbar, out var bar) || !GetWindowRect(tray, out var notify)) { Hide(); return false; }
+            // Another screen's taskbar: shown once it's known where its clock begins (asked of UI Automation, a moment).
+            if (!OnMainTaskbar)
+            {
+                if (!IsWindow(other)) { Hide(); return false; }
+                _buttons!.Watch(other);
+                if (_buttons.Latest is null) return false;
+            }
+            if (!Locate(out IntPtr taskbar, out IntPtr tray, out var bar, out var notify)) { Hide(); return false; }
             int barHeight = bar.B - bar.T;
             if (barHeight <= 0 || bar.R - bar.L < barHeight * 4) { Hide(); return false; } // on its side: no room for text
 
@@ -181,7 +200,9 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
                 _taskbar = taskbar;
                 _follow.Start();
                 _taskList = FindWindowEx(taskbar, IntPtr.Zero, "ReBarWindow32", null);
-                Watch(tray);
+                // The main tray moves as icons come and go: followed as it moves. Another screen's clock moves only with a
+                // setting, caught by the buttons' look every few seconds and the check every second.
+                if (tray != IntPtr.Zero) Watch(tray);
             }
             // Where the apps' buttons are, on both sides: the left keeps clear of Start, the right of the last app.
             _buttons!.Watch(taskbar);
@@ -284,9 +305,31 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
     private void Follow()
     {
         if (_window is null || _size.IsEmpty) return;
-        IntPtr tray = FindWindowEx(_taskbar, IntPtr.Zero, "TrayNotifyWnd", null);
-        if (tray == IntPtr.Zero || !GetWindowRect(_taskbar, out var bar) || !GetWindowRect(tray, out var notify)) return; // the next reading sorts it out
+        if (!Locate(out var taskbar, out _, out var bar, out var notify) || taskbar != _taskbar) return; // the next reading sorts it out
         Place(bar, notify, _size, _scale);
+    }
+
+    /// <summary>
+    /// The taskbar, its tray window (none on another screen's) and where both are. On another screen's taskbar the "tray"
+    /// is from its first tray button (the clock) to the bar's right end, as <see cref="TaskbarButtons"/> last found it, or
+    /// the bar's right end when it has none (Windows can leave the clock off). False when there's no taskbar to sit in.
+    /// </summary>
+    private bool Locate(out IntPtr taskbar, out IntPtr tray, out RECT bar, out RECT notify)
+    {
+        tray = IntPtr.Zero;
+        notify = default;
+        if (OnMainTaskbar)
+        {
+            taskbar = FindWindow("Shell_TrayWnd", null);
+            tray = taskbar == IntPtr.Zero ? IntPtr.Zero : FindWindowEx(taskbar, IntPtr.Zero, "TrayNotifyWnd", null);
+            bar = default;
+            return tray != IntPtr.Zero && GetWindowRect(taskbar, out bar) && GetWindowRect(tray, out notify);
+        }
+        taskbar = other;
+        if (!GetWindowRect(other, out bar) || _buttons?.Latest is not { } places) return false;
+        int left = places.TrayLeft > bar.L && places.TrayLeft < bar.R ? places.TrayLeft : bar.R;
+        notify = new RECT { L = left, T = bar.T, R = bar.R, B = bar.B };
+        return true;
     }
 
     /// <summary>
@@ -450,6 +493,18 @@ internal sealed class TaskbarStrip(Action open, Action<IReadOnlyList<string>> re
         var sideItem = new ToolStripMenuItem(_side == TraySide.Left ? Lang.T("Move next to the clock") : Lang.T("Move to the left side"));
         sideItem.Click += (_, _) => setSide(_side == TraySide.Left ? TraySide.Right : TraySide.Left);
         menu.Items.Add(sideItem);
+        // Which screens' taskbars show them: only when Windows shows a taskbar on more than one.
+        if (_manyTaskbars && setScreens is not null)
+        {
+            var showOn = new ToolStripMenuItem(Lang.T("Show on"));
+            foreach (var choice in new[] { TrayScreens.Main, TrayScreens.Every, TrayScreens.Others })
+            {
+                var item = new ToolStripMenuItem(TaskbarScreens.Name(choice)) { Checked = choice == _screens };
+                item.Click += (_, _) => setScreens(choice);
+                showOn.DropDownItems.Add(item);
+            }
+            menu.Items.Add(showOn);
+        }
         // Every reading in one style (each one's own style goes).
         var showAll = new ToolStripMenuItem(Lang.T("Show all as"));
         bool mixed = _cellStyles.Distinct().Count() > 1;

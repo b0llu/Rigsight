@@ -158,6 +158,12 @@ public sealed class RigsightSettings
     public TraySide TraySide { get; set; }
 
     /// <summary>
+    /// Which screens' taskbars show the readings when Windows shows a taskbar on more than one (see <see cref="Rigsight.Core.Settings.TrayScreens"/>).
+    /// <see cref="TrayScreens.Main"/> for everyone until they pick another: the main taskbar, as before there was a choice.
+    /// </summary>
+    public TrayScreens TrayScreens { get; set; }
+
+    /// <summary>
     /// Before 1.2: taskbar readings drawn on the strip with a graph behind the number (by sensor id). Only read from older
     /// settings: each becomes a <see cref="TrayLook.Area"/> in <see cref="TrayLooks"/>, so the strip looks as it did.
     /// </summary>
@@ -540,6 +546,13 @@ public enum TrayStyle { Strip, Icons, Grouped, TwoRows }
 /// the left are drawn by RigSight itself (Windows puts its own tray icons by the clock only).
 /// </summary>
 public enum TraySide { Right, Left }
+
+/// <summary>
+/// Which screens' taskbars show the readings: the <see cref="Main"/> screen's, <see cref="Every"/> screen's, or only the
+/// <see cref="Others"/> (every screen but the main one; with no other taskbar left, the main one, so they never show
+/// nowhere). Windows 11 only: on Windows 10 the readings are Windows' own tray icons, on the main taskbar.
+/// </summary>
+public enum TrayScreens { Main, Every, Others }
 
 /// <summary>
 /// How a reading draws on the strip, always under its number and name: <see cref="Number"/> alone; the last two minutes

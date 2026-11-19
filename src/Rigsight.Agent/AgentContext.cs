@@ -99,7 +99,7 @@ internal sealed partial class AgentContext : ApplicationContext
     private readonly PipeServer _pipe;
     private readonly TrayController _tray;
     private readonly TrayReadings _trayReadings;
-    private readonly TaskbarStrip _taskbarStrip;
+    private readonly TaskbarStrips _taskbarStrip;
     private readonly ReadingCard _card;
     // Whether the screen is off: the taskbar readings and widgets wait, unseen, until it's back (see ScreenState).
     private readonly ScreenState _screen;
@@ -212,7 +212,8 @@ internal sealed partial class AgentContext : ApplicationContext
             setGrouped: on => MutateSettings(s => s.TrayStyle = on ? TrayStyle.Grouped : TrayStyle.Icons),
             openPage: () => OpenApp("taskbar"));
         _card = new ReadingCard(page => OpenApp(page));
-        _taskbarStrip = new TaskbarStrip(open: () => OpenApp(null),
+        // One strip per taskbar that shows the readings (the main one, and other screens' when asked): each the same.
+        _taskbarStrip = new TaskbarStrips(other => new TaskbarStrip(open: () => OpenApp(null),
             remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
             // Every reading in one style: each one's own style goes.
             setStyle: style => MutateSettings(s => { s.TrayStyle = style; s.TrayStyles.Clear(); }),
@@ -227,7 +228,9 @@ internal sealed partial class AgentContext : ApplicationContext
                     s.TrayStyles.Remove(id);
                     if (style != s.TrayStyle) s.TrayStyles[id] = style;
                 }
-            }));
+            }),
+            setScreens: screens => MutateSettings(s => s.TrayScreens = screens),
+            other: other));
         // The three on/off switches, as on their pages (the user, 2026-11-09: quick ways to turn them off).
         TrayController.Switch[] switches =
         [
@@ -1502,7 +1505,7 @@ internal sealed partial class AgentContext : ApplicationContext
         {
             // In the taskbar, drawn by RigSight in any style, where it can be (Windows 11); else as Windows' own tray icons.
             bool inStrip = _taskbarStrip.Update(trayReadings, settings.TrayGrayscale, settings.TraySide, settings.TrayStyle, settings.TrayTiles, settings.TrayWidth,
-                settings.TrayLetterNames, settings.TraySpeedBits, settings.TrayGap);
+                settings.TrayLetterNames, settings.TraySpeedBits, settings.TrayGap, settings.TrayScreens);
             try
             {
                 // Windows 10's own tray icons: an icon per part as before 1.3, or with any pair saved since.
@@ -2547,6 +2550,7 @@ internal sealed partial class AgentContext : ApplicationContext
         if (before.Overlay.Enabled != after.Overlay.Enabled) Log.Write("settings", $"game overlay on: {before.Overlay.Enabled} -> {after.Overlay.Enabled} (from the {from})");
         if (before.TrayStyle != after.TrayStyle) Log.Write("settings", $"taskbar style: {before.TrayStyle} -> {after.TrayStyle} (from the {from})");
         if (before.TraySide != after.TraySide) Log.Write("settings", $"taskbar side: {before.TraySide} -> {after.TraySide} (from the {from})");
+        if (before.TrayScreens != after.TrayScreens) Log.Write("settings", $"taskbar screens: {before.TrayScreens} -> {after.TrayScreens} (from the {from})");
         if (TrayLooksText(before) != TrayLooksText(after)) Log.Write("settings", $"taskbar looks: {TrayLooksText(before)} -> {TrayLooksText(after)} (from the {from})");
         if (TrayOwnText(before) != TrayOwnText(after)) Log.Write("settings", $"taskbar readings' own: {TrayOwnText(before)} -> {TrayOwnText(after)} (from the {from})");
         if (before.TrayTiles != after.TrayTiles) Log.Write("settings", $"taskbar tiles: {before.TrayTiles} -> {after.TrayTiles} (from the {from})");
@@ -2597,7 +2601,7 @@ internal sealed partial class AgentContext : ApplicationContext
             yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
             pingChanged = updated.Tracking.PingChecks != current.Tracking.PingChecks;
             trayChanged = updated.TrayStyle != current.TrayStyle || updated.TrayGrayscale != current.TrayGrayscale
-                          || updated.TraySide != current.TraySide || TrayLooksText(updated) != TrayLooksText(current)
+                          || updated.TraySide != current.TraySide || updated.TrayScreens != current.TrayScreens || TrayLooksText(updated) != TrayLooksText(current)
                           || updated.TrayTiles != current.TrayTiles || updated.TrayWidth != current.TrayWidth
                           || updated.TrayLetterNames != current.TrayLetterNames || !updated.TrayAlone.SequenceEqual(current.TrayAlone)
                           || !updated.TraySensors.SequenceEqual(current.TraySensors) || TrayColorsText(updated) != TrayColorsText(current)

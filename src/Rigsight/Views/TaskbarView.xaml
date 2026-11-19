@@ -1,4 +1,4 @@
-<UserControl x:Class="Rigsight.Views.TaskbarView"
+﻿<UserControl x:Class="Rigsight.Views.TaskbarView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
@@ -683,6 +683,33 @@
                             <TextBlock Text="{Binding SideNote}" Style="{StaticResource SetHint}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"
                                        Visibility="{Binding SideNote, Converter={StaticResource Vis}}" />
                         </StackPanel>
+                    </Border>
+                    <!-- Screens: which screens' taskbars show the readings, with more than one screen (Windows 11). With Windows showing
+                         the taskbar on the main screen only, the row says so in place of the choices, with a way to Windows' setting. -->
+                    <Border Style="{StaticResource CardRow}" Visibility="{Binding ShowScreens, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" Visibility="{Binding ScreensChoice, Converter={StaticResource Vis}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" Content="{Binding MainScreenWord}" GroupName="trayscreens"
+                                                 IsChecked="{Binding ScreensText, Converter={StaticResource Equals}, ConverterParameter=Main}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{Binding EveryScreenWord}" GroupName="trayscreens"
+                                                 IsChecked="{Binding ScreensText, Converter={StaticResource Equals}, ConverterParameter=Every}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{Binding OtherScreensWord}" GroupName="trayscreens"
+                                                 IsChecked="{Binding ScreensText, Converter={StaticResource Equals}, ConverterParameter=Others}" />
+                                </StackPanel>
+                            </Border>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                                        Visibility="{Binding ScreensMainOnly, Converter={StaticResource Vis}}">
+                                <TextBlock Text="{ctl:T 'Windows shows the taskbar on your main screen only.'}" Style="{StaticResource SetHint}"
+                                           Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                <Button Style="{StaticResource GhostButton}" Padding="12,6" Margin="16,0,0,0" VerticalAlignment="Center"
+                                        Content="{ctl:T 'Open taskbar settings'}" Click="OpenTaskbarSettings_Click" AutomationProperties.Name="{ctl:T 'Open taskbar settings'}" />
+                            </StackPanel>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{ctl:T 'Screens'}" Style="{StaticResource SetTitle}" />
+                                <TextBlock Text="{ctl:T 'Which screens\' taskbars show the readings.'}" Style="{StaticResource SetHint}" />
+                            </StackPanel>
+                        </DockPanel>
                     </Border>
                     <Border Style="{StaticResource CardRow}" Visibility="{Binding ShowWidth, Converter={StaticResource Vis}}">
                         <DockPanel>

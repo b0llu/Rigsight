@@ -918,6 +918,56 @@ public sealed partial class TaskbarViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Which screens' taskbars show the readings when Windows shows a taskbar on more than one (see <see cref="TrayScreens"/>):
+    /// the agent draws a strip on each, the preview above stays the main taskbar's.
+    /// </summary>
+    public TrayScreens Screens
+    {
+        get => _settings.Current.TrayScreens;
+        set
+        {
+            if (value == Screens) return;
+            _settings.Update(s => s.TrayScreens = value);
+            OnStyleChanged();
+        }
+    }
+
+    /// <summary>"Main", "Every" or "Others", for the screens switch.</summary>
+    public string ScreensText { get => Screens.ToString(); set => Screens = Enum.TryParse<TrayScreens>(value, out var v) ? v : TrayScreens.Main; }
+
+    public string MainScreenWord => TaskbarScreens.Name(TrayScreens.Main);
+    public string EveryScreenWord => TaskbarScreens.Name(TrayScreens.Every);
+    public string OtherScreensWord => TaskbarScreens.Name(TrayScreens.Others);
+
+    // How many screens Windows uses and how many other taskbars it shows, as last looked (each second while the page shows).
+    private int _screenCount = 1, _otherTaskbars;
+
+    /// <summary>The Screens row: on Windows 11 with more than one screen.</summary>
+    public bool ShowScreens => StripSupported && _screenCount >= 2;
+
+    /// <summary>The row's choices: when Windows shows a taskbar on another screen.</summary>
+    public bool ScreensChoice => ShowScreens && _otherTaskbars > 0;
+
+    /// <summary>In place of the choices: Windows shows the taskbar on the main screen only (its "Show my taskbar on all displays" is off).</summary>
+    public bool ScreensMainOnly => ShowScreens && _otherTaskbars == 0;
+
+    /// <summary>Looks again at the screens and the other taskbars (a screen plugged in, Windows' setting changed): the row follows.</summary>
+    public void RefreshScreens()
+    {
+        int screens = TaskbarScreens.Screens(), others = TaskbarScreens.Others().Count;
+        // A test copy can be told it has more screens ("2 1": two screens, one other taskbar), to show this row on a PC with one.
+        if (RigsightPaths.IsTestInstance && Environment.GetEnvironmentVariable("RIGSIGHT_TEST_SCREENS") is { } fake
+            && fake.Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var s, var o] && int.TryParse(s, out int fs) && int.TryParse(o, out int fo))
+            (screens, others) = (fs, fo);
+        if (screens == _screenCount && others == _otherTaskbars) return;
+        _screenCount = screens;
+        _otherTaskbars = others;
+        OnPropertyChanged(nameof(ShowScreens));
+        OnPropertyChanged(nameof(ScreensChoice));
+        OnPropertyChanged(nameof(ScreensMainOnly));
+    }
+
     /// <summary>"Left" or "Right", for the side switch.</summary>
     public string SideText { get => Side.ToString(); set => Side = value == nameof(TraySide.Left) ? TraySide.Left : TraySide.Right; }
 
@@ -1015,6 +1065,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
         OnPropertyChanged(nameof(OnLeft));
         OnPropertyChanged(nameof(PreviewOnLeft));
         OnPropertyChanged(nameof(SideNote));
+        OnPropertyChanged(nameof(ScreensText));
         OnPropertyChanged(nameof(ShowWidth));
         OnPropertyChanged(nameof(ShowSpeeds));
         OnPropertyChanged(nameof(SpeedsText));
@@ -1127,6 +1178,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
     /// </summary>
     public void Redraw()
     {
+        RefreshScreens();
         try
         {
             _bar = TaskbarBar.Now();

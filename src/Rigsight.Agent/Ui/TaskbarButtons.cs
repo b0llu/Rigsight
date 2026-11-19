@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Runtime.InteropServices;
 
 namespace Rigsight.Agent.Ui;
@@ -26,9 +26,11 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
     /// <summary>
     /// What was last found: Start (empty when not found), Widgets (empty when not shown) and the right edge of the last
     /// app button, in screen pixels (0 when none was found); and how far before the tray Widgets begins when Windows put it
-    /// beside the tray (<see cref="WidgetsBeforeTray"/>; 0 when it didn't), which the readings by the clock keep clear of.
+    /// beside the tray (<see cref="WidgetsBeforeTray"/>; 0 when it didn't), which the readings by the clock keep clear of;
+    /// and where the tray begins (its first button's left edge, 0 when not found): on another screen's taskbar, which has
+    /// no tray window of its own, only the clock (and the show-desktop sliver) Windows draws inside the taskbar.
     /// </summary>
-    public sealed record Places(Rectangle Start, Rectangle Widgets, int AppsRight = 0, int WidgetsToTray = 0);
+    public sealed record Places(Rectangle Start, Rectangle Widgets, int AppsRight = 0, int WidgetsToTray = 0, int TrayLeft = 0);
 
     /// <summary>
     /// How far <paramref name="widgets"/> begins before the tray (whose left edge is <paramref name="trayLeft"/>), when
@@ -102,7 +104,7 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
         bool Stopped() => Volatile.Read(ref _turn) != turn;
         IUIAutomation? uia = null;
         IUIAutomationElement? start = null, widgets = null;
-        object? appsCondition = null;
+        object? appsCondition = null, trayCondition = null;
         IntPtr foundOn = IntPtr.Zero;
         var found = DateTime.MinValue;
         string? lastError = null;
@@ -120,10 +122,13 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
                     start = bar.FindFirst(TreeScope_Descendants, uia.CreatePropertyCondition(UIA_AutomationIdPropertyId, "StartButton"));
                     widgets = bar.FindFirst(TreeScope_Descendants, uia.CreatePropertyCondition(UIA_AutomationIdPropertyId, "WidgetsButton"));
                     appsCondition = uia.CreatePropertyCondition(UIA_ClassNamePropertyId, AppButtonClass);
+                    trayCondition = uia.CreatePropertyCondition(UIA_AutomationIdPropertyId, TrayButtonId);
                 }
                 var (startAt, widgetsAt) = (start is null ? Rectangle.Empty : Bounds(start), widgets is null ? Rectangle.Empty : Bounds(widgets));
-                var now = new Places(startAt, widgetsAt, AppsRight(uia.ElementFromHandle(taskbar), appsCondition),
-                    WidgetsBeforeTray(startAt, widgetsAt, TrayLeft(taskbar)));
+                // The main taskbar's tray is a window of its own; another screen's only has Windows' buttons inside the taskbar.
+                var element = uia.ElementFromHandle(taskbar);
+                int? trayLeft = TrayLeft(taskbar) ?? (Leftmost(element, trayCondition) is > 0 and var l ? l : null);
+                var now = new Places(startAt, widgetsAt, AppsRight(element, appsCondition), WidgetsBeforeTray(startAt, widgetsAt, trayLeft), trayLeft ?? 0);
                 lastError = null;
                 if (!Stopped() && taskbar == _taskbar && now != _latest)
                 {
@@ -166,6 +171,19 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
         return right;
     }
 
+    /// <summary>The tray's buttons as Windows 11 draws them inside the taskbar (the clock, the icons, show desktop): their automation id.</summary>
+    private const string TrayButtonId = "SystemTrayIcon";
+
+    /// <summary>The left edge of the leftmost element matching <paramref name="condition"/> that is shown (screen pixels), 0 with none.</summary>
+    private static int Leftmost(IUIAutomationElement bar, object? condition)
+    {
+        if (condition is null || bar.FindAll(TreeScope_Descendants, condition) is not { } found) return 0;
+        int left = 0;
+        for (int i = 0, n = found.Length; i < n; i++)
+            if (Bounds(found.GetElement(i)) is { IsEmpty: false } b && (left == 0 || b.Left < left)) left = b.Left;
+        return left;
+    }
+
     /// <summary>The tray's left edge in screen pixels (its window: the notification icons and the clock); null when not found.</summary>
     private static int? TrayLeft(IntPtr taskbar)
     {
@@ -189,6 +207,17 @@ internal sealed class TaskbarButtons(Action moved) : IDisposable
         if (element.get_CurrentBoundingRectangle(out var r) < 0) return Rectangle.Empty;
         var rect = Rectangle.FromLTRB(r.L, r.T, r.R, r.B);
         return rect.Width <= 0 || rect.Height <= 0 ? Rectangle.Empty : rect;
+    }
+
+    /// <summary>
+    /// Where the tray begins as found through its buttons alone (as on another screen's taskbar) and as its window says,
+    /// for the test that checks both agree on a real main taskbar.
+    /// </summary>
+    internal static (int ByButtons, int? ByWindow) TrayLeftBoth(IntPtr taskbar)
+    {
+        var uia = (IUIAutomation)new CUIAutomation();
+        var condition = uia.CreatePropertyCondition(UIA_AutomationIdPropertyId, TrayButtonId);
+        return (Leftmost(uia.ElementFromHandle(taskbar), condition), TrayLeft(taskbar));
     }
 
     /// <summary>A button's place both ways, for the test that checks the rectangle's slot in the interface on a real taskbar.</summary>
