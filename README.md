@@ -10,6 +10,8 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/b0llu/Rigsight/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/b0llu/Rigsight/total?label=downloads" /></a>
+  <a href="https://github.com/b0llu/Rigsight/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/b0llu/Rigsight?label=latest" /></a>
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows&logoColor=white" />
   <img alt="CPU cost" src="https://img.shields.io/badge/background%20CPU-~0.02%25-2ea043" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
