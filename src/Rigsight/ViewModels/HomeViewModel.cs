@@ -436,6 +436,12 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     [RelayCommand]
     private void Go(string page) => GoTo?.Invoke(page);
 
+    /// <summary>Opens Your usual (set by the window): every usual this PC has, and what each one not there yet needs.</summary>
+    public Action? ShowUsual { get; set; }
+
+    [RelayCommand]
+    private void OpenUsual() => ShowUsual?.Invoke();
+
     // PC health speaks of the last 7 days (today's usual); today's lines of today; the recap's of its period.
     [RelayCommand]
     private void OpenLine(HomeLine line)

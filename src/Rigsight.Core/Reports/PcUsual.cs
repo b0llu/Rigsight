@@ -148,6 +148,28 @@ public sealed class PcUsual
     /// <summary>Days a fan needs at its speed before that speed is its usual.</summary>
     internal const int FanUsualDays = 3;
 
+    // ── When each usual is ready: the one check for every page that compares against it and for Your usual, which says
+    // what each still needs (UsualOverview). A gate changed here changes both. ──
+
+    /// <summary>A game's steady play is enough for a usual: <see cref="MinUsualMinutes"/> over <see cref="MinUsualDays"/> days.</summary>
+    public static bool GameReady(int minutes, int days) => minutes >= MinUsualMinutes && days >= MinUsualDays;
+
+    /// <summary>Enough time at rest for a usual at rest.</summary>
+    public static bool RestReady(int minutes) => minutes >= MinRestMinutes;
+
+    /// <summary>A fan has turned on enough days since its speed was last set.</summary>
+    public static bool FanReady(int days) => days >= FanUsualDays;
+
+    /// <summary>Enough use, over long enough, to count the PC's problems against.</summary>
+    public static bool ProblemsReady(double hours, double weeks) => hours >= MinProblemHours && weeks >= MinProblemWeeks;
+
+    /// <summary>The usual's steady load of each app (its minutes, days and averages) and the time at rest, from <paramref name="heat"/>.</summary>
+    internal static (List<SteadyLoad> Loads, LoadTemps? AtRest) SteadyOf(IReadOnlyList<HeatDay> heat, Func<long, string> nameOf) => Steady([.. heat], nameOf);
+
+    /// <summary>The lowest and highest of an app's days with enough steady play (app 0: at rest), GPU or CPU; null with none.</summary>
+    internal static (double Low, double High)? DayRange(IReadOnlyList<HeatDay> heat, long app, bool gpu) =>
+        Range([.. heat.Where(h => h.App == app && h.N >= (app == 0 ? RestRangeDayMinutes : RangeDayMinutes))], gpu ? Gpu : Cpu);
+
     /// <summary>How far back "usual" reaches: two months, three for a month's report (a month against one week isn't fair).</summary>
     public static int UsualDaysFor(ReportRange range) => range == ReportRange.Month ? 90 : 60;
 
@@ -236,13 +258,13 @@ public sealed class PcUsual
         var usualRows = heat.Where(h => InUsual(h.Day)).ToList();
         var (nowSteady, restNow) = Steady(nowRows, nameOf);
         var (usualSteady, restUsual) = Steady(usualRows, nameOf);
-        bool restOk = restNow is { Minutes: >= MinRestMinutes } && restUsual is { Minutes: >= MinRestMinutes };
+        bool restOk = restNow is { } rn0 && RestReady(rn0.Minutes) && restUsual is { } ru0 && RestReady(ru0.Minutes);
         var parts = new List<UsualHeat>();
         HeatDay? lastPlay = null;
         if (restOk)
         {
             var picked = nowSteady.Where(n => game is null || n.AppId == game).Select(n => (Now: n, Was: usualSteady.FirstOrDefault(w => w.AppId == n.AppId)))
-                .Where(p => p.Was is not null && p.Now.Minutes >= MinNowMinutes && p.Was.Minutes >= MinUsualMinutes && p.Was.Days >= MinUsualDays && SamePower(p.Now.GpuPower, p.Was.GpuPower))
+                .Where(p => p.Was is not null && p.Now.Minutes >= MinNowMinutes && GameReady(p.Was.Minutes, p.Was.Days) && SamePower(p.Now.GpuPower, p.Was.GpuPower))
                 .OrderByDescending(p => Math.Min(p.Now.Minutes, p.Was!.Minutes)).FirstOrDefault();
             if (picked.Now is { } n && picked.Was is { } w)
             {
@@ -269,7 +291,7 @@ public sealed class PcUsual
             var set = fanChanges.Where(c => c.Time < to && c.Subject.Contains($"|{fan.Id}|", StringComparison.Ordinal)).MaxBy(c => c.Time);
             long since = set is null ? u : Math.Max(u, TimeUtil.ToUnix(set.Time.Date.AddDays(1)));
             var before = mine.Where(d => d.Day >= since && d.Day < TimeUtil.ToUnix(from.Date)).ToList();
-            if (before.Count < FanUsualDays) continue;
+            if (!FanReady(before.Count)) continue;
             double nowRpm = nowDays.Sum(d => d.RpmSum) / nowDays.Sum(d => d.RpmN);
             usualFans.Add(new UsualFan(fan.Name, nowRpm, before.Min(d => d.Rpm!.Value), before.Max(d => d.Rpm!.Value), set?.Time));
         }
@@ -307,7 +329,7 @@ public sealed class PcUsual
         }
         UsualProblems? problems = null;
         double usualWeeks = (from.Date - TimeUtil.FromUnix(u)).TotalDays / 7;
-        if (usualHours >= MinProblemHours && usualWeeks >= MinProblemWeeks && nowHours > 0)
+        if (ProblemsReady(usualHours, usualWeeks) && nowHours > 0)
         {
             double expected = usualHours > 0 ? pcUsual / usualHours * nowHours : 0;
             // More: a kind came two times at least, and twice (and one) what its usual rate gives the hours used. Fewer:

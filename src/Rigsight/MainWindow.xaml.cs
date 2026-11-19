@@ -132,6 +132,12 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
+            if (e.Key == System.Windows.Input.Key.Escape && _vm.Usual.IsOpen)
+            {
+                _vm.Usual.CloseCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
             if (e.Key == System.Windows.Input.Key.Escape && _vm.Presets.IsOpen)
             {
                 _vm.Presets.CloseCommand.Execute(null);
@@ -387,6 +393,7 @@ public partial class MainWindow : Window
     private void PlanDialogBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Plans.CloseDialogsCommand.Execute(null);
 
     private void PageExportBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.PageExport.CloseCommand.Execute(null);
+    private void UsualBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Usual.CloseCommand.Execute(null);
 
     private void PresetsBackdrop_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => _vm.Presets.CloseCommand.Execute(null);
 

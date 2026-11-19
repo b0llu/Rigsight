@@ -76,6 +76,19 @@ public sealed partial class RigsightDb
         return list;
     }
 
+    /// <summary>Every game's sessions added up since <paramref name="from"/> (a game: a session played as one), as <see cref="GetSessionTotals"/>.</summary>
+    public List<AppTotal> GetGameTotals(long from = 0)
+    {
+        using var cmd = Cmd("""
+            SELECT app_id, COUNT(*), SUM(active_sec), min(start), max(end) FROM sessions
+            WHERE start >= $from AND is_game = 1 GROUP BY app_id
+            """, ("$from", from));
+        using var r = cmd.ExecuteReader();
+        var list = new List<AppTotal>();
+        while (r.Read()) list.Add(new AppTotal(r.GetInt64(0), r.GetInt32(1), r.GetDouble(2), r.GetInt64(3), r.GetInt64(4)));
+        return list;
+    }
+
     /// <summary>All of one app's sessions, oldest first.</summary>
     public List<SessionRow> GetAppSessions(long appId)
     {

@@ -100,6 +100,13 @@ public sealed class ReportService(SettingsModel settings)
         db.DaysUsed(),
         db.CrashesSince(TimeUtil.NowUnix() - 86_400)));
 
+    /// <summary>Your usual: how much history this PC has, and every usual with what it still needs (see UsualOverview).</summary>
+    public Task<UsualOverview?> UsualOverviewAsync(bool admin)
+    {
+        var s = Snapshot();
+        return Run(db => UsualOverview.Read(db, s, DateTime.Now, admin));
+    }
+
     public Task<DateTime?> FirstDayAsync() => Run(db => db.FirstDataTime() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
 
     /// <summary>The last day before <paramref name="before"/> the PC was really used (five minutes or more), if any.</summary>

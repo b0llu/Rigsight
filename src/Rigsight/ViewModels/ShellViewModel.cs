@@ -152,6 +152,10 @@ public sealed partial class ShellViewModel : ObservableObject
         Presets = new PresetPickerViewModel(Live, preset => NewPage(preset));
         Export = new ExportViewModel(Reports, Settings, Live);
         PageExport = new PageExportViewModel(Reports, Settings, Live);
+        // Your usual, from Home's PC health card. Without admin rights a few rows offer the sidebar card's restart (not on a
+        // standard account, which can't give it).
+        Usual = new UsualViewModel(Reports, () => AgentIsAdmin, () => !StandardAccount, page => CurrentPage = page, OpenGame, StartAgentCommand);
+        Home.ShowUsual = () => _ = Usual.OpenAsync();
         SettingsPage.OpenExport = Export.Open;
         SettingsPage.Sidebar = Sidebar;
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));
@@ -282,7 +286,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>A screen over the whole window (updating, Plans, Rewind) or a box over the page (What's new, Support, Export, ...).</summary>
     public bool PageCovered => Update.ShowOverlay || Plans.IsOpen || Plans.CancelOpen || Plans.SwitchOpen || Plans.BillingOpen || Rewind.IsOpen
-        || WhatsNew.IsOpen || Support.IsOpen || Export.IsOpen || PageExport.IsOpen || Presets.IsOpen
+        || WhatsNew.IsOpen || Support.IsOpen || Export.IsOpen || PageExport.IsOpen || Usual.IsOpen || Presets.IsOpen
         || SettingsPage.Ai.Editor.IsOpen || Processes.Question.IsOpen || Sidebar.AskPages;
 
     private void WatchAskBar()
@@ -300,6 +304,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Watch(Support, nameof(SupportViewModel.IsOpen));
         Watch(Export, "IsOpen");
         Watch(PageExport, "IsOpen");
+        Watch(Usual, nameof(UsualViewModel.IsOpen));
         Watch(Presets, "IsOpen");
         Watch(SettingsPage.Ai.Editor, "IsOpen");
         Watch(Processes.Question, "IsOpen");
@@ -391,6 +396,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>A page's own Export box, opened from its Export button (see <see cref="PageExports"/>).</summary>
     public PageExportViewModel PageExport { get; }
+    public UsualViewModel Usual { get; }
 
     /// <summary>The page's Export button: its own box, set to what the page shows.</summary>
     [RelayCommand]
