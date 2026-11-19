@@ -68,6 +68,9 @@ internal sealed class SensorHost
     // A graphics card's driver is going or coming (see DisplayDriverWatch): no card is asked anything from here on.
     private bool _gpusPaused;
 
+    // Temperatures the library doesn't give, from Windows (see WindowsTempSensors): read with their hardware.
+    private readonly WindowsTempSensors _windowsTemps = new();
+
     /// <summary>Sampler thread: leaves the graphics cards alone from now on; their readings are "none" until the agent starts again.</summary>
     public void PauseGpus() => _gpusPaused = true;
 
@@ -193,7 +196,7 @@ internal sealed class SensorHost
     /// GPUs, the rest), so the memory group opening last doesn't move it to the end of All sensors.
     /// </summary>
     private IEnumerable<IHardware> Tops() =>
-        _computer.Hardware.Concat(_earlyMemory).Select((hw, i) => (hw, i)).OrderBy(x => x.hw.HardwareType switch
+        _computer.Hardware.Concat(_earlyMemory).Concat(_windowsTemps.OwnDrives).Select((hw, i) => (hw, i)).OrderBy(x => x.hw.HardwareType switch
         {
             HardwareType.Motherboard => 0,
             HardwareType.Cpu => 1,
@@ -216,6 +219,13 @@ internal sealed class SensorHost
         foreach (var hw in readFirst) AddWithSubs(hw, fresh);
         foreach (var (hw, _) in _hardware.Where(h => fresh.Contains(h.Hw))) SafeUpdate(hw);
         foreach (var (hw, _) in _hardware.Where(h => fresh.Contains(h.Hw))) SafeUpdate(hw);
+        // Once, after the library's first readings (some sensors only show once read): the temperatures it lacks, from Windows.
+        _windowsTemps.Add([.. _hardware.Select(h => h.Hw)]);
+        foreach (var own in _windowsTemps.OwnDrives.Where(d => !tops.Contains(d)))
+        {
+            tops.Add(own);
+            Collect(own);
+        }
 
         _sensors.Clear();
         _sensorHardware.Clear();
@@ -452,6 +462,9 @@ internal sealed class SensorHost
             }
         }
         Unwell = failed;
+        // What Windows gives in the library's place, read when its hardware was (a drive's every 5 minutes or 10 s, a card's each pass).
+        if (_windowsTemps.Any)
+            _windowsTemps.Read(drives: _updatedNow.Any(h => h.HardwareType == HardwareType.Storage), gpus: _updatedNow.Any(IsGpu));
         // Sized to the sensors as they are: a rebuild that failed halfway leaves the old flags longer than the list, and
         // reading past its end every second would stop all sampling for good.
         if (_fresh.Length != _sensorHardware.Count) _fresh = new bool[_sensorHardware.Count];
@@ -792,6 +805,7 @@ internal sealed class SensorHost
             return;
         }
         try { _computer.Close(); } catch { }
+        try { _windowsTemps.Dispose(); } catch { }
     }
 }
 

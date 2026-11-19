@@ -101,6 +101,8 @@ internal sealed partial class AgentContext : ApplicationContext
     private readonly TrayReadings _trayReadings;
     private readonly TaskbarStrip _taskbarStrip;
     private readonly ReadingCard _card;
+    // Whether the screen is off: the taskbar readings and widgets wait, unseen, until it's back (see ScreenState).
+    private readonly ScreenState _screen;
 
     /// <summary>The latest process pass (sampler thread): what a reading card lists as the apps using a part.</summary>
     private ProcessSnapshot? _lastProcs;
@@ -255,6 +257,14 @@ internal sealed partial class AgentContext : ApplicationContext
         SystemEvents.TimeChanged += OnTimeChanged;
         // Waking from sleep is turning the PC on again, for the daily recap.
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
+        // Off: nothing on the taskbar or the desktop is drawn, as nobody sees it. Back on: drawn at once with fresh readings.
+        _screen = new ScreenState(off =>
+        {
+            Log.Write("screen", off
+                ? "The screen went off: the taskbar readings and widgets aren't drawn, nor the sensors only they show read, until it's back on (recording goes on)"
+                : "The screen is back on: drawing the taskbar readings and widgets again");
+            if (!off) RunOnSampler(() => _sensorsNow = true);
+        });
         _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, RigsightPaths.AgentQuitEvent);
         WatchAppCrashes();
         _quitWait = ThreadPool.RegisterWaitForSingleObject(_quitSignal, (_, _) => _ui.Post(_ => Quit("a quit signal (the installer, or --quit)"), null), null, Timeout.Infinite, executeOnlyOnce: true);
@@ -517,8 +527,11 @@ internal sealed partial class AgentContext : ApplicationContext
                     {
                         // Sensors on the overlay stay live in games (the app is usually closed then).
                         // And those in the taskbar, which are always on show.
-                        _sensors.Watch([.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. _settings.TrayLookFrom.Values,
-                            .. WidgetSensorIds(_settings)]);
+                        // With the screen off, only the overlay's (a game streamed elsewhere still shows it).
+                        _sensors.Watch(_screen.Off
+                            ? [.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : []]
+                            : [.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. _settings.TrayLookFrom.Values,
+                                .. WidgetSensorIds(_settings)]);
                         CheckDisplayDriver();
                         _sensors.Update(everything: live, now);
                         if (_sensorHealth.Check(_sensors.Unwell, now))
@@ -1462,6 +1475,9 @@ internal sealed partial class AgentContext : ApplicationContext
         double worst = Math.Max(Margin(k.CpuTemp, a.CpuLimit), Math.Max(Margin(k.GpuTemp, a.GpuLimit), Margin(k.GpuHotSpot, a.GpuHotSpotLimit)));
         int health = worst >= 0 ? 2 : worst >= -12 ? 1 : 0;
 
+        // Nobody sees the taskbar or the desktop with the screen off: neither is drawn until it's back (the tray's tooltip
+        // and the alerts still are, as they're worked out here once).
+        bool unseen = _screen.Off;
         _ui.Post(_ =>
         {
             long t0 = Stopwatch.GetTimestamp();
@@ -1469,6 +1485,21 @@ internal sealed partial class AgentContext : ApplicationContext
             // temperature alert at the end, which is worked out once and not again.
             try { _tray.Update(tip, health); }
             catch (Exception ex) { _errors.Failed("tray", ex); }
+            if (!unseen) DrawReadings();
+            try { _overlay.Update(data); }
+            catch (Exception ex) { _errors.Failed("overlay", ex); }
+            try { _notices.SetFullscreen(otherFullscreen); }
+            catch (Exception ex) { _errors.Failed("held notices", ex); }
+            try { CheckRivaTunerOff(settings); }
+            catch (Exception ex) { _errors.Failed("RivaTuner check", ex); }
+            if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
+            if (alert is { } hot)
+                Notify(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true));
+        }, null);
+
+        // The taskbar readings and the widgets, on the UI thread.
+        void DrawReadings()
+        {
             // In the taskbar, drawn by RigSight in any style, where it can be (Windows 11); else as Windows' own tray icons.
             bool inStrip = _taskbarStrip.Update(trayReadings, settings.TrayGrayscale, settings.TraySide, settings.TrayStyle, settings.TrayTiles, settings.TrayWidth,
                 settings.TrayLetterNames, settings.TraySpeedBits, settings.TrayGap);
@@ -1494,16 +1525,7 @@ internal sealed partial class AgentContext : ApplicationContext
                     gameMonitor);
             }
             catch (Exception ex) { _errors.Failed("widgets", ex); }
-            try { _overlay.Update(data); }
-            catch (Exception ex) { _errors.Failed("overlay", ex); }
-            try { _notices.SetFullscreen(otherFullscreen); }
-            catch (Exception ex) { _errors.Failed("held notices", ex); }
-            try { CheckRivaTunerOff(settings); }
-            catch (Exception ex) { _errors.Failed("RivaTuner check", ex); }
-            if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
-            if (alert is { } hot)
-                Notify(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true));
-        }, null);
+        }
     }
 
     private List<ProcInfo> BuildProcs(ProcessSnapshot snapshot, Dictionary<string, WindowState> windows)
@@ -2934,7 +2956,7 @@ internal sealed partial class AgentContext : ApplicationContext
         _sampler.Join(5000);
 
         // Each step is independent: a failure in one must never leave the agent half-closed.
-        foreach (var step in new Action[] { _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _askHotkey.Dispose, _notices.CloseAll, _trayReadings.Dispose, _card.Dispose, _taskbarStrip.Dispose, _tray.Dispose })
+        foreach (var step in new Action[] { _screen.Dispose, _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _askHotkey.Dispose, _notices.CloseAll, _trayReadings.Dispose, _card.Dispose, _taskbarStrip.Dispose, _tray.Dispose })
         {
             try { step(); }
             catch (Exception ex) { Log.Error("agent", ex); }
