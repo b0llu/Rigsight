@@ -2834,6 +2834,7 @@
     "Mirrored graph": "Gráfico en espejo",
     "Number only": "Solo el número",
     "Fill": "Relleno",
+    "Its icon": "Su icono",
     "Plain": "Simple",
     "Temp": "Temp",
     "Volt": "Volt",
@@ -5273,8 +5274,9 @@
     "name": "nombre",
     "ring": "anillo",
     "fill": "relleno",
-    "The icon can fill up, or ring round, as the reading rises.": "El icono puede llenarse, o rodearse de un anillo, según sube la lectura.",
     "Drawn beside its number, never over it.": "Se dibuja junto a su número, nunca encima.",
+    "Its number, or its device's icon over a bar as full as the battery.": "Su número, o el icono de su dispositivo sobre una barra tan llena como la batería.",
+    "The icon can fill up, ring round, or be its part's icon over a bar, as the reading rises.": "El icono puede llenarse, rodearse de un anillo o ser el icono de su pieza sobre una barra, según sube la lectura.",
     "Colors for {0}": "Colores de {0}",
     "Side by side": "Lado a lado",
     "Two readings in one spot, side by side, one over the other or stacked in an icon.": "Dos lecturas en un mismo sitio, lado a lado, una sobre otra o apiladas en un icono.",
@@ -7837,6 +7839,7 @@
     "Jitter": "Jitter",
     "Connected by": "Conectado por",
     "Every 5 seconds it pings your router and your internet provider's first router, and nothing else. When it's off, the Network page keeps what was already checked.": "Cada 5 segundos hace ping a tu router y al primer router de tu proveedor de internet, y a nada más. Cuando está desactivado, la página Red conserva lo ya comprobado.",
-    "Full": "Lleno"
+    "Full": "Lleno",
+    "The icon can fill up, or ring round, as the reading rises.": "El icono puede llenarse, o rodearse de un anillo, según sube la lectura."
   }
 }

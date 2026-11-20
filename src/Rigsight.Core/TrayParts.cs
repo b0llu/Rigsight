@@ -104,6 +104,8 @@ public static class TrayParts
         TrayLook.Spark => TrayLook.Line,
         TrayLook.DownUp when !bothSpeeds => TrayLook.Number,
         TrayLook.Mirror when !bothSpeeds => TrayLook.Area,
+        // Its icon is an icon's look; on the strip the part's icon goes by Names instead.
+        TrayLook.PartIcon => TrayLook.Number,
         _ => picked,
     };
 
@@ -351,17 +353,26 @@ public static class TrayParts
 
     /// <summary>The looks an icon can have: its number alone, the icon filling up (Level), or a ring round its edge.</summary>
     public static IReadOnlyList<TrayLook> IconLooksFor(SensorKind kind, SensorKind? drawsFrom = null) =>
-        HasTop(drawsFrom ?? kind) ? [TrayLook.Number, TrayLook.Level, TrayLook.Ring] : [TrayLook.Number];
+        HasTop(drawsFrom ?? kind) ? [TrayLook.Number, TrayLook.Level, TrayLook.Ring, TrayLook.PartIcon]
+        : (drawsFrom ?? kind) == SensorKind.Battery ? [TrayLook.Number, TrayLook.PartIcon] : [TrayLook.Number];
+
+    /// <summary>
+    /// Whether a reading can show as its part's icon (2026-11-20, the user: "still cant put icon for reading"): only one with
+    /// a top (a percent, a temperature) or a battery, as the bar under the icon says how far it is; a speed has none.
+    /// </summary>
+    public static bool HasIconLook(SensorKind kind) => HasTop(kind) || kind == SensorKind.Battery;
 
     /// <summary>A look on an icon, as the icon draws it: Level and Ring as they are, anything else the number alone.</summary>
     public static TrayLook IconLook(SensorKind kind, TrayLook picked) =>
-        picked is TrayLook.Level or TrayLook.Ring && HasTop(kind) ? picked : TrayLook.Number;
+        picked is TrayLook.Level or TrayLook.Ring && HasTop(kind) ? picked
+        : picked == TrayLook.PartIcon && HasIconLook(kind) ? picked : TrayLook.Number;
 
     /// <summary>An icon look's name on the Taskbar page: Plain, Fill, Ring.</summary>
     public static string IconLookName(TrayLook look) => look switch
     {
         TrayLook.Level => Lang.T("Fill"),
         TrayLook.Ring => Lang.T("Ring"),
+        TrayLook.PartIcon => Lang.T("Its icon"),
         _ => Lang.T("Plain"),
     };
 
@@ -375,6 +386,10 @@ public static class TrayParts
 
     /// <summary>How full a reading is, 0 to 1, for the fill-up looks (a temperature out of 100°, in Celsius).</summary>
     public static float Fill(double? value) => value is double v && double.IsFinite(v) ? (float)Math.Clamp(v / 100, 0, 1) : 0;
+
+    /// <summary>How full a reading is, 0 to 1 (see <see cref="Fill(double?)"/>); a battery's level (Full, Medium, Low, Empty) as about how full it says.</summary>
+    public static float Fill(SensorKind kind, double? value) =>
+        kind == SensorKind.Battery && value is double v && v < 0 ? Math.Round(-v) switch { 1 => 0.05f, 2 => 0.2f, 3 => 0.5f, _ => 1f } : Fill(value);
 
     /// <summary>
     /// The device a sensor belongs to, from its ID ("/gpu-nvidia/0/temperature/0" → "/gpu-nvidia/0"): two GPUs or

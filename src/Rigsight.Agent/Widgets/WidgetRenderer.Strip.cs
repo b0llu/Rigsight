@@ -178,6 +178,18 @@ internal static partial class WidgetRenderer
     /// (blocks), and its tile is as wide as what it holds. Text is left-aligned in a place kept as wide as the widest it
     /// has been, so a digit more or less moves nothing.
     /// </summary>
+    /// <summary>
+    /// The words' font (2026-11-20, the user: the text "looks broken"): Windows 11's own taskbar font, Segoe UI Variable Text
+    /// Semibold, at <paramref name="variable"/> px, drawn for small sizes; at 100% Segoe UI Bold's 9.5 px ran letters together
+    /// ("G3"). Where it isn't installed (Windows 10), Segoe UI Bold at <paramref name="old"/> px, as before.
+    /// </summary>
+    private static Font NameFont(float old, float variable, float scale) =>
+        HasVariableText ? new Font(VariableText!, variable * scale, FontStyle.Regular, GraphicsUnit.Pixel)
+        : new Font("Segoe UI", old * scale, FontStyle.Bold, GraphicsUnit.Pixel);
+
+    private static readonly FontFamily? VariableText = FontFamily.Families.FirstOrDefault(f => f.Name == "Segoe UI Variable Text Semibold");
+    private static bool HasVariableText => VariableText is not null;
+
     private sealed class StripLayout : IDisposable
     {
         private readonly IReadOnlyList<StripCell> _cells;
@@ -212,7 +224,7 @@ internal static partial class WidgetRenderer
             _scale = scale;
             _look = look;
             _valueFont = new Font(_valueFamily, 12f * scale, FontStyle.Regular, GraphicsUnit.Pixel);
-            _nameFont = new Font(_nameFamily, 9.5f * scale, FontStyle.Bold, GraphicsUnit.Pixel);
+            _nameFont = NameFont(9.5f, 10.5f, scale);
             // Big number: a third bigger on a usual taskbar; on a short one as big as still leaves room above and below.
             _bigFont = new Font(_valueFamily, Math.Min(16f * scale, Math.Max(12f * scale, (height - 10 * scale) * 0.75f)), FontStyle.Regular, GraphicsUnit.Pixel);
             _mg = Graphics.FromImage(_measuring);
@@ -809,7 +821,7 @@ internal static partial class WidgetRenderer
             // 24 px tile (Windows' smaller buttons) takes 9.5 and 8, with room above, between and below (issue #5's mock-up).
             _roomy = height >= StripTwoLineHeight * scale;
             _valueFont = new Font(_valueFamily, (_roomy ? 11.5f : 9.5f) * scale, FontStyle.Regular, GraphicsUnit.Pixel);
-            _nameFont = new Font(_nameFamily, (_roomy ? 9.5f : 8f) * scale, FontStyle.Bold, GraphicsUnit.Pixel);
+            _nameFont = NameFont(_roomy ? 9.5f : 8f, _roomy ? 10.5f : 9f, scale);
             _mg = Graphics.FromImage(_measuring);
             _pad = StripEdge * scale;
             _tilePad = look.Tiles ? look.Spacing.Pad * scale : 0;

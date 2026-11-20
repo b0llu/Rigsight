@@ -1370,7 +1370,7 @@ internal sealed partial class AgentContext : ApplicationContext
                     own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel } o ? o : id == TrayParts.NetUp ? Lang.T("Up") : Lang.T("Down"),
                     TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
                     OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
-                    Second: id == TrayParts.NetBoth ? up : null, Icon: IconOf(TrayPart.Network, SensorKind.Throughput), IconBeside: beside);
+                    Second: id == TrayParts.NetBoth ? up : null, Icon: IconOf(TrayPart.Network, SensorKind.Throughput), IconBeside: beside, PartIcon: TrayParts.IconKey(TrayPart.Network, SensorKind.Throughput, id));
             }
             else if (id == TrayParts.Ping)
             {
@@ -1380,7 +1380,7 @@ internal sealed partial class AgentContext : ApplicationContext
                 reading = new TrayReading(id, own ?? Lang.T("Ping"), SensorKind.Latency, ms, TrayPart.Network, Lang.T("The game or call you're on, else your internet provider"),
                     TrayParts.ShortLabel(SensorKind.Latency, "", TrayPart.Network, own),
                     TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
-                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id), Icon: IconOf(TrayPart.Network, SensorKind.Latency), IconBeside: beside);
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id), Icon: IconOf(TrayPart.Network, SensorKind.Latency), IconBeside: beside, PartIcon: TrayParts.IconKey(TrayPart.Network, SensorKind.Latency, id));
             }
             else if (id == TrayParts.Fps)
             {
@@ -1388,7 +1388,7 @@ internal sealed partial class AgentContext : ApplicationContext
                 reading = new TrayReading(id, own ?? Lang.T("Frame rate (FPS)"), SensorKind.FrameRate, fps, TrayPart.Gpu, Lang.T("From RivaTuner, in the game you're playing"),
                     TrayParts.ShortLabel(SensorKind.FrameRate, "", TrayPart.Gpu, own),
                     TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
-                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id), Icon: IconOf(TrayPart.Gpu, SensorKind.FrameRate), IconBeside: beside);
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id), Icon: IconOf(TrayPart.Gpu, SensorKind.FrameRate), IconBeside: beside, PartIcon: TrayParts.IconKey(TrayPart.Gpu, SensorKind.FrameRate, id));
             }
             else if (_sensors.ReadSensor(id) is { } r)
             {
@@ -1404,7 +1404,8 @@ internal sealed partial class AgentContext : ApplicationContext
                     TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
                     OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
                     LookId: source is null ? null : from, LookKind: source?.Kind, LookValue: source?.Value, Cores: cores,
-                    Icon: IconOf(part, r.Kind, _sensors.Devices.Of(id)?.Kind.ToString()), IconBeside: beside);
+                    Icon: IconOf(part, r.Kind, _sensors.Devices.Of(id)?.Kind.ToString()), IconBeside: beside,
+                    PartIcon: TrayParts.IconKey(part, r.Kind, id, _sensors.Devices.Of(id)?.Kind.ToString()));
             }
             else reading = new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, "",
                 Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id));

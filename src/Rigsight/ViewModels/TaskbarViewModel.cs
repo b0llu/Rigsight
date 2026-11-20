@@ -185,9 +185,9 @@ public sealed partial class TaskbarSensorRow(string id, string name, string hard
     public string SpotName { get; set; } = "";
 
     /// <summary>Under its look's title: how the look is drawn.</summary>
-    public string LookHint => TrayParts.IsIcon(Style)
-        ? Lang.T("The icon can fill up, or ring round, as the reading rises.")
-        : Lang.T("Drawn beside its number, never over it.");
+    public string LookHint => !TrayParts.IsIcon(Style) ? Lang.T("Drawn beside its number, never over it.")
+        : Sensor?.Kind == SensorKind.Battery ? Lang.T("Its number, or its device's icon over a bar as full as the battery.")
+        : Lang.T("The icon can fill up, ring round, or be its part's icon over a bar, as the reading rises.");
 
     /// <summary>Its picture as the taskbar draws it now, alone, on its look's button.</summary>
     [ObservableProperty]
@@ -1357,7 +1357,8 @@ public sealed partial class TaskbarViewModel : ObservableObject
             row.OwnShort, row.Alone, row.Style, row.Size, from?.Id, from?.Kind, from?.Value,
             Second: row.Id == TrayParts.NetBoth ? _live.NetSensors[1].Value : null, Cores: cores,
             Gray: row.IsGray, Tiles: row.OnTile, Letters: row.Letters, PairNext: row.PairNext, GraphBehind: row.GraphBehind,
-            Icon: row.Naming == TrayName.Word ? null : TrayParts.IconKey(row.Part, s.Kind, row.Id, s.Device), IconBeside: row.Naming == TrayName.Beside);
+            Icon: row.Naming == TrayName.Word ? null : TrayParts.IconKey(row.Part, s.Kind, row.Id, s.Device), IconBeside: row.Naming == TrayName.Beside,
+            PartIcon: TrayParts.IconKey(row.Part, s.Kind, row.Id, s.Device));
     }
 
     /// <summary>Which sizes fit the taskbar now, why the others don't, and which spots show smaller for now.</summary>

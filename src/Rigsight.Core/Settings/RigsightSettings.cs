@@ -579,7 +579,7 @@ public enum TrayScreens { Main, Every, Others }
 /// one place) and <see cref="Mirror"/> (download above the middle, upload under it). Saved by name: new ones go at the end.
 /// On an icon, <see cref="Level"/> fills the icon from the bottom and <see cref="Ring"/> rings its edge.
 /// </summary>
-public enum TrayLook { Number, Area, Line, Bars, Level, Blocks, Ring, Half, Pie, Cores, Big, Spark, DownUp, Mirror }
+public enum TrayLook { Number, Area, Line, Bars, Level, Blocks, Ring, Half, Pie, Cores, Big, Spark, DownUp, Mirror, PartIcon }
 
 /// <summary>
 /// How tall a reading is drawn in the taskbar. <see cref="Auto"/>: as tall as the taskbar has room for; <see cref="Small"/>:

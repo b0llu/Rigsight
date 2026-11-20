@@ -23,13 +23,14 @@ namespace Rigsight.Agent.Ui;
 /// null while no pairs are saved: as before 1.3), each already its own or the taskbar's (null: the taskbar's, as the drawing is told).
 /// Shared with the Taskbar page, which draws its preview with the agent's own drawing (linked into the app).
 /// Since 2026-11-20 its part's <paramref name="Icon"/> in place of its word (see TrayParts.IconKey; null: its word), under its
-/// number or beside it (<paramref name="IconBeside"/>).
+/// number or beside it (<paramref name="IconBeside"/>); <paramref name="PartIcon"/> its part's icon whatever its Names, for the
+/// Icon style's Its icon look.
 /// </summary>
 internal readonly record struct TrayReading(string Id, string Name, SensorKind Kind, double? Value, TrayPart Part, string Hardware, string Short = "",
     string? NumberColor = null, string? NameColor = null, TrayLook Look = TrayLook.Number, string? TileColor = null, bool OwnShort = false, bool Alone = false,
     TrayStyle Style = TrayStyle.Strip, TraySize Size = TraySize.Auto, string? LookId = null, SensorKind? LookKind = null, double? LookValue = null,
     double? Second = null, float[]? Cores = null, bool? Gray = null, bool? Tiles = null, bool? Letters = null, bool? PairNext = null, bool GraphBehind = false,
-    string? Icon = null, bool IconBeside = false)
+    string? Icon = null, bool IconBeside = false, string? PartIcon = null)
 {
     /// <summary>What its spot depends on (see <see cref="TrayParts.Spots"/>).</summary>
     public TrayParts.SpotOf Spot => new(Id, Group, Kind, Alone, BothSpeeds, PairNext);
@@ -63,7 +64,7 @@ internal readonly record struct TrayReading(string Id, string Name, SensorKind K
     public TrayLook IconLook => TrayParts.IconLook(LookSourceKind, Look);
 
     /// <summary>How full its look is, 0 to 1 (see <see cref="TrayParts.Fill"/>).</summary>
-    public float Fill => TrayParts.Fill(LookSourceValue);
+    public float Fill => TrayParts.Fill(LookSourceKind, LookSourceValue);
 
     /// <summary>
     /// Its tile's colour (see <see cref="TrayColors.TileAlpha"/>): the one picked, soft; else, on an icon, its name's

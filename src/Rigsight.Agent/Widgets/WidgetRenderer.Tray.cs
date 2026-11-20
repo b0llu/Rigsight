@@ -72,7 +72,7 @@ internal static partial class WidgetRenderer
     /// An icon's look (<see cref="TrayLook.Level"/> or <see cref="TrayLook.Ring"/>, see <see cref="TrayParts.IconLook"/>),
     /// how full, in its colour: the icon's tile filling up from the bottom, or a ring round its edge.
     /// </summary>
-    internal readonly record struct IconLook(TrayLook Look, float Fill, Color Color);
+    internal readonly record struct IconLook(TrayLook Look, float Fill, Color Color, string? Key = null, Color? Bar = null);
 
     /// <summary>
     /// One number filling the icon, or two stacked: on a rounded tile in <paramref name="tile"/> (its part's colour, or
@@ -92,6 +92,23 @@ internal static partial class WidgetRenderer
         // The bar: whole pixels (2 at 16 px, 3 at 24, 4 at 32), so it stays crisp, with a pixel's gap to the digits.
         int bar = mark is null || tile is not null || look is not null ? 0 : Math.Max(2, (int)Math.Round(size / 8.0));
         float left = bar > 0 ? bar + 1 : 0;
+        if (look is { Look: TrayLook.PartIcon, Key: { } key } part)
+        {
+            // Its icon (2026-11-20): the part's icon in its colour, a bar under it as full as the reading, in the number's
+            // colour (a battery or temperature by how it's doing). The number is in the hover. 13 px of icon at 16.
+            int under = Math.Max(2, (int)Math.Round(size / 8.0));
+            float ih = size - under - 1, iw = PartIconWidth(key, ih);
+            if (iw > size) { ih = MathF.Floor(ih * size / iw); iw = PartIconWidth(key, ih); }
+            DrawPartIcon(g, key, (size - iw) / 2, (size - under - 1 - ih) / 2, ih, part.Color);
+            var state = g.Save();
+            g.SmoothingMode = SmoothingMode.None;
+            g.PixelOffsetMode = PixelOffsetMode.Half;
+            using (var track = new SolidBrush(Color.FromArgb(80, part.Color))) g.FillRectangle(track, 1, size - under, size - 2, under);
+            using (var full = new SolidBrush(part.Bar ?? part.Color))
+                g.FillRectangle(full, 1, size - under, MathF.Max(1, MathF.Round((size - 2) * Math.Clamp(part.Fill, 0, 1))), under);
+            g.Restore(state);
+            return bmp;
+        }
         if (look is { Look: TrayLook.Level } fillLook)
         {
             // Fill: a faint tile of the reading's colour, filled up from the bottom as far as the reading is, stronger.

@@ -325,8 +325,11 @@ internal sealed class StripComposer
 
     /// <summary>The icon's look (its first reading's): filling up or a ring, in its name's colour; none for its number alone.</summary>
     private static WidgetRenderer.IconLook? IconLookOf(IReadOnlyList<TrayReading> icon, Options o) =>
-        icon[0].IconLook is TrayLook.Level or TrayLook.Ring && icon[0].Hardware.Length > 0
-            ? new WidgetRenderer.IconLook(icon[0].IconLook, icon[0].Fill, icon[0].NameOn(o.Light, o.Gray))
+        icon[0].Hardware.Length == 0 ? null
+        : icon[0].IconLook is TrayLook.Level or TrayLook.Ring ? new WidgetRenderer.IconLook(icon[0].IconLook, icon[0].Fill, icon[0].NameOn(o.Light, o.Gray))
+        // Its icon: the part's icon in its name's colour, its bar in its number's.
+        : icon[0].IconLook == TrayLook.PartIcon && icon[0].PartIcon is { } key
+            ? new WidgetRenderer.IconLook(TrayLook.PartIcon, icon[0].Fill, icon[0].NameOn(o.Light, o.Gray), key, icon[0].NumberOn(o.Light, o.Gray))
             : null;
 
     /// <summary>
