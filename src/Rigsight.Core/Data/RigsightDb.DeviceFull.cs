@@ -6,6 +6,7 @@ public sealed partial class RigsightDb
 {
     private void EnsureDeviceFullSchema() => Exec("""
         CREATE TABLE IF NOT EXISTS device_full(device TEXT NOT NULL, ts INTEGER NOT NULL, PRIMARY KEY(device, ts)) WITHOUT ROWID;
+        CREATE INDEX IF NOT EXISTS ix_device_full_ts ON device_full(ts);
         """);
 
     // The app reads a database an older agent made (no table yet): nothing saved then.
