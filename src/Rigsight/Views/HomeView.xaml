@@ -438,12 +438,12 @@
                 <ctl:SmoothBorder Style="{StaticResource Card}" Margin="9,18,9,0" Padding="20,18,20,14">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,7">
-                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
+                            <Button DockPanel.Dock="Right" Style="{StaticResource CardLink}" VerticalAlignment="Center"
                                     Command="{Binding GoCommand}" CommandParameter="timeline"
                                     AutomationProperties.Name="{ctl:T 'Open the Timeline'}">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Timeline'}" />
-                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,0,0,0" />
+                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="6,0,0,0" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <TextBlock Text="{ctl:T 'What changed lately'}" Style="{StaticResource H2}" VerticalAlignment="Center" />
@@ -459,11 +459,12 @@
                     <StackPanel>
                         <!-- Your usual: what this PC is compared with, and what each usual not there yet still needs (issue #12). -->
                         <DockPanel Margin="0,0,0,7">
-                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" VerticalAlignment="Center"
-                                    Command="{Binding OpenUsualCommand}" AutomationProperties.Name="{ctl:T 'Your usual'}">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource CardLink}" VerticalAlignment="Center"
+                                    Command="{Binding OpenUsualCommand}" AutomationProperties.Name="{ctl:T 'Your usual'}"
+                                    MouseEnter="UsualLink_Near" GotKeyboardFocus="UsualLink_Near">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{ctl:T 'Your usual'}" />
-                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Margin="8,0,0,0" />
+                                    <TextBlock Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Margin="6,0,0,0" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <TextBlock Text="{ctl:T 'PC health'}" Style="{StaticResource H2}" VerticalAlignment="Center" />

@@ -156,6 +156,7 @@ public sealed partial class ShellViewModel : ObservableObject
         // standard account, which can't give it).
         Usual = new UsualViewModel(Reports, () => AgentIsAdmin, () => !StandardAccount, page => CurrentPage = page, OpenGame, StartAgentCommand);
         Home.ShowUsual = () => _ = Usual.OpenAsync();
+        Home.PrefetchUsual = Usual.Prefetch;
         SettingsPage.OpenExport = Export.Open;
         SettingsPage.Sidebar = Sidebar;
         SettingsPage.GetCustomPages = () => CustomPages.Select(p => new PageOption(p.NavKey, p.Name));

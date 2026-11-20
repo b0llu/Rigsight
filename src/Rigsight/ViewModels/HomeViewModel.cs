@@ -442,6 +442,9 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     [RelayCommand]
     private void OpenUsual() => ShowUsual?.Invoke();
 
+    /// <summary>Reads Your usual ahead, as the pointer or keyboard reaches its link (set by the window).</summary>
+    public Action? PrefetchUsual { get; set; }
+
     // PC health speaks of the last 7 days (today's usual); today's lines of today; the recap's of its period.
     [RelayCommand]
     private void OpenLine(HomeLine line)

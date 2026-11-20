@@ -2053,16 +2053,17 @@
             </ContentControl>
         </Grid>
 
-        <!-- Your usual: opened from Home's PC health card. Closed with the x, Esc or a click outside. -->
+        <!-- Your usual: a panel at the right, opened from Home's PC health card, over a light dim (the page stays readable). Closed with the x, Esc or a click on the page. -->
         <Grid x:Name="UsualLayer" Grid.ColumnSpan="2" DataContext="{Binding Usual}" Visibility="{Binding IsOpen, Converter={StaticResource Vis}}"
               Focusable="True" FocusVisualStyle="{x:Null}" KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.DirectionalNavigation="Cycle">
-            <Border Background="#99000000" MouseLeftButtonDown="UsualBackdrop_MouseDown" />
+            <Border Background="#47000000" MouseLeftButtonDown="UsualBackdrop_MouseDown" />
+            <!-- Built on the first open and kept (Built), so later opens only show it. -->
             <ContentControl Content="{Binding}" Focusable="False">
                 <ContentControl.Style>
                     <Style TargetType="ContentControl">
                         <Setter Property="ContentTemplate" Value="{x:Null}" />
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                            <DataTrigger Binding="{Binding Built}" Value="True">
                                 <Setter Property="ContentTemplate">
                                     <Setter.Value>
                                         <DataTemplate>

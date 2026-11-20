@@ -3,29 +3,28 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctl="clr-namespace:Rigsight.Controls">
     <UserControl.Resources>
-        <!-- A tile's figure, as Home's tiles have it. -->
-        <Style x:Key="TileValue" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Display}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-            <Setter Property="Margin" Value="0,4,0,0" />
-        </Style>
-
-        <!-- A usual: icon, name, then its figure at the right, or under the name what it still needs. An arrow when its page shows more. -->
-        <DataTemplate x:Key="Row">
-            <Button Style="{StaticResource FlatRowButton}" Margin="-8,1" IsEnabled="{Binding CanOpen}" AutomationProperties.Name="{Binding Name}"
-                    ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True"
-                    Command="{Binding DataContext.OpenRowCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
-                <HeaderedContentControl Style="{StaticResource IconRow}" Margin="8,6">
-                    <HeaderedContentControl.Header>
-                        <Border Style="{StaticResource IconBox}">
-                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center"
-                                       Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
-                        </Border>
-                    </HeaderedContentControl.Header>
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Text="&#xE76C;" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
-                                   VerticalAlignment="Center" Margin="12,0,0,0" Width="10">
+        <!-- A line: a row (name, usual or what it has so far, an arrow when its page shows more), a need line over grey
+             rows, or a sentence. One template, the parts shown by what the line is. -->
+        <DataTemplate x:Key="Line">
+            <Grid>
+                <!-- The need line: what each grey row under it needs. -->
+                <TextBlock Text="{Binding Text}" Style="{StaticResource Muted}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Detail}"
+                           TextWrapping="Wrap" Margin="0,10,0,2" Visibility="{Binding IsNeed, Converter={StaticResource Vis}}" />
+                <!-- A sentence. -->
+                <StackPanel Visibility="{Binding IsNote, Converter={StaticResource Vis}}" Margin="0,6,0,2">
+                    <TextBlock Text="{Binding Text}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap"
+                               ToolTip="{Binding Tip}" />
+                    <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Margin="0,8,0,2" Content="{ctl:T 'Restart with admin'}"
+                            Command="{Binding DataContext.RestartAdminCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Visibility="{Binding NeedsAdmin, Converter={StaticResource Vis}}" />
+                </StackPanel>
+                <!-- A row. -->
+                <Button Style="{StaticResource FlatRowButton}" Margin="-8,0" IsEnabled="{Binding CanOpen}" AutomationProperties.Name="{Binding Text}"
+                        ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True" Visibility="{Binding IsRow, Converter={StaticResource Vis}}"
+                        Command="{Binding DataContext.OpenRowCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                    <DockPanel Margin="8,5">
+                        <TextBlock DockPanel.Dock="Right" Text="&#xE76C;" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource FaintBrush}"
+                                   VerticalAlignment="Center" Margin="10,0,0,0" Width="10">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
                                     <Setter Property="Visibility" Value="Hidden" />
@@ -37,84 +36,95 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" Style="{StaticResource Body}" VerticalAlignment="Center" Margin="16,0,0,0"
-                                   Typography.NumeralAlignment="Tabular" Visibility="{Binding Value, Converter={StaticResource Vis}}" />
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                       Visibility="{Binding Detail, Converter={StaticResource Vis}}" />
-                            <Button Style="{StaticResource AccentButton}" HorizontalAlignment="Left" Margin="0,8,0,2"
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" VerticalAlignment="Top" Margin="14,0,0,0" Typography.NumeralAlignment="Tabular">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Body}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Dim}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <StackPanel VerticalAlignment="Top">
+                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Body}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Dim}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Margin="0,8,0,2" Content="{ctl:T 'Restart with admin'}"
                                     Command="{Binding DataContext.RestartAdminCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    Visibility="{Binding NeedsAdmin, Converter={StaticResource Vis}}" AutomationProperties.Name="{ctl:T 'Restart with admin'}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xEA18;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,0,8,0" />
-                                    <TextBlock Text="{ctl:T 'Restart with admin'}" />
-                                </StackPanel>
-                            </Button>
+                                    Visibility="{Binding NeedsAdmin, Converter={StaticResource Vis}}" />
                         </StackPanel>
                     </DockPanel>
-                </HeaderedContentControl>
-            </Button>
+                </Button>
+            </Grid>
         </DataTemplate>
     </UserControl.Resources>
 
-    <!-- Your usual: how much history this PC has, then every usual by page, each with its figure or what it still needs. -->
-    <ctl:SmoothBorder Width="640" MaxHeight="800" Margin="24" Padding="24,20,24,0" HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Card}"
-                      AutomationProperties.Name="{ctl:T 'Your usual'}">
+    <!-- Your usual: a panel at the right over the page, which stays readable behind a light dim (the user, 2026-11-20:
+         the box in the middle with tiles and an icon on every row felt heavy). Fades in, no slide. -->
+    <Border x:Name="Panel" Width="480" HorizontalAlignment="Right" VerticalAlignment="Stretch" Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0" AutomationProperties.Name="{ctl:T 'Your usual'}">
         <DockPanel>
-            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" VerticalAlignment="Top"
-                        ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close Your usual'}">
-                    <TextBlock Text="&#xE8BB;" FontSize="{x:Static ctl:IconSize.S11}" />
-                </Button>
-                <StackPanel>
-                    <TextBlock Text="{ctl:T 'Your usual'}" FontSize="{x:Static ctl:TextSize.DialogTitle}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                    <TextBlock Text="{ctl:T 'What this PC is compared with, and what\'s too soon to say.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,2,0,0" />
-                </StackPanel>
-            </DockPanel>
+            <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="22,20,16,14">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Command="{Binding CloseCommand}" VerticalAlignment="Top"
+                            ToolTip="{ctl:T 'Close'}" AutomationProperties.Name="{ctl:T 'Close Your usual'}">
+                        <TextBlock Text="&#xE8BB;" FontSize="{x:Static ctl:IconSize.S11}" />
+                    </Button>
+                    <StackPanel>
+                        <TextBlock Text="{ctl:T 'Your usual'}" FontSize="{x:Static ctl:TextSize.DialogTitle}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="{Binding Since}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding Facts}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,1,0,0" TextWrapping="Wrap"
+                                   Visibility="{Binding Facts, Converter={StaticResource Vis}}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
 
-            <ctl:Spinner DockPanel.Dock="Top" Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,40,0,60"
+            <ctl:Spinner DockPanel.Dock="Top" Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,40"
                          Visibility="{Binding Loading, Converter={StaticResource Vis}}" />
 
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" Margin="-12,0,-12,0" Padding="12,0,12,18">
-                <StackPanel>
-                    <ItemsControl ItemsSource="{Binding Tiles}" Focusable="False" Margin="-5,0,-5,0">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Columns="3" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Style="{StaticResource Tile}" Margin="5">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" />
-                                        <TextBlock Text="{Binding Value}" Style="{StaticResource TileValue}" />
-                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,2,0,0"
-                                                   TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" Padding="22,0,22,22">
+                <ItemsControl ItemsSource="{Binding Sections}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <!-- A thin line between parts, so each reads as its own (the user, 2026-11-20). -->
+                            <Border BorderBrush="{DynamicResource StrokeBrush}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="BorderThickness" Value="0,1,0,0" />
+                                        <Setter Property="Margin" Value="0,18,0,0" />
+                                        <Setter Property="Padding" Value="0,16,0,0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding First}" Value="True">
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Setter Property="Margin" Value="0,14,0,0" />
+                                                <Setter Property="Padding" Value="0" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" VerticalAlignment="Center"
+                                                   Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding Title}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                                     </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <ItemsControl ItemsSource="{Binding Sections}" Focusable="False">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="0,16,0,0">
-                                    <DockPanel Margin="0,0,0,4">
-                                        <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'USUAL'}" Style="{StaticResource Caption}" Margin="0,0,24,0"
-                                                   Visibility="{Binding HasValues, Converter={StaticResource Vis}}" />
-                                        <TextBlock Text="{Binding Title}" Style="{StaticResource Caption}" />
-                                    </DockPanel>
-                                    <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource Row}" Focusable="False" />
+                                    <ItemsControl ItemsSource="{Binding Lines}" ItemTemplate="{StaticResource Line}" Focusable="False" />
                                 </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </ScrollViewer>
         </DockPanel>
-    </ctl:SmoothBorder>
+    </Border>
 </UserControl>

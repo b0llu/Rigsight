@@ -840,6 +840,15 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!-- A quiet way into more beside a card's title on Home ("Timeline >", "Your usual >"): grey text and an arrow with no
+         box, a shade on hover, its text lined up with the card's right edge. A boxed button there outweighed the title
+         (the user, 2026-11-20). Unlike the bar actions it takes keyboard focus. -->
+    <Style x:Key="CardLink" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Body}" />
+        <Setter Property="Margin" Value="0,0,-9,0" />
+    </Style>
     <!-- The main action (white in dark mode, black in light): on hover it keeps its colour and dims a little, so
          its text stays readable (the ghost hover's grey would put black text on dark grey). Buttons that turn into
          the main action through a trigger use this template too. -->
