@@ -64,7 +64,9 @@ internal static partial class WidgetRenderer
         {
             if (IconFonts.TryGetValue(px, out var cached)) return cached;
             var family = FontFamily.Families.FirstOrDefault(f => f.Name == "Segoe Fluent Icons") ?? FontFamily.Families.FirstOrDefault(f => f.Name == "Segoe MDL2 Assets");
-            var font = family is null ? null : new Font(family, px, FontStyle.Regular, GraphicsUnit.Pixel);
+            // Bold (DirectWrite thickens the font's one weight): at 13 px its 1 px outlines read thin and faint beside the
+            // number's semibold digits (the user, 2026-11-20).
+            var font = family is null ? null : new Font(family, px, FontStyle.Bold, GraphicsUnit.Pixel);
             IconFonts[px] = font;
             return font;
         }
