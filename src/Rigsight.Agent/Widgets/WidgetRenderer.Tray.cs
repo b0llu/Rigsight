@@ -47,6 +47,14 @@ internal static partial class WidgetRenderer
         // these too (this file is linked into the app): none of the widgets' settings reach the taskbar.
         var text = light ? Color.Black : Color.White;
         if (value is not double v) return light ? Color.FromArgb(140, 140, 140) : Color.FromArgb(107, 107, 107);
+        // A device's battery: green, amber at 15% or less, red at 5% or less (the temperature's own shades).
+        if (kind == SensorKind.Battery && !gray)
+            return Units.BatteryState(v) switch
+            {
+                0 => light ? Color.FromArgb(185, 28, 28) : Color.FromArgb(248, 113, 113),
+                1 => light ? Color.FromArgb(180, 83, 9) : Color.FromArgb(251, 191, 36),
+                _ => light ? Color.FromArgb(4, 120, 87) : Color.FromArgb(52, 211, 153),
+            };
         if (kind != SensorKind.Temperature || gray) return text;
         if (light)
             return v < 45 ? Color.FromArgb(3, 105, 161) : v < 70 ? Color.FromArgb(4, 120, 87) : v < 85 ? Color.FromArgb(180, 83, 9) : Color.FromArgb(185, 28, 28);

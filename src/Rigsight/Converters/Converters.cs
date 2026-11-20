@@ -67,6 +67,17 @@ public sealed class ScaledTempBrushConverter : IMultiValueConverter
     public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) => [];
 }
 
+/// <summary>A device's battery by how it's doing (see <see cref="Units.BatteryState"/>): green, amber at 15% or less, red at 5% or less.</summary>
+public sealed class BatteryBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is double v && double.IsFinite(v)
+            ? Application.Current.TryFindResource(Units.BatteryState(v) switch { 0 => "HotBrush", 1 => "WarmBrush", _ => "GoodBrush" }) ?? Binding.DoNothing
+            : Binding.DoNothing;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
 /// <summary>A reading as the taskbar shows it ("62", "1.2k"): bind the sensor's Kind, then its Value.</summary>
 public sealed class TrayTextConverter : IMultiValueConverter
 {

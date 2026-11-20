@@ -19,6 +19,10 @@ public sealed class HardwareMeta
     public string Name { get; set; } = "";
     /// <summary>LibreHardwareMonitor HardwareType name, e.g. "Cpu", "GpuNvidia", "SuperIO".</summary>
     public string Type { get; set; } = "";
+    /// <summary>For a wireless device ("Device" type): what it is, "Mouse", "Keyboard", "Headset", "Controller" or "Other".</summary>
+    public string? Device { get; set; }
+    /// <summary>For a wireless device: how it's reached, "Logitech receiver", "Bluetooth", "Xbox Wireless".</summary>
+    public string? Via { get; set; }
     public List<SensorMeta> Sensors { get; set; } = [];
 }
 

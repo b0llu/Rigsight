@@ -211,12 +211,13 @@ public sealed partial class TaskbarSensorRow(string id, string name, string hard
     public string PartLabel => TrayParts.Label(Part);
 
     /// <summary>What it is, in words: "CPU temperature", "GPU load"; RigSight's own by its name ("Download speed", "Frame rate (FPS)").</summary>
-    public string KindPhrase => Sensor is null || TrayParts.IsOwn(Id) ? Name : TaskbarViewModel.KindPhrase(PartLabel, Sensor.Kind);
+    public string KindPhrase => Sensor is null || TrayParts.IsOwn(Id) ? Name
+        : Sensor.Kind == SensorKind.Battery ? Sensor.Via ?? Name : TaskbarViewModel.KindPhrase(PartLabel, Sensor.Kind);
 
     /// <summary>The word under it on the strip (after its part's first, see <see cref="TrayParts.ShortLabel"/>).</summary>
     public string Short => Sensor is null ? ""
         : TrayParts.IsNet(Id) ? (OwnShort ? Sensor.CustomLabel!.Trim() : Id == TrayParts.NetUp ? Lang.T("Up") : Lang.T("Down"))
-        : TrayParts.ShortLabel(Sensor.Kind, Sensor.Name, Part, Sensor.CustomLabel);
+        : TrayParts.ShortLabel(Sensor.Kind, Sensor.Kind == SensorKind.Battery ? Sensor.HardwareName : Sensor.Name, Part, Sensor.CustomLabel);
 
     /// <summary>Whether <see cref="Short"/> is a name given on All sensors (it wins in two rows too).</summary>
     public bool OwnShort => Sensor?.CustomLabel?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel };
@@ -588,7 +589,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
         || Units.TypeLabel(s.Kind).Contains(q, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The order the parts come in the list.</summary>
-    internal static readonly TrayPart[] PartOrder = [TrayPart.Cpu, TrayPart.Gpu, TrayPart.Ram, TrayPart.Drive, TrayPart.Network, TrayPart.Board, TrayPart.Other];
+    internal static readonly TrayPart[] PartOrder = [TrayPart.Cpu, TrayPart.Gpu, TrayPart.Ram, TrayPart.Drive, TrayPart.Network, TrayPart.Board, TrayPart.Device, TrayPart.Other];
 
     /// <summary>
     /// Every sensor that matches what's typed (its name, hardware or part), under its part's heading; those already in

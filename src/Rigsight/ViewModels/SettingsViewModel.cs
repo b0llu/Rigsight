@@ -729,6 +729,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public bool WorseChanges { get => S.Alerts.WorseChanges; set => Set(s => s.Alerts.WorseChanges = value); }
     public bool DriveFull { get => S.Alerts.DriveFull; set => Set(s => s.Alerts.DriveFull = value); }
     public bool DriveTemperature { get => S.Alerts.DriveTemperature; set => Set(s => s.Alerts.DriveTemperature = value); }
+    public bool DeviceBatteries { get => S.Alerts.DeviceBatteries; set => Set(s => s.Alerts.DeviceBatteries = value); }
     public bool FpsNotRecorded { get => S.Alerts.FpsNotRecorded; set => Set(s => s.Alerts.FpsNotRecorded = value); }
     public bool PartsChanged { get => S.Alerts.PartsChanged; set => Set(s => s.Alerts.PartsChanged = value); }
     public bool DriveLifeMilestones { get => S.Alerts.DriveLifeMilestones; set => Set(s => s.Alerts.DriveLifeMilestones = value); }
@@ -743,7 +744,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     public static List<PageOption> PreviewOptions =>
     [
         new("alert", Lang.T("Temperature alert")), new("crash", Lang.T("Crash")), new("fan-stopped", Lang.T("A fan stopped")),
-        new("drive-bad", Lang.T("A drive reports a failure")), new("hotter", Lang.T("Hotter than usual")), new("slowed", Lang.T("GPU slowing itself")),
+        new("drive-bad", Lang.T("A drive reports a failure")), new("device-low", Lang.T("A device battery running low")), new("hotter", Lang.T("Hotter than usual")), new("slowed", Lang.T("GPU slowing itself")),
         new("fan-slower", Lang.T("Fans slower than usual")), new("drive-sectors", Lang.T("Bad sectors")), new("problems", Lang.T("More PC problems than usual")),
         new("drive-full", Lang.T("Drive almost full")), new("recap", Lang.T("Daily recap")), new("weekly", Lang.T("Weekly recap")),
         new("session", Lang.T("Game session")), new("memory", Lang.T("App growing in memory")), new("startup", Lang.T("New app at startup")),

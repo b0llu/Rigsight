@@ -3,7 +3,7 @@ using Rigsight.Core.Settings;
 namespace Rigsight.Core;
 
 /// <summary>The part of the PC a taskbar reading is about, which its colour mark shows.</summary>
-public enum TrayPart { Cpu, Gpu, Ram, Drive, Board, Network, Other }
+public enum TrayPart { Cpu, Gpu, Ram, Drive, Board, Network, Other, Device }
 
 /// <summary>
 /// What a taskbar reading is about, and how readings are grouped when they share icons. Every icon carries a colour
@@ -30,6 +30,18 @@ public static class TrayParts
     /// </summary>
     public static double IconInset(double size) => size <= 16 ? Math.Max(1, size / 16) : size * 0.16;
 
+    /// <summary>The hardware type of a wireless device RigSight reads a battery from (not one of the library's).</summary>
+    public const string DeviceHardwareType = "Device";
+
+    /// <summary>How a wireless device is reached, as shown on its group ("Bluetooth"), in the person's language.</summary>
+    public static string DeviceVia(string via) => via switch
+    {
+        "Bluetooth" => Lang.T("Bluetooth"),
+        "Logitech receiver" => Lang.T("Logitech receiver"),
+        "Xbox Wireless" => Lang.T("Xbox Wireless"),
+        _ => via,
+    };
+
     /// <summary>The part, from LibreHardwareMonitor's hardware type ("Cpu", "GpuNvidia", "SuperIO"…).</summary>
     public static TrayPart PartOf(string? hardwareType) => hardwareType switch
     {
@@ -40,6 +52,7 @@ public static class TrayParts
         "Storage" => TrayPart.Drive,
         "Motherboard" or "SuperIO" or "EmbeddedController" => TrayPart.Board,
         "Network" => TrayPart.Network,
+        DeviceHardwareType => TrayPart.Device,
         _ => TrayPart.Other,
     };
 
@@ -51,6 +64,7 @@ public static class TrayParts
         TrayPart.Drive => Lang.T("Drive"),
         TrayPart.Board => Lang.T("Board"),
         TrayPart.Network => Lang.T("Network"),
+        TrayPart.Device => Lang.T("Devices"),
         _ => Lang.T("Other"),
     };
 
@@ -66,6 +80,8 @@ public static class TrayParts
         TrayPart.Ram => light ? ((byte)140, (byte)95, (byte)230) : ((byte)177, (byte)140, (byte)255),
         TrayPart.Drive => light ? ((byte)219, (byte)39, (byte)119) : ((byte)244, (byte)114, (byte)182),
         TrayPart.Network => light ? ((byte)2, (byte)132, (byte)199) : ((byte)56, (byte)189, (byte)248),
+        // Wireless devices in the taskbar's own text colour: never green, amber or red, which their numbers use.
+        TrayPart.Device => light ? ((byte)64, (byte)64, (byte)64) : ((byte)232, (byte)232, (byte)232),
         _ => light ? ((byte)128, (byte)128, (byte)128) : ((byte)148, (byte)148, (byte)148),
     };
 
@@ -181,6 +197,7 @@ public static class TrayParts
         TrayPart.Ram => ((byte)124, (byte)73, (byte)227),
         TrayPart.Drive => ((byte)201, (byte)34, (byte)108),
         TrayPart.Network => ((byte)2, (byte)112, (byte)169),
+        TrayPart.Device => ((byte)64, (byte)64, (byte)64),
         _ => ((byte)106, (byte)106, (byte)106),
     };
 
@@ -486,6 +503,8 @@ public static class TrayParts
             case SensorKind.Flow: return Lang.T("Flow");
             case SensorKind.FrameRate: return Lang.T("FPS");
             case SensorKind.Latency: return Lang.T("Ping");
+            // A device's battery: the first word of the device's name ("G309", "Xbox"), which the reading is given as its name.
+            case SensorKind.Battery: break;
         }
         string first = sensorName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
         return first.Length <= 6 ? first : first[..6];

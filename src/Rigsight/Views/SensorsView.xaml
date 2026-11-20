@@ -4,6 +4,7 @@
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              xmlns:svc="clr-namespace:Rigsight.Services"
              xmlns:m="clr-namespace:Rigsight.Models"
+             xmlns:core="clr-namespace:Rigsight.Core;assembly=Rigsight.Core"
              xmlns:vm="clr-namespace:Rigsight.ViewModels"
              xmlns:v="clr-namespace:Rigsight.Views">
     <UserControl.Resources>
@@ -178,6 +179,10 @@
                                                                 </Setter.Value>
                                                             </Setter>
                                                         </DataTrigger>
+                                                        <!-- A wireless device's battery: green, amber at 15% or less, red at 5% or less. -->
+                                                        <DataTrigger Binding="{Binding Sensor.Kind}" Value="{x:Static core:SensorKind.Battery}">
+                                                            <Setter TargetName="Value" Property="Foreground" Value="{Binding Sensor.Value, Converter={StaticResource BatteryBrush}}" />
+                                                        </DataTrigger>
                                                     </DataTemplate.Triggers>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -284,6 +289,9 @@
                                                                 </MultiBinding>
                                                             </Setter.Value>
                                                         </Setter>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Kind}" Value="{x:Static core:SensorKind.Battery}">
+                                                        <Setter Property="Foreground" Value="{Binding Value, Converter={StaticResource BatteryBrush}}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>

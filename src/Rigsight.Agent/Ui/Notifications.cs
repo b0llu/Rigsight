@@ -19,6 +19,8 @@ internal enum NoticeKind
     Timer,
     // RivaTuner off, so no FPS is recorded (2026-11-14).
     Fps,
+    // A wireless device's battery running low (2026-11-20).
+    DeviceBattery,
 }
 
 /// <summary>Something worth telling the user. <see cref="Urgent"/> notices are shown even during fullscreen games.</summary>
@@ -100,7 +102,7 @@ internal static class NoticeLevels
 {
     public static Core.Notices.NoticeLevel Of(NoticeKind kind) => kind switch
     {
-        NoticeKind.Alert or NoticeKind.Crash or NoticeKind.Internet or NoticeKind.InternetBack or NoticeKind.FanStopped or NoticeKind.DriveFailing => Core.Notices.NoticeLevel.Problem,
+        NoticeKind.Alert or NoticeKind.Crash or NoticeKind.Internet or NoticeKind.InternetBack or NoticeKind.FanStopped or NoticeKind.DriveFailing or NoticeKind.DeviceBattery => Core.Notices.NoticeLevel.Problem,
         NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space or NoticeKind.Fps => Core.Notices.NoticeLevel.Worth,
         NoticeKind.Recap or NoticeKind.Session or NoticeKind.Rewind or NoticeKind.Memory or NoticeKind.Startup or NoticeKind.Weekly => Core.Notices.NoticeLevel.Recap,
         _ => Core.Notices.NoticeLevel.App,
@@ -119,6 +121,7 @@ internal static class NoticeLevels
         ("storage", _) => NoticeKind.Space,
         ("memory", _) => NoticeKind.Memory,
         ("startup", _) => NoticeKind.Startup,
+        ("device", _) => NoticeKind.DeviceBattery,
         _ => NoticeKind.Weekly,
     };
 }
@@ -389,14 +392,14 @@ internal static class ToastRenderer
     /// <summary>Each kind's colour: the bright one on dark, a deeper one that reads on white (at least 4.5:1, as the app's Light theme).</summary>
     public static Color Accent(NoticeKind kind, bool light = false) => (kind, light) switch
     {
-        (NoticeKind.Alert or NoticeKind.FanStopped or NoticeKind.DriveFailing, false) => Color.FromArgb(248, 113, 113),
+        (NoticeKind.Alert or NoticeKind.FanStopped or NoticeKind.DriveFailing or NoticeKind.DeviceBattery, false) => Color.FromArgb(248, 113, 113),
         (NoticeKind.Recap or NoticeKind.Rewind or NoticeKind.Memory or NoticeKind.Startup or NoticeKind.Weekly, false) => Color.FromArgb(91, 140, 255),
         (NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space or NoticeKind.Fps, false) => Color.FromArgb(251, 191, 36),
         (NoticeKind.Session, false) => Color.FromArgb(61, 220, 151),
         (NoticeKind.Crash or NoticeKind.Internet, false) => Color.FromArgb(251, 191, 36),
         (NoticeKind.InternetBack, false) => Color.FromArgb(61, 220, 151),
         (_, false) => Color.FromArgb(177, 140, 255),
-        (NoticeKind.Alert or NoticeKind.FanStopped or NoticeKind.DriveFailing, true) => Color.FromArgb(185, 28, 28),
+        (NoticeKind.Alert or NoticeKind.FanStopped or NoticeKind.DriveFailing or NoticeKind.DeviceBattery, true) => Color.FromArgb(185, 28, 28),
         (NoticeKind.Recap or NoticeKind.Rewind or NoticeKind.Memory or NoticeKind.Startup or NoticeKind.Weekly, true) => Color.FromArgb(37, 99, 235),
         (NoticeKind.Fans or NoticeKind.Drive or NoticeKind.Usual or NoticeKind.Slowed or NoticeKind.Change or NoticeKind.Space or NoticeKind.Fps, true) => Color.FromArgb(180, 83, 9),
         (NoticeKind.Session, true) => Color.FromArgb(4, 120, 87),
@@ -426,6 +429,7 @@ internal static class ToastRenderer
         NoticeKind.Weekly => Lang.T("WEEKLY RECAP"),
         NoticeKind.Timer => Lang.T("TIMER"),
         NoticeKind.Fps => Lang.T("GAMES"),
+        NoticeKind.DeviceBattery => Lang.T("BATTERY"),
         _ => Lang.T("UPDATE"),
     };
 

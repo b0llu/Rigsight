@@ -242,6 +242,7 @@ public sealed partial class RigsightDb : IDisposable
         EnsureDiskSchema();
         EnsureDriveHealthSchema();
         EnsureAppCpuSchema();
+        EnsureDeviceFullSchema();
     }
 
     private const string FansFreshKey = "fans_fresh";
@@ -1085,6 +1086,7 @@ public sealed partial class RigsightDb : IDisposable
         PruneDisk(before);
         PruneAppCpu(before);
         PruneDriveHealth(before);
+        PruneDeviceFull(before);
         PruneChanges(before);
         if (HasSteamDownloads) using (var c7 = Cmd("DELETE FROM steam_download WHERE ended < $t", ("$t", before))) c7.ExecuteNonQuery();
         return minutes;
@@ -1129,7 +1131,7 @@ public sealed partial class RigsightDb : IDisposable
             + " DELETE FROM fan_minute; DELETE FROM fan_day; DELETE FROM heat_day; DELETE FROM fan_curve_day; DELETE FROM fan_level_day; DELETE FROM app_minute;"
             + " DELETE FROM net_minute; DELETE FROM net_day; DELETE FROM net_app_hour; DELETE FROM net_app_day; DELETE FROM net_transfer; DELETE FROM net_drop; DELETE FROM net_ping; DELETE FROM net_ping_switch; DELETE FROM net_server;"
             + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter; DELETE FROM steam_download;"
-            + " DELETE FROM disk_app_hour; DELETE FROM disk_app_day; DELETE FROM app_cpu_hour; DELETE FROM app_cpu_day;");
+            + " DELETE FROM disk_app_hour; DELETE FROM disk_app_day; DELETE FROM app_cpu_hour; DELETE FROM app_cpu_day; DELETE FROM device_full;");
     }
 
     // ── Reader ────────────────────────────────────────────────────────────

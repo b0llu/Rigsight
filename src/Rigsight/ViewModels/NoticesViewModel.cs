@@ -45,12 +45,13 @@ public static class NoticeLook
         "Rewind" => "\uE768",
         "Memory" => "\uE964",
         "Startup" => "\uE7E8",
+        "DeviceBattery" => "\uE83F",
         _ => "\uE896",
     };
 
     public static string BrushKey(string kind, NoticeLevel level) => kind switch
     {
-        "Alert" or "FanStopped" or "DriveFailing" => "HotBrush",
+        "Alert" or "FanStopped" or "DriveFailing" or "DeviceBattery" => "HotBrush",
         "Session" or "InternetBack" => "GoodBrush",
         "Crash" or "Internet" => "WarmBrush",
         _ => level switch { NoticeLevel.Worth => "WarmBrush", NoticeLevel.Recap => "CoolBrush", NoticeLevel.Problem => "HotBrush", _ => "PurpleBrush" },

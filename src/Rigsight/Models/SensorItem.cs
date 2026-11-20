@@ -83,7 +83,12 @@ public sealed partial class SensorItem : ObservableObject
     [ObservableProperty] private bool _isShown = true;
 
     /// <summary>The name a person gave it, else its own name in the language in use (see <see cref="SensorWords"/>).</summary>
-    public string DisplayName => string.IsNullOrWhiteSpace(CustomLabel) ? SensorWords.Show(Name) : CustomLabel!;
+    public string DisplayName => !string.IsNullOrWhiteSpace(CustomLabel) ? CustomLabel!
+        // A device's battery is named by its device wherever it's picked or listed ("G309 LIGHTSPEED battery").
+        : Kind == SensorKind.Battery ? Lang.T($"{HardwareShown} battery") : SensorWords.Show(Name);
+
+    /// <summary>For a wireless device's battery: how the device is reached ("Bluetooth"), from its group.</summary>
+    public string? Via { get; init; }
 
     /// <summary>What the name says when pointed at: that it can be renamed, and what the part calls it once it has been.</summary>
     public string NameTip => string.IsNullOrWhiteSpace(CustomLabel) ? Lang.T("Click to rename") : Lang.T($"{SensorWords.Show(Name)}  ·  click to rename");

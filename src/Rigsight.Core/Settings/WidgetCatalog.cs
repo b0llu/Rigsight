@@ -1,7 +1,7 @@
 namespace Rigsight.Core.Settings;
 
 /// <summary>The groups a widget's readings are picked from (the picker's chips).</summary>
-public enum WidgetCategory { Game, Cpu, Gpu, Ram, Storage, Network, Fans, Board, Today }
+public enum WidgetCategory { Game, Cpu, Gpu, Ram, Storage, Network, Fans, Board, Today, Devices }
 
 /// <summary>
 /// What widgets are made of: the built-in ones and their readings, the layouts, and which readings each layout can
@@ -252,6 +252,7 @@ public static class WidgetCatalog
         "Memory" => WidgetCategory.Ram,
         "Storage" => WidgetCategory.Storage,
         "Network" => WidgetCategory.Network,
+        TrayParts.DeviceHardwareType => WidgetCategory.Devices,
         _ when kind is SensorKind.Fan or SensorKind.Control => WidgetCategory.Fans,
         "Cooler" => WidgetCategory.Fans,
         _ => WidgetCategory.Board,
@@ -268,6 +269,7 @@ public static class WidgetCatalog
         WidgetCategory.Network => Lang.T("Network"),
         WidgetCategory.Fans => Lang.T("Fans"),
         WidgetCategory.Today => Lang.T("Today"),
+        WidgetCategory.Devices => Lang.T("Devices"),
         _ => c.ToString(),
     };
 

@@ -246,6 +246,29 @@ public static class NoticeWords
             : Lang.T($"It reached {Temp(warning)}, its own warning point."));
 
     /// <summary>
+    /// A wireless device's battery running low: "Your G309 LIGHTSPEED is at 15%" / "It was last at 100% 6 days ago."; a
+    /// device that reports only a level: "Your Xbox controller battery is low" / "Xbox controllers only report Full, Medium,
+    /// Low and Empty." A second line only where it teaches something.
+    /// </summary>
+    public static NoticeText DeviceLow(string device, double value, DateTime? lastFull, bool xbox, DateTime now)
+    {
+        string title = value >= 0 ? Lang.T($"Your {device} is at {Math.Round(value):0}%") : Lang.T($"Your {device} battery is low");
+        string body = lastFull is DateTime full ? Lang.T($"It was last at 100% {Ago(full, now)}.")
+            : xbox && value < 0 ? Lang.T("Xbox controllers only report Full, Medium, Low and Empty.") : "";
+        return new(title, body);
+    }
+
+    /// <summary>How long ago, in words for a sentence: "today", "yesterday", "9 hours ago", "6 days ago".</summary>
+    internal static string Ago(DateTime at, DateTime now)
+    {
+        var span = now - at;
+        if (span.TotalHours < 1) return Lang.T("less than an hour ago");
+        if (span.TotalHours < 24) return (int)span.TotalHours == 1 ? Lang.T("1 hour ago") : Lang.T($"{(int)span.TotalHours} hours ago");
+        int days = (now.Date - at.Date).Days;
+        return days <= 1 ? Lang.T("yesterday") : Lang.T($"{days} days ago");
+    }
+
+    /// <summary>
     /// An SSD passing half or a quarter of its rated life: "Your KINGSTON SA400 has half its rated life left" / "It uses about
     /// 8% a year, so at this pace that's around 6 more years." (without a pace yet: how much it has left).
     /// </summary>

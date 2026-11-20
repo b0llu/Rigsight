@@ -9,6 +9,11 @@ public enum SensorKind
     FrameRate,
     /// <summary>Milliseconds to a server and back (RigSight's own taskbar reading, see TrayParts.Ping).</summary>
     Latency,
+    /// <summary>
+    /// A wireless device's battery (RigSight's own reading, see the agent's DeviceBatteries): 0 to 100 percent, or for a
+    /// device that only reports a level, <see cref="Units.BatteryLevelValue"/> (below 0).
+    /// </summary>
+    Battery,
 }
 
 /// <summary>Formatting of raw values. Temperatures are always stored in °C and converted for display.</summary>
@@ -41,6 +46,7 @@ public static class Units
             SensorKind.Frequency => $"{v:0} Hz",
             SensorKind.FrameRate => $"{v:0} " + Lang.T("FPS"),
             SensorKind.Latency => $"{v:0} ms",
+            SensorKind.Battery => BatteryWord(v) ?? $"{v:0} %",
             SensorKind.Energy => $"{v:0} mWh",
             SensorKind.Noise => $"{v:0} dBA",
             SensorKind.Timing => $"{v:0.00} ns",
@@ -59,6 +65,7 @@ public static class Units
             SensorKind.Temperature => $"{Temp(v):0}°",
             SensorKind.Load or SensorKind.Control or SensorKind.Level => $"{v:0}%",
             SensorKind.Power => $"{v:0} W",
+            SensorKind.Battery => BatteryWord(v) ?? $"{v:0}%",
             _ => Format(kind, v),
         };
     }
@@ -111,6 +118,7 @@ public static class Units
             SensorKind.SmallData => Short(v >= 1024 ? v / 1024 : v),             // MB; GB from 1024
             SensorKind.Throughput => Short(v / (1024 * 1024)),                   // bytes/s as MB/s
             SensorKind.FrameRate or SensorKind.Latency => Whole(v),
+            SensorKind.Battery => BatteryWord(v) ?? Whole(v),
             _ => Short(v),
         };
     }
@@ -136,6 +144,7 @@ public static class Units
             SensorKind.SmallData => text + (v >= 1024 ? " GB" : " MB"),
             SensorKind.Data => v >= 1000 ? TrayText(kind, v / 1000) + " TB" : text + " GB",
             SensorKind.Throughput => text + " MB/s",
+            SensorKind.Battery => v >= 0 ? text + "%" : text,
             _ => text,
         };
     }
@@ -159,6 +168,29 @@ public static class Units
         return v >= 1L << 30 ? Num(v / (1L << 30)) + " GB/s" : v >= 1L << 20 ? Num(v / (1L << 20)) + " MB/s" : Num(v / 1024) + " KB/s";
     }
 
+    /// <summary>
+    /// A battery level kept as a reading, for a device that reports no percent (an Xbox controller): below 0, so it
+    /// can never be taken for one. Empty -1, Low -2, Medium -3, Full -4.
+    /// </summary>
+    public static double BatteryLevelValue(int level) => -1 - Math.Clamp(level, 0, 3);
+
+    /// <summary>The word for a level kept by <see cref="BatteryLevelValue"/>; null for a percent.</summary>
+    public static string? BatteryWord(double value) => value >= 0 ? null : Math.Round(-value) switch
+    {
+        1 => Lang.C("battery", "Empty"),
+        2 => Lang.C("battery", "Low"),
+        3 => Lang.C("battery", "Medium"),
+        _ => Lang.C("battery", "Full"),
+    };
+
+    /// <summary>
+    /// How a battery reading is doing: 2 above 15% (or Medium, Full), 1 at 15% or less (or Low), 0 at 5% or less (or
+    /// Empty). Shared by the taskbar's colours, All sensors and the alert.
+    /// </summary>
+    public static int BatteryState(double value) => value < 0
+        ? Math.Round(-value) switch { 1 => 0, 2 => 1, _ => 2 }
+        : value <= 5 ? 0 : value <= 15 ? 1 : 2;
+
     public static string TypeLabel(SensorKind kind) => kind switch
     {
         SensorKind.Temperature => Lang.T("TEMPERATURE"),
@@ -174,6 +206,7 @@ public static class Units
         SensorKind.Fan => Lang.T("FAN"),
         SensorKind.Flow => Lang.T("FLOW"),
         SensorKind.Level => Lang.T("LEVEL"),
+        SensorKind.Battery => Lang.T("BATTERY"),
         SensorKind.Frequency => Lang.T("FREQUENCY"),
         SensorKind.Energy => Lang.T("ENERGY"),
         SensorKind.Noise => Lang.T("NOISE"),

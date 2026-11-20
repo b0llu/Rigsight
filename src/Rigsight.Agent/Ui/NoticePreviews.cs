@@ -17,6 +17,7 @@ internal static class NoticePreviews
         return kind switch
         {
             "fan-stopped" => (NoticeKind.FanStopped, NoticeWords.FanStopped("GPU Fan 1", true, 4, now.AddMinutes(-6), 74), "fans"),
+            "device-low" => (NoticeKind.DeviceBattery, NoticeWords.DeviceLow("G309 LIGHTSPEED", 15, now.AddDays(-6), false, now), "sensors"),
             "drive-bad" => (NoticeKind.DriveFailing, NoticeWords.DriveFailing("Samsung SSD 980 1TB"), "storage"),
             "hotter" => (NoticeKind.Usual, NoticeWords.Hotter(new UsualHeat("Crimson Desert", "GPU", 78.2, 70.6, 69.1, 72.3, 95, 410, 6, 41.2, 40.8, 300, 302, EffectTone.Worse)), "games"),
             "slowed" => (NoticeKind.Slowed, NoticeWords.Slowed(new Throttling(12, 9, 83)), "temperatures"),

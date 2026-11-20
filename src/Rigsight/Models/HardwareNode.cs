@@ -21,6 +21,10 @@ public sealed partial class HardwareNode(string name, string type) : ObservableO
 
     public ObservableCollection<SensorItem> Sensors { get; } = [];
 
+    /// <summary>For a wireless device: what it is ("Mouse", "Headset"…), and how it's reached ("Bluetooth"…).</summary>
+    public string? Device { get; init; }
+    public string? Via { get; init; }
+
     [ObservableProperty] private bool _hasVisibleSensors = true;
     [ObservableProperty] private bool _isExpanded = true;
 
@@ -60,6 +64,10 @@ public sealed partial class HardwareNode(string name, string type) : ObservableO
                 Add(Sensors.FirstOrDefault(s => s.Kind == Core.SensorKind.Temperature && s.HasTempScale));
                 Add(One(Core.SensorKind.Load, "Used Space"), Lang.T("full"));
                 break;
+            case "MOUSE" or "KEYBOARD" or "HEADSET" or "CONTROLLER" or "DEVICE" when Type == Core.TrayParts.DeviceHardwareType:
+                Add(Sensors.FirstOrDefault(s => s.Kind == Core.SensorKind.Battery), Lang.T("battery"));
+                if (Via is { Length: > 0 } via) keys.Add(new HardwareKey(() => Core.TrayParts.DeviceVia(via)));
+                break;
             case "RAM":
                 Add(One(Core.SensorKind.Load, ""), Lang.T("in use"));
                 Add(One(Core.SensorKind.Temperature, ""));
@@ -96,6 +104,14 @@ public sealed partial class HardwareNode(string name, string type) : ObservableO
         "Psu" => "PSU",
         "Battery" => Lang.Key("BATTERY"),
         "Network" => Lang.Key("NET"),
+        Core.TrayParts.DeviceHardwareType => Device switch
+        {
+            "Mouse" => Lang.Key("MOUSE"),
+            "Keyboard" => Lang.Key("KEYBOARD"),
+            "Headset" => Lang.Key("HEADSET"),
+            "Controller" => Lang.Key("CONTROLLER"),
+            _ => Lang.Key("DEVICE"),
+        },
         _ => Lang.Key("DEVICE"),
     };
 

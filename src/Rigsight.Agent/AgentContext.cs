@@ -457,6 +457,18 @@ internal sealed partial class AgentContext : ApplicationContext
                 }
                 catch (Exception ex) { _errors.Failed("RAM sticks", ex); }
 
+                // Wireless devices' batteries, read on their own thread: into their sensors, and a device that came or went into the list.
+                try
+                {
+                    if (_sensors.TakeDevices())
+                    {
+                        Log.Write("sensors", $"Wireless devices changed: now {_sensors.SensorCount} sensors");
+                        if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
+                    }
+                    MaybeCheckDevices();
+                }
+                catch (Exception ex) { _errors.Failed("device batteries", ex); }
+
                 long now = clock.ElapsedMilliseconds;
                 var settings = _settings;
                 // A timed pause that has run out is cleared, so the tray menu and Settings show tracking again.
@@ -1381,8 +1393,10 @@ internal sealed partial class AgentContext : ApplicationContext
                 string? from = settings.TrayLookFrom.GetValueOrDefault(id);
                 var source = from is null ? null : _sensors.ReadSensor(from);
                 float[]? cores = look == TrayLook.Cores && source is null && TrayParts.IsCpuTotal(r.Kind, part, r.Name) ? CoresOf(id) : null;
-                reading = new TrayReading(id, own ?? SensorWords.Show(r.Name), r.Kind, r.Value, part, r.HardwareName,
-                    TrayParts.ShortLabel(r.Kind, r.Name, part, own),
+                // A device's battery is named by its device ("G309 LIGHTSPEED battery"), and the strip's word is the device's first.
+                bool battery = r.Kind == SensorKind.Battery;
+                reading = new TrayReading(id, own ?? (battery ? Lang.T($"{r.HardwareName} battery") : SensorWords.Show(r.Name)), r.Kind, r.Value, part, r.HardwareName,
+                    TrayParts.ShortLabel(r.Kind, battery ? r.HardwareName : r.Name, part, own),
                     TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
                     OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
                     LookId: source is null ? null : from, LookKind: source?.Kind, LookValue: source?.Value, Cores: cores);

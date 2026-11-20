@@ -102,6 +102,26 @@ public static class NoticeChecks
     }
 
     /// <summary>
+    /// A wireless device's battery (2026-11-20): at 15% or less, and again at 5% or less (a device that reports a level:
+    /// at Low, and again at Empty), only from a fresh reading while it's connected and not charging. Each once a charge:
+    /// what was said is kept by the device, the step and when it was last at 100%, so a restart doesn't say it again and the
+    /// next charge says it anew. A problem, so it shows mid-game.
+    /// </summary>
+    /// <param name="value">Its battery: 0 to 100, or a level below 0 (see <see cref="Units.BatteryLevelValue"/>).</param>
+    public static NoticeCandidate? DeviceBattery(string key, string name, double value, bool? charging, bool connected, bool xbox,
+        DateTime? lastFull, AlertSettings s, Func<string, (DateTime At, string? Value)?> said, DateTime now)
+    {
+        if (!s.DeviceBatteries || !connected || charging == true) return null;
+        int state = Units.BatteryState(value);
+        if (state == 2) return null;
+        string charge = lastFull is DateTime f ? TimeUtil.ToUnix(f).ToString(System.Globalization.CultureInfo.InvariantCulture) : "never";
+        string Mark(int step) => $"device-low|{key}|{step}|{charge}";
+        // Said at 5% already: nothing more this charge. Said at 15%: only the 5% one is left.
+        if (said(Mark(0)) is not null || (state == 1 && said(Mark(1)) is not null)) return null;
+        return new("device", NoticeLevel.Problem, NoticeWords.DeviceLow(name, value, lastFull, xbox, now), "sensors", null, Mark(state));
+    }
+
+    /// <summary>
     /// A drive's own health check: a failure (a problem), early warning signs, new or more bad sectors, or almost all of its
     /// rated life used (worth knowing). A drive is said when it changes for the worse: its first reading only sets where it
     /// stands, unless that is already a failure or bad sectors (then it's said once).

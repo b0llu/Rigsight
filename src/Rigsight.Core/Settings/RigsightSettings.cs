@@ -510,6 +510,9 @@ public sealed class AlertSettings
     /// <summary>Problems: a drive at or past its own warning temperature, once a day.</summary>
     public bool DriveTemperature { get; set; } = true;
 
+    /// <summary>A wireless device's battery at 15% and again at 5% (or a controller saying Low), once each charge (2026-11-20).</summary>
+    public bool DeviceBatteries { get; set; } = true;
+
     /// <summary>
     /// RivaTuner installed but off for 10 minutes on a PC that played a game in the last 30 days, so no FPS is recorded;
     /// once a day (the user, 2026-11-14). On for everyone; a setting already chosen keeps its value.

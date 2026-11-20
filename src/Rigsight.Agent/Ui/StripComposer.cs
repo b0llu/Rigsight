@@ -123,7 +123,7 @@ internal sealed class StripComposer
         var nameOf = groups.Select((g, i) => (g, partNames[i])).ToDictionary(x => x.g, x => x.Item2);
         // Each reading's word across the whole taskbar: a part's name once, never one word twice (see TrayParts.Words).
         var words = TrayParts.Words([.. runs.SelectMany(run => run.Cells).Select(c => (IReadOnlyList<TrayReading>)c)],
-            r => (r.Id, r.Group, nameOf.GetValueOrDefault(r.Group, TrayParts.Label(r.Part)), r.Part == TrayPart.Network || r.Id == TrayParts.Fps, r.OwnShort, r.Short, r.Name));
+            r => (r.Id, r.Group, nameOf.GetValueOrDefault(r.Group, TrayParts.Label(r.Part)), r.Part is TrayPart.Network or TrayPart.Device || r.Id == TrayParts.Fps, r.OwnShort, r.Short, r.Name));
 
         var segments = runs.Select((run, k) =>
         {

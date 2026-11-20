@@ -891,6 +891,12 @@
                             <TextBlock Text="{ctl:T 'A drive reaching its own warning point.'}" Style="{StaticResource Hint}" />
                         </StackPanel>
                     </CheckBox>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding DeviceBatteries}" Margin="0,10" AutomationProperties.Name="{ctl:T 'Device batteries running low'}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Device batteries running low'}" Style="{StaticResource Title}" />
+                            <TextBlock Text="{ctl:T 'At 15% and again at 5%.'}" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </CheckBox>
                 </StackPanel>
             </ctl:SmoothBorder>
 

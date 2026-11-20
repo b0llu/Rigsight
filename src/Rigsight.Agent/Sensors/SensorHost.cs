@@ -71,6 +71,24 @@ internal sealed class SensorHost
     // Temperatures the library doesn't give, from Windows (see WindowsTempSensors): read with their hardware.
     private readonly WindowsTempSensors _windowsTemps = new();
 
+    // Wireless devices' batteries, read on a thread of their own; each device a hardware group (see DeviceBatteries).
+    private readonly Devices.DeviceBatteries _devices = new();
+
+    /// <summary>The wireless devices' batteries (their readings, charging and connection).</summary>
+    public Devices.DeviceBatteries Devices => _devices;
+
+    /// <summary>
+    /// Sampler thread: the devices' newest battery readings into their sensors. True when a device came or went: the
+    /// list was made again (the app needs to hear about it).
+    /// </summary>
+    public bool TakeDevices()
+    {
+        if (!_devices.Apply()) return false;
+        Build(readFirst: []);
+        _watchedKey = "";
+        return true;
+    }
+
     /// <summary>Sampler thread: leaves the graphics cards alone from now on; their readings are "none" until the agent starts again.</summary>
     public void PauseGpus() => _gpusPaused = true;
 
@@ -196,7 +214,7 @@ internal sealed class SensorHost
     /// GPUs, the rest), so the memory group opening last doesn't move it to the end of All sensors.
     /// </summary>
     private IEnumerable<IHardware> Tops() =>
-        _computer.Hardware.Concat(_earlyMemory).Concat(_windowsTemps.OwnDrives).Select((hw, i) => (hw, i)).OrderBy(x => x.hw.HardwareType switch
+        _computer.Hardware.Concat(_earlyMemory).Concat(_windowsTemps.OwnDrives).Concat(_devices.Hardware).Select((hw, i) => (hw, i)).OrderBy(x => x.hw.HardwareType switch
         {
             HardwareType.Motherboard => 0,
             HardwareType.Cpu => 1,
@@ -353,7 +371,9 @@ internal sealed class SensorHost
             var meta = new HardwareMeta
             {
                 Name = parent is null ? hw.Name : $"{hw.Name}  ·  {parent.Name}",
-                Type = hw.HardwareType.ToString(),
+                Type = TypeOf(hw),
+                Device = hw is Devices.DeviceBatteries.DeviceHardware d ? d.Kind.ToString() : null,
+                Via = hw is Devices.DeviceBatteries.DeviceHardware v ? v.Via : null,
             };
             foreach (var s in sensors)
             {
@@ -361,7 +381,7 @@ internal sealed class SensorHost
                 {
                     Id = s.Identifier.ToString(),
                     Name = s.Name,
-                    Kind = Enum.TryParse<SensorKind>(s.SensorType.ToString(), out var k) ? k : SensorKind.Factor,
+                    Kind = KindOf(s),
                 });
                 _sensors.Add(s);
                 _sensorHardware.Add(hw);
@@ -372,6 +392,13 @@ internal sealed class SensorHost
         foreach (var sub in hw.SubHardware)
             Describe(sub, hw, schema);
     }
+
+    /// <summary>The hardware's type as the app knows it: the library's, or "Device" for a wireless device of RigSight's own.</summary>
+    private static string TypeOf(IHardware hw) => hw is Devices.DeviceBatteries.DeviceHardware ? TrayParts.DeviceHardwareType : hw.HardwareType.ToString();
+
+    /// <summary>A sensor's kind: the library's type by name, or Battery for a wireless device's battery.</summary>
+    private static SensorKind KindOf(ISensor s) => s is Devices.DeviceBatteries.BatterySensor ? SensorKind.Battery
+        : Enum.TryParse<SensorKind>(s.SensorType.ToString(), out var k) ? k : SensorKind.Factor;
 
     /// <summary>
     /// The library sometimes gives two sensors the same identifier (on NVIDIA cards "GPU Bus" and
@@ -505,13 +532,13 @@ internal sealed class SensorHost
     {
         if (!_indexById.TryGetValue(id, out int i)) return null;
         var s = _sensors[i];
-        var kind = Enum.TryParse<SensorKind>(s.SensorType.ToString(), out var k) ? k : SensorKind.Factor;
+        var kind = KindOf(s);
         double? value = s.Value is float f && float.IsFinite(f) && !(_gpusPaused && IsGpu(_sensorHardware[i])) ? f : null;
         // The card isn't given its full update while the quick readings are in use (see Watch): those answer for it.
         if (_usingFastValues && _sensorHardware[i] == _fastGpuHardware) value = FastReading(i, _fastCovered, _fastValues, _lastFastFans);
         // Without driver access some temperature sensors report 0 instead of nothing.
         if (kind == SensorKind.Temperature && value <= 0) value = null;
-        return (value, kind, s.Name, s.Hardware.HardwareType.ToString(), s.Hardware.Name);
+        return (value, kind, s.Name, TypeOf(s.Hardware), s.Hardware.Name);
     }
 
     public float?[] ReadAll()
@@ -806,6 +833,7 @@ internal sealed class SensorHost
         }
         try { _computer.Close(); } catch { }
         try { _windowsTemps.Dispose(); } catch { }
+        try { _devices.Dispose(); } catch { }
     }
 }
 

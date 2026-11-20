@@ -74,6 +74,48 @@ internal sealed partial class AgentContext
         };
     }
 
+    // The round of device readings last looked at, and which devices were at 100% then (by key).
+    private int _devicesChecked = -1;
+    private readonly Dictionary<string, bool> _deviceFull = [];
+
+    /// <summary>
+    /// Sampler thread, after each round of device readings (once a minute): notes a device reaching 100%, and sends the
+    /// low-battery alert (see <see cref="NoticeChecks.DeviceBattery"/>).
+    /// </summary>
+    private void MaybeCheckDevices()
+    {
+        var devices = _sensors.Devices;
+        int round = devices.Readings;
+        if (round == _devicesChecked) return;
+        _devicesChecked = round;
+        var now = DateTime.Now;
+        foreach (var d in devices.Current)
+        {
+            if (!d.Connected) continue;
+            bool full = d.Percent >= 100 || d.Level == Sensors.Devices.BatteryLevel.Full;
+            bool wasFull = _deviceFull.GetValueOrDefault(d.Key);
+            _deviceFull[d.Key] = full;
+            DateTime? lastFull = SafeDbValue(() => _db.LastDeviceFull(d.Key));
+            // Reaching full: one row per charge. Already full when first seen (the agent just started): only if no row in the last 12 hours.
+            if (full && !wasFull && (lastFull is null || now - lastFull > TimeSpan.FromHours(12)))
+            {
+                SafeDb(() => { _db.AddDeviceFull(d.Key, now); return 0; });
+                Log.Write("devices", $"{d.Name} at 100%: noted as its last full charge");
+                continue;
+            }
+            double value = d.Percent ?? (d.Level is { } l ? Units.BatteryLevelValue((int)l) : double.NaN);
+            if (double.IsNaN(value)) continue;
+            if (NoticeChecks.DeviceBattery(d.Key, d.Name, value, d.Charging, d.Connected, d.Via == "Xbox Wireless", lastFull, _settings.Alerts, SaidOf, now) is { } c)
+                Notify(c);
+        }
+    }
+
+    private DateTime? SafeDbValue(Func<DateTime?> work)
+    {
+        try { return work(); }
+        catch (Exception ex) { Log.Error("notice", ex); return null; }
+    }
+
     /// <summary>A check's candidate, sent as a notice.</summary>
     private void Notify(NoticeCandidate c, string? iconPath = null) =>
         Notify(new Notice(NoticeLevels.KindOf(c), c.Text.Title, c.Text.Body, iconPath, c.Page, c.Arg, Urgent: c.Level == NoticeLevel.Problem) { Key = c.Key, Value = c.Value });

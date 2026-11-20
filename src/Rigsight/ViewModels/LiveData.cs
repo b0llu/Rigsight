@@ -604,11 +604,12 @@ public sealed partial class LiveData : ObservableObject
         {
             int nth = named[hw.Name] = named.GetValueOrDefault(hw.Name) + 1;
             string key = nth == 1 ? hw.Name : $"{hw.Name} #{nth}";
-            var node = new HardwareNode(hw.Name, hw.Type) { Key = key, IsExpanded = !s.CollapsedHardware.Contains(key) };
+            var node = new HardwareNode(hw.Name, hw.Type) { Key = key, IsExpanded = !s.CollapsedHardware.Contains(key), Device = hw.Device, Via = hw.Via };
             foreach (var meta in hw.Sensors)
             {
                 var item = new SensorItem(meta, hw.Name, hw.Type)
                 {
+                    Via = hw.Via is { } via ? TrayParts.DeviceVia(via) : null,
                     CustomLabel = s.SensorLabels.GetValueOrDefault(meta.Id),
                     IsHidden = s.HiddenSensors.Contains(meta.Id),
                 };
