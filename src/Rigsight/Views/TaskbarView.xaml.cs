@@ -52,7 +52,10 @@ public partial class TaskbarView : UserControl
                 var toWindow = TransformToAncestor(window);
                 double zoom = (toWindow.Transform(new Point(100, 0)) - toWindow.Transform(new Point(0, 0))).Length / 100;
                 vm.PageScale = zoom * target.TransformToDevice.M11;
-                vm.PopupScale = target.TransformToDevice.M11;
+                // The floating lists (a reading's looks) are zoomed with the page too: a popup takes its parent's scale. Drawn at
+                // the screen's scale alone, at 110% their pictures were stretched a tenth, pixel by pixel, with every tenth column
+                // twice, so stems came out thick and thin ("very blurry and distorted", the user, 2026-11-20).
+                vm.PopupScale = vm.PageScale;
             }
         }
         catch (InvalidOperationException) { /* not in the window yet */ }
