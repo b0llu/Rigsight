@@ -305,6 +305,8 @@
                                                      IsChecked="{Binding NamesText, Converter={StaticResource Equals}, ConverterParameter=Full}" />
                                         <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'One letter'}" GroupName="{Binding Key, StringFormat=names{0}}"
                                                      IsChecked="{Binding NamesText, Converter={StaticResource Equals}, ConverterParameter=Letter}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Icon'}" GroupName="{Binding Key, StringFormat=names{0}}"
+                                                     IsChecked="{Binding NamesText, Converter={StaticResource Equals}, ConverterParameter=Icon}" />
                                     </StackPanel>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
@@ -399,6 +401,28 @@
                                                 Visibility="{Binding BackgroundOwn, Converter={StaticResource Vis}}" />
                                     </StackPanel>
                                     <TextBlock Text="{Binding BackgroundHint}" Style="{StaticResource SetHint}" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <!-- Names: its part's word, or its icon under or beside the number (2026-11-20); picked, its own -->
+                            <DockPanel Style="{StaticResource SpotSetting}" Visibility="{Binding ShowsNaming, Converter={StaticResource Vis}}">
+                                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Word'}" GroupName="{Binding Key, StringFormat=naming{0}}"
+                                                     IsChecked="{Binding NamingText, Converter={StaticResource Equals}, ConverterParameter=Word}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Icon under'}" GroupName="{Binding Key, StringFormat=naming{0}}"
+                                                     IsChecked="{Binding NamingText, Converter={StaticResource Equals}, ConverterParameter=Under}" />
+                                        <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Icon beside'}" GroupName="{Binding Key, StringFormat=naming{0}}"
+                                                     IsChecked="{Binding NamingText, Converter={StaticResource Equals}, ConverterParameter=Beside}" />
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{ctl:T 'Names'}" Style="{StaticResource SetTitle}" VerticalAlignment="Center" />
+                                        <Button Style="{StaticResource ResetLink}" Command="{Binding ResetNamesCommand}" AutomationProperties.Name="{ctl:T 'Names like the rest of the taskbar'}"
+                                                Visibility="{Binding NamesOwn, Converter={StaticResource Vis}}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding NamesHint}" Style="{StaticResource SetHint}" />
                                 </StackPanel>
                             </DockPanel>
 
@@ -661,6 +685,22 @@
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding BackgroundWord}" Style="{StaticResource SetTitle}" />
                                 <TextBlock Text="{ctl:T 'Each reading on a tile, or on the taskbar itself. A reading can choose its own.'}" Style="{StaticResource SetHint}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardRow}">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Words'}" GroupName="traynames"
+                                                 IsChecked="{Binding Names, Converter={StaticResource Equals}, ConverterParameter=Words}" />
+                                    <RadioButton Style="{StaticResource Segment}" Content="{ctl:T 'Icons'}" GroupName="traynames"
+                                                 IsChecked="{Binding Names, Converter={StaticResource Equals}, ConverterParameter=Icons}" />
+                                </StackPanel>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{ctl:T 'Names'}" Style="{StaticResource SetTitle}" />
+                                <TextBlock Text="{ctl:T 'Each part\'s word, or its icon. A reading can choose its own.'}" Style="{StaticResource SetHint}" />
                             </StackPanel>
                         </DockPanel>
                     </Border>

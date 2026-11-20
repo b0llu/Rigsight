@@ -228,6 +228,32 @@ public static class TrayParts
     /// <summary>A reading on a tile: its own choice, else the taskbar's (see <see cref="RigsightSettings.TrayTilesOf"/>).</summary>
     public static bool TilesOf(RigsightSettings s, string id) => s.TrayTilesOf.TryGetValue(id, out bool tiles) ? tiles : s.TrayTiles;
 
+    /// <summary>How a reading names its part: its own choice, else the taskbar's (words, or icons under the numbers).</summary>
+    public static TrayName NameOf(RigsightSettings s, string id) =>
+        s.TrayNamesOf.TryGetValue(id, out var own) ? own : s.TrayIcons ? TrayName.Under : TrayName.Word;
+
+    /// <summary>
+    /// A reading's icon (see WidgetRenderer.PartIcons): its part's, never its reading's, so a CPU's temperature, load and
+    /// power share the CPU's and the unit says which; download and upload their arrows; a wireless device its own shape
+    /// (<paramref name="device"/>: "Mouse", "Keyboard", "Headset", "Controller"); a fan the fan.
+    /// </summary>
+    public static string IconKey(TrayPart part, SensorKind kind, string id, string? device = null) => part switch
+    {
+        _ when id == Fps => "fps",
+        _ when id == Ping => "ping",
+        _ when id == NetUp => "up",
+        TrayPart.Network => "down",
+        _ when kind is SensorKind.Fan or SensorKind.Control => "fan",
+        TrayPart.Cpu => "cpu",
+        TrayPart.Gpu => "gpu",
+        TrayPart.Ram => "ram",
+        TrayPart.Drive => "drive",
+        TrayPart.Board => "board",
+        TrayPart.Device => device switch { "Mouse" => "mouse", "Keyboard" => "keyboard", "Headset" => "headset", "Controller" => "controller", _ => "device" },
+        _ when kind == SensorKind.Battery || kind == SensorKind.Level => "device",
+        _ => "board",
+    };
+
     /// <summary>A reading's name as one letter in two rows: its spot's choice (before 1.3, the one switch for all).</summary>
     public static bool LettersOf(RigsightSettings s, string id) => s.TrayPairs is null ? s.TrayLetterNames : s.TrayLetters.Contains(id);
 

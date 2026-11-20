@@ -139,6 +139,10 @@ public sealed partial class TaskbarSensorRow(string id, string name, string hard
     public bool? GrayOwn { get; set; }
     public bool? TilesOwn { get; set; }
 
+    /// <summary>How it names its part (its word, or its icon under or beside the number), and its own choice (null: the taskbar's).</summary>
+    public TrayName Naming { get; set; }
+    public TrayName? NamingOwn { get; set; }
+
     /// <summary>Its name as one letter in two rows (its spot's choice).</summary>
     public bool Letters { get; set; }
 
@@ -362,11 +366,20 @@ public sealed partial class TaskbarSpot : ObservableObject
 
     public bool ShowNames => Style == TrayStyle.TwoRows;
 
-    /// <summary>"Full" or "Letter": two rows' names in full ("CPU", "Load") or as one letter ("C", "L").</summary>
+    /// <summary>
+    /// "Full", "Letter" or "Icon": two rows' names in full ("CPU", "Load"), as one letter ("C", "L"), or as their part's icon
+    /// at the left of each row (since 2026-11-20).
+    /// </summary>
     public string NamesText
     {
-        get => First.Letters ? "Letter" : "Full";
-        set { bool letters = value == "Letter"; if (letters != First.Letters) _page.SetLetters(this, letters); }
+        get => First.Naming != TrayName.Word ? "Icon" : First.Letters ? "Letter" : "Full";
+        set
+        {
+            if (value == "Icon") { if (First.Naming == TrayName.Word) _page.SetNames(this, TrayName.Under); return; }
+            if (First.Naming != TrayName.Word) _page.SetNames(this, TrayName.Word);
+            bool letters = value == "Letter";
+            if (letters != First.Letters) _page.SetLetters(this, letters);
+        }
     }
 
     /// <summary>"Auto", "Small", "Medium" or "Large", for its size switch.</summary>
@@ -415,6 +428,21 @@ public sealed partial class TaskbarSpot : ObservableObject
     public string BackgroundHint => !BackgroundOwn ? Lang.T("Like the rest of the taskbar. Pick one to give it its own.")
         : _page.Tiles ? Lang.T("Its own. The rest of the taskbar is on tiles.") : Lang.T("Its own. The rest of the taskbar has no tiles.");
 
+    /// <summary>"Word", "Under" or "Beside" as it shows now, for its switch on the strip; picking one makes it its own.</summary>
+    public string NamingText
+    {
+        get => First.Naming.ToString();
+        set { if (Enum.TryParse<TrayName>(value, out var naming) && naming != First.Naming) _page.SetNames(this, naming); }
+    }
+
+    public bool NamesOwn => First.NamingOwn is not null;
+
+    /// <summary>Its part named on the strip or in two rows (an icon in the notification area only has room for its number).</summary>
+    public bool ShowsNaming => First.Found && Style == TrayStyle.Strip;
+
+    public string NamesHint => !NamesOwn ? Lang.T("Like the rest of the taskbar. Pick one to give it its own.")
+        : _page.Icons ? Lang.T("Its own. The rest of the taskbar has icons.") : Lang.T("Its own. The rest of the taskbar has words.");
+
     /// <summary>The readings whose own colours can be picked here (a row each, its colours' swatches on its button).</summary>
     public IReadOnlyList<TaskbarSensorRow> PickRows => [.. Rows.Where(r => r.Found)];
 
@@ -432,7 +460,8 @@ public sealed partial class TaskbarSpot : ObservableObject
             if (First.Size != TraySize.Auto) bits.Add(Lower(TrayParts.SizeName(First.Size)));
             if (First.GrayOwn is bool gray) bits.Add(Lower(gray ? Lang.T("Grayscale") : Lang.T("Color")));
             if (First.TilesOwn is bool tiles) bits.Add(tiles ? Lang.T("on a tile") : Lang.T("no tile"));
-            if (ShowNames && First.Letters) bits.Add(Lang.T("one-letter names"));
+            if (First.NamingOwn is { } named) bits.Add(named switch { TrayName.Under => Lang.T("icon under"), TrayName.Beside => Lang.T("icon beside"), _ => Lang.T("word") });
+            if (ShowNames && First.Letters && First.Naming == TrayName.Word) bits.Add(Lang.T("one-letter names"));
             return string.Join(" · ", bits);
         }
     }
@@ -457,6 +486,9 @@ public sealed partial class TaskbarSpot : ObservableObject
 
     [RelayCommand]
     private void ResetBackground() => _page.SetTiles(this, null);
+
+    [RelayCommand]
+    private void ResetNames() => _page.SetNames(this, null);
 }
 
 /// <summary>
@@ -755,6 +787,21 @@ public sealed partial class TaskbarViewModel : ObservableObject
         LoadSensors();
     }
 
+    /// <summary>A spot's names: like the rest (null), its word, or its icon under or beside the number.</summary>
+    internal void SetNames(TaskbarSpot spot, TrayName? naming)
+    {
+        _settings.Update(s =>
+        {
+            SavePairs(s);
+            foreach (var row in spot.Rows)
+            {
+                s.TrayNamesOf.Remove(row.Id);
+                if (naming is { } n) s.TrayNamesOf[row.Id] = n;
+            }
+        });
+        LoadSensors();
+    }
+
     /// <summary>A spot's background: like the rest (null), on a tile, or none.</summary>
     internal void SetTiles(TaskbarSpot spot, bool? tiles)
     {
@@ -813,6 +860,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
         Copy(s.TraySizes);
         Copy(s.TrayGrayOf);
         Copy(s.TrayTilesOf);
+        Copy(s.TrayNamesOf);
         s.TrayLetters.Remove(id);
         if (s.TrayLetters.Contains(firstId)) s.TrayLetters.Add(id);
     }
@@ -845,6 +893,7 @@ public sealed partial class TaskbarViewModel : ObservableObject
                 s.TrayLookFrom.Remove(row.Id);
                 s.TrayGrayOf.Remove(row.Id);
                 s.TrayTilesOf.Remove(row.Id);
+                s.TrayNamesOf.Remove(row.Id);
                 s.TrayLetters.Remove(row.Id);
                 s.TrayPairs!.Remove(row.Id);
             }
@@ -1002,6 +1051,23 @@ public sealed partial class TaskbarViewModel : ObservableObject
     public string TilesWord => Lang.C("taskbar", "Tiles");
     public string BackgroundWord => Lang.C("taskbar", "Background");
     public string FullWord => Lang.C("taskbar", "Full");
+
+    /// <summary>Whether the parts are named by their icons (see <see cref="RigsightSettings.TrayIcons"/>).</summary>
+    public bool Icons => _settings.Current.TrayIcons;
+
+    /// <summary>"Words" or "Icons", for the names switch.</summary>
+    public string Names
+    {
+        get => Icons ? "Icons" : "Words";
+        set
+        {
+            bool icons = value == "Icons";
+            if (icons == Icons) return;
+            _settings.Update(s => s.TrayIcons = icons);
+            LoadSensors();
+            OnStyleChanged();
+        }
+    }
 
     /// <summary>"Tiles" or "None", for the background switch.</summary>
     public string Background
@@ -1290,7 +1356,8 @@ public sealed partial class TaskbarViewModel : ObservableObject
         return new TrayReading(row.Id, row.Name, s.Kind, s.Value, row.Part, row.Hardware, row.Short, row.NumberColor, row.NameColor, row.Look, row.TileColor,
             row.OwnShort, row.Alone, row.Style, row.Size, from?.Id, from?.Kind, from?.Value,
             Second: row.Id == TrayParts.NetBoth ? _live.NetSensors[1].Value : null, Cores: cores,
-            Gray: row.IsGray, Tiles: row.OnTile, Letters: row.Letters, PairNext: row.PairNext, GraphBehind: row.GraphBehind);
+            Gray: row.IsGray, Tiles: row.OnTile, Letters: row.Letters, PairNext: row.PairNext, GraphBehind: row.GraphBehind,
+            Icon: row.Naming == TrayName.Word ? null : TrayParts.IconKey(row.Part, s.Kind, row.Id, s.Device), IconBeside: row.Naming == TrayName.Beside);
     }
 
     /// <summary>Which sizes fit the taskbar now, why the others don't, and which spots show smaller for now.</summary>
@@ -1467,6 +1534,8 @@ public sealed partial class TaskbarViewModel : ObservableObject
             row.Alone = settings.TrayAlone.Contains(row.Id);
             row.GrayOwn = settings.TrayGrayOf.TryGetValue(row.Id, out bool g) ? g : null;
             row.TilesOwn = settings.TrayTilesOf.TryGetValue(row.Id, out bool t) ? t : null;
+            row.NamingOwn = settings.TrayNamesOf.TryGetValue(row.Id, out var named) ? named : null;
+            row.Naming = TrayParts.NameOf(settings, row.Id);
             row.IsGray = TrayParts.GrayOf(settings, row.Id);
             row.OnTile = TrayParts.TilesOf(settings, row.Id);
             row.Letters = TrayParts.LettersOf(settings, row.Id);

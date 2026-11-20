@@ -610,6 +610,7 @@ public sealed partial class LiveData : ObservableObject
                 var item = new SensorItem(meta, hw.Name, hw.Type)
                 {
                     Via = hw.Via is { } via ? TrayParts.DeviceVia(via) : null,
+                    Device = hw.Device,
                     CustomLabel = s.SensorLabels.GetValueOrDefault(meta.Id),
                     IsHidden = s.HiddenSensors.Contains(meta.Id),
                 };

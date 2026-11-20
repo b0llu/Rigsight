@@ -22,11 +22,14 @@ namespace Rigsight.Agent.Ui;
 /// one letter in two rows (<paramref name="Letters"/>), and whether it shares its spot with the next (<paramref name="PairNext"/>;
 /// null while no pairs are saved: as before 1.3), each already its own or the taskbar's (null: the taskbar's, as the drawing is told).
 /// Shared with the Taskbar page, which draws its preview with the agent's own drawing (linked into the app).
+/// Since 2026-11-20 its part's <paramref name="Icon"/> in place of its word (see TrayParts.IconKey; null: its word), under its
+/// number or beside it (<paramref name="IconBeside"/>).
 /// </summary>
 internal readonly record struct TrayReading(string Id, string Name, SensorKind Kind, double? Value, TrayPart Part, string Hardware, string Short = "",
     string? NumberColor = null, string? NameColor = null, TrayLook Look = TrayLook.Number, string? TileColor = null, bool OwnShort = false, bool Alone = false,
     TrayStyle Style = TrayStyle.Strip, TraySize Size = TraySize.Auto, string? LookId = null, SensorKind? LookKind = null, double? LookValue = null,
-    double? Second = null, float[]? Cores = null, bool? Gray = null, bool? Tiles = null, bool? Letters = null, bool? PairNext = null, bool GraphBehind = false)
+    double? Second = null, float[]? Cores = null, bool? Gray = null, bool? Tiles = null, bool? Letters = null, bool? PairNext = null, bool GraphBehind = false,
+    string? Icon = null, bool IconBeside = false)
 {
     /// <summary>What its spot depends on (see <see cref="TrayParts.Spots"/>).</summary>
     public TrayParts.SpotOf Spot => new(Id, Group, Kind, Alone, BothSpeeds, PairNext);

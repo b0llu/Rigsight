@@ -350,15 +350,15 @@ internal sealed class StripComposer
                 if (r.BothSpeeds)
                 {
                     string up = StripText(r, r.Second, o);
-                    lines.Add(new TwoRowLine(o.Letters ? TrayParts.Letter(Lang.T("Down")) : Lang.T("Down"), r.WordOn(o.Light, o.Gray), text, r.NumberOn(o.Light, o.Gray), widest));
-                    lines.Add(new TwoRowLine(o.Letters ? TrayParts.Letter(Lang.T("Up")) : Lang.T("Up"), r.WordOn(o.Light, o.Gray), up, r.NumberOn(o.Light, o.Gray), Widest(r.Id + "#up", up)));
+                    lines.Add(new TwoRowLine(o.Letters ? TrayParts.Letter(Lang.T("Down")) : Lang.T("Down"), r.WordOn(o.Light, o.Gray), text, r.NumberOn(o.Light, o.Gray), widest, r.Icon is null ? null : "down"));
+                    lines.Add(new TwoRowLine(o.Letters ? TrayParts.Letter(Lang.T("Up")) : Lang.T("Up"), r.WordOn(o.Light, o.Gray), up, r.NumberOn(o.Light, o.Gray), Widest(r.Id + "#up", up), r.Icon is null ? null : "up"));
                     continue;
                 }
                 // Its word as the whole taskbar has it (a part's name once; see TrayParts.Words), or one letter of it.
                 string word = words.GetValueOrDefault(r.Id, r.Short);
                 string label = r.Hardware.Length == 0 ? "" // not found yet: the hover names it
                     : o.Letters ? TrayParts.Letter(word) : word;
-                lines.Add(new TwoRowLine(label, r.WordOn(o.Light, o.Gray), text, r.NumberOn(o.Light, o.Gray), widest));
+                lines.Add(new TwoRowLine(label, r.WordOn(o.Light, o.Gray), text, r.NumberOn(o.Light, o.Gray), widest, r.Hardware.Length == 0 ? null : r.Icon));
             }
             return new TwoRowColumn(lines, tiles ? box.FirstOrDefault(r => r.TileColor is not null, box[0]).TileOn(o.Light, o.Gray, icon: false) : null);
         })];
@@ -384,7 +384,7 @@ internal sealed class StripComposer
         string second = r.BothSpeeds ? StripText(r, r.Second, o) : "";
         return new StripValue(text, r.NumberOn(o.Light, o.Gray), label, widest, graph, r.WordOn(o.Light, o.Gray), look, r.Fill,
             o.Tiles ? r.TileOn(o.Light, o.Gray, icon: false) : null, Second: second, SecondReserve: second.Length > 0 ? Widest(r.Id + "#up", second) : "",
-            Graph2: graph2, Cores: r.Cores, Behind: r.GraphBehind);
+            Graph2: graph2, Cores: r.Cores, Behind: r.GraphBehind, Icon: r.Icon, IconBeside: r.IconBeside);
     }
 
     /// <summary>A graph's points, across its two minutes (now at the right) and up its range (see <see cref="TrayParts.GraphRange"/>).</summary>

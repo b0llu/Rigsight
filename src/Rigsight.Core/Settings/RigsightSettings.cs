@@ -208,6 +208,15 @@ public sealed class RigsightSettings
     public Dictionary<string, bool> TrayTilesOf { get; set; } = [];
 
     /// <summary>
+    /// Each reading's part named by its icon in place of its word (2026-11-20): the whole taskbar's choice. Off by
+    /// default, so nobody's taskbar changes with the update.
+    /// </summary>
+    public bool TrayIcons { get; set; }
+
+    /// <summary>A reading's own way of naming its part, by its id (see <see cref="TrayName"/>); absent: the taskbar's.</summary>
+    public Dictionary<string, TrayName> TrayNamesOf { get; set; } = [];
+
+    /// <summary>
     /// 1.3: readings whose name shows as one letter in two rows, set for each spot (both of a pair listed). Before 1.3
     /// one switch for all (<see cref="TrayLetterNames"/>), which still counts while <see cref="TrayPairs"/> is null.
     /// </summary>
@@ -542,6 +551,9 @@ public sealed class AlertSettings
 /// style itself, at either end of the taskbar; on Windows 10 the icons are Windows' own.
 /// </summary>
 public enum TrayStyle { Strip, Icons, Grouped, TwoRows }
+
+/// <summary>How a taskbar reading names its part: its word ("CPU"), its icon under the number, or its icon beside it.</summary>
+public enum TrayName { Word, Under, Beside }
 
 /// <summary>
 /// Where the taskbar readings sit. <see cref="Left"/>: at the taskbar's left end, before Start, which needs the taskbar's

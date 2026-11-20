@@ -22,7 +22,7 @@ namespace Rigsight.Agent.Widgets;
 /// (<see cref="Graph2"/>, the mirrored graph's lower half); <see cref="Cores"/>, each core's load 0 to 1 (Each core).</remarks>
 internal readonly record struct StripValue(string Text, Color Color, string Label = "", string Reserve = "", StripGraph? Graph = null, Color? LabelColor = null,
     TrayLook Look = TrayLook.Number, float Fill = 0, Color? Tile = null, bool More = false, string Second = "", string SecondReserve = "",
-    StripGraph? Graph2 = null, float[]? Cores = null, bool Behind = false);
+    StripGraph? Graph2 = null, float[]? Cores = null, bool Behind = false, string? Icon = null, bool IconBeside = false);
 
 /// <summary>
 /// A reading's graph of the last minutes, filled in behind its number and word (as taskbar-monitor draws them): its points, each across (time, 0 = the
@@ -34,7 +34,7 @@ internal sealed record StripGraph(IReadOnlyList<PointF> Points, Color Color);
 internal sealed record StripCell(string Name, Color NameColor, IReadOnlyList<StripValue> Values);
 
 /// <summary>A reading in two rows: its word ("CPU", or "C") in its colour, its number in its colour, and the widest it's been ("88°").</summary>
-internal readonly record struct TwoRowLine(string Label, Color LabelColor, string Text, Color Color, string Reserve = "");
+internal readonly record struct TwoRowLine(string Label, Color LabelColor, string Text, Color Color, string Reserve = "", string? Icon = null);
 
 /// <summary>A column in two rows: one reading or two, stacked, on its tile (null: none).</summary>
 internal sealed record TwoRowColumn(IReadOnlyList<TwoRowLine> Lines, Color? Tile);
@@ -300,11 +300,24 @@ internal static partial class WidgetRenderer
                 float second = Slot(v.Second, v.SecondReserve, _valueFont), arrow = ArrowWidth + 4 * _scale;
                 return _twoLines ? arrow + Math.Max(number, second) : arrow + number + LookGap + arrow + second;
             }
+            // Its part's icon in place of its word (2026-11-20): under the number, or beside it (on one line, always beside).
+            if (v.Icon is { } icon)
+            {
+                float iconWidth = PartIconWidth(icon, IconHeight);
+                float withIcon = !IconBeside(v, look) ? Math.Max(number, iconWidth) : iconWidth + LookGap + number;
+                return look == TrayLook.Blocks ? Math.Max(withIcon, 48 * _scale) : withIcon;
+            }
             float word = TextWidth(v.Label, _nameFont);
             float text = _twoLines ? Math.Max(number, word) : (word > 0 ? word + LookGap : 0) + number;
             // Ten blocks need room to be told apart: under a short number ("7%") the place is a little wider.
             return look == TrayLook.Blocks ? Math.Max(text, 48 * _scale) : text;
         }
+
+        /// <summary>A part's icon's height: 13 px at 100%, the size it's drawn for (11 on a short taskbar's one line).</summary>
+        private float IconHeight => PartIconHeight(_height >= 44 * _scale ? 13 : 11, _scale);
+
+        /// <summary>Its icon beside its number: picked so with the number on its own, or on one line, where there's no room under.</summary>
+        private bool IconBeside(StripValue v, TrayLook look) => !_twoLines || (v.IconBeside && look == TrayLook.Number);
 
         private Room RoomOf(StripValue v)
         {
@@ -400,6 +413,28 @@ internal static partial class WidgetRenderer
                     }
                     else if (look == TrayLook.DownUp)
                         DrawDownUp(g, value, textX, middle, word);
+                    else if (value.Icon is { } icon && IconBeside(value, look))
+                    {
+                        // Its icon and number on one line, in the middle of the bar.
+                        float digits = DigitHeight(_valueFont), ih = IconHeight;
+                        float baseline = MathF.Round(middle - under / 2 + digits / 2);
+                        BehindGraph(g, value, look, color, tileX, tileW, lookTop, lookBottom);
+                        DrawPartIcon(g, icon, textX, baseline - digits / 2 - ih / 2, ih, word);
+                        Text(g, value.Text, _valueFont, value.Color, textX + PartIconWidth(icon, ih) + LookGap, baseline - Ascent(_valueFont));
+                        if (blocks) DrawBlocks(g, new RectangleF(textX, baseline + BlocksGap, room.Text, BlocksHeight), value.Fill, color, ink);
+                    }
+                    else if (_twoLines && value.Icon is { } under1)
+                    {
+                        // Its number, its part's icon under it in place of the word (centred under the number's start).
+                        float digits = DigitHeight(_valueFont), ih = IconHeight, between = 3 * _scale;
+                        float pair = digits + between + ih;
+                        float digitTop = middle - (pair + under) / 2;
+                        float valueTop = digitTop - (Ascent(_valueFont) - DigitHeight(_valueFont));
+                        BehindGraph(g, value, look, color, tileX, tileW, digitTop + digits + 2 * _scale, lookBottom);
+                        Text(g, value.Text, _valueFont, value.Color, textX, valueTop);
+                        DrawPartIcon(g, under1, textX, digitTop + digits + between, ih, word);
+                        if (blocks) DrawBlocks(g, new RectangleF(textX, digitTop + pair + BlocksGap, room.Text, BlocksHeight), value.Fill, color, ink);
+                    }
                     else if (_twoLines)
                     {
                         // Digit tops to the word's baseline is what's centred (the font's empty line above isn't). When that
@@ -783,7 +818,7 @@ internal static partial class WidgetRenderer
             _mid = 5 * scale;
             _sizes = [.. columns.Select(c =>
             {
-                float words = c.Lines.Max(l => TextWidth(l.Label, _nameFont));
+                float words = c.Lines.Max(l => l.Icon is { } icon ? PartIconWidth(icon, IconHeight) : TextWidth(l.Label, _nameFont));
                 float numbers = c.Lines.Max(l => Math.Max(TextWidth(l.Text, _valueFont), TextWidth(l.Reserve, _valueFont)));
                 return (words, numbers, words + (words > 0 && numbers > 0 ? _mid : 0) + numbers + 2 * _tilePad);
             })];
@@ -799,6 +834,9 @@ internal static partial class WidgetRenderer
         }
 
         private float TextWidth(string text, Font font) => text.Length == 0 ? 0 : DirectWriteText.Width(text, font) ?? _mg.MeasureString(text, font, PointF.Empty, _format).Width;
+
+        /// <summary>A part's icon in place of a line's word: 13 px at 100%, the size it's drawn for (10 on a short taskbar).</summary>
+        private float IconHeight => PartIconHeight(_roomy ? 13 : 10, _scale);
 
         public void Draw(Graphics g)
         {
@@ -831,7 +869,9 @@ internal static partial class WidgetRenderer
                     // DirectWrite, as Windows' own taskbar text (see DirectWriteText); as before when it can't.
                     int line = (int)MathF.Round(baseline);
                     float numberX = x + width - _tilePad - TextWidth(l.Text, _valueFont);
-                    if (!DirectWriteText.Draw(g, l.Label, _nameFont, l.LabelColor, x + _tilePad, line))
+                    if (l.Icon is { } icon)
+                        DrawPartIcon(g, icon, x + _tilePad, line - digits / 2 - IconHeight / 2, IconHeight, l.LabelColor);
+                    else if (!DirectWriteText.Draw(g, l.Label, _nameFont, l.LabelColor, x + _tilePad, line))
                     {
                         var (nx, ny) = Snap(_nameFont, x + _tilePad, baseline - Ascent(_nameFont));
                         using var nameBrush = new SolidBrush(l.LabelColor);

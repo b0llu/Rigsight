@@ -90,6 +90,9 @@ public sealed partial class SensorItem : ObservableObject
     /// <summary>For a wireless device's battery: how the device is reached ("Bluetooth"), from its group.</summary>
     public string? Via { get; init; }
 
+    /// <summary>For a wireless device's battery: what the device is ("Mouse"...), for its icon on the taskbar.</summary>
+    public string? Device { get; init; }
+
     /// <summary>What the name says when pointed at: that it can be renamed, and what the part calls it once it has been.</summary>
     public string NameTip => string.IsNullOrWhiteSpace(CustomLabel) ? Lang.T("Click to rename") : Lang.T($"{SensorWords.Show(Name)}  ·  click to rename");
 
