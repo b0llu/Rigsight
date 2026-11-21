@@ -187,6 +187,23 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.16.0", 11, 21,
+            feature: new(Lang.T("Device batteries"), Lang.T("See how much battery your wireless mouse, keyboard, headset or controller has left."),
+                [Lang.T("Each device gets its own group on All sensors, with its battery as a reading."),
+                    Lang.T("Put a battery on the taskbar, a widget or the overlay like any other reading."),
+                    Lang.T("A notification says when a device drops to 15%, and again at 5%."),
+                    Lang.T("Works with Logitech devices, Bluetooth devices and Xbox controllers.")],
+                "sensors", "\uE83F", isPage: false) { OpenText = Lang.T("Open All sensors") },
+            added: [Lang.T("Your usual, on Home's PC health card, shows what RigSight compares this PC with and what each comparison still needs."),
+                Lang.T("The taskbar can show each reading's icon instead of its name, under the number or beside it."),
+                Lang.T("On Windows 11 with more than one screen, the Taskbar page can put your readings on every screen's taskbar."),
+                Lang.T("Network can show the ping of up to 10 games, calls and apps at once, and the hourly graph's hover lists each one.")],
+            better: [Lang.T("Without admin rights, Temperatures now shows NVMe drives, and a GPU with no other reading shows the temperature Task Manager does."),
+                Lang.T("A server that answers none of RigSight's checks, like Dota 2's, stays in the hover and says so instead of disappearing."),
+                Lang.T("Hovering a play in How it runs on a game's page shows its 1% low, stutters, GPU and RAM side by side, with more room."),
+                Lang.T("Words under taskbar readings use Windows 11's own taskbar font, so short names no longer run together."),
+                Lang.T("With the screen off, taskbar readings and widgets stop drawing, and come back with fresh readings when it's on again.")],
+            fixedBugs: [Lang.T("The Network page no longer shifts when Using it now starts to scroll.")]),
         V("1.15.0", 11, 18,
             better: [Lang.T("Essentials now costs $2.99 a month or $29.99 a year, and Complete $5.99 a month or $59.99 a year."),
                 Lang.T("RigSight AI now says when there are days it has no history for, instead of reading them as a quiet stretch."),
