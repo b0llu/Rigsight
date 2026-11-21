@@ -92,8 +92,10 @@
             <ctl:Spinner DockPanel.Dock="Top" Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,40"
                          Visibility="{Binding Loading, Converter={StaticResource Vis}}" />
 
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" Padding="22,0,22,22">
-                <ItemsControl ItemsSource="{Binding Sections}" Focusable="False">
+            <!-- The rows' hover shade reaches 8 px past their text on each side: that room is inside the scroll area (its
+                 padding is 8 px less, the list 8 px in), or the area would clip the shade at its edge. -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" Padding="14,0,14,22">
+                <ItemsControl ItemsSource="{Binding Sections}" Focusable="False" Margin="8,0">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <!-- A thin line between parts, so each reads as its own (the user, 2026-11-20). -->
