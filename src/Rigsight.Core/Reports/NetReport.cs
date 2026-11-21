@@ -30,10 +30,11 @@ public sealed record NetBin(DateTime Start, long Down, long BgDown, long Up)
     public IReadOnlyList<GameDownload> Steam { get; init; } = [];
     /// <summary>Ping checks were off for the whole of it (stopped from Settings or the Network page).</summary>
     public bool PingOff { get; init; }
-    /// <summary>The ping to each game's, call's and picked app's server in it, slowest first (none: none checked then).</summary>
+    /// <summary>The ping to each game's, call's and picked app's server in it: games first, then calls and the rest, each
+    /// kind slowest first (none: none checked then).</summary>
     public IReadOnlyList<NetServerHour> Servers { get; init; } = [];
     /// <summary>The slowest of <see cref="Servers"/>: the graph's games and calls line.</summary>
-    public int? ServerMs => Servers.Count > 0 ? Servers[0].Ms : null;
+    public int? ServerMs => Servers.Max(s => s.Ms);
     /// <summary>Why nothing at all was recorded in it, where Windows' log says ("PC was off", "PC was asleep"): an
     /// empty bar of a PC that was off isn't "no internet use". Null for a bar with anything in it, or one still to come.</summary>
     public string? OffWhy { get; init; }
@@ -52,9 +53,14 @@ public sealed record NetBin(DateTime Start, long Down, long BgDown, long Up)
 
 /// <summary>
 /// One app's server in a bar: the middle of its minutes' figures, its highest, and its checks lost of those made. Its
-/// name and program (for the icon) are the app's as the page names it.
+/// name and program (for the icon) are the app's as the page names it. <see cref="Ms"/> null: its server answered none
+/// of the checks and its own traffic couldn't be timed (Dota 2's relays before 1.16.0), said so rather than left out.
 /// </summary>
-public sealed record NetServerHour(string Exe, string Name, string? Path, string Kind, int Ms, int Highest, int Lost, int Sent);
+public sealed record NetServerHour(string Exe, string Name, string? Path, string Kind, int? Ms, int? Highest, int Lost, int Sent)
+{
+    /// <summary>The order the hover lists apps in: games, then calls, remote play, picked apps and steady streams.</summary>
+    public int Rank => Kind switch { "game" => 0, "call" => 1, "remote" => 2, "picked" => 3, _ => 4 };
+}
 
 /// <summary>One app's internet use over a period, and when it used the most.</summary>
 public sealed class NetAppStat
@@ -384,12 +390,15 @@ public static class NetReportBuilder
             .Select(g =>
             {
                 var answered = g.Select(m => m.Ms).OfType<int>().Order().ToList();
-                if (answered.Count == 0) return null;
                 var app = byExe.GetValueOrDefault(g.Key);
                 string name = app is not null ? NameOf(apps, settings, app.Id) : g.Key.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? g.Key[..^4] : g.Key;
-                return new NetServerHour(g.Key, name, app?.Path, g.Last().Kind, answered[answered.Count / 2], g.Max(m => m.Max ?? 0), g.Sum(m => m.Lost), g.Sum(m => m.Sent));
+                // A server that answered nothing in the bar keeps its row, said as not answering: its checks aren't loss
+                // (nothing ever came back), so they mark nothing on the graph.
+                return answered.Count == 0
+                    ? new NetServerHour(g.Key, name, app?.Path, g.Last().Kind, null, null, 0, g.Sum(m => m.Sent))
+                    : new NetServerHour(g.Key, name, app?.Path, g.Last().Kind, answered[answered.Count / 2], g.Max(m => m.Max ?? 0), g.Sum(m => m.Lost), g.Sum(m => m.Sent));
             })
-            .OfType<NetServerHour>().OrderByDescending(s => s.Ms)];
+            .OrderBy(s => s.Rank).ThenByDescending(s => s.Ms ?? -1)];
         r.Line = NetLine.Of(pings);
         r.PingSince = db.FirstNetPing() is long firstPing ? TimeUtil.FromUnix(firstPing) : null;
         var switches = db.GetNetPingSwitches(f, t);

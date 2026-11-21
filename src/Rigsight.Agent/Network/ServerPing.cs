@@ -12,8 +12,11 @@ namespace Rigsight.Agent.Network;
 /// The ping to the server each game, call or picked app is talking to: found in the admin network trace (the app's busiest
 /// server), checked every 5 seconds on a thread of its own while the app keeps talking to it, and added up a minute at a
 /// time. Only servers the apps already use are asked anything, and only these apps': a download or a browser tab doesn't
-/// care how far its server is, so it gets no checks. A call's or remote play's server is timed by the app's own echoes
-/// where it has them (see <see cref="EchoTimer"/>), with no check of ours.
+/// care how far its server is, so it gets no checks. Each app is timed from its own traffic where it can be, with no
+/// check of ours (the user, 2026-11-20: Dota 2's relays answer none of our checks, and up to 10 apps at once mustn't
+/// load the line): a UDP app by the packets it sends that come back (see <see cref="EchoTimer"/>), a TCP app by the
+/// round trips Windows times on its connection (see <see cref="TcpRtt"/>). Only an app neither works for gets a check
+/// of ours, one small one every 5 seconds; the checks run side by side, so one slow server holds up no other.
 /// </summary>
 internal sealed class ServerPing : IDisposable
 {
@@ -23,10 +26,10 @@ internal sealed class ServerPing : IDisposable
     /// <summary>How long one check is waited for (ms): one not back by then counts as lost.</summary>
     public const int TimeoutMs = 1000;
 
-    /// <summary>At most this many servers are checked at once.</summary>
-    public const int MostTargets = 4;
+    /// <summary>At most this many servers are checked at once (10 apps' checks of ours, at worst, are 2 small packets a second).</summary>
+    public const int MostTargets = 10;
 
-    /// <summary>How long a call's or remote play's server is left unchecked while its own echoes are waited for (ms).</summary>
+    /// <summary>How long a UDP app's server is left unchecked while its own echoes are waited for (ms).</summary>
     public const int EchoWaitMs = 20_000;
 
     /// <summary>
@@ -50,11 +53,17 @@ internal sealed class ServerPing : IDisposable
     private volatile bool _enabled;
 
     /// <summary>One app's server being checked: how, its checks, and what's said about it.</summary>
-    private sealed class Target(string exe, IPEndPoint server, string kind)
+    private sealed class Target(string exe, IPEndPoint server, string kind, bool udp)
     {
         public string Exe { get; } = exe;
         public IPEndPoint Server { get; set; } = server;
         public string Kind { get; set; } = kind;
+        /// <summary>A UDP stream (timed by its echoes) or TCP (timed by Windows on its connection).</summary>
+        public bool Udp { get; } = udp;
+        /// <summary>The app's processes now, for finding its TCP connection.</summary>
+        public HashSet<int> Pids { get; set; } = [];
+        /// <summary>The last reading of its TCP connection's round trips.</summary>
+        public TcpRtt.Reading? Tcp { get; set; }
         public ProbeWay Way { get; set; } = ProbeWay.Unknown;
         public int Misses { get; set; }
         public string? Place { get; set; }
@@ -73,13 +82,13 @@ internal sealed class ServerPing : IDisposable
         public double Since { get; } = NowMs();
     }
 
-    /// <summary>How a server is checked: Echo is a ping of ours, Own the app's own echoes timed.</summary>
-    internal enum ProbeWay { Unknown, Echo, Tcp443, TcpPort, None, Own }
+    /// <summary>How a server is checked: Echo is a ping of ours, Own the app's own echoes timed, Conn the round trips
+    /// Windows times on the app's own TCP connection.</summary>
+    internal enum ProbeWay { Unknown, Echo, Tcp443, TcpPort, None, Own, Conn }
 
     /// <summary>Now in ms on the trace's clock: the time of day as a file time, which is how the trace gives each event's.</summary>
     private static double NowMs() => DateTime.UtcNow.ToFileTimeUtc() / 10_000.0;
 
-    private static bool TimesEchoes(string kind) => kind is "call" or "remote";
 
     private ServerPing()
     {
@@ -115,6 +124,7 @@ internal sealed class ServerPing : IDisposable
             seen.Add(new Rigsight.Core.Net.StreamPicker.Seen(exe, key.Pid, Address(key), key.Port, key.Udp, count.SentPackets, count.ReceivedPackets, count.ReceivedBytes));
         }
         var chosen = _picker.Second(now, seen, isGame, picked, MostTargets);
+        var pidsOf = pidToExe.GroupBy(p => p.Value, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Select(p => p.Key).ToHashSet(), StringComparer.OrdinalIgnoreCase);
         lock (_lock)
         {
             foreach (var c in chosen)
@@ -124,17 +134,18 @@ internal sealed class ServerPing : IDisposable
                     t.LastSeen = now;
                     t.Kind = c.Kind;
                     // Another server for the same app (a new match, another call): its checks start over.
-                    if (!t.Server.Equals(c.Server))
+                    if (!t.Server.Equals(c.Server) || t.Udp != c.Udp)
                     {
-                        Log.Write("server ping", $"{c.Exe} now talks to {c.Server} ({c.Kind}), was {t.Server}");
-                        _targets[c.Exe] = new Target(c.Exe, c.Server, c.Kind) { LastSeen = now };
+                        Log.Write("server ping", $"{c.Exe} now talks to {c.Server} ({c.Kind}, {(c.Udp ? "UDP" : "TCP")}), was {t.Server}");
+                        _targets[c.Exe] = new Target(c.Exe, c.Server, c.Kind, c.Udp) { LastSeen = now };
                     }
                 }
                 else
                 {
-                    Log.Write("server ping", $"Checking {c.Exe}'s server {c.Server} ({c.Kind}) every {EverySeconds} s");
-                    _targets[c.Exe] = new Target(c.Exe, c.Server, c.Kind) { LastSeen = now };
+                    Log.Write("server ping", $"Checking {c.Exe}'s server {c.Server} ({c.Kind}, {(c.Udp ? "UDP" : "TCP")}) every {EverySeconds} s");
+                    _targets[c.Exe] = new Target(c.Exe, c.Server, c.Kind, c.Udp) { LastSeen = now };
                 }
+                _targets[c.Exe].Pids = pidsOf.GetValueOrDefault(c.Exe) ?? [];
             }
             // The packets with each call's server, for its echoes.
             double nowMs = NowMs();
@@ -154,12 +165,12 @@ internal sealed class ServerPing : IDisposable
         }
     }
 
-    /// <summary>The servers of the calls and remote play being checked, whose every packet the trace keeps (null: none).</summary>
+    /// <summary>The servers of the UDP apps being checked, whose every packet the trace keeps (null: none).</summary>
     public HashSet<FlowKey>? EchoServers()
     {
         lock (_lock)
         {
-            var set = _targets.Values.Where(t => TimesEchoes(t.Kind) || t.Way == ProbeWay.Own).Select(t => Key(t.Server)).ToHashSet();
+            var set = _targets.Values.Where(t => t.Udp).Select(t => Key(t.Server)).ToHashSet();
             return set.Count == 0 ? null : set;
         }
     }
@@ -253,27 +264,37 @@ internal sealed class ServerPing : IDisposable
     {
         while (!_stop.IsSet)
         {
+            var round = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 List<Target> targets;
                 lock (_lock) targets = _enabled ? [.. _targets.Values] : [];
-                foreach (var t in targets)
+                // Side by side: a check of ours waits up to a second for a server, and ten in a row would make the
+                // last one's checks 15 seconds apart.
+                Parallel.ForEach(targets, new ParallelOptions { MaxDegreeOfParallelism = MostTargets }, t =>
                 {
-                    if (_stop.IsSet) break;
-                    var checks = Check(t);
-                    lock (_lock)
+                    if (_stop.IsSet) return;
+                    try
                     {
-                        t.Checks.AddRange(checks);
-                        if (t.Checks.Count > Kept) t.Checks.RemoveRange(0, t.Checks.Count - Kept);
+                        var checks = Check(t);
+                        lock (_lock)
+                        {
+                            t.Checks.AddRange(checks);
+                            if (t.Checks.Count > Kept) t.Checks.RemoveRange(0, t.Checks.Count - Kept);
+                        }
+                        if (!t.PlaceAsked) Name(t);
                     }
-                    if (!t.PlaceAsked) Name(t);
-                }
+                    catch (Exception ex)
+                    {
+                        Log.Error("server ping", ex);
+                    }
+                });
             }
             catch (Exception ex)
             {
                 Log.Error("server ping", ex);
             }
-            _stop.Wait(EverySeconds * 1000);
+            _stop.Wait(Math.Max(1000, EverySeconds * 1000 - (int)round.ElapsedMilliseconds));
         }
     }
 
@@ -285,9 +306,44 @@ internal sealed class ServerPing : IDisposable
     private List<(long Time, int? Ms)> Check(Target t)
     {
         if (OwnEchoes(t) is { } own) return own;
-        // A call's or remote play's server: its own echoes are waited for a while before a check of ours is sent.
-        if (t.Way == ProbeWay.Unknown && TimesEchoes(t.Kind) && NowMs() - t.Since < EchoWaitMs) return [];
+        if (OwnConnection(t) is { } conn) return conn;
+        // A UDP app's server: its own echoes are waited for a while before a check of ours is sent.
+        if (t.Way == ProbeWay.Unknown && t.Udp && NowMs() - t.Since < EchoWaitMs) return [];
         return [(TimeUtil.NowUnix(), Probe(t))];
+    }
+
+    /// <summary>
+    /// A TCP app's check from the round trips Windows timed on its own connection since the last check: their average.
+    /// No check when none were timed (an idle connection has nothing to say, which isn't loss). Null when the
+    /// connection can't be read (gone, IPv6, no admin rights): then it's checked by us.
+    /// </summary>
+    private List<(long Time, int? Ms)>? OwnConnection(Target t)
+    {
+        if (t.Udp || t.Way is not (ProbeWay.Unknown or ProbeWay.Conn)) return null;
+        HashSet<int> pids;
+        lock (_lock) pids = [.. t.Pids];
+        if (TcpRtt.Read(t.Server, pids) is not { } r)
+        {
+            if (t.Way == ProbeWay.Conn)
+            {
+                Log.Write("server ping", $"{t.Exe}'s connection to {t.Server} can't be read any more: checking the server ourselves");
+                TcpRtt.Forget(t.Server);
+                lock (_lock) { (t.Way, t.Tcp) = (ProbeWay.Unknown, null); t.Checks.Clear(); }
+            }
+            return null;
+        }
+        var before = t.Tcp;
+        t.Tcp = r;
+        if (t.Way != ProbeWay.Conn)
+        {
+            Log.Write("server ping", $"{t.Exe}'s server {t.Server}: timing its own connection with Windows' round trips ({r.SmoothedMs} ms now)");
+            lock (_lock) { t.Way = ProbeWay.Conn; t.Checks.Clear(); }
+            return [];
+        }
+        // Another connection (its port changed) or counts that went back: start again from this reading.
+        if (before is not { } b || b.LocalPort != r.LocalPort || r.Count < b.Count) return [];
+        uint timed = r.Count - b.Count;
+        return timed == 0 ? [] : [(TimeUtil.NowUnix(), (int)Math.Round((r.SumMs - b.SumMs) / (double)timed))];
     }
 
     /// <summary>
@@ -303,7 +359,7 @@ internal sealed class ServerPing : IDisposable
         {
             if (t.Way != ProbeWay.Own)
             {
-                if (!TimesEchoes(t.Kind) || t.Echoes.Size() is not int found) return null;
+                if (!t.Udp || t.Echoes.Size() is not int found) return null;
                 var back = t.Echoes.Between(found, 0, double.MaxValue).Select(e => e.Ms).OfType<int>().Order().ToList();
                 string dropped = t.Way is ProbeWay.Unknown ? "" : $"; {t.Checks.Count} checks of ours dropped";
                 Log.Write("server ping", $"{t.Exe}'s server {t.Server}: timing {t.Exe}'s own {found}-byte packets, which come back from it"

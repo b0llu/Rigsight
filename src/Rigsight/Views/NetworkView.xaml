@@ -517,6 +517,10 @@
                                                                                     <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
                                                                                     <Style.Triggers>
                                                                                         <DataTrigger Binding="{Binding Warm}" Value="True"><Setter Property="Foreground" Value="{DynamicResource WarmBrush}" /></DataTrigger>
+                                                                                        <DataTrigger Binding="{Binding Silent}" Value="True">
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                                                                            <Setter Property="FontWeight" Value="Normal" />
+                                                                                        </DataTrigger>
                                                                                     </Style.Triggers>
                                                                                 </Style>
                                                                             </TextBlock.Style>
@@ -532,6 +536,8 @@
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
+                                                    <TextBlock Text="{Binding ServerMore}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                                               Visibility="{Binding HasServerMore, Converter={StaticResource Vis}}" />
                                                     <TextBlock Text="{Binding ServerLoss}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource WarmBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
                                                                Visibility="{Binding HasServerLoss, Converter={StaticResource Vis}}" />
                                                 </StackPanel>

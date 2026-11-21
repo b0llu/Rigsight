@@ -35,7 +35,7 @@ public sealed class StreamPicker
     public readonly record struct Seen(string Exe, int Pid, IPAddress Address, ushort Port, bool Udp, int Sent, int Received, long ReceivedBytes);
 
     /// <summary>A server to check: the app, the server, and what the app is (game, call, remote, live or picked).</summary>
-    public readonly record struct Chosen(string Exe, IPEndPoint Server, string Kind);
+    public readonly record struct Chosen(string Exe, IPEndPoint Server, string Kind, bool Udp = true);
 
     private readonly record struct Tick(long Time, int Sent, int Received, long ReceivedBytes);
 
@@ -88,7 +88,7 @@ public sealed class StreamPicker
                 .Where(x => x.Kind is not null)
                 .OrderBy(x => Rank(x.Kind!)).ThenByDescending(x => x.Packets).FirstOrDefault();
             if (best.Stream is null) continue;
-            chosen.Add((new Chosen(best.Stream.Exe, best.Stream.Server, best.Kind!), Rank(best.Kind!), best.Packets));
+            chosen.Add((new Chosen(best.Stream.Exe, best.Stream.Server, best.Kind!, best.Stream.Udp), Rank(best.Kind!), best.Packets));
         }
         return [.. chosen.OrderBy(x => x.Rank).ThenByDescending(x => x.Packets).Take(most).Select(x => x.Pick)];
     }

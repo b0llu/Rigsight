@@ -134,6 +134,9 @@ public sealed record NetHoverBox(string Title, string Total)
     public IReadOnlyList<NetHoverServer> Servers { get; init; } = [];
     public bool HasServers => Servers.Count > 0;
     public string? ServerLoss { get; init; }
+    /// <summary>The games and calls past the first ones, as one line with their range.</summary>
+    public string? ServerMore { get; init; }
+    public bool HasServerMore => ServerMore is not null;
     public bool HasServerLoss => ServerLoss is not null;
 
     /// <summary>The range bar's width: the box's 300 less its border and padding.</summary>
@@ -141,7 +144,11 @@ public sealed record NetHoverBox(string Title, string Total)
 }
 
 /// <summary>A game's or call's line in the ping hover: its icon and name, what it is, its middle and its highest.</summary>
-public sealed record NetHoverServer(string Name, string? Path, string? Under, string Ms, string Highest, bool Warm);
+public sealed record NetHoverServer(string Name, string? Path, string? Under, string Ms, string Highest, bool Warm)
+{
+    /// <summary>Its server answered nothing: "–", said in the faint colour.</summary>
+    public bool Silent { get; init; }
+}
 
 /// <summary>A line of "What happened", or the heading of a day (<see cref="IsHeader"/>).</summary>
 public sealed record NetHappeningRow(bool IsHeader, string Text)
@@ -783,13 +790,31 @@ public sealed partial class NetworkViewModel : ObservableObject
             UsualText = $"{p.Usual} ms", MostText = Lang.T($"under {p.Most} ms"), HighestText = $"{p.Highest} ms",
             Loss = p.LostPercent >= NetLine.LostWorthSaying ? Lang.T($"{p.LostPercent:0.#}% of the pings got no reply") : null,
             Context = context, ContextPath = busy is null ? null : _paths.GetValueOrDefault(busy.App),
-            Servers = [.. b.Servers.Select(s => new NetHoverServer(s.Name, s.Path, Core.Net.ServerWords.KindWord(s.Kind), $"{s.Ms} ms", Lang.T($"highest {s.Highest} ms"), s.Lost > 0))],
+            Servers = [.. b.Servers.Take(HoverServers).Select(s => s.Ms is int ms
+                ? new NetHoverServer(s.Name, s.Path, Core.Net.ServerWords.KindWord(s.Kind), $"{ms} ms", Lang.T($"highest {s.Highest} ms"), s.Lost > 0)
+                : new NetHoverServer(s.Name, s.Path, Core.Net.ServerWords.KindWord(s.Kind), "–", Lang.T("doesn't answer"), false) { Silent = true })],
+            ServerMore = MoreServers(b.Servers.Skip(HoverServers).ToList()),
             ServerLoss = b.Servers.Where(s => s.Lost > 0).Select(s => Lang.T($"{s.Lost} of {s.Sent} checks to {s.Name}'s server lost")).FirstOrDefault(),
         };
     }
 
     /// <summary>The apps a bar's hover box names; the rest are "N other apps".</summary>
     public const int HoverApps = 5;
+
+    /// <summary>The games and calls a ping hover lists in full; the rest are one line with their range (the user's pick
+    /// A, 2026-11-20, so ten apps at once keep the box its size).</summary>
+    public const int HoverServers = 4;
+
+    /// <summary>"6 more apps, 15 to 95 ms" ("1 more app, 40 ms"); null with none past the first ones.</summary>
+    internal static string? MoreServers(IReadOnlyList<NetServerHour> rest)
+    {
+        if (rest.Count == 0) return null;
+        var ms = rest.Select(s => s.Ms).OfType<int>().ToList();
+        int n = rest.Count;
+        if (ms.Count == 0) return n == 1 ? Lang.T("1 more app") : Lang.T($"{n} more apps");
+        if (n == 1) return Lang.T($"1 more app, {ms[0]} ms");
+        return ms.Min() == ms.Max() ? Lang.T($"{n} more apps, {ms.Min()} ms") : Lang.T($"{n} more apps, {ms.Min()} to {ms.Max()} ms");
+    }
 
     private Dictionary<long, string?> _paths = [];
     private string? _steamPath;
