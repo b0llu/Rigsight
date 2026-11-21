@@ -164,7 +164,7 @@ internal sealed partial class AgentContext
             var life = hw.Sensors.FirstOrDefault(s => s.Kind == SensorKind.Level && s.Name is "Life" or "Remaining Life");
             double? left = life is null ? null : _sensors.ReadSensor(life.Id)?.Value;
             string status = health.FirstOrDefault(h => h.Name == hw.Name)?.Status ?? "Unknown";
-            list.Add(new DriveCheck(hw.Name, life is not null || status != "Unknown", HomeCards.DriveNeedsLook(status, left)));
+            list.Add(new DriveCheck(hw.Name, left.HasValue || status != "Unknown", HomeCards.DriveNeedsLook(status, left)));
         }
         return list;
     }

@@ -21,6 +21,7 @@ public sealed partial class DriveSummary : ObservableObject
             life.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName is not (nameof(SensorItem.ShortValue) or "" or null)) return;
+                OnPropertyChanged(nameof(HasHealth));
                 OnPropertyChanged(nameof(HealthText));
                 OnPropertyChanged(nameof(HealthBrush));
                 OnPropertyChanged(nameof(HealthReason));
@@ -51,9 +52,9 @@ public sealed partial class DriveSummary : ObservableObject
     private string Status => Health?.Status ?? "Unknown";
 
     /// <summary>SSDs show their wear ("97%"); hard drives, which don't wear that way, show their SMART status.</summary>
-    public bool HasHealth => Life is not null || Status != "Unknown";
+    public bool HasHealth => Life?.Value is not null || Status != "Unknown";
 
-    public string HealthText => Life is not null ? Life.ShortValue : Status switch
+    public string HealthText => Life?.Value is not null ? Life.ShortValue : Status switch
     {
         "Good" => Lang.T("Good"),
         "Caution" => Lang.T("Caution"),
@@ -71,7 +72,10 @@ public sealed partial class DriveSummary : ObservableObject
     /// figure is the drive's own and some models report it oddly, so by itself it is a warning and never "bad": only
     /// SMART reporting a failure is.
     /// </summary>
-    private int Level => Math.Max(Status switch { "Bad" => 2, "Caution" => 1, _ => 0 }, Life?.Value is double left && left <= WornOut ? 1 : 0);
+    internal static int HealthLevel(string? status, double? life) =>
+        Math.Max(status switch { "Bad" => 2, "Caution" => 1, _ => 0 }, life <= WornOut ? 1 : 0);
+
+    private int Level => HealthLevel(Status, Life?.Value);
 
     /// <summary>
     /// What the drive's state means, on the right of its row (approved mock-up 2026-10-24: "Fine" said too little):
@@ -86,7 +90,7 @@ public sealed partial class DriveSummary : ObservableObject
         get
         {
             var bits = new List<string>();
-            if (Life is not null) bits.Add(Lang.T($"{Life.ShortValue} life left"));
+            if (Life?.Value is not null) bits.Add(Lang.T($"{Life.ShortValue} life left"));
             if (PowerOnHours?.Value is double h) bits.Add(Lang.T($"{h:N0} hours on"));
             if (SectorsText is { } sectors) bits.Add(sectors);
             return string.Join(" · ", bits);
@@ -97,7 +101,7 @@ public sealed partial class DriveSummary : ObservableObject
     {
         2 => "HotBrush",
         1 => "WarmBrush",
-        _ => "GoodBrush",
+        _ => HasHealth ? "GoodBrush" : "FaintBrush",
     });
 
     /// <summary>A drive that isn't healthy: its AI button asks what it means, from the Storage page's records.</summary>
@@ -145,7 +149,7 @@ public sealed partial class DriveSummary : ObservableObject
     {
         "Bad" => Lang.T("SMART reports a serious problem with this drive. Back up anything important on it now."),
         "Caution" => Lang.T("SMART reports early warning signs (such as bad sectors). Keep a backup and keep an eye on it."),
-        "Good" when Life is null => Lang.T("SMART reports no problems. Hard drives don't report a wear figure the way SSDs do, so there's no percentage."),
+        "Good" when Life?.Value is null => Lang.T("SMART reports no problems."),
         "Good" => Lang.T("SMART reports no problems. The percentage is how much of its rated life the SSD has left."),
         _ => Lang.T("How much of its rated life the SSD has left."),
     };

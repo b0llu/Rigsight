@@ -49,7 +49,7 @@ public sealed partial class StorageViewModel
             foreach (var l in mine) used.Add(l);
             var summary = Live.Drives.FirstOrDefault(d => d.Name == h.Name);
             string id = h.Key ?? $"name:{h.Name}";
-            bool usb = h.Bus is "Usb" or "USB" || mine.Any(l => l.Kind == "usb");
+            bool usb = DriveGroup.UsesUsb(h, mine);
             groups.Add(Keep(new DriveGroup(id, h.Name, h, summary, mine, usb ? "other" : "inside")));
         }
         // A letter whose drive gave no reading (a network drive, a USB stick behind an adapter, no admin rights): a row of its own.
