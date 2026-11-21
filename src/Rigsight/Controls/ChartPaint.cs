@@ -174,20 +174,102 @@ internal static class ChartPaint
     /// </summary>
     public static Rect InfoBox(DrawingContext dc, Visual v, IReadOnlyList<(string Text, Brush Brush, bool Bold)> lines, Point at, Rect bounds, bool above = false, double minTop = double.NegativeInfinity)
     {
+        // Room to read (the user, 2026-11-20: the hovers looked cramped): 12 px in from the sides, 10 from the top and
+        // bottom, 3 between lines, and a little more under a bold first line, which is the box's title.
         var texts = lines.Select(l => Format(v, l.Text, 12, l.Brush, l.Bold)).ToList();
-        double w = texts.Max(t => t.Width) + 20, h = texts.Sum(t => t.Height) + 14;
+        double gaps = Math.Max(0, texts.Count - 1) * LineGap + (lines.Count > 1 && lines[0].Bold ? TitleGap - LineGap : 0);
+        double w = texts.Max(t => t.Width) + 2 * PadX, h = texts.Sum(t => t.Height) + gaps + 2 * PadY;
+        var (x, y) = Place(at, w, h, bounds, above, minTop);
+        dc.DrawRoundedRectangle(TooltipBg, TooltipBorder, new Rect(x + 0.5, y + 0.5, w, h), Corner, Corner);
+        double ty = y + PadY;
+        for (int i = 0; i < texts.Count; i++)
+        {
+            dc.DrawText(texts[i], new Point(x + PadX, ty));
+            ty += texts[i].Height + (i == 0 && lines[0].Bold && texts.Count > 1 ? TitleGap : LineGap);
+        }
+        return new Rect(x, y, w, h);
+    }
+
+    private const double PadX = 12, PadY = 10, LineGap = 3, TitleGap = 6, Corner = 10;
+
+    /// <summary>Where a hover box of <paramref name="w"/> by <paramref name="h"/> goes: beside <paramref name="at"/>, kept inside <paramref name="bounds"/>.</summary>
+    private static (double X, double Y) Place(Point at, double w, double h, Rect bounds, bool above, double minTop)
+    {
         double x = at.X + 12, y = above ? at.Y - h : Math.Max(at.Y, minTop);
         if (x + w > bounds.Right) x = at.X - w - 12;
         if (x < bounds.Left) x = bounds.Left;
         if (y + h > bounds.Bottom) y = bounds.Bottom - h;
         if (y < bounds.Top) y = bounds.Top;
-        dc.DrawRoundedRectangle(TooltipBg, TooltipBorder, new Rect(x + 0.5, y + 0.5, w, h), 8, 8);
-        double ty = y + 7;
-        foreach (var t in texts)
+        return (x, y);
+    }
+
+    /// <summary>A grouped hover's facts: a caps label over its value, two to a row; <see cref="Warm"/> when it needs a look.</summary>
+    public readonly record struct HoverFact(string Label, string Value, Brush? Brush = null);
+
+    /// <summary>
+    /// A hover with more to say (a play on the Games page): a title and a grey line under it, one big figure with its
+    /// word, the rest as label and value pairs in a shaded box, then a marked line (an update) and, under a thin line,
+    /// what a click does. Drawn like the Network page's hour hover (the user, 2026-11-20, approved mock-up).
+    /// </summary>
+    public static Rect GroupedBox(DrawingContext dc, Visual v, string title, string? sub, string big, string bigWord, Brush bigBrush,
+        IReadOnlyList<HoverFact> facts, (string Text, Brush Dot)? mark, string? foot, Point at, Rect bounds, bool above = false)
+    {
+        const double Width = 268, FactsPad = 10, ColGap = 10, RowGap = 8;
+        var t = Format(v, title, 13, TextBrush, true);
+        var s = sub is null ? null : Format(v, sub, 12, Muted);
+        var b = Format(v, big, 22, bigBrush, true);
+        var bw = Format(v, bigWord, 12, Muted);
+        double colW = (Width - 2 * PadX - 2 * FactsPad - ColGap) / 2;
+        var cells = facts.Select(f => (L: Format(v, f.Label.ToUpper(CultureInfo.CurrentCulture), 10.5, Faint, true), V: Format(v, f.Value, 12.5, f.Brush ?? TextBrush))).ToList();
+        var rows = cells.Chunk(2).Select(r => r.Max(c => c.L.Height + 1 + c.V.Height)).ToList();
+        double factsH = rows.Count == 0 ? 0 : rows.Sum() + (rows.Count - 1) * RowGap + 2 * 8;
+        var m = mark is { } mk ? Format(v, mk.Text, 12, FpsMarkText) : null;
+        var f = foot is null ? null : Format(v, foot, 11.5, Faint);
+
+        double h = PadY + t.Height + (s is null ? 0 : 2 + s.Height) + 8 + b.Height + (factsH > 0 ? 8 + factsH : 0)
+            + (m is null ? 0 : 9 + m.Height) + (f is null ? 0 : 9 + 1 + 7 + f.Height) + PadY;
+        var (x, y) = Place(at, Width, h, bounds, above, double.NegativeInfinity);
+        dc.DrawRoundedRectangle(TooltipBg, TooltipBorder, new Rect(x + 0.5, y + 0.5, Width, h), Corner, Corner);
+
+        double left = x + PadX, ty = y + PadY;
+        dc.DrawText(t, new Point(left, ty)); ty += t.Height;
+        if (s is not null) { ty += 2; dc.DrawText(s, new Point(left, ty)); ty += s.Height; }
+        ty += 8;
+        dc.DrawText(b, new Point(left, ty));
+        dc.DrawText(bw, new Point(left + b.Width + 5, ty + b.Baseline - bw.Baseline));
+        ty += b.Height;
+        if (factsH > 0)
         {
-            dc.DrawText(t, new Point(x + 10, ty));
-            ty += t.Height;
+            ty += 8;
+            dc.DrawRoundedRectangle(Track, null, new Rect(left, ty, Width - 2 * PadX, factsH), 7, 7);
+            double ry = ty + 8;
+            for (int r = 0; r < rows.Count; r++)
+            {
+                for (int c = 0; c < 2 && r * 2 + c < cells.Count; c++)
+                {
+                    var (l, val) = cells[r * 2 + c];
+                    double cx = left + FactsPad + c * (colW + ColGap);
+                    dc.DrawText(l, new Point(cx, ry));
+                    dc.DrawText(val, new Point(cx, ry + l.Height + 1));
+                }
+                ry += rows[r] + RowGap;
+            }
+            ty += factsH;
         }
-        return new Rect(x, y, w, h);
+        if (m is not null && mark is { } mm)
+        {
+            ty += 9;
+            dc.DrawEllipse(mm.Dot, null, new Point(left + 3.5, ty + m.Height / 2), 3.5, 3.5);
+            dc.DrawText(m, new Point(left + 13, ty));
+            ty += m.Height;
+        }
+        if (f is not null)
+        {
+            ty += 9;
+            dc.DrawLine(TooltipBorder, new Point(x + 1, Math.Round(ty) + 0.5), new Point(x + Width - 1, Math.Round(ty) + 0.5));
+            ty += 1 + 7;
+            dc.DrawText(f, new Point(left, ty));
+        }
+        return new Rect(x, y, Width, h);
     }
 }

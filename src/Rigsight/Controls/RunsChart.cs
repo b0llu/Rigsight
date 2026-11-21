@@ -489,45 +489,43 @@ public sealed class RunsChart : FrameworkElement
             // A slot lights up whole; on dates, a line marks the play.
             if (slots) dc.DrawRectangle(ChartPaint.Brush(ChartPaint.Res("TextColor", 0xFF), 0.05), null, new Rect(Left + _hover * slotW, Top, slotW, railBase - Top));
             else dc.DrawLine(new Pen(ChartPaint.Cursor, 1), new Point(x, Top), new Point(x, railBase));
-            var lines = new List<(string, Brush, bool)>
-            {
-                (p.IsWeek ? Lang.T($"Week of {p.End.AddDays(-7):d MMM} · {(p.Plays == 1 ? Lang.T("1 play") : Lang.T($"{p.Plays} plays"))}")
-                          : Lang.T($"{p.At:ddd d MMM}  {p.At:h:mm tt} to {p.End:h:mm tt} · {Units.Duration(p.ActiveSec)}"), ChartPaint.TextBrush, true),
-                (Lang.T($"{p.Fps:0} fps average"), accent, false),
-            };
-            if (p.Low is double low) lines.Add((Lang.T($"{low:0} fps 1% low"), ChartPaint.Muted, false));
-            if (p.StuttersAnHour is double rate) lines.Add((rate < 0.5 ? Lang.T("No stutters") : Lang.T($"{rate:0} stutters an hour"), warm, false));
-            if (p.Gpu is double gpu && !p.IsWeek) lines.Add(($"GPU {Units.TempShort(gpu)}" + (p.Watts is double watts ? $" · {watts:0} W" : ""), ChartPaint.Muted, false));
+            // Grouped (the user, 2026-11-20: the list of eight lines read cramped): when, the average as the big figure,
+            // the rest as label and value pairs, an update just before with its dot, and what a click does.
+            string title = p.IsWeek ? Lang.T($"Week of {p.End.AddDays(-7):d MMM}") : Lang.T($"{p.At:ddd d MMM}");
+            string sub = p.IsWeek ? (p.Plays == 1 ? Lang.T("1 play") : Lang.T($"{p.Plays} plays"))
+                : p.PowerCut ? Lang.T($"{p.At:h:mm tt} to {p.End:h:mm tt} · {Units.Duration(p.ActiveSec)} · ended by a power cut")
+                : Lang.T($"{p.At:h:mm tt} to {p.End:h:mm tt} · {Units.Duration(p.ActiveSec)}");
+            var facts = new List<ChartPaint.HoverFact>();
+            if (p.Low is double low) facts.Add(new(Lang.T("1% low"), Lang.T($"{low:0} fps")));
+            if (p.StuttersAnHour is double rate) facts.Add(rate < 0.5 ? new(Lang.T("Stutters"), Lang.T("None")) : new(Lang.T("Stutters"), Lang.T($"{rate:0} an hour"), warm));
+            if (p.Gpu is double gpu && !p.IsWeek) facts.Add(new("GPU", Units.TempShort(gpu) + (p.Watts is double watts ? $" · {watts:0} W" : "")));
             // The game's own RAM in this play, as Every play shows it.
             if (p.MemAvg is double mem && !p.IsWeek)
-            {
-                string avg = Units.Megabytes(mem);
-                lines.Add((p.MemMax is double most ? Lang.T($"RAM {avg} · peak {Units.Megabytes(most)}") : $"RAM {avg}", ChartPaint.Muted, false));
-            }
-            if (p.PowerCut) lines.Add((Lang.T("Ended by a power cut"), ChartPaint.Muted, false));
+                facts.Add(new("RAM", p.MemMax is double most ? Lang.T($"{Units.Megabytes(mem)}, peak {Units.Megabytes(most)}") : Units.Megabytes(mem)));
             // An update shortly before: what may explain a change.
-            if ((Marks ?? []).Where(m => m.Time <= p.End && m.Time > p.At.AddDays(-7)).MaxBy(m => m.Time) is { } m)
-                lines.Add((Lang.T($"{m.Time:d MMM}: {m.Title}"), ChartPaint.FpsMarkText, false));
-            if (p.CanOpen) lines.Add((p.IsWeek ? Lang.T("Click to see this week") : Lang.T("Click to see this play"), ChartPaint.Muted, false));
+            (string, Brush)? mark = (Marks ?? []).Where(m => m.Time <= p.End && m.Time > p.At.AddDays(-7)).MaxBy(m => m.Time) is { } m
+                ? (Lang.T($"{m.Time:d MMM}: {m.Title}"), ChartPaint.FpsMark) : null;
+            string? foot = p.CanOpen ? p.IsWeek ? Lang.T("Click to see this week") : Lang.T("Click to see this play") : null;
             double r = slots ? 5.2 : 4;
             dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(x0, Y(p.Fps)), r, r);
-            ChartPaint.InfoBox(dc, this, lines, new Point(x, Y(p.Fps) - 10), bounds, above: true);
+            ChartPaint.GroupedBox(dc, this, title, sub, Lang.T($"{p.Fps:0} fps"), Lang.T("average"), accent, facts, mark, foot, new Point(x, Y(p.Fps) - 10), bounds, above: true);
         }
 
         void HoverMinute(RunsMinute m, double x0)
         {
             double x = Math.Round(x0) + 0.5;
             dc.DrawLine(new Pen(ChartPaint.Cursor, 1), new Point(x, Top), new Point(x, railBase));
-            var lines = new List<(string, Brush, bool)>
+            var facts = new List<ChartPaint.HoverFact>();
+            if (m.Low is double low) facts.Add(new(Lang.T("1% low"), Lang.T($"{low:0} fps")));
+            facts.Add(m.Stutters switch
             {
-                (TimeText.At(m.At, "h:mm tt"), ChartPaint.TextBrush, true),
-                (Lang.T($"{m.Fps:0} fps average"), accent, false),
-            };
-            if (m.Low is double low) lines.Add((Lang.T($"{low:0} fps 1% low"), ChartPaint.Muted, false));
-            lines.Add((m.Stutters switch { 0 => Lang.T("No stutters in this minute"), 1 => Lang.T("1 stutter in this minute"), _ => Lang.T($"{m.Stutters} stutters in this minute") },
-                m.Stutters > 0 ? warm : ChartPaint.Muted, false));
+                0 => new(Lang.T("Stutters"), Lang.T("None in this minute")),
+                1 => new(Lang.T("Stutters"), Lang.T("1 in this minute"), warm),
+                _ => new(Lang.T("Stutters"), Lang.T($"{m.Stutters} in this minute"), warm),
+            });
             dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(x0, Y(m.Fps!.Value)), 3.5, 3.5);
-            ChartPaint.InfoBox(dc, this, lines, new Point(x, Y(m.Fps!.Value) - 10), bounds, above: true);
+            ChartPaint.GroupedBox(dc, this, TimeText.At(m.At, "h:mm tt"), null, Lang.T($"{m.Fps:0} fps"), Lang.T("average"), accent, facts, null, null,
+                new Point(x, Y(m.Fps!.Value) - 10), bounds, above: true);
         }
 
         // The points split where more than gap lies between one and the next.
