@@ -2144,6 +2144,8 @@ internal sealed partial class AgentContext : ApplicationContext
     /// </summary>
     private void ScanChanges()
     {
+        long started = Stopwatch.GetTimestamp();
+        int foundCount = 0;
         try
         {
             var now = DateTime.Now;
@@ -2192,12 +2194,29 @@ internal sealed partial class AgentContext : ApplicationContext
             _db.InsertChanges(found);
             _db.ChangesScanned = TimeUtil.ToUnix(now);
             ScanFanSettings(now);
+            foundCount = found.Count + logged.Count;
         }
         catch (Exception ex)
         {
             Log.Error("changes", ex);
         }
+        finally
+        {
+            // The first check since starting reads Windows' logs since the last one and the fans' last hour, and runs its
+            // code for the first time: start-up work, said with its time (the later checks take a few ms each). Like the
+            // RAM sticks and the long crash scan, what it read is handed back after: kept, it was ~5 MB more in Task
+            // Manager for as long as the agent ran (68 MB against 59-64, measured 2026-11-21).
+            if (!_changesCheckedOnce)
+            {
+                _changesCheckedOnce = true;
+                double ms = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                CompactMemory();
+                Log.Write("changes", $"First check since starting: {ms:0} ms, {foundCount} changes found; memory handed back");
+            }
+        }
     }
+
+    private bool _changesCheckedOnce;
 
     /// <summary>
     /// Riggy (0.16.0 to 0.17.1) had a switch in the settings file. Settings no longer have it, but the file keeps the
