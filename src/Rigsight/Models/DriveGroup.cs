@@ -37,7 +37,10 @@ public sealed partial class DriveGroup : ObservableObject
 
     public bool IsWindows => Letters.Any(l => string.Equals(l.Root, System.IO.Path.GetPathRoot(Environment.SystemDirectory), StringComparison.OrdinalIgnoreCase));
     public bool IsNetwork => Letters.Count > 0 && Letters.All(l => l.Kind == "network");
-    public bool IsUsb => Health?.Bus is "Usb" or "USB" || Letters.Any(l => l.Kind == "usb");
+    internal static bool UsesUsb(DriveHealthInfo? drive, IReadOnlyList<VolumeRow> letters) =>
+        drive?.Bus is "BusTypeUsb" or "Usb" or "USB" || letters.Any(l => l.Kind == "usb");
+    public bool IsUsb => UsesUsb(Health, Letters);
+    private bool IsSsd => Health is { IsSsd: true } or { IsNvme: true };
     public bool HasReading => Health is not null;
     public bool HasLetters => Letters.Count > 0;
     public bool NoLetter => Letters.Count == 0;
@@ -51,7 +54,7 @@ public sealed partial class DriveGroup : ObservableObject
             var bits = new List<string>();
             if (Health is { } h)
             {
-                bits.Add(IsUsb ? h.IsSsd ? Lang.T("USB SSD") : Lang.T("USB drive")
+                bits.Add(IsUsb ? IsSsd ? Lang.T("USB SSD") : Lang.T("USB drive")
                     : h.IsNvme ? Lang.T("NVMe SSD") : h.IsSsd ? Lang.T("SATA SSD") : Lang.T("Hard drive"));
                 if (h.SizeBytes > 0) bits.Add(Units.DiskBytes((long)h.SizeBytes));
             }
@@ -63,22 +66,32 @@ public sealed partial class DriveGroup : ObservableObject
 
     // ── Health ──────────────────────────────────────────────────────────
 
-    /// <summary>0 healthy, 1 early warning, 2 failing (as the drive health card has always judged it).</summary>
-    public int Level => Summary?.StateWord switch { var w when w == Lang.T("Failing") => 2, var w when w == Lang.T("Early warning") => 1, _ => 0 };
+    private double? LifeLeft => Health?.Life ?? Summary?.Life?.Value;
+    private bool HasHealth => LifeLeft.HasValue || Health?.Status is "Good" or "Caution" or "Bad";
+    /// <summary>0 for no warning, 1 for early warning, 2 for failing.</summary>
+    public int Level => DriveSummary.HealthLevel(Health?.Status, LifeLeft);
     public bool NeedsLook => HasReading && Level > 0;
     public bool IsFailing => Level == 2;
-    public string HealthWord => !HasReading ? Lang.T("No reading") : Summary?.StateWord is { Length: > 0 } w ? w : Lang.T("Healthy");
-    public Brush HealthBrush => !HasReading ? Brush("FaintBrush") : Summary?.HealthBrush ?? Brush("GoodBrush");
+    public string HealthWord => Level switch { 2 => Lang.T("Failing"), 1 => Lang.T("Early warning"), _ => HasHealth ? Lang.T("Healthy") : Lang.T("No reading") };
+    public Brush HealthBrush => Brush(Level switch { 2 => "HotBrush", 1 => "WarmBrush", _ => HasHealth ? "GoodBrush" : "FaintBrush" });
     /// <summary>The word itself is only coloured when it needs a look (a healthy drive's word is plain, its dot green).</summary>
-    public Brush HealthTextBrush => NeedsLook ? HealthBrush : !HasReading ? Brush("MutedBrush") : Brush("TextBrush");
+    public Brush HealthTextBrush => NeedsLook ? HealthBrush : !HasHealth ? Brush("MutedBrush") : Brush("TextBrush");
     public FontWeight HealthWeight => NeedsLook ? FontWeights.SemiBold : FontWeights.Normal;
 
     private long? Sectors => Health is { } h && (h.ReallocatedSectors, h.PendingSectors, h.UncorrectableSectors) is not (null, null, null)
         ? (h.ReallocatedSectors ?? 0) + (h.PendingSectors ?? 0) + (h.UncorrectableSectors ?? 0) : null;
 
     /// <summary>The "Life left" column: an SSD's life, a hard drive's bad sectors.</summary>
-    public string LifeText => Health?.Life is double life ? $"{life:0}%"
-        : Sectors is long s ? s == 0 ? Lang.T("No bad sectors") : s == 1 ? Lang.T("1 bad sector") : Lang.T($"{s:N0} bad sectors") : "";
+    public string LifeText
+    {
+        get
+        {
+            if (LifeLeft is double life) return $"{life:0}%";
+            if (Sectors is long s) return s == 0 ? Lang.T("No bad sectors") : s == 1 ? Lang.T("1 bad sector") : Lang.T($"{s:N0} bad sectors");
+            if (!IsSsd) return "";
+            return IsUsb ? Lang.T("Wear unavailable over USB") : Lang.T("Wear unavailable");
+        }
+    }
 
     public Brush LifeBrush => Health?.Life is double life && life <= DriveSummary.WornOut || Sectors > 0 ? HealthBrush : Brush("TextBrush");
 
@@ -158,8 +171,8 @@ public sealed partial class DriveGroup : ObservableObject
         }
     }
 
-    public string TileLifeLabel => Health?.Life is not null ? Lang.T("LIFE LEFT") : Lang.T("BAD SECTORS");
-    public string TileLifeValue => Health?.Life is double l ? $"{l:0}%" : Sectors is long s ? s == 0 ? Lang.T("None") : $"{s:N0}" : Lang.T("No reading");
+    public string TileLifeLabel => LifeLeft.HasValue || (IsSsd && Sectors is null) ? Lang.T("LIFE LEFT") : Lang.T("BAD SECTORS");
+    public string TileLifeValue => LifeLeft is double l ? $"{l:0}%" : Sectors is long s ? s == 0 ? Lang.T("None") : $"{s:N0}" : Lang.T("No reading");
     public string TileLifeSub => LifeSub;
     public string TileWritten => Health?.WrittenGb is double w ? Units.DiskBytes(w * 1e9) : Lang.T("No reading");
     public string TileWrittenSub => WrittenWeek is double gb ? Lang.T($"{Units.DiskBytes(gb * 1e9)} in the last 7 days") : "";

@@ -1,4 +1,5 @@
 ﻿using LibreHardwareMonitor.Hardware;
+using LibreHardwareMonitor.Hardware.Storage;
 using Rigsight.Core;
 using Rigsight.Core.Protocol;
 
@@ -533,7 +534,7 @@ internal sealed class SensorHost
         if (!_indexById.TryGetValue(id, out int i)) return null;
         var s = _sensors[i];
         var kind = KindOf(s);
-        double? value = s.Value is float f && float.IsFinite(f) && !(_gpusPaused && IsGpu(_sensorHardware[i])) ? f : null;
+        double? value = SensorValue(s) is float f && float.IsFinite(f) && !(_gpusPaused && IsGpu(_sensorHardware[i])) ? f : null;
         // The card isn't given its full update while the quick readings are in use (see Watch): those answer for it.
         if (_usingFastValues && _sensorHardware[i] == _fastGpuHardware) value = FastReading(i, _fastCovered, _fastValues, _lastFastFans);
         // Without driver access some temperature sensors report 0 instead of nothing.
@@ -546,10 +547,29 @@ internal sealed class SensorHost
         var values = new float?[_sensors.Count];
         for (int i = 0; i < values.Length; i++)
         {
-            var v = _sensors[i].Value;
+            var v = SensorValue(_sensors[i]);
             values[i] = v is float f && float.IsFinite(f) && !(_gpusPaused && IsGpu(_sensorHardware[i])) ? MathF.Round(f, 3) : null;
         }
         return values;
+    }
+
+    // DiskInfoToolkit clears Life, HostReads and HostWrites to zero when the SMART read fails.
+    // Used space and throughput come from Windows and can still be read.
+    private static bool HasSmartReadings(StorageDevice drive) => drive.Storage?.Smart?.SmartAttributes is { Count: > 0 };
+
+    internal static float? ReportedLife(int? life, bool hasSmartReadings) =>
+        hasSmartReadings && life is >= 0 and <= 100 ? life : null;
+
+    private static float? SensorValue(ISensor sensor)
+    {
+        if (sensor.Hardware is StorageDevice drive)
+        {
+            if (sensor.SensorType == SensorType.Level && sensor.Name is "Life" or "Remaining Life")
+                return ReportedLife(drive.Storage?.Smart?.Life, HasSmartReadings(drive));
+            if (sensor.SensorType == SensorType.Data && sensor.Name is "Data Read" or "Data Written" && !HasSmartReadings(drive))
+                return null;
+        }
+        return sensor.Value;
     }
 
     /// <summary>This agent has no admin rights, so nothing is read through the driver: an agent with them reads as it always did.</summary>
@@ -708,6 +728,7 @@ internal sealed class SensorHost
             try
             {
                 if (device.Storage?.Smart is not { } smart) continue;
+                bool hasReadings = HasSmartReadings(device);
                 bool sata = !device.Storage.IsNVMe;
                 long? Raw(byte id) => sata && smart.SmartAttributes?.FirstOrDefault(a => a.Info.ID == id) is { } attr
                     ? (long)attr.Attribute.RawValueULong : null;
@@ -736,9 +757,9 @@ internal sealed class SensorHost
                     IsSsd = storage.IsSSD,
                     Bus = storage.BusType.ToString(),
                     SizeBytes = size,
-                    Life = Num(smart.Life),
-                    ReadGb = Num(smart.HostReads),
-                    WrittenGb = Num(smart.HostWrites),
+                    Life = ReportedLife(smart.Life, hasReadings),
+                    ReadGb = hasReadings ? Num(smart.HostReads) : null,
+                    WrittenGb = hasReadings ? Num(smart.HostWrites) : null,
                     PowerOnHours = smart.MeasuredPowerOnHours > 0 ? (long)smart.MeasuredPowerOnHours : smart.DetectedPowerOnHours > 0 ? (long)smart.DetectedPowerOnHours : null,
                     PowerOnCount = smart.PowerOnCount > 0 ? (long)smart.PowerOnCount : null,
                     Temperature = Num(smart.Temperature),

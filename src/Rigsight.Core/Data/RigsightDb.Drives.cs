@@ -21,6 +21,22 @@ public sealed partial class RigsightDb
         // the NVMe warning flag, sudden shut-offs): added to the table, null on the days before.
         foreach (var column in CountColumns)
             if (!HasColumn("drive_health_day", column)) Exec($"ALTER TABLE drive_health_day ADD COLUMN {column} INTEGER");
+
+        // Older agents saved DiskInfoToolkit's three reset values together after an invalid SMART read.
+        // Keep zero wear readings backed by any health status, counters, or temperature.
+        const string wearMigration = "drive-smart-reset-values-v1";
+        if (GetMeta(wearMigration) is null)
+        {
+            Exec("""
+                UPDATE drive_health_day SET life = NULL, read_gb = NULL, written_gb = NULL
+                WHERE status = 'Unknown' AND life = 0 AND read_gb = 0 AND written_gb = 0
+                    AND hours IS NULL AND power_ons IS NULL AND temp_max IS NULL AND temp_n = 0
+                    AND reallocated IS NULL AND pending IS NULL AND uncorrectable IS NULL
+                    AND crc IS NULL AND uncorrectable_reported IS NULL AND timeouts IS NULL
+                    AND media_errors IS NULL AND spare IS NULL AND warning IS NULL AND shut_offs IS NULL
+                """);
+            SetMeta(wearMigration, "1");
+        }
     }
 
     private static readonly string[] CountColumns = ["crc", "uncorrectable_reported", "timeouts", "media_errors", "spare", "warning", "shut_offs"];
