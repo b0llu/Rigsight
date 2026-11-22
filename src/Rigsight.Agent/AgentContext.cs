@@ -190,6 +190,8 @@ internal sealed partial class AgentContext : ApplicationContext
         _db = HistoryRepair.Open(RigsightPaths.Database, out var history);
         HistoryRepair.MarkRunning(RigsightPaths.DataDir);
         HistoryRepair.DamageSeen += OnHistoryDamageSeen;
+        // Windows saves a crash file if the agent or the app crashes where nothing can log it (issue #10). Off the start's path.
+        _ = Task.Run(() => CrashFileSetup.Ensure(isAdmin));
         // Which folders the launchers say hold games, before the apps are loaded: an app filed wrongly by an older
         // version (an Epic game outside "Epic Games") is put right as they load. Read again with each change check.
         Core.Apps.AppCatalog.InstalledGames = Core.Games.GameLibrary.Scan(Core.Games.GameSources.ThisPc());

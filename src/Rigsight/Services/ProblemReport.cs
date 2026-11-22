@@ -185,6 +185,7 @@ public static class ProblemReport
         Add(() => $"PawnIO driver: {PawnIoDriver.Describe()}");
         Add(() => $"Memory integrity: {PawnIoDriver.MemoryIntegrity switch { true => "on", false => "off", null => "not set" }}");
         Add(() => $"Data: history {Size(RigsightPaths.Database)}, log {Size(RigsightPaths.LogFile)}");
+        Add(() => Core.Stability.CrashFiles.ReportLine());
         Add(() => $"Screens: main {System.Windows.SystemParameters.PrimaryScreenWidth:0}x{System.Windows.SystemParameters.PrimaryScreenHeight:0}, "
             + $"all together {System.Windows.SystemParameters.VirtualScreenWidth:0}x{System.Windows.SystemParameters.VirtualScreenHeight:0}");
         return lines;

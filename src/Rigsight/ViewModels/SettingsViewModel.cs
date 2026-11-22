@@ -171,6 +171,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
             if (value == "admin" && !StandardAccount) return;
             Ai?.ClosePickers();
             _tab = value;
+            if (value == "about") ReadCrashFile();
             OnPropertyChanged(string.Empty);
             if (value == "ai") Ai?.Shown();
         }
@@ -655,6 +656,89 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
     [RelayCommand]
     private void CopyProblemReport() => SayOnButtons(null, CopyReport() ? Lang.T("Copied") : Lang.T("Couldn't copy"));
 
+    // ── Crash file ──────────────────────────────────────────────────────
+    // Windows saves one when the agent or the app crashes (Core.Stability.CrashFiles, issue #10). About shows a row for
+    // the newest while there is one, and its button hands it over: zipped into Downloads, put on the clipboard, and shown
+    // in File Explorer, since GitHub's comment box takes a dragged zip but ignores a pasted one.
+
+    private FileInfo? _crashFile;
+
+    /// <summary>Looks again for the newest crash file (each time About is opened).</summary>
+    internal void ReadCrashFile() => _crashFile = Core.Stability.CrashFiles.Newest(CrashFolder);
+
+    /// <summary>Where the crash files are looked for (tests point it elsewhere).</summary>
+    internal string? CrashFolder { get; set; }
+
+    public bool HasCrashFile => _crashFile is not null;
+
+    /// <summary>"Windows saved it when the background agent crashed on Nov 21 at 10:10 PM."</summary>
+    public string CrashFileLine
+    {
+        get
+        {
+            if (_crashFile is not { } file) return "";
+            var at = file.LastWriteTime;
+            string day = at.ToString("MMM d", System.Globalization.CultureInfo.CurrentCulture), time = Core.TimeText.Time(at);
+            return Core.Stability.CrashFiles.ProgramOf(file).Equals("Rigsight.exe", StringComparison.OrdinalIgnoreCase)
+                ? Lang.T($"Windows saved it when RigSight crashed on {day} at {time}.")
+                : Lang.T($"Windows saved it when the background agent crashed on {day} at {time}.");
+        }
+    }
+
+    [ObservableProperty] private string _copyCrashFileText = Lang.T("Copy file");
+
+    /// <summary>Where the zip goes (tests point it elsewhere): the person's Downloads folder, wherever they moved it.</summary>
+    internal Func<string> ZipFolder { get; set; } = DownloadsFolder;
+
+    /// <summary>Puts the zip on the clipboard as a file and shows it in File Explorer (tests replace it).</summary>
+    internal Action<string> HandOver { get; set; } = zip =>
+    {
+        var files = new System.Collections.Specialized.StringCollection { zip };
+        Clipboard.SetFileDropList(files);
+        Process.Start("explorer.exe", $"/select,\"{zip}\"")?.Dispose();
+    };
+
+    /// <summary>About, Crash file, Copy file: the newest crash file zipped into Downloads, on the clipboard and shown in File Explorer.</summary>
+    [RelayCommand]
+    private async Task CopyCrashFile()
+    {
+        string? zip = null;
+        try
+        {
+            string folder = ZipFolder(), crashes = CrashFolder ?? Core.Stability.CrashFiles.Folder;
+            zip = await Task.Run(() => Core.Stability.CrashFiles.ZipNewest(folder, crashes));
+            if (zip is not null) HandOver(zip);
+            Log.Write("settings", zip is null ? "Copy crash file: no crash file found" : $"Copied the crash file as {zip} ({new FileInfo(zip).Length / 1048576.0:0.0} MB)");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.ExternalException or System.ComponentModel.Win32Exception)
+        {
+            Log.Write("settings", $"Copy crash file failed{(zip is null ? "" : " after making " + zip)}: {ex.GetType().Name}: {ex.Message}");
+            zip = null;
+        }
+        CopyCrashFileText = zip is not null ? Lang.T("Copied") : Lang.T("Couldn't copy");
+        _crashButtonBack ??= new System.Windows.Threading.DispatcherTimer(ButtonSaysFor, System.Windows.Threading.DispatcherPriority.Normal,
+            (_, _) => { _crashButtonBack!.Stop(); CopyCrashFileText = Lang.T("Copy file"); }, System.Windows.Threading.Dispatcher.CurrentDispatcher);
+        _crashButtonBack.Stop();
+        _crashButtonBack.Start();
+    }
+
+    private System.Windows.Threading.DispatcherTimer? _crashButtonBack;
+
+    /// <summary>The Downloads folder as Windows knows it (it can be moved), else the usual place under the profile.</summary>
+    private static string DownloadsFolder()
+    {
+        var downloads = new Guid("374DE290-123F-4565-9164-39C4925E467B");
+        if (SHGetKnownFolderPath(ref downloads, 0, IntPtr.Zero, out var path) == 0 && path != IntPtr.Zero)
+        {
+            try { return System.Runtime.InteropServices.Marshal.PtrToStringUni(path) ?? ""; }
+            finally { System.Runtime.InteropServices.Marshal.FreeCoTaskMem(path); }
+        }
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+    }
+
+    [System.Runtime.InteropServices.DllImport("shell32.dll")]
+    private static extern int SHGetKnownFolderPath(ref Guid id, uint flags, IntPtr token, out IntPtr path);
+
     /// <summary>
     /// Report a bug: the bug form opens in the browser, and that is all (copying is the Logs row's Copy: a button that
     /// opened a form and said "Copied" read as the wrong button). The app sends nothing itself: what reaches anyone is
@@ -794,6 +878,7 @@ public sealed partial class SettingsViewModel(SettingsModel settings, AgentClien
 
     public void Refresh()
     {
+        if (IsAbout) ReadCrashFile();
         UpdateThemePicks();
         OnPropertyChanged(string.Empty);
         OnPropertyChanged(nameof(Accent)); // again, after the swatches (new ones in a new theme) are in

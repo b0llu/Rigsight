@@ -60,6 +60,23 @@ Type: files; Name: "{autodesktop}\Rigsight.lnk"
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[Dirs]
+; Where Windows saves a crash file of RigSight's programs (the [Registry] lines below): everyone may write there, as
+; Windows saves the app's crash with the person's own rights.
+Name: "{commonappdata}\Rigsight\Crash files"; Permissions: users-modify
+
+[Registry]
+; Windows saves a crash file when the agent or the app crashes where nothing can log it (issue #10): a small dump with
+; the thread stacks, the newest 3 kept (CrashFiles.cs says why these flags). The agent checks the same at each start.
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Rigsight.Agent.exe"; ValueType: expandsz; ValueName: "DumpFolder"; ValueData: "{commonappdata}\Rigsight\Crash files"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Rigsight.Agent.exe"; ValueType: dword; ValueName: "DumpType"; ValueData: "0"
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Rigsight.Agent.exe"; ValueType: dword; ValueName: "CustomDumpFlags"; ValueData: "$1964"
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Rigsight.Agent.exe"; ValueType: dword; ValueName: "DumpCount"; ValueData: "3"
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Rigsight.exe"; ValueType: expandsz; ValueName: "DumpFolder"; ValueData: "{commonappdata}\Rigsight\Crash files"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Rigsight.exe"; ValueType: dword; ValueName: "DumpType"; ValueData: "0"
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Rigsight.exe"; ValueType: dword; ValueName: "CustomDumpFlags"; ValueData: "$1964"
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Rigsight.exe"; ValueType: dword; ValueName: "DumpCount"; ValueData: "3"
+
 [Icons]
 Name: "{group}\RigSight"; Filename: "{app}\Rigsight.exe"
 Name: "{group}\Uninstall RigSight"; Filename: "{uninstallexe}"
@@ -75,6 +92,9 @@ Filename: "{app}\Rigsight.exe"; Description: "Open RigSight"; Flags: postinstall
 Type: filesandordirs; Name: "{app}\update"
 ; The note of whose agent an update closed, if an uninstall by the system came before it was read.
 Type: files; Name: "{app}\closed-for-update.txt"
+; The crash files, and the folder above them once empty.
+Type: filesandordirs; Name: "{commonappdata}\Rigsight\Crash files"
+Type: dirifempty; Name: "{commonappdata}\Rigsight"
 
 [UninstallRun]
 ; What was set up for the whole PC goes with it: the start for everyone, the updater task, the note of both.

@@ -2596,6 +2596,16 @@
                             <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Text="{ctl:T 'RigSight\'s recent log, with its version and your hardware, to paste into the bug form or wherever you ask for help.'}" />
                         </StackPanel>
                     </DockPanel>
+                    <!-- Only while Windows has saved a crash file of the agent or the app (issue #10). Copy file zips the newest into
+                         Downloads, puts it on the clipboard and shows it in File Explorer; the button says "Copied" for a moment. -->
+                    <DockPanel Style="{StaticResource Row}" Visibility="{Binding HasCrashFile, Converter={StaticResource Vis}}">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{Binding CopyCrashFileText}" Command="{Binding CopyCrashFileCommand}"
+                                VerticalAlignment="Center" Margin="12,0,0,0" MinWidth="118" AutomationProperties.Name="{ctl:T 'Copy crash file'}" />
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'Crash file'}" Style="{StaticResource Title}" />
+                            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Text="{Binding CrashFileLine}" />
+                        </StackPanel>
+                    </DockPanel>
                     <DockPanel Style="{StaticResource Row}">
                         <!-- Buy Me a Coffee's own yellow, the same in every theme. -->
                         <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Background="#FFDD00" Foreground="#000000" Content="{ctl:T 'Buy me a coffee'}" Command="{Binding SupportCommand}"
