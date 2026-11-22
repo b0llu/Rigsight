@@ -203,7 +203,7 @@
                             <TextBlock Text="{Binding HealthWord}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{Binding HealthTextBrush}" FontWeight="{Binding HealthWeight}" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" VerticalAlignment="Center" Visibility="{Binding HasReading, Converter={StaticResource Vis}}">
-                            <TextBlock Text="{Binding LifeText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{Binding LifeBrush}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding LifeText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{Binding LifeBrush}" />
                             <TextBlock Text="{Binding LifeSub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Visibility="{Binding LifeSub, Converter={StaticResource Vis}}" />
                         </StackPanel>
                         <StackPanel Grid.Column="3" VerticalAlignment="Center" Visibility="{Binding HasReading, Converter={StaticResource Vis}}">
