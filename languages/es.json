@@ -3459,6 +3459,8 @@
     "NEW PAGE": "PÁGINA NUEVA",
     "NEW FEATURE": "FUNCIÓN NUEVA",
     "REMOVED": "ELIMINADO",
+    "When RigSight itself crashes, Windows now saves a crash file, and About in Settings can copy it to share with a bug report.": "Si RigSight se cierra por un fallo, Windows ahora guarda un archivo de fallo, y Acerca de, en Ajustes, puede copiarlo para compartirlo en un informe de error.",
+    "A drive that gives no health readings, like many USB SSDs, no longer shows 0% life left and an early warning on Storage.": "Una unidad que no da lecturas de salud, como muchos SSD USB, ya no muestra 0% de vida restante y un aviso temprano en Almacenamiento.",
     "Device batteries": "Baterías de dispositivos",
     "See how much battery your wireless mouse, keyboard, headset or controller has left.": "Mira cuánta batería le queda a tu ratón, teclado, auriculares o mando inalámbricos.",
     "Each device gets its own group on All sensors, with its battery as a reading.": "Cada dispositivo tiene su propio grupo en Todos los sensores, con su batería como una lectura.",

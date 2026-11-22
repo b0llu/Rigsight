@@ -187,6 +187,9 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.16.1", 11, 22,
+            added: [Lang.T("When RigSight itself crashes, Windows now saves a crash file, and About in Settings can copy it to share with a bug report.")],
+            fixedBugs: [Lang.T("A drive that gives no health readings, like many USB SSDs, no longer shows 0% life left and an early warning on Storage.")]),
         V("1.16.0", 11, 21,
             feature: new(Lang.T("Device batteries"), Lang.T("See how much battery your wireless mouse, keyboard, headset or controller has left."),
                 [Lang.T("Each device gets its own group on All sensors, with its battery as a reading."),
