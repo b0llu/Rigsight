@@ -18,7 +18,7 @@ internal readonly record struct FanReading(string Id, string Name, string Hardwa
 /// Turns raw samples into history: per-minute system summaries, per-hour per-app usage, and
 /// sessions. Everything runs on the agent's sampler thread, and data is written once a minute.
 /// </summary>
-internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffset>? clock = null)
+internal sealed partial class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffset>? clock = null)
 {
     // The time now. Tests pass their own clock, to replay hours of use (and midnights) in moments.
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.Now);
@@ -57,6 +57,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     {
         public readonly FrameSpread Spread = new();
         public readonly List<Stutter> Stutters = [];
+        /// <summary>Seconds that gave frames, and whether Windows dropped some of the trace's events in them (RigSight's own source).</summary>
+        public int Seconds;
+        public bool Lost;
     }
 
     private sealed class MinuteAcc
@@ -89,6 +92,8 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         public int FpsN, FpsLowN;
         /// <summary>Each game's every frame over the minute, by app (usually one: the game in front).</summary>
         public readonly Dictionary<long, FrameAcc> Frames = [];
+        /// <summary>The same from RigSight's own reading of the game's presents (see Tracker.OwnFrames.cs).</summary>
+        public readonly Dictionary<long, FrameAcc> OwnFrames = [];
         /// <summary>How many process samples the minute has had, and what each app with something to show added up to over them.</summary>
         public int Samples;
         public readonly Dictionary<string, AppAcc> Apps = new(StringComparer.OrdinalIgnoreCase);
@@ -282,6 +287,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
 
         if (Paused)
         {
+            FrontGame = default;
             _foreground = null;
             Activity = new ActivityInfo { Paused = true };
             return;
@@ -304,6 +310,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         bool vrPlay = !s.Locked && app is not null && _vrGame?.App == app && (!FramesMeasured(pid) || ReadFrames(pid) is not null);
         bool present = !s.Locked && (inputActive || fullscreenActive || vrPlay);
         LogGame(app, s, present, vrFront, inputActive, fullscreenActive, vrPlay);
+        FrontGame = app is not null && present && IsGame(app) ? (pid, app.Exe) : default;
 
         _minute.Seconds += dt;
         _today.OnSec += dt;
@@ -337,13 +344,16 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                 session.LastActive = now;
 
                 LearnGame(app, s.Fullscreen && !vrFront, dt);
+                bool rtss = false;
                 if (IsGame(app) && ReadFrames(pid) is var (fps, low))
                 {
                     _minute.FpsSum += fps;
                     _minute.FpsN++;
                     if (low is double l) { _minute.FpsLowSum += l; _minute.FpsLowN++; }
                     TakeFrames(app, pid);
+                    rtss = true;
                 }
+                if (IsGame(app)) TakeOwnFrames(app, pid, rtss);
             }
             else
             {
@@ -999,10 +1009,11 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     FgVram = FrontVram(m),
                     // Ten seconds of frames at least, so a game glimpsed while switching away doesn't give the minute a rate.
                     // From every frame where they were read (the true 1% low), else RivaTuner's own readings averaged.
-                    Fps = m.FpsN >= 10 ? FrontFrames(m)?.Fps ?? m.FpsSum / m.FpsN : null,
-                    FpsLow = m.FpsN >= 10 ? FrontFrames(m)?.Low1 ?? (m.FpsLowN > 0 ? m.FpsLowSum / m.FpsLowN : null) : null,
+                    // Without RivaTuner, RigSight's own reading of the game's frames, on the same ten seconds.
+                    Fps = m.FpsN >= 10 ? FrontFrames(m)?.Fps ?? m.FpsSum / m.FpsN : OwnFrontFrames(m)?.Fps,
+                    FpsLow = m.FpsN >= 10 ? FrontFrames(m)?.Low1 ?? (m.FpsLowN > 0 ? m.FpsLowSum / m.FpsLowN : null) : OwnFrontFrames(m)?.Low1,
                 });
-                foreach (var (appId, frames) in m.Frames) db.WriteFrameMinute(_minuteTs, appId, frames.Spread, WithDrivers(frames.Stutters));
+                WriteFrameMinutes(m);
                 db.WriteAppMinutes(_minuteTs, [.. TopApps(m.Apps, m.Samples)
                     .Select(a => new AppMinute(_minuteTs, apps.Get(a.Exe, a.Pid).Id, a.Cpu, a.Gpu, a.MemMb, a.Disk))]);
                 db.WriteFanMinutes(_minuteTs, [.. m.Fans.Where(f => f.Value.N > 0)
@@ -1093,6 +1104,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         _sessions.Remove(session.App.Id);
         if (IsGame(session.App))
             Log.Write("games", $"Session ended: {session.App.Exe}, {why}, {session.ActiveSec / 60:0} min counted");
+        LogPlayFrames(session.App);
         if (session.ActiveSec <= 0) return;
         SessionEnded?.Invoke(SaveSession(session), session.App);
     }

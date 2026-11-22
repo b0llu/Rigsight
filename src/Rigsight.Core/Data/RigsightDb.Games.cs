@@ -145,12 +145,25 @@ public sealed partial class RigsightDb
     private bool? _hasFrames;
     private bool HasFrames => _hasFrames ??= HasTable("frame_minute");
 
-    /// <summary>A minute of a game's frames: their spread and how many stutters.</summary>
-    public void WriteFrameMinute(long ts, long app, Games.FrameSpread spread, IReadOnlyList<Games.Stutter> stutters)
+    // Where each minute's frames came from (2026-11-22): RivaTuner's (0, and every row from before) or RigSight's own
+    // reading of the game's presents (1), for players without RivaTuner.
+    private void EnsureFrameSourceSchema()
+    {
+        if (!HasColumn("frame_minute", "src")) Exec("ALTER TABLE frame_minute ADD COLUMN src INTEGER");
+    }
+
+    private bool? _hasFrameSource;
+    private bool HasFrameSource => _hasFrameSource ??= HasFrames && HasColumn("frame_minute", "src");
+
+    /// <summary>A minute of a game's frames: their spread, how many stutters, and where they came from.</summary>
+    public void WriteFrameMinute(long ts, long app, Games.FrameSpread spread, IReadOnlyList<Games.Stutter> stutters, Games.FrameSource src = Games.FrameSource.RivaTuner)
     {
         if (spread.IsEmpty) return;
-        using (var cmd = Cmd("INSERT OR REPLACE INTO frame_minute(ts, app, frames, stutters, spread) VALUES($ts, $app, $frames, $stutters, $spread)",
-                   ("$ts", ts), ("$app", app), ("$frames", spread.Frames), ("$stutters", stutters.Count), ("$spread", spread.ToBytes())))
+        using (var cmd = HasFrameSource
+                   ? Cmd("INSERT OR REPLACE INTO frame_minute(ts, app, frames, stutters, spread, src) VALUES($ts, $app, $frames, $stutters, $spread, $src)",
+                       ("$ts", ts), ("$app", app), ("$frames", spread.Frames), ("$stutters", stutters.Count), ("$spread", spread.ToBytes()), ("$src", (int)src))
+                   : Cmd("INSERT OR REPLACE INTO frame_minute(ts, app, frames, stutters, spread) VALUES($ts, $app, $frames, $stutters, $spread)",
+                       ("$ts", ts), ("$app", app), ("$frames", spread.Frames), ("$stutters", stutters.Count), ("$spread", spread.ToBytes())))
             cmd.ExecuteNonQuery();
         foreach (var s in stutters)
         {
@@ -194,6 +207,27 @@ public sealed partial class RigsightDb
             list.Add((r.GetInt64(0), spread.Fps, spread.Low1, r.GetInt32(2)));
         }
         return list;
+    }
+
+    /// <summary>Where each minute of a game's frames came from, oldest first (a row from before the column: RivaTuner).</summary>
+    public List<(long Ts, Games.FrameSource Src)> GetFrameSources(long appId, long from, long to)
+    {
+        var list = new List<(long, Games.FrameSource)>();
+        if (!HasFrames) return list;
+        using var cmd = Cmd(HasFrameSource
+            ? "SELECT ts, src FROM frame_minute WHERE app = $app AND ts >= $from AND ts < $to ORDER BY ts"
+            : "SELECT ts, NULL FROM frame_minute WHERE app = $app AND ts >= $from AND ts < $to ORDER BY ts", ("$app", appId), ("$from", from), ("$to", to));
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add((r.GetInt64(0), r.IsDBNull(1) ? Games.FrameSource.RivaTuner : (Games.FrameSource)r.GetInt32(1)));
+        return list;
+    }
+
+    /// <summary>How many minutes of a game's frames came from each source.</summary>
+    public (int RivaTuner, int Own) CountFrameSources(long appId, long from, long to)
+    {
+        var all = GetFrameSources(appId, from, to);
+        int own = all.Count(x => x.Src == Games.FrameSource.Own);
+        return (all.Count - own, own);
     }
 
     /// <summary>A game's stutters from <paramref name="fromMs"/> to <paramref name="toMs"/> (Unix ms), oldest first.</summary>
