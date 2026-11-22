@@ -425,7 +425,6 @@ internal sealed partial class AgentContext : ApplicationContext
         Step("network", StartNetwork);
         Step("disk use", StartDiskUse);
         Step("drivers", StartDrivers);
-        Step("desktop", StartDesktop);
         Step("sound", StartSound);
         Step("frames", StartFrames);
 
@@ -532,9 +531,6 @@ internal sealed partial class AgentContext : ApplicationContext
                         long tdr = Stopwatch.GetTimestamp();
                         SampleDrivers();
                         Measure("drivers", tdr);
-                        long tdk = Stopwatch.GetTimestamp();
-                        SampleDesktop();
-                        Measure("desktop", tdk);
                         long tso = Stopwatch.GetTimestamp();
                         SampleSound();
                         Measure("sound", tso);
@@ -744,7 +740,6 @@ internal sealed partial class AgentContext : ApplicationContext
         Step("network trace", () => _netTrace?.Dispose(), took);
         Step("disk trace", () => _diskTrace?.Dispose(), took);
         Step("driver trace", () => _driverTrace?.Dispose(), took);
-        Step("desktop trace", () => _desktopTrace?.Dispose(), took);
         Step("sound trace", () => _soundTrace?.Dispose(), took);
         Step("frames trace", () => _presentTrace?.Dispose(), took);
         Step("line check", () => _line?.Dispose(), took);

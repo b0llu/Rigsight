@@ -246,7 +246,9 @@ public sealed partial class RigsightDb : IDisposable
         EnsureDriverSchema();
         EnsureMarkSchema();
         EnsureDeviceFullSchema();
-        EnsureDesktopSchema();
+        // Desktop hitches were recorded only by the 1.16.1.1 test build: Windows 11 never sent the compositor events it
+        // listened for (45-second capture, 22 Nov 2026), so it was removed and its empty table goes too.
+        Exec("DROP TABLE IF EXISTS desktop_minute;");
         EnsureSoundSchema();
     }
 
@@ -1093,7 +1095,6 @@ public sealed partial class RigsightDb : IDisposable
         PruneDriveHealth(before);
         PruneDeviceFull(before);
         PruneDrivers(before);
-        PruneDesktop(before);
         PruneSound(before);
         PruneMarks(before);
         PruneChanges(before);
@@ -1142,7 +1143,6 @@ public sealed partial class RigsightDb : IDisposable
             + " DELETE FROM changes; DELETE FROM frame_minute; DELETE FROM stutter; DELETE FROM steam_download;"
             + " DELETE FROM disk_app_hour; DELETE FROM disk_app_day; DELETE FROM app_cpu_hour; DELETE FROM app_cpu_day; DELETE FROM device_full;"
             + " DELETE FROM driver_minute; DELETE FROM driver_hour; DELETE FROM driver_missed; DELETE FROM problem_mark;");
-        ClearDesktop();
         ClearSound();
     }
 

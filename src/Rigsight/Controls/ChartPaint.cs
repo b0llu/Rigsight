@@ -218,11 +218,11 @@ internal static class ChartPaint
 
     /// <summary>
     /// A hover with more to say (a play on the Games page): a title and a grey line under it, one big figure with its
-    /// word, the rest as label and value pairs in a shaded box, then a marked line (an update) and, under a thin line,
+    /// word, the rest as label and value pairs in a shaded box, then an update's line in the update colour and, under a thin line,
     /// what a click does. Drawn like the Network page's hour hover (the user, 2026-11-20, approved mock-up).
     /// </summary>
     public static Rect GroupedBox(DrawingContext dc, Visual v, string title, string? sub, string big, string bigWord, Brush bigBrush,
-        IReadOnlyList<HoverFact> facts, (string Text, Brush Dot)? mark, string? foot, Point at, Rect bounds, bool above = false, HoverNote? note = null)
+        IReadOnlyList<HoverFact> facts, string? mark, string? foot, Point at, Rect bounds, bool above = false, HoverNote? note = null)
     {
         const double Width = 268, FactsPad = 10, ColGap = 10, RowGap = 8;
         // Every line wraps inside the box rather than running past its edge: "2:31 PM to 8:06 PM · 5h 17m · ended by a
@@ -236,7 +236,7 @@ internal static class ChartPaint
         var cells = facts.Select(f => (L: Wrap(Format(v, f.Label.ToUpper(CultureInfo.CurrentCulture), 10.5, Faint, true), colW), V: Wrap(Format(v, f.Value, 12.5, f.Brush ?? TextBrush), colW))).ToList();
         var rows = cells.Chunk(2).Select(r => r.Max(c => c.L.Height + 1 + c.V.Height)).ToList();
         double factsH = rows.Count == 0 ? 0 : rows.Sum() + (rows.Count - 1) * RowGap + 2 * 8;
-        var m = mark is { } mk ? Wrap(Format(v, mk.Text, 12, FpsMarkText), inner - 13) : null;
+        var m = mark is null ? null : Wrap(Format(v, mark, 12, FpsMarkText), inner);
         var f = foot is null ? null : Wrap(Format(v, foot, 11.5, Faint), inner);
         double noteW = inner - 2 * FactsPad;
         var nl = note is { Label: { } nlabel } ? Wrap(Format(v, nlabel.ToUpper(CultureInfo.CurrentCulture), 10.5, Faint, true), noteW) : null;
@@ -286,13 +286,11 @@ internal static class ChartPaint
             if (nd is not null) dc.DrawText(nd, new Point(nx, ny + 3));
             ty += noteH;
         }
-        if (m is not null && mark is { } mm)
+        if (m is not null)
         {
+            // On the box's left edge like every other line, no dot in front (the user, 2026-11-22).
             ty += 9;
-            // On the first line's middle when the text wraps (WORDING.md, Alignment).
-            double firstLine = Format(v, "X", 12, FpsMarkText).Height;
-            dc.DrawEllipse(mm.Dot, null, new Point(left + 3.5, ty + firstLine / 2), 3.5, 3.5);
-            dc.DrawText(m, new Point(left + 13, ty));
+            dc.DrawText(m, new Point(left, ty));
             ty += m.Height;
         }
         if (f is not null)

@@ -517,8 +517,8 @@ public sealed class RunsChart : FrameworkElement
             // The sound cutting out during it (approved mock-up board 7), only when it did.
             if (SoundFact(p.SoundCuts, minute: false, warm) is { } sound) facts.Add(sound);
             // An update shortly before: what may explain a change.
-            (string, Brush)? mark = (Marks ?? []).Where(m => m.Time <= p.End && m.Time > p.At.AddDays(-7)).MaxBy(m => m.Time) is { } m
-                ? (Lang.T($"{m.Time:d MMM}: {m.Title}"), ChartPaint.FpsMark) : null;
+            string? mark = (Marks ?? []).Where(m => m.Time <= p.End && m.Time > p.At.AddDays(-7)).MaxBy(m => m.Time) is { } m
+                ? Lang.T($"{m.Time:d MMM}: {m.Title}") : null;
             string? foot = p.CanOpen ? p.IsWeek ? Lang.T("Click to see this week") : Lang.T("Click to see this play") : null;
             double r = slots ? 5.2 : 4;
             dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(x0, Y(p.Fps)), r, r);
