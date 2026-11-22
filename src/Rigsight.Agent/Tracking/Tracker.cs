@@ -164,6 +164,9 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
     private DateTime _lastPrune = DateTime.MinValue;
 
     private AppInfo? _foreground;
+
+    /// <summary>The app in front at the last activity sample, in use or not (null: none, locked, paused or left out).</summary>
+    internal AppInfo? Front => _foreground;
     private bool _present;
 
     /// <summary>
