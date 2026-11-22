@@ -5,6 +5,15 @@ using System.Windows.Media;
 namespace Rigsight.Controls;
 
 /// <summary>
+/// A grouped hover's note in a shaded box of its own, under the facts (driver activity, approved mock-up v6,
+/// 2026-11-21): a small caps <see cref="Label"/> and the answer in bright <see cref="Value"/> ("POSSIBLE CAUSE" /
+/// "Your Ethernet adapter") with the evidence as a quieter <see cref="Sentence"/>; or, with no value, the sentence
+/// alone in full colour (a minute's line); <see cref="Detail"/> small and grey under it (the device and its file).
+/// <see cref="Quiet"/> greys the sentence even without a value (a minute whose readings were dropped).
+/// </summary>
+public readonly record struct HoverNote(string? Label, string? Value, string Sentence, string? Detail = null, bool Quiet = false);
+
+/// <summary>
 /// Shared colors and text helpers for the custom-drawn charts. The colors come from the current theme's
 /// palette (Themes/Dark.xaml or Light.xaml) and are reloaded by <see cref="Load"/> when the theme changes.
 /// </summary>
@@ -206,14 +215,6 @@ internal static class ChartPaint
     /// <summary>A grouped hover's facts: a caps label over its value, two to a row; <see cref="Warm"/> when it needs a look.</summary>
     public readonly record struct HoverFact(string Label, string Value, Brush? Brush = null);
 
-    /// <summary>
-    /// A grouped hover's note in a shaded box of its own, under the facts (driver activity, approved mock-up v6,
-    /// 2026-11-21): a small caps <see cref="Label"/> and the answer in bright <see cref="Value"/> ("POSSIBLE CAUSE" /
-    /// "Your Ethernet adapter") with the evidence as a quieter <see cref="Sentence"/>; or, with no value, the sentence
-    /// alone in full colour (a minute's line); <see cref="Detail"/> small and grey under it (the device and its file).
-    /// <see cref="Quiet"/> greys the sentence even without a value (a minute whose readings were dropped).
-    /// </summary>
-    public readonly record struct HoverNote(string? Label, string? Value, string Sentence, string? Detail = null, bool Quiet = false);
 
     /// <summary>
     /// A hover with more to say (a play on the Games page): a title and a grey line under it, one big figure with its

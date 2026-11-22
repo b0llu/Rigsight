@@ -735,10 +735,10 @@ public sealed partial class GamesViewModel : ObservableObject
                 var missed = db.GetDriverMissed(first, play.End + 60);
                 var partMinutes = cause is null ? new Dictionary<long, Rigsight.Core.Drivers.DriverTally>()
                     : db.GetDriverMinutes(first, play.End + 60, cause.Part.Driver).ToDictionary(t => t.Ts);
-                ChartPaint.HoverNote? Note(long ts, int count) =>
-                    count > 0 && missed.Contains(ts) ? new ChartPaint.HoverNote(null, null, Rigsight.Core.Drivers.StutterParts.Missed, Quiet: true)
+                HoverNote? Note(long ts, int count) =>
+                    count > 0 && missed.Contains(ts) ? new HoverNote(null, null, Rigsight.Core.Drivers.StutterParts.Missed, Quiet: true)
                     : cause is not null && Rigsight.Core.Drivers.StutterParts.MinuteLine(cause, count, partMinutes.GetValueOrDefault(ts)) is { } line
-                        ? new ChartPaint.HoverNote(null, null, line, Rigsight.Core.Drivers.StutterParts.Detail(cause.Part)) : null;
+                        ? new HoverNote(null, null, line, Rigsight.Core.Drivers.StutterParts.Detail(cause.Part)) : null;
                 var m = db.GetFrameMinutes(app, play.Start, play.End + 60).Select(x => new RunsMinute(TimeUtil.FromUnix(x.Ts), x.Fps, x.Low, x.Stutters, Note(x.Ts, x.Stutters))).ToList();
                 return (m, s, cause?.Line ?? StutterCauses.Explain(db, app, s, play.Start, play.End + 60, settings));
             });
@@ -769,7 +769,7 @@ public sealed partial class GamesViewModel : ObservableObject
             p => Rigsight.Core.Drivers.StutterParts.Find(db, db.GetStutters(game, p.Start * 1000, (p.End + 60) * 1000), p.Start, p.End + 60)));
         if (ask != _runsAsk || causes is null || causes.Values.All(c => c is null)) return;
         RunsPoints = RunsPoints.Select(pt => !pt.IsWeek && causes.TryGetValue(pt.At, out var c) && c is not null
-            ? pt with { Cause = new ChartPaint.HoverNote(c.Label, c.Value, c.Sentence) } : pt).ToList();
+            ? pt with { Cause = new HoverNote(c.Label, c.Value, c.Sentence) } : pt).ToList();
     }
 
     /// <summary>A week of plays as one point: its plays' average and 1% low by time played, and its stutters an hour.</summary>

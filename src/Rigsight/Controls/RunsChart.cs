@@ -13,13 +13,13 @@ namespace Rigsight.Controls;
 /// (MB, its average and highest over the hours it touched) for the hover.
 /// </summary>
 public sealed record RunsPoint(DateTime At, DateTime End, double ActiveSec, double Fps, double? Low, double? StuttersAnHour, int Plays, bool IsWeek,
-    bool CanOpen, bool PowerCut, double? Gpu, double? Watts, double? MemAvg = null, double? MemMax = null, ChartPaint.HoverNote? Cause = null);
+    bool CanOpen, bool PowerCut, double? Gpu, double? Watts, double? MemAvg = null, double? MemMax = null, HoverNote? Cause = null);
 
 /// <summary>A driver or the game updated: a flag on a dashed line at its time.</summary>
 public sealed record RunsMark(DateTime Time, string Label, string Title);
 
 /// <summary>A minute of one play, from its frames: the true average, 1% low and its stutters, and a line about its stutters' possible cause (driver activity) when there is one.</summary>
-public sealed record RunsMinute(DateTime At, double? Fps, double? Low, int Stutters, ChartPaint.HoverNote? Note = null);
+public sealed record RunsMinute(DateTime At, double? Fps, double? Low, int Stutters, HoverNote? Note = null);
 
 /// <summary>
 /// The Games page's "How it runs" as one chart (approved mock-up "How it runs, as one chart", 2026-10-27): the plays over

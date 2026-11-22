@@ -1,6 +1,7 @@
 using Rigsight.Agent.Drivers;
 using Rigsight.Agent.Network;
 using Rigsight.Core;
+using Rigsight.Core.Data;
 using Rigsight.Core.Drivers;
 
 namespace Rigsight.Agent;

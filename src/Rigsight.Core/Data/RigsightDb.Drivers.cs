@@ -118,7 +118,7 @@ public sealed partial class RigsightDb
     {
         if (!HasDrivers) return null;
         long from = before - DriverRules.UsualDays * 86400L;
-        using (var first = Cmd("SELECT MIN(ts) FROM driver_hour WHERE driver = $d", ("$d", driver)))
+        using (var first = Cmd("SELECT min(ts) FROM driver_hour WHERE driver = $d", ("$d", driver)))
             if (first.ExecuteScalar() is not long oldest || oldest > from) return null;
         var values = new List<int>();
         using var cmd = Cmd("SELECT longest_us FROM driver_hour WHERE driver = $d AND ts >= $f AND ts < $t ORDER BY longest_us", ("$d", driver), ("$f", from), ("$t", before));
