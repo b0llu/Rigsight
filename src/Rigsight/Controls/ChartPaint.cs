@@ -215,16 +215,19 @@ internal static class ChartPaint
         IReadOnlyList<HoverFact> facts, (string Text, Brush Dot)? mark, string? foot, Point at, Rect bounds, bool above = false)
     {
         const double Width = 268, FactsPad = 10, ColGap = 10, RowGap = 8;
-        var t = Format(v, title, 13, TextBrush, true);
-        var s = sub is null ? null : Format(v, sub, 12, Muted);
+        // Every line wraps inside the box rather than running past its edge: "2:31 PM to 8:06 PM · 5h 17m · ended by a
+        // power cut" was wider than the box (the user, 2026-11-21), and Spanish is longer still.
+        double inner = Width - 2 * PadX;
+        var t = Wrap(Format(v, title, 13, TextBrush, true), inner);
+        var s = sub is null ? null : Wrap(Format(v, sub, 12, Muted), inner);
         var b = Format(v, big, 22, bigBrush, true);
         var bw = Format(v, bigWord, 12, Muted);
-        double colW = (Width - 2 * PadX - 2 * FactsPad - ColGap) / 2;
-        var cells = facts.Select(f => (L: Format(v, f.Label.ToUpper(CultureInfo.CurrentCulture), 10.5, Faint, true), V: Format(v, f.Value, 12.5, f.Brush ?? TextBrush))).ToList();
+        double colW = (inner - 2 * FactsPad - ColGap) / 2;
+        var cells = facts.Select(f => (L: Wrap(Format(v, f.Label.ToUpper(CultureInfo.CurrentCulture), 10.5, Faint, true), colW), V: Wrap(Format(v, f.Value, 12.5, f.Brush ?? TextBrush), colW))).ToList();
         var rows = cells.Chunk(2).Select(r => r.Max(c => c.L.Height + 1 + c.V.Height)).ToList();
         double factsH = rows.Count == 0 ? 0 : rows.Sum() + (rows.Count - 1) * RowGap + 2 * 8;
-        var m = mark is { } mk ? Format(v, mk.Text, 12, FpsMarkText) : null;
-        var f = foot is null ? null : Format(v, foot, 11.5, Faint);
+        var m = mark is { } mk ? Wrap(Format(v, mk.Text, 12, FpsMarkText), inner - 13) : null;
+        var f = foot is null ? null : Wrap(Format(v, foot, 11.5, Faint), inner);
 
         double h = PadY + t.Height + (s is null ? 0 : 2 + s.Height) + 8 + b.Height + (factsH > 0 ? 8 + factsH : 0)
             + (m is null ? 0 : 9 + m.Height) + (f is null ? 0 : 9 + 1 + 7 + f.Height) + PadY;
@@ -259,7 +262,9 @@ internal static class ChartPaint
         if (m is not null && mark is { } mm)
         {
             ty += 9;
-            dc.DrawEllipse(mm.Dot, null, new Point(left + 3.5, ty + m.Height / 2), 3.5, 3.5);
+            // On the first line's middle when the text wraps (WORDING.md, Alignment).
+            double firstLine = Format(v, "X", 12, FpsMarkText).Height;
+            dc.DrawEllipse(mm.Dot, null, new Point(left + 3.5, ty + firstLine / 2), 3.5, 3.5);
             dc.DrawText(m, new Point(left + 13, ty));
             ty += m.Height;
         }
@@ -271,5 +276,11 @@ internal static class ChartPaint
             dc.DrawText(f, new Point(left, ty));
         }
         return new Rect(x, y, Width, h);
+
+        static FormattedText Wrap(FormattedText text, double width)
+        {
+            text.MaxTextWidth = Math.Max(1, width);
+            return text;
+        }
     }
 }
