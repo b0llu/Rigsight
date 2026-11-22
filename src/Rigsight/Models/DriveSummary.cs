@@ -149,7 +149,8 @@ public sealed partial class DriveSummary : ObservableObject
     {
         "Bad" => Lang.T("SMART reports a serious problem with this drive. Back up anything important on it now."),
         "Caution" => Lang.T("SMART reports early warning signs (such as bad sectors). Keep a backup and keep an eye on it."),
-        "Good" when Life?.Value is null => Lang.T("SMART reports no problems."),
+        "Good" when Life?.Value is null && Health is { IsSsd: true } or { IsNvme: true } => Lang.T("SMART reports no problems."),
+        "Good" when Life?.Value is null => Lang.T("SMART reports no problems. Hard drives don't report a wear figure the way SSDs do, so there's no percentage."),
         "Good" => Lang.T("SMART reports no problems. The percentage is how much of its rated life the SSD has left."),
         _ => Lang.T("How much of its rated life the SSD has left."),
     };

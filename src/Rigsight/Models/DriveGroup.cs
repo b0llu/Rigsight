@@ -41,7 +41,12 @@ public sealed partial class DriveGroup : ObservableObject
         drive?.Bus is "BusTypeUsb" or "Usb" or "USB" || letters.Any(l => l.Kind == "usb");
     public bool IsUsb => UsesUsb(Health, Letters);
     private bool IsSsd => Health is { IsSsd: true } or { IsNvme: true };
-    public bool HasReading => Health is not null;
+    /// <summary>
+    /// A drive the agent found whose SMART read gave nothing back (no attributes, status, wear, hours or temperature):
+    /// many USB adapters and some controllers don't pass it on. Only its size and connection are known.
+    /// </summary>
+    private bool GaveNothing => Health is { Status: "Unknown", Life: null, Temperature: null, PowerOnHours: null, Attributes: null or { Count: 0 } };
+    public bool HasReading => Health is not null && !GaveNothing;
     public bool HasLetters => Letters.Count > 0;
     public bool NoLetter => Letters.Count == 0;
 
@@ -87,9 +92,7 @@ public sealed partial class DriveGroup : ObservableObject
         get
         {
             if (LifeLeft is double life) return $"{life:0}%";
-            if (Sectors is long s) return s == 0 ? Lang.T("No bad sectors") : s == 1 ? Lang.T("1 bad sector") : Lang.T($"{s:N0} bad sectors");
-            if (!IsSsd) return "";
-            return IsUsb ? Lang.T("Wear unavailable over USB") : Lang.T("Wear unavailable");
+            return Sectors is long s ? s == 0 ? Lang.T("No bad sectors") : s == 1 ? Lang.T("1 bad sector") : Lang.T($"{s:N0} bad sectors") : "";
         }
     }
 
@@ -130,6 +133,7 @@ public sealed partial class DriveGroup : ObservableObject
     /// <summary>A row with no reading says why, across the health columns.</summary>
     public string Note => IsNetwork ? Lang.T("Only how full it is, since it's on another computer")
         : IsUsb ? Lang.T("Only how full it is, through this USB adapter")
+        : GaveNothing ? Lang.T("Only how full it is, since this drive gives no health readings")
         : Lang.T("Drive health needs admin rights on this PC.");
 
     // ── Needs a look card ───────────────────────────────────────────────
