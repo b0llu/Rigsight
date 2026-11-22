@@ -176,7 +176,7 @@ public sealed partial class AiTools
         string? state = RivaTuner?.Invoke();
         if (rtss is null && state != "running")
             return state is "stopped" or "missing" or "install-failed"
-                ? "RivaTuner Statistics Server isn't running now, so no frame rates are being recorded (we read them only from it).\n" : "";
+                ? "RivaTuner Statistics Server isn't running now, so no frame rates are being recorded from it; RigSight records them by itself only while it runs with admin rights.\n" : "";
         string fps = "";
         if (settings.Ai.Sends(AiPages.Apps))
             try
@@ -251,7 +251,7 @@ public sealed partial class AiTools
                 sb.AppendLine("The graphics card's power wasn't read in any of these minutes (the card gave no power reading), so it isn't below. Don't guess it.");
             sb.AppendLine("Each recorded minute:");
             if (a.Sends(AiPages.Apps) && minutes.Any(m => m.Fps is not null))
-                sb.AppendLine("  (A minute with fps had RivaTuner Statistics Server running then: our frame rates come only from it.)");
+                sb.AppendLine("  (A minute's fps came from RivaTuner Statistics Server while it measured the game, else from RigSight's own reading of the game's frames, which needs admin rights.)");
             foreach (var m in minutes)
             {
                 var parts = new List<string>();

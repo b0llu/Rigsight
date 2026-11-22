@@ -543,11 +543,15 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (settings.Ai.Sends(AiPages.Temperatures) && story.All.Minutes > 0 && story.All.GpuPower is null)
             sb.AppendLine("The graphics card's power wasn't read in any play (the card gave no power reading), so plays have no GPU watts. Don't guess them.");
         if (NoFrameRate(story) is { } noFps) sb.AppendLine(noFps);
-        // RivaTuner was running for any play with a frame rate: the only place RigSight's frame rates come from (audit Q125, Q128).
+        // Where the frame rates came from (audit Q125, Q128): RivaTuner while it measured the game, the only source until
+        // RigSight read the game's frames itself (2026-11-22, frame_minute.src); said by source once any came from its own.
+        int ownMinutes = story.All.FrameMinutes > 0 ? entry.AppIds.Sum(id => db.CountFrameSources(id, 0, long.MaxValue / 2).Own) : 0;
         if (story.Plays.Any(p => p.Stats.Fps is not null))
-            sb.AppendLine("Every play with an FPS figure had RivaTuner Statistics Server (RTSS) running during it: our frame rates come only from it. Whether it runs now is in get_running_now.");
+            sb.AppendLine(ownMinutes == 0
+                ? "Every play with an FPS figure had RivaTuner Statistics Server (RTSS) running during it: its frame rates came from it. Whether it runs now is in get_running_now."
+                : $"Frame rates come from RivaTuner Statistics Server (RTSS) where it measured the game, else from RigSight's own reading of each frame the game handed to Windows (that needs admin rights): {ownMinutes} of this game's {story.All.FrameMinutes} minutes with frames came from RigSight's own. Whether RTSS runs now is in get_running_now.");
         if (story.All.FrameMinutes > 0)
-            sb.AppendLine("A stutter is one frame taking at least 2.5 times as long as the frames just before it, and at least 20 ms: a hitch you feel. Lows and stutters come from every frame RivaTuner drew; more stutters an hour than the game's own other plays means it ran less smoothly.");
+            sb.AppendLine("A stutter is one frame taking at least 2.5 times as long as the frames just before it, and at least 20 ms: a hitch you feel. Lows and stutters come from every frame the game drew; more stutters an hour than the game's own other plays means it ran less smoothly.");
         if (settings.Ai.Sends(AiPages.Memory)) sb.AppendLine("\"Graphics card memory in use\" is the whole card, every app together. \"The game's own video memory\" is the game alone, recorded only for plays from 20 Oct 2026 on: for older plays, check what else was using the card before saying a game uses more.");
         var newest = story.Plays.OrderByDescending(p => p.Start).ToList();
         List<GamePlay> listed, older = [];
@@ -637,7 +641,8 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
 
     /// <summary>
     /// Why plays have no frame rate (the person's ask, 2026-10-25: people without RivaTuner must know why FPS isn't
-    /// shown): RigSight reads it from RivaTuner, and says which of its states kept it out. Null when every play has one.
+    /// shown): RigSight reads it itself with admin rights (2026-11-22) and from RivaTuner otherwise, and says which of
+    /// RivaTuner's states kept it out. Null when every play has one.
     /// </summary>
     private string? NoFrameRate(GameStory story)
     {
@@ -654,7 +659,7 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
             "running" => "it's already running, so frame rates are being recorded; these plays were simply before it ran. Next step: just play the game once more, then ask again. Don't tell them to start, install or open RivaTuner",
             _ => "it wasn't running for them. Next step: play the game again, and if a play still has no frame rate, the Overlay page ([do: open overlay]) shows whether RivaTuner runs",
         };
-        return $"WHY NO FRAME RATE: {some}. RigSight reads frame rates from RivaTuner Statistics Server, a free tool anti-cheat accepts; {state}. Say this when the frame rate matters to the question, use that next step as it is, and never guess a frame rate.";
+        return $"WHY NO FRAME RATE: {some}. RigSight reads a game's frame rate itself while it runs with admin rights (newer versions only), and otherwise from RivaTuner Statistics Server, a free tool anti-cheat accepts; as for RivaTuner, {state}. Say this when the frame rate matters to the question, use that next step as it is, and never guess a frame rate.";
     }
 
     /// <summary>

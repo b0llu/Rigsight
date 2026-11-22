@@ -234,6 +234,7 @@ public sealed partial class RigsightDb : IDisposable
             CREATE TABLE IF NOT EXISTS stutter(ts_ms INTEGER NOT NULL, app INTEGER NOT NULL, ms REAL NOT NULL, usual_ms REAL NOT NULL,
                 PRIMARY KEY(ts_ms, app)) WITHOUT ROWID;
             """);
+        EnsureFrameSourceSchema();
 
         EnsureNetworkSchema();
         EnsureChangesSchema();
