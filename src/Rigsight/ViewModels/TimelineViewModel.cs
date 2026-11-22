@@ -28,6 +28,10 @@ public sealed partial class TimelineEntry : ObservableObject
     public string? GameKey { get; init; }
     public string? Detail { get; init; }
 
+    /// <summary>A muted line under the title (a stretch of sound dropouts' possible cause).</summary>
+    public string? Note { get; init; }
+    public bool HasNote => Note is { Length: > 0 };
+
     /// <summary>Drivers, Windows and hardware stand out: they're what a PC-wide problem usually comes from.</summary>
     public bool IsKey { get; init; }
 
@@ -183,6 +187,9 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     /// <summary>A problem marked from the tray's "Something just went wrong": a flag, in the palette's purple.</summary>
     private const string MarkIcon = "\uE7C1";
 
+    /// <summary>A stretch of sound dropouts: a speaker, warm.</summary>
+    private const string SoundIcon = "\uE995";
+
     private const string ProblemIcon = "";
 
     public ObservableCollection<TimelineDay> Days { get; } = [];
@@ -265,7 +272,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     internal void Apply(TimelineData data, bool onlyIfChanged = false)
     {
-        string signature = $"{data.Changes.Count}|{data.Changes.Sum(c => c.Id)}|{data.Changes.Count(c => c.Kind == ChangeKind.Storage)}|{data.Problems.Count}|{data.Marks.Count}|{data.Marks.LastOrDefault()?.Time.Ticks}|{DateTime.Today:yyyyMMdd}|{string.Join('|', data.Results.OrderBy(e => e.Key).Select(e => e.Value.Headline + e.Value.Why))}";
+        string signature = $"{data.Changes.Count}|{data.Changes.Sum(c => c.Id)}|{data.Changes.Count(c => c.Kind == ChangeKind.Storage)}|{data.Problems.Count}|{data.Marks.Count}|{data.Marks.Sum(m => m.Count)}|{data.Marks.LastOrDefault()?.Time.Ticks}|{DateTime.Today:yyyyMMdd}|{string.Join('|', data.Results.OrderBy(e => e.Key).Select(e => e.Value.Headline + e.Value.Why))}";
         bool same = signature == _signature;
         _signature = signature;
         Now = Models.Kept.Or(Now, BuildNow(data));
@@ -335,7 +342,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             // Found by the words as saved or as shown (searching in Spanish finds "actualizado").
             changes = [.. changes.Where(c => Core.TextMatch.Has(words, c.Title, c.Was, c.Now) || Core.TextMatch.Has(words, c.Shown))];
             problems = [.. problems.Where(p => Core.TextMatch.Has(words, p.Title))];
-            marks = [.. marks.Where(m => Core.TextMatch.Has(words, m.Text))];
+            marks = [.. marks.Where(m => Core.TextMatch.Has(words, m.Text, m.Note))];
         }
 
         _onDay = [];
@@ -454,7 +461,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             Title = ago switch { 0 => Lang.T("Today"), 1 => Lang.T("Yesterday"), _ => day.ToString("dddd d") },
             SubTitle = ago <= 1 ? day.ToString("dddd, d MMMM") : "",
             Month = newMonth ? day.ToString("MMMM yyyy").ToUpper(CultureInfo.CurrentCulture) : null,
-            NodeBrush = NodeOf(changes, problems),
+            NodeBrush = NodeOf(changes, problems, marks),
             // Newest first; a drive's space is the whole day's (dated at its midnight) and comes last.
             Entries = [.. entries.OrderByDescending(e => e.At).Select(e => e.Entry)],
         };
@@ -506,16 +513,31 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
                 Title = n == 1 ? last.Title : last.Outside ? Core.Wording.PowerCuts(n) : Core.Wording.Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
             });
         }
-        // The problems marked from the tray: one is its own line; more fold into one, each with its date on request.
-        if (marks.Count == 1) entries.Add(MarkEntry(marks[0], Span([marks[0].Time])));
-        else if (marks.Count > 1)
+        // The problems marked from the tray: one is its own line; more fold into one, each with its date on request. The
+        // stretches of sound dropouts the same, apart: "Sound cut out 23 times", each stretch with its date and time.
+        var marked = marks.Where(m => !m.Sound).ToList();
+        if (marked.Count == 1) entries.Add(MarkEntry(marked[0], Span([marked[0].Time])));
+        else if (marked.Count > 1)
         {
-            var newest = marks.OrderByDescending(m => m.Time).ToList();
+            var newest = marked.OrderByDescending(m => m.Time).ToList();
             entries.Add(new TimelineEntry
             {
-                Key = "marks", TimeText = Span(newest.Select(m => m.Time)), Icon = MarkIcon, IconBrush = "PurpleBrush", Title = Lang.T($"{marks.Count} problems marked"),
+                Key = "marks", TimeText = Span(newest.Select(m => m.Time)), Icon = MarkIcon, IconBrush = "PurpleBrush", Title = Lang.T($"{marked.Count} problems marked"),
                 Children = [.. newest.Select(m => new TimelineEntry { Title = m.Text, Detail = TimeText.At(m.Time, "d MMM, h:mm tt") })],
                 ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((month, "marks")),
+            });
+        }
+        var sound = marks.Where(m => m.Sound).ToList();
+        if (sound.Count == 1) entries.Add(MarkEntry(sound[0], Span([sound[0].Time])));
+        else if (sound.Count > 1)
+        {
+            var newest = sound.OrderByDescending(m => m.Time).ToList();
+            entries.Add(new TimelineEntry
+            {
+                Key = "sound", TimeText = Span(newest.Select(m => m.Time)), Icon = SoundIcon, IconBrush = "WarmBrush",
+                Title = Core.Sound.SoundDropouts.Title(sound.Sum(m => m.Count), null),
+                Children = [.. newest.Select(m => new TimelineEntry { Title = m.Text, Detail = TimeText.At(m.Time, "d MMM, h:mm tt") })],
+                ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((month, "sound")),
             });
         }
         // A change that made something better or worse keeps its own line with the result under it, as its day shows it
@@ -557,7 +579,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         return new TimelineDay
         {
             Day = month, IsSummary = true, Title = month.ToString("MMMM"), Month = newYear ? month.ToString("yyyy") : null,
-            NodeBrush = NodeOf(changes, problems), Entries = entries,
+            NodeBrush = NodeOf(changes, problems, marks), Entries = entries,
         };
 
         // The days they fell on: "9 Sep", or "3–20 Sep".
@@ -581,15 +603,17 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         IsKey = c.IsSystemLevel,
     };
 
-    /// <summary>A problem marked from the tray: its flag in purple, and what the look back found, as it was saved.</summary>
-    private static TimelineEntry MarkEntry(TimelineMark m, string when) => new()
-    {
-        TimeText = when, Icon = MarkIcon, IconBrush = "PurpleBrush", Title = m.Text,
-    };
+    /// <summary>
+    /// A problem marked from the tray: its flag in purple, and what the look back found, as it was saved. A stretch of
+    /// sound dropouts: a warm speaker, its time beside the title and its possible cause under it.
+    /// </summary>
+    private static TimelineEntry MarkEntry(TimelineMark m, string when) => m.Sound
+        ? new() { TimeText = when, Icon = SoundIcon, IconBrush = "WarmBrush", Title = m.Text, Detail = m.Detail, Note = m.Note }
+        : new() { TimeText = when, Icon = MarkIcon, IconBrush = "PurpleBrush", Title = m.Text };
 
-    /// <summary>The dot on the line: blue for changes, red for problems only, purple for marked problems only.</summary>
-    private static string NodeOf(List<SystemChange> changes, List<TimelineProblem> problems) =>
-        changes.Count > 0 ? "CpuBrush" : problems.Count > 0 ? "HotBrush" : "PurpleBrush";
+    /// <summary>The dot on the line: blue for changes, red for problems only, purple for marked problems only, warm for sound dropouts only.</summary>
+    private static string NodeOf(List<SystemChange> changes, List<TimelineProblem> problems, List<TimelineMark> marks) =>
+        changes.Count > 0 ? "CpuBrush" : problems.Count > 0 ? "HotBrush" : marks.Any(m => !m.Sound) ? "PurpleBrush" : "WarmBrush";
 
     /// <summary>The game a game update opens on the Games page (null for any other change).</summary>
     private static string? GameKeyOf(SystemChange c) =>
@@ -725,11 +749,18 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             }
             // Hovering a day says what's on it.
             var lines = day.Problems.GroupBy(p => p.Kind).Select(g => g.Count() == 1 ? g.First().Title : CrashesViewModel.KindCount(g.Key, g.Count()))
-                .Concat(day.Marks.Count switch { 0 => Array.Empty<string>(), 1 => new[] { day.Marks[0].Text }, var n => new[] { Lang.T($"{n} problems marked") } })
+                .Concat(Marked(day.Marks.Where(m => !m.Sound).ToList()))
+                .Concat(Sound(day.Marks.Where(m => m.Sound).ToList()))
                 .Concat(day.Changes.OrderByDescending(c => c.IsSystemLevel).Take(5).Select(c => c.Shown)).ToList();
             if (day.Changes.Count > 5) lines.Add(Lang.T($"and {day.Changes.Count - 5} more"));
             cell.Tip = string.Join("\n", lines);
         }
+
+        // Problems marked, and stretches of sound dropouts: one says its line, more say how many.
+        static string[] Marked(List<TimelineMark> marks) =>
+            marks.Count switch { 0 => [], 1 => [marks[0].Text], var n => [Lang.T($"{n} problems marked")] };
+        static string[] Sound(List<TimelineMark> marks) =>
+            marks.Count switch { 0 => [], 1 => [marks[0].Text], _ => [Core.Sound.SoundDropouts.Title(marks.Sum(m => m.Count), null)] };
         CalendarTitle = m.ToString("MMMM yyyy");
         CanGoBack = m > FirstMonth;
         CanGoForward = m < ThisMonth;

@@ -194,6 +194,31 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         }
     }
 
+    /// <summary>
+    /// The sound cutting out in the selected app over the period (approved mock-up board 6, 2026-11-22): a line under its
+    /// boxes only when it was clearly more than on its usual days (see <see cref="Core.Sound.AppSound"/>); null otherwise.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSound), nameof(HasSoundCause))]
+    private Core.Sound.AppSoundLine? _sound;
+
+    public bool HasSound => Sound is not null;
+    public bool HasSoundCause => Sound?.Cause is { Length: > 0 };
+
+    /// <summary>
+    /// The period in the line's words: "today", "yesterday", "on Fri, 20 Nov" for a day, as the card's own summary says
+    /// it; "in this period" for a week, a month, a year or a custom range.
+    /// </summary>
+    internal string SoundPeriod => Unit == ReportRange.Day ? Controls.PeriodPicker.Words(Unit, Anchor) : Lang.T("in this period");
+
+    private async Task LoadSoundAsync(AppStat app)
+    {
+        DateTime from = _from, to = _to;
+        string name = SelectedAlias, period = SoundPeriod;
+        var line = await reports.QueryAsync((db, _) => Core.Sound.AppSound.Of(db, app.Id, name, from, to, period));
+        if (Selected == app) Sound = line;
+    }
+
     /// <summary>The selected app's latest sessions in the range (read on their own: a range can hold thousands).</summary>
     [ObservableProperty] private List<SessionInfo> _selectedSessions = [];
 
@@ -306,8 +331,8 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
     partial void OnSelectedChanged(AppStat? oldValue, AppStat? newValue)
     {
         // The same app re-read by the minute refresh keeps its chart until the new one is ready (no flicker).
-        if (oldValue?.Id != newValue?.Id) { SelectedChart = null; SelectedSessions = []; }
-        if (newValue is not null) { _ = LoadChartAsync(newValue); _ = LoadSessionsAsync(newValue); }
+        if (oldValue?.Id != newValue?.Id) { SelectedChart = null; SelectedSessions = []; Sound = null; }
+        if (newValue is not null) { _ = LoadChartAsync(newValue); _ = LoadSessionsAsync(newValue); _ = LoadSoundAsync(newValue); }
     }
 
     private async Task LoadChartAsync(AppStat app)
@@ -398,7 +423,7 @@ public sealed partial class AppsViewModel(ReportService reports, SettingsModel s
         OnPropertyChanged(nameof(Summary));
         foreach (var name in (string[])[nameof(InternetMain), nameof(InternetWord), nameof(InternetDown), nameof(InternetUp), nameof(InternetBackground)])
             OnPropertyChanged(name);
-        if (Selected is not null) await Task.WhenAll(LoadSessionsAsync(Selected), LoadChartAsync(Selected));
+        if (Selected is not null) await Task.WhenAll(LoadSessionsAsync(Selected), LoadChartAsync(Selected), LoadSoundAsync(Selected));
     }
 
     private double Key(AppStat a) => Sort switch

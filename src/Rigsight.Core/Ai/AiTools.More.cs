@@ -373,6 +373,7 @@ public sealed partial class AiTools
         var totals = db.GetAppTotals(f, t).Where(a => a.FgSec + a.BgSec + a.IdleSec >= 60).OrderByDescending(a => a.FgSec).ThenByDescending(a => a.BgSec).ToList();
         if (totals.Count == 0) return $"No apps recorded on {said}.";
         var net = settings.Ai.Sends(AiPages.Network) ? db.GetNetAppTotals(f, t).ToDictionary(n => n.App) : [];
+        var sound = db.GetSoundDropoutsByApp(f * 1000, t * 1000);
         var sb = new StringBuilder();
         sb.AppendLine($"Apps on {said}, most time in front first" + (totals.Count > MostApps ? $" (showing the top {MostApps} of {totals.Count} apps):" : $" (all {totals.Count}):"));
         foreach (var a in totals.Take(MostApps))
@@ -384,8 +385,10 @@ public sealed partial class AiTools
             if (settings.Ai.Sends(AiPages.Temperatures) && a.GpuTempN > 0) parts.Add($"GPU {a.GpuTempSum / a.GpuTempN:0} °C while in use (up to {a.GpuTempMax:0} °C)");
             if (settings.Ai.Sends(AiPages.Temperatures) && a.CpuTempN > 0) parts.Add($"CPU {a.CpuTempSum / a.CpuTempN:0} °C while in use");
             if (net.TryGetValue(a.AppId, out var n) && n.Down + n.Up > 0) parts.Add($"internet {Units.Data(n.Down)} down, {Units.Data(n.Up)} up");
+            if (sound.GetValueOrDefault(a.AppId) is > 0 and var cut) parts.Add(cut == 1 ? "the sound cut out once while it was playing sound" : $"the sound cut out {cut} times while it was playing sound");
             sb.AppendLine($"  {name(a.AppId)}: {string.Join(", ", parts)}");
         }
+        if (sound.Count > 0) sb.AppendLine(SoundNote(db, f * 1000, t * 1000, said, "counted for an app when it was the app playing sound at the time"));
         // Said with how to see the rest: a 30-day list left an app out and the answer said it had no history (audit Q094, 2026-11-17).
         if (totals.Count > MostApps)
             sb.AppendLine($"Showing the top {MostApps} of {totals.Count} apps; the other {totals.Count - MostApps} had less time in front and aren't listed. An app missing here may still have run in this period: "

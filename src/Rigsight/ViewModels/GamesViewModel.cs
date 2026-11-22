@@ -739,7 +739,12 @@ public sealed partial class GamesViewModel : ObservableObject
                     count > 0 && missed.Contains(ts) ? new HoverNote(null, null, Rigsight.Core.Drivers.StutterParts.Missed, Quiet: true)
                     : cause is not null && Rigsight.Core.Drivers.StutterParts.MinuteLine(cause, count, partMinutes.GetValueOrDefault(ts)) is { } line
                         ? new HoverNote(null, null, line, Rigsight.Core.Drivers.StutterParts.Detail(cause.Part)) : null;
-                var m = db.GetFrameMinutes(app, play.Start, play.End + 60).Select(x => new RunsMinute(TimeUtil.FromUnix(x.Ts), x.Fps, x.Low, x.Stutters, Note(x.Ts, x.Stutters))).ToList();
+                // The sound cutting out in the play, a minute at a time: in the game, or in any app while the game was in front.
+                var sound = Rigsight.Core.Sound.SoundDropouts.OfApp(
+                    Rigsight.Core.Sound.SoundDropouts.Cuts(db.GetSoundGlitches(play.Start * 1000, (play.End + 1) * 1000, heardOnly: true)), app,
+                    db.GetFrontMinutes(app, play.Start, play.End + 60)).CountBy(c => c.AtMs / 60_000 * 60).ToDictionary();
+                var m = db.GetFrameMinutes(app, play.Start, play.End + 60).Select(x => new RunsMinute(TimeUtil.FromUnix(x.Ts), x.Fps, x.Low, x.Stutters, Note(x.Ts, x.Stutters),
+                    sound.GetValueOrDefault(x.Ts))).ToList();
                 return (m, s, cause?.Line ?? StutterCauses.Explain(db, app, s, play.Start, play.End + 60, settings));
             });
             if (ask != _runsAsk) return;
@@ -759,6 +764,21 @@ public sealed partial class GamesViewModel : ObservableObject
         var stats = await _reports.QueryAsync((db, _) => GameHistory.StatsOf(db, game, inRange));
         if (ask != _runsAsk) return;
         Numbers(stats ?? new PlayStats());
+
+        // Sound dropouts (approved mock-up board 7): how many times the sound cut out in each play (a week: its plays
+        // together), in the game or in any app while the game was in front.
+        var plays = inRange.Select(p => (p.Start, p.End)).ToList();
+        var cut = await _reports.QueryAsync((db, _) => Rigsight.Core.Sound.SoundDropouts.InPlays(db, game, plays));
+        if (ask != _runsAsk) return;
+        if (cut is not null && cut.Any(n => n > 0))
+        {
+            var byStart = inRange.Select((p, i) => (p.StartTime, N: cut[i])).ToList();
+            RunsPoints = RunsPoints.Select(pt => pt with
+            {
+                SoundCuts = pt.IsWeek ? byStart.Where(b => b.StartTime >= pt.End.AddDays(-7) && b.StartTime < pt.End).Sum(b => b.N)
+                    : byStart.Where(b => b.StartTime == pt.At).Sum(b => b.N),
+            }).ToList();
+        }
 
         // Driver activity (issue #15): each play's possible cause for its stutters, in its hover ("POSSIBLE CAUSE" /
         // "Your Ethernet adapter" over the evidence). Plays with frames only; a point a week shows none.

@@ -287,6 +287,22 @@
                                     </StackPanel>
                                 </Border>
                             </local:GroupRow>
+
+                            <!-- The sound cutting out in this app (approved mock-up board 6, 2026-11-22): under the boxes, so the
+                                 three stay the same on every app, and only when it was clearly more than on its usual days. -->
+                            <HeaderedContentControl Style="{StaticResource IconRow}" Margin="0,16,0,0" Visibility="{Binding HasSound, Converter={StaticResource Vis}}">
+                                <HeaderedContentControl.Header>
+                                    <Border Style="{StaticResource IconBox}">
+                                        <TextBlock Text="&#xE995;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" Foreground="{DynamicResource WarmBrush}" />
+                                    </Border>
+                                </HeaderedContentControl.Header>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Sound.Text}" FontSize="{x:Static ctl:TextSize.BodyPlus}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="{Binding Sound.Cause}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"
+                                               Margin="0,3,0,0" Visibility="{Binding HasSoundCause, Converter={StaticResource Vis}}" />
+                                </StackPanel>
+                            </HeaderedContentControl>
                         </StackPanel>
                     </ctl:SmoothBorder>
 

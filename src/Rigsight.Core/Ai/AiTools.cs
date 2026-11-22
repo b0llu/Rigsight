@@ -572,14 +572,18 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         // Video memory is the whole card's (every app together), so each play says what else had the card at the time.
         var apps = db.LoadApps().ToDictionary(a => a.Id);
         var own = entry.AppIds.ToHashSet();
-        foreach (var p in listed)
+        // Sound dropouts in each play: in the game, or in any app while it was in front (as its hover on Games says them).
+        var cuts = entry.AppIds.Count > 0 ? Sound.SoundDropouts.InPlays(db, entry.AppIds[0], [.. listed.Select(p => (p.Start, p.End))]) : new int[listed.Count];
+        for (int i = 0; i < listed.Count; i++)
         {
+            var p = listed[i];
             // A play of a few seconds has no minute of readings: no empty ". ." before what ran with it.
             string stats = Stats(p.Stats, cardNote: false);
             string alongside = Alongside(db, p, own, apps);
             sb.AppendLine($"  {p.StartTime:ddd d MMM h:mm tt} to {p.EndTime:h:mm tt}, {Units.Duration(p.ActiveSec)} in front{(settings.Ai.Sends(AiPages.Crashes) ? $", ended: {p.Ending}" : "")}"
-                + (stats.Length > 0 ? $". {stats}" + alongside : alongside));
+                + (stats.Length > 0 ? $". {stats}" + alongside : alongside) + (cuts[i] switch { 0 => "", 1 => " The sound cut out once during it.", var n => $" The sound cut out {n} times during it." }));
         }
+        if (cuts.Any(n => n > 0)) sb.AppendLine(SoundNote(db, listed[Array.FindIndex(cuts, n => n > 0)], "counted for a play when the game was the app playing sound, or in any app while the game was in front"));
         if (together is not null) sb.AppendLine(together);
         // Older, and summed: never left out without a word, or the plays before a change look missing (2026-11-16).
         if (older.Count > 0)
@@ -611,6 +615,25 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
         if (settings.Ai.Sends(AiPages.Timeline))
             foreach (var c in story.Changes.TakeLast(10)) sb.AppendLine($"Changed between plays: {c.Change.Time:d MMM} {c.Change.Shown}");
         return sb.ToString() + LeftOut(Switch.Heat, Switch.Memory, Switch.Changes, Switch.Crashes);
+    }
+
+    /// <summary>
+    /// What "the sound cut out" counts, and the part of the PC that was possibly why in the newest play (or period) it did,
+    /// with the figures the page leaves out. <paramref name="counted"/> says which cuts were counted.
+    /// </summary>
+    private static string SoundNote(RigsightDb db, GamePlay play, string counted) =>
+        SoundNote(db, play.Start * 1000, (play.End + 1) * 1000, $"the {play.StartTime:ddd d MMM} play", counted);
+
+    internal static string SoundNote(RigsightDb db, long fromMs, long toMs, string said, string counted)
+    {
+        var text = "\"The sound cut out\" counts the times Windows' audio engine ran out of sound to send to the speakers or headset (a crackle or a short gap people hear), "
+            + $"{counted}.";
+        var cause = Sound.SoundDropouts.Stretches(db.GetSoundGlitches(fromMs, toMs, heardOnly: true)).OrderByDescending(s => s.Count)
+            .Select(s => Sound.SoundDropouts.Find(db, s)).FirstOrDefault(c => c is not null);
+        return cause is null ? text
+            : text + $" Possible cause in {said} (as the page says it, \"possibly\": lining up isn't proof): the {cause.Part.Say} ({cause.Part.Model ?? "its device name unknown"}, "
+                + $"driver file {cause.Part.Driver}), whose driver kept a CPU core to itself in long bursts right before many of the cuts, far more often than chance, against a usual longest burst of {cause.UsualUs / 1000.0:0.##} ms on this PC. "
+                + "Safe things to try when asked: a newer driver for that device from its maker, or the PC's own support page; never registry or boot-setting tweaks.";
     }
 
     /// <summary>

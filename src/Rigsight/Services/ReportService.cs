@@ -654,11 +654,28 @@ public sealed class ReportService(SettingsModel settings)
             var results = Results(db, s, changes, crashes, found);
             // The problems marked from the tray, with what the 2 minutes before them showed (never counted as changes).
             var marks = db.GetProblemMarks(0, long.MaxValue / 2).Select(m => new TimelineMark(TimeUtil.FromUnix(m.Ts), m.Text)).ToList();
+            marks.AddRange(SoundMarks(db, s, byExe.Values));
+            marks.Sort((a, b) => a.Time.CompareTo(b.Time));
             return new TimelineData(changes, problems, db.GetInventory()) { Results = results, Marks = marks };
         });
     }
 
     private static List<Core.Stability.CrashEvent> PcProblems(RigsightDb db) => ChangeEffects.PcProblems(db);
+
+    /// <summary>
+    /// Each stretch of sound dropouts as a row (approved mock-up board 5, 2026-11-22): how many times and in which app,
+    /// when, and the part of the PC that was possibly why. The app named as everywhere else (its alias, its known name).
+    /// </summary>
+    internal static List<TimelineMark> SoundMarks(RigsightDb db, RigsightSettings s, IEnumerable<AppRow> apps)
+    {
+        var names = apps.ToDictionary(a => a.Id, a => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name);
+        return [.. Core.Sound.SoundDropouts.Stretches(db.GetSoundGlitches(0, long.MaxValue / 2, heardOnly: true)).Select(st =>
+            new TimelineMark(DateTimeOffset.FromUnixTimeMilliseconds(st.FromMs).LocalDateTime,
+                Core.Sound.SoundDropouts.Line(st, st.App is long id ? names.GetValueOrDefault(id) : null))
+            {
+                Sound = true, Count = st.Count, Detail = Core.Sound.SoundDropouts.When(st), Note = Core.Sound.SoundDropouts.Find(db, st)?.Line,
+            })];
+    }
 
     /// <summary>What each day's big changes made better or worse, worked out once (see <see cref="ChangeEffects.Read"/>) and kept for the other pages.</summary>
     private static Dictionary<DateTime, ChangeResult> Results(RigsightDb db, RigsightSettings s, List<Core.Stability.SystemChange>? changes = null,
@@ -699,8 +716,25 @@ public sealed record TimelineData(List<Core.Stability.SystemChange> Changes, Lis
     public List<TimelineMark> Marks { get; init; } = [];
 }
 
-/// <summary>A problem marked from the tray: when, and what the look back over the 2 minutes before found (its saved line).</summary>
-public sealed record TimelineMark(DateTime Time, string Text);
+/// <summary>
+/// A problem marked from the tray: when, and what the look back over the 2 minutes before found (its saved line). Or, with
+/// <see cref="Sound"/>, a stretch of sound dropouts: its first cut, its row's title, when (<see cref="Detail"/>) and a
+/// possible cause (<see cref="Note"/>).
+/// </summary>
+public sealed record TimelineMark(DateTime Time, string Text)
+{
+    /// <summary>A stretch of sound dropouts, not a problem marked.</summary>
+    public bool Sound { get; init; }
+
+    /// <summary>A stretch's cuts.</summary>
+    public int Count { get; init; }
+
+    /// <summary>Grey beside the title: a stretch's time ("9:02 PM to 9:40 PM").</summary>
+    public string? Detail { get; init; }
+
+    /// <summary>A muted line under it: a stretch's possible cause.</summary>
+    public string? Note { get; init; }
+}
 
 /// <summary>A crash, freeze or sudden shut-off as one line on the timeline.</summary>
 public sealed record TimelineProblem(DateTime Time, Core.Stability.CrashKind Kind, string Title)

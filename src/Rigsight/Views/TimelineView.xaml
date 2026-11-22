@@ -56,16 +56,26 @@
                     <ColumnDefinition Width="26" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
                 <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
-                           Foreground="{DynamicResource MutedBrush}" />
+                           Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
                 <TextBlock x:Name="Line" Grid.Column="2" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
                     <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />
                 </TextBlock>
+                <!-- A muted line under it (a stretch of sound dropouts' possible cause): only on the few lines that have one. -->
+                <TextBlock x:Name="Note" Grid.Row="1" Grid.Column="2" Text="{Binding Note}" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap"
+                           Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,0" Visibility="Collapsed" />
             </Grid>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsKey}" Value="True">
                     <Setter TargetName="Line" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding HasNote}" Value="True">
+                    <Setter TargetName="Note" Property="Visibility" Value="Visible" />
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -114,7 +124,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
                 <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
-                           Foreground="{DynamicResource MutedBrush}" />
+                           Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
                 <StackPanel Grid.Column="2">
                     <TextBlock x:Name="Line" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
                         <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />

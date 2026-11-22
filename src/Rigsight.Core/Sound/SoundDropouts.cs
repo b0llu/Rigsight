@@ -28,8 +28,12 @@ public static class SoundDropouts
     public const double Share = 0.2, Over = 3.0;
     public const int SeparateStretches = 2;
 
-    /// <summary>What a stretch says about the part (see the class).</summary>
-    public sealed record Cause(DriverPart Part, int UsualUs, string Line);
+    /// <summary>What a stretch says about the part (see the class): <see cref="Line"/> under its Timeline row.</summary>
+    public sealed record Cause(DriverPart Part, int UsualUs, string Line)
+    {
+        /// <summary>The same as a sentence of its own, after one about when the sound cut out (the Apps page).</summary>
+        public string RightThen => Lang.T($"Possibly your {Part.Say}, which was using the CPU for much longer than usual right then.");
+    }
 
     /// <summary>
     /// The heard glitches as cuts, in time order: a glitch within <see cref="SoundRules.OneCutMs"/> of the one before
@@ -93,18 +97,49 @@ public static class SoundDropouts
         return new SoundStretch(cuts[0].AtMs, cuts[^1].AtMs, cuts.Count, app, device, cuts);
     }
 
-    /// <summary>The stretch's line on the Timeline, with its app's name when it has one (<paramref name="app"/>).</summary>
-    public static string Line(SoundStretch s, string? app)
+    /// <summary>
+    /// The stretch's row on the Timeline (tested on a no-context reader, 2026-11-22): "Sound cut out 14 times in Discord",
+    /// with the app's name when it has one (<paramref name="app"/>). The time goes beside it (<see cref="When"/>).
+    /// </summary>
+    public static string Line(SoundStretch s, string? app) => Title(s.Count, app);
+
+    /// <summary>"Sound cut out 14 times in Discord", "Sound cut out once", for <paramref name="n"/> cuts.</summary>
+    public static string Title(int n, string? app) => app is { Length: > 0 }
+        ? n == 1 ? Lang.T($"Sound cut out once in {app}") : Lang.T($"Sound cut out {n} times in {app}")
+        : n == 1 ? Lang.T("Sound cut out once") : Lang.T($"Sound cut out {n} times");
+
+    /// <summary>When the stretch was: "9:02 PM to 9:40 PM", or "9:14 PM" alone when it began and ended in the same minute.</summary>
+    public static string When(SoundStretch s)
     {
         DateTime from = Local(s.FromMs), to = Local(s.ToMs);
-        int n = s.Count;
-        if (app is { Length: > 0 })
-            return n == 1
-                ? Lang.T($"Your sound cut out once while {app} was playing, at {from:h:mm tt}.")
-                : Lang.T($"Your sound cut out {n} times while {app} was playing, {from:h:mm tt} to {to:h:mm tt}.");
-        return n == 1
-            ? Lang.T($"Your sound cut out once, at {from:h:mm tt}.")
-            : Lang.T($"Your sound cut out {n} times, {from:h:mm tt} to {to:h:mm tt}.");
+        string a = TimeText.Time(from);
+        return TimeUtil.LocalMinuteStart(from) == TimeUtil.LocalMinuteStart(to) ? a : Lang.C("stretch", $"{a} to {TimeText.Time(to)}");
+    }
+
+    /// <summary>
+    /// The cuts in <paramref name="cuts"/> that belong to an app: the ones it was playing in, and any while it was the app
+    /// in front (<paramref name="frontMinutes"/>: the minutes, Unix seconds at their start, it was in front). A game's
+    /// play says these: the sound cutting out in Discord mid-game is heard in the game.
+    /// </summary>
+    public static List<SoundGlitch> OfApp(IEnumerable<SoundGlitch> cuts, long app, IReadOnlySet<long> frontMinutes) =>
+        [.. cuts.Where(c => c.App == app || frontMinutes.Contains(MinuteOf(c.AtMs)))];
+
+    /// <summary>
+    /// How many times the sound cut out in each of an app's plays (<paramref name="plays"/>: Unix seconds, end included),
+    /// counted as <see cref="OfApp"/> says. One read for all of them.
+    /// </summary>
+    public static int[] InPlays(RigsightDb db, long app, IReadOnlyList<(long Start, long End)> plays)
+    {
+        var counts = new int[plays.Count];
+        if (plays.Count == 0) return counts;
+        long from = plays.Min(p => p.Start), to = plays.Max(p => p.End) + 1;
+        var cuts = OfApp(Cuts(db.GetSoundGlitches(from * 1000, to * 1000, heardOnly: true)), app, db.GetFrontMinutes(app, from, to));
+        for (int i = 0; i < plays.Count; i++)
+        {
+            long a = plays[i].Start * 1000, b = (plays[i].End + 1) * 1000;
+            counts[i] = cuts.Count(c => c.AtMs >= a && c.AtMs < b);
+        }
+        return counts;
     }
 
     /// <summary>The part for a stretch, from what the agent stored, or null.</summary>
@@ -142,7 +177,7 @@ public static class SoundDropouts
             if (stretches < SeparateStretches && !shortStretch) continue;
             if (matched.Count <= bestCount) continue;
             bestCount = matched.Count;
-            best = new Cause(part, usual, Lang.T($"Possibly your {say}. Right when the sound cut out, it was often using the CPU for much longer than usual."));
+            best = new Cause(part, usual, Lang.T($"Possibly your {say}, which was using the CPU for much longer than usual"));
         }
         return best;
     }

@@ -12,14 +12,15 @@ namespace Rigsight.Controls;
 /// stutters an hour (plays with frame data), and whether it opens (a play with frame data, or a week). A play's own RAM
 /// (MB, its average and highest over the hours it touched) for the hover.
 /// </summary>
+/// <remarks><see cref="SoundCuts"/>: how many times the sound cut out in it (see SoundDropouts.OfApp), said in its hover when any.</remarks>
 public sealed record RunsPoint(DateTime At, DateTime End, double ActiveSec, double Fps, double? Low, double? StuttersAnHour, int Plays, bool IsWeek,
-    bool CanOpen, bool PowerCut, double? Gpu, double? Watts, double? MemAvg = null, double? MemMax = null, HoverNote? Cause = null);
+    bool CanOpen, bool PowerCut, double? Gpu, double? Watts, double? MemAvg = null, double? MemMax = null, HoverNote? Cause = null, int SoundCuts = 0);
 
 /// <summary>A driver or the game updated: a flag on a dashed line at its time.</summary>
 public sealed record RunsMark(DateTime Time, string Label, string Title);
 
 /// <summary>A minute of one play, from its frames: the true average, 1% low and its stutters, and a line about its stutters' possible cause (driver activity) when there is one.</summary>
-public sealed record RunsMinute(DateTime At, double? Fps, double? Low, int Stutters, HoverNote? Note = null);
+public sealed record RunsMinute(DateTime At, double? Fps, double? Low, int Stutters, HoverNote? Note = null, int SoundCuts = 0);
 
 /// <summary>
 /// The Games page's "How it runs" as one chart (approved mock-up "How it runs, as one chart", 2026-10-27): the plays over
@@ -36,6 +37,17 @@ public sealed record RunsMinute(DateTime At, double? Fps, double? Low, int Stutt
 public sealed class RunsChart : FrameworkElement
 {
     private const double Left = 44, Right = 14, Top = 34, Bottom = 24, Rail = 12;
+
+    /// <summary>
+    /// The "Sound" fact in a play's or a minute's hover (approved mock-up board 7, 2026-11-22): how many times the sound cut
+    /// out in it, in the warm brush; null when it didn't.
+    /// </summary>
+    internal static ChartPaint.HoverFact? SoundFact(int cuts, bool minute, Brush warm) => cuts switch
+    {
+        <= 0 => null,
+        1 => new(Lang.T("Sound"), minute ? Lang.T("Cut out once in this minute") : Lang.T("Cut out once"), warm),
+        _ => new(Lang.T("Sound"), minute ? Lang.T($"Cut out {cuts} times in this minute") : Lang.T($"Cut out {cuts} times"), warm),
+    };
 
     public static readonly DependencyProperty PointsProperty = Register<IReadOnlyList<RunsPoint>?>(nameof(Points), null);
     public static readonly DependencyProperty MarksProperty = Register<IReadOnlyList<RunsMark>?>(nameof(Marks), null);
@@ -502,6 +514,8 @@ public sealed class RunsChart : FrameworkElement
             // The game's own RAM in this play, as Every play shows it.
             if (p.MemAvg is double mem && !p.IsWeek)
                 facts.Add(new("RAM", p.MemMax is double most ? Lang.T($"{Units.Megabytes(mem)}, peak {Units.Megabytes(most)}") : Units.Megabytes(mem)));
+            // The sound cutting out during it (approved mock-up board 7), only when it did.
+            if (SoundFact(p.SoundCuts, minute: false, warm) is { } sound) facts.Add(sound);
             // An update shortly before: what may explain a change.
             (string, Brush)? mark = (Marks ?? []).Where(m => m.Time <= p.End && m.Time > p.At.AddDays(-7)).MaxBy(m => m.Time) is { } m
                 ? (Lang.T($"{m.Time:d MMM}: {m.Title}"), ChartPaint.FpsMark) : null;
@@ -523,6 +537,7 @@ public sealed class RunsChart : FrameworkElement
                 1 => new(Lang.T("Stutters"), Lang.T("1 in this minute"), warm),
                 _ => new(Lang.T("Stutters"), Lang.T($"{m.Stutters} in this minute"), warm),
             });
+            if (SoundFact(m.SoundCuts, minute: true, warm) is { } sound) facts.Add(sound);
             dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(x0, Y(m.Fps!.Value)), 3.5, 3.5);
             ChartPaint.GroupedBox(dc, this, TimeText.At(m.At, "h:mm tt"), null, Lang.T($"{m.Fps:0} fps"), Lang.T("average"), accent, facts, null, null,
                 new Point(x, Y(m.Fps!.Value) - 10), bounds, above: true, note: m.Note);

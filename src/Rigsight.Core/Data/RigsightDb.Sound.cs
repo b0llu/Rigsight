@@ -13,7 +13,15 @@ public sealed partial class RigsightDb
             CREATE TABLE IF NOT EXISTS sound_glitch(ts_ms INTEGER NOT NULL, kind INTEGER NOT NULL, heard INTEGER NOT NULL, app INTEGER,
                 device TEXT, frames INTEGER, drv TEXT, drv_us INTEGER, PRIMARY KEY(ts_ms, kind)) WITHOUT ROWID;
             """);
+        // When the table was first made: days before it have no dropouts because none were looked for, not because the
+        // sound never cut out, so an app's usual (see AppSound) counts only the days since.
+        Exec($"INSERT OR IGNORE INTO meta(key, value) VALUES('{SoundSinceKey}', strftime('%s', 'now'))");
     }
+
+    public const string SoundSinceKey = "sound_since";
+
+    /// <summary>When sound dropouts were first looked for on this PC (Unix seconds), or null before then.</summary>
+    public long? SoundSince => GetMeta(SoundSinceKey) is { } v && long.TryParse(v, out long at) ? at : null;
 
     // The app reads a database the agent made, which may be from before sound dropouts (no table yet).
     private bool? _hasSound;
@@ -56,6 +64,16 @@ public sealed partial class RigsightDb
     public Dictionary<long, int> GetSoundDropoutsByApp(long fromMs, long toMs) =>
         SoundDropouts.Cuts(GetSoundGlitches(fromMs, toMs, heardOnly: true)).Where(c => c.App is not null)
             .GroupBy(c => c.App!.Value).ToDictionary(g => g.Key, g => g.Count());
+
+    /// <summary>The minutes (Unix seconds at their start) from <paramref name="from"/> to <paramref name="to"/> in which <paramref name="app"/> was the app in front.</summary>
+    public HashSet<long> GetFrontMinutes(long app, long from, long to)
+    {
+        var set = new HashSet<long>();
+        using var cmd = Cmd("SELECT ts FROM system_minute WHERE ts >= $f AND ts < $t AND fg_app = $a", ("$f", from - from % 60), ("$t", to), ("$a", app));
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) set.Add(r.GetInt64(0));
+        return set;
+    }
 
     private void PruneSound(long before)
     {
