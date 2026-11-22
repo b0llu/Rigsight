@@ -46,6 +46,8 @@ public static class NoticeLook
         "Memory" => "\uE964",
         "Startup" => "\uE7E8",
         "DeviceBattery" => "\uE83F",
+        // The tray's "Something just went wrong": the flag its mark has on the Timeline.
+        "LookBack" => "\uE7C1",
         _ => "\uE896",
     };
 

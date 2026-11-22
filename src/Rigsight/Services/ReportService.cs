@@ -652,7 +652,9 @@ public sealed class ReportService(SettingsModel settings)
                     return new TimelineProblem(e.Time, e.Kind, finding is null ? Core.Stability.CrashExplainer.Explain(e, name).Title : finding.Said) { Outside = finding is { Outside: true } };
                 }).ToList();
             var results = Results(db, s, changes, crashes, found);
-            return new TimelineData(changes, problems, db.GetInventory()) { Results = results };
+            // The problems marked from the tray, with what the 2 minutes before them showed (never counted as changes).
+            var marks = db.GetProblemMarks(0, long.MaxValue / 2).Select(m => new TimelineMark(TimeUtil.FromUnix(m.Ts), m.Text)).ToList();
+            return new TimelineData(changes, problems, db.GetInventory()) { Results = results, Marks = marks };
         });
     }
 
@@ -692,7 +694,13 @@ public sealed record TimelineData(List<Core.Stability.SystemChange> Changes, Lis
 {
     /// <summary>What a day's big changes made better or worse (see <see cref="ChangeEffects"/>), by day; only days where something did.</summary>
     public Dictionary<DateTime, ChangeResult> Results { get; init; } = [];
+
+    /// <summary>The problems marked from the tray's "Something just went wrong", oldest first.</summary>
+    public List<TimelineMark> Marks { get; init; } = [];
 }
+
+/// <summary>A problem marked from the tray: when, and what the look back over the 2 minutes before found (its saved line).</summary>
+public sealed record TimelineMark(DateTime Time, string Text);
 
 /// <summary>A crash, freeze or sudden shut-off as one line on the timeline.</summary>
 public sealed record TimelineProblem(DateTime Time, Core.Stability.CrashKind Kind, string Title)

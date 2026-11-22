@@ -13,13 +13,13 @@ namespace Rigsight.Controls;
 /// (MB, its average and highest over the hours it touched) for the hover.
 /// </summary>
 public sealed record RunsPoint(DateTime At, DateTime End, double ActiveSec, double Fps, double? Low, double? StuttersAnHour, int Plays, bool IsWeek,
-    bool CanOpen, bool PowerCut, double? Gpu, double? Watts, double? MemAvg = null, double? MemMax = null);
+    bool CanOpen, bool PowerCut, double? Gpu, double? Watts, double? MemAvg = null, double? MemMax = null, ChartPaint.HoverNote? Cause = null);
 
 /// <summary>A driver or the game updated: a flag on a dashed line at its time.</summary>
 public sealed record RunsMark(DateTime Time, string Label, string Title);
 
-/// <summary>A minute of one play, from its frames: the true average, 1% low and its stutters.</summary>
-public sealed record RunsMinute(DateTime At, double? Fps, double? Low, int Stutters);
+/// <summary>A minute of one play, from its frames: the true average, 1% low and its stutters, and a line about its stutters' possible cause (driver activity) when there is one.</summary>
+public sealed record RunsMinute(DateTime At, double? Fps, double? Low, int Stutters, ChartPaint.HoverNote? Note = null);
 
 /// <summary>
 /// The Games page's "How it runs" as one chart (approved mock-up "How it runs, as one chart", 2026-10-27): the plays over
@@ -508,7 +508,7 @@ public sealed class RunsChart : FrameworkElement
             string? foot = p.CanOpen ? p.IsWeek ? Lang.T("Click to see this week") : Lang.T("Click to see this play") : null;
             double r = slots ? 5.2 : 4;
             dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(x0, Y(p.Fps)), r, r);
-            ChartPaint.GroupedBox(dc, this, title, sub, Lang.T($"{p.Fps:0} fps"), Lang.T("average"), accent, facts, mark, foot, new Point(x, Y(p.Fps) - 10), bounds, above: true);
+            ChartPaint.GroupedBox(dc, this, title, sub, Lang.T($"{p.Fps:0} fps"), Lang.T("average"), accent, facts, mark, foot, new Point(x, Y(p.Fps) - 10), bounds, above: true, note: p.IsWeek ? null : p.Cause);
         }
 
         void HoverMinute(RunsMinute m, double x0)
@@ -525,7 +525,7 @@ public sealed class RunsChart : FrameworkElement
             });
             dc.DrawEllipse(accent, new Pen(hole, 1.5), new Point(x0, Y(m.Fps!.Value)), 3.5, 3.5);
             ChartPaint.GroupedBox(dc, this, TimeText.At(m.At, "h:mm tt"), null, Lang.T($"{m.Fps:0} fps"), Lang.T("average"), accent, facts, null, null,
-                new Point(x, Y(m.Fps!.Value) - 10), bounds, above: true);
+                new Point(x, Y(m.Fps!.Value) - 10), bounds, above: true, note: m.Note);
         }
 
         // The points split where more than gap lies between one and the next.

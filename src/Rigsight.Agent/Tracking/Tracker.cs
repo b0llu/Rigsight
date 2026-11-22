@@ -922,6 +922,20 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
         m.Foreground.Count > 0 && m.Frames.TryGetValue(m.Foreground.MaxBy(kv => kv.Value).Key, out var acc) && acc.Spread.TotalUs >= 10_000_000 ? acc.Spread : null;
 
     /// <summary>Writes the finished minute and hour deltas, closes stale sessions, and rolls the day.</summary>
+    /// <summary>
+    /// The driver trace's recent long bursts (driver activity, issue #15), while it runs: set by the agent, read once a
+    /// minute when the minute's stutters are written. Each stutter keeps the driver whose long bursts fell inside its frame.
+    /// </summary>
+    public Func<double, IReadOnlyList<Rigsight.Core.Drivers.DriverBurst>>? DriverBursts { get; set; }
+
+    private IReadOnlyList<Stutter> WithDrivers(List<Stutter> stutters)
+    {
+        if (DriverBursts is not { } read || stutters.Count == 0) return stutters;
+        var bursts = read(stutters.Min(s => s.AtMs - s.Ms)).Where(b => b.Us >= Rigsight.Core.Drivers.DriverRules.LongUs).ToList();
+        if (bursts.Count == 0) return stutters;
+        return stutters.Select(s => Rigsight.Core.Drivers.BurstOverlap.Inside(bursts, s.AtMs - s.Ms, s.AtMs) is { } d ? s with { Drv = d.Driver, DrvUs = d.Us } : s).ToList();
+    }
+
     public void Flush(bool closeAllSessions)
     {
         // History was just cleared and the agent starts again: what it held from before (the apps it knew, by rows now
@@ -985,7 +999,7 @@ internal sealed class Tracker(RigsightDb db, AppResolver apps, Func<DateTimeOffs
                     Fps = m.FpsN >= 10 ? FrontFrames(m)?.Fps ?? m.FpsSum / m.FpsN : null,
                     FpsLow = m.FpsN >= 10 ? FrontFrames(m)?.Low1 ?? (m.FpsLowN > 0 ? m.FpsLowSum / m.FpsLowN : null) : null,
                 });
-                foreach (var (appId, frames) in m.Frames) db.WriteFrameMinute(_minuteTs, appId, frames.Spread, frames.Stutters);
+                foreach (var (appId, frames) in m.Frames) db.WriteFrameMinute(_minuteTs, appId, frames.Spread, WithDrivers(frames.Stutters));
                 db.WriteAppMinutes(_minuteTs, [.. TopApps(m.Apps, m.Samples)
                     .Select(a => new AppMinute(_minuteTs, apps.Get(a.Exe, a.Pid).Id, a.Cpu, a.Gpu, a.MemMb, a.Disk))]);
                 db.WriteFanMinutes(_minuteTs, [.. m.Fans.Where(f => f.Value.N > 0)

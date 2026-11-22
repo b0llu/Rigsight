@@ -20,7 +20,7 @@ internal sealed class TrayController : IDisposable
     /// <summary>An on/off item of the menu: its English name, whether it's on (a tick), and what a click does.</summary>
     internal sealed record Switch(string English, Func<bool> IsOn, Action Toggle);
 
-    public TrayController(Action open, IReadOnlyList<Switch> switches, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
+    public TrayController(Action open, Action lookBack, IReadOnlyList<Switch> switches, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
     {
         // When Explorer restarts it tells every window there's a new, empty taskbar, and the icon puts itself back. But
         // Rigsight runs as admin and Explorer doesn't: Windows drops that message on the way unless it's let through
@@ -29,7 +29,7 @@ internal sealed class TrayController : IDisposable
         // A test copy shows its own icon, never the installed RigSight's logo (the user, 2026-11-14).
         _logo = RigsightPaths.IsTestInstance ? TestLogo.Icon(SystemInformation.SmallIconSize.Width)
             : new Icon(Path.Combine(AppContext.BaseDirectory, "Rigsight.ico"), SystemInformation.SmallIconSize);
-        _icon.ContextMenuStrip = BuildMenu(open, switches, widgetsMenu, overlayItem, pause, resume, isPaused, quit);
+        _icon.ContextMenuStrip = BuildMenu(open, lookBack, switches, widgetsMenu, overlayItem, pause, resume, isPaused, quit);
         _icon.Icon = _logo;
         _icon.Text = RigsightPaths.IsTestInstance ? TestTip : "RigSight";
         _icon.Visible = true;
@@ -38,16 +38,22 @@ internal sealed class TrayController : IDisposable
     }
 
     /// <summary>
-    /// The tray menu: the on/off <paramref name="switches"/> (taskbar readings, widgets, overlay) ticked while on, then the
+    /// The tray menu: "Something just went wrong" (<paramref name="lookBack"/>) under "Open RigSight", the on/off <paramref name="switches"/> (taskbar readings, widgets, overlay) ticked while on, then the
     /// widgets one by one and the overlay shown now. Pausing shows as "Pause tracking" (a choice of how long) or "Resume
     /// tracking", never both.
     /// </summary>
-    internal static ContextMenuStrip BuildMenu(Action open, IReadOnlyList<Switch> switches, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
+    internal static ContextMenuStrip BuildMenu(Action open, Action lookBack, IReadOnlyList<Switch> switches, ToolStripMenuItem widgetsMenu, ToolStripMenuItem overlayItem, Action<int> pause, Action resume, Func<bool> isPaused, Action quit)
     {
         var menu = DarkMenuRenderer.Create();
         // Each item with its English, put in the language in use as the menu opens (the language can change while it runs).
         var words = new List<(ToolStripMenuItem Item, string English)>();
         menu.Items.Add(Item(Lang.Key("Open RigSight"), open));
+        // The moment just felt (issue #15, approved mock-up v6): the 2 minutes before are looked over and the moment marked
+        // on the Timeline. How far back shows grey on the right, where a menu shows a shortcut.
+        string lookBackSpan = Lang.Key("last 2 min");
+        var lookBackItem = Item(Lang.Key("Something just went wrong"), lookBack);
+        lookBackItem.ShortcutKeyDisplayString = Lang.T(lookBackSpan);
+        menu.Items.Add(lookBackItem);
         var ticks = new List<(ToolStripMenuItem Item, Switch Of)>();
         if (switches.Count > 0)
         {
@@ -73,6 +79,7 @@ internal sealed class TrayController : IDisposable
         menu.Opening += (_, _) =>
         {
             foreach (var (item, english) in words) item.Text = Lang.T(english);
+            lookBackItem.ShortcutKeyDisplayString = Lang.T(lookBackSpan);
             foreach (var (item, of) in ticks) item.Checked = of.IsOn();
             bool paused = isPaused();
             pauseItem.Visible = !paused;

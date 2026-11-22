@@ -595,6 +595,18 @@ public sealed partial class AiTools(RigsightSettings settings, string? dbPath = 
             var stutters = db.GetStutters(entry.AppIds[0], rough.Start * 1000, (rough.End + 60) * 1000);
             if (StutterCauses.Explain(db, entry.AppIds[0], stutters, rough.Start, rough.End + 60, settings) is { } why)
                 sb.AppendLine($"Stutters in the {rough.StartTime:ddd d MMM} play: {why}");
+            // Driver activity (issue #15): the part whose driver was often using the CPU for much longer than usual right
+            // when the game stuttered, with the figures the page leaves out, so the answer can explain them.
+            if (Drivers.StutterParts.Find(db, stutters, rough.Start, rough.End + 60) is { } cause)
+            {
+                var matched = stutters.Where(s => string.Equals(s.Drv, cause.Part.Driver, StringComparison.OrdinalIgnoreCase)).ToList();
+                var longest = db.GetDriverMinutes(rough.Start / 60 * 60, rough.End + 60, cause.Part.Driver).Select(t => t.LongestUs).DefaultIfEmpty(0).Max();
+                sb.AppendLine($"Possible cause of those stutters (as the page says it, \"possibly\": lining up isn't proof): the {cause.Part.Say} "
+                    + $"({cause.Part.Model ?? "its device name unknown"}, driver file {cause.Part.Driver}). Its driver kept a CPU core to itself (deferred procedure calls and interrupts) "
+                    + $"in long bursts inside {matched.Count} of the {stutters.Count} stutter frames, far more often than chance in the rest of the play, in separate stretches; "
+                    + $"its longest burst in the play was {longest / 1000.0:0.#} ms against a usual longest of {cause.UsualUs / 1000.0:0.##} ms on this PC. "
+                    + "Safe things to try when asked: a newer driver for that device from its maker, or the PC's own support page; never registry or boot-setting tweaks.");
+            }
         }
         if (settings.Ai.Sends(AiPages.Timeline))
             foreach (var c in story.Changes.TakeLast(10)) sb.AppendLine($"Changed between plays: {c.Change.Time:d MMM} {c.Change.Shown}");

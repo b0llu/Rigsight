@@ -726,9 +726,21 @@ public sealed partial class GamesViewModel : ObservableObject
             long app = _app;
             var (minutes, stutters, why) = await _reports.QueryAsync((db, settings) =>
             {
-                var m = db.GetFrameMinutes(app, play.Start, play.End + 60).Select(x => new RunsMinute(TimeUtil.FromUnix(x.Ts), x.Fps, x.Low, x.Stutters)).ToList();
                 var s = db.GetStutters(app, play.Start * 1000, (play.End + 60) * 1000);
-                return (m, s, StutterCauses.Explain(db, app, s, play.Start, play.End + 60, settings));
+                // Driver activity (issue #15): the part of the PC whose driver was often using the CPU for much longer
+                // than usual right when the game stuttered, said in the strip and on the minutes it shows in; otherwise
+                // the stutters' other causes as before.
+                var cause = Rigsight.Core.Drivers.StutterParts.Find(db, s, play.Start, play.End + 60);
+                long first = play.Start / 60 * 60;
+                var missed = db.GetDriverMissed(first, play.End + 60);
+                var partMinutes = cause is null ? new Dictionary<long, Rigsight.Core.Drivers.DriverTally>()
+                    : db.GetDriverMinutes(first, play.End + 60, cause.Part.Driver).ToDictionary(t => t.Ts);
+                ChartPaint.HoverNote? Note(long ts, int count) =>
+                    count > 0 && missed.Contains(ts) ? new ChartPaint.HoverNote(null, null, Rigsight.Core.Drivers.StutterParts.Missed, Quiet: true)
+                    : cause is not null && Rigsight.Core.Drivers.StutterParts.MinuteLine(cause, count, partMinutes.GetValueOrDefault(ts)) is { } line
+                        ? new ChartPaint.HoverNote(null, null, line, Rigsight.Core.Drivers.StutterParts.Detail(cause.Part)) : null;
+                var m = db.GetFrameMinutes(app, play.Start, play.End + 60).Select(x => new RunsMinute(TimeUtil.FromUnix(x.Ts), x.Fps, x.Low, x.Stutters, Note(x.Ts, x.Stutters))).ToList();
+                return (m, s, cause?.Line ?? StutterCauses.Explain(db, app, s, play.Start, play.End + 60, settings));
             });
             if (ask != _runsAsk) return;
             PlayMinutes = minutes ?? [];
@@ -747,6 +759,17 @@ public sealed partial class GamesViewModel : ObservableObject
         var stats = await _reports.QueryAsync((db, _) => GameHistory.StatsOf(db, game, inRange));
         if (ask != _runsAsk) return;
         Numbers(stats ?? new PlayStats());
+
+        // Driver activity (issue #15): each play's possible cause for its stutters, in its hover ("POSSIBLE CAUSE" /
+        // "Your Ethernet adapter" over the evidence). Plays with frames only; a point a week shows none.
+        if (weekly) return;
+        var framed = inRange.Where(p => p.Stats.FrameMinutes > 0).ToList();
+        if (framed.Count == 0) return;
+        var causes = await _reports.QueryAsync((db, _) => framed.ToDictionary(p => p.StartTime,
+            p => Rigsight.Core.Drivers.StutterParts.Find(db, db.GetStutters(game, p.Start * 1000, (p.End + 60) * 1000), p.Start, p.End + 60)));
+        if (ask != _runsAsk || causes is null || causes.Values.All(c => c is null)) return;
+        RunsPoints = RunsPoints.Select(pt => !pt.IsWeek && causes.TryGetValue(pt.At, out var c) && c is not null
+            ? pt with { Cause = new ChartPaint.HoverNote(c.Label, c.Value, c.Sentence) } : pt).ToList();
     }
 
     /// <summary>A week of plays as one point: its plays' average and 1% low by time played, and its stutters an hour.</summary>

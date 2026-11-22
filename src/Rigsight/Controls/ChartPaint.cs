@@ -207,12 +207,21 @@ internal static class ChartPaint
     public readonly record struct HoverFact(string Label, string Value, Brush? Brush = null);
 
     /// <summary>
+    /// A grouped hover's note in a shaded box of its own, under the facts (driver activity, approved mock-up v6,
+    /// 2026-11-21): a small caps <see cref="Label"/> and the answer in bright <see cref="Value"/> ("POSSIBLE CAUSE" /
+    /// "Your Ethernet adapter") with the evidence as a quieter <see cref="Sentence"/>; or, with no value, the sentence
+    /// alone in full colour (a minute's line); <see cref="Detail"/> small and grey under it (the device and its file).
+    /// <see cref="Quiet"/> greys the sentence even without a value (a minute whose readings were dropped).
+    /// </summary>
+    public readonly record struct HoverNote(string? Label, string? Value, string Sentence, string? Detail = null, bool Quiet = false);
+
+    /// <summary>
     /// A hover with more to say (a play on the Games page): a title and a grey line under it, one big figure with its
     /// word, the rest as label and value pairs in a shaded box, then a marked line (an update) and, under a thin line,
     /// what a click does. Drawn like the Network page's hour hover (the user, 2026-11-20, approved mock-up).
     /// </summary>
     public static Rect GroupedBox(DrawingContext dc, Visual v, string title, string? sub, string big, string bigWord, Brush bigBrush,
-        IReadOnlyList<HoverFact> facts, (string Text, Brush Dot)? mark, string? foot, Point at, Rect bounds, bool above = false)
+        IReadOnlyList<HoverFact> facts, (string Text, Brush Dot)? mark, string? foot, Point at, Rect bounds, bool above = false, HoverNote? note = null)
     {
         const double Width = 268, FactsPad = 10, ColGap = 10, RowGap = 8;
         // Every line wraps inside the box rather than running past its edge: "2:31 PM to 8:06 PM · 5h 17m · ended by a
@@ -228,8 +237,14 @@ internal static class ChartPaint
         double factsH = rows.Count == 0 ? 0 : rows.Sum() + (rows.Count - 1) * RowGap + 2 * 8;
         var m = mark is { } mk ? Wrap(Format(v, mk.Text, 12, FpsMarkText), inner - 13) : null;
         var f = foot is null ? null : Wrap(Format(v, foot, 11.5, Faint), inner);
+        double noteW = inner - 2 * FactsPad;
+        var nl = note is { Label: { } nlabel } ? Wrap(Format(v, nlabel.ToUpper(CultureInfo.CurrentCulture), 10.5, Faint, true), noteW) : null;
+        var nv = note is { Value: { } nvalue } ? Wrap(Format(v, nvalue, 12.5, TextBrush, true), noteW) : null;
+        var ns = note is { } n0 ? Wrap(Format(v, n0.Sentence, nv is null ? 12.5 : 12, nv is null && !n0.Quiet ? TextBrush : Muted), noteW) : null;
+        var nd = note is { Detail: { } ndetail } ? Wrap(Format(v, ndetail, 11, Faint), noteW) : null;
+        double noteH = ns is null ? 0 : 8 + (nl is null ? 0 : nl.Height + 1) + (nv is null ? 0 : nv.Height + 3) + ns.Height + (nd is null ? 0 : 3 + nd.Height) + 8;
 
-        double h = PadY + t.Height + (s is null ? 0 : 2 + s.Height) + 8 + b.Height + (factsH > 0 ? 8 + factsH : 0)
+        double h = PadY + t.Height + (s is null ? 0 : 2 + s.Height) + 8 + b.Height + (factsH > 0 ? 8 + factsH : 0) + (noteH > 0 ? 8 + noteH : 0)
             + (m is null ? 0 : 9 + m.Height) + (f is null ? 0 : 9 + 1 + 7 + f.Height) + PadY;
         var (x, y) = Place(at, Width, h, bounds, above, double.NegativeInfinity);
         dc.DrawRoundedRectangle(TooltipBg, TooltipBorder, new Rect(x + 0.5, y + 0.5, Width, h), Corner, Corner);
@@ -258,6 +273,17 @@ internal static class ChartPaint
                 ry += rows[r] + RowGap;
             }
             ty += factsH;
+        }
+        if (ns is not null)
+        {
+            ty += 8;
+            dc.DrawRoundedRectangle(Track, null, new Rect(left, ty, Width - 2 * PadX, noteH), 7, 7);
+            double nx = left + FactsPad, ny = ty + 8;
+            if (nl is not null) { dc.DrawText(nl, new Point(nx, ny)); ny += nl.Height + 1; }
+            if (nv is not null) { dc.DrawText(nv, new Point(nx, ny)); ny += nv.Height + 3; }
+            dc.DrawText(ns, new Point(nx, ny)); ny += ns.Height;
+            if (nd is not null) dc.DrawText(nd, new Point(nx, ny + 3));
+            ty += noteH;
         }
         if (m is not null && mark is { } mm)
         {

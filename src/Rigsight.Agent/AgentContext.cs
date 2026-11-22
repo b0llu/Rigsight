@@ -240,7 +240,7 @@ internal sealed partial class AgentContext : ApplicationContext
             new(Lang.Key("Desktop widgets"), () => _settings.WidgetsShown, () => MutateSettings(s => s.WidgetsShown = !s.WidgetsShown)),
             new(Lang.Key("Game overlay"), () => _settings.Overlay.Enabled, () => MutateSettings(s => s.Overlay.Enabled = !s.Overlay.Enabled)),
         ];
-        _tray = new TrayController(() => OpenApp(null), switches, _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
+        _tray = new TrayController(() => OpenApp(null), LookBackNow, switches, _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
             () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
         _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
         _widgets.TimerUp = (title, body) => _notices.Show(new Notice(NoticeKind.Timer, title, body, Page: "widgets"));
@@ -424,6 +424,7 @@ internal sealed partial class AgentContext : ApplicationContext
         Step("extremes", RestoreExtremes);
         Step("network", StartNetwork);
         Step("disk use", StartDiskUse);
+        Step("drivers", StartDrivers);
 
         var clock = Stopwatch.StartNew();
         // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
@@ -525,6 +526,9 @@ internal sealed partial class AgentContext : ApplicationContext
                         long td = Stopwatch.GetTimestamp();
                         SampleDiskUse();
                         Measure("disk use", td);
+                        long tdr = Stopwatch.GetTimestamp();
+                        SampleDrivers();
+                        Measure("drivers", tdr);
                     }
                 }
                 catch (Exception ex) { _errors.Failed("network", ex); }
@@ -727,6 +731,7 @@ internal sealed partial class AgentContext : ApplicationContext
         Step("crash watch", () => _appCrashWatch?.Dispose(), took);
         Step("network trace", () => _netTrace?.Dispose(), took);
         Step("disk trace", () => _diskTrace?.Dispose(), took);
+        Step("driver trace", () => _driverTrace?.Dispose(), took);
         Step("line check", () => _line?.Dispose(), took);
         Step("server ping", () => _serverPing?.Dispose(), took);
         NetworkChange.NetworkAddressChanged -= OnAddressChanged;

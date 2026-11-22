@@ -36,9 +36,14 @@ internal sealed class DarkMenuRenderer() : ToolStripProfessionalRenderer(new Men
         };
     }
 
+    /// <summary>The grey of what sits on an item's right (its shortcut, "last 2 min"): the notification cards' quieter text.</summary>
+    internal static Color MutedText => Light ? Color.FromArgb(85, 85, 85) : Grey ? Color.FromArgb(173, 173, 173) : Color.FromArgb(163, 163, 163);
+
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
     {
-        e.TextColor = e.Item.Enabled ? TextColor : DisabledText;
+        // A menu item draws its shortcut text through here too, as a second text of its own.
+        bool shortcut = e.Item is ToolStripMenuItem { ShortcutKeyDisplayString: { Length: > 0 } keys } item && e.Text == keys && e.Text != item.Text;
+        e.TextColor = !e.Item.Enabled ? DisabledText : shortcut ? MutedText : TextColor;
         base.OnRenderItemText(e);
     }
 

@@ -154,8 +154,12 @@ public sealed partial class RigsightDb
             cmd.ExecuteNonQuery();
         foreach (var s in stutters)
         {
-            using var cmd = Cmd("INSERT OR REPLACE INTO stutter(ts_ms, app, ms, usual_ms) VALUES($ts, $app, $ms, $usual)",
-                ("$ts", s.AtMs), ("$app", app), ("$ms", Math.Round(s.Ms, 1)), ("$usual", Math.Round(s.UsualMs, 1)));
+            // The driver whose long bursts fell inside the frame, when there was one (driver activity, issue #15).
+            using var cmd = s.Drv is { Length: > 0 } && HasStutterDrivers
+                ? Cmd("INSERT OR REPLACE INTO stutter(ts_ms, app, ms, usual_ms, drv, drv_us) VALUES($ts, $app, $ms, $usual, $drv, $us)",
+                    ("$ts", s.AtMs), ("$app", app), ("$ms", Math.Round(s.Ms, 1)), ("$usual", Math.Round(s.UsualMs, 1)), ("$drv", s.Drv), ("$us", s.DrvUs))
+                : Cmd("INSERT OR REPLACE INTO stutter(ts_ms, app, ms, usual_ms) VALUES($ts, $app, $ms, $usual)",
+                    ("$ts", s.AtMs), ("$app", app), ("$ms", Math.Round(s.Ms, 1)), ("$usual", Math.Round(s.UsualMs, 1)));
             cmd.ExecuteNonQuery();
         }
     }
@@ -197,9 +201,15 @@ public sealed partial class RigsightDb
     {
         var list = new List<Games.Stutter>();
         if (!HasFrames) return list;
-        using var cmd = Cmd("SELECT ts_ms, ms, usual_ms FROM stutter WHERE app = $app AND ts_ms >= $from AND ts_ms < $to ORDER BY ts_ms", ("$app", appId), ("$from", fromMs), ("$to", toMs));
+        bool drivers = HasStutterDrivers;
+        using var cmd = Cmd(drivers
+            ? "SELECT ts_ms, ms, usual_ms, drv, drv_us FROM stutter WHERE app = $app AND ts_ms >= $from AND ts_ms < $to ORDER BY ts_ms"
+            : "SELECT ts_ms, ms, usual_ms FROM stutter WHERE app = $app AND ts_ms >= $from AND ts_ms < $to ORDER BY ts_ms", ("$app", appId), ("$from", fromMs), ("$to", toMs));
         using var r = cmd.ExecuteReader();
-        while (r.Read()) list.Add(new Games.Stutter(r.GetInt64(0), r.GetDouble(1), r.GetDouble(2)));
+        while (r.Read())
+            list.Add(drivers && !r.IsDBNull(3)
+                ? new Games.Stutter(r.GetInt64(0), r.GetDouble(1), r.GetDouble(2), r.GetString(3), r.IsDBNull(4) ? 0 : r.GetInt32(4))
+                : new Games.Stutter(r.GetInt64(0), r.GetDouble(1), r.GetDouble(2)));
         return list;
     }
 

@@ -21,6 +21,9 @@ internal enum NoticeKind
     Fps,
     // A wireless device's battery running low (2026-11-20).
     DeviceBattery,
+    // What the tray's "Something just went wrong" found in the 2 minutes before (issue #15, 2026-11-22). RigSight's own
+    // group, in the default violet: the person asked for it, so no limit or quiet holds it back.
+    LookBack,
 }
 
 /// <summary>Something worth telling the user. <see cref="Urgent"/> notices are shown even during fullscreen games.</summary>
@@ -430,6 +433,7 @@ internal static class ToastRenderer
         NoticeKind.Timer => Lang.T("TIMER"),
         NoticeKind.Fps => Lang.T("GAMES"),
         NoticeKind.DeviceBattery => Lang.T("BATTERY"),
+        NoticeKind.LookBack => Lang.T("THE LAST 2 MINUTES"),
         _ => Lang.T("UPDATE"),
     };
 

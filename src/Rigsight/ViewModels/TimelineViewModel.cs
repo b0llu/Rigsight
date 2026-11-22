@@ -168,16 +168,20 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     private List<SystemChange> _changes = [];
     private List<TimelineProblem> _problems = [];
+    private List<TimelineMark> _marks = [];
     private Dictionary<DateTime, Core.Reports.ChangeResult> _results = [];
     private string _signature = "";
 
     // Under the current filter: every row with something on it (newest first), and what's on each. A row is a day, or
     // grouped by month a month (its 1st); the calendar always goes by the days (_onDay).
     private List<DateTime> _dayOrder = [];
-    private Dictionary<DateTime, (List<SystemChange> Changes, List<TimelineProblem> Problems)> _byDay = [];
-    private Dictionary<DateTime, (List<SystemChange> Changes, List<TimelineProblem> Problems)> _onDay = [];
+    private Dictionary<DateTime, (List<SystemChange> Changes, List<TimelineProblem> Problems, List<TimelineMark> Marks)> _byDay = [];
+    private Dictionary<DateTime, (List<SystemChange> Changes, List<TimelineProblem> Problems, List<TimelineMark> Marks)> _onDay = [];
     private bool _byMonth;
     private readonly HashSet<(DateTime Row, string Line)> _expanded = [];
+
+    /// <summary>A problem marked from the tray's "Something just went wrong": a flag, in the palette's purple.</summary>
+    private const string MarkIcon = "\uE7C1";
 
     private const string ProblemIcon = "";
 
@@ -261,7 +265,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     internal void Apply(TimelineData data, bool onlyIfChanged = false)
     {
-        string signature = $"{data.Changes.Count}|{data.Changes.Sum(c => c.Id)}|{data.Changes.Count(c => c.Kind == ChangeKind.Storage)}|{data.Problems.Count}|{DateTime.Today:yyyyMMdd}|{string.Join('|', data.Results.OrderBy(e => e.Key).Select(e => e.Value.Headline + e.Value.Why))}";
+        string signature = $"{data.Changes.Count}|{data.Changes.Sum(c => c.Id)}|{data.Changes.Count(c => c.Kind == ChangeKind.Storage)}|{data.Problems.Count}|{data.Marks.Count}|{data.Marks.LastOrDefault()?.Time.Ticks}|{DateTime.Today:yyyyMMdd}|{string.Join('|', data.Results.OrderBy(e => e.Key).Select(e => e.Value.Headline + e.Value.Why))}";
         bool same = signature == _signature;
         _signature = signature;
         Now = Models.Kept.Or(Now, BuildNow(data));
@@ -269,6 +273,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
         _changes = data.Changes;
         _problems = data.Problems;
+        _marks = data.Marks;
         _results = data.Results;
         Loaded = true;
         if (Opened is { } open) Opened = _results.TryGetValue(open.Day, out var still) ? CaseOf(still) : null;
@@ -320,23 +325,27 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         var changes = all ? _changes
             : Filter.Key == ResultsKey ? [.. _changes.Where(c => _results.TryGetValue(c.Time.Date, out var r) && r.Changes.Contains(c))]
             : [.. _changes.Where(c => kinds.Contains(c.Kind))];
-        // Problems are context for everything together; a list of one kind is just that kind.
+        // Problems, and the ones marked from the tray, are context for everything together; a list of one kind is just that
+        // kind. A mark is never a change: it has no filter of its own, as problems have none.
         var problems = all ? _problems : [];
+        var marks = all ? _marks : [];
         var words = Core.TextMatch.Words(Search);
         if (words.Length > 0)
         {
             // Found by the words as saved or as shown (searching in Spanish finds "actualizado").
             changes = [.. changes.Where(c => Core.TextMatch.Has(words, c.Title, c.Was, c.Now) || Core.TextMatch.Has(words, c.Shown))];
             problems = [.. problems.Where(p => Core.TextMatch.Has(words, p.Title))];
+            marks = [.. marks.Where(m => Core.TextMatch.Has(words, m.Text))];
         }
 
         _onDay = [];
         foreach (var c in changes) DayOf(c.Time.Date).Changes.Add(c);
         foreach (var p in problems) DayOf(p.Time.Date).Problems.Add(p);
+        foreach (var m in marks) DayOf(m.Time.Date).Marks.Add(m);
         // By month: a row a month with everything that happened in it; otherwise a row a day.
         _byMonth = Grouping == "Month";
         _byDay = !_byMonth ? _onDay : _onDay.GroupBy(d => new DateTime(d.Key.Year, d.Key.Month, 1)).ToDictionary(g => g.Key,
-            g => (Changes: g.SelectMany(d => d.Value.Changes).ToList(), Problems: g.SelectMany(d => d.Value.Problems).ToList()));
+            g => (Changes: g.SelectMany(d => d.Value.Changes).ToList(), Problems: g.SelectMany(d => d.Value.Problems).ToList(), Marks: g.SelectMany(d => d.Value.Marks).ToList()));
         _dayOrder = [.. _byDay.Keys.OrderByDescending(d => d)];
 
         int shown = keepPlace ? Math.Max(Days.Count, PageSize) : PageSize;
@@ -359,8 +368,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         }
         BuildCalendar();
 
-        (List<SystemChange> Changes, List<TimelineProblem> Problems) DayOf(DateTime day) =>
-            _onDay.TryGetValue(day, out var d) ? d : _onDay[day] = ([], []);
+        (List<SystemChange> Changes, List<TimelineProblem> Problems, List<TimelineMark> Marks) DayOf(DateTime day) =>
+            _onDay.TryGetValue(day, out var d) ? d : _onDay[day] = ([], [], []);
     }
 
     public bool HasMore => Days.Count < _dayOrder.Count;
@@ -395,8 +404,12 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     private TimelineDay BuildDay(DateTime day, bool newMonth)
     {
-        var (changes, problems) = _byDay[day];
+        var (changes, problems, marks) = _byDay[day];
         var entries = new List<(DateTime At, TimelineEntry Entry)>();
+
+        // A problem marked from the tray, with what the 2 minutes before it showed: a line each, at its own time.
+        foreach (var m in marks)
+            entries.Add((m.Time, MarkEntry(m, TimeText.Time(m.Time))));
 
         // The same kind of problem several times in a day is one line ("3 graphics driver resets").
         foreach (var group in problems.GroupBy(p => (p.Kind, p.Outside)))
@@ -441,7 +454,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             Title = ago switch { 0 => Lang.T("Today"), 1 => Lang.T("Yesterday"), _ => day.ToString("dddd d") },
             SubTitle = ago <= 1 ? day.ToString("dddd, d MMMM") : "",
             Month = newMonth ? day.ToString("MMMM yyyy").ToUpper(CultureInfo.CurrentCulture) : null,
-            NodeBrush = changes.Count == 0 ? "HotBrush" : "CpuBrush",
+            NodeBrush = NodeOf(changes, problems),
             // Newest first; a drive's space is the whole day's (dated at its midnight) and comes last.
             Entries = [.. entries.OrderByDescending(e => e.At).Select(e => e.Entry)],
         };
@@ -478,7 +491,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     /// </summary>
     private TimelineDay BuildMonth(DateTime month, bool newYear)
     {
-        var (changes, problems) = _byDay[month];
+        var (changes, problems, marks) = _byDay[month];
         var entries = new List<TimelineEntry>();
         foreach (var group in problems.GroupBy(p => (p.Kind, p.Outside)))
         {
@@ -491,6 +504,18 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
                 CrashFrom = group.Min(p => p.Time).Date,
                 CrashTime = n == 1 ? last.Time : null,
                 Title = n == 1 ? last.Title : last.Outside ? Core.Wording.PowerCuts(n) : Core.Wording.Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
+            });
+        }
+        // The problems marked from the tray: one is its own line; more fold into one, each with its date on request.
+        if (marks.Count == 1) entries.Add(MarkEntry(marks[0], Span([marks[0].Time])));
+        else if (marks.Count > 1)
+        {
+            var newest = marks.OrderByDescending(m => m.Time).ToList();
+            entries.Add(new TimelineEntry
+            {
+                Key = "marks", TimeText = Span(newest.Select(m => m.Time)), Icon = MarkIcon, IconBrush = "PurpleBrush", Title = Lang.T($"{marks.Count} problems marked"),
+                Children = [.. newest.Select(m => new TimelineEntry { Title = m.Text, Detail = TimeText.At(m.Time, "d MMM, h:mm tt") })],
+                ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((month, "marks")),
             });
         }
         // A change that made something better or worse keeps its own line with the result under it, as its day shows it
@@ -532,7 +557,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         return new TimelineDay
         {
             Day = month, IsSummary = true, Title = month.ToString("MMMM"), Month = newYear ? month.ToString("yyyy") : null,
-            NodeBrush = changes.Count == 0 ? "HotBrush" : "CpuBrush", Entries = entries,
+            NodeBrush = NodeOf(changes, problems), Entries = entries,
         };
 
         // The days they fell on: "9 Sep", or "3–20 Sep".
@@ -555,6 +580,16 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         GameKey = GameKeyOf(c),
         IsKey = c.IsSystemLevel,
     };
+
+    /// <summary>A problem marked from the tray: its flag in purple, and what the look back found, as it was saved.</summary>
+    private static TimelineEntry MarkEntry(TimelineMark m, string when) => new()
+    {
+        TimeText = when, Icon = MarkIcon, IconBrush = "PurpleBrush", Title = m.Text,
+    };
+
+    /// <summary>The dot on the line: blue for changes, red for problems only, purple for marked problems only.</summary>
+    private static string NodeOf(List<SystemChange> changes, List<TimelineProblem> problems) =>
+        changes.Count > 0 ? "CpuBrush" : problems.Count > 0 ? "HotBrush" : "PurpleBrush";
 
     /// <summary>The game a game update opens on the Games page (null for any other change).</summary>
     private static string? GameKeyOf(SystemChange c) =>
@@ -649,7 +684,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             CalendarMonths = [.. Enumerable.Range(1, 12).Select(i =>
             {
                 var month = new DateTime(m.Year, i, 1);
-                int n = _onDay.Where(d => d.Key.Year == m.Year && d.Key.Month == i).Sum(d => d.Value.Changes.Count + d.Value.Problems.Count);
+                int n = _onDay.Where(d => d.Key.Year == m.Year && d.Key.Month == i).Sum(d => d.Value.Changes.Count + d.Value.Problems.Count + d.Value.Marks.Count);
                 return new CalendarMonthCell(month, n, month == m);
             })];
             CanGoBack = m.Year > FirstMonth.Year;
@@ -682,7 +717,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             _onDay.TryGetValue(d, out var day);
             cell.IsToday = d == DateTime.Today;
             cell.HasAny = day.Changes is not null;
-            cell.OnlyProblems = day.Changes is { Count: 0 };
+            cell.OnlyProblems = day.Changes is { Count: 0 } && day.Problems.Count > 0;
             if (day.Changes is null)
             {
                 cell.Tip = null;
@@ -690,6 +725,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             }
             // Hovering a day says what's on it.
             var lines = day.Problems.GroupBy(p => p.Kind).Select(g => g.Count() == 1 ? g.First().Title : CrashesViewModel.KindCount(g.Key, g.Count()))
+                .Concat(day.Marks.Count switch { 0 => Array.Empty<string>(), 1 => new[] { day.Marks[0].Text }, var n => new[] { Lang.T($"{n} problems marked") } })
                 .Concat(day.Changes.OrderByDescending(c => c.IsSystemLevel).Take(5).Select(c => c.Shown)).ToList();
             if (day.Changes.Count > 5) lines.Add(Lang.T($"and {day.Changes.Count - 5} more"));
             cell.Tip = string.Join("\n", lines);

@@ -1,0 +1,238 @@
+using Rigsight.Core.Drivers;
+
+namespace Rigsight.Agent.Drivers;
+
+/// <summary>The four kinds of driver call Windows times (the PerfInfo event's opcode says which).</summary>
+internal enum DriverCall
+{
+    /// <summary>A deferred procedure call: a driver finishing work its interrupt started (opcode 68).</summary>
+    Dpc,
+    /// <summary>A DPC a timer queued (69): the same, started by a timer rather than a device.</summary>
+    TimerDpc,
+    /// <summary>
+    /// A threaded DPC (66): runs as an ordinary thread at passive level, so other threads and DPCs can take the core from
+    /// it. Counted, but never a burst: it didn't keep the core to itself.
+    /// </summary>
+    ThreadedDpc,
+    /// <summary>An interrupt service routine (67): the driver's first answer to its device, ahead of everything else.</summary>
+    Isr,
+}
+
+/// <summary>
+/// What the driver trace keeps of each call, apart from Windows so it can be tested: the long bursts of the last
+/// <see cref="DriverRules.LookBackSec"/> seconds (the stutter matcher and the tray's "Something just went wrong" read
+/// them), and each driver's minute (count, own time, longest, long ones). Fed on the trace's thread, read on the
+/// sampler's, under one lock. Nothing per call allocates: drivers are small numbers handed out by <see cref="Driver"/>,
+/// the ring holds structs, the tallies are arrays.
+/// </summary>
+internal sealed class DriverLedger
+{
+    /// <summary>The ring's first size; it doubles as bursts come, up to <see cref="DriverRules.RingMax"/>.</summary>
+    internal const int RingStart = 256;
+
+    private readonly Lock _gate = new();
+    private readonly long _ticksPerSecond;
+    private readonly double _msPerTick;
+    private readonly ExclusiveTime _exclusive;
+    private readonly List<string> _names = [];
+    private readonly Dictionary<string, int> _index = new(StringComparer.Ordinal);
+
+    // The clock: a trace tick (the precise counter) and the wall time it was, read together; see Anchor.
+    private long _anchorTicks;
+    private double _anchorMs;
+
+    // The ring, oldest at _head.
+    private DriverBurst[] _ring = new DriverBurst[RingStart];
+    private int _head, _count;
+
+    // This minute's tallies, by driver number.
+    private Tally[] _tallies = new Tally[16], _spare = new Tally[16];
+
+    private readonly long[] _calls = new long[4];
+    private long _threadedUs, _bursts, _long;
+
+    private struct Tally
+    {
+        public int Count, LongestUs, Long;
+        public long TotalUs;
+    }
+
+    /// <param name="ticksPerSecond">The trace clock's rate (the precise counter's: Stopwatch.Frequency).</param>
+    /// <param name="cpus">Cores to make room for at the start (more are made room for as they come).</param>
+    public DriverLedger(long ticksPerSecond, int cpus = 0)
+    {
+        _ticksPerSecond = ticksPerSecond;
+        _msPerTick = 1000.0 / ticksPerSecond;
+        _exclusive = new ExclusiveTime(cpus);
+        Driver(""); // number 0: an address no loaded driver holds
+    }
+
+    /// <summary>
+    /// Ties the trace's clock to the wall clock: <paramref name="ticks"/> (the precise counter, read just now) was
+    /// <paramref name="unixMs"/>. The two drift apart by a few ms an hour, and the wall clock can be set, so the trace ties
+    /// them again every few minutes; a burst's time is then off by no more than that drift, far under a frame's.
+    /// </summary>
+    public void Anchor(long ticks, double unixMs)
+    {
+        lock (_gate)
+        {
+            _anchorTicks = ticks;
+            _anchorMs = unixMs;
+        }
+    }
+
+    /// <summary>The number of a driver's file ("" for no driver), given once per file and kept for the run.</summary>
+    public int Driver(string file)
+    {
+        lock (_gate)
+        {
+            if (_index.TryGetValue(file, out int i)) return i;
+            i = _names.Count;
+            _names.Add(file);
+            _index[file] = i;
+            return i;
+        }
+    }
+
+    /// <summary>The file a driver number stands for.</summary>
+    public string Name(int driver)
+    {
+        lock (_gate) return driver >= 0 && driver < _names.Count ? _names[driver] : "";
+    }
+
+    /// <summary>
+    /// One call, as Windows logged it: it ended at <paramref name="endTicks"/> after <paramref name="ticks"/> on core
+    /// <paramref name="cpu"/>. Returns its own time in µs (what was inside it on that core taken out).
+    /// </summary>
+    public int Add(long endTicks, long ticks, int cpu, int driver, DriverCall kind)
+    {
+        lock (_gate)
+        {
+            long own = _exclusive.Take(cpu, endTicks - ticks, endTicks);
+            // Whole µs, in whole numbers: 250 ticks of a 1 MHz clock must be 250, not 249.99999 cut to 249.
+            int us = (int)Math.Min(int.MaxValue, own * 1_000_000 / _ticksPerSecond);
+            _calls[(int)kind]++;
+            if (kind == DriverCall.ThreadedDpc)
+            {
+                _threadedUs += us;
+                return us;
+            }
+
+            if ((uint)driver >= (uint)_names.Count) driver = 0;
+            if (driver >= _tallies.Length)
+            {
+                int size = Math.Max(_names.Count, _tallies.Length * 2);
+                Array.Resize(ref _tallies, size);
+                Array.Resize(ref _spare, size);
+            }
+            ref var t = ref _tallies[driver];
+            t.Count++;
+            t.TotalUs += us;
+            if (us > t.LongestUs) t.LongestUs = us;
+            if (us >= DriverRules.LongUs)
+            {
+                t.Long++;
+                _long++;
+            }
+
+            if (us >= DriverRules.RingUs)
+            {
+                _bursts++;
+                double endMs = _anchorMs + (endTicks - _anchorTicks) * _msPerTick;
+                Keep(new DriverBurst(endMs, us, cpu, _names[driver]));
+            }
+            return us;
+        }
+    }
+
+    /// <summary>
+    /// Adds a burst at the ring's end, after dropping those older than <see cref="DriverRules.LookBackSec"/> from its
+    /// start. Cores hand their events over in batches, so the ring is only roughly in time order: a burst slightly out of
+    /// order waits for the next pass, and <see cref="Recent"/> looks at every one.
+    /// </summary>
+    private void Keep(DriverBurst burst)
+    {
+        double oldest = burst.EndMs - DriverRules.LookBackSec * 1000.0;
+        while (_count > 0 && _ring[_head].EndMs < oldest)
+        {
+            _ring[_head] = default;
+            _head = (_head + 1) % _ring.Length;
+            _count--;
+        }
+        if (_count == _ring.Length)
+        {
+            if (_ring.Length < DriverRules.RingMax)
+            {
+                var bigger = new DriverBurst[Math.Min(DriverRules.RingMax, _ring.Length * 2)];
+                for (int i = 0; i < _count; i++) bigger[i] = _ring[(_head + i) % _ring.Length];
+                _ring = bigger;
+                _head = 0;
+            }
+            else
+            {
+                // Full at the cap: a storm of bursts; the oldest goes.
+                _head = (_head + 1) % _ring.Length;
+                _count--;
+            }
+        }
+        _ring[(_head + _count) % _ring.Length] = burst;
+        _count++;
+    }
+
+    /// <summary>The kept bursts that ended at or after <paramref name="sinceMs"/> (Unix ms), oldest first as they came; a copy.</summary>
+    public IReadOnlyList<DriverBurst> Recent(double sinceMs)
+    {
+        lock (_gate)
+        {
+            var list = new List<DriverBurst>();
+            for (int i = 0; i < _count; i++)
+            {
+                var b = _ring[(_head + i) % _ring.Length];
+                if (b.EndMs >= sinceMs) list.Add(b);
+            }
+            return list;
+        }
+    }
+
+    /// <summary>
+    /// Each driver's work since the last call, as the minute starting at <paramref name="minuteTs"/> (Unix seconds),
+    /// drivers that did nothing left out; the counts start again from nothing.
+    /// </summary>
+    public List<DriverTally> TakeMinute(long minuteTs)
+    {
+        Tally[] taken;
+        string[] names;
+        lock (_gate)
+        {
+            taken = _tallies;
+            Array.Clear(_spare);
+            _tallies = _spare;
+            _spare = taken;
+            names = [.. _names];
+        }
+        // Read outside the lock: _spare (the taken array) is written again only at the next TakeMinute, on this same thread.
+        var list = new List<DriverTally>();
+        for (int i = 0; i < taken.Length && i < names.Length; i++)
+            if (taken[i].Count > 0)
+                list.Add(new DriverTally(minuteTs, names[i], taken[i].Count, taken[i].TotalUs, taken[i].LongestUs, taken[i].Long));
+        return list;
+    }
+
+    /// <summary>Calls of each kind since the start (see <see cref="DriverCall"/>).</summary>
+    public long Calls(DriverCall kind)
+    {
+        lock (_gate) return _calls[(int)kind];
+    }
+
+    /// <summary>Threaded DPCs' time since the start (µs): counted apart, never part of a driver's tally.</summary>
+    public long ThreadedUs
+    {
+        get { lock (_gate) return _threadedUs; }
+    }
+
+    /// <summary>Bursts kept in the ring since the start (<see cref="DriverRules.RingUs"/> or more), and the long ones among them.</summary>
+    public (long Bursts, long Long) Totals
+    {
+        get { lock (_gate) return (_bursts, _long); }
+    }
+}

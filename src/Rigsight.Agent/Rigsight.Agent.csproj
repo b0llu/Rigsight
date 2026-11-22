@@ -47,6 +47,8 @@
     <InternalsVisibleTo Include="Rigsight.Tests" />
     <!-- tools\Rigsight.DiskTraceProbe: measures the disk trace on its own. -->
     <InternalsVisibleTo Include="Rigsight.DiskTraceProbe" />
+    <!-- tools\Rigsight.DriverTraceProbe: measures the driver trace (DPC and interrupt times) on its own. -->
+    <InternalsVisibleTo Include="Rigsight.DriverTraceProbe" />
   </ItemGroup>
 
 </Project>
