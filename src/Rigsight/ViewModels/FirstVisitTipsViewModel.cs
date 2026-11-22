@@ -21,7 +21,7 @@ public sealed partial class FirstVisitTipsViewModel(SettingsModel settings, Func
     {
         ["reports"] = (Lang.Key("Reports"), Lang.Key("Your PC's day, week, month and year in one report. It fills in after your first full day.")),
         ["apps"] = (Lang.Key("Apps"), Lang.Key("Every app's time, CPU, GPU and memory, hour by hour. It fills in as you use your PC.")),
-        ["games"] = (Lang.Key("Games"), Lang.Key("Each game you play, with its time, temperatures, frame rate and settings. 1% lows and frame times need RivaTuner.")),
+        ["games"] = (Lang.Key("Games"), Lang.Key("Each game you play, with its time, temperatures, frame rate and settings. The frame rate needs admin rights or RivaTuner.")),
         ["processes"] = (Lang.Key("Processes"), Lang.Key("What's running right now and what it's using, like Task Manager. Right-click one to ask what it is.")),
         ["crashes"] = (Lang.Key("Crashes from the last 90 days"), Lang.Key("Windows' own logs come in here within a minute. New crashes show up as they happen, with an alert at the corner of your screen.")),
         ["timeline"] = (Lang.Key("Timeline"), Lang.Key("Everything that changed on this PC (drivers, Windows updates, BIOS, settings), with what got better or worse after.")),

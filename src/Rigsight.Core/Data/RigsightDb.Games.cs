@@ -223,6 +223,14 @@ public sealed partial class RigsightDb
     }
 
     /// <summary>How many minutes of a game's frames came from each source.</summary>
+    /// <summary>Whether RigSight's own frame times (not RivaTuner's) were recorded for any game since <paramref name="from"/> (Unix seconds).</summary>
+    public bool HasOwnFramesSince(long from)
+    {
+        if (!HasFrames || !HasFrameSource) return false;
+        using var cmd = Cmd("SELECT 1 FROM frame_minute WHERE src = 1 AND ts >= $from LIMIT 1", ("$from", from));
+        return cmd.ExecuteScalar() is not null;
+    }
+
     public (int RivaTuner, int Own) CountFrameSources(long appId, long from, long to)
     {
         var all = GetFrameSources(appId, from, to);

@@ -2790,12 +2790,19 @@ internal sealed partial class AgentContext : ApplicationContext
         bool on = settings.Alerts.FpsNotRecorded;
         RunOnSampler(() =>
         {
-            bool gamer = false;
-            try { gamer = _db.PlayedGameSince(TimeUtil.ToUnix(DateTime.Today.AddDays(-30))); }
+            bool gamer = false, own = false;
+            try
+            {
+                gamer = _db.PlayedGameSince(TimeUtil.ToUnix(DateTime.Today.AddDays(-30)));
+                // RigSight's own frame times (admin rights, issue #15): FPS is being recorded without RivaTuner, so
+                // "none is being recorded" would be false.
+                own = _isAdmin && _db.HasOwnFramesSince(TimeUtil.ToUnix(DateTime.Today.AddDays(-30)));
+            }
             catch (Exception ex) { Log.Error("notice", ex); }
-            bool say = state == "stopped" && gamer && on && !RigsightPaths.IsTestInstance;
+            bool say = state == "stopped" && gamer && on && !own && !RigsightPaths.IsTestInstance;
             Log.Write("notice", $"RivaTuner {state} since {off:t}" + (say ? "" : state != "stopped" ? ", nothing to start"
-                : !gamer ? ", not shown: no game in the last 30 days" : !on ? ", not shown: switched off" : ", not shown: test copy"));
+                : !gamer ? ", not shown: no game in the last 30 days" : !on ? ", not shown: switched off"
+                : own ? ", not shown: RigSight records games' frame times itself" : ", not shown: test copy"));
             if (!say) return;
             var text = NoticeWords.RivaTunerOff();
             Notify(new Notice(NoticeKind.Fps, text.Title, text.Body, Page: "rivatuner"));
