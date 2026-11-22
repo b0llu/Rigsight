@@ -41,7 +41,10 @@ internal sealed partial class AgentContext
                 return apps.TryGetValue(id, out var a) ? settings.AppNames.TryGetValue(a.Exe, out var alias) ? alias : AppCatalog.KnownName(a.Exe) ?? a.Name : null;
             }
 
-            var found = LookBack.Check(now, bursts, parts, UsualOf, points, NameOf);
+            // The sound trace's heard glitches (sound dropouts), while it runs; null otherwise, and the sound isn't checked.
+            var sound = _soundTrace is { Ended: false } soundTrace ? soundTrace.Recent(nowMs - DriverRules.LookBackSec * 1000L) : null;
+
+            var found = LookBack.Check(now, bursts, parts, UsualOf, points, NameOf, sound);
             try { _db.AddProblemMark(nowUnix, found.TimelineText); }
             catch (Exception ex) { _errors.Failed("look back mark", ex); }
             Log.Write("lookback", $"Look back at {now:HH:mm:ss}: "

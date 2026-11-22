@@ -425,6 +425,7 @@ internal sealed partial class AgentContext : ApplicationContext
         Step("network", StartNetwork);
         Step("disk use", StartDiskUse);
         Step("drivers", StartDrivers);
+        Step("sound", StartSound);
 
         var clock = Stopwatch.StartNew();
         // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
@@ -529,6 +530,9 @@ internal sealed partial class AgentContext : ApplicationContext
                         long tdr = Stopwatch.GetTimestamp();
                         SampleDrivers();
                         Measure("drivers", tdr);
+                        long tso = Stopwatch.GetTimestamp();
+                        SampleSound();
+                        Measure("sound", tso);
                     }
                 }
                 catch (Exception ex) { _errors.Failed("network", ex); }
@@ -732,6 +736,7 @@ internal sealed partial class AgentContext : ApplicationContext
         Step("network trace", () => _netTrace?.Dispose(), took);
         Step("disk trace", () => _diskTrace?.Dispose(), took);
         Step("driver trace", () => _driverTrace?.Dispose(), took);
+        Step("sound trace", () => _soundTrace?.Dispose(), took);
         Step("line check", () => _line?.Dispose(), took);
         Step("server ping", () => _serverPing?.Dispose(), took);
         NetworkChange.NetworkAddressChanged -= OnAddressChanged;
