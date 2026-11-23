@@ -4,6 +4,13 @@
   "version": 1,
   "monthPrefix": "de ",
   "strings": {
+    "Stutters and sound": "Tirones y sonido",
+    "Long lines in a play's hover on Games, like a play ended by a power cut, now wrap inside the box instead of running past it.": "Las líneas largas al pasar el ratón sobre una partida en Juegos, como una partida que terminó por un corte de luz, ahora se ajustan dentro del cuadro en lugar de salirse de él.",
+    "See what else was happening on your PC when a game stuttered or your sound cut out.": "Mira qué más pasaba en tu PC cuando un juego daba tirones o se cortaba el sonido.",
+    "Without RivaTuner, RigSight now records a game's frame rate, 1% low and stutters itself when it has admin rights.": "Sin RivaTuner, RigSight ahora registra por sí mismo la tasa de fotogramas, el 1% mínimo y los tirones de un juego cuando tiene permisos de administrador.",
+    "A play's hover on Games names a possible cause when a part used the CPU much longer than usual right as the game stuttered.": "Al pasar el ratón sobre una partida en Juegos, se indica una posible causa cuando un componente usó la CPU mucho más tiempo de lo habitual justo cuando el juego daba tirones.",
+    "Timeline shows when your sound cut out and in which app, and Apps says when an app had more cut-outs than usual.": "Cronología muestra cuándo se cortó el sonido y en qué aplicación, y Aplicaciones indica cuándo una aplicación tuvo más cortes de lo habitual.",
+    "Something just went wrong, in the tray menu, checks the last 2 minutes for anything unusual and marks the moment on Timeline.": "Algo acaba de ir mal, en el menú de la bandeja, revisa los últimos 2 minutos en busca de algo inusual y marca el momento en Cronología.",
     "Taskbar readings": "Lecturas de la barra de tareas",
     "Desktop widgets": "Widgets de escritorio",
     "Game overlay": "Superposición de juego",

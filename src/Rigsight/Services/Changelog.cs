@@ -187,6 +187,14 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.17.0", 11, 23,
+            fixedBugs: [Lang.T("Long lines in a play's hover on Games, like a play ended by a power cut, now wrap inside the box instead of running past it.")],
+            feature: new(Lang.T("Stutters and sound"), Lang.T("See what else was happening on your PC when a game stuttered or your sound cut out."),
+                [Lang.T("Without RivaTuner, RigSight now records a game's frame rate, 1% low and stutters itself when it has admin rights."),
+                    Lang.T("A play's hover on Games names a possible cause when a part used the CPU much longer than usual right as the game stuttered."),
+                    Lang.T("Timeline shows when your sound cut out and in which app, and Apps says when an app had more cut-outs than usual."),
+                    Lang.T("Something just went wrong, in the tray menu, checks the last 2 minutes for anything unusual and marks the moment on Timeline.")],
+                "games", "", isPage: false) { OpenText = Lang.T("Open Games") }),
         V("1.16.1", 11, 22,
             added: [Lang.T("When RigSight itself crashes, Windows now saves a crash file, and About in Settings can copy it to share with a bug report.")],
             fixedBugs: [Lang.T("A drive that gives no health readings, like many USB SSDs, no longer shows 0% life left and an early warning on Storage.")]),

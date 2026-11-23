@@ -62,6 +62,7 @@ internal sealed partial class Tracker
         if (_ownBuf.Count == 0) return;
         if (endMs <= 0) endMs = _clock().ToUnixTimeMilliseconds();
         if (!_minute.OwnFrames.TryGetValue(app.Id, out var acc)) _minute.OwnFrames[app.Id] = acc = new FrameAcc();
+        _frameExes[app.Id] = app.Exe;
         foreach (var us in _ownBuf) acc.Spread.Add(us);
         acc.Seconds++;
         var frames = CollectionsMarshal.AsSpan(_ownBuf);
@@ -109,7 +110,14 @@ internal sealed partial class Tracker
         return t;
     }
 
-    private string Exe(long appId) => _sessions.TryGetValue(appId, out var s) ? s.App.Exe : FrontGame.Exe ?? $"app {appId}";
+    /// <summary>
+    /// The exe of each app frames were taken for: a play's last minute is written after the play ended and the game left
+    /// the front, so its log lines named it "app 12" (2026-11-22). Few entries (games played since the agent started).
+    /// </summary>
+    private readonly Dictionary<long, string> _frameExes = [];
+
+    private string Exe(long appId) => _frameExes.TryGetValue(appId, out var exe) ? exe
+        : _sessions.TryGetValue(appId, out var s) ? s.App.Exe : FrontGame.Exe ?? $"app {appId}";
 
     /// <summary>A game's play ended: which source its frames came from, said once.</summary>
     private void LogPlayFrames(AppInfo app)

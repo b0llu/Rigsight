@@ -417,6 +417,7 @@ internal sealed partial class Tracker(RigsightDb db, AppResolver apps, Func<Date
         if (_frameBuf.Count == 0) return;
         long endMs = _clock().ToUnixTimeMilliseconds();
         if (!_minute.Frames.TryGetValue(app.Id, out var acc)) _minute.Frames[app.Id] = acc = new FrameAcc();
+        _frameExes[app.Id] = app.Exe;
         foreach (var us in _frameBuf) acc.Spread.Add(us);
         var found = _stutters.Feed(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_frameBuf), endMs);
         acc.Stutters.AddRange(found.Take(Math.Max(0, 300 - acc.Stutters.Count)));
