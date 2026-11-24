@@ -554,8 +554,13 @@ public static partial class CrashLogReader
     /// <summary>Which of Windows' own entries count as a sign, and what each says in plain words (null: routine noise).</summary>
     internal static (string Kind, string Detail)? SignOf(string? provider, int id) => provider?.ToLowerInvariant() switch
     {
-        "microsoft-windows-whea-logger" => id is 1 or 18 or 20 or 46 or 47 ? (SignKind.Hardware, Lang.Key("The hardware reported an error it couldn't correct"))
-            : id is 17 or 19 ? (SignKind.Hardware, Lang.Key("The hardware reported an error it corrected")) : null,
+        // Each ID as Windows' own WHEA-Logger messages word it (Get-WinEvent -ListProvider, 2026-11-24): "A fatal hardware
+        // error has occurred" for 1, 16, 18, 20, 22, 24, 26, 29, 40, 42, 44, 46; "A corrected hardware error has occurred"
+        // for 17, 19, 21, 23, 25, 27, 28, 41, 43, 45, 47. Until 1.17.0, 47 (a corrected memory error) was read as fatal.
+        "microsoft-windows-whea-logger" => id is 1 or 16 or 18 or 20 or 22 or 24 or 26 or 29 or 40 or 42 or 44 or 46
+                ? (SignKind.Hardware, Lang.Key("The hardware reported an error it couldn't correct"))
+            : id is 17 or 19 or 21 or 23 or 25 or 27 or 28 or 41 or 43 or 45 or 47
+                ? (SignKind.Hardware, Lang.Key("The hardware reported an error it corrected")) : null,
         "disk" => id is 7 ? (SignKind.Drive, Lang.Key("A drive has a bad block"))
             : id is 11 ? (SignKind.Drive, Lang.Key("A drive's controller reported an error"))
             : id is 51 ? (SignKind.Drive, Lang.Key("A drive failed to read or write"))
