@@ -42,8 +42,8 @@ public static class ReadingCards
     public static string Page(TrayPart part, SensorKind kind) => kind switch
     {
         SensorKind.Temperature => "temperatures",
-        // The driver delay: where its marks are.
-        SensorKind.Delay => "timeline",
+        // The driver delay: the Latency page (issue #15), where every driver and its marks are.
+        SensorKind.Delay => "latency",
         SensorKind.Fan or SensorKind.Control => "fans",
         _ => part switch
         {
@@ -65,6 +65,7 @@ public static class ReadingCards
         "storage" => Lang.T("Open Storage"),
         "network" => Lang.T("Open Network"),
         "timeline" => Lang.T("Open Timeline"),
+        "latency" => Lang.T("Open Latency"),
         _ => Lang.T("Open All sensors"),
     };
 

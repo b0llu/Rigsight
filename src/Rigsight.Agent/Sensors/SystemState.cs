@@ -33,6 +33,9 @@ internal static partial class SystemState
     public static (int? Charge, bool? OnBattery) Battery() =>
         GetSystemPowerStatus(out var status) ? Battery(status.AcLine, status.BatteryFlag, status.BatteryPercent) : (null, null);
 
+    /// <summary>Battery Saver (Energy Saver) is on: SYSTEM_POWER_STATUS's SystemStatusFlag is 1 (the app wake-up check pauses).</summary>
+    public static bool BatterySaver() => GetSystemPowerStatus(out var status) && status.SystemStatusFlag == 1;
+
     /// <param name="acLine">0 on the battery, 1 plugged in, 255 not known.</param>
     /// <param name="flag">128 = no battery, 255 = not known.</param>
     /// <param name="percent">0 to 100, or 255 for not known.</param>

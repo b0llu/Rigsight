@@ -914,39 +914,26 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     public bool IsChangeOpen => Opened is not null;
 
-    /// <summary>The list, the calendar and This PC now: hidden while a change or a driver mark is open.</summary>
-    public bool IsListShown => Opened is null && DelayOpened is null;
+    /// <summary>The list, the calendar and This PC now: hidden while a change is open.</summary>
+    public bool IsListShown => Opened is null;
 
-    // ── An opened driver mark (issue #15 follow-up) ─────────────────────
+    // ── A driver mark (issue #15 follow-up): opens on the Latency page ──
 
-    /// <summary>A driver mark opened from its line: the page shows it in place of the list until Back.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDelayOpen), nameof(IsListShown))]
-    private Models.DelayView? _delayOpened;
+    /// <summary>Opens a driver mark on the Latency page (set by the shell); Back there returns here, at the same place.</summary>
+    public Action<Core.Drivers.DelayStretch>? OpenDelayHere { get; set; }
 
-    public bool IsDelayOpen => DelayOpened is not null;
+    /// <summary>Set as a mark opens elsewhere: leaving keeps the list where it was, so Back finds it there.</summary>
+    public bool KeepPlace { get; set; }
 
-    private int _delayAsk;
-
-    [RelayCommand]
-    private async Task OpenDelay(TimelineEntry entry)
-    {
-        if (entry.Delay is not { } stretch) return;
-        int ask = ++_delayAsk;
-        var found = await reports.DelayCaseAsync(stretch);
-        if (ask != _delayAsk || found is null) return;
-        DelayOpened = new Models.DelayView(found);
-        DelayOpenedEvent?.Invoke();
-    }
-
-    /// <summary>Raised when a driver mark opens, to scroll its view to the top.</summary>
-    public event Action? DelayOpenedEvent;
+    /// <summary>Where the list was when a mark opened elsewhere (its scroll offset), put back on return.</summary>
+    public double? KeptOffset { get; set; }
 
     [RelayCommand]
-    private void CloseDelay()
+    private void OpenDelay(TimelineEntry entry)
     {
-        _delayAsk++;
-        DelayOpened = null;
+        if (entry.Delay is not { } stretch || OpenDelayHere is not { } go) return;
+        KeepPlace = true;
+        go(stretch);
     }
 
     /// <summary>Raised when a change opens, to scroll its page to the top.</summary>

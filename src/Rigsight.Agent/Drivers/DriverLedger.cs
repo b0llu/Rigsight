@@ -55,7 +55,16 @@ internal sealed class DriverLedger
     {
         public int Count, LongestUs, Long;
         public long TotalUs;
+        // Apart by kind (the Latency page, issue #15): DPCs (timer DPCs with them) and interrupts.
+        public int DpcCount, DpcLongestUs, IsrCount, IsrLongestUs;
+        public long DpcUs, IsrUs;
+        // Calls by how long they took (DriverRules.BucketUs): under 0.25 ms up to 4 ms or more.
+        public int B0, B1, B2, B3, B4, B5;
     }
+
+    // The live Latency page's seconds (issue #15): each second's longest call and its driver, the last LiveSeconds kept.
+    internal const int LiveSeconds = 120;
+    private readonly (long Sec, int Us, int Driver)[] _seconds = new (long, int, int)[LiveSeconds];
 
     /// <param name="ticksPerSecond">The trace clock's rate (the precise counter's: Stopwatch.Frequency).</param>
     /// <param name="cpus">Cores to make room for at the start (more are made room for as they come).</param>
@@ -130,6 +139,32 @@ internal sealed class DriverLedger
             t.Count++;
             t.TotalUs += us;
             if (us > t.LongestUs) t.LongestUs = us;
+            if (kind == DriverCall.Isr)
+            {
+                t.IsrCount++;
+                t.IsrUs += us;
+                if (us > t.IsrLongestUs) t.IsrLongestUs = us;
+            }
+            else
+            {
+                t.DpcCount++;
+                t.DpcUs += us;
+                if (us > t.DpcLongestUs) t.DpcLongestUs = us;
+            }
+            switch (DriverSplit.BucketOf(us))
+            {
+                case 0: t.B0++; break;
+                case 1: t.B1++; break;
+                case 2: t.B2++; break;
+                case 3: t.B3++; break;
+                case 4: t.B4++; break;
+                default: t.B5++; break;
+            }
+            // Its second, by the wall clock the trace is tied to; a slot of the ring is taken over when its second comes round again.
+            long sec = (long)Math.Floor((_anchorMs + (endTicks - _anchorTicks) * _msPerTick) / 1000.0);
+            ref var slot = ref _seconds[(int)(((sec % LiveSeconds) + LiveSeconds) % LiveSeconds)];
+            if (slot.Sec != sec) slot = (sec, us, driver);
+            else if (us > slot.Us) (slot.Us, slot.Driver) = (us, driver);
             if (us >= DriverRules.LongUs)
             {
                 t.Long++;
@@ -232,8 +267,30 @@ internal sealed class DriverLedger
         var list = new List<DriverTally>();
         for (int i = 0; i < taken.Length && i < names.Length; i++)
             if (taken[i].Count > 0)
-                list.Add(new DriverTally(minuteTs, names[i], taken[i].Count, taken[i].TotalUs, taken[i].LongestUs, taken[i].Long));
+            {
+                ref var t = ref taken[i];
+                var split = new DriverSplit(t.DpcCount, t.DpcUs, t.DpcLongestUs, t.IsrCount, t.IsrUs, t.IsrLongestUs, [t.B0, t.B1, t.B2, t.B3, t.B4, t.B5]);
+                list.Add(new DriverTally(minuteTs, names[i], t.Count, t.TotalUs, t.LongestUs, t.Long, split));
+            }
         return list;
+    }
+
+    /// <summary>
+    /// The seconds from <paramref name="fromSec"/> to <paramref name="toSec"/> (Unix seconds, both included, at most
+    /// <see cref="LiveSeconds"/>): each one's longest call and its driver's file, 0 and "" for a second with no call.
+    /// </summary>
+    public List<(long Sec, int Us, string Driver)> Seconds(long fromSec, long toSec)
+    {
+        lock (_gate)
+        {
+            var list = new List<(long, int, string)>();
+            for (long sec = Math.Max(fromSec, toSec - LiveSeconds + 1); sec <= toSec; sec++)
+            {
+                var slot = _seconds[(int)(((sec % LiveSeconds) + LiveSeconds) % LiveSeconds)];
+                list.Add(slot.Sec == sec ? (sec, slot.Us, slot.Driver >= 0 && slot.Driver < _names.Count ? _names[slot.Driver] : "") : (sec, 0, ""));
+            }
+            return list;
+        }
     }
 
     /// <summary>Calls of each kind since the start (see <see cref="DriverCall"/>).</summary>

@@ -455,7 +455,7 @@
                                  holds something. Open shows it in File Explorer; Empty asks first, beside the button. -->
                             <DockPanel Margin="8,10" Visibility="{Binding HasBin, Converter={StaticResource Vis}}">
                                 <Border DockPanel.Dock="Left" Width="28" Height="26" CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" Margin="0,0,14,0">
-                                    <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <Button x:Name="EmptyBin" DockPanel.Dock="Right" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" MinWidth="72" Margin="8,0,0,0"
                                         VerticalAlignment="Center" Command="{Binding AskEmptyBinCommand}" AutomationProperties.Name="{ctl:T 'Empty the Recycle Bin'}">

@@ -20,6 +20,47 @@ public sealed partial class RigsightDb
             """);
         if (!HasColumn("stutter", "drv")) Exec("ALTER TABLE stutter ADD COLUMN drv TEXT");
         if (!HasColumn("stutter", "drv_us")) Exec("ALTER TABLE stutter ADD COLUMN drv_us INTEGER");
+        // DPCs and interrupts apart, and calls by how long they took (the Latency page, issue #15): empty in older rows.
+        foreach (var table in new[] { "driver_minute", "driver_hour" })
+            foreach (var column in SplitColumns)
+                if (!HasColumn(table, column)) Exec($"ALTER TABLE {table} ADD COLUMN {column} INTEGER");
+        // The app wake-up check (issue #15): every minute it ran, and every hour.
+        Exec("""
+            CREATE TABLE IF NOT EXISTS wake_minute(ts INTEGER PRIMARY KEY, n INTEGER NOT NULL, median_us INTEGER NOT NULL, highest_us INTEGER NOT NULL,
+                over_ms INTEGER NOT NULL, rate INTEGER NOT NULL) WITHOUT ROWID;
+            CREATE TABLE IF NOT EXISTS wake_hour(ts INTEGER PRIMARY KEY, n INTEGER NOT NULL, median_us INTEGER NOT NULL, highest_us INTEGER NOT NULL,
+                over_ms INTEGER NOT NULL, rate INTEGER NOT NULL) WITHOUT ROWID;
+            """);
+    }
+
+    /// <summary>The split's columns, in <see cref="DriverSplit"/>'s order, the six buckets last.</summary>
+    private static readonly string[] SplitColumns = ["dpc_n", "dpc_us", "dpc_longest", "isr_n", "isr_us", "isr_longest", "b0", "b1", "b2", "b3", "b4", "b5"];
+    private static readonly string SplitNames = ", " + string.Join(", ", SplitColumns);
+    private static readonly string SplitValues = ", " + string.Join(", ", SplitColumns.Select(c => "$" + c));
+
+    // Read: older databases (the app reading one the agent made before) may have no split columns yet.
+    private bool? _hasSplit;
+    private bool HasSplit => _hasSplit ??= HasDrivers && HasColumn("driver_hour", "b5");
+    private string SplitRead => HasSplit ? SplitNames : "";
+
+    private static void AddSplit(Microsoft.Data.Sqlite.SqliteCommand cmd, DriverSplit? s)
+    {
+        long?[] values = s is null ? new long?[SplitColumns.Length]
+            : [s.DpcCount, s.DpcUs, s.DpcLongestUs, s.IsrCount, s.IsrUs, s.IsrLongestUs, .. s.Buckets.Select(b => (long?)b)];
+        for (int i = 0; i < SplitColumns.Length; i++)
+            cmd.Parameters.AddWithValue("$" + SplitColumns[i], i < values.Length && values[i] is long v ? v : DBNull.Value);
+    }
+
+    /// <summary>A row's tally, its split when it has one (columns 6 onwards when read with <see cref="SplitRead"/>).</summary>
+    private DriverTally TallyOf(Microsoft.Data.Sqlite.SqliteDataReader r)
+    {
+        DriverSplit? split = null;
+        if (r.FieldCount >= 6 + SplitColumns.Length && !r.IsDBNull(6))
+        {
+            long L(int i) => r.IsDBNull(6 + i) ? 0 : r.GetInt64(6 + i);
+            split = new DriverSplit((int)L(0), L(1), (int)L(2), (int)L(3), L(4), (int)L(5), [L(6), L(7), L(8), L(9), L(10), L(11)]);
+        }
+        return new DriverTally(r.GetInt64(0), r.GetString(1), r.GetInt32(2), r.GetInt64(3), r.GetInt32(4), r.GetInt32(5), split);
     }
 
     // The app reads a database the agent made, which may be from before driver activity (no tables or columns yet).
@@ -39,8 +80,9 @@ public sealed partial class RigsightDb
         foreach (var t in tallies)
         {
             if (t.LongestUs < DriverRules.KeepMinuteUs && t.TotalUs < DriverRules.KeepTotalUs) continue;
-            using var cmd = Cmd("INSERT OR REPLACE INTO driver_minute(ts, driver, n, total_us, longest_us, long_n) VALUES($ts, $d, $n, $t, $l, $ln)",
+            using var cmd = Cmd($"INSERT OR REPLACE INTO driver_minute(ts, driver, n, total_us, longest_us, long_n{SplitNames}) VALUES($ts, $d, $n, $t, $l, $ln{SplitValues})",
                 ("$ts", ts), ("$d", t.Driver), ("$n", t.Count), ("$t", t.TotalUs), ("$l", t.LongestUs), ("$ln", t.Long));
+            AddSplit(cmd, t.Split);
             cmd.ExecuteNonQuery();
         }
     }
@@ -50,8 +92,20 @@ public sealed partial class RigsightDb
     {
         foreach (var t in tallies)
         {
-            using var cmd = Cmd("INSERT OR REPLACE INTO driver_hour(ts, driver, n, total_us, longest_us, long_n) VALUES($ts, $d, $n, $t, $l, $ln)",
+            using var cmd = Cmd($"INSERT OR REPLACE INTO driver_hour(ts, driver, n, total_us, longest_us, long_n{SplitNames}) VALUES($ts, $d, $n, $t, $l, $ln{SplitValues})",
                 ("$ts", ts), ("$d", t.Driver), ("$n", t.Count), ("$t", t.TotalUs), ("$l", t.LongestUs), ("$ln", t.Long));
+            AddSplit(cmd, t.Split);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>A minute of the app wake-up check, and its hour so far (written again as the hour goes on: it replaces).</summary>
+    public void WriteWake(WakeTally minute, WakeTally hour)
+    {
+        foreach (var (table, w) in new[] { ("wake_minute", minute), ("wake_hour", hour) })
+        {
+            using var cmd = Cmd($"INSERT OR REPLACE INTO {table}(ts, n, median_us, highest_us, over_ms, rate) VALUES($ts, $n, $m, $h, $o, $r)",
+                ("$ts", w.Ts), ("$n", w.Checks), ("$m", w.MedianUs), ("$h", w.HighestUs), ("$o", w.OverMs), ("$r", w.Rate));
             cmd.ExecuteNonQuery();
         }
     }
@@ -91,10 +145,10 @@ public sealed partial class RigsightDb
         var list = new List<DriverTally>();
         if (!HasDrivers) return list;
         using var cmd = driver is null
-            ? Cmd("SELECT ts, driver, n, total_us, longest_us, long_n FROM driver_minute WHERE ts >= $f AND ts < $t ORDER BY ts", ("$f", from), ("$t", to))
-            : Cmd("SELECT ts, driver, n, total_us, longest_us, long_n FROM driver_minute WHERE ts >= $f AND ts < $t AND driver = $d ORDER BY ts", ("$f", from), ("$t", to), ("$d", driver));
+            ? Cmd($"SELECT ts, driver, n, total_us, longest_us, long_n{SplitRead} FROM driver_minute WHERE ts >= $f AND ts < $t ORDER BY ts", ("$f", from), ("$t", to))
+            : Cmd($"SELECT ts, driver, n, total_us, longest_us, long_n{SplitRead} FROM driver_minute WHERE ts >= $f AND ts < $t AND driver = $d ORDER BY ts", ("$f", from), ("$t", to), ("$d", driver));
         using var r = cmd.ExecuteReader();
-        while (r.Read()) list.Add(new DriverTally(r.GetInt64(0), r.GetString(1), r.GetInt32(2), r.GetInt64(3), r.GetInt32(4), r.GetInt32(5)));
+        while (r.Read()) list.Add(TallyOf(r));
         return list;
     }
 
@@ -145,10 +199,97 @@ public sealed partial class RigsightDb
         var list = new List<DriverTally>();
         if (!HasDrivers) return list;
         using var cmd = driver is null
-            ? Cmd("SELECT ts, driver, n, total_us, longest_us, long_n FROM driver_hour WHERE ts >= $f AND ts < $t ORDER BY ts", ("$f", from), ("$t", to))
-            : Cmd("SELECT ts, driver, n, total_us, longest_us, long_n FROM driver_hour WHERE ts >= $f AND ts < $t AND driver = $d ORDER BY ts", ("$f", from), ("$t", to), ("$d", driver));
+            ? Cmd($"SELECT ts, driver, n, total_us, longest_us, long_n{SplitRead} FROM driver_hour WHERE ts >= $f AND ts < $t ORDER BY ts", ("$f", from), ("$t", to))
+            : Cmd($"SELECT ts, driver, n, total_us, longest_us, long_n{SplitRead} FROM driver_hour WHERE ts >= $f AND ts < $t AND driver = $d ORDER BY ts", ("$f", from), ("$t", to), ("$d", driver));
         using var r = cmd.ExecuteReader();
-        while (r.Read()) list.Add(new DriverTally(r.GetInt64(0), r.GetString(1), r.GetInt32(2), r.GetInt64(3), r.GetInt32(4), r.GetInt32(5)));
+        while (r.Read()) list.Add(TallyOf(r));
+        return list;
+    }
+
+    /// <summary>
+    /// Each driver's kept minutes from <paramref name="from"/> to <paramref name="to"/> added up, only the minutes a game was in
+    /// front (<paramref name="inGames"/> true) or only those it wasn't (false): the Latency page's In games and Outside games
+    /// (issue #15). The minutes worth keeping hold every call of 0.5 ms or more, so the longest and the counts over 1 ms are
+    /// whole; a driver's quiet minutes (under 5 ms in all) are left out of its total.
+    /// </summary>
+    public List<DriverTally> GetDriverTotalsByGames(long from, long to, IReadOnlyCollection<long> games, bool inGames)
+    {
+        var list = new List<DriverTally>();
+        if (!HasDrivers) return list;
+        using var cmd = Cmd($"""
+            SELECT 0, d.driver, sum(d.n), sum(d.total_us), max(d.longest_us), sum(d.long_n)
+            FROM driver_minute d LEFT JOIN system_minute s ON s.ts = d.ts
+            WHERE d.ts >= $f AND d.ts < $t AND {GameWhere(games, inGames)} GROUP BY d.driver
+            """, ("$f", from), ("$t", to));
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new DriverTally(0, r.GetString(1), r.GetInt32(2), r.GetInt64(3), r.GetInt32(4), r.GetInt32(5)));
+        return list;
+    }
+
+    // The minutes a game was in front, or the others (the app's numbers come from the apps table, never from text).
+    private static string GameWhere(IReadOnlyCollection<long> games, bool inGames)
+    {
+        string ids = games.Count == 0 ? "-1" : string.Join(",", games.Select(g => g.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        return inGames ? $"s.fg_app IN ({ids})" : $"(s.fg_app IS NULL OR s.fg_app NOT IN ({ids}))";
+    }
+
+    /// <summary>
+    /// Each hour's longest call (with whose) and calls over 1 ms from <paramref name="from"/> to <paramref name="to"/>, every
+    /// driver together, from the kept minutes with a game in front or not (see <see cref="GetDriverTotalsByGames"/>).
+    /// </summary>
+    public List<(long Hour, int LongestUs, string Driver, int Long)> GetDriverHoursByGames(long from, long to, IReadOnlyCollection<long> games, bool inGames)
+    {
+        var list = new List<(long, int, string, int)>();
+        if (!HasDrivers) return list;
+        using var cmd = Cmd($"""
+            SELECT d.ts / 3600 * 3600 AS h, d.driver, max(d.longest_us), sum(d.long_n)
+            FROM driver_minute d LEFT JOIN system_minute s ON s.ts = d.ts
+            WHERE d.ts >= $f AND d.ts < $t AND {GameWhere(games, inGames)} GROUP BY h, d.driver
+            """, ("$f", from), ("$t", to));
+        using var r = cmd.ExecuteReader();
+        var byHour = new SortedDictionary<long, (int Us, string Driver, int Long)>();
+        while (r.Read())
+        {
+            long h = r.GetInt64(0);
+            int us = r.GetInt32(2), n = r.GetInt32(3);
+            var was = byHour.TryGetValue(h, out var w) ? w : (Us: 0, Driver: "", Long: 0);
+            byHour[h] = us > was.Us ? (us, r.GetString(1), was.Long + n) : (was.Us, was.Driver, was.Long + n);
+        }
+        foreach (var (h, v) in byHour) list.Add((h, v.Us, v.Driver, v.Long));
+        return list;
+    }
+
+    /// <summary>The minute the longest call from <paramref name="from"/> to <paramref name="to"/> fell in (of one driver or any), how long it was and whose.</summary>
+    public (long Minute, int Us, string Driver)? GetDriverLongestMinute(long from, long to, string? driver = null)
+    {
+        if (!HasDrivers) return null;
+        using var cmd = driver is null
+            ? Cmd("SELECT ts, longest_us, driver FROM driver_minute WHERE ts >= $f AND ts < $t ORDER BY longest_us DESC LIMIT 1", ("$f", from), ("$t", to))
+            : Cmd("SELECT ts, longest_us, driver FROM driver_minute WHERE ts >= $f AND ts < $t AND driver = $d ORDER BY longest_us DESC LIMIT 1", ("$f", from), ("$t", to), ("$d", driver));
+        using var r = cmd.ExecuteReader();
+        return r.Read() ? (r.GetInt64(0), r.GetInt32(1), r.GetString(2)) : null;
+    }
+
+    /// <summary>The first hour a driver's work was kept apart by kind (see <see cref="DriverSplit"/>), or null when none was yet.</summary>
+    public long? FirstSplitHour()
+    {
+        if (!HasSplit) return null;
+        using var cmd = Cmd("SELECT min(ts) FROM driver_hour WHERE b0 IS NOT NULL");
+        return cmd.ExecuteScalar() is long ts ? ts : null;
+    }
+
+    // The wake-up check's tables (the app may read a database from before them).
+    private bool? _hasWake;
+    private bool HasWake => _hasWake ??= HasTable("wake_hour");
+
+    /// <summary>The wake-up check's hours (or minutes) from <paramref name="from"/> to <paramref name="to"/>, oldest first.</summary>
+    public List<WakeTally> GetWake(long from, long to, bool minutes = false)
+    {
+        var list = new List<WakeTally>();
+        if (!HasWake) return list;
+        using var cmd = Cmd($"SELECT ts, n, median_us, highest_us, over_ms, rate FROM {(minutes ? "wake_minute" : "wake_hour")} WHERE ts >= $f AND ts < $t ORDER BY ts", ("$f", from), ("$t", to));
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new WakeTally(r.GetInt64(0), r.GetInt32(1), r.GetInt32(2), r.GetInt32(3), r.GetInt32(4), r.GetInt32(5)));
         return list;
     }
 
@@ -196,5 +337,8 @@ public sealed partial class RigsightDb
         if (!HasDrivers) return;
         using var cmd = Cmd("DELETE FROM driver_minute WHERE ts < $t; DELETE FROM driver_hour WHERE ts < $t; DELETE FROM driver_missed WHERE ts < $t", ("$t", before));
         cmd.ExecuteNonQuery();
+        if (!HasWake) return;
+        using var wake = Cmd("DELETE FROM wake_minute WHERE ts < $t; DELETE FROM wake_hour WHERE ts < $t", ("$t", before));
+        wake.ExecuteNonQuery();
     }
 }

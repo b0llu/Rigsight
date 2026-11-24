@@ -291,6 +291,29 @@ public sealed class NetAppLive
 }
 
 /// <summary>Agent → app.</summary>
+/// <summary>
+/// The Latency page's live view (issue #15), sent with each tick only while the page is open: the last two minutes a
+/// second at a time, the longest driver call and whose, and the app wake-up checks' longest and middle.
+/// </summary>
+public sealed class LatencyLive
+{
+    /// <summary>The driver trace is running (admin rights): without it the driver figures are empty.</summary>
+    public bool Drivers { get; set; }
+    /// <summary>The agent has admin rights: without Drivers, the trace is only down for now (Windows stopped it), not refused.</summary>
+    public bool Admin { get; set; }
+    /// <summary>The app wake-up check is on (its setting).</summary>
+    public bool WakeOn { get; set; }
+    /// <summary>Its checks a second now: 64, 8, 2, or 0 while Battery Saver is on.</summary>
+    public int WakeRate { get; set; }
+    /// <summary>Unix seconds, oldest first; the arrays below are the same length.</summary>
+    public long[] Seconds { get; set; } = [];
+    public int[] DriverUs { get; set; } = [];
+    /// <summary>The driver file behind each second's longest call ("" for none, or one that matched no driver).</summary>
+    public string[] Driver { get; set; } = [];
+    public int[] WakeUs { get; set; } = [];
+    public int[] WakeMedianUs { get; set; } = [];
+}
+
 public sealed class AgentMessage
 {
     /// <summary>hello · tick · procs · settings · navigate · overlay · update · scanned (the answer to "scan-now") · history-cleared · drives (each time the drives are read, in <see cref="Drives"/>)</summary>
@@ -360,6 +383,9 @@ public sealed class AgentMessage
 
     /// <summary>update: "started" once the installer is running, "failed" if the agent couldn't start it.</summary>
     public string? UpdateStatus { get; set; }
+
+    /// <summary>tick, while the Latency page is open: its live view (issue #15).</summary>
+    public LatencyLive? Latency { get; set; }
 }
 
 /// <summary>App → agent.</summary>

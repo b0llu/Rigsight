@@ -122,7 +122,7 @@ internal sealed partial class AgentContext
             foreach (var t in tallies)
             {
                 _driverHourTallies[t.Driver] = _driverHourTallies.TryGetValue(t.Driver, out var h)
-                    ? new DriverTally(hour, t.Driver, h.Count + t.Count, h.TotalUs + t.TotalUs, Math.Max(h.LongestUs, t.LongestUs), h.Long + t.Long)
+                    ? new DriverTally(hour, t.Driver, h.Count + t.Count, h.TotalUs + t.TotalUs, Math.Max(h.LongestUs, t.LongestUs), h.Long + t.Long, DriverSplit.Add(h.Split, t.Split))
                     : t with { Ts = hour };
             }
             _db.WriteDriverHour(hour, _driverHourTallies.Values);

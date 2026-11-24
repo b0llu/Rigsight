@@ -699,6 +699,40 @@ public sealed class ReportService(SettingsModel settings)
 
     private static List<Core.Stability.CrashEvent> PcProblems(RigsightDb db) => ChangeEffects.PcProblems(db);
 
+    /// <summary>
+    /// The Latency page's period (issue #15, approved mock-up 2026-11-24): the facts (see <see cref="Core.Drivers.LatencyReport"/>),
+    /// the driver marks that start in it (the Timeline's own lines), and the name of the app in front at its longest.
+    /// </summary>
+    public Task<ViewModels.LatencyPage?> LatencyAsync(DateTime from, DateTime to, Core.Drivers.LatencyFilter filter)
+    {
+        var s = Snapshot();
+        return Run(db =>
+        {
+            var apps = db.LoadApps().ToDictionary(a => a.Id);
+            var games = apps.Keys.Where(id => ReportBuilder.CategoryOf(apps, s, id) == AppCategory.Game).ToHashSet();
+            var report = Core.Drivers.LatencyReport.Read(db, from, to, filter, games);
+            long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to);
+            var marks = Core.Drivers.DriverDelays.Marks(db, games).Where(m => m.From >= f && m.From < t).ToList();
+            string? app = report.LongestApp is long id && apps.ContainsKey(id) ? ReportBuilder.NameOf(apps, s, id) : null;
+            return new ViewModels.LatencyPage(report, marks, app);
+        });
+    }
+
+    /// <summary>What a driver's opened view shows of the period: its hours, its split and buckets, and the big changes in the 7 days before its end.</summary>
+    public Task<ViewModels.LatencyDriverData?> LatencyDriverAsync(string driver, DateTime from, DateTime to)
+    {
+        return Run(db =>
+        {
+            long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to);
+            var hours = db.GetDriverHours(f, t, driver);
+            var longest = db.GetDriverLongestMinute(f, t, driver);
+            var split = hours.Aggregate((Core.Drivers.DriverSplit?)null, (a, h) => Core.Drivers.DriverSplit.Add(a, h.Split));
+            var changes = db.GetChanges(t - 7 * 86400L, t).Where(c => ChangeEffects.IsMajor(c) || c.Kind == Core.Stability.ChangeKind.Driver)
+                .OrderByDescending(c => c.Time).Take(5).ToList();
+            return new ViewModels.LatencyDriverData(hours, longest, split, changes, db.GetDriverUsualLongest(driver, f), db.FirstSplitHour());
+        });
+    }
+
     /// <summary>What an opened driver mark shows (see <see cref="Core.Drivers.DriverDelays.Open"/>), the apps by the names the person knows them by.</summary>
     public Task<Core.Drivers.DelayCase?> DelayCaseAsync(Core.Drivers.DelayStretch stretch)
     {

@@ -572,7 +572,20 @@ public sealed partial class GamesViewModel : ObservableObject
     /// <summary>When the play's stutters bunched up and what else was going on then (see StutterCauses), over the chart.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasStutterWhy))] private string _stutterWhy = "";
     public bool HasStutterWhy => StutterWhy.Length > 0 && FramesView;
-    partial void OnFramesViewChanged(bool value) => OnPropertyChanged(nameof(HasStutterWhy));
+    partial void OnFramesViewChanged(bool value) { OnPropertyChanged(nameof(HasStutterWhy)); OnPropertyChanged(nameof(CanSeeOnLatency)); }
+
+    /// <summary>Opens the Latency page on a play's hours, In games (set by the shell, issue #15).</summary>
+    public Action<DateTime, DateTime>? OpenLatency { get; set; }
+
+    /// <summary>An opened play: its hours can be seen on the Latency page.</summary>
+    public bool CanSeeOnLatency => FramesView && _play is not null && OpenLatency is not null;
+
+    [RelayCommand]
+    private void SeeOnLatency()
+    {
+        if (_play is not { } play || OpenLatency is not { } open) return;
+        open(TimeUtil.FromUnix(play.Start / 3600 * 3600), TimeUtil.FromUnix((play.End + 3599) / 3600 * 3600));
+    }
 
     [ObservableProperty] private string _sinceUpdate = "";
     [ObservableProperty] private string _updatedNote = "";
@@ -678,6 +691,7 @@ public sealed partial class GamesViewModel : ObservableObject
         }
         if (_framePlays.FirstOrDefault(p => p.StartTime == point.At) is not { } play) return;
         _play = play;
+        OnPropertyChanged(nameof(CanSeeOnLatency));
         FramesView = true;
         _ = ShowRunsAsync();
     }

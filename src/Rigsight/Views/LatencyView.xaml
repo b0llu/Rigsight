@@ -1,0 +1,560 @@
+﻿<UserControl x:Class="Rigsight.Views.LatencyView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:Rigsight.Controls"
+             xmlns:models="clr-namespace:Rigsight.Models"
+             x:Name="Page">
+    <!-- The Latency page (issue #15, approved mock-up 2026-11-24): right now, the period's longest delay, each hour's longest,
+         every driver, and what stood out; any driver opens in place of the list until Back. -->
+    <Grid>
+    <ScrollViewer x:Name="ListScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                  Visibility="{Binding IsListShown, Converter={StaticResource Vis}}">
+        <StackPanel Margin="32,26,32,32" MaxWidth="{StaticResource PageWidth}">
+            <DockPanel Margin="0,0,0,14">
+                <Button Style="{StaticResource PageExportButton}" />
+                <StackPanel>
+                    <TextBlock Text="{ctl:T Latency}" Style="{StaticResource H1}" />
+                    <TextBlock Text="{ctl:T 'How long drivers kept a CPU core busy, and how long apps waited to run.'}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                </StackPanel>
+            </DockPanel>
+            <DockPanel Margin="0,0,0,18">
+                <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Style="{StaticResource Segment}" GroupName="LatencyFilter" Content="{ctl:T 'All'}"
+                                     IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=All}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="LatencyFilter" Content="{ctl:T 'In games'}"
+                                     IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=InGames}" />
+                        <RadioButton Style="{StaticResource Segment}" GroupName="LatencyFilter" Content="{ctl:T 'Outside games'}"
+                                     IsChecked="{Binding Filter, Converter={StaticResource Equals}, ConverterParameter=OutsideGames}" />
+                    </StackPanel>
+                </Border>
+                <StackPanel Orientation="Horizontal">
+                    <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
+                                      CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
+                    <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="30,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </DockPanel>
+
+            <!-- ── Right now: the driver delay and the app wake-up check, live while the page is open ── -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,0,18">
+                <StackPanel>
+                    <TextBlock Text="{ctl:T 'Right now'}" Style="{StaticResource H2}" />
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="34" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'DRIVER DELAY'}" Style="{StaticResource Caption}" />
+                            <StackPanel Visibility="{Binding LiveDrivers, Converter={StaticResource Vis}}">
+                                <TextBlock Margin="0,6,0,0">
+                                    <Run Text="{Binding LiveDriverNumber, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Jumbo}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text=" ms" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" />
+                                </TextBlock>
+                                <TextBlock Text="{Binding LiveDriverWho}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis" />
+                                <ctl:LiveStrip Height="88" Margin="0,12,0,0" Bars="{Binding LiveDriverBars}" Stroke="{DynamicResource TextBrush}" AutomationProperties.Name="{ctl:T 'Driver delay over the last 2 minutes'}" />
+                                <TextBlock Text="{Binding LiveDriverNote}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            </StackPanel>
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Card}" Padding="16" Margin="0,12,0,0"
+                                    Visibility="{Binding LiveDrivers, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LiveMissingTitle}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding LiveMissingText}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <DockPanel>
+                                <CheckBox DockPanel.Dock="Right" Style="{StaticResource PageSwitch}" IsChecked="{Binding WakeOn}" AutomationProperties.Name="{ctl:T 'App wake-up check'}" />
+                                <TextBlock Text="{ctl:T 'APP WAKE-UP DELAY'}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <StackPanel Visibility="{Binding WakeOn, Converter={StaticResource Vis}}">
+                                <TextBlock Margin="0,6,0,0">
+                                    <Run Text="{Binding LiveWakeNumber, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Jumbo}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text=" ms" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" />
+                                </TextBlock>
+                                <TextBlock Text="{Binding LiveWakeNote}" Style="{StaticResource Muted}" />
+                                <ctl:LiveStrip Height="88" Margin="0,12,0,0" Bars="{Binding LiveWakeBars}" IsLine="True" Stroke="{DynamicResource PurpleBrush}" AutomationProperties.Name="{ctl:T 'App wake-up delay over the last 2 minutes'}" />
+                                <TextBlock Text="{Binding WakeHow}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            </StackPanel>
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Card}" Padding="16" Margin="0,12,0,0"
+                                    Visibility="{Binding WakeOff, Converter={StaticResource Vis}}">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Turn on'}" Command="{Binding TurnWakeOnCommand}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                    <TextBlock Text="{Binding WakeOffText}" Style="{StaticResource Muted}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" Margin="0,80,0,0"
+                         Visibility="{Binding ShowLoading, Converter={StaticResource Vis}}" />
+
+            <!-- No admin rights and nothing recorded: one message in place of the driver parts. -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding ShowNoAdmin, Converter={StaticResource Vis}}">
+                <StackPanel HorizontalAlignment="Center" Margin="0,30">
+                    <TextBlock Text="&#xE7EF;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S28}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{ctl:T 'Driver delays need RigSight to run as administrator.'}" Style="{StaticResource H2}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,12,0,4" />
+                    <TextBlock Text="{ctl:T 'Windows only gives driver timings to apps with admin rights. App wake-up delays are still recorded.'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+            </ctl:SmoothBorder>
+            <!-- Admin rights, but nothing recorded in these days. -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Visibility="{Binding ShowNothing, Converter={StaticResource Vis}}">
+                <StackPanel HorizontalAlignment="Center" Margin="0,30">
+                    <TextBlock Text="&#xE916;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S28}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{ctl:T 'Not recorded'}" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4" />
+                    <TextBlock Text="{ctl:T 'No driver delays were recorded in these days.'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+            </ctl:SmoothBorder>
+
+            <StackPanel Visibility="{Binding ShowDrivers, Converter={StaticResource Vis}}">
+                <!-- ── The longest delay of the period, and what else to know about it ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="420" />
+                            <ColumnDefinition Width="34" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'LONGEST DRIVER DELAY'}" Style="{StaticResource Caption}" />
+                            <TextBlock Margin="0,6,0,0">
+                                <Run Text="{Binding LongestNumber, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Jumbo}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text=" ms" FontSize="{x:Static ctl:TextSize.Lead}" Foreground="{DynamicResource MutedBrush}" />
+                            </TextBlock>
+                            <TextBlock Text="{Binding LongestWho}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding LongestFile}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding LongestWhen}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0" Visibility="{Binding LongestWhen, Converter={StaticResource Vis}}" />
+                        </StackPanel>
+                        <ItemsControl Grid.Column="2" ItemsSource="{Binding Lines}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,0,0,10">
+                                        <Border DockPanel.Dock="Left" Style="{StaticResource IconBox}" Margin="0,0,12,0" VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center"
+                                                       Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
+                                        </Border>
+                                        <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.BodyPlus}" TextWrapping="Wrap" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Warm}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Quiet}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </ctl:SmoothBorder>
+
+                <!-- ── Each hour's longest ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
+                    <StackPanel>
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="LatencyMetric" Content="{ctl:T 'Driver delay'}"
+                                                 IsChecked="{Binding Metric, Converter={StaticResource Equals}, ConverterParameter=Driver}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="LatencyMetric" Content="{ctl:T 'App wake-up delay'}"
+                                                 IsChecked="{Binding Metric, Converter={StaticResource Equals}, ConverterParameter=Wake}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="LatencyMetric" Content="{ctl:T 'Over 1 ms'}"
+                                                 IsChecked="{Binding Metric, Converter={StaticResource Equals}, ConverterParameter=Over}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <TextBlock Text="{Binding ChartNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,6,0,0" Visibility="{Binding ChartNote, Converter={StaticResource Vis}}" />
+                        <ctl:LatencyChart Height="240" Margin="0,14,0,0" Slots="{Binding Slots}" IsMs="{Binding ChartIsMs}" Guidance="{Binding ChartShowsGuidance}" BarBrush="{Binding ChartBrush, Converter={StaticResource ResourceBrush}}" GapReason="{Binding GapReason}" AutomationProperties.Name="{Binding ChartTitle}" />
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- ── Every driver, in a box of its own height; any opens ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
+                    <StackPanel>
+                        <DockPanel>
+                            <Border DockPanel.Dock="Right" Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="LatencySort" Content="{ctl:T 'Longest'}"
+                                                 IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=Longest}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="LatencySort" Content="{ctl:T 'Over 1 ms'}"
+                                                 IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=Over}" />
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="LatencySort" Content="{ctl:T 'Busy in total'}"
+                                                 IsChecked="{Binding Sort, Converter={StaticResource Equals}, ConverterParameter=Busy}" />
+                                </StackPanel>
+                            </Border>
+                            <StackPanel>
+                                <TextBlock Text="{ctl:T Drivers}" Style="{StaticResource H2}" />
+                                <TextBlock Text="{Binding DriversNote}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+                        <Grid Margin="10,14,24,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="150" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="1" Text="{ctl:T 'DRIVER'}" Style="{StaticResource Caption}" />
+                            <TextBlock Grid.Column="2" Text="{ctl:T 'LONGEST'}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="3" Text="{ctl:T 'OVER 1 MS'}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="4" Text="{ctl:T 'BUSY IN TOTAL'}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="5" Text="{ctl:T 'USUAL LONGEST'}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                        </Grid>
+                        <ScrollViewer MaxHeight="470" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                            <ItemsControl ItemsSource="{Binding DriverRows}" Focusable="False" Margin="0,0,14,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource FlatRowButton}" Focusable="True" FocusVisualStyle="{StaticResource FocusRing}" Command="{Binding DataContext.OpenDriverCommand, ElementName=Page}" CommandParameter="{Binding}"
+                                                AutomationProperties.Name="{Binding Who}" AutomationProperties.HelpText="{ctl:T 'Open its details'}" ToolTip="{Binding Tip}">
+                                            <Grid Margin="10,7">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="44" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="110" />
+                                                    <ColumnDefinition Width="110" />
+                                                    <ColumnDefinition Width="130" />
+                                                    <ColumnDefinition Width="150" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Style="{StaticResource IconBox}" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                    <TextBlock Text="{Binding Who}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                                    <TextBlock Text="{Binding File}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextTrimming="CharacterEllipsis" ctl:TrimmedText.ToolTip="True" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" Text="{Binding Longest}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="3" Text="{Binding Over}" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasOver}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock Grid.Column="4" Text="{Binding Busy}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="5" Text="{Binding Usual}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+
+                <!-- ── What stood out: the Timeline's driver lines and updates that changed driver delays ── -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0">
+                    <StackPanel>
+                        <TextBlock Text="{ctl:T 'What stood out'}" Style="{StaticResource H2}" />
+                        <TextBlock Text="{ctl:T 'The same lines as on Timeline. Each opens here.'}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" Margin="0,4,0,8"
+                                   Visibility="{Binding HasMarks, Converter={StaticResource Vis}}" />
+                        <ItemsControl ItemsSource="{Binding Marks}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource FlatRowButton}" Focusable="True" FocusVisualStyle="{StaticResource FocusRing}" Command="{Binding DataContext.OpenMarkCommand, ElementName=Page}" CommandParameter="{Binding}"
+                                            AutomationProperties.Name="{Binding Title}">
+                                        <DockPanel Margin="10,8">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding When}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Top" Margin="12,6,0,0" />
+                                            <Border DockPanel.Dock="Left" Style="{StaticResource IconBox}" Margin="0,0,12,0" VerticalAlignment="Top">
+                                                <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
+                                            </Border>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Detail}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel HorizontalAlignment="Center" Margin="0,20" Visibility="{Binding HasMarks, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+                            <TextBlock Text="&#xE823;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S28}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding MarksEmptyTitle}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,10,0,4" />
+                            <TextBlock Text="{Binding MarksEmptyText}" Style="{StaticResource Muted}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="560" />
+                        </StackPanel>
+                    </StackPanel>
+                </ctl:SmoothBorder>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+
+    <!-- ── An opened driver: in place of the list until Back (to Timeline when it came from there) ── -->
+    <ctl:LazyTab Shown="{Binding IsOpen}"><ctl:LazyTab.Body><DataTemplate>
+    <Grid Loaded="Driver_Loaded">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <Border Padding="32,18,32,10">
+            <DockPanel MaxWidth="{StaticResource PageWidth}">
+                <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" Margin="-9,0,16,0" VerticalAlignment="Center" AutomationProperties.Name="{Binding Opened.BackName}"
+                        Command="{Binding CloseDriverCommand}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,1,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Opened.BackText}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Border />
+            </DockPanel>
+        </Border>
+        <ScrollViewer x:Name="DriverScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="32,4,32,32" MaxWidth="{StaticResource PageWidth}" DataContext="{Binding Opened}">
+                <!-- A Timeline driver line: what happened then, as the Timeline showed it. -->
+                <Border Margin="0,0,0,26" Visibility="{Binding IsMark, Converter={StaticResource Vis}}">
+                    <StackPanel DataContext="{Binding Mark}">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource AiButton}" Content="{ctl:T 'Explain this'}" CommandParameter="{Binding Ask}" VerticalAlignment="Top" Margin="16,4,0,0"
+                                    AutomationProperties.Name="{ctl:T 'Explain this'}" />
+                            <StackPanel>
+                                <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding When}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <ItemsControl ItemsSource="{Binding Facts}" Margin="-6,16,-6,0" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <ctl:SmoothBorder Style="{StaticResource Card}" Margin="6,0">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" />
+                                            <TextBlock Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,6,0,0"
+                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Value}" />
+                                            <TextBlock Text="{Binding Under}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </ctl:SmoothBorder>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Grid Margin="0,13,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="13" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ctl:SmoothBorder Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="{ctl:T 'What this driver is'}" Style="{StaticResource H2}" />
+                                    <TextBlock Text="{Binding What}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                    <TextBlock Text="{Binding WhyItMatters}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+
+                                    <TextBlock Text="{ctl:T 'Also busy longer than usual then'}" Style="{StaticResource H2}" Margin="0,18,0,0" />
+                                    <ItemsControl ItemsSource="{Binding Others}" Margin="0,6,0,0" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8">
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="12,0,0,0" />
+                                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                                    </DockPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="{ctl:T 'No other driver.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"
+                                               Visibility="{Binding HasOthers, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+
+                                    <TextBlock Text="{ctl:T 'Changes in the 7 days before'}" Style="{StaticResource H2}" Margin="0,18,0,0" />
+                                    <ItemsControl ItemsSource="{Binding Changes}" Margin="0,6,0,0" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8">
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                    </DockPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="{ctl:T 'No driver, Windows, BIOS or hardware change.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"
+                                               Visibility="{Binding HasChanges, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                                </StackPanel>
+                            </ctl:SmoothBorder>
+                            <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" />
+                                    <Grid Height="{x:Static models:DelayView.ChartHeight}" Margin="0,14,0,0">
+                                        <ItemsControl ItemsSource="{Binding Bars}" Focusable="False">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <!-- The whole column takes the pointer, so an hour's hover is easy to hit however short its bar. -->
+                                                    <Grid Background="Transparent" ToolTip="{Binding Tip}" ToolTipService.InitialShowDelay="0">
+                                                        <Border Height="{Binding Height}" VerticalAlignment="Bottom" Margin="2,0" CornerRadius="2,2,0,0"
+                                                                Background="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <Border VerticalAlignment="Bottom" BorderBrush="{DynamicResource FaintBrush}" BorderThickness="0,1,0,0" IsHitTestVisible="False"
+                                                Margin="{Binding UsualMargin}" Opacity="0.8" />
+                                    </Grid>
+                                    <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" />
+                                    <Grid Margin="0,4,0,0">
+                                        <TextBlock Text="{ctl:T '12 AM'}" FontSize="{x:Static ctl:TextSize.Mini}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
+                                        <TextBlock Text="{ctl:T '12 PM'}" FontSize="{x:Static ctl:TextSize.Mini}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{ctl:T '11 PM'}" FontSize="{x:Static ctl:TextSize.Mini}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" />
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Border Width="16" Height="1" BorderBrush="{DynamicResource FaintBrush}" BorderThickness="0,1,0,0" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <TextBlock Text="{Binding UsualText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                                    </StackPanel>
+
+                                    <StackPanel Visibility="{Binding HasTips, Converter={StaticResource Vis}}">
+                                        <TextBlock Text="{ctl:T 'Things you can try'}" Style="{StaticResource H2}" Margin="0,20,0,0" />
+                                        <ItemsControl ItemsSource="{Binding Tips}" Margin="0,4,0,0" Focusable="False">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <DockPanel Margin="0,8,0,0">
+                                                        <TextBlock DockPanel.Dock="Left" Text="&#xE90F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" Margin="0,3,10,0" />
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Step}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding More}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                                       Visibility="{Binding HasMore, Converter={StaticResource Vis}}" />
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ctl:SmoothBorder>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- The driver over the period. -->
+                <DockPanel>
+                    <Border DockPanel.Dock="Left" Style="{StaticResource IconBox}" Margin="0,4,14,0" VerticalAlignment="Top">
+                        <TextBlock Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" />
+                    </Border>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Period}" Style="{StaticResource Muted}" VerticalAlignment="Top" Margin="16,6,0,0" />
+                    <StackPanel>
+                        <TextBlock Text="{Binding Who}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding File}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- Its four figures in one soft panel (the card rule: no lines, spacing). -->
+                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Card}" Padding="6,16" Margin="0,16,0,0">
+                    <ItemsControl ItemsSource="{Binding Facts}" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="16,0">
+                                    <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" Foreground="{DynamicResource MutedBrush}" />
+                                    <TextBlock Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,4,0,2"
+                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Value}" />
+                                    <TextBlock Text="{Binding Under}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+
+                <Grid Margin="0,13,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="13" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ctl:SmoothBorder Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'How long its calls took'}" Style="{StaticResource H2}" />
+                            <ItemsControl ItemsSource="{Binding Buckets}" Margin="0,8,0,0" Focusable="False" Visibility="{Binding HasBuckets, Converter={StaticResource Vis}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,6,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="110" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Label}" Style="{StaticResource Muted}" VerticalAlignment="Center" />
+                                            <ProgressBar Grid.Column="1" Style="{StaticResource Bar}" Height="8" Maximum="1" Value="{Binding Share, Mode=OneWay}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Count}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{ctl:T 'Bars are drawn on a log scale, so the rare long calls still show.'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}"
+                                       TextWrapping="Wrap" Margin="0,8,0,0" Visibility="{Binding HasBuckets, Converter={StaticResource Vis}}" />
+                            <TextBlock Text="{Binding BucketsNote}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                       Visibility="{Binding BucketsNote, Converter={StaticResource Vis}}" />
+
+                            <TextBlock Text="{ctl:T 'What this driver is'}" Style="{StaticResource H2}" Margin="0,20,0,0" />
+                            <TextBlock Text="{Binding What}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <TextBlock Text="{Binding WhyItMatters}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+
+                            <TextBlock Text="{ctl:T 'Changes in the 7 days before'}" Style="{StaticResource H2}" Margin="0,20,0,0" />
+                            <ItemsControl ItemsSource="{Binding Changes}" Margin="0,4,0,0" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,8,0,0">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{ctl:T 'No driver, Windows, BIOS or hardware change.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"
+                                       Visibility="{Binding HasChanges, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                    <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" />
+                            <ctl:LatencyChart Height="200" Margin="0,14,0,0" Slots="{Binding Slots}" GapReason="{Binding DataContext.GapReason, ElementName=Page}" AutomationProperties.Name="{Binding ChartTitle}" />
+                            <TextBlock Text="{Binding UsualText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+
+                            <StackPanel Visibility="{Binding HasTips, Converter={StaticResource Vis}}">
+                                <TextBlock Text="{ctl:T 'Things you can try'}" Style="{StaticResource H2}" Margin="0,20,0,0" />
+                                <ItemsControl ItemsSource="{Binding Tips}" Margin="0,4,0,0" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,8,0,0">
+                                                <TextBlock DockPanel.Dock="Left" Text="&#xE90F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" Margin="0,3,10,0" />
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Step}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding More}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                               Visibility="{Binding HasMore, Converter={StaticResource Vis}}" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+    </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
+    </Grid>
+</UserControl>

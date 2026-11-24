@@ -170,7 +170,9 @@ public partial class MainWindow : Window
             }
         };
         // Nothing is refreshed while the window is minimized: catch up as it comes back, not at the next minute.
-        StateChanged += (_, _) => { if (WindowState != WindowState.Minimized) _ = _vm.RefreshOnRestoreAsync(); };
+        StateChanged += (_, _) => { if (WindowState != WindowState.Minimized) _ = _vm.RefreshOnRestoreAsync(); _vm.WindowShown(WindowState != WindowState.Minimized && IsVisible); };
+        // Hidden or shown again (the Latency page speeds up the wake-up check only while it can be seen, issue #15).
+        IsVisibleChanged += (_, _) => _vm.WindowShown(WindowState != WindowState.Minimized && IsVisible);
         ThemeManager.Changed += RebuildPages;
         // The Plans screen or a plan dialog opened from the Ask window: the main window comes in front, restored if minimized.
         _vm.Plans.WantsFront += () =>
@@ -424,6 +426,7 @@ public partial class MainWindow : Window
                 "temperatures" => new TemperaturesView { DataContext = _vm.Live },
                 "fans" => new FansView { DataContext = _vm.Fans },
                 "power" => new PowerView { DataContext = _vm.Power },
+                "latency" => new LatencyView { DataContext = _vm.Latency },
                 "network" => new NetworkView { DataContext = _vm.Network },
                 "memory" => new MemoryView { DataContext = _vm.Memory },
                 "processes" => new ProcessesView { DataContext = _vm.Processes },

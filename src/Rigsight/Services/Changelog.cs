@@ -187,6 +187,15 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.19.0", 11, 24,
+            feature: new(Lang.T("Latency"), Lang.T("See how long drivers kept your CPU busy, and how long apps waited to run."),
+                [Lang.T("Latency shows the longest driver delay of any period, with the driver and the app in front, hour by hour."),
+                    Lang.T("Every driver is listed with its longest delay and its calls over 1 ms, and opens to show how long its calls took."),
+                    Lang.T("A new app wake-up check times how long Windows takes to run a waiting app, and can be turned off on the page."),
+                    Lang.T("In games and Outside games show the delays of each on their own.")],
+                "latency", "") { OpenText = Lang.T("Open Latency") },
+            better: [Lang.T("A driver line on Timeline now opens on Latency, and Back returns to the same place on Timeline."),
+                Lang.T("The taskbar's Driver delay card opens Latency, and a play on Games can be looked at there too.")]),
         V("1.18.0", 11, 24,
             feature: new(Lang.T("Power"), Lang.T("See how much energy your CPU and GPU used, and what was in front while they did."),
                 [Lang.T("Power shows the CPU and GPU's energy by the hour, day or month, against the time before."),

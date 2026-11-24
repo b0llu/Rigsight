@@ -18,10 +18,15 @@ public partial class TimelineView : UserControl
             if (_vm is null) return;
             _vm.JumpRequested += OnJump;
             _vm.ChangeOpened += OnChangeOpened;
-            _vm.DelayOpenedEvent += OnDelayOpened;
             _vm.Days.CollectionChanged += OnDaysChanged;
             // Coming back to the page: its first days are already laid out, so nothing scrolls or changes to ask for more.
             FillAhead();
+            // Back from a driver mark opened on the Latency page: the list where it was.
+            if (_vm.KeptOffset is double offset)
+            {
+                _vm.KeptOffset = null;
+                Dispatcher.BeginInvoke(() => Scroller.ScrollToVerticalOffset(offset), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
         };
         // Leaving the page: back to the newest days, so opening it again lays out one page of them.
         Unloaded += (_, _) =>
@@ -30,8 +35,15 @@ public partial class TimelineView : UserControl
             {
                 _vm.JumpRequested -= OnJump;
                 _vm.ChangeOpened -= OnChangeOpened;
-                _vm.DelayOpenedEvent -= OnDelayOpened;
                 _vm.Days.CollectionChanged -= OnDaysChanged;
+                // A driver mark opened on the Latency page: the list stays as it is, so Back finds the same place.
+                if (_vm.KeepPlace)
+                {
+                    _vm.KeepPlace = false;
+                    _vm.KeptOffset = Scroller.VerticalOffset;
+                    _vm = null;
+                    return;
+                }
             }
             // As many as fill the window and the screen ahead of it: fewer, and coming back would build the rest again.
             int keep = 0;
@@ -52,13 +64,6 @@ public partial class TimelineView : UserControl
     private void Change_Loaded(object sender, RoutedEventArgs e) =>
         _changeScroller ??= (sender as FrameworkElement)?.FindName("ChangeScroller") as ScrollViewer;
 
-    /// <summary>A driver mark opened: its view starts at the top.</summary>
-    private void OnDelayOpened() => _delayScroller?.ScrollToTop();
-
-    private ScrollViewer? _delayScroller;
-
-    private void Delay_Loaded(object sender, RoutedEventArgs e) =>
-        _delayScroller ??= (sender as FrameworkElement)?.FindName("DelayScroller") as ScrollViewer;
 
     private void OnDaysChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => FillAhead();
 

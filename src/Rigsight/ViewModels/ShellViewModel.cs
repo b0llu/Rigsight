@@ -83,6 +83,9 @@ public sealed partial class ShellViewModel : ObservableObject
         Storage = new StorageViewModel(Reports, Live);
         Fans = new FansViewModel(Reports, Live, Settings);
         Power = new PowerViewModel(Reports, Live, Settings);
+        Latency = new LatencyViewModel(Reports, Live, Settings) { OpenChange = OpenChange, GoTo = page => CurrentPage = page };
+        // A Timeline driver line opens on the Latency page (issue #15): the mark's story, then the driver; Back returns to Timeline.
+        Timeline.OpenDelayHere = mark => { _ = Latency.ShowMarkAsync(mark, fromTimeline: true); CurrentPage = "latency"; };
         Network = new NetworkViewModel(Reports, Live, Settings);
         // An app row on the Network page opens that app on the Apps page, for the same period (its internet use is there).
         Network.OpenAppRequested += (exe, unit, anchor) =>
@@ -94,6 +97,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Overlay = new OverlayViewModel(Settings, client, Live);
         Taskbar = new TaskbarViewModel(Settings, Live);
         Games = new GamesViewModel(Reports, Settings, Live, Overlay) { GoBackTo = page => CurrentPage = page };
+        Games.OpenLatency = (from, to) => OpenLatency(from: from, to: to, filter: Core.Drivers.LatencyFilter.InGames);
         WhatsNew = new WhatsNewViewModel(Settings, Core.Updates.ReleaseFeed.Current, go: OpenFeature, factFor: FeatureFactAsync);
         SettingsPage = new SettingsViewModel(Settings, client, Reports) { SeeAllUpdatesCommand = WhatsNew.SeeAllCommand };
         Notices = new NoticesViewModel(Reports, Settings) { OpenSettings = () => { SettingsPage.Tab = "notifications"; CurrentPage = "settings"; } };
@@ -373,6 +377,35 @@ public sealed partial class ShellViewModel : ObservableObject
     public StorageViewModel Storage { get; }
     public FansViewModel Fans { get; }
     public PowerViewModel Power { get; }
+    public LatencyViewModel Latency { get; }
+
+    /// <summary>
+    /// Tells the agent whether the Latency page is on screen (issue #15): while it is, the app wake-up check runs 64 times a
+    /// second and each tick carries the live view. Minimised counts as closed.
+    /// </summary>
+    public void LatencyShown(bool windowShown)
+    {
+        bool open = windowShown && CurrentPage == "latency";
+        if (open == _latencyOpen) return;
+        _latencyOpen = open;
+        _client.SendCommand("latency-page", open ? "open" : "closed");
+    }
+
+    private bool _latencyOpen, _windowShown = true;
+
+    /// <summary>The window was minimised or brought back.</summary>
+    public void WindowShown(bool shown)
+    {
+        _windowShown = shown;
+        LatencyShown(shown);
+    }
+
+    /// <summary>Opens a driver on the Latency page (the taskbar's Driver delay, a game play's stutter line).</summary>
+    public void OpenLatency(string driver = "", DateTime? from = null, DateTime? to = null, Core.Drivers.LatencyFilter? filter = null)
+    {
+        CurrentPage = "latency";
+        _ = Latency.ShowDriverAsync(driver, from, to, filter);
+    }
     public NetworkViewModel Network { get; }
     public WidgetsViewModel Widgets { get; }
     public OverlayViewModel Overlay { get; }
@@ -601,6 +634,7 @@ public sealed partial class ShellViewModel : ObservableObject
         else if (SettingsPage.IsAi) SettingsPage.Ai?.Shown();
         foreach (var page in CustomPages) page.IsSelected = page.NavKey == value;
         Sidebar.Select(value);
+        LatencyShown(_windowShown);
         _ = RefreshCurrentPageAsync();
     }
 
@@ -641,6 +675,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "temperatures": await LoadTemperatureHistoryAsync(); break;
             case "fans": await Fans.RefreshAsync(); break;
             case "power": await Power.RefreshAsync(); break;
+            case "latency": Latency.NoAdmin = IsConnected && !AgentIsAdmin; await Latency.RefreshAsync(); break;
             case "network": await Network.RefreshAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
             case "overlay":
@@ -707,6 +742,8 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "fans": if (Fans.IsDay || _tickCount % 5 == 0) await Fans.RefreshAsync(); break;
                 // A period that includes today grows by the minute; read again every 5th one (the totals move slowly).
                 case "power": if (Power.IncludesToday && _tickCount % 5 == 0) await Power.RefreshAsync(); break;
+                // The live part comes with each tick; the period's figures move slowly: read again every 5th minute.
+                case "latency": if (Latency.IncludesToday && Latency.IsListShown && _tickCount % 5 == 0) await Latency.RefreshAsync(); break;
                 case "network": await Network.RefreshAsync(); break;
                 case "temperatures": if (ChartDueNow) await LoadTemperatureHistoryAsync(); break;
                 default:
@@ -748,6 +785,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Crashes.NewDay(was);
         Fans.NewDay(was);
         Power.NewDay(was);
+        Latency.NewDay(was);
         Network.NewDay(was);
         Live.NewDay(was);
         Controls.PeriodPicker.OnDayChanged();
@@ -1182,6 +1220,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 Settings.OnConnected();
                 Live.LoadHello(msg);
                 if (Live.ExpandedApps is { } expanded) _client.SendCommand("procs-detail", expanded); // a restarted agent
+                if (_latencyOpen) _client.SendCommand("latency-page", "open"); // a restarted agent: the Latency page is still open
                 ApplyOverlayState(msg);
                 if (msg.Page is not null || msg.Arg is not null) Navigate(msg.Page, msg.Arg);
                 break;

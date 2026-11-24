@@ -862,8 +862,12 @@ public sealed partial class LiveData : ObservableObject
         if (tick.Today is not null) Today = tick.Today;
         if (tick.Activity is not null) Activity = tick.Activity;
         if (tick.Extremes is { } extremes) ApplyExtremes(extremes, tick.ExtremesDay, tick.ExtremesFull);
+        if (tick.Latency is { } latency) LatencyChanged?.Invoke(latency);
         Tick++;
     }
+
+    /// <summary>The Latency page's live view came with a tick (only while the page is open, issue #15).</summary>
+    public event Action<LatencyLive>? LatencyChanged;
 
     /// <summary>Today's lowest and highest readings, which the agent tracks all day (even with the app closed).</summary>
     private void ApplyExtremes(Dictionary<string, double[]> extremes, string? day, bool full)

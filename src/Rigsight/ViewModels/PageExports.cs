@@ -27,6 +27,7 @@ public static class PageExports
         "temperatures" => Temperatures(shell.Live),
         "fans" => Fans(shell.Fans, shell.Reports, shell.Live, shell.Settings),
         "power" => Power(shell.Power, shell.Reports, shell.Live, shell.Settings),
+        "latency" => Latency(shell.Latency, shell.Reports),
         "memory" => Memory(shell.Live),
         "storage" => Storage(shell.Storage),
         "network" => Network(shell.Network),
@@ -35,7 +36,7 @@ public static class PageExports
 
     /// <summary>Whether a page has an Export button.</summary>
     public static bool Has(string page) => page is "home" or "reports" or "apps" or "games" or "crashes" or "timeline" or "temperatures" or "fans" or "power"
-        or "memory" or "storage" or "network" || page.StartsWith("custom:", StringComparison.Ordinal);
+        or "latency" or "memory" or "storage" or "network" || page.StartsWith("custom:", StringComparison.Ordinal);
 
     private static string From(string page) => Lang.T($"From the {page} page. Nothing leaves this PC.");
 
@@ -363,6 +364,27 @@ public static class PageExports
                         bool onScreen = unit == vm.Unit && anchor == vm.Anchor && vm.Loaded && !vm.IsLoading;
                         var facts = onScreen ? vm.SummaryFacts() : await PowerViewModel.SummaryAsync(reports, live, settings, unit, anchor);
                         return (_, _) => ExportSheets.Summary(Lang.T("Power summary"), Lang.T("What the Power page says about the period."), facts, run.From, run.To);
+                    },
+                },
+            ],
+            periods, IndexOf(periods, vm.Unit), null, [], NoFilter, FirstDay: vm.FirstDay);
+    }
+
+    private static PageExportSpec Latency(LatencyViewModel vm, ReportService reports)
+    {
+        var periods = Units(vm.Anchor, custom: false);
+        var (unitShown, anchorShown, filter) = (vm.Unit, vm.Anchor, vm.Filter);
+        return new(Lang.T("Export latency"), From(Lang.T("Latency")),
+            [
+                new(Lang.T("Summary"), Lang.T("The longest driver delay, the calls over 1 ms, the app wake-up delay and every driver."), PageItemKind.Sheet, true)
+                {
+                    BytesPerDay = 200,
+                    SheetAsync = async run =>
+                    {
+                        var (unit, anchor) = (run.Choice?.Unit ?? unitShown, run.Choice?.Anchor ?? anchorShown);
+                        bool onScreen = unit == vm.Unit && anchor == vm.Anchor && vm.Loaded && !vm.IsLoading;
+                        var facts = onScreen ? vm.SummaryFacts() : await LatencyViewModel.SummaryAsync(reports, unit, anchor, filter);
+                        return (_, _) => ExportSheets.Summary(Lang.T("Latency summary"), Lang.T("What the Latency page says about the period."), facts, run.From, run.To);
                     },
                 },
             ],

@@ -194,7 +194,7 @@ public sealed partial class SidebarViewModel : ObservableObject
     /// Pages added after people could save their own sidebar order: one goes right after the page before it here (Games
     /// under Apps) rather than at the end of its group.
     /// </summary>
-    private static readonly HashSet<string> AddedLater = ["games", "power"];
+    private static readonly HashSet<string> AddedLater = ["games", "power", "latency"];
 
     /// <summary>
     /// "The basics" (2026-10-25): the pages someone who mostly wants to know their PC is fine looks at. Every other page is
@@ -212,6 +212,8 @@ public sealed partial class SidebarViewModel : ObservableObject
         ("processes", Lang.Key("Processes"), "", MainSection),
         ("crashes", Lang.Key("Crashes"), "", MainSection),
         ("timeline", Lang.Key("Timeline"), "", MainSection),
+        // Driver delays and the app wake-up check (issue #15): a stopwatch.
+        ("latency", Lang.Key("Latency"), "", MainSection),
         ("temperatures", Lang.Key("Temperatures"), "", HardwareSection),
         ("power", Lang.Key("Power"), "", HardwareSection),
         ("fans", Lang.Key("Fans"), "fan", HardwareSection),

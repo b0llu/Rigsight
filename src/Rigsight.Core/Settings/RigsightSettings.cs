@@ -61,6 +61,8 @@ public sealed class RigsightSettings
     public OverlaySettings Overlay { get; set; } = new() { Grayscale = true };
     /// <summary>The Power page's electricity price, if one was given (1.18.0).</summary>
     public PowerSettings Power { get; set; } = new();
+    /// <summary>The Latency page's app wake-up check, on unless turned off there (issue #15).</summary>
+    public LatencySettings Latency { get; set; } = new();
 
     /// <summary>User-chosen display names for apps, keyed by exe name (e.g. "eldenring.exe").</summary>
     /// <remarks>Read into this case-insensitive dictionary (not a new one), so copies from the pipe keep matching any case.</remarks>

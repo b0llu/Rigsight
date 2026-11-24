@@ -564,7 +564,12 @@
                                     </Grid>
                                 </Grid>
                                 <!-- The key, under the chart from where it starts: the play's own items only where they mean something. -->
-                                <WrapPanel Margin="254,10,0,0" Visibility="{Binding HasFps, Converter={StaticResource Vis}}">
+                                <DockPanel Margin="254,10,0,0" Visibility="{Binding HasFps, Converter={StaticResource Vis}}">
+                                <!-- An opened play: its hours on the Latency page, In games (issue #15). -->
+                                <Button DockPanel.Dock="Right" Style="{StaticResource ActionButton}" Content="{ctl:T 'See this play on Latency'}" Command="{Binding SeeOnLatencyCommand}"
+                                        FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" Margin="12,-4,0,-4"
+                                        Visibility="{Binding CanSeeOnLatency, Converter={StaticResource Vis}}" />
+                                <WrapPanel>
                                     <WrapPanel.Resources>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource Muted}">
                                             <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />
@@ -592,6 +597,7 @@
                                         <TextBlock Text="{ctl:T 'Driver or game update'}" />
                                     </StackPanel>
                                 </WrapPanel>
+                                </DockPanel>
                                 <StackPanel Visibility="{Binding HasFps, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                                     <TextBlock Text="{Binding FpsEmpty}" Style="{StaticResource Muted}" TextWrapping="Wrap" />
                                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
