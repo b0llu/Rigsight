@@ -423,6 +423,7 @@ public partial class MainWindow : Window
                 "timeline" => new TimelineView { DataContext = _vm.Timeline },
                 "temperatures" => new TemperaturesView { DataContext = _vm.Live },
                 "fans" => new FansView { DataContext = _vm.Fans },
+                "power" => new PowerView { DataContext = _vm.Power },
                 "network" => new NetworkView { DataContext = _vm.Network },
                 "memory" => new MemoryView { DataContext = _vm.Memory },
                 "processes" => new ProcessesView { DataContext = _vm.Processes },

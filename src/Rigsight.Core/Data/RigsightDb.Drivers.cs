@@ -127,6 +127,70 @@ public sealed partial class RigsightDb
         return values.Count == 0 ? null : values[values.Count / 2];
     }
 
+    /// <summary>Every driver's kept minutes from <paramref name="from"/> to <paramref name="to"/> whose longest burst reached <paramref name="minUs"/>, oldest first.</summary>
+    public List<DriverTally> GetDriverMinutesOver(long from, long to, int minUs)
+    {
+        var list = new List<DriverTally>();
+        if (!HasDrivers) return list;
+        using var cmd = Cmd("SELECT ts, driver, n, total_us, longest_us, long_n FROM driver_minute WHERE ts >= $f AND ts < $t AND longest_us >= $m ORDER BY ts",
+            ("$f", from), ("$t", to), ("$m", minUs));
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new DriverTally(r.GetInt64(0), r.GetString(1), r.GetInt32(2), r.GetInt64(3), r.GetInt32(4), r.GetInt32(5)));
+        return list;
+    }
+
+    /// <summary>The hours from <paramref name="from"/> to <paramref name="to"/> (Unix seconds), of one driver or all, oldest first.</summary>
+    public List<DriverTally> GetDriverHours(long from, long to, string? driver = null)
+    {
+        var list = new List<DriverTally>();
+        if (!HasDrivers) return list;
+        using var cmd = driver is null
+            ? Cmd("SELECT ts, driver, n, total_us, longest_us, long_n FROM driver_hour WHERE ts >= $f AND ts < $t ORDER BY ts", ("$f", from), ("$t", to))
+            : Cmd("SELECT ts, driver, n, total_us, longest_us, long_n FROM driver_hour WHERE ts >= $f AND ts < $t AND driver = $d ORDER BY ts", ("$f", from), ("$t", to), ("$d", driver));
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new DriverTally(r.GetInt64(0), r.GetString(1), r.GetInt32(2), r.GetInt64(3), r.GetInt32(4), r.GetInt32(5)));
+        return list;
+    }
+
+    /// <summary>The first hour any driver activity was recorded (Unix seconds), or null when none ever was.</summary>
+    public long? FirstDriverHour()
+    {
+        if (!HasDrivers) return null;
+        using var cmd = Cmd("SELECT min(ts) FROM driver_hour");
+        return cmd.ExecuteScalar() is long ts ? ts : null;
+    }
+
+    /// <summary>The app in front each minute from <paramref name="from"/> to <paramref name="to"/> (minutes with one only).</summary>
+    public Dictionary<long, long> GetFrontApps(long from, long to)
+    {
+        var map = new Dictionary<long, long>();
+        using var cmd = Cmd("SELECT ts, fg_app FROM system_minute WHERE ts >= $f AND ts < $t AND fg_app IS NOT NULL", ("$f", from), ("$t", to));
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) map[r.GetInt64(0)] = r.GetInt64(1);
+        return map;
+    }
+
+    /// <summary>
+    /// Each hour's app in front the most from <paramref name="from"/> to <paramref name="to"/>, with its minutes, by the
+    /// hour's start as the driver hours have it (Unix seconds, on the hour).
+    /// </summary>
+    public Dictionary<long, (long App, int Minutes)> GetFrontHours(long from, long to)
+    {
+        var map = new Dictionary<long, (long App, int Minutes)>();
+        using var cmd = Cmd("""
+            SELECT ts / 3600 * 3600 AS h, fg_app, count(*) FROM system_minute
+            WHERE ts >= $f AND ts < $t AND fg_app IS NOT NULL GROUP BY h, fg_app
+            """, ("$f", from), ("$t", to));
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            long h = r.GetInt64(0);
+            int n = r.GetInt32(2);
+            if (!map.TryGetValue(h, out var top) || n > top.Minutes) map[h] = (r.GetInt64(1), n);
+        }
+        return map;
+    }
+
     private void PruneDrivers(long before)
     {
         if (!HasDrivers) return;

@@ -89,6 +89,8 @@ public sealed record CleanupItem(string Title, string Description, long Size, st
 
     /// <summary>A drive's own Recycle Bin ("E:\"); null for every drive's.</summary>
     public string? BinRoot { get; init; }
+    /// <summary>A Recycle Bin's number of deleted items, as Windows counts them.</summary>
+    public long Count { get; init; }
     /// <summary>Found by a scan ("big files untouched for a year"): Review shows that drive's largest files.</summary>
     public string? ReviewRoot { get; init; }
 
@@ -420,7 +422,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
                              $"{all - reused} of {all} folders counted, {reused} kept from before{(kept?.Whole is not null ? "; Downloads kept from before" : "")}");
         var (binSize, binItems) = StorageScanner.RecycleBin();
         if (binSize > 0)
-            list.Add(new CleanupItem(Lang.T("Recycle Bin"), binItems == 1 ? Lang.T("1 deleted item.") : Lang.T($"{binItems:N0} deleted items."), binSize, null, true));
+            list.Add(new CleanupItem(Lang.T("Recycle Bin"), binItems == 1 ? Lang.T("1 deleted item.") : Lang.T($"{binItems:N0} deleted items."), binSize, null, true) { Count = binItems });
         return list.OrderByDescending(i => i.Size).ToList();
     }
 
@@ -648,6 +650,7 @@ public sealed partial class StorageViewModel(ReportService reports, LiveData liv
         foreach (var v in Volumes) v.IsCleanupPicked = string.Equals(v.Root, CleanupRoot, StringComparison.OrdinalIgnoreCase);
         foreach (var name in new[] { nameof(CleanupShown), nameof(CleanupHint), nameof(HasCleanupHint), nameof(CleanupEmpty), nameof(CleanupTitle) }) OnPropertyChanged(name);
         BuildCleanupLines();
+        BinChanged();
     }
 
     /// <summary>What a drive has to free: the system drive's places, the drive's Recycle Bin, and what its scan found.</summary>

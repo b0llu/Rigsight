@@ -14,6 +14,11 @@ public enum SensorKind
     /// device that only reports a level, <see cref="Units.BatteryLevelValue"/> (below 0).
     /// </summary>
     Battery,
+    /// <summary>
+    /// The longest a single driver just kept a CPU core busy, in ms (RigSight's own taskbar reading, see
+    /// TrayParts.DriverDelay; issue #15 follow-up). Last, so stored kinds keep their numbers.
+    /// </summary>
+    Delay,
 }
 
 /// <summary>Formatting of raw values. Temperatures are always stored in °C and converted for display.</summary>
@@ -46,6 +51,7 @@ public static class Units
             SensorKind.Frequency => $"{v:0} Hz",
             SensorKind.FrameRate => $"{v:0} " + Lang.T("FPS"),
             SensorKind.Latency => $"{v:0} ms",
+            SensorKind.Delay => $"{v:0.0} ms",
             SensorKind.Battery => BatteryWord(v) ?? $"{v:0} %",
             SensorKind.Energy => $"{v:0} mWh",
             SensorKind.Noise => $"{v:0} dBA",
@@ -214,6 +220,7 @@ public static class Units
         SensorKind.Timing => Lang.T("TIMING"),
         SensorKind.FrameRate => Lang.T("FPS"),
         SensorKind.Latency => Lang.T("PING"),
+        SensorKind.Delay => Lang.T("DRIVER DELAY"),
         _ => kind.ToString().ToUpperInvariant(),
     };
 

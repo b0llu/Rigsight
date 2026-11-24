@@ -761,7 +761,12 @@
                                                                     </TextBlock.Style>
                                                                 </TextBlock>
                                                             </StackPanel>
-                                                            <TextBlock Grid.Column="4" Text="{Binding Power}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                            <!-- A play on battery (a laptop): under its power, how far the battery went down in it (1.18.0). -->
+                                                            <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Power}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{Binding Battery}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}"
+                                                                           Visibility="{Binding Battery, Converter={StaticResource Vis}}" />
+                                                            </StackPanel>
                                                             <!-- The game's own RAM in the play: its average, then its peak (from the hours it touched). -->
                                                             <TextBlock Grid.Column="5" VerticalAlignment="Center" TextWrapping="Wrap" Visibility="{Binding Ram, Converter={StaticResource Vis}}">
                                                                 <Run Text="{Binding Ram, Mode=OneWay}" FontWeight="SemiBold" /> <Run Text="{Binding RamPeak, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" />

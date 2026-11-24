@@ -247,8 +247,17 @@ internal static class ChartPaint
 
         double h = PadY + t.Height + (s is null ? 0 : 2 + s.Height) + 8 + b.Height + (factsH > 0 ? 8 + factsH : 0) + (noteH > 0 ? 8 + noteH : 0)
             + (m is null ? 0 : 9 + m.Height) + (f is null ? 0 : 9 + 1 + 7 + f.Height) + PadY;
-        var (x, y) = Place(at, Width, h, bounds, above, double.NegativeInfinity);
-        dc.DrawRoundedRectangle(TooltipBg, TooltipBorder, new Rect(x + 0.5, y + 0.5, Width, h), Corner, Corner);
+        // Too tall for the chart with the note under the facts (a play's possible cause with its driver file, issue #15
+        // follow-up: the chart cut it off, the user 2026-11-24): the note goes in a column of its own beside them.
+        bool side = noteH > 0 && h > bounds.Height && bounds.Width >= 2 * Width;
+        double boxW = Width;
+        if (side)
+        {
+            h = Math.Max(h - 8 - noteH, PadY + noteH + PadY);
+            boxW = 2 * Width - PadX;
+        }
+        var (x, y) = Place(at, boxW, h, bounds, above, double.NegativeInfinity);
+        dc.DrawRoundedRectangle(TooltipBg, TooltipBorder, new Rect(x + 0.5, y + 0.5, boxW, h), Corner, Corner);
 
         double left = x + PadX, ty = y + PadY;
         dc.DrawText(t, new Point(left, ty)); ty += t.Height;
@@ -277,14 +286,15 @@ internal static class ChartPaint
         }
         if (ns is not null)
         {
-            ty += 8;
-            dc.DrawRoundedRectangle(Track, null, new Rect(left, ty, Width - 2 * PadX, noteH), 7, 7);
-            double nx = left + FactsPad, ny = ty + 8;
+            // Under the facts, or (side) at the top of its own column.
+            double noteX = side ? x + Width : left, noteY = side ? y + PadY : ty + 8;
+            dc.DrawRoundedRectangle(Track, null, new Rect(noteX, noteY, Width - 2 * PadX, noteH), 7, 7);
+            double nx = noteX + FactsPad, ny = noteY + 8;
             if (nl is not null) { dc.DrawText(nl, new Point(nx, ny)); ny += nl.Height + 1; }
             if (nv is not null) { dc.DrawText(nv, new Point(nx, ny)); ny += nv.Height + 3; }
             dc.DrawText(ns, new Point(nx, ny)); ny += ns.Height;
             if (nd is not null) dc.DrawText(nd, new Point(nx, ny + 3));
-            ty += noteH;
+            if (!side) ty += 8 + noteH;
         }
         if (m is not null)
         {
@@ -300,7 +310,7 @@ internal static class ChartPaint
             ty += 1 + 7;
             dc.DrawText(f, new Point(left, ty));
         }
-        return new Rect(x, y, Width, h);
+        return new Rect(x, y, boxW, h);
 
         static FormattedText Wrap(FormattedText text, double width)
         {

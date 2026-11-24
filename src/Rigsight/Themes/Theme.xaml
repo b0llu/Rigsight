@@ -741,6 +741,16 @@
         <Setter Property="Margin" Value="8,0,0,0" />
         <Setter Property="Padding" Value="12,7" />
     </Style>
+    <!-- The quiet one, a link at the end of a card (the Timeline's before and after, approved mock-up B 2026-11-24): no box
+         until hovered, so it doesn't read as the card's main action. -->
+    <Style x:Key="AiLink" TargetType="Button" BasedOn="{StaticResource AiButton}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource AiBrush}" />
+        <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />
+        <Setter Property="Padding" Value="6,3" />
+        <Setter Property="Tag" Value="12" />
+    </Style>
     <!-- The small one, beside a row or a line: "Explain". -->
     <Style x:Key="AiButtonSmall" TargetType="Button" BasedOn="{StaticResource AiButton}">
         <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Small}" />

@@ -287,7 +287,8 @@ public sealed partial class StorageViewModel
         CleanupLines.Clear();
         foreach (var v in Volumes.OrderBy(v => v.Root, StringComparer.OrdinalIgnoreCase))
         {
-            var items = ItemsFor(v.Root);
+            // Every drive's Recycle Bin has its own line above these (StorageViewModel.Bin.cs), so it isn't counted again here.
+            var items = ItemsFor(v.Root).Where(i => !(i.IsRecycleBin && i.BinRoot is null)).ToList();
             if (items.Count > 0)
             {
                 var names = items.Select(i => i.Title).ToList();

@@ -1,581 +1,590 @@
-using Rigsight.Core.Settings;
-
-namespace Rigsight.Core;
-
-/// <summary>The part of the PC a taskbar reading is about, which its colour mark shows.</summary>
-public enum TrayPart { Cpu, Gpu, Ram, Drive, Board, Network, Other, Device }
-
-/// <summary>
-/// What a taskbar reading is about, and how readings are grouped when they share icons. Every icon carries a colour
-/// mark for its part (the colours Rigsight uses everywhere: CPU blue, GPU green, RAM purple), so a bare number in the
-/// taskbar still says whose it is. Grouped, each icon holds one part only (a GPU or drive each, being separate
-/// devices), up to two readings stacked, the temperature on top. Shared by the agent, which draws the icons, and the
-/// Taskbar page, which previews them.
-/// </summary>
-public static class TrayParts
-{
-    /// <summary>Readings an icon holds at most, stacked (a third wouldn't be legible at 16 pixels).</summary>
-    public const int PerIcon = 2;
-
-    /// <summary>
-    /// The icons RigSight draws in the taskbar itself, at 96 dpi: half as big again as Windows' own 16-pixel tray icons
-    /// (the user, 2026-11-03: "looks so small in taskbar"), this far apart, close as the strip's tiles are.
-    /// </summary>
-    public const int IconSize = 30, IconGap = 8;
-
-    /// <summary>
-    /// The room an icon's tile keeps round its digits, on every side: a pixel at Windows' 16 (every pixel counts there);
-    /// on RigSight's own icons about a sixth of the icon, so the digits sit in their tile as a reading sits in its box
-    /// (1.3: they touched the edges at a tenth, and the icon grew from 24 to 30 so the digits stay as big).
-    /// </summary>
-    public static double IconInset(double size) => size <= 16 ? Math.Max(1, size / 16) : size * 0.16;
-
-    /// <summary>The hardware type of a wireless device RigSight reads a battery from (not one of the library's).</summary>
-    public const string DeviceHardwareType = "Device";
-
-    /// <summary>How a wireless device is reached, as shown on its group ("Bluetooth"), in the person's language.</summary>
-    public static string DeviceVia(string via) => via switch
-    {
-        "Bluetooth" => Lang.T("Bluetooth"),
-        "Logitech receiver" => Lang.T("Logitech receiver"),
-        "Xbox Wireless" => Lang.T("Xbox Wireless"),
-        _ => via,
-    };
-
-    /// <summary>The part, from LibreHardwareMonitor's hardware type ("Cpu", "GpuNvidia", "SuperIO"…).</summary>
-    public static TrayPart PartOf(string? hardwareType) => hardwareType switch
-    {
-        "Cpu" => TrayPart.Cpu,
-        // The game's frame rate (Fps) goes with the GPU, which draws the frames.
-        "GpuNvidia" or "GpuAmd" or "GpuIntel" or FpsHardwareType => TrayPart.Gpu,
-        "Memory" => TrayPart.Ram,
-        "Storage" => TrayPart.Drive,
-        "Motherboard" or "SuperIO" or "EmbeddedController" => TrayPart.Board,
-        "Network" => TrayPart.Network,
-        DeviceHardwareType => TrayPart.Device,
-        _ => TrayPart.Other,
-    };
-
-    public static string Label(TrayPart part) => part switch
-    {
-        TrayPart.Cpu => Lang.T("CPU"),
-        TrayPart.Gpu => Lang.T("GPU"),
-        TrayPart.Ram => Lang.T("RAM"),
-        TrayPart.Drive => Lang.T("Drive"),
-        TrayPart.Board => Lang.T("Board"),
-        TrayPart.Network => Lang.T("Network"),
-        TrayPart.Device => Lang.T("Devices"),
-        _ => Lang.T("Other"),
-    };
-
-    /// <summary>
-    /// The part's colour (red, green, blue), as on every Rigsight page, a shade deeper on a light taskbar so it holds
-    /// its own there: drives pink, the network the sky blue of the Network page (since 1.2; they were grey), the board
-    /// and the rest grey. None is green, amber or red: those say how a reading is doing.
-    /// </summary>
-    public static (byte R, byte G, byte B) Color(TrayPart part, bool light = false) => part switch
-    {
-        TrayPart.Cpu => light ? ((byte)59, (byte)110, (byte)235) : ((byte)91, (byte)140, (byte)255),
-        TrayPart.Gpu => light ? ((byte)8, (byte)145, (byte)178) : ((byte)34, (byte)211, (byte)238),
-        TrayPart.Ram => light ? ((byte)140, (byte)95, (byte)230) : ((byte)177, (byte)140, (byte)255),
-        TrayPart.Drive => light ? ((byte)219, (byte)39, (byte)119) : ((byte)244, (byte)114, (byte)182),
-        TrayPart.Network => light ? ((byte)2, (byte)132, (byte)199) : ((byte)56, (byte)189, (byte)248),
-        // Wireless devices in the taskbar's own text colour: never green, amber or red, which their numbers use.
-        TrayPart.Device => light ? ((byte)64, (byte)64, (byte)64) : ((byte)232, (byte)232, (byte)232),
-        _ => light ? ((byte)128, (byte)128, (byte)128) : ((byte)148, (byte)148, (byte)148),
-    };
-
-    /// <summary>
-    /// Whether a reading has a top, so it can be shown as how full it is (<see cref="TrayLook.Level"/>,
-    /// <see cref="TrayLook.Blocks"/>, <see cref="TrayLook.Ring"/>): percentages out of 100, temperatures out of 100°.
-    /// A speed, a clock or watts has none.
-    /// </summary>
-    public static bool HasTop(SensorKind kind) =>
-        kind is SensorKind.Load or SensorKind.Level or SensorKind.Control or SensorKind.Humidity or SensorKind.Temperature;
-
-    /// <summary>
-    /// The look a reading draws with: the one picked; a filled graph in place of a fill-up look it can't have; Down and up
-    /// and the mirrored graph only for the reading that has both speeds (<see cref="NetBoth"/>), the others' number or graph.
-    /// </summary>
-    public static TrayLook LookFor(SensorKind kind, TrayLook picked, bool bothSpeeds = false) => picked switch
-    {
-        TrayLook.Level or TrayLook.Blocks or TrayLook.Ring or TrayLook.Half or TrayLook.Pie or TrayLook.Cores when !HasTop(kind) => TrayLook.Area,
-        // Number and spark became the line graph beside the number (1.3: no look draws over its text).
-        TrayLook.Spark => TrayLook.Line,
-        TrayLook.DownUp when !bothSpeeds => TrayLook.Number,
-        TrayLook.Mirror when !bothSpeeds => TrayLook.Area,
-        // Its icon is an icon's look; on the strip the part's icon goes by Names instead.
-        TrayLook.PartIcon => TrayLook.Number,
-        _ => picked,
-    };
-
-    // ── The network's speeds, as readings of RigSight's own (its count for the whole PC, as on the Network page) ──
-
-    /// <summary>The whole PC's download speed, as the Network page counts it (a VPN once).</summary>
-    public const string NetDown = "rigsight/network/down";
-
-    /// <summary>The whole PC's upload speed.</summary>
-    public const string NetUp = "rigsight/network/up";
-
-    /// <summary>Both speeds as one reading: download as its number, upload with it (Down and up, the mirrored graph).</summary>
-    public const string NetBoth = "rigsight/network/both";
-
-    /// <summary>Whether <paramref name="id"/> is one of the network's speeds (not a sensor of the hardware library).</summary>
-    public static bool IsNet(string id) => id is NetDown or NetUp or NetBoth;
-
-    /// <summary>The names the speeds go by, in English (shown through <see cref="SensorWords"/>).</summary>
-    public static string NetName(string id) => id switch { NetUp => "Upload Speed", NetBoth => "Download and Upload", _ => "Download Speed" };
-
-    /// <summary>What the speeds are of: the whole PC.</summary>
-    public const string NetHardware = "This PC";
-
-    // ── The game's frame rate, a reading of RigSight's own (RivaTuner's, as the overlay and the FPS widget read it) ──
-
-    /// <summary>
-    /// The frame rate of the game in front while RivaTuner measures it; no value otherwise, so the taskbar shows "–" by
-    /// "FPS" until a game draws frames (the user, 2026-11-09: people couldn't add FPS to the taskbar at all).
-    /// </summary>
-    public const string Fps = "rigsight/game/fps";
-
-    /// <summary>The kind of hardware it's listed under (<see cref="PartOf"/>: with the GPU).</summary>
-    public const string FpsHardwareType = "Game";
-
-    /// <summary>
-    /// The ping that matters now: to the server of the game or call (the slower of two), else to the internet provider's
-    /// first router, as the Network page's top line says it (approved mock-up, 2026-11-16).
-    /// </summary>
-    public const string Ping = "rigsight/network/ping";
-
-    /// <summary>A reading of RigSight's own, not a sensor of the hardware library: the network's speeds, the ping and the game's frame rate.</summary>
-    public static bool IsOwn(string id) => IsNet(id) || id == Fps || id == Ping;
-
-    // ── Sizes ──
-
-    /// <summary>
-    /// How tall a reading is drawn, in pixels, on a taskbar <paramref name="barHeight"/> pixels tall at <paramref name="scale"/>:
-    /// Auto the whole height; Small 30, Medium 40, Large 48 (at 100%), never taller than the taskbar.
-    /// </summary>
-    public static int SizeHeight(TraySize size, int barHeight, float scale)
-    {
-        int wanted = size switch { TraySize.Small => 30, TraySize.Medium => 40, TraySize.Large => 48, _ => 0 };
-        return wanted == 0 ? barHeight : Math.Min(barHeight, (int)Math.Round(wanted * scale));
-    }
-
-    /// <summary>How much bigger Large draws everything in its spot (text, rings, icons), on top of being taller.</summary>
-    public const float LargeGrowth = 1.2f;
-
-    /// <summary>Whether a spot of <paramref name="size"/> draws bigger: Large, when the taskbar is tall enough for it.</summary>
-    public static bool SizeGrows(TraySize size, int barHeight, float scale) =>
-        size == TraySize.Large && barHeight >= (int)Math.Round(SizeNeeds(TraySize.Large) * scale);
-
-    /// <summary>The taskbar height (at 100%) a size needs to show as it is: Small 30, Medium 40, Large 48; Auto any.</summary>
-    public static int SizeNeeds(TraySize size) => size switch { TraySize.Small => 30, TraySize.Medium => 40, TraySize.Large => 48, _ => 0 };
-
-    public static string SizeName(TraySize size) => size switch
-    {
-        TraySize.Small => Lang.T("Small"),
-        TraySize.Medium => Lang.T("Medium"),
-        TraySize.Large => Lang.T("Large"),
-        _ => Lang.T("Auto"),
-    };
-
-    /// <summary>A style's name, as the Taskbar page's cards and the strip's menu say it.</summary>
-    public static string StyleName(TrayStyle style) => style switch
-    {
-        TrayStyle.TwoRows => Lang.T("Two rows"),
-        TrayStyle.Icons or TrayStyle.Grouped => Lang.T("Icon"),
-        _ => Lang.T("Standard"),
-    };
-
-    /// <summary>
-    /// The colour a part's words are written in (its name, "Load", "Down"): its own colour on a dark taskbar; on a light
-    /// one a shade deeper of the same hue, so every word reads at 4.5:1 or more against the bar (its graph keeps the
-    /// brighter <see cref="Color"/>, which a line needs only 3:1 for). Measured on Windows' light taskbar (238).
-    /// </summary>
-    public static (byte R, byte G, byte B) WordColor(TrayPart part, bool light) => !light ? Color(part, false) : part switch
-    {
-        TrayPart.Cpu => ((byte)38, (byte)95, (byte)233),
-        TrayPart.Gpu => ((byte)6, (byte)115, (byte)141),
-        TrayPart.Ram => ((byte)124, (byte)73, (byte)227),
-        TrayPart.Drive => ((byte)201, (byte)34, (byte)108),
-        TrayPart.Network => ((byte)2, (byte)112, (byte)169),
-        TrayPart.Device => ((byte)64, (byte)64, (byte)64),
-        _ => ((byte)106, (byte)106, (byte)106),
-    };
-
-    /// <summary>
-    /// The boxes of two rows (<see cref="TrayStyle.TwoRows"/>), as the person pairs them: in the list's order, each box
-    /// holds the next two readings; one with a box of its own (<paramref name="alone"/>) gets one, and the next starts a
-    /// new box. Shared by the agent, which draws them, and the Taskbar page, which lists the readings in them.
-    /// </summary>
-    public static List<List<T>> Boxes<T>(IReadOnlyList<T> readings, Func<T, bool> alone)
-    {
-        var boxes = new List<List<T>>();
-        List<T>? open = null;
-        foreach (var r in readings)
-        {
-            if (alone(r)) { boxes.Add([r]); open = null; }
-            else if (open is not null) { open.Add(r); open = null; }
-            else { open = [r]; boxes.Add(open); }
-        }
-        return boxes;
-    }
-
-    /// <summary>What a reading's spot depends on: its id, its part's group and kind, a box of its own (two rows, before 1.3), both speeds.</summary>
-    public readonly record struct SpotOf(string Id, string Group, SensorKind Kind, bool Alone, bool BothSpeeds, bool? PairNext);
-
-    /// <summary>A reading in grayscale: its own choice, else the taskbar's (see <see cref="RigsightSettings.TrayGrayOf"/>).</summary>
-    public static bool GrayOf(RigsightSettings s, string id) => s.TrayGrayOf.TryGetValue(id, out bool gray) ? gray : s.TrayGrayscale;
-
-    /// <summary>A reading on a tile: its own choice, else the taskbar's (see <see cref="RigsightSettings.TrayTilesOf"/>).</summary>
-    public static bool TilesOf(RigsightSettings s, string id) => s.TrayTilesOf.TryGetValue(id, out bool tiles) ? tiles : s.TrayTiles;
-
-    /// <summary>How a reading names its part: its own choice, else the taskbar's (words, or icons under the numbers).</summary>
-    public static TrayName NameOf(RigsightSettings s, string id) =>
-        s.TrayNamesOf.TryGetValue(id, out var own) ? own : s.TrayIcons ? TrayName.Under : TrayName.Word;
-
-    /// <summary>
-    /// A reading's icon (see WidgetRenderer.PartIcons): its part's, never its reading's, so a CPU's temperature, load and
-    /// power share the CPU's and the unit says which; download and upload their arrows; a wireless device its own shape
-    /// (<paramref name="device"/>: "Mouse", "Keyboard", "Headset", "Controller"); a fan the fan.
-    /// </summary>
-    public static string IconKey(TrayPart part, SensorKind kind, string id, string? device = null) => part switch
-    {
-        _ when id == Fps => "fps",
-        _ when id == Ping => "ping",
-        _ when id == NetUp => "up",
-        TrayPart.Network => "down",
-        _ when kind is SensorKind.Fan or SensorKind.Control => "fan",
-        TrayPart.Cpu => "cpu",
-        TrayPart.Gpu => "gpu",
-        TrayPart.Ram => "ram",
-        TrayPart.Drive => "drive",
-        TrayPart.Board => "board",
-        TrayPart.Device => device switch { "Mouse" => "mouse", "Keyboard" => "keyboard", "Headset" => "headset", "Controller" => "controller", _ => "device" },
-        _ when kind == SensorKind.Battery || kind == SensorKind.Level => "device",
-        _ => "board",
-    };
-
-    /// <summary>A reading's name as one letter in two rows: its spot's choice (before 1.3, the one switch for all).</summary>
-    public static bool LettersOf(RigsightSettings s, string id) => s.TrayPairs is null ? s.TrayLetterNames : s.TrayLetters.Contains(id);
-
-    /// <summary>Whether a reading shares its spot with the next (null: no pairs saved yet, the spots as before 1.3).</summary>
-    public static bool? PairNextOf(RigsightSettings s, string id) => s.TrayPairs is null ? null : s.TrayPairs.Contains(id);
-
-    /// <summary>Whether a style draws icons (an icon each and, before 1.3, an icon per part).</summary>
-    public static bool IsIcon(TrayStyle style) => style is TrayStyle.Icons or TrayStyle.Grouped;
-
-    /// <summary>
-    /// The spots of a run of readings in one style (and one size, colours, background and names): the readings that share
-    /// a tile, a box or an icon. Since 1.3 as the person pairs them (<see cref="SpotOf.PairNext"/>: a reading shares with the
-    /// next), two at most in two rows and in an icon, and both speeds alone there (their two lines fill it). While no
-    /// pairs are saved yet (null), as before 1.3: the strip and an icon per part by part, two rows by the list's order.
-    /// Shared by the agent, which draws them, and the Taskbar page, which lists a row per spot.
-    /// </summary>
-    public static List<List<T>> Spots<T>(IReadOnlyList<T> run, TrayStyle style, Func<T, SpotOf> of)
-    {
-        if (run.Count == 0) return [];
-        if (run.Any(r => of(r).PairNext is null))
-            return style switch
-            {
-                TrayStyle.Strip => Group(run, r => (of(r).Group, of(r).Kind), int.MaxValue),
-                TrayStyle.TwoRows => Boxes(run, r => of(r).Alone || of(r).BothSpeeds),
-                TrayStyle.Grouped => Group(run, r => (of(r).Group, of(r).Kind)),
-                _ => [.. run.Select(r => new List<T> { r })],
-            };
-        int most = style == TrayStyle.Strip ? int.MaxValue : PerIcon;
-        var spots = new List<List<T>>();
-        List<T>? open = null;
-        foreach (var r in run)
-        {
-            var info = of(r);
-            bool fits = open is not null && open.Count < most && (style == TrayStyle.Strip || !info.BothSpeeds);
-            if (fits) open!.Add(r);
-            else spots.Add(open = [r]);
-            bool joins = info.PairNext == true && (style == TrayStyle.Strip || !info.BothSpeeds);
-            if (!joins) open = null;
-        }
-        return spots;
-    }
-
-    /// <summary>
-    /// A reading's word in its box: its part's name ("CPU", "GPU 2"); a part's second reading under its first says what
-    /// it is ("Load"; <paramref name="aboveGroup"/> is the top one's <see cref="GroupOf"/>), as speeds always say their
-    /// direction ("Down", "Up"). A short name the person gave it wins (it comes as <paramref name="shortLabel"/>, see
-    /// <see cref="ShortLabel"/>). One letter when <paramref name="letter"/>.
-    /// </summary>
-    public static string BoxLabel(string partName, string group, SensorKind kind, string shortLabel, bool custom, string? aboveGroup, bool letter)
-    {
-        string label = custom || kind == SensorKind.Throughput || aboveGroup == group ? shortLabel : partName;
-        return letter ? Letter(label) : label;
-    }
-
-    /// <summary>A name as one letter ("CPU" → "C", "Load" → "L"); a number in it kept ("GPU 2" → "G2").</summary>
-    public static string Letter(string label)
-    {
-        if (string.IsNullOrWhiteSpace(label)) return "";
-        string digits = new([.. label.Where(char.IsDigit)]);
-        return char.ToUpperInvariant(label.TrimStart()[0]) + digits;
-    }
-
-    /// <summary>A look's name, as the Taskbar page and the strip's menu say it.</summary>
-    public static string LookName(TrayLook look) => look switch
-    {
-        TrayLook.Area => Lang.T("Filled graph"),
-        TrayLook.Line => Lang.T("Line graph"),
-        TrayLook.Bars => Lang.T("Bar graph"),
-        TrayLook.Level => Lang.T("Level"),
-        TrayLook.Blocks => Lang.T("Blocks"),
-        TrayLook.Ring => Lang.T("Ring"),
-        TrayLook.Half => Lang.T("Half ring"),
-        TrayLook.Pie => Lang.T("Pie"),
-        TrayLook.Cores => Lang.T("Each core"),
-        TrayLook.Big => Lang.T("Big number"),
-        TrayLook.Spark => Lang.T("Number and spark"),
-        TrayLook.DownUp => Lang.T("Down and up"),
-        TrayLook.Mirror => Lang.T("Mirrored graph"),
-        _ => Lang.T("Number only"),
-    };
-
-    /// <summary>
-    /// The looks a reading can have on the strip: with a top, every fill-up look too (Each core for a CPU's total load,
-    /// which has cores); without one, the number and the graphs; both speeds also Down and up and the mirrored graph.
-    /// <paramref name="drawsFrom"/> is the kind its look is drawn from (another reading's, when it has one).
-    /// </summary>
-    public static IReadOnlyList<TrayLook> LooksFor(SensorKind kind, bool cpuTotal = false, bool bothSpeeds = false, SensorKind? drawsFrom = null)
-    {
-        var looks = new List<TrayLook> { TrayLook.Number, TrayLook.Big, TrayLook.Area, TrayLook.Line, TrayLook.Bars };
-        if (HasTop(drawsFrom ?? kind)) looks.AddRange([TrayLook.Level, TrayLook.Blocks, TrayLook.Ring, TrayLook.Half, TrayLook.Pie]);
-        if (cpuTotal && drawsFrom is null) looks.Add(TrayLook.Cores);
-        if (bothSpeeds) looks.AddRange([TrayLook.DownUp, TrayLook.Mirror]);
-        return looks;
-    }
-
-    /// <summary>The looks an icon can have: its number alone, the icon filling up (Level), or a ring round its edge.</summary>
-    public static IReadOnlyList<TrayLook> IconLooksFor(SensorKind kind, SensorKind? drawsFrom = null) =>
-        HasTop(drawsFrom ?? kind) ? [TrayLook.Number, TrayLook.Level, TrayLook.Ring, TrayLook.PartIcon]
-        : (drawsFrom ?? kind) == SensorKind.Battery ? [TrayLook.Number, TrayLook.PartIcon] : [TrayLook.Number];
-
-    /// <summary>
-    /// Whether a reading can show as its part's icon (2026-11-20, the user: "still cant put icon for reading"): only one with
-    /// a top (a percent, a temperature) or a battery, as the bar under the icon says how far it is; a speed has none.
-    /// </summary>
-    public static bool HasIconLook(SensorKind kind) => HasTop(kind) || kind == SensorKind.Battery;
-
-    /// <summary>A look on an icon, as the icon draws it: Level and Ring as they are, anything else the number alone.</summary>
-    public static TrayLook IconLook(SensorKind kind, TrayLook picked) =>
-        picked is TrayLook.Level or TrayLook.Ring && HasTop(kind) ? picked
-        : picked == TrayLook.PartIcon && HasIconLook(kind) ? picked : TrayLook.Number;
-
-    /// <summary>An icon look's name on the Taskbar page: Plain, Fill, Ring.</summary>
-    public static string IconLookName(TrayLook look) => look switch
-    {
-        TrayLook.Level => Lang.T("Fill"),
-        TrayLook.Ring => Lang.T("Ring"),
-        TrayLook.PartIcon => Lang.T("Its icon"),
-        _ => Lang.T("Plain"),
-    };
-
-    /// <summary>A CPU load sensor's name for the whole CPU ("CPU Total"): its cores have loads of their own (Each core).</summary>
-    public static bool IsCpuTotal(SensorKind kind, TrayPart part, string sensorName) =>
-        kind == SensorKind.Load && part == TrayPart.Cpu && sensorName.Contains("Total", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>A CPU core's own load ("CPU Core #3"; not a thread's, "CPU Core #3 Thread #1"), for Each core.</summary>
-    public static bool IsCoreLoad(SensorKind kind, string sensorName) =>
-        kind == SensorKind.Load && System.Text.RegularExpressions.Regex.IsMatch(sensorName, @"^(CPU |P-|E-)?Core #\d+$");
-
-    /// <summary>How full a reading is, 0 to 1, for the fill-up looks (a temperature out of 100°, in Celsius).</summary>
-    public static float Fill(double? value) => value is double v && double.IsFinite(v) ? (float)Math.Clamp(v / 100, 0, 1) : 0;
-
-    /// <summary>How full a reading is, 0 to 1 (see <see cref="Fill(double?)"/>); a battery's level (Full, Medium, Low, Empty) as about how full it says.</summary>
-    public static float Fill(SensorKind kind, double? value) =>
-        kind == SensorKind.Battery && value is double v && v < 0 ? Math.Round(-v) switch { 1 => 0.05f, 2 => 0.2f, 3 => 0.5f, _ => 1f } : Fill(value);
-
-    /// <summary>
-    /// The device a sensor belongs to, from its ID ("/gpu-nvidia/0/temperature/0" → "/gpu-nvidia/0"): two GPUs or
-    /// drives are grouped apart.
-    /// </summary>
-    public static string DeviceOf(string sensorId)
-    {
-        int last = sensorId.LastIndexOf('/');
-        int before = last > 0 ? sensorId.LastIndexOf('/', last - 1) : -1;
-        return before > 0 ? sensorId[..before] : sensorId;
-    }
-
-    /// <summary>
-    /// What groups readings: the part, and for GPUs, drives and the rest also the device (a laptop's two GPUs are two
-    /// icons). The CPU, RAM and board are one each (RAM's total and its sticks' temperatures come as separate devices).
-    /// </summary>
-    public static string GroupOf(TrayPart part, string sensorId) =>
-        part is TrayPart.Cpu or TrayPart.Ram or TrayPart.Board ? part.ToString() : $"{part}:{DeviceOf(sensorId)}";
-
-    /// <summary>
-    /// Readings grouped into icons: by part (see <see cref="GroupOf"/>) in the order each part first appears, within
-    /// one the temperature first, then the load, then the rest as listed, <paramref name="perIcon"/> to an icon (the
-    /// strip has room for all of a part's).
-    /// </summary>
-    public static List<List<T>> Group<T>(IReadOnlyList<T> readings, Func<T, (string Group, SensorKind Kind)> describe, int perIcon = PerIcon)
-    {
-        var groups = new List<(string Key, List<T> Items)>();
-        foreach (var r in readings)
-        {
-            string key = describe(r).Group;
-            int i = groups.FindIndex(g => g.Key == key);
-            if (i < 0) groups.Add((key, [r]));
-            else groups[i].Items.Add(r);
-        }
-        var icons = new List<List<T>>();
-        foreach (var (_, items) in groups)
-        {
-            var ordered = items.Select((r, i) => (r, i)).OrderBy(x => Rank(describe(x.r).Kind)).ThenBy(x => x.i).Select(x => x.r).ToList();
-            for (int i = 0; i < ordered.Count; i += perIcon) icons.Add(ordered.Skip(i).Take(perIcon).ToList());
-        }
-        return icons;
-    }
-
-    /// <summary>
-    /// The names under the strip's groups: the part's, numbered where it comes more than once ("GPU 1", "GPU 2": a
-    /// laptop's two GPUs).
-    /// </summary>
-    public static List<string> Names(IReadOnlyList<TrayPart> parts)
-    {
-        var names = new List<string>(parts.Count);
-        var seen = new Dictionary<TrayPart, int>();
-        foreach (var part in parts)
-        {
-            int n = seen.GetValueOrDefault(part) + 1;
-            seen[part] = n;
-            bool several = parts.Count(p => p == part) > 1;
-            names.Add(several ? $"{Label(part)} {n}" : Label(part));
-        }
-        return names;
-    }
-
-    /// <summary>A name given on All sensors is used under a reading on the strip when it's at most this long.</summary>
-    public const int MaxShortLabel = 10;
-
-    /// <summary>
-    /// The word under a reading on the strip (after its part's first, which has the part's name, see
-    /// <see cref="StripLabels"/>). The number's unit already says what sort of reading it is, so the word tells
-    /// readings of one part apart: "Load", "Clock", "Power", the GPU's "Hot" spot and "VRAM". A short name the user
-    /// gave the sensor wins.
-    /// </summary>
-    /// <summary>
-    /// A sensor's name as initials after its part's ("CPU Core Max" for the CPU: "CM"; "CPU Total": "T"; "Core #3": "C3"),
-    /// at most three, so a reading in a spot of its own can be told from its part's others ("CPU CM" beside "CPU").
-    /// </summary>
-    public static string Initials(string sensorName, string partName)
-    {
-        var skip = partName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var initials = new System.Text.StringBuilder();
-        foreach (var word in System.Text.RegularExpressions.Regex.Split(sensorName, @"[^\p{L}\p{N}]+"))
-        {
-            if (word.Length == 0 || skip.Any(s => s.Equals(word, StringComparison.OrdinalIgnoreCase))) continue;
-            initials.Append(word.All(char.IsDigit) ? word : char.ToUpperInvariant(word[0]).ToString());
-            if (initials.Length >= 3) break;
-        }
-        return initials.ToString();
-    }
-
-    /// <summary>Whether a word from <see cref="ShortLabel"/> only says the kind ("Load", "Temp"), so it doesn't tell two of a part apart.</summary>
-    public static bool IsKindWord(string word) =>
-        word == Lang.T("Temp") || word == Lang.T("Load") || word == Lang.T("Power") || word == Lang.T("Clock") || word == Lang.T("Fan")
-        || word == Lang.T("Volt") || word == Lang.T("Amps") || word == Lang.T("Used") || word == Lang.T("Rate") || word == Lang.T("Flow")
-        || word == Lang.T("Drive") || word == Lang.T("Free");
-
-    /// <summary>
-    /// The word on each reading across the whole taskbar, in the order shown (spots as <paramref name="spots"/> lists
-    /// them): a part's name on its first reading only; a reading beside its part's first in a pair, its own word ("Load",
-    /// "CCD1"); one in a spot of its own, a word of its own when it has one ("Hot", "VRAM"), else its part's name and its
-    /// initials ("CPU CM"); never one word twice. Speeds keep their direction, a short name given on All sensors wins.
-    /// </summary>
-    public static Dictionary<string, string> Words<T>(IReadOnlyList<IReadOnlyList<T>> spots, Func<T, (string Id, string Group, string PartName, bool Network,
-        bool Own, string Short, string Name)> of)
-    {
-        var words = new Dictionary<string, string>();
-        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var named = new HashSet<string>();
-        foreach (var spot in spots)
-            for (int j = 0; j < spot.Count; j++)
-            {
-                var r = of(spot[j]);
-                if (words.ContainsKey(r.Id)) continue;
-                string word;
-                if (r.Network || r.Own) word = r.Short;
-                else if (named.Add(r.Group)) word = r.PartName;
-                else if (j > 0 && of(spot[j - 1]).Group == r.Group && !used.Contains(r.Short)) word = r.Short;
-                else if (!IsKindWord(r.Short) && r.Short.Length > 0 && !used.Contains(r.Short)) word = r.Short;
-                else
-                {
-                    string initials = Initials(r.Name, r.PartName);
-                    word = initials.Length > 0 ? $"{r.PartName} {initials}" : $"{r.PartName} {r.Short}";
-                    for (int n = 2; used.Contains(word); n++) word = $"{r.PartName} {initials}{n}";
-                }
-                used.Add(word);
-                words[r.Id] = word;
-            }
-        return words;
-    }
-
-    public static string ShortLabel(SensorKind kind, string sensorName, TrayPart part, string? custom = null)
-    {
-        if (custom?.Trim() is { Length: > 0 and <= MaxShortLabel } own) return own;
-        string n = sensorName.ToLowerInvariant();
-        bool Has(string s) => n.Contains(s, StringComparison.Ordinal);
-        switch (kind)
-        {
-            case SensorKind.Temperature:
-                if (Has("hot spot") || Has("hotspot")) return Lang.T("Hot");
-                if (part == TrayPart.Gpu && Has("memory")) return Lang.T("VRAM");
-                if (System.Text.RegularExpressions.Regex.Match(sensorName, @"CCD\s*#?(\d+)") is { Success: true } ccd) return "CCD" + ccd.Groups[1].Value;
-                return part switch { TrayPart.Ram => Lang.T("DIMM"), TrayPart.Drive => Lang.T("Drive"), _ => Lang.T("Temp") };
-            case SensorKind.Load:
-                if (part == TrayPart.Gpu && Has("memory")) return Lang.T("VRAM");
-                if (Has("video")) return Lang.T("Video");
-                if (part == TrayPart.Ram) return Has("virtual") ? Lang.T("Virtual") : Lang.T("Used");
-                return Lang.T("Load");
-            case SensorKind.Power: return Lang.T("Power");
-            case SensorKind.Clock: return Has("memory") ? Lang.T("Mem") : Lang.T("Clock");
-            case SensorKind.Fan or SensorKind.Control: return Lang.T("Fan");
-            case SensorKind.Voltage: return Lang.T("Volt");
-            case SensorKind.Current: return Lang.T("Amps");
-            case SensorKind.Data or SensorKind.SmallData: return Has("available") || Has("free") ? Lang.T("Free") : Lang.T("Used");
-            case SensorKind.Throughput: return Has("upload") ? Lang.T("Up") : Has("download") ? Lang.T("Down") : Lang.T("Rate");
-            case SensorKind.Flow: return Lang.T("Flow");
-            case SensorKind.FrameRate: return Lang.T("FPS");
-            case SensorKind.Latency: return Lang.T("Ping");
-            // A device's battery: the first word of the device's name ("G309", "Xbox"), which the reading is given as its name.
-            case SensorKind.Battery: break;
-        }
-        string first = sensorName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-        return first.Length <= 6 ? first : first[..6];
-    }
-
-    /// <summary>
-    /// The words under a part's readings on the strip: the part's name under the first (so the group is named),
-    /// each reading's own under the rest.
-    /// </summary>
-    public static List<string> StripLabels(IReadOnlyList<string> shortLabels, string partName) =>
-        [.. shortLabels.Select((label, i) => i == 0 ? partName : label)];
-
-    /// <summary>The time a strip graph shows, ending now: two minutes.</summary>
-    public const int GraphSeconds = 120;
-
-    /// <summary>
-    /// The bottom and top of a reading's graph on the strip. The top is the highest the graph holds, so its peak always
-    /// fills the strip (the user's word: the number over it says how much; a 5% load at 0-100 was a line on the floor).
-    /// The bottom is 0 (a temperature: 10° under its top at least, so it's a shape, not a full block), or the lowest
-    /// for a reading that goes below 0. A reading that never left 0 is a flat graph on the floor.
-    /// </summary>
-    public static (double Min, double Max) GraphRange(SensorKind kind, IReadOnlyList<float> values)
-    {
-        var known = values.Where(float.IsFinite).ToList();
-        if (known.Count == 0) return (0, 1);
-        double lo = Math.Min(0, known.Min()), hi = known.Max();
-        if (kind == SensorKind.Temperature) lo = Math.Min(known.Min(), hi - 10);
-        if (hi - lo < 1e-6) hi = lo + 1;
-        return (lo, hi);
-    }
-
-    private static int Rank(SensorKind kind) => kind switch { SensorKind.Temperature => 0, SensorKind.Load => 1, _ => 2 };
-}
+using Rigsight.Core.Settings;
+
+namespace Rigsight.Core;
+
+/// <summary>The part of the PC a taskbar reading is about, which its colour mark shows.</summary>
+public enum TrayPart { Cpu, Gpu, Ram, Drive, Board, Network, Other, Device }
+
+/// <summary>
+/// What a taskbar reading is about, and how readings are grouped when they share icons. Every icon carries a colour
+/// mark for its part (the colours Rigsight uses everywhere: CPU blue, GPU green, RAM purple), so a bare number in the
+/// taskbar still says whose it is. Grouped, each icon holds one part only (a GPU or drive each, being separate
+/// devices), up to two readings stacked, the temperature on top. Shared by the agent, which draws the icons, and the
+/// Taskbar page, which previews them.
+/// </summary>
+public static class TrayParts
+{
+    /// <summary>Readings an icon holds at most, stacked (a third wouldn't be legible at 16 pixels).</summary>
+    public const int PerIcon = 2;
+
+    /// <summary>
+    /// The icons RigSight draws in the taskbar itself, at 96 dpi: half as big again as Windows' own 16-pixel tray icons
+    /// (the user, 2026-11-03: "looks so small in taskbar"), this far apart, close as the strip's tiles are.
+    /// </summary>
+    public const int IconSize = 30, IconGap = 8;
+
+    /// <summary>
+    /// The room an icon's tile keeps round its digits, on every side: a pixel at Windows' 16 (every pixel counts there);
+    /// on RigSight's own icons about a sixth of the icon, so the digits sit in their tile as a reading sits in its box
+    /// (1.3: they touched the edges at a tenth, and the icon grew from 24 to 30 so the digits stay as big).
+    /// </summary>
+    public static double IconInset(double size) => size <= 16 ? Math.Max(1, size / 16) : size * 0.16;
+
+    /// <summary>The hardware type of a wireless device RigSight reads a battery from (not one of the library's).</summary>
+    public const string DeviceHardwareType = "Device";
+
+    /// <summary>How a wireless device is reached, as shown on its group ("Bluetooth"), in the person's language.</summary>
+    public static string DeviceVia(string via) => via switch
+    {
+        "Bluetooth" => Lang.T("Bluetooth"),
+        "Logitech receiver" => Lang.T("Logitech receiver"),
+        "Xbox Wireless" => Lang.T("Xbox Wireless"),
+        _ => via,
+    };
+
+    /// <summary>The part, from LibreHardwareMonitor's hardware type ("Cpu", "GpuNvidia", "SuperIO"…).</summary>
+    public static TrayPart PartOf(string? hardwareType) => hardwareType switch
+    {
+        "Cpu" => TrayPart.Cpu,
+        // The game's frame rate (Fps) goes with the GPU, which draws the frames.
+        "GpuNvidia" or "GpuAmd" or "GpuIntel" or FpsHardwareType => TrayPart.Gpu,
+        "Memory" => TrayPart.Ram,
+        "Storage" => TrayPart.Drive,
+        "Motherboard" or "SuperIO" or "EmbeddedController" => TrayPart.Board,
+        "Network" => TrayPart.Network,
+        DeviceHardwareType => TrayPart.Device,
+        _ => TrayPart.Other,
+    };
+
+    public static string Label(TrayPart part) => part switch
+    {
+        TrayPart.Cpu => Lang.T("CPU"),
+        TrayPart.Gpu => Lang.T("GPU"),
+        TrayPart.Ram => Lang.T("RAM"),
+        TrayPart.Drive => Lang.T("Drive"),
+        TrayPart.Board => Lang.T("Board"),
+        TrayPart.Network => Lang.T("Network"),
+        TrayPart.Device => Lang.T("Devices"),
+        _ => Lang.T("Other"),
+    };
+
+    /// <summary>
+    /// The part's colour (red, green, blue), as on every Rigsight page, a shade deeper on a light taskbar so it holds
+    /// its own there: drives pink, the network the sky blue of the Network page (since 1.2; they were grey), the board
+    /// and the rest grey. None is green, amber or red: those say how a reading is doing.
+    /// </summary>
+    public static (byte R, byte G, byte B) Color(TrayPart part, bool light = false) => part switch
+    {
+        TrayPart.Cpu => light ? ((byte)59, (byte)110, (byte)235) : ((byte)91, (byte)140, (byte)255),
+        TrayPart.Gpu => light ? ((byte)8, (byte)145, (byte)178) : ((byte)34, (byte)211, (byte)238),
+        TrayPart.Ram => light ? ((byte)140, (byte)95, (byte)230) : ((byte)177, (byte)140, (byte)255),
+        TrayPart.Drive => light ? ((byte)219, (byte)39, (byte)119) : ((byte)244, (byte)114, (byte)182),
+        TrayPart.Network => light ? ((byte)2, (byte)132, (byte)199) : ((byte)56, (byte)189, (byte)248),
+        // Wireless devices in the taskbar's own text colour: never green, amber or red, which their numbers use.
+        TrayPart.Device => light ? ((byte)64, (byte)64, (byte)64) : ((byte)232, (byte)232, (byte)232),
+        _ => light ? ((byte)128, (byte)128, (byte)128) : ((byte)148, (byte)148, (byte)148),
+    };
+
+    /// <summary>
+    /// Whether a reading has a top, so it can be shown as how full it is (<see cref="TrayLook.Level"/>,
+    /// <see cref="TrayLook.Blocks"/>, <see cref="TrayLook.Ring"/>): percentages out of 100, temperatures out of 100°.
+    /// A speed, a clock or watts has none.
+    /// </summary>
+    public static bool HasTop(SensorKind kind) =>
+        kind is SensorKind.Load or SensorKind.Level or SensorKind.Control or SensorKind.Humidity or SensorKind.Temperature;
+
+    /// <summary>
+    /// The look a reading draws with: the one picked; a filled graph in place of a fill-up look it can't have; Down and up
+    /// and the mirrored graph only for the reading that has both speeds (<see cref="NetBoth"/>), the others' number or graph.
+    /// </summary>
+    public static TrayLook LookFor(SensorKind kind, TrayLook picked, bool bothSpeeds = false) => picked switch
+    {
+        TrayLook.Level or TrayLook.Blocks or TrayLook.Ring or TrayLook.Half or TrayLook.Pie or TrayLook.Cores when !HasTop(kind) => TrayLook.Area,
+        // Number and spark became the line graph beside the number (1.3: no look draws over its text).
+        TrayLook.Spark => TrayLook.Line,
+        TrayLook.DownUp when !bothSpeeds => TrayLook.Number,
+        TrayLook.Mirror when !bothSpeeds => TrayLook.Area,
+        // Its icon is an icon's look; on the strip the part's icon goes by Names instead.
+        TrayLook.PartIcon => TrayLook.Number,
+        _ => picked,
+    };
+
+    // ── The network's speeds, as readings of RigSight's own (its count for the whole PC, as on the Network page) ──
+
+    /// <summary>The whole PC's download speed, as the Network page counts it (a VPN once).</summary>
+    public const string NetDown = "rigsight/network/down";
+
+    /// <summary>The whole PC's upload speed.</summary>
+    public const string NetUp = "rigsight/network/up";
+
+    /// <summary>Both speeds as one reading: download as its number, upload with it (Down and up, the mirrored graph).</summary>
+    public const string NetBoth = "rigsight/network/both";
+
+    /// <summary>Whether <paramref name="id"/> is one of the network's speeds (not a sensor of the hardware library).</summary>
+    public static bool IsNet(string id) => id is NetDown or NetUp or NetBoth;
+
+    /// <summary>The names the speeds go by, in English (shown through <see cref="SensorWords"/>).</summary>
+    public static string NetName(string id) => id switch { NetUp => "Upload Speed", NetBoth => "Download and Upload", _ => "Download Speed" };
+
+    /// <summary>What the speeds are of: the whole PC.</summary>
+    public const string NetHardware = "This PC";
+
+    // ── The game's frame rate, a reading of RigSight's own (RivaTuner's, as the overlay and the FPS widget read it) ──
+
+    /// <summary>
+    /// The frame rate of the game in front while RivaTuner measures it; no value otherwise, so the taskbar shows "–" by
+    /// "FPS" until a game draws frames (the user, 2026-11-09: people couldn't add FPS to the taskbar at all).
+    /// </summary>
+    public const string Fps = "rigsight/game/fps";
+
+    /// <summary>The kind of hardware it's listed under (<see cref="PartOf"/>: with the GPU).</summary>
+    public const string FpsHardwareType = "Game";
+
+    /// <summary>
+    /// The ping that matters now: to the server of the game or call (the slower of two), else to the internet provider's
+    /// first router, as the Network page's top line says it (approved mock-up, 2026-11-16).
+    /// </summary>
+    public const string Ping = "rigsight/network/ping";
+
+    /// <summary>A reading of RigSight's own, not a sensor of the hardware library: the network's speeds, the ping and the game's frame rate.</summary>
+    public static bool IsOwn(string id) => IsNet(id) || id == Fps || id == Ping || id == DriverDelay;
+
+    /// <summary>
+    /// The longest a single driver kept a CPU core busy in the last 2 seconds, in ms (issue #15 follow-up, approved mock-up
+    /// 2026-11-24): what LatencyMon calls DPC and interrupt time, in plain words. Only with RigSight running as administrator;
+    /// no colours of its own (a short spike isn't always something anyone notices).
+    /// </summary>
+    public const string DriverDelay = "rigsight/drivers/delay";
+
+    // ── Sizes ──
+
+    /// <summary>
+    /// How tall a reading is drawn, in pixels, on a taskbar <paramref name="barHeight"/> pixels tall at <paramref name="scale"/>:
+    /// Auto the whole height; Small 30, Medium 40, Large 48 (at 100%), never taller than the taskbar.
+    /// </summary>
+    public static int SizeHeight(TraySize size, int barHeight, float scale)
+    {
+        int wanted = size switch { TraySize.Small => 30, TraySize.Medium => 40, TraySize.Large => 48, _ => 0 };
+        return wanted == 0 ? barHeight : Math.Min(barHeight, (int)Math.Round(wanted * scale));
+    }
+
+    /// <summary>How much bigger Large draws everything in its spot (text, rings, icons), on top of being taller.</summary>
+    public const float LargeGrowth = 1.2f;
+
+    /// <summary>Whether a spot of <paramref name="size"/> draws bigger: Large, when the taskbar is tall enough for it.</summary>
+    public static bool SizeGrows(TraySize size, int barHeight, float scale) =>
+        size == TraySize.Large && barHeight >= (int)Math.Round(SizeNeeds(TraySize.Large) * scale);
+
+    /// <summary>The taskbar height (at 100%) a size needs to show as it is: Small 30, Medium 40, Large 48; Auto any.</summary>
+    public static int SizeNeeds(TraySize size) => size switch { TraySize.Small => 30, TraySize.Medium => 40, TraySize.Large => 48, _ => 0 };
+
+    public static string SizeName(TraySize size) => size switch
+    {
+        TraySize.Small => Lang.T("Small"),
+        TraySize.Medium => Lang.T("Medium"),
+        TraySize.Large => Lang.T("Large"),
+        _ => Lang.T("Auto"),
+    };
+
+    /// <summary>A style's name, as the Taskbar page's cards and the strip's menu say it.</summary>
+    public static string StyleName(TrayStyle style) => style switch
+    {
+        TrayStyle.TwoRows => Lang.T("Two rows"),
+        TrayStyle.Icons or TrayStyle.Grouped => Lang.T("Icon"),
+        _ => Lang.T("Standard"),
+    };
+
+    /// <summary>
+    /// The colour a part's words are written in (its name, "Load", "Down"): its own colour on a dark taskbar; on a light
+    /// one a shade deeper of the same hue, so every word reads at 4.5:1 or more against the bar (its graph keeps the
+    /// brighter <see cref="Color"/>, which a line needs only 3:1 for). Measured on Windows' light taskbar (238).
+    /// </summary>
+    public static (byte R, byte G, byte B) WordColor(TrayPart part, bool light) => !light ? Color(part, false) : part switch
+    {
+        TrayPart.Cpu => ((byte)38, (byte)95, (byte)233),
+        TrayPart.Gpu => ((byte)6, (byte)115, (byte)141),
+        TrayPart.Ram => ((byte)124, (byte)73, (byte)227),
+        TrayPart.Drive => ((byte)201, (byte)34, (byte)108),
+        TrayPart.Network => ((byte)2, (byte)112, (byte)169),
+        TrayPart.Device => ((byte)64, (byte)64, (byte)64),
+        _ => ((byte)106, (byte)106, (byte)106),
+    };
+
+    /// <summary>
+    /// The boxes of two rows (<see cref="TrayStyle.TwoRows"/>), as the person pairs them: in the list's order, each box
+    /// holds the next two readings; one with a box of its own (<paramref name="alone"/>) gets one, and the next starts a
+    /// new box. Shared by the agent, which draws them, and the Taskbar page, which lists the readings in them.
+    /// </summary>
+    public static List<List<T>> Boxes<T>(IReadOnlyList<T> readings, Func<T, bool> alone)
+    {
+        var boxes = new List<List<T>>();
+        List<T>? open = null;
+        foreach (var r in readings)
+        {
+            if (alone(r)) { boxes.Add([r]); open = null; }
+            else if (open is not null) { open.Add(r); open = null; }
+            else { open = [r]; boxes.Add(open); }
+        }
+        return boxes;
+    }
+
+    /// <summary>What a reading's spot depends on: its id, its part's group and kind, a box of its own (two rows, before 1.3), both speeds.</summary>
+    public readonly record struct SpotOf(string Id, string Group, SensorKind Kind, bool Alone, bool BothSpeeds, bool? PairNext);
+
+    /// <summary>A reading in grayscale: its own choice, else the taskbar's (see <see cref="RigsightSettings.TrayGrayOf"/>).</summary>
+    public static bool GrayOf(RigsightSettings s, string id) => s.TrayGrayOf.TryGetValue(id, out bool gray) ? gray : s.TrayGrayscale;
+
+    /// <summary>A reading on a tile: its own choice, else the taskbar's (see <see cref="RigsightSettings.TrayTilesOf"/>).</summary>
+    public static bool TilesOf(RigsightSettings s, string id) => s.TrayTilesOf.TryGetValue(id, out bool tiles) ? tiles : s.TrayTiles;
+
+    /// <summary>How a reading names its part: its own choice, else the taskbar's (words, or icons under the numbers).</summary>
+    public static TrayName NameOf(RigsightSettings s, string id) =>
+        s.TrayNamesOf.TryGetValue(id, out var own) ? own : s.TrayIcons ? TrayName.Under : TrayName.Word;
+
+    /// <summary>
+    /// A reading's icon (see WidgetRenderer.PartIcons): its part's, never its reading's, so a CPU's temperature, load and
+    /// power share the CPU's and the unit says which; download and upload their arrows; a wireless device its own shape
+    /// (<paramref name="device"/>: "Mouse", "Keyboard", "Headset", "Controller"); a fan the fan.
+    /// </summary>
+    public static string IconKey(TrayPart part, SensorKind kind, string id, string? device = null) => part switch
+    {
+        _ when id == Fps => "fps",
+        _ when id == Ping => "ping",
+        _ when id == DriverDelay => "cpu",
+        _ when id == NetUp => "up",
+        TrayPart.Network => "down",
+        _ when kind is SensorKind.Fan or SensorKind.Control => "fan",
+        TrayPart.Cpu => "cpu",
+        TrayPart.Gpu => "gpu",
+        TrayPart.Ram => "ram",
+        TrayPart.Drive => "drive",
+        TrayPart.Board => "board",
+        TrayPart.Device => device switch { "Mouse" => "mouse", "Keyboard" => "keyboard", "Headset" => "headset", "Controller" => "controller", _ => "device" },
+        _ when kind == SensorKind.Battery || kind == SensorKind.Level => "device",
+        _ => "board",
+    };
+
+    /// <summary>A reading's name as one letter in two rows: its spot's choice (before 1.3, the one switch for all).</summary>
+    public static bool LettersOf(RigsightSettings s, string id) => s.TrayPairs is null ? s.TrayLetterNames : s.TrayLetters.Contains(id);
+
+    /// <summary>Whether a reading shares its spot with the next (null: no pairs saved yet, the spots as before 1.3).</summary>
+    public static bool? PairNextOf(RigsightSettings s, string id) => s.TrayPairs is null ? null : s.TrayPairs.Contains(id);
+
+    /// <summary>Whether a style draws icons (an icon each and, before 1.3, an icon per part).</summary>
+    public static bool IsIcon(TrayStyle style) => style is TrayStyle.Icons or TrayStyle.Grouped;
+
+    /// <summary>
+    /// The spots of a run of readings in one style (and one size, colours, background and names): the readings that share
+    /// a tile, a box or an icon. Since 1.3 as the person pairs them (<see cref="SpotOf.PairNext"/>: a reading shares with the
+    /// next), two at most in two rows and in an icon, and both speeds alone there (their two lines fill it). While no
+    /// pairs are saved yet (null), as before 1.3: the strip and an icon per part by part, two rows by the list's order.
+    /// Shared by the agent, which draws them, and the Taskbar page, which lists a row per spot.
+    /// </summary>
+    public static List<List<T>> Spots<T>(IReadOnlyList<T> run, TrayStyle style, Func<T, SpotOf> of)
+    {
+        if (run.Count == 0) return [];
+        if (run.Any(r => of(r).PairNext is null))
+            return style switch
+            {
+                TrayStyle.Strip => Group(run, r => (of(r).Group, of(r).Kind), int.MaxValue),
+                TrayStyle.TwoRows => Boxes(run, r => of(r).Alone || of(r).BothSpeeds),
+                TrayStyle.Grouped => Group(run, r => (of(r).Group, of(r).Kind)),
+                _ => [.. run.Select(r => new List<T> { r })],
+            };
+        int most = style == TrayStyle.Strip ? int.MaxValue : PerIcon;
+        var spots = new List<List<T>>();
+        List<T>? open = null;
+        foreach (var r in run)
+        {
+            var info = of(r);
+            bool fits = open is not null && open.Count < most && (style == TrayStyle.Strip || !info.BothSpeeds);
+            if (fits) open!.Add(r);
+            else spots.Add(open = [r]);
+            bool joins = info.PairNext == true && (style == TrayStyle.Strip || !info.BothSpeeds);
+            if (!joins) open = null;
+        }
+        return spots;
+    }
+
+    /// <summary>
+    /// A reading's word in its box: its part's name ("CPU", "GPU 2"); a part's second reading under its first says what
+    /// it is ("Load"; <paramref name="aboveGroup"/> is the top one's <see cref="GroupOf"/>), as speeds always say their
+    /// direction ("Down", "Up"). A short name the person gave it wins (it comes as <paramref name="shortLabel"/>, see
+    /// <see cref="ShortLabel"/>). One letter when <paramref name="letter"/>.
+    /// </summary>
+    public static string BoxLabel(string partName, string group, SensorKind kind, string shortLabel, bool custom, string? aboveGroup, bool letter)
+    {
+        string label = custom || kind == SensorKind.Throughput || aboveGroup == group ? shortLabel : partName;
+        return letter ? Letter(label) : label;
+    }
+
+    /// <summary>A name as one letter ("CPU" → "C", "Load" → "L"); a number in it kept ("GPU 2" → "G2").</summary>
+    public static string Letter(string label)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return "";
+        string digits = new([.. label.Where(char.IsDigit)]);
+        return char.ToUpperInvariant(label.TrimStart()[0]) + digits;
+    }
+
+    /// <summary>A look's name, as the Taskbar page and the strip's menu say it.</summary>
+    public static string LookName(TrayLook look) => look switch
+    {
+        TrayLook.Area => Lang.T("Filled graph"),
+        TrayLook.Line => Lang.T("Line graph"),
+        TrayLook.Bars => Lang.T("Bar graph"),
+        TrayLook.Level => Lang.T("Level"),
+        TrayLook.Blocks => Lang.T("Blocks"),
+        TrayLook.Ring => Lang.T("Ring"),
+        TrayLook.Half => Lang.T("Half ring"),
+        TrayLook.Pie => Lang.T("Pie"),
+        TrayLook.Cores => Lang.T("Each core"),
+        TrayLook.Big => Lang.T("Big number"),
+        TrayLook.Spark => Lang.T("Number and spark"),
+        TrayLook.DownUp => Lang.T("Down and up"),
+        TrayLook.Mirror => Lang.T("Mirrored graph"),
+        _ => Lang.T("Number only"),
+    };
+
+    /// <summary>
+    /// The looks a reading can have on the strip: with a top, every fill-up look too (Each core for a CPU's total load,
+    /// which has cores); without one, the number and the graphs; both speeds also Down and up and the mirrored graph.
+    /// <paramref name="drawsFrom"/> is the kind its look is drawn from (another reading's, when it has one).
+    /// </summary>
+    public static IReadOnlyList<TrayLook> LooksFor(SensorKind kind, bool cpuTotal = false, bool bothSpeeds = false, SensorKind? drawsFrom = null)
+    {
+        var looks = new List<TrayLook> { TrayLook.Number, TrayLook.Big, TrayLook.Area, TrayLook.Line, TrayLook.Bars };
+        if (HasTop(drawsFrom ?? kind)) looks.AddRange([TrayLook.Level, TrayLook.Blocks, TrayLook.Ring, TrayLook.Half, TrayLook.Pie]);
+        if (cpuTotal && drawsFrom is null) looks.Add(TrayLook.Cores);
+        if (bothSpeeds) looks.AddRange([TrayLook.DownUp, TrayLook.Mirror]);
+        return looks;
+    }
+
+    /// <summary>The looks an icon can have: its number alone, the icon filling up (Level), or a ring round its edge.</summary>
+    public static IReadOnlyList<TrayLook> IconLooksFor(SensorKind kind, SensorKind? drawsFrom = null) =>
+        HasTop(drawsFrom ?? kind) ? [TrayLook.Number, TrayLook.Level, TrayLook.Ring, TrayLook.PartIcon]
+        : (drawsFrom ?? kind) == SensorKind.Battery ? [TrayLook.Number, TrayLook.PartIcon] : [TrayLook.Number];
+
+    /// <summary>
+    /// Whether a reading can show as its part's icon (2026-11-20, the user: "still cant put icon for reading"): only one with
+    /// a top (a percent, a temperature) or a battery, as the bar under the icon says how far it is; a speed has none.
+    /// </summary>
+    public static bool HasIconLook(SensorKind kind) => HasTop(kind) || kind == SensorKind.Battery;
+
+    /// <summary>A look on an icon, as the icon draws it: Level and Ring as they are, anything else the number alone.</summary>
+    public static TrayLook IconLook(SensorKind kind, TrayLook picked) =>
+        picked is TrayLook.Level or TrayLook.Ring && HasTop(kind) ? picked
+        : picked == TrayLook.PartIcon && HasIconLook(kind) ? picked : TrayLook.Number;
+
+    /// <summary>An icon look's name on the Taskbar page: Plain, Fill, Ring.</summary>
+    public static string IconLookName(TrayLook look) => look switch
+    {
+        TrayLook.Level => Lang.T("Fill"),
+        TrayLook.Ring => Lang.T("Ring"),
+        TrayLook.PartIcon => Lang.T("Its icon"),
+        _ => Lang.T("Plain"),
+    };
+
+    /// <summary>A CPU load sensor's name for the whole CPU ("CPU Total"): its cores have loads of their own (Each core).</summary>
+    public static bool IsCpuTotal(SensorKind kind, TrayPart part, string sensorName) =>
+        kind == SensorKind.Load && part == TrayPart.Cpu && sensorName.Contains("Total", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A CPU core's own load ("CPU Core #3"; not a thread's, "CPU Core #3 Thread #1"), for Each core.</summary>
+    public static bool IsCoreLoad(SensorKind kind, string sensorName) =>
+        kind == SensorKind.Load && System.Text.RegularExpressions.Regex.IsMatch(sensorName, @"^(CPU |P-|E-)?Core #\d+$");
+
+    /// <summary>How full a reading is, 0 to 1, for the fill-up looks (a temperature out of 100°, in Celsius).</summary>
+    public static float Fill(double? value) => value is double v && double.IsFinite(v) ? (float)Math.Clamp(v / 100, 0, 1) : 0;
+
+    /// <summary>How full a reading is, 0 to 1 (see <see cref="Fill(double?)"/>); a battery's level (Full, Medium, Low, Empty) as about how full it says.</summary>
+    public static float Fill(SensorKind kind, double? value) =>
+        kind == SensorKind.Battery && value is double v && v < 0 ? Math.Round(-v) switch { 1 => 0.05f, 2 => 0.2f, 3 => 0.5f, _ => 1f } : Fill(value);
+
+    /// <summary>
+    /// The device a sensor belongs to, from its ID ("/gpu-nvidia/0/temperature/0" → "/gpu-nvidia/0"): two GPUs or
+    /// drives are grouped apart.
+    /// </summary>
+    public static string DeviceOf(string sensorId)
+    {
+        int last = sensorId.LastIndexOf('/');
+        int before = last > 0 ? sensorId.LastIndexOf('/', last - 1) : -1;
+        return before > 0 ? sensorId[..before] : sensorId;
+    }
+
+    /// <summary>
+    /// What groups readings: the part, and for GPUs, drives and the rest also the device (a laptop's two GPUs are two
+    /// icons). The CPU, RAM and board are one each (RAM's total and its sticks' temperatures come as separate devices).
+    /// </summary>
+    public static string GroupOf(TrayPart part, string sensorId) =>
+        part is TrayPart.Cpu or TrayPart.Ram or TrayPart.Board ? part.ToString() : $"{part}:{DeviceOf(sensorId)}";
+
+    /// <summary>
+    /// Readings grouped into icons: by part (see <see cref="GroupOf"/>) in the order each part first appears, within
+    /// one the temperature first, then the load, then the rest as listed, <paramref name="perIcon"/> to an icon (the
+    /// strip has room for all of a part's).
+    /// </summary>
+    public static List<List<T>> Group<T>(IReadOnlyList<T> readings, Func<T, (string Group, SensorKind Kind)> describe, int perIcon = PerIcon)
+    {
+        var groups = new List<(string Key, List<T> Items)>();
+        foreach (var r in readings)
+        {
+            string key = describe(r).Group;
+            int i = groups.FindIndex(g => g.Key == key);
+            if (i < 0) groups.Add((key, [r]));
+            else groups[i].Items.Add(r);
+        }
+        var icons = new List<List<T>>();
+        foreach (var (_, items) in groups)
+        {
+            var ordered = items.Select((r, i) => (r, i)).OrderBy(x => Rank(describe(x.r).Kind)).ThenBy(x => x.i).Select(x => x.r).ToList();
+            for (int i = 0; i < ordered.Count; i += perIcon) icons.Add(ordered.Skip(i).Take(perIcon).ToList());
+        }
+        return icons;
+    }
+
+    /// <summary>
+    /// The names under the strip's groups: the part's, numbered where it comes more than once ("GPU 1", "GPU 2": a
+    /// laptop's two GPUs).
+    /// </summary>
+    public static List<string> Names(IReadOnlyList<TrayPart> parts)
+    {
+        var names = new List<string>(parts.Count);
+        var seen = new Dictionary<TrayPart, int>();
+        foreach (var part in parts)
+        {
+            int n = seen.GetValueOrDefault(part) + 1;
+            seen[part] = n;
+            bool several = parts.Count(p => p == part) > 1;
+            names.Add(several ? $"{Label(part)} {n}" : Label(part));
+        }
+        return names;
+    }
+
+    /// <summary>A name given on All sensors is used under a reading on the strip when it's at most this long.</summary>
+    public const int MaxShortLabel = 10;
+
+    /// <summary>
+    /// The word under a reading on the strip (after its part's first, which has the part's name, see
+    /// <see cref="StripLabels"/>). The number's unit already says what sort of reading it is, so the word tells
+    /// readings of one part apart: "Load", "Clock", "Power", the GPU's "Hot" spot and "VRAM". A short name the user
+    /// gave the sensor wins.
+    /// </summary>
+    /// <summary>
+    /// A sensor's name as initials after its part's ("CPU Core Max" for the CPU: "CM"; "CPU Total": "T"; "Core #3": "C3"),
+    /// at most three, so a reading in a spot of its own can be told from its part's others ("CPU CM" beside "CPU").
+    /// </summary>
+    public static string Initials(string sensorName, string partName)
+    {
+        var skip = partName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var initials = new System.Text.StringBuilder();
+        foreach (var word in System.Text.RegularExpressions.Regex.Split(sensorName, @"[^\p{L}\p{N}]+"))
+        {
+            if (word.Length == 0 || skip.Any(s => s.Equals(word, StringComparison.OrdinalIgnoreCase))) continue;
+            initials.Append(word.All(char.IsDigit) ? word : char.ToUpperInvariant(word[0]).ToString());
+            if (initials.Length >= 3) break;
+        }
+        return initials.ToString();
+    }
+
+    /// <summary>Whether a word from <see cref="ShortLabel"/> only says the kind ("Load", "Temp"), so it doesn't tell two of a part apart.</summary>
+    public static bool IsKindWord(string word) =>
+        word == Lang.T("Temp") || word == Lang.T("Load") || word == Lang.T("Power") || word == Lang.T("Clock") || word == Lang.T("Fan")
+        || word == Lang.T("Volt") || word == Lang.T("Amps") || word == Lang.T("Used") || word == Lang.T("Rate") || word == Lang.T("Flow")
+        || word == Lang.T("Drive") || word == Lang.T("Free");
+
+    /// <summary>
+    /// The word on each reading across the whole taskbar, in the order shown (spots as <paramref name="spots"/> lists
+    /// them): a part's name on its first reading only; a reading beside its part's first in a pair, its own word ("Load",
+    /// "CCD1"); one in a spot of its own, a word of its own when it has one ("Hot", "VRAM"), else its part's name and its
+    /// initials ("CPU CM"); never one word twice. Speeds keep their direction, a short name given on All sensors wins.
+    /// </summary>
+    public static Dictionary<string, string> Words<T>(IReadOnlyList<IReadOnlyList<T>> spots, Func<T, (string Id, string Group, string PartName, bool Network,
+        bool Own, string Short, string Name)> of)
+    {
+        var words = new Dictionary<string, string>();
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var named = new HashSet<string>();
+        foreach (var spot in spots)
+            for (int j = 0; j < spot.Count; j++)
+            {
+                var r = of(spot[j]);
+                if (words.ContainsKey(r.Id)) continue;
+                string word;
+                if (r.Network || r.Own) word = r.Short;
+                else if (named.Add(r.Group)) word = r.PartName;
+                else if (j > 0 && of(spot[j - 1]).Group == r.Group && !used.Contains(r.Short)) word = r.Short;
+                else if (!IsKindWord(r.Short) && r.Short.Length > 0 && !used.Contains(r.Short)) word = r.Short;
+                else
+                {
+                    string initials = Initials(r.Name, r.PartName);
+                    word = initials.Length > 0 ? $"{r.PartName} {initials}" : $"{r.PartName} {r.Short}";
+                    for (int n = 2; used.Contains(word); n++) word = $"{r.PartName} {initials}{n}";
+                }
+                used.Add(word);
+                words[r.Id] = word;
+            }
+        return words;
+    }
+
+    public static string ShortLabel(SensorKind kind, string sensorName, TrayPart part, string? custom = null)
+    {
+        if (custom?.Trim() is { Length: > 0 and <= MaxShortLabel } own) return own;
+        string n = sensorName.ToLowerInvariant();
+        bool Has(string s) => n.Contains(s, StringComparison.Ordinal);
+        switch (kind)
+        {
+            case SensorKind.Temperature:
+                if (Has("hot spot") || Has("hotspot")) return Lang.T("Hot");
+                if (part == TrayPart.Gpu && Has("memory")) return Lang.T("VRAM");
+                if (System.Text.RegularExpressions.Regex.Match(sensorName, @"CCD\s*#?(\d+)") is { Success: true } ccd) return "CCD" + ccd.Groups[1].Value;
+                return part switch { TrayPart.Ram => Lang.T("DIMM"), TrayPart.Drive => Lang.T("Drive"), _ => Lang.T("Temp") };
+            case SensorKind.Load:
+                if (part == TrayPart.Gpu && Has("memory")) return Lang.T("VRAM");
+                if (Has("video")) return Lang.T("Video");
+                if (part == TrayPart.Ram) return Has("virtual") ? Lang.T("Virtual") : Lang.T("Used");
+                return Lang.T("Load");
+            case SensorKind.Power: return Lang.T("Power");
+            case SensorKind.Clock: return Has("memory") ? Lang.T("Mem") : Lang.T("Clock");
+            case SensorKind.Fan or SensorKind.Control: return Lang.T("Fan");
+            case SensorKind.Voltage: return Lang.T("Volt");
+            case SensorKind.Current: return Lang.T("Amps");
+            case SensorKind.Data or SensorKind.SmallData: return Has("available") || Has("free") ? Lang.T("Free") : Lang.T("Used");
+            case SensorKind.Throughput: return Has("upload") ? Lang.T("Up") : Has("download") ? Lang.T("Down") : Lang.T("Rate");
+            case SensorKind.Flow: return Lang.T("Flow");
+            case SensorKind.FrameRate: return Lang.T("FPS");
+            case SensorKind.Latency: return Lang.T("Ping");
+            case SensorKind.Delay: return Lang.T("Delay");
+            // A device's battery: the first word of the device's name ("G309", "Xbox"), which the reading is given as its name.
+            case SensorKind.Battery: break;
+        }
+        string first = sensorName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+        return first.Length <= 6 ? first : first[..6];
+    }
+
+    /// <summary>
+    /// The words under a part's readings on the strip: the part's name under the first (so the group is named),
+    /// each reading's own under the rest.
+    /// </summary>
+    public static List<string> StripLabels(IReadOnlyList<string> shortLabels, string partName) =>
+        [.. shortLabels.Select((label, i) => i == 0 ? partName : label)];
+
+    /// <summary>The time a strip graph shows, ending now: two minutes.</summary>
+    public const int GraphSeconds = 120;
+
+    /// <summary>
+    /// The bottom and top of a reading's graph on the strip. The top is the highest the graph holds, so its peak always
+    /// fills the strip (the user's word: the number over it says how much; a 5% load at 0-100 was a line on the floor).
+    /// The bottom is 0 (a temperature: 10° under its top at least, so it's a shape, not a full block), or the lowest
+    /// for a reading that goes below 0. A reading that never left 0 is a flat graph on the floor.
+    /// </summary>
+    public static (double Min, double Max) GraphRange(SensorKind kind, IReadOnlyList<float> values)
+    {
+        var known = values.Where(float.IsFinite).ToList();
+        if (known.Count == 0) return (0, 1);
+        double lo = Math.Min(0, known.Min()), hi = known.Max();
+        if (kind == SensorKind.Temperature) lo = Math.Min(known.Min(), hi - 10);
+        if (hi - lo < 1e-6) hi = lo + 1;
+        return (lo, hi);
+    }
+
+    private static int Rank(SensorKind kind) => kind switch { SensorKind.Temperature => 0, SensorKind.Load => 1, _ => 2 };
+}

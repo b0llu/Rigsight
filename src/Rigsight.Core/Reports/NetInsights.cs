@@ -116,6 +116,7 @@ public static class NetInsights
                     // The ones before are as long (to the same hour, while these are still going on).
                     (ReportRange.Week, _) => Lang.T("the 7 days before"),
                     (ReportRange.Month, _) => Lang.T("the 30 days before"),
+                    (ReportRange.Custom, _) => Lang.T("the same length of time before"),
                     _ => Lang.T("the 12 months before"),
                 };
                 double less = (1 - ratio) * 100;

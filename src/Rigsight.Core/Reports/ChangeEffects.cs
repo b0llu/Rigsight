@@ -90,6 +90,18 @@ public sealed record ChangeResult
     /// <summary>A few words for a link under the thing it's about: "6° hotter in Crimson Desert since".</summary>
     public string Short { get; init; } = "";
 
+    /// <summary>
+    /// How sure, as the Timeline's card says it under the figures (approved mock-up B, 2026-11-24): "Possibly, not likely.
+    /// Phantom Blade Zero itself was updated in these days." or "Likely the driver. Nothing else big changed in these days."
+    /// </summary>
+    public string SureLine { get; init; } = "";
+
+    /// <summary>
+    /// Led by a driver's delays (issue #15 follow-up): shown on the Timeline, never sent as a notification (the approved
+    /// mock-up had none, and an alert right after "Nothing unusual" read as a contradiction, the user 2026-11-24).
+    /// </summary>
+    public bool DriverDelays { get; init; }
+
     /// <summary>"LIKELY THE DRIVER", "POSSIBLY ONE OF THESE".</summary>
     public string Chip => Wording.Chip(Sure, Cause);
     public string HowSure => Wording.HowSure(Sure, Cause);
@@ -154,12 +166,16 @@ public static class ChangeEffects
         changes ??= db.GetChanges(0, long.MaxValue / 2);
         crashes ??= PcProblems(db);
         found ??= CrashCases.Of(db, crashes, s);
-        var names = db.LoadApps().ToDictionary(a => a.Id, a => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Apps.AppCatalog.KnownName(a.Exe) ?? a.Name);
+        var apps = db.LoadApps().ToDictionary(a => a.Id);
+        var names = apps.Values.ToDictionary(a => a.Id, a => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Apps.AppCatalog.KnownName(a.Exe) ?? a.Name);
         // The PC's own problems only (PcUsual.ShutOffOf, the rule every page counts by): not the power, not what was outside the PC.
         var against = crashes.Select(e => (e, f: found.GetValueOrDefault(e.Id))).Where(x => PcUsual.CountsAsPcProblem(x.e, x.f))
             .Select(x => new ChangeProblem(x.e.Time, x.e.Kind, IsGraphics(x.e, x.f), x.f?.Said ?? "")).ToList();
+        // Driver delays before and since (issue #15 follow-up): the games by the person's own categories.
+        var games = apps.Keys.Where(id => ReportBuilder.CategoryOf(apps, s, id) == Settings.AppCategory.Game).ToHashSet();
+        string NameOf(long id) => names.GetValueOrDefault(id) ?? Lang.T("a game");
         return Of(changes, db.GetHeatDays(0, long.MaxValue / 2), db.GetSystemDays(0, long.MaxValue / 2) ?? [], against,
-            id => names.GetValueOrDefault(id) ?? Lang.T("a game"), DateTime.Now);
+            NameOf, DateTime.Now, Drivers.DriverShifts.From(db, games, NameOf));
     }
 
     /// <summary>The problems a change can be set against: blue screens, graphics driver resets, shut-offs while running.</summary>
@@ -167,8 +183,10 @@ public static class ChangeEffects
         .Where(e => e.Kind is CrashKind.SystemCrash or CrashKind.GpuDriverReset || (e.Kind == CrashKind.UnexpectedShutdown && e.Moment == PowerMoment.Running)).ToList();
 
     /// <summary>The result of each day's big changes, by day; days where nothing got better or worse are left out.</summary>
+    /// <param name="drivers">Driver delays before and since a change, like for like (see <see cref="Drivers.DriverShifts"/>); null without driver history.</param>
     public static Dictionary<DateTime, ChangeResult> Of(IEnumerable<SystemChange> changes, IReadOnlyList<HeatDay> heat, IReadOnlyList<SystemDay> use,
-        IReadOnlyList<ChangeProblem> problems, Func<long, string> nameOf, DateTime now)
+        IReadOnlyList<ChangeProblem> problems, Func<long, string> nameOf, DateTime now,
+        Func<DateTime, DateTime, DateTime, IReadOnlyList<SystemChange>, Drivers.DriverShift?>? drivers = null)
     {
         var results = new Dictionary<DateTime, ChangeResult>();
         // Fan speeds set in the BIOS are compared too, but they never take days from the others: a driver the day after
@@ -191,7 +209,7 @@ public static class ChangeEffects
                 if (bounds.FirstOrDefault(d => d.Day > day) is { Of: not null } after && after.Day < to) to = after.Day;
                 bool open = to >= tomorrow; // still running: "since", not "in the days after"
                 if (open) to = tomorrow;
-                if (!results.ContainsKey(day) && new Comparison(day, at, from, to, open, of, heat, use, problems, nameOf, gameUpdates).Result() is { } result) results[day] = result;
+                if (!results.ContainsKey(day) && new Comparison(day, at, from, to, open, of, heat, use, problems, nameOf, gameUpdates, drivers).Result() is { } result) results[day] = result;
             }
         return results;
 
@@ -245,7 +263,7 @@ public static class ChangeEffects
     /// <summary>One change's comparison: each side's heat and problems, then what (if anything) got better or worse.</summary>
     private sealed class Comparison(DateTime day, DateTime at, DateTime from, DateTime to, bool open, List<SystemChange> of,
         IReadOnlyList<HeatDay> heat, IReadOnlyList<SystemDay> use, IReadOnlyList<ChangeProblem> problems, Func<long, string> nameOf,
-        IReadOnlyList<SystemChange> gameUpdates)
+        IReadOnlyList<SystemChange> gameUpdates, Func<DateTime, DateTime, DateTime, IReadOnlyList<SystemChange>, Drivers.DriverShift?>? drivers = null)
     {
         // Whole days on each side; the change's own day is neither.
         private readonly int _daysBefore = (int)(day - from).TotalDays, _daysAfter = (int)(to - day).TotalDays - 1;
@@ -271,6 +289,8 @@ public static class ChangeEffects
         private sealed record Finding(EffectTone Tone, Confidence Sure, string Headline, string Context, string Short, bool Heat, bool Warm)
         {
             public Func<string, string> Line { get; init; } = _ => "";
+            /// <summary>A driver's delays (issue #15 follow-up): its own pairs and checks.</summary>
+            public bool Driver { get; init; }
         }
 
         /// <summary>"since {change}", or "in the 5 days after {change}" when another change came after.</summary>
@@ -428,10 +448,45 @@ public static class ChangeEffects
                         Lang.T("A graphics driver doesn't cause these unless the GPU hung"), ob.ToString(), oa.ToString(), EffectTone.Same, Lang.T("See Crashes"), Counted: false) { Problems = true });
             }
 
+            // ── Driver delays (issue #15 follow-up, approved mock-up 2026-11-24): like for like, never more than possible.
+            var driverPairs = new List<ChangeFigure>();
+            ChangeCheck? driverCheck = null;
+            if (!_fans && !_plan && drivers?.Invoke(from, at, to, of) is { } ds)
+            {
+                string who = ds.Who, since0 = Since;
+                string where = ds.Game is { } g ? Lang.T($"In {g}, {ds.HoursBefore}h of play before and {ds.HoursAfter}h {since0}.")
+                    : Lang.T($"Outside games, {ds.HoursBefore}h before and {ds.HoursAfter}h {since0}.");
+                bool worse = ds.Tone == EffectTone.Worse;
+                var longest = new ChangeFigure(Lang.T("Longest, usually"), $"{who} · {ds.Driver}", Drivers.DriverWords.Ms(ds.UsualBefore), Drivers.DriverWords.Ms(ds.UsualAfter),
+                    ToneOfMove(ds.UsualBefore, ds.UsualAfter, ds.Tone), worse ? Lang.T("Longer") : Lang.T("Shorter"));
+                var perHour = new ChangeFigure(Lang.T("Over 1 ms, an hour"), where, $"{ds.LongBefore:0}", $"{ds.LongAfter:0}",
+                    ToneOfMove(ds.LongBefore, ds.LongAfter, ds.Tone), worse ? Lang.T("More") : Lang.T("Fewer"));
+                rows.Add(longest);
+                rows.Add(perHour);
+                driverPairs.AddRange([longest, perHour]);
+                string Line(string change) => (worse, open) switch
+                {
+                    (true, true) => Lang.T($"{who} kept the CPU busy longer since {change}"),
+                    (false, true) => Lang.T($"{who} kept the CPU busy less since {change}"),
+                    (true, false) => Lang.T($"{who} kept the CPU busy longer in the {_daysAfter} days after {change}"),
+                    (false, false) => Lang.T($"{who} kept the CPU busy less in the {_daysAfter} days after {change}"),
+                };
+                findings.Add(new(ds.Tone, Confidence.Possible, Line(thisOne), where,
+                    worse ? Lang.T($"Longer driver delays {since0}") : Lang.T($"Shorter driver delays {since0}"), false, false) { Line = Line, Driver = true });
+                driverCheck = new(true, ds.Game is null ? Lang.T("Like for like, outside games") : Lang.T("Like for like, the same game"), where);
+            }
+
             var head = findings.OrderBy(f => f.Tone == EffectTone.Worse ? 0 : 1).ThenBy(f => f.Sure).ThenBy(f => f.Heat ? 0 : 1).FirstOrDefault();
             if (head is null) return null;
+            if (head.Driver)
+            {
+                // A driver's delays head it: its own two readings on the card, and what makes it like for like.
+                pairs = driverPairs;
+                if (driverCheck is not null) checks.Insert(0, driverCheck);
+                checks.Add(new(false, Lang.T("Driver timings move with what runs"), Lang.T("A driver's delays change with the apps and devices in use, not only with a change, so this is never more than possible.")));
+            }
             // How sure is about the headline: the heat's checks when it's heat, the count when it's problems.
-            if (!head.Heat)
+            if (!head.Heat && !head.Driver)
             {
                 string thinSide = Lang.T("A thin side"), differentGames = Lang.T("Different games"), gameUpdated = Lang.T("The game was updated too");
                 checks.RemoveAll(c => c.Title == thinSide || c.Title == differentGames || c.Title == gameUpdated);
@@ -464,7 +519,9 @@ public static class ChangeEffects
             {
                 Day = day, Changes = of, From = from, To = to, Open = open, DaysBefore = _daysBefore, DaysAfter = _daysAfter,
                 Tone = head.Tone, Sure = head.Sure, Cause = cause, Headline = head.Headline, Line = head.Line, Context = head.Context, Short = head.Short,
-                Pairs = [.. pairs.Take(2)], Rows = rows, AppId = sameGame, Checks = checks, Why = why, Advice = advice,
+                Pairs = [.. pairs.Take(2)], Rows = rows, AppId = sameGame, Checks = checks, Why = why, Advice = advice, DriverDelays = head.Driver,
+                SureLine = head.Sure == Confidence.Possible ? PossibleWhy(head, of.Count)
+                    : $"{Wording.HowSure(head.Sure, cause)}. {(of.Count == 1 ? Lang.T("Nothing else big changed in these days") : Lang.T("Two big changes on one day"))}.",
                 Before = before, After = since, TempLabel = tempLabel, TempBefore = tempBefore, TempAfter = tempAfter, Days = list,
             };
         }
@@ -524,7 +581,8 @@ public static class ChangeEffects
                 : Lang.T($"No other graphics driver, Windows update, BIOS, hardware or power plan change from {from:d MMM} to {until:d MMM}.");
         }
 
-        private string PossibleWhy(Finding head, int changes) => head.Heat && _gameUpdated is { } game ? Lang.T($"Possibly, not likely. {game} itself was updated in these days.")
+        private string PossibleWhy(Finding head, int changes) => head.Driver ? Lang.T("Possibly, not likely. Driver timings move with what runs.")
+            : head.Heat && _gameUpdated is { } game ? Lang.T($"Possibly, not likely. {game} itself was updated in these days.")
             : changes > 1 ? Lang.T("Possibly, not likely. Two big changes came on one day.")
             : !head.Heat ? Lang.T("Possibly, not likely. It's a small count.")
             : _thin is { } thin ? Lang.T($"Possibly, not likely. There's only {thin} of play on one side.") : Lang.T("Possibly, not likely. It's across games, not one game.");
@@ -571,6 +629,10 @@ public static class ChangeEffects
     }
 
     private static double? Ratio(double sum, int n) => n > 0 ? sum / n : null;
+
+    /// <summary>A driver reading's own colour: the result's tone where it moved that way, else the same.</summary>
+    private static EffectTone ToneOfMove(double before, double after, EffectTone tone) =>
+        tone == EffectTone.Worse && after > before || tone == EffectTone.Better && after < before ? tone : EffectTone.Same;
     private static double? Gpu(HeatDay d) => d.GpuN > 0 ? d.GpuSum / d.GpuN : null;
     private static double? Cpu(HeatDay d) => d.CpuN > 0 ? d.CpuSum / d.CpuN : null;
 

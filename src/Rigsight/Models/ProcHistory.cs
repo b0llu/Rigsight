@@ -97,6 +97,7 @@ public sealed partial class ProcHistory : ObservableObject
         if (row.Started > 0) Add(Lang.T("Running since"), Since(TimeUtil.FromUnix(row.Started), now));
         if (past?.UsualMB is { } usual) Add(Lang.T("Usual memory"), Units.Megabytes(usual));
         if (past is { Days.Count: > 0 } && CpuFact(row, past, Period, now) is { } cpuFact) facts.Add(cpuFact);
+        if (past is not null && EnergyFact(row, Energy, past.Days.Count > 0 ? Period : ProcPeriod.Today) is { } energyFact) facts.Add(energyFact);
         if (past?.FrontSec is { } front) Add(Lang.T("In front today"), Time(front));
         if (past?.BackSec is { } back) Add(Lang.T("In the background today"), Time(back));
         if (past?.NetBytes is { } net) Add(Lang.T("Internet today"), Units.Data(net));
@@ -203,6 +204,27 @@ public sealed partial class ProcHistory : ObservableObject
             said += " " + Lang.T($"Your CPU has {threads} threads, so that's {pct}% of what it could do in that time.");
         }
         return new ProcFact(label, time, said);
+    }
+
+    /// <summary>
+    /// The CPU and GPU energy in the minutes the app was in front or busy, today, the last 7 days and the last 30 days
+    /// (1.18.0, issue #12's power per app): set before <see cref="Fill(ProcRow, AppPast?, DateTime, bool)"/>.
+    /// </summary>
+    public (double? Today, double? Week, double? Month) Energy { get; set; }
+
+    /// <summary>"CPU + GPU energy while busy today 0.21 kWh": the PC's energy in its busy minutes, never the app's own watts.</summary>
+    internal static ProcFact? EnergyFact(ProcRow row, (double? Today, double? Week, double? Month) energy, ProcPeriod period)
+    {
+        var (wh, label, when) = period switch
+        {
+            ProcPeriod.Week => (energy.Week, Lang.T("CPU + GPU energy while busy, last 7 days"), Lang.T("over the last 7 days")),
+            ProcPeriod.Month => (energy.Month, Lang.T("CPU + GPU energy while busy, last 30 days"), Lang.T("over the last 30 days")),
+            _ => (energy.Today, Lang.T("CPU + GPU energy while busy today"), Lang.T("today")),
+        };
+        if (wh is not double w || w < 1) return null;
+        string kwh = Core.Reports.PowerReport.Kwh(w);
+        return new ProcFact(label, kwh,
+            Lang.T($"The CPU and GPU used {kwh} {when} in the minutes {row.Name} was in front or busy. Other apps busy at the same time count too, so apps don't add up to the total."));
     }
 
     /// <summary>A CPU time as the page says it: "38m", "2h 05m", "40s", or "Under a second".</summary>

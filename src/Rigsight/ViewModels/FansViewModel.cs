@@ -247,23 +247,30 @@ public sealed partial class FansViewModel : ObservableObject
     [ObservableProperty]
     private DateTime? _firstDay;
 
-    /// <summary>The picker's custom range (not offered here; bound so the picker has somewhere to put it).</summary>
+    /// <summary>The picker's custom range (2026-11-24: every page that looks back has one).</summary>
     [ObservableProperty] private DateTime _customFrom;
     [ObservableProperty] private DateTime _customTo;
 
-    private (DateTime From, DateTime To) Period => ReportBuilder.Bounds(Unit, Anchor);
-    public bool IsDay => Unit == ReportRange.Day;
+    /// <summary>A custom range this long or shorter reads as a day does (minute by minute, its hours on the strip).</summary>
+    public static readonly TimeSpan CustomDayMax = ReportBuilder.DayLikeLimit;
 
-    /// <summary>A year: read from each day's totals and curves (a year of minutes would be too many), so a trend.</summary>
-    public bool IsYear => Unit == ReportRange.Year;
+    /// <summary>A custom range longer than this many days reads as a year does (each day's totals): its minutes would be too many.</summary>
+    public const int CustomMinutesMaxDays = 45;
+
+    private (DateTime From, DateTime To) Period => Controls.PeriodPicker.Bounds(Unit, Anchor, CustomFrom, CustomTo);
+    private bool IsCustom => Unit == ReportRange.Custom && CustomTo > CustomFrom;
+    public bool IsDay => Unit == ReportRange.Day || IsCustom && CustomTo - CustomFrom <= CustomDayMax;
+
+    /// <summary>A year: read from each day's totals and curves (a year of minutes would be too many), so a trend. A long custom range too.</summary>
+    public bool IsYear => Unit == ReportRange.Year || IsCustom && (CustomTo - CustomFrom).TotalDays > CustomMinutesMaxDays;
     public bool IncludesToday => Period.To > DateTime.Today;
 
     /// <summary>The speed-at-each-temperature chart with no minutes: still filling in today, or not recorded for a period that's over.</summary>
     public string CurveEmptyText => !IncludesToday ? Wording.NotRecorded : IsDay ? Lang.T("Nothing measured yet today") : Lang.T("Nothing measured yet");
-    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor);
+    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, CustomFrom, CustomTo);
 
     /// <summary>The period as a caption ("TODAY", "THIS WEEK", "MON, 29 SEP").</summary>
-    public string PeriodCaption => Controls.PeriodPicker.Text(Unit, Anchor).ToUpperInvariant();
+    public string PeriodCaption => Controls.PeriodPicker.Text(Unit, Anchor, CustomFrom, CustomTo).ToUpperInvariant();
 
     /// <summary>The day the speed chart shows (a Day period).</summary>
     public DateTime DayOfChart => Period.From;
@@ -271,7 +278,17 @@ public sealed partial class FansViewModel : ObservableObject
     /// <summary>The days in the period, for the week's and month's speed chart.</summary>
     public int Days => (int)Math.Round((Period.To - Period.From).TotalDays);
 
-    partial void OnUnitChanged(ReportRange value) { if (!_quiet) _ = RefreshAsync(); }
+    partial void OnUnitChanged(ReportRange value) { if (!_quiet && (value != ReportRange.Custom || IsCustom)) _ = RefreshAsync(); }
+    partial void OnCustomFromChanged(DateTime value) => CustomChanged();
+    partial void OnCustomToChanged(DateTime value) => CustomChanged();
+
+    // A custom range: read once both ends are set; what depends on its length is told again.
+    private void CustomChanged()
+    {
+        foreach (var name in new[] { nameof(IsDay), nameof(IsYear), nameof(RangeNote), nameof(PeriodCaption), nameof(Days), nameof(DayOfChart), nameof(CurveEmptyText) })
+            OnPropertyChanged(name);
+        if (!_quiet && IsCustom) _ = RefreshAsync();
+    }
     partial void OnAnchorChanged(DateTime value) { if (!_quiet) _ = RefreshAsync(); }
 
     /// <summary>Midnight passed with the window open (see <see cref="Controls.PeriodPicker.AfterMidnight"/>).</summary>
@@ -501,7 +518,7 @@ public sealed partial class FansViewModel : ObservableObject
             : await _reports.FanHistoryAsync(today.AddDays(-SpunWithinDays), from, to);
         if (id != _load || history is null) return;
         // The period's fan warnings, as Home and Reports show them: on the row they're about.
-        var warnings = (await _reports.BuildAsync(Unit, Anchor))?.Insights
+        var warnings = (IsCustom ? await _reports.BuildCustomAsync(from, to) : await _reports.BuildAsync(Unit, Anchor))?.Insights
             .Where(i => i.Key is "fan-stopped" or "fan-slower" or "fan-older").ToList() ?? [];
         // The first day there is, not the first of the days just read (those go back 90 at most, and the picker stopped there).
         var first = await _reports.FirstFanDayAsync();
@@ -612,7 +629,7 @@ public sealed partial class FansViewModel : ObservableObject
         OnPropertyChanged(nameof(ChartSeries));
         await LoadWearAsync(id, shown, bySensor);
         if (id != _load) return;
-        _loadedPast = IncludesToday ? null : (Unit, from);
+        _loadedPast = IncludesToday || Unit == ReportRange.Custom ? null : (Unit, from);
         Loaded = true;
     }
 

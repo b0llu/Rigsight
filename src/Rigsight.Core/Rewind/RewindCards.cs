@@ -189,6 +189,8 @@ public static class RewindCards
             { Unit = space > 0 ? data[(space + 1)..] : null, Rows = rows });
         }
 
+        if (EnergyCard(f) is { } energy) cards.Add(energy);
+
         if (f.Heat && (f.HotSpot ?? f.GpuHot ?? f.CpuHot) is not null)
         {
             var parts = new[] { (f.HotSpot, Lang.T("Your GPU’s hot spot"), Lang.T("GPU hot spot"), Purple),
@@ -288,6 +290,48 @@ public static class RewindCards
             cards.Add(new("summary", name, Lang.T($"{title} in short"), "", null) { Tiles = [.. four.Take(4)], Rows = rows });
         }
         return cards;
+    }
+
+    /// <summary>
+    /// The CPU and GPU energy (1.18.0, approved mock-up 2026-11-23): never "your PC used", only those two report their
+    /// power. One sentence: the games' share, then the month before (only a change of 5% or more is said as one) or, in a
+    /// longer rewind, the month that used the most. The GPU and CPU as tiles. No cost, even with a price set: a card is a
+    /// picture people share. None when no part reported its power, and none in a rewind made before 1.18.0.
+    /// </summary>
+    internal static RewindCard? EnergyCard(RewindFacts f)
+    {
+        if (f.CpuWh is null && f.GpuWh is null) return null;
+        double wh = (f.CpuWh ?? 0) + (f.GpuWh ?? 0);
+        if (wh < 100) return null;
+        string label = f.CpuWh is not null && f.GpuWh is not null ? Lang.T("CPU + GPU energy") : f.CpuWh is not null ? Lang.T("CPU energy") : Lang.T("GPU energy");
+        var said = new List<string>();
+        if (f.GameWh >= 100 && f.GamingSec >= 1800)
+            said.Add(Lang.T($"{Math.Round(Math.Clamp(f.GameWh / wh, 0, 1) * 100):0}% of it while you played."));
+        if (f.CpuWh is not null && f.GpuWh is null) said.Add(Lang.T("Your GPU doesn’t report its power, so it isn’t in this."));
+        else if (f.GpuWh is not null && f.CpuWh is null) said.Add(Lang.T("The CPU’s power wasn’t read, so it isn’t in this."));
+        if (f.Kind == RewindKind.Month && f.PrevWh is double prev && prev >= wh * 0.1)
+        {
+            string before = Month(f.From.AddMonths(-1));
+            double pct = (wh - prev) / prev * 100;
+            said.Add(Math.Abs(pct) < 5 ? Lang.T($"About the same as {before}.")
+                : pct > 0 ? Lang.T($"{Math.Round(pct):0}% more than {before}.") : Lang.T($"{Math.Round(-pct):0}% less than {before}."));
+        }
+        else if (f.TopMonth is { } top && f.TopMonthWh > 0)
+            said.Add(Lang.T($"{Month(top)} used the most, {Kwh(f.TopMonthWh)} kWh."));
+        var tiles = new List<RewindTile>();
+        if (f.CpuWh is not null && f.GpuWh is not null)
+        {
+            tiles.Add(new(Lang.T("Your GPU"), $"{Kwh(f.GpuWh.Value)} kWh", Cyan));
+            tiles.Add(new(Lang.T("Your CPU"), $"{Kwh(f.CpuWh.Value)} kWh", Blue));
+        }
+        return new RewindCard("energy", Lang.T("Energy"), label, Kwh(wh), said.Count > 0 ? string.Join(" ", said) : null) { Unit = "kWh", Tiles = tiles };
+    }
+
+    /// <summary>kWh as the card says it: whole from 10 ("54", "612"), a decimal under ("9.4").</summary>
+    private static string Kwh(double wh)
+    {
+        double k = wh / 1000;
+        return k >= 10 ? k.ToString("N0", CultureInfo.CurrentCulture) : k.ToString("0.#", CultureInfo.CurrentCulture);
     }
 
     /// <summary>

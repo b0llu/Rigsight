@@ -136,6 +136,21 @@ public static class RewindBuilder
             .OrderByDescending(u => u.Down).Take(3)
             .Select(u => new RewindItem(ReportBuilder.NameOf(apps, settings, u.App), apps[u.App].Exe, apps[u.App].Path, u.Down))];
 
+        // Energy (1.18.0): the CPU's and GPU's, as the Power page adds them up (the same queries); the games' part by the
+        // games the app counts (the person's own categories too).
+        var gameIds = apps.Keys.Where(id => ReportBuilder.CategoryOf(apps, settings, id) == AppCategory.Game).ToList();
+        var energyMonths = db.GetPowerBuckets(uFrom, uTo, PowerStep.Month);
+        if (energyMonths.Any(b => b.CpuWh is not null || b.GpuWh is not null))
+        {
+            f.CpuWh = energyMonths.Any(b => b.CpuWh is not null) ? energyMonths.Sum(b => b.CpuWh ?? 0) : null;
+            f.GpuWh = energyMonths.Any(b => b.GpuWh is not null) ? energyMonths.Sum(b => b.GpuWh ?? 0) : null;
+            f.GameWh = db.GetPowerParts(uFrom, uTo, gameIds).GameWh;
+            if (kind == RewindKind.Month)
+                f.PrevWh = db.GetPowerTotal(TimeUtil.ToUnix(from.AddMonths(-1)), uFrom, gameIds).Wh;
+            else if (energyMonths.Count > 1 && energyMonths.MaxBy(b => b.Wh) is { } top)
+                (f.TopMonth, f.TopMonthWh) = (TimeUtil.FromUnix(top.Start), top.Wh);
+        }
+
         // Problems: counted as the Crashes page counts them.
         f.AppCrashes = report.Crashes.Count(c => c.Kind is CrashKind.AppCrash or CrashKind.AppHang);
         bool IsShutOff(Stability.CrashEvent c) => c.Kind == CrashKind.SystemCrash || c is { Kind: CrashKind.UnexpectedShutdown } && c.Moment != PowerMoment.ShuttingDown;

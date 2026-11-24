@@ -18,6 +18,7 @@ public partial class TimelineView : UserControl
             if (_vm is null) return;
             _vm.JumpRequested += OnJump;
             _vm.ChangeOpened += OnChangeOpened;
+            _vm.DelayOpenedEvent += OnDelayOpened;
             _vm.Days.CollectionChanged += OnDaysChanged;
             // Coming back to the page: its first days are already laid out, so nothing scrolls or changes to ask for more.
             FillAhead();
@@ -29,6 +30,7 @@ public partial class TimelineView : UserControl
             {
                 _vm.JumpRequested -= OnJump;
                 _vm.ChangeOpened -= OnChangeOpened;
+                _vm.DelayOpenedEvent -= OnDelayOpened;
                 _vm.Days.CollectionChanged -= OnDaysChanged;
             }
             // As many as fill the window and the screen ahead of it: fewer, and coming back would build the rest again.
@@ -49,6 +51,14 @@ public partial class TimelineView : UserControl
 
     private void Change_Loaded(object sender, RoutedEventArgs e) =>
         _changeScroller ??= (sender as FrameworkElement)?.FindName("ChangeScroller") as ScrollViewer;
+
+    /// <summary>A driver mark opened: its view starts at the top.</summary>
+    private void OnDelayOpened() => _delayScroller?.ScrollToTop();
+
+    private ScrollViewer? _delayScroller;
+
+    private void Delay_Loaded(object sender, RoutedEventArgs e) =>
+        _delayScroller ??= (sender as FrameworkElement)?.FindName("DelayScroller") as ScrollViewer;
 
     private void OnDaysChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => FillAhead();
 
@@ -117,7 +127,8 @@ public sealed class TimelineEntryTemplates : DataTemplateSelector
     public DataTemplate? Rich { get; set; }
     public DataTemplate? Result { get; set; }
     public DataTemplate? Game { get; set; }
+    public DataTemplate? Delay { get; set; }
 
     public override DataTemplate? SelectTemplate(object item, DependencyObject container) =>
-        item is not TimelineEntry entry ? Plain : entry.IsProblem ? Problem : entry.HasResult ? Result : entry.HasChildren ? Rich : entry.GameKey is not null ? Game : Plain;
+        item is not TimelineEntry entry ? Plain : entry.IsDelay ? Delay : entry.IsProblem ? Problem : entry.HasResult ? Result : entry.HasChildren ? Rich : entry.GameKey is not null ? Game : Plain;
 }

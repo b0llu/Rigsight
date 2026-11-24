@@ -202,7 +202,10 @@ public sealed class NetBarsChart : NetChartBase
     private bool _settingZoom;
 
     private TimeSpan Step => Bins is { Count: > 1 } b ? b[1].Start - b[0].Start : TimeSpan.FromHours(1);
-    private bool Zoomable => CanZoom && Unit != ReportRange.Year && Bins is { Count: > ChartZoom.MinPoints };
+
+    /// <summary>The bars are months: a year, or a long custom range (2026-11-24), told by the bars themselves.</summary>
+    private bool Months => Unit == ReportRange.Year || Step >= TimeSpan.FromDays(28);
+    private bool Zoomable => CanZoom && !Months && Bins is { Count: > ChartZoom.MinPoints };
 
     private DateTime FullFrom => Bins is { Count: > 0 } b ? b[0].Start : DateTime.MinValue;
     private DateTime FullTo => Bins is { Count: > 0 } b ? b[^1].Start + Step : DateTime.MinValue;
@@ -665,7 +668,7 @@ public sealed class NetBarsChart : NetChartBase
     private void DrawAxis(DrawingContext dc, Rect plot, List<NetBin> bins, int first, double slot)
     {
         bool hours = Step < TimeSpan.FromDays(1);
-        int every = hours && bins.Count > 48 ? 24 : hours ? (bins.Count <= 16 ? 1 : bins.Count <= 30 ? 3 : 6) : Unit == ReportRange.Year ? 1 : bins.Count <= 16 ? 1 : 5;
+        int every = hours && bins.Count > 48 ? 24 : hours ? (bins.Count <= 16 ? 1 : bins.Count <= 30 ? 3 : 6) : Months ? (bins.Count <= 12 ? 1 : 3) : bins.Count <= 16 ? 1 : 5;
         for (int i = 0; i < bins.Count; i++)
         {
             var t = bins[i].Start;
@@ -707,6 +710,7 @@ public sealed class NetBarsChart : NetChartBase
 
     private string? AxisLabel(DateTime t, int i) => Unit switch
     {
+        _ when Months => Bins is { Count: > 12 } && i % 3 != 0 ? null : t.ToString("MMM"),
         ReportRange.Day => i % 3 == 0 ? t.ToString(TimeText.Fit("h tt")) : null,
         ReportRange.Week => t.ToString("ddd"),
         ReportRange.Year => t.ToString("MMM"),
@@ -715,11 +719,7 @@ public sealed class NetBarsChart : NetChartBase
 
     internal string Title(DateTime t) => Step < TimeSpan.FromDays(1)
         ? (Unit == ReportRange.Day ? "" : t.ToString("ddd d MMM") + " · ") + $"{TimeText.At(t, "h tt")} – {TimeText.At(t.AddHours(1), "h tt")}"
-        : Unit switch
-        {
-            ReportRange.Year => t.ToString("MMMM yyyy"),
-            _ => t.ToString("dddd, d MMMM"),
-        };
+        : Months ? t.ToString("MMMM yyyy") : t.ToString("dddd, d MMMM");
 }
 
 /// <summary>The connection's speed over the last minute: download as a filled line, upload as a line. Hover a moment for its speeds.</summary>

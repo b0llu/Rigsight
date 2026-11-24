@@ -103,10 +103,18 @@
                             <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding InternetLine}" Style="{StaticResource TileLine}" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource Tile}" Visibility="{Binding HasEnergy, Converter={StaticResource Vis}}"
+                    <!-- A click opens the Power page on this period (1.18.0); the arrow says it opens something. -->
+                    <Border Style="{StaticResource Tile}" Visibility="{Binding HasEnergy, Converter={StaticResource Vis}}" Cursor="Hand"
+                            AutomationProperties.Name="{ctl:T 'Open Power'}"
                             ToolTip="{ctl:T 'Worked out from the power the CPU and the GPU report each minute. The screen, the drives and the rest of the PC aren\'t measured.'}">
+                        <Border.InputBindings>
+                            <MouseBinding MouseAction="LeftClick" Command="{Binding ShowPowerCommand}" />
+                        </Border.InputBindings>
                         <StackPanel>
-                            <TextBlock Text="{ctl:T 'ENERGY'}" Style="{StaticResource Caption}" />
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="{ctl:T 'ENERGY'}" Style="{StaticResource Caption}" />
+                            </DockPanel>
                             <TextBlock ctl:CountUp.Text="{Binding EnergyText}" Style="{StaticResource StatValue}" />
                             <TextBlock Text="{Binding EnergyParts}" Style="{StaticResource TileLine}" />
                         </StackPanel>

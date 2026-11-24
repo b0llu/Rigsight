@@ -1,1599 +1,1606 @@
-﻿using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Text.RegularExpressions;
-using System.Windows.Data;
-using System.Windows.Media;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Rigsight.Core;
-using Rigsight.Core.Protocol;
-using Rigsight.Core.Settings;
-using Rigsight.Models;
-using Rigsight.Services;
-
-namespace Rigsight.ViewModels;
-
-/// <summary>Live readings streamed from the agent: every sensor, per-app resource use, and today's totals.</summary>
-public sealed partial class LiveData : ObservableObject
-{
-    private readonly SettingsModel _settings;
-    private readonly List<SensorItem> _flat = [];
-    private readonly Dictionary<string, SensorItem> _byKey = [];
-    private readonly Dictionary<string, SensorItem> _byId = [];
-
-    // Today's [lowest, highest] per sensor id from the agent, kept so sensors created later get them too.
-    private readonly Dictionary<string, double[]> _extremes = [];
-    private string? _extremesDay;
-    private readonly Dictionary<string, ProcRow> _procIndex = new(StringComparer.OrdinalIgnoreCase);
-
-    public LiveData(SettingsModel settings)
-    {
-        _settings = settings;
-        ProcsView = CollectionViewSource.GetDefaultView(Procs);
-        ProcsView.SortDescriptions.Add(new SortDescription(nameof(ProcRow.MemMB), ListSortDirection.Descending));
-        // Kept sorted all the time, the Memory page shown or not: turning live sorting off while the page was away and on
-        // again when it came back left its rows out of step with the list (one app on two rows, Microsoft Defender twice:
-        // ProcessRowsTests), and reading the list anew on each visit to set them right made every switch to Processes
-        // take over 100 ms. Kept on, it costs about 0.2 ms an update (measured with 200 apps, 2026-10-16).
-        if (ProcsView is ICollectionViewLiveShaping { CanChangeLiveSorting: true } live)
-        {
-            live.LiveSortingProperties.Add(nameof(ProcRow.MemMB));
-            live.IsLiveSorting = true;
-            // The Memory page's "Above their usual" filter follows the apps as they come above it or go back down.
-            live.LiveFilteringProperties.Add(nameof(ProcRow.IsOver));
-            live.IsLiveFiltering = true;
-        }
-        ProcsView.Filter = o => o is ProcRow p && Listed(p);
-    }
-
-    public ObservableCollection<HardwareNode> Hardware { get; } = [];
-
-    /// <summary>What the All sensors page lists: per card, a header, the rows that pass the filters, and an end marker.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SensorsEmptyText))]
-    private List<object> _sensorRows = [];
-
-    [ObservableProperty] private bool _hasHardware;
-
-    /// <summary>
-    /// The agent runs under a standard account, where some readings can't be had: a page says "needs admin rights on
-    /// this PC" where one would be, instead of pointing at an agent the person can't restart with them.
-    /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowCpuBusiest))]
-    private bool _standardAccount;
-    [ObservableProperty] private long _tick;
-
-    // ── Dashboard picks ───────────────────────────────────────────────────
-    [ObservableProperty] private string _cpuName = "CPU";
-    [ObservableProperty] private SensorItem? _cpuTemp;
-    [ObservableProperty] private SensorItem? _cpuDieTemp;
-    [ObservableProperty] private SensorItem? _cpuLoad;
-    [ObservableProperty] private SensorItem? _cpuPower;
-    [ObservableProperty] private SensorItem? _cpuClock;
-    [ObservableProperty] private SensorItem? _cpuVoltage;
-    public ObservableCollection<SensorItem> CpuThreads { get; } = [];
-
-    [ObservableProperty] private string _gpuName = "GPU";
-    [ObservableProperty] private SensorItem? _gpuTemp;
-    [ObservableProperty] private SensorItem? _gpuHotSpot;
-    [ObservableProperty] private SensorItem? _gpuMemJunction;
-    [ObservableProperty] private SensorItem? _gpuLoad;
-    [ObservableProperty] private SensorItem? _gpuPower;
-    [ObservableProperty] private SensorItem? _gpuClock;
-    [ObservableProperty] private SensorItem? _gpuFan;
-    [ObservableProperty] private SensorItem? _gpuVramLoad;
-    [ObservableProperty] private SensorItem? _gpuVramUsed;
-    [ObservableProperty] private SensorItem? _gpuVramTotal;
-
-    /// <summary>Every graphics processor, the main one first (the one the GPU readings above, and history, are of).</summary>
-    public ObservableCollection<GpuView> Gpus { get; } = [];
-
-    /// <summary>The GPU the Temperatures page shows (its arrows switch between them).</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(GpuPositionText))]
-    private GpuView? _selectedGpu;
-
-    public bool HasSeveralGpus => Gpus.Count > 1;
-    public string GpuPositionText => SelectedGpu is null ? "" : Lang.T($"GPU {Gpus.IndexOf(SelectedGpu) + 1} of {Gpus.Count}");
-
-    [RelayCommand]
-    private void NextGpu() => MoveGpu(1);
-
-    [RelayCommand]
-    private void PreviousGpu() => MoveGpu(-1);
-
-    private void MoveGpu(int step)
-    {
-        if (Gpus.Count < 2 || SelectedGpu is null) return;
-        SelectedGpu = Gpus[(Gpus.IndexOf(SelectedGpu) + step + Gpus.Count) % Gpus.Count];
-    }
-
-    [ObservableProperty] private SensorItem? _ramLoad;
-    [ObservableProperty] private SensorItem? _ramUsed;
-    [ObservableProperty] private SensorItem? _ramAvailable;
-    [ObservableProperty] private string _ramText = "";
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RamHeading))]
-    private string _ramTotalText = "";
-
-    /// <summary>The RAM card's heading: "32 GB of memory".</summary>
-    public string RamHeading => Lang.T($"{RamTotalText} of memory");
-
-    public ObservableCollection<DriveSummary> Drives { get; } = [];
-    public ObservableCollection<SensorItem> Fans { get; } = [];
-    public ObservableCollection<SensorItem> BoardTemps { get; } = [];
-
-    /// <summary>The Temperatures page's "Over the months": the CPU's (and GPU's) cooling gap week by week (see <see cref="Core.Reports.Wear.Cooling"/>).</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasCooling))]
-    private IReadOnlyList<CoolingPart> _cooling = [];
-    public bool HasCooling => Cooling.Count > 0;
-
-    /// <summary>"Over the months" by week ("Weeks") or by month ("Months"): the card's switch, for as long as the app runs.</summary>
-    [ObservableProperty] private string _coolingPeriod = "Weeks";
-
-    private (Core.Reports.WearRow Cpu, Core.Reports.WearRow Gpu)? _coolingRows;
-
-    partial void OnCoolingPeriodChanged(string value) => BuildCooling();
-
-    /// <summary>Fills <see cref="Cooling"/>: the GPU's part only on a PC with a GPU, or one that had one.</summary>
-    public void LoadCooling(Core.Reports.WearRow cpu, Core.Reports.WearRow gpu)
-    {
-        _coolingRows = (cpu, gpu);
-        BuildCooling();
-    }
-
-    private void BuildCooling()
-    {
-        if (_coolingRows is not { } rows) return;
-        var gpu = Gpus.Count > 0 || rows.Gpu.History.Count > 0 ? rows.Gpu : null;
-        Cooling = CoolingCard.Of(rows.Cpu, gpu, CoolingPeriod == "Months");
-    }
-
-    /// <summary>The Temperatures page's week, hour by hour (see <see cref="Controls.HeatGrid"/>).</summary>
-    [ObservableProperty] private IReadOnlyList<HeatHour> _heatWeek = [];
-
-    /// <summary>The Temperatures page's "Drives": a row a drive that reads a temperature, against its own limit.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasDriveTemps), nameof(HasPartTemps))]
-    private IReadOnlyList<DriveTemp> _driveTemps = [];
-    public bool HasDriveTemps => DriveTemps.Count > 0;
-
-    /// <summary>The Temperatures page's "Motherboard": the board's temperature sensors as tiles, grouped by the chip they're read from.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasBoardTemps), nameof(HasPartTemps), nameof(BoardName), nameof(BoardColumns))]
-    private IReadOnlyList<BoardChip> _boardChips = [];
-    public bool HasBoardTemps => BoardChips.Count > 0;
-    /// <summary>The board's name, beside the Motherboard card's title (each chip's column names only its chip).</summary>
-    public string BoardName => BoardChips.FirstOrDefault(c => c.HasBoard)?.Board ?? "";
-    /// <summary>A column a chip, two at the most: a lone chip takes the card's width.</summary>
-    public int BoardColumns => Math.Clamp(BoardChips.Count, 1, 2);
-
-    /// <summary>Either card has something; with neither (no admin rights) one card across the row says why.</summary>
-    public bool HasPartTemps => HasDriveTemps || HasBoardTemps;
-
-    /// <summary>Each drive's row, made when the sensor list arrives (Windows asked once a drive for its type and size); <see cref="DriveTemps"/> are those with a temperature.</summary>
-    private readonly List<DriveTemp> _driveRows = [];
-
-    /// <summary>What Windows says of a drive by its number (tests give their own: they mustn't depend on the PC's drives).</summary>
-    internal Func<int, DriveFacts> ProbeDrive { get; set; } = DriveProbe.Read;
-    internal char WindowsLetter { get; set; } = DriveProbe.WindowsLetter;
-
-    /// <summary>Asked once a drive (by its number and name) for as long as the app runs: drives are seldom swapped, and a new hello comes often.</summary>
-    private readonly Dictionary<(int, string), DriveFacts> _driveFacts = [];
-
-    private static readonly Regex DriveNumber = new(@"^/[a-z]+/(\d+)/", RegexOptions.CultureInvariant);
-
-    /// <summary>A drive's row for "Drives": its kind and size from Windows, its limit from its own sensors.</summary>
-    private DriveTemp DriveRow(HardwareNode node, SensorItem temp, SensorItem? life)
-    {
-        // LibreHardwareMonitor numbers a drive as Windows does ("/nvme/2/…" is the third physical drive).
-        var facts = DriveFacts.None;
-        if (DriveNumber.Match(temp.Id) is { Success: true } m && int.TryParse(m.Groups[1].Value, out int disk))
-        {
-            if (!_driveFacts.TryGetValue((disk, node.Name), out var known)) _driveFacts[(disk, node.Name)] = known = ProbeDrive(disk);
-            facts = known;
-        }
-        else Log.Write("drives", $"{node.Name}: expected a drive number in its sensor's id, found \"{temp.Id}\"");
-        // Where Windows didn't say: an NVMe drive is always an SSD, and so is one that reports its wear.
-        bool nvme = temp.Id.StartsWith("/nvme/", StringComparison.Ordinal);
-        if (facts.Kind == DriveKind.Unknown && (nvme || life is not null)) facts = facts with { Kind = DriveKind.Ssd };
-        if (facts.Bus is null && nvme) facts = facts with { Bus = "NVMe" };
-        return new DriveTemp(node.Name, facts.Line(WindowsLetter), temp, DriveTemp.ReportedLimitOf(node.Sensors), facts.Kind);
-    }
-
-    /// <summary>Puts the two cards' lists together again: the lists they are made of changed, or a sensor was hidden or renamed.</summary>
-    private void RefreshPartTemps()
-    {
-        DriveTemps = Models.Kept.Or(DriveTemps, [.. _driveRows]);
-        // Chip by chip in All sensors' order; a chip whose readings are all hidden or dropped has no group.
-        BoardChips = Models.Kept.Or(BoardChips,
-            [.. Hardware.Where(n => n.Type is "SuperIO" or "Motherboard" or "EmbeddedController" or "Cooler")
-                .Select(n => (Name: BoardChip.Split(n.Name), Tiles: (IReadOnlyList<PartTemp>)[.. n.Sensors.Where(t => BoardTemps.Contains(t) && !t.IsHidden)
-                    .OrderByDescending(t => t.Value ?? double.MinValue) // warmest first, as the list is made (it isn't sorted again as readings change)
-                    .Select(t => new PartTemp(t.DisplayName, t, "40,60,80"))]))
-                .Where(g => g.Tiles.Count > 0)
-                .Select(g => new BoardChip(g.Name.Chip, g.Name.Board, g.Tiles))],
-            BoardChip.Same);
-    }
-
-    public ObservableCollection<ChartSeries> TempSeries { get; } = [];
-
-    /// <summary>
-    /// What the temperature graph's line is drawn from: each minute's average ("Avg"), its highest reading ("High") or
-    /// its lowest ("Low").
-    /// </summary>
-    public string ChartPlot
-    {
-        get => _settings.Current.ChartPlot is "High" or "Low" ? _settings.Current.ChartPlot : "Avg";
-        set
-        {
-            if (value == ChartPlot) return;
-            _settings.Update(s => s.ChartPlot = value);
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(ChartLegendLabel));
-            UpdatePeaks();
-        }
-    }
-
-    /// <summary>What the choice is between, in front of it: a point of the line is a minute, an hour (the last 7 or 30 days), a day (12 months).</summary>
-    public string ChartPlotLabel => ChartStepSeconds switch { 86400 => Lang.T("Each day's"), 3600 => Lang.T("Each hour's"), _ => Lang.T("Each minute's") };
-
-    /// <summary>There's a choice to make: under an hour every reading is drawn as it was.</summary>
-    public bool CanChartPlot => ChartWindowSeconds is 0 or >= 3600 or Core.Reports.ChartRange.Custom;
-
-    private bool _chartCustom;
-    private DateTime _chartCustomFrom, _chartCustomTo;
-
-    /// <summary>
-    /// 300, 3600, 21600 or 86400 seconds up to now, 0 for one calendar day (<see cref="ChartDay"/>), the last 7 days
-    /// (604800), 30 days (2592000) or 12 months (31536000) up to <see cref="ChartDay"/>, or -1 for a custom range
-    /// (<see cref="ChartCustomFrom"/> to <see cref="ChartCustomTo"/>; not kept: the graph opens on the last one saved).
-    /// </summary>
-    public int ChartWindowSeconds
-    {
-        get => _chartCustom ? Core.Reports.ChartRange.Custom : _settings.Current.ChartWindowSeconds;
-        set
-        {
-            if (value == Core.Reports.ChartRange.Custom)
-            {
-                if (_chartCustom) { ChartRangeEditRequested?.Invoke(); return; }
-                // Starts as the period that was shown, in whole hours up to now, then the editor opens to change it.
-                if (!(_chartCustomTo > _chartCustomFrom))
-                {
-                    var (from, to) = IsChartPaged ? ChartShownPeriod : (DateTime.Now.AddSeconds(-ChartWindowSeconds), DateTime.Now);
-                    var end = Core.Reports.ReportBuilder.HourEnd(to);
-                    (_chartCustomFrom, _chartCustomTo) = (Core.Reports.ReportBuilder.HourStart(from), end);
-                    if (_chartCustomTo <= _chartCustomFrom) _chartCustomFrom = _chartCustomTo.AddHours(-1);
-                }
-                _chartCustom = true;
-            }
-            else
-            {
-                _chartCustom = false;
-                _settings.Update(s => s.ChartWindowSeconds = value);
-            }
-            RangeChanged(window: true);
-            if (_chartCustom) ChartRangeEditRequested?.Invoke();
-        }
-    }
-
-    /// <summary>Everything the range shown decides, said again, and the history read for it.</summary>
-    private void RangeChanged(bool window)
-    {
-        if (window)
-        {
-            OnPropertyChanged(nameof(ChartWindowSeconds));
-            OnPropertyChanged(nameof(CanChartPlot));
-            OnPropertyChanged(nameof(IsChartDay));
-            OnPropertyChanged(nameof(IsChartLong));
-            OnPropertyChanged(nameof(IsChartPaged));
-            OnPropertyChanged(nameof(IsChartCustom));
-        }
-        OnPropertyChanged(nameof(ChartCustomFrom));
-        OnPropertyChanged(nameof(ChartCustomTo));
-        OnPropertyChanged(nameof(ChartStepSeconds));
-        OnPropertyChanged(nameof(ChartPlotLabel));
-        OnPropertyChanged(nameof(ChartDayLabel));
-        OnPropertyChanged(nameof(CanChartNextDay));
-        OnPropertyChanged(nameof(CanChartPreviousDay));
-        UpdatePeaks();
-        ChartRangeChanged?.Invoke();
-    }
-
-    public bool IsChartDay => ChartWindowSeconds == 0;
-
-    /// <summary>A custom range: from one whole hour to another, picked in the range editor.</summary>
-    public bool IsChartCustom => ChartWindowSeconds == Core.Reports.ChartRange.Custom;
-
-    /// <summary>Start of the custom range (a whole hour).</summary>
-    public DateTime ChartCustomFrom => _chartCustomFrom;
-
-    /// <summary>End of the custom range (a whole hour; not included).</summary>
-    public DateTime ChartCustomTo => _chartCustomTo;
-
-    /// <summary>Shows a custom range (picked in the editor, or stepped through with the arrows).</summary>
-    public void SetChartCustom(DateTime from, DateTime to)
-    {
-        if (to <= from) return;
-        bool window = !_chartCustom;
-        if (!window && from == _chartCustomFrom && to == _chartCustomTo) return;
-        (_chartCustom, _chartCustomFrom, _chartCustomTo) = (true, from, to);
-        RangeChanged(window);
-    }
-
-    /// <summary>The range editor is wanted (Custom range… picked from the menu): the page opens it.</summary>
-    public event Action? ChartRangeEditRequested;
-
-    /// <summary>
-    /// A line of the graph's range menu: the last 5 minutes to 12 months (all up to now: one picked earlier with the
-    /// arrows comes back to now), or -1 for a custom range (its editor opens, also when one is already shown).
-    /// </summary>
-    [RelayCommand]
-    private void PickChartRange(object? range)
-    {
-        // A number from the menu's XAML (text there), or from code.
-        int window = Convert.ToInt32(range, System.Globalization.CultureInfo.InvariantCulture);
-        if (window != Core.Reports.ChartRange.Custom) ChartDay = DateTime.Today;
-        ChartWindowSeconds = window;
-    }
-
-    /// <summary>
-    /// A rolling period or a custom range: drawn from the history read for it alone (hours, days, or minutes for a short
-    /// custom range), not from the live readings.
-    /// </summary>
-    public bool IsChartFixed => Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) || IsChartCustom;
-
-    /// <summary>Drawn from hours (the last 7 or 30 days, a custom range of days) or days (12 months), not minutes.</summary>
-    public bool IsChartLong => IsChartFixed && ChartStepSeconds > 60;
-
-    /// <summary>How long one point of the chart's older history stands for: a minute, an hour or a day (see <see cref="Core.Reports.ChartRange.StepSeconds"/>).</summary>
-    public int ChartStepSeconds => Core.Reports.ChartRange.StepSeconds(ChartWindowSeconds, _chartCustomFrom, _chartCustomTo);
-
-    /// <summary>A day, the last 7 or 30 days or 12 months, or a custom range: stepped through with the arrows (the others end now).</summary>
-    public bool IsChartPaged => IsChartDay || IsChartFixed;
-
-    /// <summary>What a day's arrows step by (a day: the rolling periods and custom ranges step by their own length).</summary>
-    public Core.Reports.ReportRange ChartUnit => Core.Reports.ReportRange.Day;
-
-    /// <summary>
-    /// The period the chart shows: the day (midnight to midnight), the last 7 days, 30 days or 12 months up to
-    /// <see cref="ChartDay"/> (from its first midnight to the one after that day), or the custom range.
-    /// </summary>
-    public (DateTime From, DateTime To) ChartPeriod => IsChartCustom ? (_chartCustomFrom, _chartCustomTo)
-        : Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) ? Core.Reports.ChartRange.Rolling(ChartWindowSeconds, ChartDay)
-        : Core.Reports.ReportBuilder.Bounds(Core.Reports.ReportRange.Day, ChartDay);
-
-    /// <summary>The period as drawn: one still going on ends at the point now is in, not at its end to come.</summary>
-    public (DateTime From, DateTime To) ChartShownPeriod
-    {
-        get
-        {
-            var (from, to) = ChartPeriod;
-            return (from, IsChartPaged ? Core.Reports.ChartRange.ShownEnd(to, ChartStepSeconds, DateTime.Now) : to);
-        }
-    }
-
-    private DateTime _chartDay = DateTime.Today;
-
-    /// <summary>
-    /// The day the temperature chart shows in day mode (today: midnight to now; earlier: the whole day); for the last
-    /// 7 days, 30 days or 12 months, the last day of the ones shown (today: up to now).
-    /// </summary>
-    public DateTime ChartDay
-    {
-        get => _chartDay;
-        set
-        {
-            var day = value.Date > DateTime.Today ? DateTime.Today : value.Date;
-            if (!SetProperty(ref _chartDay, day)) return;
-            OnPropertyChanged(nameof(ChartDayLabel));
-            OnPropertyChanged(nameof(CanChartNextDay));
-            OnPropertyChanged(nameof(CanChartPreviousDay));
-            UpdatePeaks();
-            ChartRangeChanged?.Invoke();
-        }
-    }
-
-    /// <summary>Midnight passed with the window open: a chart on today moves to the new day; an earlier day keeps its place.</summary>
-    public void NewDay(DateTime was)
-    {
-        if (_chartDay == was) { ChartDay = DateTime.Today; return; }
-        OnPropertyChanged(nameof(ChartDayLabel));
-        OnPropertyChanged(nameof(CanChartNextDay));
-    }
-
-    /// <summary>First day with minute history (the date picker starts there).</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanChartPreviousDay))]
-    private DateTime? _chartHistoryStart;
-
-    /// <summary>"Last hour", "Today", "Yesterday", "Last 7 days", "3–9 Oct", "Thu 25 Sep, 8 AM – Fri 26 Sep, 1 AM"…: what the range menu's button says.</summary>
-    public string ChartDayLabel => IsChartCustom ? Core.Reports.Report.CustomTitle(_chartCustomFrom, _chartCustomTo)
-        : Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) ? Core.Reports.ChartRange.Label(ChartWindowSeconds, ChartDay, DateTime.Today)
-        : IsChartDay ? ReportsViewModel.PeriodText(ChartUnit, ChartDay)
-        : Core.Reports.ChartRange.WindowLabel(ChartWindowSeconds);
-
-    // Forward while the one shown is over; back while it began after the history did. Never on the last minutes or
-    // hours: those always end now.
-    public bool CanChartNextDay => IsChartPaged && (IsChartCustom ? _chartCustomTo < DateTime.Now
-        : Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) ? ChartDay < DateTime.Today
-        : ChartPeriod.To <= DateTime.Today);
-    public bool CanChartPreviousDay => IsChartPaged && (ChartHistoryStart is not { } f || ChartPeriod.From > f);
-
-    [RelayCommand]
-    private void ChartPreviousDay()
-    {
-        if (!CanChartPreviousDay) return;
-        if (IsChartCustom) StepCustom(-1);
-        else if (Core.Reports.ChartRange.IsRolling(ChartWindowSeconds)) ChartDay = Core.Reports.ChartRange.Step(ChartWindowSeconds, ChartDay, -1);
-        else ChartDay = Core.Reports.ReportBuilder.Previous(ChartUnit, ChartDay);
-    }
-
-    [RelayCommand]
-    private void ChartNextDay()
-    {
-        // Never past today (the 7 days to come stop at today, ending now).
-        if (!CanChartNextDay) return;
-        if (IsChartCustom) StepCustom(1);
-        else if (Core.Reports.ChartRange.IsRolling(ChartWindowSeconds)) ChartDay = Core.Reports.ChartRange.Step(ChartWindowSeconds, ChartDay, 1);
-        else ChartDay = Core.Reports.ReportBuilder.Next(ChartUnit, ChartDay);
-    }
-
-    /// <summary>A custom range steps by its own length (three hours back, the two days before…), as on the other pages.</summary>
-    private void StepCustom(int direction)
-    {
-        var length = _chartCustomTo - _chartCustomFrom;
-        SetChartCustom(_chartCustomFrom + direction * length, _chartCustomTo + direction * length);
-    }
-
-    /// <summary>The chart needs different minute history (another day, or back to the last 24 hours).</summary>
-    public event Action? ChartRangeChanged;
-
-    public string SystemSummary => string.Join("  ·  ", new[] { CpuName, GpuName }.Where(n => n is not "CPU" and not "GPU"));
-
-    // ── Today ─────────────────────────────────────────────────────────────
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowCpuBusiest))]
-    private TodayInfo _today = new();
-
-    /// <summary>What's in front right now and its session (with a game's frame rate while RivaTuner measures it): the Games page's live view.</summary>
-    [ObservableProperty] private ActivityInfo? _activity;
-
-    /// <summary>
-    /// Home's CPU tile says how busy the CPU got instead of how hot: on a standard account, on a day with no CPU
-    /// temperature (a day that has one, read while admin rights were on for a while, shows its peak as usual).
-    /// </summary>
-    public bool ShowCpuBusiest => StandardAccount && Today.CpuPeak is null;
-
-    /// <summary>Today's totals have come from the agent, or no agent is there to send them: until then Home's figures are loading, not nought.</summary>
-    [ObservableProperty] private bool _todayIn;
-    partial void OnTodayChanged(TodayInfo value) => TodayIn = true;
-
-    // ── Processes ─────────────────────────────────────────────────────────
-    public ObservableCollection<ProcRow> Procs { get; } = [];
-
-    /// <summary>The six apps using the most memory (for the custom page tile).</summary>
-    [ObservableProperty] private List<ProcRow> _topMemory = [];
-    public ICollectionView ProcsView { get; }
-    [ObservableProperty] private bool _onlyWindowedApps;
-
-    /// <summary>What's typed in the Memory page's search box: the live list shows the apps it matches.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NoProcsMatch))]
-    private string _procSearch = "";
-    private string[] _procWords = [];
-
-    /// <summary>Something is searched for and no app running matches it.</summary>
-    public bool NoProcsMatch => _procWords.Length > 0 && !Procs.Any(Listed);
-
-    /// <summary>The Memory page's "Above their usual" filter: the live list shows only the apps above their usual.</summary>
-    [ObservableProperty] private bool _onlyAboveUsual;
-
-    /// <summary>How many of the apps the switch and the search leave in the live list are above their usual (the filter's count).</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasAboveUsual))]
-    private int _aboveUsualCount;
-
-    /// <summary>Any app in the live list is above its usual: the filter can be used.</summary>
-    public bool HasAboveUsual => AboveUsualCount > 0;
-
-    /// <summary>Whether an app is in the live list: by the switch, by what's searched for (its name, its program's
-    /// name, or one of its processes where those are open), and by the "Above their usual" filter.</summary>
-    private bool Listed(ProcRow p) => Matches(p) && (!OnlyAboveUsual || p.IsOver);
-
-    private bool Matches(ProcRow p) => (!OnlyWindowedApps || p.HasWindow)
-        && (_procWords.Length == 0 || Core.TextMatch.Has(_procWords, [p.Name, p.Exe, .. p.Children.Select(c => c.Label)]));
-
-    partial void OnOnlyAboveUsualChanged(bool value)
-    {
-        ProcsView.Refresh();
-        UpdateBars();
-    }
-
-    partial void OnProcSearchChanged(string value)
-    {
-        _procWords = Core.TextMatch.Words(value);
-        ProcsView.Refresh();
-        UpdateBars();
-        OnPropertyChanged(nameof(NoProcsMatch));
-    }
-
-    partial void OnOnlyWindowedAppsChanged(bool value)
-    {
-        ProcsView.Refresh();
-        UpdateBars();
-        OnPropertyChanged(nameof(NoProcsMatch));
-    }
-
-    // ── Sensors page filters ──────────────────────────────────────────────
-    [ObservableProperty] private string _searchText = "";
-    [ObservableProperty] private string _typeFilter = "All";
-    [ObservableProperty] private bool _showHidden;
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
-    partial void OnTypeFilterChanged(string value) => ApplyFilter();
-    partial void OnShowHiddenChanged(bool value) => ApplyFilter();
-
-    // ── Agent messages ────────────────────────────────────────────────────
-
-    public void LoadHello(AgentMessage hello)
-    {
-        // Today's totals arrive with the hello, before the agent has finished discovering the hardware.
-        if (hello.Today is not null) Today = hello.Today;
-        if (hello.NetHistory is { Count: > 0 } net)
-        {
-            _netHistory.Clear();
-            foreach (var n in net) AddNet(n);
-        }
-        if (hello.Drives is not null) _driveHealth = hello.Drives;
-        if (hello.Hardware is null) return;
-
-        int total = hello.Hardware.Sum(h => h.Sensors.Count);
-        bool sameSchema = total == _flat.Count &&
-            hello.Hardware.SelectMany(h => h.Sensors).Select(s => s.Id).SequenceEqual(_flat.Select(s => s.Id));
-        if (!sameSchema) Build(hello);
-        foreach (var drive in Drives) drive.Health = _driveHealth.FirstOrDefault(h => h.Name == drive.Name);
-
-        // Pre-fill charts with the agent's recent history.
-        if (hello.History is not null && hello.Keys is not null)
-        {
-            foreach (var series in hello.History)
-            {
-                // Key sensors by key name; others (drive temperatures) as "id:<sensor id>".
-                SensorItem? item = series.Key.StartsWith("id:", StringComparison.Ordinal)
-                    ? _byId.GetValueOrDefault(series.Key[3..])
-                    : hello.Keys.TryGetValue(series.Key, out int index) && index < _flat.Count ? _flat[index] : null;
-                if (item is { History.Count: 0 }) item.Seed(series.Times, series.Values);
-            }
-            Tick++;
-        }
-    }
-
-    /// <summary>The drives were read again (the agent sends them each time, every 10 s while the app is open).</summary>
-    public void UpdateDriveHealth(List<DriveHealthInfo> drives)
-    {
-        _driveHealth = drives;
-        foreach (var drive in Drives) drive.Health = _driveHealth.FirstOrDefault(h => h.Name == drive.Name);
-        DriveHealthUpdated?.Invoke();
-    }
-
-    /// <summary>Raised when the drives' readings change (the Storage page and an opened drive follow them).</summary>
-    public event Action? DriveHealthUpdated;
-
-    /// <summary>Every drive's latest readings, as the agent last sent them.</summary>
-    public IReadOnlyList<DriveHealthInfo> DriveHealth => _driveHealth;
-
-    private void Build(AgentMessage hello)
-    {
-        _ticksSinceBuild = 0;
-        _flat.Clear();
-        var selectedGpu = SelectedGpu is { } was ? (was.Name, Gpus.Where(g => g.Name == was.Name).ToList().IndexOf(was)) : default;
-        Gpus.Clear();
-        Hardware.Clear();
-        CpuThreads.Clear();
-        Drives.Clear();
-        Fans.Clear();
-        BoardTemps.Clear();
-        _driveRows.Clear();
-        TempSeries.Clear();
-
-        var s = _settings.Current;
-        var named = new Dictionary<string, int>();
-        foreach (var hw in hello.Hardware!)
-        {
-            int nth = named[hw.Name] = named.GetValueOrDefault(hw.Name) + 1;
-            string key = nth == 1 ? hw.Name : $"{hw.Name} #{nth}";
-            var node = new HardwareNode(hw.Name, hw.Type) { Key = key, IsExpanded = !s.CollapsedHardware.Contains(key), Device = hw.Device, Via = hw.Via };
-            foreach (var meta in hw.Sensors)
-            {
-                var item = new SensorItem(meta, hw.Name, hw.Type)
-                {
-                    Via = hw.Via is { } via ? TrayParts.DeviceVia(via) : null,
-                    Device = hw.Device,
-                    CustomLabel = s.SensorLabels.GetValueOrDefault(meta.Id),
-                    IsHidden = s.HiddenSensors.Contains(meta.Id),
-                };
-                item.UserPreferenceChanged += OnSensorPreferenceChanged;
-                node.Sensors.Add(item);
-                _flat.Add(item);
-            }
-            node.BuildKeys();
-            Hardware.Add(node);
-        }
-
-        SensorItem? K(string key) => hello.Keys is not null && hello.Keys.TryGetValue(key, out var i) && i < _flat.Count ? _flat[i] : null;
-        CpuTemp = K(KeySensors.CpuTemp);
-        CpuDieTemp = K(KeySensors.CpuDieTemp);
-        CpuLoad = K(KeySensors.CpuLoad);
-        CpuPower = K(KeySensors.CpuPower);
-        CpuClock = K(KeySensors.CpuClock);
-        CpuVoltage = K(KeySensors.CpuVoltage);
-        GpuTemp = K(KeySensors.GpuTemp);
-        GpuHotSpot = K(KeySensors.GpuHotSpot);
-        GpuMemJunction = K(KeySensors.GpuMemJunction);
-        GpuLoad = K(KeySensors.GpuLoad);
-        GpuPower = K(KeySensors.GpuPower);
-        GpuClock = K(KeySensors.GpuClock);
-        GpuFan = K(KeySensors.GpuFan);
-        GpuVramLoad = K(KeySensors.GpuVramLoad);
-        GpuVramUsed = K(KeySensors.GpuVramUsed);
-        GpuVramTotal = K(KeySensors.GpuVramTotal);
-        RamLoad = K(KeySensors.RamLoad);
-        RamUsed = K(KeySensors.RamUsed);
-        RamAvailable = K(KeySensors.RamAvailable);
-        VirtualLoad = _flat.FirstOrDefault(s => s.HardwareType == "Memory" && s.Kind == SensorKind.Load
-                                                && s.HardwareName.Contains("Virtual", StringComparison.OrdinalIgnoreCase));
-
-        CpuName = Hardware.FirstOrDefault(h => h.Type == "Cpu")?.Name ?? "CPU";
-        // Each GPU found the way the agent finds its main one (the same code), so the first is the one it records.
-        var candidates = new List<KeySensors.Candidate>();
-        int flatIndex = 0;
-        for (int hw = 0; hw < hello.Hardware!.Count; hw++)
-            foreach (var meta in hello.Hardware[hw].Sensors)
-                candidates.Add(new KeySensors.Candidate(flatIndex++, hello.Hardware[hw].Type, hello.Hardware[hw].Name, meta.Name, meta.Kind, hw));
-        foreach (var gpu in KeySensors.Gpus(candidates, hello.PreferredGpus))
-            Gpus.Add(new GpuView(gpu.Name, gpu.Integrated, key => gpu.Keys.TryGetValue(key, out int i) && i < _flat.Count ? _flat[i] : null));
-        // The same GPU as before a rebuild (by name, and which of several alike), else the main one.
-        SelectedGpu = selectedGpu.Name is { } keepName ? Gpus.Where(g => g.Name == keepName).ElementAtOrDefault(selectedGpu.Item2) ?? Gpus.FirstOrDefault() : Gpus.FirstOrDefault();
-        OnPropertyChanged(nameof(HasSeveralGpus));
-        GpuName = Gpus.FirstOrDefault()?.Name ?? "GPU";
-        OnPropertyChanged(nameof(SystemSummary));
-
-        var cpu = Hardware.FirstOrDefault(h => h.Type == "Cpu");
-        if (cpu is not null)
-        {
-            var threadName = new Regex(@"^CPU Core #\d+( Thread #\d+)?$");
-            foreach (var t in cpu.Sensors.Where(x => x.Kind == SensorKind.Load && threadName.IsMatch(x.Name)))
-                CpuThreads.Add(t);
-        }
-
-        foreach (var d in Hardware.Where(h => h.Type == "Storage"))
-        {
-            var temp = Find(d.Sensors, SensorKind.Temperature, "Composite Temperature", "Temperature")
-                       ?? d.Sensors.FirstOrDefault(x => x.Kind == SensorKind.Temperature && !x.Name.Contains("Warning") && !x.Name.Contains("Critical"));
-            var life = Find(d.Sensors, SensorKind.Level, "Life", "Remaining Life");
-            Drives.Add(new DriveSummary(d.Name, temp, life,
-                Find(d.Sensors, SensorKind.Load, "Used Space"), Find(d.Sensors, SensorKind.Factor, "Power On Hours")));
-            if (temp is not null) _driveRows.Add(DriveRow(d, temp, life));
-        }
-
-        // Fans and temperatures from the motherboard's sensor chips. Fans that never spin are left out.
-        foreach (var n in Hardware.Where(h => h.Type is "SuperIO" or "Motherboard" or "EmbeddedController" or "Cooler"))
-        {
-            foreach (var f in n.Sensors.Where(x => x.Kind == SensorKind.Fan)) Fans.Add(f);
-            foreach (var t in n.Sensors.Where(x => x.Kind == SensorKind.Temperature)) BoardTemps.Add(t);
-        }
-        RefreshPartTemps();
-
-        // A line's colour says which part it is, so none is green, amber or red: those say how a reading is doing (the
-        // numbers above the chart), and a green or amber line under them read as "good" or "warning".
-        // Longer chart windows come from the minute history: CPU and GPU as the minute's average, the
-        // hot spot and memory (only stored as the minute's highest) as that.
-        // Hovering a minute says its average, highest and lowest, as far as they were kept.
-        void AddSeries(string label, SensorItem? sensor, string colorKey, Func<Rigsight.Core.Data.SystemMinute, double?> fromMinute,
-            Func<Rigsight.Core.Data.SystemMinute, (double? Avg, double? High, double? Low)> stats)
-        {
-            if (sensor is null) return;
-            var series = new ChartSeries(label, sensor, colorKey, fromMinute, stats);
-            series.LoadMinutes(_minutes, _minuteStep);
-            TempSeries.Add(series);
-        }
-        AddSeries("CPU", CpuTemp, "CpuColor", m => m.CpuTemp, m => (m.CpuTemp, m.CpuTempMax, m.CpuTempMin));
-        AddSeries("GPU", GpuTemp, "GpuColor", m => m.GpuTemp, m => (m.GpuTemp, m.GpuTempMax, m.GpuTempMin));
-        // The hot spot's and the memory's line is their average too, where it was kept; before that, their highest.
-        AddSeries(Lang.T("GPU hot spot"), GpuHotSpot, "PurpleColor", m => m.GpuHotAvg ?? m.GpuHotMax, m => (m.GpuHotAvg, m.GpuHotMax, m.GpuHotMin));
-        AddSeries(Lang.T("GPU memory"), GpuMemJunction, "PinkColor", m => m.GpuMemAvg ?? m.GpuMemMax, m => (m.GpuMemAvg, m.GpuMemMax, m.GpuMemMin));
-        UpdatePeaks();
-
-        _byKey.Clear();
-        if (hello.Keys is not null)
-            foreach (var (key, index) in hello.Keys)
-                if (index < _flat.Count) _byKey[key] = _flat[index];
-        _byId.Clear();
-        foreach (var item in _flat) _byId.TryAdd(item.Id, item);
-        foreach (var (id, range) in _extremes)
-            if (_byId.TryGetValue(id, out var item)) item.SetTodayRange(range[0], range[1]);
-
-        HasHardware = _flat.Count > 0;
-        ApplyFilter();
-        SensorsRebuilt?.Invoke();
-    }
-
-    /// <summary>Raised when the sensor list was (re)built, so anything holding sensors can look them up again.</summary>
-    public event Action? SensorsRebuilt;
-
-    /// <summary>A sensor by id, or "key:&lt;name&gt;" for a well-known one (CPU load, GPU power…). Null until the agent has sent its sensors.</summary>
-    public SensorItem? Resolve(string? reference) =>
-        reference is null ? null
-        : reference.StartsWith("key:", StringComparison.Ordinal) ? _byKey.GetValueOrDefault(reference[4..])
-        : _byId.GetValueOrDefault(reference);
-
-    // ── The internet ──────────────────────────────────────────────────────
-
-    /// <summary>The internet this second: the connection's speed and each app's (null: not read, as without admin rights).</summary>
-    public NetLive? Net { get; private set; }
-
-    /// <summary>The line check's last minute: the ping to the router and to the provider (null: not checked yet).</summary>
-    public LineLive? Line { get; private set; }
-
-    /// <summary>The taskbar readings waiting for room in the strip's "+N" (by sensor id), as the agent last said.</summary>
-    public IReadOnlyList<string> TrayWaiting { get; private set; } = [];
-
-    /// <summary>Told when <see cref="TrayWaiting"/> changes.</summary>
-    public event Action? TrayWaitingChanged;
-
-    /// <summary>
-    /// RigSight's own network readings, for the taskbar: the whole PC's download and upload speed and both together, as
-    /// the Network page counts them (not sensors of the hardware library; see <see cref="TrayParts.NetDown"/>).
-    /// </summary>
-    public IReadOnlyList<SensorItem> NetSensors { get; } = [NetItem(TrayParts.NetDown), NetItem(TrayParts.NetUp), NetItem(TrayParts.NetBoth)];
-
-    /// <summary>
-    /// The game's frame rate, a taskbar reading of RigSight's own (see <see cref="TrayParts.Fps"/>): listed to add, with no
-    /// value here; the agent reads it from RivaTuner while a game draws frames.
-    /// </summary>
-    public IReadOnlyList<SensorItem> FpsSensors { get; } =
-        [new(new SensorMeta { Id = TrayParts.Fps, Name = Lang.T("Frame rate (FPS)"), Kind = SensorKind.FrameRate }, Lang.T("From RivaTuner, in the game you're playing"), TrayParts.FpsHardwareType)];
-
-    /// <summary>The ping, a taskbar reading of RigSight's own (see <see cref="TrayParts.Ping"/>): its value comes from the agent.</summary>
-    public IReadOnlyList<SensorItem> PingSensors { get; } =
-        [new(new SensorMeta { Id = TrayParts.Ping, Name = Lang.T("Ping"), Kind = SensorKind.Latency }, Lang.T("The game or call you're on, else your internet provider"), "Network")];
-
-    private static SensorItem NetItem(string id) =>
-        new(new SensorMeta { Id = id, Name = TrayParts.NetName(id), Kind = SensorKind.Throughput }, TrayParts.NetHardware, "Network");
-
-    /// <summary>The speeds this second into <see cref="NetSensors"/> (none: not known, as when the agent has gone).</summary>
-    private void PushNet(NetLive? net)
-    {
-        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        float? down = net is { Stalled: false } ? (float)net.Down : null, up = net is { Stalled: false } ? (float)net.Up : null;
-        NetSensors[0].Push(now, down);
-        NetSensors[1].Push(now, up);
-        NetSensors[2].Push(now, down);
-    }
-
-    /// <summary>The connection's speed over the last minute, oldest first (bytes a second).</summary>
-    public IReadOnlyList<NetLive> NetHistory => _netHistory;
-    private readonly List<NetLive> _netHistory = [];
-
-    /// <summary>How many seconds the live network chart shows.</summary>
-    public const int NetHistorySeconds = 60;
-
-    private void AddNet(NetLive net)
-    {
-        if (_netHistory.Count > 0 && _netHistory[^1].Time >= net.Time) return;
-        _netHistory.Add(new NetLive { Time = net.Time, Down = net.Down, Up = net.Up });
-        while (_netHistory.Count > NetHistorySeconds) _netHistory.RemoveAt(0);
-    }
-
-    /// <summary>
-    /// The agent has gone (quit, crashed, restarting): the last readings aren't "right now" any more. Every reading
-    /// shows as none (a gap on its chart, as it is) and the internet's speeds and apps go, where they used to stay
-    /// frozen on whatever the last second happened to be.
-    /// </summary>
-    /// <summary>
-    /// The first readings are still on their way from the agent: a box that shows them says so with a loader, not with
-    /// dashes or an empty space. Over once they arrive, or when no agent is there to send them (<see cref="StopWaiting"/>),
-    /// so nothing turns for ever.
-    /// </summary>
-    [ObservableProperty] private bool _readingsPending = true;
-
-    /// <summary>The same for the first list of running apps, which arrives by itself a moment after the readings.</summary>
-    [ObservableProperty] private bool _appsPending = true;
-
-    /// <summary>Nothing more to wait for: the agent isn't there, or hasn't sent anything for too long.</summary>
-    public void StopWaiting()
-    {
-        ReadingsPending = AppsPending = false;
-        TodayIn = true; // no agent to send them: the figures as they are, not a loader for ever
-    }
-
-    public void AgentGone()
-    {
-        Net = null;
-        Line = null;
-        _netHistory.Clear();
-        PushNet(null);
-        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        foreach (var item in _flat) item.Push(now, null);
-        if (_flat.Count > 0) UpdateDerived();
-        Tick++;
-    }
-
-    public void ApplyTick(AgentMessage tick)
-    {
-        if (tick.Net is { } net)
-        {
-            Net = net;
-            AddNet(net);
-            PushNet(net);
-        }
-        // A readings tick without the internet: it isn't being read (no admin rights and no card counts yet).
-        else if (tick.Values is not null) PushNet(null);
-        Line = tick.Line;
-        // The ping reading as the agent's taskbar shows it: the game's or call's server, else the provider, else the router.
-        PingSensors[0].Push(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            (Rigsight.Core.Net.ServerWords.Lead(tick.Line?.Servers)?.Ms ?? tick.Line?.IspMs ?? tick.Line?.LanMs) is int ms ? ms : null);
-        if (tick.Values is { } values && values.Length == _flat.Count)
-        {
-            // Only the readings' tick says which taskbar readings wait for room (none listed: all fit).
-            var waiting = tick.TrayWaiting ?? [];
-            if (!waiting.SequenceEqual(TrayWaiting))
-            {
-                TrayWaiting = waiting;
-                TrayWaitingChanged?.Invoke();
-            }
-            for (int i = 0; i < values.Length; i++)
-                _flat[i].Push(tick.Time, values[i]);
-            foreach (var node in Hardware) node.RefreshKeys();
-            UpdateGlance();
-            UpdateDerived();
-            RaisePeaks(tick.Time);
-            ReadingsPending = false;
-        }
-        if (tick.Today is not null) Today = tick.Today;
-        if (tick.Activity is not null) Activity = tick.Activity;
-        if (tick.Extremes is { } extremes) ApplyExtremes(extremes, tick.ExtremesDay, tick.ExtremesFull);
-        Tick++;
-    }
-
-    /// <summary>Today's lowest and highest readings, which the agent tracks all day (even with the app closed).</summary>
-    private void ApplyExtremes(Dictionary<string, double[]> extremes, string? day, bool full)
-    {
-        if (full || day != _extremesDay)
-        {
-            _extremes.Clear();
-            _extremesDay = day;
-        }
-        foreach (var (id, range) in extremes)
-        {
-            if (range.Length != 2) continue;
-            _extremes[id] = range;
-            if (_byId.TryGetValue(id, out var item)) item.SetTodayRange(range[0], range[1]);
-        }
-    }
-
-    private List<Rigsight.Core.Data.SystemMinute> _minutes = [];
-    private int _minuteStep = 60;
-    private List<DriveHealthInfo> _driveHealth = [];
-
-    /// <summary>
-    /// The last day of minute history, for the temperature chart's longer windows; or, with
-    /// <paramref name="stepSeconds"/> 3600, the hours of its week or month.
-    /// </summary>
-    private IReadOnlyList<Core.Stability.PowerEvent>? _power;
-
-    /// <summary>
-    /// Why a stretch of the temperature graph has nothing recorded (its ends in Unix milliseconds), from what Windows
-    /// logged about the PC starting, going down and sleeping. Unknown until that has been read, and where it doesn't say.
-    /// </summary>
-    public Func<long, long, Core.Stability.GapReason> ChartGapReason => (from, to) => Core.Stability.PowerLog.Reason(
-        DateTimeOffset.FromUnixTimeMilliseconds(from).LocalDateTime, DateTimeOffset.FromUnixTimeMilliseconds(to).LocalDateTime, _power,
-        TimeSpan.FromSeconds(Math.Max(120, _minuteStep)));
-
-    /// <summary>
-    /// What was in front over a stretch of the temperature graph (its ends in Unix milliseconds), for its hover: from
-    /// the minutes the graph has already read, so it's there with the box (read on the first hover, it came a moment
-    /// later and the box jumped, 2026-11-06). None on the week, month and year graphs, whose points are hours and days.
-    /// </summary>
-    public Func<long, long, Controls.HeatWho?> ChartWho => WhoFor;
-
-    /// <summary>Each app by its id, for the hover's names (set by the window with each read of the graph's minutes).</summary>
-    public IReadOnlyDictionary<long, (string Name, string? Path, bool IsGame)>? AppsById { get; set; }
-
-    private Controls.HeatWho? WhoFor(long fromMs, long toMs)
-    {
-        if (_minuteStep != 60 || AppsById is not { } apps || _minutes.Count == 0) return null;
-        long from = fromMs / 1000, to = (toMs + 999) / 1000;
-        int i = _minutes.BinarySearch(new Core.Data.SystemMinute { Ts = from }, MinuteByTime.Instance);
-        if (i < 0) i = ~i;
-        var inStretch = new List<Core.Data.SystemMinute>();
-        for (; i < _minutes.Count && _minutes[i].Ts < to; i++) inStretch.Add(_minutes[i]);
-        var front = Core.Reports.HeatWhoReader.FrontOf(inStretch, id => apps.TryGetValue(id, out var a) ? a : null);
-        // An hour or more is said with how long each app was in front; a minute, or a few, without.
-        return front.Count == 0 ? null : new Controls.HeatWho(front, Timed: toMs - fromMs >= 30 * 60_000);
-    }
-
-    private sealed class MinuteByTime : IComparer<Core.Data.SystemMinute>
-    {
-        public static readonly MinuteByTime Instance = new();
-        public int Compare(Core.Data.SystemMinute? x, Core.Data.SystemMinute? y) => (x?.Ts ?? 0).CompareTo(y?.Ts ?? 0);
-    }
-
-    /// <summary>Why the period the graph shows has nothing recorded, when it has nothing (null otherwise): see <see cref="Core.Reports.WhyEmpty"/>.</summary>
-    [ObservableProperty] private string? _chartEmptyText;
-
-    /// <summary>What Windows logged about the PC's power over the time the graph shows (null: couldn't be read).</summary>
-    public void LoadPowerEvents(IReadOnlyList<Core.Stability.PowerEvent>? events)
-    {
-        _power = events;
-        Tick++;
-    }
-
-    /// <summary>
-    /// A zoom into the temperature graph that wants finer points than its range has (2 days of the last 7 from minutes):
-    /// the stretch and how far apart, set by the graph. Null for none.
-    /// </summary>
-    public (DateTime From, DateTime To, int Step)? ChartDetail
-    {
-        get => _chartDetail;
-        set
-        {
-            if (_chartDetail == value) return;
-            _chartDetail = value;
-            if (value is not null) ChartDetailWanted?.Invoke();
-        }
-    }
-    private (DateTime From, DateTime To, int Step)? _chartDetail;
-
-    public event Action? ChartDetailWanted;
-
-    /// <summary>The finer points read for <paramref name="stretch"/>, kept beside each line's own (see <see cref="ChartSeries.Zoomed"/>).</summary>
-    public void LoadZoomHistory(List<Rigsight.Core.Data.SystemMinute> minutes, (DateTime From, DateTime To, int Step) stretch)
-    {
-        foreach (var series in TempSeries) series.LoadZoomed(minutes, stretch);
-        Tick++;
-    }
-
-    public void LoadMinuteHistory(List<Rigsight.Core.Data.SystemMinute> minutes, int stepSeconds = 60)
-    {
-        _minutes = minutes;
-        _minuteStep = stepSeconds;
-        foreach (var series in TempSeries) series.LoadMinutes(minutes, stepSeconds);
-        UpdatePeaks();
-        Tick++;
-    }
-
-    /// <summary>
-    /// What the temperature graph's legend says of each line over the day, week, month or year shown: the same thing
-    /// the graph's points are (<see cref="ChartPlot"/>), for the whole period. Its highest and when ("HIGHEST  CPU
-    /// 84.2 °C  Sat 12 Sep, 9 PM"), its lowest and when, or its average: finding a month's highest meant hovering along
-    /// the whole graph. The same over the last hour, six hours or day up to now. None on the five minutes (every
-    /// reading is drawn, there is no choice to name), nor while the history loaded is still another range's.
-    /// </summary>
-    private void UpdatePeaks()
-    {
-        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var (from, to) = ChartPeriod;
-        long fromMs = IsChartPaged ? new DateTimeOffset(from).ToUnixTimeMilliseconds() : nowMs - ChartWindowSeconds * 1000L;
-        long toMs = IsChartPaged ? new DateTimeOffset(to).ToUnixTimeMilliseconds() : nowMs + 1;
-        foreach (var series in TempSeries)
-        {
-            if (!CanChartPlot || series.StepSeconds != ChartStepSeconds) SetPeak(series, null);
-            else if (ChartPlot == "Avg") SetPeak(series, series.Average(fromMs, toMs) is { } average ? (average, 0, 0) : null);
-            // A stored point is named by its start ("9 PM" is 9 to 10), as the hover box names it.
-            else SetPeak(series, (ChartPlot == "High" ? series.Highest(fromMs, toMs) : series.Lowest(fromMs, toMs)) is { } b
-                ? (b.Value, b.At, b.Stored ? b.At - series.StepSeconds * 500L : b.At) : null);
-        }
-    }
-
-    /// <summary>The word in front of the legend's figures: what they are, as the graph's choice goes.</summary>
-    public string ChartLegendLabel => ChartPlot switch { "High" => Lang.T("HIGHEST"), "Low" => Lang.T("LOWEST"), _ => Lang.T("AVERAGE") };
-
-    private void SetPeak(ChartSeries series, (double Value, long At, long Named)? peak)
-    {
-        series.Peak = peak is { } p ? (p.Value, p.At) : null;
-        series.PeakText = Units.Format(SensorKind.Temperature, peak?.Value);
-        if (peak is not { At: > 0 } at) { series.PeakWhen = ""; return; }
-        var local = DateTimeOffset.FromUnixTimeMilliseconds(at.Named).LocalDateTime;
-        var culture = System.Globalization.CultureInfo.CurrentCulture;
-        series.PeakWhen = ChartStepSeconds == 86400 ? local.ToString("ddd d MMM", culture)
-            : IsChartLong ? local.ToString(TimeText.Fit("ddd d MMM, h tt"), culture)
-            // The last 24 hours (or a custom range) reach into another day: a time alone could be either day's.
-            : (!IsChartPaged && ChartWindowSeconds >= 86400) || IsChartCustom ? local.ToString(TimeText.Fit("ddd h:mm tt"), culture)
-            : local.ToString(TimeText.Fit("h:mm tt"), culture);
-    }
-
-    /// <summary>
-    /// A reading that has just arrived, in a period still going on: the highest (lowest) so far if it passes it. An
-    /// average waits for the history to be read again.
-    /// </summary>
-    private void RaisePeaks(long time)
-    {
-        if (!CanChartPlot || ChartPlot == "Avg" || (IsChartPaged && ChartPeriod.To <= DateTime.Now)) return;
-        bool high = ChartPlot == "High";
-        foreach (var series in TempSeries)
-        {
-            if (series.Sensor.Value is not double v || series.StepSeconds != ChartStepSeconds) continue;
-            // With no lowest yet there may be none to say (a line whose lowest readings aren't kept).
-            if (series.Peak is { } peak ? (high ? v > peak.Value : v < peak.Value) : high) SetPeak(series, (v, time, time));
-        }
-    }
-
-    /// <summary>Asks the agent for each process of these apps (exe names joined by "|", or null for none).</summary>
-    public event Action<string?>? ProcessDetailChanged;
-
-    /// <summary>The apps opened to show their processes, as the agent's "procs-detail" argument.</summary>
-    public string? ExpandedApps => Procs.Any(p => p.IsExpanded) ? string.Join('|', Procs.Where(p => p.IsExpanded).Select(p => p.Exe)) : null;
-
-    [RelayCommand]
-    private void ToggleProcesses(ProcRow row)
-    {
-        if (!row.IsExpanded && !row.CanExpand) return;
-        SetExpanded(row, !row.IsExpanded);
-    }
-
-    /// <summary>Opens or closes an app's processes (the Processes page opens an app with a single process too).</summary>
-    public void SetExpanded(ProcRow row, bool expanded)
-    {
-        if (row.IsExpanded == expanded) return;
-        row.IsExpanded = expanded;
-        row.Children = [];
-        ProcessDetailChanged?.Invoke(ExpandedApps);
-    }
-
-    /// <summary>Has the agent read the running apps now, not at its next turn (the same request makes it look at once).</summary>
-    public void RequestProcs() => ProcessDetailChanged?.Invoke(ExpandedApps);
-
-    /// <summary>What every process together reads and writes, in bytes a second (null: the agent doesn't say).</summary>
-    public double? Disk { get; private set; }
-
-    /// <summary>Raised when a list of running apps from the agent has been taken in.</summary>
-    public event Action? ProcsApplied;
-
-    private bool _holdProcs;
-    private (List<ProcInfo> Procs, double? Disk)? _heldProcs;
-
-    /// <summary>
-    /// While on, the running apps stay as they are: a list from the agent is kept aside and taken in when this goes
-    /// off. The Processes page holds the list still under an open menu or question, and while something is being ended
-    /// (a row re-sorted or gone from under the pointer would put another app in its place).
-    /// </summary>
-    public bool HoldProcs
-    {
-        get => _holdProcs;
-        set
-        {
-            if (_holdProcs == value) return;
-            _holdProcs = value;
-            if (value || _heldProcs is not { } held) return;
-            _heldProcs = null;
-            ApplyProcs(held.Procs, held.Disk);
-        }
-    }
-
-    /// <summary>
-    /// Memory Windows holds compressed (the "Memory Compression" process), as a sensor of its own so it gets a
-    /// tile with a chart like the real ones. It's read with the process list, every couple of seconds.
-    /// </summary>
-    public SensorItem Compressed { get; } = new(new SensorMeta { Id = "/rigsight/compressed", Name = Lang.T("Compressed"), Kind = SensorKind.Data }, "Memory", "Memory");
-
-    /// <summary>Virtual memory in use (Windows' commit charge against its limit), if the PC reports it.</summary>
-    [ObservableProperty] private SensorItem? _virtualLoad;
-
-    /// <summary>How the memory is split, as star widths for the bar under the memory card.</summary>
-    [ObservableProperty] private System.Windows.GridLength _memAppsWidth = new(0, System.Windows.GridUnitType.Star);
-    [ObservableProperty] private System.Windows.GridLength _memCompressedWidth = new(0, System.Windows.GridUnitType.Star);
-    [ObservableProperty] private System.Windows.GridLength _memFreeWidth = new(1, System.Windows.GridUnitType.Star);
-    [ObservableProperty] private string _memAppsText = "—";
-
-    public void ApplyProcs(List<ProcInfo> procs, double? disk = null)
-    {
-        if (_holdProcs)
-        {
-            _heldProcs = (procs, disk);
-            return;
-        }
-        Disk = disk;
-        // Parts of Windows itself (no ".exe": Memory Compression, Registry, System) aren't apps, and today's
-        // totals leave them out too. Memory Compression holds other apps' memory, squeezed: it's shown with the
-        // system's memory instead.
-        // (Its process is "Memory Compression"; Task Manager's Details tab calls it MemCompression.)
-        var compressed = procs.FirstOrDefault(p => p.Exe is "Memory Compression" or "MemCompression");
-        Compressed.Push(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), compressed is null ? null : (float)(compressed.MemMB / 1024));
-        UpdateMemorySplit();
-        AppsPending = false;
-        procs = [.. procs.Where(p => p.Exe.Contains('.'))];
-        // In this order: the apps that have gone leave, the new ones come in, and only then do the ones that stay take
-        // their new figures. A list kept sorted as figures change (this page's, the Processes page's) puts a new row
-        // in its place by the rows around it, and one put in among rows whose figures had just changed, in the same
-        // turn as others left, ended up in the wrong place and stayed there: the list was out of order from then on.
-        var seen = new HashSet<string>(procs.Count, StringComparer.OrdinalIgnoreCase);
-        foreach (var p in procs) seen.Add(p.Exe);
-        for (int i = Procs.Count - 1; i >= 0; i--)
-        {
-            if (!seen.Contains(Procs[i].Exe))
-            {
-                _procIndex.Remove(Procs[i].Exe);
-                Procs.RemoveAt(i);
-            }
-        }
-        List<(ProcRow Row, ProcInfo Now)>? staying = null;
-        foreach (var p in procs)
-        {
-            if (_procIndex.TryGetValue(p.Exe, out var row))
-            {
-                (staying ??= new(procs.Count)).Add((row, p));
-                continue;
-            }
-            row = new ProcRow(p.Exe);
-            _procIndex[p.Exe] = row;
-            row.Update(p);
-            Procs.Add(row);
-        }
-        if (staying is not null)
-            foreach (var (row, now) in staying) row.Update(now);
-        // Rows update themselves; only replace the list (which rebuilds the tile's rows) when it changes.
-        var top6 = Procs.OrderByDescending(p => p.MemMB).Take(6).ToList();
-        if (!top6.SequenceEqual(TopMemory)) TopMemory = top6;
-        double totalMB = ((RamUsed?.Value ?? 0) + (RamAvailable?.Value ?? 0)) * 1024;
-        foreach (var p in Procs) p.MemShare = totalMB > 0 ? p.MemMB / totalMB * 100 : 0;
-        if (OnlyWindowedApps || _procWords.Length > 0 || OnlyAboveUsual)
-        {
-            ProcsView.Refresh();
-            OnPropertyChanged(nameof(NoProcsMatch));
-        }
-        UpdateBars();
-        ProcsApplied?.Invoke();
-    }
-
-    /// <summary>
-    /// Bars compare the apps with each other: the biggest one shown fills its bar and the rest are measured against
-    /// it. (Next to all the memory every bar would be a sliver, since no one app comes close to filling it.) Each bar
-    /// carries a mark at the app's usual, so the scale has room for the biggest usual shown too. The Memory page calls
-    /// this when it has read the usuals.
-    /// </summary>
-    public void UpdateBars()
-    {
-        // The filter's count first: with none left above their usual, the filter goes off and the list shows every app.
-        AboveUsualCount = Procs.Count(p => p.IsOver && Matches(p));
-        if (AboveUsualCount == 0 && OnlyAboveUsual)
-        {
-            OnlyAboveUsual = false;
-            return; // its change refreshed the list and came back here
-        }
-        double biggest = Procs.Where(Listed).Select(p => Math.Max(p.MemMB, p.UsualMB ?? 0)).DefaultIfEmpty(0).Max();
-        foreach (var p in Procs)
-        {
-            p.Bar = biggest > 0 ? Math.Min(p.MemMB / biggest * 100, 100) : 0;
-            p.Mark = biggest > 0 && p.UsualMB is { } usual ? Math.Min(usual / biggest * 100, 100) : 0;
-        }
-    }
-
-    private int _ticksSinceBuild;
-
-    /// <summary>Apps (in use, less what's compressed), compressed, available.</summary>
-    private void UpdateMemorySplit()
-    {
-        if (RamUsed?.Value is not double used || RamAvailable?.Value is not double available) return;
-        double compressed = Math.Min(Compressed.Value ?? 0, used);
-        MemAppsWidth = new(used - compressed, System.Windows.GridUnitType.Star);
-        MemCompressedWidth = new(compressed, System.Windows.GridUnitType.Star);
-        MemFreeWidth = new(available, System.Windows.GridUnitType.Star);
-        MemAppsText = $"{used - compressed:0.0} GB";
-    }
-
-    private void UpdateDerived()
-    {
-        // A few readings in (by then today's ranges have arrived too), drop fan headers that haven't spun
-        // at all today (nothing plugged in) and board sensors that read nonsense. A fan that's merely
-        // stopped right now (0 RPM fans at idle) stays.
-        if (++_ticksSinceBuild == 3)
-        {
-            foreach (var f in Fans.Where(f => f.Value is not > 0 && f.Max is not > 0).ToList()) Fans.Remove(f);
-            foreach (var t in BoardTemps.Where(t => t.Value is not (> 0 and < 115)).ToList()) BoardTemps.Remove(t);
-            RefreshPartTemps();
-        }
-
-        if (RamUsed?.Value is double used)
-        {
-            var total = used + (RamAvailable?.Value ?? 0);
-            RamText = Lang.T($"{used:0.0} GB of {total:0.0} GB");
-            RamTotalText = $"{total:0} GB";
-        }
-        UpdateMemorySplit();
-
-        foreach (var gpu in Gpus) gpu.Refresh();
-    }
-
-    /// <summary>Re-applies names, hidden flags and units after settings changed.</summary>
-    private string? _appliedSensorSettings;
-
-    /// <summary>Applies sensor names, hidden sensors and units, but only when one of them actually changed
-    /// (settings change often, e.g. while dragging a slider, and this refreshes every sensor).</summary>
-    public void ApplySettings()
-    {
-        var s = _settings.Current;
-        string key = $"{s.UseFahrenheit}|{string.Join(",", s.SensorLabels.OrderBy(kv => kv.Key).Select(kv => kv.Key + "=" + kv.Value))}|{string.Join(",", s.HiddenSensors.Order())}|{_flat.Count}";
-        if (key == _appliedSensorSettings) return;
-        _appliedSensorSettings = key;
-        foreach (var item in _flat)
-        {
-            item.CustomLabel = s.SensorLabels.GetValueOrDefault(item.Id);
-            item.IsHidden = s.HiddenSensors.Contains(item.Id);
-            item.RefreshFormatting();
-        }
-        ApplyFilter();
-        Tick++;
-    }
-
-    private void OnSensorPreferenceChanged(SensorItem item)
-    {
-        // A board sensor hidden or given another name: its tile on the Temperatures page follows.
-        if (item.Kind == SensorKind.Temperature) RefreshPartTemps();
-        _settings.Update(s =>
-        {
-            if (item.CustomLabel is null) s.SensorLabels.Remove(item.Id);
-            else s.SensorLabels[item.Id] = item.CustomLabel;
-            if (item.IsHidden) s.HiddenSensors.Add(item.Id);
-            else s.HiddenSensors.Remove(item.Id);
-        });
-        ApplyFilter();
-    }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowHiddenText))]
-    private int _hiddenCount;
-
-    public string ShowHiddenText => HiddenCount == 1 ? Lang.T("Show 1 hidden sensor") : Lang.T($"Show {HiddenCount} hidden sensors");
-
-    /// <summary>The sensors a widget, a dashboard, the overlay or the taskbar offers to add: all but the hidden ones
-    /// (one already added stays where it is).</summary>
-    [ObservableProperty] private IReadOnlyList<SensorItem> _pickableSensors = [];
-
-    /// <summary>What the page says in place of an empty list; nothing while there are rows.</summary>
-    public string? SensorsEmptyText =>
-        SensorRows.Count > 0 ? null
-        : _flat.Count == 0 ? Lang.T("No sensors yet")
-        : Core.TextMatch.Words(SearchText).Length > 0 ? Lang.T("No sensors match")
-        : TypeFilter != "All" ? Lang.T("No sensors of this kind")
-        : Lang.T("Every sensor is hidden");
-
-    // ── What stands out right now: the pane beside the list, read from every sensor, nothing to pick ──
-
-    /// <summary>The most rows a part of the pane shows.</summary>
-    internal const int GlanceRows = 4;
-
-    /// <summary>The warmest parts, each by the reading of its that is nearest its limit, nearest first.</summary>
-    public ObservableCollection<GlanceRow> Warmest { get; } = [];
-    /// <summary>The main loads (CPU, GPU, video memory, memory), busiest first.</summary>
-    public ObservableCollection<GlanceRow> Hardest { get; } = [];
-    /// <summary>The fans that are spinning, fastest first.</summary>
-    public ObservableCollection<GlanceRow> FastestFans { get; } = [];
-    /// <summary>What the CPU and the graphics card draw, and (two of them) the sum.</summary>
-    public ObservableCollection<GlanceRow> PowerDraw { get; } = [];
-    [ObservableProperty] private string _powerNote = "";
-
-    private void UpdateGlance()
-    {
-        // Warmest: a temperature is set against the limit its own part reports where it reports one (a drive's
-        // "Warning Temperature"), else against the step it turns red at here. One reading a part, the nearest its
-        // limit. A board chip's readings ("Temperature #3") aren't ranked unless given a name: nobody knows what an
-        // unnamed one measures.
-        var warm = new List<(SensorItem Sensor, double Share, string Note)>();
-        foreach (var node in Hardware)
-        {
-            bool board = node.Badge == "BOARD";
-            double? reported = DriveTemp.ReportedLimitOf(node.Sensors)?.Value;
-            (SensorItem Sensor, double Share, string Note)? best = null;
-            foreach (var sensor in node.Sensors)
-            {
-                if (!sensor.HasTempScale || sensor.IsHidden || sensor.Value is not double v || v <= 0) continue;
-                if (board && sensor.CustomLabel is null) continue;
-                double limit = reported is > 0 ? reported.Value : double.Parse(sensor.TempScale!.Split(',')[2], System.Globalization.CultureInfo.InvariantCulture);
-                if (best is null || v / limit > best.Value.Share)
-                    best = (sensor, v / limit, reported is > 0 ? Lang.T($"{node.Name} · its limit is {Units.TempShort(reported)}") : node.Name);
-            }
-            if (best is { } found) warm.Add(found);
-        }
-        Fill(Warmest, warm.OrderByDescending(x => x.Share).Take(GlanceRows).Select(x => (x.Sensor, (double?)x.Share, x.Note)));
-        Fill(Hardest, new[] { CpuLoad, GpuLoad, GpuVramLoad, RamLoad }.Where(x => x?.Value is not null && !x.IsHidden).Select(x => x!)
-            .OrderByDescending(x => x.Value).Select(x => (x, (double?)(x.Value!.Value / 100), x.HardwareShown)));
-        Fill(FastestFans, _flat.Where(x => x.Kind == SensorKind.Fan && !x.IsHidden && x.Value > 0).OrderByDescending(x => x.Value).Take(GlanceRows)
-            .Select(x => (x, (double?)null, x.HardwareShown)));
-        var power = new[] { CpuPower, GpuPower }.Where(x => x?.Value is > 0 && !x.IsHidden).Select(x => x!).OrderByDescending(x => x.Value).ToList();
-        Fill(PowerDraw, power.Select(x => (x, (double?)null, x.HardwareShown)));
-        PowerNote = power.Count > 1 ? Lang.T($"{Units.Format(SensorKind.Power, power.Sum(x => x.Value!.Value))} together") : "";
-    }
-
-    /// <summary>Rows kept and given what they now show (a list made anew each second would be built anew each second).</summary>
-    private static void Fill(ObservableCollection<GlanceRow> rows, IEnumerable<(SensorItem Sensor, double? Bar, string Note)> items)
-    {
-        int i = 0;
-        foreach (var (sensor, bar, note) in items)
-        {
-            if (i >= rows.Count) rows.Add(new GlanceRow());
-            var row = rows[i++];
-            row.Sensor = sensor;
-            row.Bar = Math.Clamp(bar ?? 0, 0, 1);
-            row.HasBar = bar is not null;
-            row.Note = note;
-        }
-        while (rows.Count > i) rows.RemoveAt(rows.Count - 1);
-    }
-
-    /// <summary>A line of the pane was clicked: the list shows that sensor (its part opened, any search let go) and
-    /// the page scrolls to its row, which stays lit.</summary>
-    public event Action<SensorItem>? Revealed;
-
-    private SensorItem? _lit;
-
-    [RelayCommand]
-    private void Reveal(GlanceRow? row)
-    {
-        if (row?.Sensor is not { } sensor || GroupOf(sensor) is not { } node) return;
-        if (SearchText.Length > 0) SearchText = "";
-        if (TypeFilter != "All") TypeFilter = "All";
-        if (!node.IsExpanded)
-        {
-            node.IsExpanded = true;
-            SaveCollapsed();
-            RebuildRows();
-        }
-        if (_lit is not null) _lit.IsSelected = false;
-        (_lit = sensor).IsSelected = true;
-        Revealed?.Invoke(sensor);
-    }
-
-    // ── A sensor's menu (the "more" at the end of its row): where it is shown, copying its value ──
-
-    /// <summary>The user's dashboards, for "Show it on" (the shell gives them; none in a page shown on its own).</summary>
-    public Func<IReadOnlyList<CustomPageViewModel>>? Dashboards { get; set; }
-
-    /// <summary>Where <paramref name="sensor"/> can be shown, and whether it is: the taskbar, the overlay, each widget
-    /// that is on and takes its kind of reading, each dashboard.</summary>
-    public IReadOnlyList<SensorPlace> PlacesFor(SensorItem sensor)
-    {
-        var places = new List<SensorPlace>();
-        var set = _settings.Current;
-        places.Add(new SensorPlace(Lang.T("The taskbar"), "", set.TraySensors.Contains(sensor.Id), true,
-            () => _settings.Update(x => { if (!x.TraySensors.Remove(sensor.Id)) x.TraySensors.Add(sensor.Id); })));
-        bool onOverlay = set.Overlay.Sensors.Any(o => o.Id == sensor.Id);
-        places.Add(new SensorPlace(Lang.T("The overlay"), "", onOverlay, onOverlay || set.Overlay.Sensors.Count < OverlaySettings.MaxSensors,
-            () => _settings.Update(x =>
-            {
-                if (x.Overlay.Sensors.RemoveAll(o => o.Id == sensor.Id) == 0 && x.Overlay.Sensors.Count < OverlaySettings.MaxSensors)
-                    x.Overlay.Sensors.Add(new OverlaySensor { Id = sensor.Id });
-            })));
-        // Each widget that is on and can show this kind of reading (a gauge takes temperatures and percentages).
-        foreach (var w in set.Widgets.Where(w => w.Enabled))
-        {
-            var layout = WidgetCatalog.LayoutOf(w);
-            if (!WidgetCatalog.AllowsSensor(layout, sensor.Kind)) continue;
-            string item = WidgetCatalog.SensorPrefix + sensor.Id, widgetId = w.Id;
-            var items = WidgetCatalog.ItemsOf(w);
-            bool onWidget = items.Any(i => i.Id == item);
-            places.Add(new SensorPlace(Lang.T($"Widget · {WidgetCatalog.Title(w)}"), "", onWidget, onWidget || (WidgetCatalog.ShownItems(w).Count < WidgetCatalog.MaxItems(layout) && items.Count < WidgetCatalog.MaxKept),
-                () => _settings.Update(x =>
-                {
-                    if (x.Widgets.FirstOrDefault(v => v.Id == widgetId) is not { } target) return;
-                    // A built-in widget gets its own copy of its usual readings first, as on the Widgets page.
-                    var list = WidgetCatalog.ItemsOf(target).Select(i => new WidgetItem { Id = i.Id, Label = i.Label }).ToList();
-                    if (list.RemoveAll(i => i.Id == item) == 0) list.Add(new WidgetItem { Id = item });
-                    target.Items = list;
-                    WidgetCatalog.Clean(target);
-                })));
-        }
-        foreach (var page in Dashboards?.Invoke() ?? [])
-        {
-            places.Add(new SensorPlace(Lang.T($"Dashboard · {page.Name}"), "", page.Tiles.Any(t => t.SensorRef == sensor.Id), true, () =>
-            {
-                if (page.Tiles.FirstOrDefault(t => t.SensorRef == sensor.Id) is { } tile) page.Remove(tile);
-                else
-                {
-                    page.SensorToAdd = sensor;
-                    page.AddSensorTileCommand.Execute(null);
-                }
-            }));
-        }
-        return places;
-    }
-
-    /// <summary>Puts text on the clipboard (tests replace this).</summary>
-    internal Action<string> SetClipboard { get; set; } = text => System.Windows.Clipboard.SetText(text);
-
-    /// <summary>Copies a sensor's reading as it is shown ("49.0 °C"). False when the clipboard is held by another program.</summary>
-    public bool Copy(SensorItem sensor)
-    {
-        try
-        {
-            SetClipboard(sensor.FormattedValue);
-            return true;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-    }
-
-    public void ApplyFilter()
-    {
-        HiddenCount = _flat.Count(s => s.IsHidden);
-        if (HiddenCount == 0 && ShowHidden) ShowHidden = false;
-        var pickable = _flat.Where(s => !s.IsHidden).ToList();
-        if (!pickable.SequenceEqual(PickableSensors)) PickableSensors = pickable;
-        // Every word typed must be in the sensor's name (the one given to it or its own), its part's name or its tag.
-        string[] words = Core.TextMatch.Words(SearchText);
-        foreach (var node in Hardware)
-        {
-            bool any = false;
-            foreach (var s in node.Sensors)
-            {
-                bool show = (ShowHidden || !s.IsHidden)
-                            && MatchesType(s.Kind)
-                            && Core.TextMatch.Has(words, [s.DisplayName, s.Name, node.Name, node.Badge, node.BadgeText, .. KindWords(s.Kind)]);
-                s.IsShown = show;
-                any |= show;
-            }
-            node.HasVisibleSensors = any;
-            int hidden = node.Sensors.Count(s => s.IsHidden);
-            node.Summary = (node.Sensors.Count == 1 ? Lang.T("1 sensor") : Lang.T($"{node.Sensors.Count} sensors")) + (hidden > 0 ? "  ·  " + (hidden == 1 ? Lang.T("1 hidden") : Lang.T($"{hidden} hidden")) : "");
-        }
-        RebuildRows();
-        UpdateGlance();
-    }
-
-    private void RebuildRows()
-    {
-        var rows = new List<object>(_flat.Count + Hardware.Count * 2);
-        foreach (var node in OrderedHardware().Where(n => n.HasVisibleSensors))
-        {
-            rows.Add(node);
-            if (node.IsExpanded && !IsReordering) rows.AddRange(node.Sensors.Where(s => s.IsShown));
-            rows.Add(node.End);
-        }
-        SensorRows = rows;
-    }
-
-    // ── Reordering the groups (drag a header) ──
-
-    /// <summary>While a group is being dragged: every group shows just its header, so the whole list fits.</summary>
-    [ObservableProperty] private bool _isReordering;
-
-    partial void OnIsReorderingChanged(bool value) => RebuildRows();
-
-    /// <summary>The groups in the order the user chose; ones not placed yet keep their usual order after them.</summary>
-    private List<HardwareNode> OrderedHardware()
-    {
-        var order = _settings.Current.HardwareOrder;
-        return [.. Hardware.Select((node, i) => (node, key: order.IndexOf(node.Key) is int k and >= 0 ? k : order.Count + i))
-            .OrderBy(x => x.key).Select(x => x.node)];
-    }
-
-    /// <summary>Moves a group to where another one is (after it when coming from above, before it when from below).</summary>
-    public void MoveHardware(HardwareNode node, HardwareNode target)
-    {
-        if (node == target) return;
-        var list = OrderedHardware();
-        int from = list.IndexOf(node), to = list.IndexOf(target);
-        if (from < 0 || to < 0) return;
-        list.RemoveAt(from);
-        list.Insert(to, node);
-        _settings.Update(s => s.HardwareOrder = [.. list.Select(n => n.Key)]);
-        RebuildRows();
-    }
-
-    /// <summary>The group a row of the All sensors list belongs to.</summary>
-    public HardwareNode? GroupOf(object? row) => row switch
-    {
-        HardwareNode node => node,
-        SensorGroupEnd end => end.Owner,
-        SensorItem item => Hardware.FirstOrDefault(n => n.Sensors.Contains(item)),
-        _ => null,
-    };
-
-    [RelayCommand]
-    private void ToggleExpanded(HardwareNode? node)
-    {
-        if (node is null) return;
-        node.IsExpanded = !node.IsExpanded;
-        SaveCollapsed();
-        RebuildRows();
-    }
-
-    [RelayCommand]
-    private void SetAllExpanded(string expand)
-    {
-        bool value = expand == "True";
-        foreach (var n in Hardware) n.IsExpanded = value;
-        SaveCollapsed();
-        RebuildRows();
-    }
-
-    private void SaveCollapsed() =>
-        _settings.Update(s => s.CollapsedHardware = [.. Hardware.Where(n => !n.IsExpanded).Select(n => n.Key)]);
-
-    [RelayCommand]
-    private void UnhideAll()
-    {
-        _settings.Update(s => s.HiddenSensors.Clear());
-        foreach (var item in _flat) item.IsHidden = false;
-        ApplyFilter();
-    }
-
-    /// <summary>
-    /// What kind of reading a sensor is, in English and in the language in use, so a search finds it by either word:
-    /// sensor names come from the hardware's drivers in English ("Fan #1"), and someone may type "ventilador".
-    /// </summary>
-    private static string[] KindWords(SensorKind k)
-    {
-        string? word = k switch
-        {
-            SensorKind.Temperature => Lang.Key("Temperatures"),
-            SensorKind.Load => Lang.Key("Load"),
-            SensorKind.Fan or SensorKind.Control => Lang.Key("Fans"),
-            SensorKind.Power or SensorKind.Current => Lang.Key("Power"),
-            SensorKind.Clock => Lang.Key("Clocks"),
-            SensorKind.Voltage => Lang.Key("Voltage"),
-            _ => null,
-        };
-        return word is null ? [] : [word, Lang.T(word)];
-    }
-
-    private bool MatchesType(SensorKind k) => TypeFilter switch
-    {
-        "Temperature" => k == SensorKind.Temperature,
-        "Load" => k == SensorKind.Load,
-        "Fan" => k is SensorKind.Fan or SensorKind.Control,
-        "Power" => k is SensorKind.Power or SensorKind.Current,
-        "Clock" => k == SensorKind.Clock,
-        "Voltage" => k == SensorKind.Voltage,
-        _ => true,
-    };
-
-    /// <remarks>
-    /// Takes object: the sensor list recycles rows, and while a row is being reused its button can
-    /// briefly be bound to a card header instead of a sensor. Anything that isn't a sensor is ignored.
-    /// </remarks>
-    [RelayCommand]
-    private static void ToggleHidden(object? item) => (item as SensorItem)?.ToggleHidden();
-
-    public IReadOnlyList<SensorItem> AllSensors => _flat;
-
-    private static SensorItem? Find(IEnumerable<SensorItem> sensors, SensorKind kind, params string[] names)
-    {
-        foreach (var name in names)
-        {
-            var match = sensors.FirstOrDefault(s => s.Kind == kind && s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (match is not null) return match;
-        }
-        return null;
-    }
-}
-
-/// <summary>A line of the pane beside the All sensors list: a sensor, what is said under its name, and a bar (0 to 1).</summary>
-public sealed partial class GlanceRow : ObservableObject
-{
-    [ObservableProperty] private SensorItem? _sensor;
-    [ObservableProperty] private string _note = "";
-    [ObservableProperty] private double _bar;
-    [ObservableProperty] private bool _hasBar;
-}
-
-/// <summary>Somewhere a sensor can be shown (the taskbar, the overlay, a widget, a dashboard), and whether it is there now.</summary>
-public sealed partial class SensorPlace(string name, string glyph, bool isShown, bool canToggle, Action toggle) : ObservableObject
-{
-    public string Name { get; } = name;
-    /// <summary>The place's icon, the same as its page's in the sidebar.</summary>
-    public string Glyph { get; } = glyph;
-    public bool IsShown { get; } = isShown;
-    /// <summary>False when it can't be added: the place is full.</summary>
-    public bool CanToggle { get; } = canToggle;
-
-    [RelayCommand]
-    private void Toggle()
-    {
-        if (CanToggle) toggle();
-    }
-}
+﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Text.RegularExpressions;
+using System.Windows.Data;
+using System.Windows.Media;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Rigsight.Core;
+using Rigsight.Core.Protocol;
+using Rigsight.Core.Settings;
+using Rigsight.Models;
+using Rigsight.Services;
+
+namespace Rigsight.ViewModels;
+
+/// <summary>Live readings streamed from the agent: every sensor, per-app resource use, and today's totals.</summary>
+public sealed partial class LiveData : ObservableObject
+{
+    private readonly SettingsModel _settings;
+    private readonly List<SensorItem> _flat = [];
+    private readonly Dictionary<string, SensorItem> _byKey = [];
+    private readonly Dictionary<string, SensorItem> _byId = [];
+
+    // Today's [lowest, highest] per sensor id from the agent, kept so sensors created later get them too.
+    private readonly Dictionary<string, double[]> _extremes = [];
+    private string? _extremesDay;
+    private readonly Dictionary<string, ProcRow> _procIndex = new(StringComparer.OrdinalIgnoreCase);
+
+    public LiveData(SettingsModel settings)
+    {
+        _settings = settings;
+        ProcsView = CollectionViewSource.GetDefaultView(Procs);
+        ProcsView.SortDescriptions.Add(new SortDescription(nameof(ProcRow.MemMB), ListSortDirection.Descending));
+        // Kept sorted all the time, the Memory page shown or not: turning live sorting off while the page was away and on
+        // again when it came back left its rows out of step with the list (one app on two rows, Microsoft Defender twice:
+        // ProcessRowsTests), and reading the list anew on each visit to set them right made every switch to Processes
+        // take over 100 ms. Kept on, it costs about 0.2 ms an update (measured with 200 apps, 2026-10-16).
+        if (ProcsView is ICollectionViewLiveShaping { CanChangeLiveSorting: true } live)
+        {
+            live.LiveSortingProperties.Add(nameof(ProcRow.MemMB));
+            live.IsLiveSorting = true;
+            // The Memory page's "Above their usual" filter follows the apps as they come above it or go back down.
+            live.LiveFilteringProperties.Add(nameof(ProcRow.IsOver));
+            live.IsLiveFiltering = true;
+        }
+        ProcsView.Filter = o => o is ProcRow p && Listed(p);
+    }
+
+    public ObservableCollection<HardwareNode> Hardware { get; } = [];
+
+    /// <summary>What the All sensors page lists: per card, a header, the rows that pass the filters, and an end marker.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SensorsEmptyText))]
+    private List<object> _sensorRows = [];
+
+    [ObservableProperty] private bool _hasHardware;
+
+    /// <summary>
+    /// The agent runs under a standard account, where some readings can't be had: a page says "needs admin rights on
+    /// this PC" where one would be, instead of pointing at an agent the person can't restart with them.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowCpuBusiest))]
+    private bool _standardAccount;
+    [ObservableProperty] private long _tick;
+
+    // ── Dashboard picks ───────────────────────────────────────────────────
+    [ObservableProperty] private string _cpuName = "CPU";
+    [ObservableProperty] private SensorItem? _cpuTemp;
+    [ObservableProperty] private SensorItem? _cpuDieTemp;
+    [ObservableProperty] private SensorItem? _cpuLoad;
+    [ObservableProperty] private SensorItem? _cpuPower;
+    [ObservableProperty] private SensorItem? _cpuClock;
+    [ObservableProperty] private SensorItem? _cpuVoltage;
+    public ObservableCollection<SensorItem> CpuThreads { get; } = [];
+
+    [ObservableProperty] private string _gpuName = "GPU";
+    [ObservableProperty] private SensorItem? _gpuTemp;
+    [ObservableProperty] private SensorItem? _gpuHotSpot;
+    [ObservableProperty] private SensorItem? _gpuMemJunction;
+    [ObservableProperty] private SensorItem? _gpuLoad;
+    [ObservableProperty] private SensorItem? _gpuPower;
+    [ObservableProperty] private SensorItem? _gpuClock;
+    [ObservableProperty] private SensorItem? _gpuFan;
+    [ObservableProperty] private SensorItem? _gpuVramLoad;
+    [ObservableProperty] private SensorItem? _gpuVramUsed;
+    [ObservableProperty] private SensorItem? _gpuVramTotal;
+
+    /// <summary>Every graphics processor, the main one first (the one the GPU readings above, and history, are of).</summary>
+    public ObservableCollection<GpuView> Gpus { get; } = [];
+
+    /// <summary>The GPU the Temperatures page shows (its arrows switch between them).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GpuPositionText))]
+    private GpuView? _selectedGpu;
+
+    public bool HasSeveralGpus => Gpus.Count > 1;
+    public string GpuPositionText => SelectedGpu is null ? "" : Lang.T($"GPU {Gpus.IndexOf(SelectedGpu) + 1} of {Gpus.Count}");
+
+    [RelayCommand]
+    private void NextGpu() => MoveGpu(1);
+
+    [RelayCommand]
+    private void PreviousGpu() => MoveGpu(-1);
+
+    private void MoveGpu(int step)
+    {
+        if (Gpus.Count < 2 || SelectedGpu is null) return;
+        SelectedGpu = Gpus[(Gpus.IndexOf(SelectedGpu) + step + Gpus.Count) % Gpus.Count];
+    }
+
+    [ObservableProperty] private SensorItem? _ramLoad;
+    [ObservableProperty] private SensorItem? _ramUsed;
+    [ObservableProperty] private SensorItem? _ramAvailable;
+    [ObservableProperty] private string _ramText = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RamHeading))]
+    private string _ramTotalText = "";
+
+    /// <summary>The RAM card's heading: "32 GB of memory".</summary>
+    public string RamHeading => Lang.T($"{RamTotalText} of memory");
+
+    public ObservableCollection<DriveSummary> Drives { get; } = [];
+    public ObservableCollection<SensorItem> Fans { get; } = [];
+    public ObservableCollection<SensorItem> BoardTemps { get; } = [];
+
+    /// <summary>The Temperatures page's "Over the months": the CPU's (and GPU's) cooling gap week by week (see <see cref="Core.Reports.Wear.Cooling"/>).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCooling))]
+    private IReadOnlyList<CoolingPart> _cooling = [];
+    public bool HasCooling => Cooling.Count > 0;
+
+    /// <summary>"Over the months" by week ("Weeks") or by month ("Months"): the card's switch, for as long as the app runs.</summary>
+    [ObservableProperty] private string _coolingPeriod = "Weeks";
+
+    private (Core.Reports.WearRow Cpu, Core.Reports.WearRow Gpu)? _coolingRows;
+
+    partial void OnCoolingPeriodChanged(string value) => BuildCooling();
+
+    /// <summary>Fills <see cref="Cooling"/>: the GPU's part only on a PC with a GPU, or one that had one.</summary>
+    public void LoadCooling(Core.Reports.WearRow cpu, Core.Reports.WearRow gpu)
+    {
+        _coolingRows = (cpu, gpu);
+        BuildCooling();
+    }
+
+    private void BuildCooling()
+    {
+        if (_coolingRows is not { } rows) return;
+        var gpu = Gpus.Count > 0 || rows.Gpu.History.Count > 0 ? rows.Gpu : null;
+        Cooling = CoolingCard.Of(rows.Cpu, gpu, CoolingPeriod == "Months");
+    }
+
+    /// <summary>The Temperatures page's week, hour by hour (see <see cref="Controls.HeatGrid"/>).</summary>
+    [ObservableProperty] private IReadOnlyList<HeatHour> _heatWeek = [];
+
+    /// <summary>The Temperatures page's "Drives": a row a drive that reads a temperature, against its own limit.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDriveTemps), nameof(HasPartTemps))]
+    private IReadOnlyList<DriveTemp> _driveTemps = [];
+    public bool HasDriveTemps => DriveTemps.Count > 0;
+
+    /// <summary>The Temperatures page's "Motherboard": the board's temperature sensors as tiles, grouped by the chip they're read from.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasBoardTemps), nameof(HasPartTemps), nameof(BoardName), nameof(BoardColumns))]
+    private IReadOnlyList<BoardChip> _boardChips = [];
+    public bool HasBoardTemps => BoardChips.Count > 0;
+    /// <summary>The board's name, beside the Motherboard card's title (each chip's column names only its chip).</summary>
+    public string BoardName => BoardChips.FirstOrDefault(c => c.HasBoard)?.Board ?? "";
+    /// <summary>A column a chip, two at the most: a lone chip takes the card's width.</summary>
+    public int BoardColumns => Math.Clamp(BoardChips.Count, 1, 2);
+
+    /// <summary>Either card has something; with neither (no admin rights) one card across the row says why.</summary>
+    public bool HasPartTemps => HasDriveTemps || HasBoardTemps;
+
+    /// <summary>Each drive's row, made when the sensor list arrives (Windows asked once a drive for its type and size); <see cref="DriveTemps"/> are those with a temperature.</summary>
+    private readonly List<DriveTemp> _driveRows = [];
+
+    /// <summary>What Windows says of a drive by its number (tests give their own: they mustn't depend on the PC's drives).</summary>
+    internal Func<int, DriveFacts> ProbeDrive { get; set; } = DriveProbe.Read;
+    internal char WindowsLetter { get; set; } = DriveProbe.WindowsLetter;
+
+    /// <summary>Asked once a drive (by its number and name) for as long as the app runs: drives are seldom swapped, and a new hello comes often.</summary>
+    private readonly Dictionary<(int, string), DriveFacts> _driveFacts = [];
+
+    private static readonly Regex DriveNumber = new(@"^/[a-z]+/(\d+)/", RegexOptions.CultureInvariant);
+
+    /// <summary>A drive's row for "Drives": its kind and size from Windows, its limit from its own sensors.</summary>
+    private DriveTemp DriveRow(HardwareNode node, SensorItem temp, SensorItem? life)
+    {
+        // LibreHardwareMonitor numbers a drive as Windows does ("/nvme/2/…" is the third physical drive).
+        var facts = DriveFacts.None;
+        if (DriveNumber.Match(temp.Id) is { Success: true } m && int.TryParse(m.Groups[1].Value, out int disk))
+        {
+            if (!_driveFacts.TryGetValue((disk, node.Name), out var known)) _driveFacts[(disk, node.Name)] = known = ProbeDrive(disk);
+            facts = known;
+        }
+        else Log.Write("drives", $"{node.Name}: expected a drive number in its sensor's id, found \"{temp.Id}\"");
+        // Where Windows didn't say: an NVMe drive is always an SSD, and so is one that reports its wear.
+        bool nvme = temp.Id.StartsWith("/nvme/", StringComparison.Ordinal);
+        if (facts.Kind == DriveKind.Unknown && (nvme || life is not null)) facts = facts with { Kind = DriveKind.Ssd };
+        if (facts.Bus is null && nvme) facts = facts with { Bus = "NVMe" };
+        return new DriveTemp(node.Name, facts.Line(WindowsLetter), temp, DriveTemp.ReportedLimitOf(node.Sensors), facts.Kind);
+    }
+
+    /// <summary>Puts the two cards' lists together again: the lists they are made of changed, or a sensor was hidden or renamed.</summary>
+    private void RefreshPartTemps()
+    {
+        DriveTemps = Models.Kept.Or(DriveTemps, [.. _driveRows]);
+        // Chip by chip in All sensors' order; a chip whose readings are all hidden or dropped has no group.
+        BoardChips = Models.Kept.Or(BoardChips,
+            [.. Hardware.Where(n => n.Type is "SuperIO" or "Motherboard" or "EmbeddedController" or "Cooler")
+                .Select(n => (Name: BoardChip.Split(n.Name), Tiles: (IReadOnlyList<PartTemp>)[.. n.Sensors.Where(t => BoardTemps.Contains(t) && !t.IsHidden)
+                    .OrderByDescending(t => t.Value ?? double.MinValue) // warmest first, as the list is made (it isn't sorted again as readings change)
+                    .Select(t => new PartTemp(t.DisplayName, t, "40,60,80"))]))
+                .Where(g => g.Tiles.Count > 0)
+                .Select(g => new BoardChip(g.Name.Chip, g.Name.Board, g.Tiles))],
+            BoardChip.Same);
+    }
+
+    public ObservableCollection<ChartSeries> TempSeries { get; } = [];
+
+    /// <summary>
+    /// What the temperature graph's line is drawn from: each minute's average ("Avg"), its highest reading ("High") or
+    /// its lowest ("Low").
+    /// </summary>
+    public string ChartPlot
+    {
+        get => _settings.Current.ChartPlot is "High" or "Low" ? _settings.Current.ChartPlot : "Avg";
+        set
+        {
+            if (value == ChartPlot) return;
+            _settings.Update(s => s.ChartPlot = value);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ChartLegendLabel));
+            UpdatePeaks();
+        }
+    }
+
+    /// <summary>What the choice is between, in front of it: a point of the line is a minute, an hour (the last 7 or 30 days), a day (12 months).</summary>
+    public string ChartPlotLabel => ChartStepSeconds switch { 86400 => Lang.T("Each day's"), 3600 => Lang.T("Each hour's"), _ => Lang.T("Each minute's") };
+
+    /// <summary>There's a choice to make: under an hour every reading is drawn as it was.</summary>
+    public bool CanChartPlot => ChartWindowSeconds is 0 or >= 3600 or Core.Reports.ChartRange.Custom;
+
+    private bool _chartCustom;
+    private DateTime _chartCustomFrom, _chartCustomTo;
+
+    /// <summary>
+    /// 300, 3600, 21600 or 86400 seconds up to now, 0 for one calendar day (<see cref="ChartDay"/>), the last 7 days
+    /// (604800), 30 days (2592000) or 12 months (31536000) up to <see cref="ChartDay"/>, or -1 for a custom range
+    /// (<see cref="ChartCustomFrom"/> to <see cref="ChartCustomTo"/>; not kept: the graph opens on the last one saved).
+    /// </summary>
+    public int ChartWindowSeconds
+    {
+        get => _chartCustom ? Core.Reports.ChartRange.Custom : _settings.Current.ChartWindowSeconds;
+        set
+        {
+            if (value == Core.Reports.ChartRange.Custom)
+            {
+                if (_chartCustom) { ChartRangeEditRequested?.Invoke(); return; }
+                // Starts as the period that was shown, in whole hours up to now, then the editor opens to change it.
+                if (!(_chartCustomTo > _chartCustomFrom))
+                {
+                    var (from, to) = IsChartPaged ? ChartShownPeriod : (DateTime.Now.AddSeconds(-ChartWindowSeconds), DateTime.Now);
+                    var end = Core.Reports.ReportBuilder.HourEnd(to);
+                    (_chartCustomFrom, _chartCustomTo) = (Core.Reports.ReportBuilder.HourStart(from), end);
+                    if (_chartCustomTo <= _chartCustomFrom) _chartCustomFrom = _chartCustomTo.AddHours(-1);
+                }
+                _chartCustom = true;
+            }
+            else
+            {
+                _chartCustom = false;
+                _settings.Update(s => s.ChartWindowSeconds = value);
+            }
+            RangeChanged(window: true);
+            if (_chartCustom) ChartRangeEditRequested?.Invoke();
+        }
+    }
+
+    /// <summary>Everything the range shown decides, said again, and the history read for it.</summary>
+    private void RangeChanged(bool window)
+    {
+        if (window)
+        {
+            OnPropertyChanged(nameof(ChartWindowSeconds));
+            OnPropertyChanged(nameof(CanChartPlot));
+            OnPropertyChanged(nameof(IsChartDay));
+            OnPropertyChanged(nameof(IsChartLong));
+            OnPropertyChanged(nameof(IsChartPaged));
+            OnPropertyChanged(nameof(IsChartCustom));
+        }
+        OnPropertyChanged(nameof(ChartCustomFrom));
+        OnPropertyChanged(nameof(ChartCustomTo));
+        OnPropertyChanged(nameof(ChartStepSeconds));
+        OnPropertyChanged(nameof(ChartPlotLabel));
+        OnPropertyChanged(nameof(ChartDayLabel));
+        OnPropertyChanged(nameof(CanChartNextDay));
+        OnPropertyChanged(nameof(CanChartPreviousDay));
+        UpdatePeaks();
+        ChartRangeChanged?.Invoke();
+    }
+
+    public bool IsChartDay => ChartWindowSeconds == 0;
+
+    /// <summary>A custom range: from one whole hour to another, picked in the range editor.</summary>
+    public bool IsChartCustom => ChartWindowSeconds == Core.Reports.ChartRange.Custom;
+
+    /// <summary>Start of the custom range (a whole hour).</summary>
+    public DateTime ChartCustomFrom => _chartCustomFrom;
+
+    /// <summary>End of the custom range (a whole hour; not included).</summary>
+    public DateTime ChartCustomTo => _chartCustomTo;
+
+    /// <summary>Shows a custom range (picked in the editor, or stepped through with the arrows).</summary>
+    public void SetChartCustom(DateTime from, DateTime to)
+    {
+        if (to <= from) return;
+        bool window = !_chartCustom;
+        if (!window && from == _chartCustomFrom && to == _chartCustomTo) return;
+        (_chartCustom, _chartCustomFrom, _chartCustomTo) = (true, from, to);
+        RangeChanged(window);
+    }
+
+    /// <summary>The range editor is wanted (Custom range… picked from the menu): the page opens it.</summary>
+    public event Action? ChartRangeEditRequested;
+
+    /// <summary>
+    /// A line of the graph's range menu: the last 5 minutes to 12 months (all up to now: one picked earlier with the
+    /// arrows comes back to now), or -1 for a custom range (its editor opens, also when one is already shown).
+    /// </summary>
+    [RelayCommand]
+    private void PickChartRange(object? range)
+    {
+        // A number from the menu's XAML (text there), or from code.
+        int window = Convert.ToInt32(range, System.Globalization.CultureInfo.InvariantCulture);
+        if (window != Core.Reports.ChartRange.Custom) ChartDay = DateTime.Today;
+        ChartWindowSeconds = window;
+    }
+
+    /// <summary>
+    /// A rolling period or a custom range: drawn from the history read for it alone (hours, days, or minutes for a short
+    /// custom range), not from the live readings.
+    /// </summary>
+    public bool IsChartFixed => Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) || IsChartCustom;
+
+    /// <summary>Drawn from hours (the last 7 or 30 days, a custom range of days) or days (12 months), not minutes.</summary>
+    public bool IsChartLong => IsChartFixed && ChartStepSeconds > 60;
+
+    /// <summary>How long one point of the chart's older history stands for: a minute, an hour or a day (see <see cref="Core.Reports.ChartRange.StepSeconds"/>).</summary>
+    public int ChartStepSeconds => Core.Reports.ChartRange.StepSeconds(ChartWindowSeconds, _chartCustomFrom, _chartCustomTo);
+
+    /// <summary>A day, the last 7 or 30 days or 12 months, or a custom range: stepped through with the arrows (the others end now).</summary>
+    public bool IsChartPaged => IsChartDay || IsChartFixed;
+
+    /// <summary>What a day's arrows step by (a day: the rolling periods and custom ranges step by their own length).</summary>
+    public Core.Reports.ReportRange ChartUnit => Core.Reports.ReportRange.Day;
+
+    /// <summary>
+    /// The period the chart shows: the day (midnight to midnight), the last 7 days, 30 days or 12 months up to
+    /// <see cref="ChartDay"/> (from its first midnight to the one after that day), or the custom range.
+    /// </summary>
+    public (DateTime From, DateTime To) ChartPeriod => IsChartCustom ? (_chartCustomFrom, _chartCustomTo)
+        : Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) ? Core.Reports.ChartRange.Rolling(ChartWindowSeconds, ChartDay)
+        : Core.Reports.ReportBuilder.Bounds(Core.Reports.ReportRange.Day, ChartDay);
+
+    /// <summary>The period as drawn: one still going on ends at the point now is in, not at its end to come.</summary>
+    public (DateTime From, DateTime To) ChartShownPeriod
+    {
+        get
+        {
+            var (from, to) = ChartPeriod;
+            return (from, IsChartPaged ? Core.Reports.ChartRange.ShownEnd(to, ChartStepSeconds, DateTime.Now) : to);
+        }
+    }
+
+    private DateTime _chartDay = DateTime.Today;
+
+    /// <summary>
+    /// The day the temperature chart shows in day mode (today: midnight to now; earlier: the whole day); for the last
+    /// 7 days, 30 days or 12 months, the last day of the ones shown (today: up to now).
+    /// </summary>
+    public DateTime ChartDay
+    {
+        get => _chartDay;
+        set
+        {
+            var day = value.Date > DateTime.Today ? DateTime.Today : value.Date;
+            if (!SetProperty(ref _chartDay, day)) return;
+            OnPropertyChanged(nameof(ChartDayLabel));
+            OnPropertyChanged(nameof(CanChartNextDay));
+            OnPropertyChanged(nameof(CanChartPreviousDay));
+            UpdatePeaks();
+            ChartRangeChanged?.Invoke();
+        }
+    }
+
+    /// <summary>Midnight passed with the window open: a chart on today moves to the new day; an earlier day keeps its place.</summary>
+    public void NewDay(DateTime was)
+    {
+        if (_chartDay == was) { ChartDay = DateTime.Today; return; }
+        OnPropertyChanged(nameof(ChartDayLabel));
+        OnPropertyChanged(nameof(CanChartNextDay));
+    }
+
+    /// <summary>First day with minute history (the date picker starts there).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanChartPreviousDay))]
+    private DateTime? _chartHistoryStart;
+
+    /// <summary>"Last hour", "Today", "Yesterday", "Last 7 days", "3–9 Oct", "Thu 25 Sep, 8 AM – Fri 26 Sep, 1 AM"…: what the range menu's button says.</summary>
+    public string ChartDayLabel => IsChartCustom ? Core.Reports.Report.CustomTitle(_chartCustomFrom, _chartCustomTo)
+        : Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) ? Core.Reports.ChartRange.Label(ChartWindowSeconds, ChartDay, DateTime.Today)
+        : IsChartDay ? ReportsViewModel.PeriodText(ChartUnit, ChartDay)
+        : Core.Reports.ChartRange.WindowLabel(ChartWindowSeconds);
+
+    // Forward while the one shown is over; back while it began after the history did. Never on the last minutes or
+    // hours: those always end now.
+    public bool CanChartNextDay => IsChartPaged && (IsChartCustom ? _chartCustomTo < DateTime.Now
+        : Core.Reports.ChartRange.IsRolling(ChartWindowSeconds) ? ChartDay < DateTime.Today
+        : ChartPeriod.To <= DateTime.Today);
+    public bool CanChartPreviousDay => IsChartPaged && (ChartHistoryStart is not { } f || ChartPeriod.From > f);
+
+    [RelayCommand]
+    private void ChartPreviousDay()
+    {
+        if (!CanChartPreviousDay) return;
+        if (IsChartCustom) StepCustom(-1);
+        else if (Core.Reports.ChartRange.IsRolling(ChartWindowSeconds)) ChartDay = Core.Reports.ChartRange.Step(ChartWindowSeconds, ChartDay, -1);
+        else ChartDay = Core.Reports.ReportBuilder.Previous(ChartUnit, ChartDay);
+    }
+
+    [RelayCommand]
+    private void ChartNextDay()
+    {
+        // Never past today (the 7 days to come stop at today, ending now).
+        if (!CanChartNextDay) return;
+        if (IsChartCustom) StepCustom(1);
+        else if (Core.Reports.ChartRange.IsRolling(ChartWindowSeconds)) ChartDay = Core.Reports.ChartRange.Step(ChartWindowSeconds, ChartDay, 1);
+        else ChartDay = Core.Reports.ReportBuilder.Next(ChartUnit, ChartDay);
+    }
+
+    /// <summary>A custom range steps by its own length (three hours back, the two days before…), as on the other pages.</summary>
+    private void StepCustom(int direction)
+    {
+        var length = _chartCustomTo - _chartCustomFrom;
+        SetChartCustom(_chartCustomFrom + direction * length, _chartCustomTo + direction * length);
+    }
+
+    /// <summary>The chart needs different minute history (another day, or back to the last 24 hours).</summary>
+    public event Action? ChartRangeChanged;
+
+    public string SystemSummary => string.Join("  ·  ", new[] { CpuName, GpuName }.Where(n => n is not "CPU" and not "GPU"));
+
+    // ── Today ─────────────────────────────────────────────────────────────
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowCpuBusiest))]
+    private TodayInfo _today = new();
+
+    /// <summary>What's in front right now and its session (with a game's frame rate while RivaTuner measures it): the Games page's live view.</summary>
+    [ObservableProperty] private ActivityInfo? _activity;
+
+    /// <summary>
+    /// Home's CPU tile says how busy the CPU got instead of how hot: on a standard account, on a day with no CPU
+    /// temperature (a day that has one, read while admin rights were on for a while, shows its peak as usual).
+    /// </summary>
+    public bool ShowCpuBusiest => StandardAccount && Today.CpuPeak is null;
+
+    /// <summary>Today's totals have come from the agent, or no agent is there to send them: until then Home's figures are loading, not nought.</summary>
+    [ObservableProperty] private bool _todayIn;
+    partial void OnTodayChanged(TodayInfo value) => TodayIn = true;
+
+    // ── Processes ─────────────────────────────────────────────────────────
+    public ObservableCollection<ProcRow> Procs { get; } = [];
+
+    /// <summary>The six apps using the most memory (for the custom page tile).</summary>
+    [ObservableProperty] private List<ProcRow> _topMemory = [];
+    public ICollectionView ProcsView { get; }
+    [ObservableProperty] private bool _onlyWindowedApps;
+
+    /// <summary>What's typed in the Memory page's search box: the live list shows the apps it matches.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NoProcsMatch))]
+    private string _procSearch = "";
+    private string[] _procWords = [];
+
+    /// <summary>Something is searched for and no app running matches it.</summary>
+    public bool NoProcsMatch => _procWords.Length > 0 && !Procs.Any(Listed);
+
+    /// <summary>The Memory page's "Above their usual" filter: the live list shows only the apps above their usual.</summary>
+    [ObservableProperty] private bool _onlyAboveUsual;
+
+    /// <summary>How many of the apps the switch and the search leave in the live list are above their usual (the filter's count).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAboveUsual))]
+    private int _aboveUsualCount;
+
+    /// <summary>Any app in the live list is above its usual: the filter can be used.</summary>
+    public bool HasAboveUsual => AboveUsualCount > 0;
+
+    /// <summary>Whether an app is in the live list: by the switch, by what's searched for (its name, its program's
+    /// name, or one of its processes where those are open), and by the "Above their usual" filter.</summary>
+    private bool Listed(ProcRow p) => Matches(p) && (!OnlyAboveUsual || p.IsOver);
+
+    private bool Matches(ProcRow p) => (!OnlyWindowedApps || p.HasWindow)
+        && (_procWords.Length == 0 || Core.TextMatch.Has(_procWords, [p.Name, p.Exe, .. p.Children.Select(c => c.Label)]));
+
+    partial void OnOnlyAboveUsualChanged(bool value)
+    {
+        ProcsView.Refresh();
+        UpdateBars();
+    }
+
+    partial void OnProcSearchChanged(string value)
+    {
+        _procWords = Core.TextMatch.Words(value);
+        ProcsView.Refresh();
+        UpdateBars();
+        OnPropertyChanged(nameof(NoProcsMatch));
+    }
+
+    partial void OnOnlyWindowedAppsChanged(bool value)
+    {
+        ProcsView.Refresh();
+        UpdateBars();
+        OnPropertyChanged(nameof(NoProcsMatch));
+    }
+
+    // ── Sensors page filters ──────────────────────────────────────────────
+    [ObservableProperty] private string _searchText = "";
+    [ObservableProperty] private string _typeFilter = "All";
+    [ObservableProperty] private bool _showHidden;
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnTypeFilterChanged(string value) => ApplyFilter();
+    partial void OnShowHiddenChanged(bool value) => ApplyFilter();
+
+    // ── Agent messages ────────────────────────────────────────────────────
+
+    public void LoadHello(AgentMessage hello)
+    {
+        // Today's totals arrive with the hello, before the agent has finished discovering the hardware.
+        if (hello.Today is not null) Today = hello.Today;
+        if (hello.NetHistory is { Count: > 0 } net)
+        {
+            _netHistory.Clear();
+            foreach (var n in net) AddNet(n);
+        }
+        if (hello.Drives is not null) _driveHealth = hello.Drives;
+        if (hello.Hardware is null) return;
+
+        int total = hello.Hardware.Sum(h => h.Sensors.Count);
+        bool sameSchema = total == _flat.Count &&
+            hello.Hardware.SelectMany(h => h.Sensors).Select(s => s.Id).SequenceEqual(_flat.Select(s => s.Id));
+        if (!sameSchema) Build(hello);
+        foreach (var drive in Drives) drive.Health = _driveHealth.FirstOrDefault(h => h.Name == drive.Name);
+
+        // Pre-fill charts with the agent's recent history.
+        if (hello.History is not null && hello.Keys is not null)
+        {
+            foreach (var series in hello.History)
+            {
+                // Key sensors by key name; others (drive temperatures) as "id:<sensor id>".
+                SensorItem? item = series.Key.StartsWith("id:", StringComparison.Ordinal)
+                    ? _byId.GetValueOrDefault(series.Key[3..])
+                    : hello.Keys.TryGetValue(series.Key, out int index) && index < _flat.Count ? _flat[index] : null;
+                if (item is { History.Count: 0 }) item.Seed(series.Times, series.Values);
+            }
+            Tick++;
+        }
+    }
+
+    /// <summary>The drives were read again (the agent sends them each time, every 10 s while the app is open).</summary>
+    public void UpdateDriveHealth(List<DriveHealthInfo> drives)
+    {
+        _driveHealth = drives;
+        foreach (var drive in Drives) drive.Health = _driveHealth.FirstOrDefault(h => h.Name == drive.Name);
+        DriveHealthUpdated?.Invoke();
+    }
+
+    /// <summary>Raised when the drives' readings change (the Storage page and an opened drive follow them).</summary>
+    public event Action? DriveHealthUpdated;
+
+    /// <summary>Every drive's latest readings, as the agent last sent them.</summary>
+    public IReadOnlyList<DriveHealthInfo> DriveHealth => _driveHealth;
+
+    private void Build(AgentMessage hello)
+    {
+        _ticksSinceBuild = 0;
+        _flat.Clear();
+        var selectedGpu = SelectedGpu is { } was ? (was.Name, Gpus.Where(g => g.Name == was.Name).ToList().IndexOf(was)) : default;
+        Gpus.Clear();
+        Hardware.Clear();
+        CpuThreads.Clear();
+        Drives.Clear();
+        Fans.Clear();
+        BoardTemps.Clear();
+        _driveRows.Clear();
+        TempSeries.Clear();
+
+        var s = _settings.Current;
+        var named = new Dictionary<string, int>();
+        foreach (var hw in hello.Hardware!)
+        {
+            int nth = named[hw.Name] = named.GetValueOrDefault(hw.Name) + 1;
+            string key = nth == 1 ? hw.Name : $"{hw.Name} #{nth}";
+            var node = new HardwareNode(hw.Name, hw.Type) { Key = key, IsExpanded = !s.CollapsedHardware.Contains(key), Device = hw.Device, Via = hw.Via };
+            foreach (var meta in hw.Sensors)
+            {
+                var item = new SensorItem(meta, hw.Name, hw.Type)
+                {
+                    Via = hw.Via is { } via ? TrayParts.DeviceVia(via) : null,
+                    Device = hw.Device,
+                    CustomLabel = s.SensorLabels.GetValueOrDefault(meta.Id),
+                    IsHidden = s.HiddenSensors.Contains(meta.Id),
+                };
+                item.UserPreferenceChanged += OnSensorPreferenceChanged;
+                node.Sensors.Add(item);
+                _flat.Add(item);
+            }
+            node.BuildKeys();
+            Hardware.Add(node);
+        }
+
+        SensorItem? K(string key) => hello.Keys is not null && hello.Keys.TryGetValue(key, out var i) && i < _flat.Count ? _flat[i] : null;
+        CpuTemp = K(KeySensors.CpuTemp);
+        CpuDieTemp = K(KeySensors.CpuDieTemp);
+        CpuLoad = K(KeySensors.CpuLoad);
+        CpuPower = K(KeySensors.CpuPower);
+        CpuClock = K(KeySensors.CpuClock);
+        CpuVoltage = K(KeySensors.CpuVoltage);
+        GpuTemp = K(KeySensors.GpuTemp);
+        GpuHotSpot = K(KeySensors.GpuHotSpot);
+        GpuMemJunction = K(KeySensors.GpuMemJunction);
+        GpuLoad = K(KeySensors.GpuLoad);
+        GpuPower = K(KeySensors.GpuPower);
+        GpuClock = K(KeySensors.GpuClock);
+        GpuFan = K(KeySensors.GpuFan);
+        GpuVramLoad = K(KeySensors.GpuVramLoad);
+        GpuVramUsed = K(KeySensors.GpuVramUsed);
+        GpuVramTotal = K(KeySensors.GpuVramTotal);
+        RamLoad = K(KeySensors.RamLoad);
+        RamUsed = K(KeySensors.RamUsed);
+        RamAvailable = K(KeySensors.RamAvailable);
+        VirtualLoad = _flat.FirstOrDefault(s => s.HardwareType == "Memory" && s.Kind == SensorKind.Load
+                                                && s.HardwareName.Contains("Virtual", StringComparison.OrdinalIgnoreCase));
+
+        CpuName = Hardware.FirstOrDefault(h => h.Type == "Cpu")?.Name ?? "CPU";
+        // Each GPU found the way the agent finds its main one (the same code), so the first is the one it records.
+        var candidates = new List<KeySensors.Candidate>();
+        int flatIndex = 0;
+        for (int hw = 0; hw < hello.Hardware!.Count; hw++)
+            foreach (var meta in hello.Hardware[hw].Sensors)
+                candidates.Add(new KeySensors.Candidate(flatIndex++, hello.Hardware[hw].Type, hello.Hardware[hw].Name, meta.Name, meta.Kind, hw));
+        foreach (var gpu in KeySensors.Gpus(candidates, hello.PreferredGpus))
+            Gpus.Add(new GpuView(gpu.Name, gpu.Integrated, key => gpu.Keys.TryGetValue(key, out int i) && i < _flat.Count ? _flat[i] : null));
+        // The same GPU as before a rebuild (by name, and which of several alike), else the main one.
+        SelectedGpu = selectedGpu.Name is { } keepName ? Gpus.Where(g => g.Name == keepName).ElementAtOrDefault(selectedGpu.Item2) ?? Gpus.FirstOrDefault() : Gpus.FirstOrDefault();
+        OnPropertyChanged(nameof(HasSeveralGpus));
+        GpuName = Gpus.FirstOrDefault()?.Name ?? "GPU";
+        OnPropertyChanged(nameof(SystemSummary));
+
+        var cpu = Hardware.FirstOrDefault(h => h.Type == "Cpu");
+        if (cpu is not null)
+        {
+            var threadName = new Regex(@"^CPU Core #\d+( Thread #\d+)?$");
+            foreach (var t in cpu.Sensors.Where(x => x.Kind == SensorKind.Load && threadName.IsMatch(x.Name)))
+                CpuThreads.Add(t);
+        }
+
+        foreach (var d in Hardware.Where(h => h.Type == "Storage"))
+        {
+            var temp = Find(d.Sensors, SensorKind.Temperature, "Composite Temperature", "Temperature")
+                       ?? d.Sensors.FirstOrDefault(x => x.Kind == SensorKind.Temperature && !x.Name.Contains("Warning") && !x.Name.Contains("Critical"));
+            var life = Find(d.Sensors, SensorKind.Level, "Life", "Remaining Life");
+            Drives.Add(new DriveSummary(d.Name, temp, life,
+                Find(d.Sensors, SensorKind.Load, "Used Space"), Find(d.Sensors, SensorKind.Factor, "Power On Hours")));
+            if (temp is not null) _driveRows.Add(DriveRow(d, temp, life));
+        }
+
+        // Fans and temperatures from the motherboard's sensor chips. Fans that never spin are left out.
+        foreach (var n in Hardware.Where(h => h.Type is "SuperIO" or "Motherboard" or "EmbeddedController" or "Cooler"))
+        {
+            foreach (var f in n.Sensors.Where(x => x.Kind == SensorKind.Fan)) Fans.Add(f);
+            foreach (var t in n.Sensors.Where(x => x.Kind == SensorKind.Temperature)) BoardTemps.Add(t);
+        }
+        RefreshPartTemps();
+
+        // A line's colour says which part it is, so none is green, amber or red: those say how a reading is doing (the
+        // numbers above the chart), and a green or amber line under them read as "good" or "warning".
+        // Longer chart windows come from the minute history: CPU and GPU as the minute's average, the
+        // hot spot and memory (only stored as the minute's highest) as that.
+        // Hovering a minute says its average, highest and lowest, as far as they were kept.
+        void AddSeries(string label, SensorItem? sensor, string colorKey, Func<Rigsight.Core.Data.SystemMinute, double?> fromMinute,
+            Func<Rigsight.Core.Data.SystemMinute, (double? Avg, double? High, double? Low)> stats)
+        {
+            if (sensor is null) return;
+            var series = new ChartSeries(label, sensor, colorKey, fromMinute, stats);
+            series.LoadMinutes(_minutes, _minuteStep);
+            TempSeries.Add(series);
+        }
+        AddSeries("CPU", CpuTemp, "CpuColor", m => m.CpuTemp, m => (m.CpuTemp, m.CpuTempMax, m.CpuTempMin));
+        AddSeries("GPU", GpuTemp, "GpuColor", m => m.GpuTemp, m => (m.GpuTemp, m.GpuTempMax, m.GpuTempMin));
+        // The hot spot's and the memory's line is their average too, where it was kept; before that, their highest.
+        AddSeries(Lang.T("GPU hot spot"), GpuHotSpot, "PurpleColor", m => m.GpuHotAvg ?? m.GpuHotMax, m => (m.GpuHotAvg, m.GpuHotMax, m.GpuHotMin));
+        AddSeries(Lang.T("GPU memory"), GpuMemJunction, "PinkColor", m => m.GpuMemAvg ?? m.GpuMemMax, m => (m.GpuMemAvg, m.GpuMemMax, m.GpuMemMin));
+        UpdatePeaks();
+
+        _byKey.Clear();
+        if (hello.Keys is not null)
+            foreach (var (key, index) in hello.Keys)
+                if (index < _flat.Count) _byKey[key] = _flat[index];
+        _byId.Clear();
+        foreach (var item in _flat) _byId.TryAdd(item.Id, item);
+        foreach (var (id, range) in _extremes)
+            if (_byId.TryGetValue(id, out var item)) item.SetTodayRange(range[0], range[1]);
+
+        HasHardware = _flat.Count > 0;
+        ApplyFilter();
+        SensorsRebuilt?.Invoke();
+    }
+
+    /// <summary>Raised when the sensor list was (re)built, so anything holding sensors can look them up again.</summary>
+    public event Action? SensorsRebuilt;
+
+    /// <summary>A sensor by id, or "key:&lt;name&gt;" for a well-known one (CPU load, GPU power…). Null until the agent has sent its sensors.</summary>
+    public SensorItem? Resolve(string? reference) =>
+        reference is null ? null
+        : reference.StartsWith("key:", StringComparison.Ordinal) ? _byKey.GetValueOrDefault(reference[4..])
+        : _byId.GetValueOrDefault(reference);
+
+    // ── The internet ──────────────────────────────────────────────────────
+
+    /// <summary>The internet this second: the connection's speed and each app's (null: not read, as without admin rights).</summary>
+    public NetLive? Net { get; private set; }
+
+    /// <summary>The line check's last minute: the ping to the router and to the provider (null: not checked yet).</summary>
+    public LineLive? Line { get; private set; }
+
+    /// <summary>The taskbar readings waiting for room in the strip's "+N" (by sensor id), as the agent last said.</summary>
+    public IReadOnlyList<string> TrayWaiting { get; private set; } = [];
+
+    /// <summary>Told when <see cref="TrayWaiting"/> changes.</summary>
+    public event Action? TrayWaitingChanged;
+
+    /// <summary>
+    /// RigSight's own network readings, for the taskbar: the whole PC's download and upload speed and both together, as
+    /// the Network page counts them (not sensors of the hardware library; see <see cref="TrayParts.NetDown"/>).
+    /// </summary>
+    public IReadOnlyList<SensorItem> NetSensors { get; } = [NetItem(TrayParts.NetDown), NetItem(TrayParts.NetUp), NetItem(TrayParts.NetBoth)];
+
+    /// <summary>
+    /// The game's frame rate, a taskbar reading of RigSight's own (see <see cref="TrayParts.Fps"/>): listed to add, with no
+    /// value here; the agent reads it from RivaTuner while a game draws frames.
+    /// </summary>
+    public IReadOnlyList<SensorItem> FpsSensors { get; } =
+        [new(new SensorMeta { Id = TrayParts.Fps, Name = Lang.T("Frame rate (FPS)"), Kind = SensorKind.FrameRate }, Lang.T("From RivaTuner, in the game you're playing"), TrayParts.FpsHardwareType)];
+
+    /// <summary>The ping, a taskbar reading of RigSight's own (see <see cref="TrayParts.Ping"/>): its value comes from the agent.</summary>
+    public IReadOnlyList<SensorItem> PingSensors { get; } =
+        [new(new SensorMeta { Id = TrayParts.Ping, Name = Lang.T("Ping"), Kind = SensorKind.Latency }, Lang.T("The game or call you're on, else your internet provider"), "Network")];
+
+    /// <summary>
+    /// The driver delay, a taskbar reading of RigSight's own (see <see cref="TrayParts.DriverDelay"/>; issue #15 follow-up):
+    /// listed to add; its value comes from the agent, with RigSight running as administrator.
+    /// </summary>
+    public IReadOnlyList<SensorItem> DelaySensors { get; } =
+        [new(new SensorMeta { Id = TrayParts.DriverDelay, Name = Lang.T("Driver delay"), Kind = SensorKind.Delay }, Lang.T("The longest a driver kept a CPU core busy just now"), "Drivers")];
+
+    private static SensorItem NetItem(string id) =>
+        new(new SensorMeta { Id = id, Name = TrayParts.NetName(id), Kind = SensorKind.Throughput }, TrayParts.NetHardware, "Network");
+
+    /// <summary>The speeds this second into <see cref="NetSensors"/> (none: not known, as when the agent has gone).</summary>
+    private void PushNet(NetLive? net)
+    {
+        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        float? down = net is { Stalled: false } ? (float)net.Down : null, up = net is { Stalled: false } ? (float)net.Up : null;
+        NetSensors[0].Push(now, down);
+        NetSensors[1].Push(now, up);
+        NetSensors[2].Push(now, down);
+    }
+
+    /// <summary>The connection's speed over the last minute, oldest first (bytes a second).</summary>
+    public IReadOnlyList<NetLive> NetHistory => _netHistory;
+    private readonly List<NetLive> _netHistory = [];
+
+    /// <summary>How many seconds the live network chart shows.</summary>
+    public const int NetHistorySeconds = 60;
+
+    private void AddNet(NetLive net)
+    {
+        if (_netHistory.Count > 0 && _netHistory[^1].Time >= net.Time) return;
+        _netHistory.Add(new NetLive { Time = net.Time, Down = net.Down, Up = net.Up });
+        while (_netHistory.Count > NetHistorySeconds) _netHistory.RemoveAt(0);
+    }
+
+    /// <summary>
+    /// The agent has gone (quit, crashed, restarting): the last readings aren't "right now" any more. Every reading
+    /// shows as none (a gap on its chart, as it is) and the internet's speeds and apps go, where they used to stay
+    /// frozen on whatever the last second happened to be.
+    /// </summary>
+    /// <summary>
+    /// The first readings are still on their way from the agent: a box that shows them says so with a loader, not with
+    /// dashes or an empty space. Over once they arrive, or when no agent is there to send them (<see cref="StopWaiting"/>),
+    /// so nothing turns for ever.
+    /// </summary>
+    [ObservableProperty] private bool _readingsPending = true;
+
+    /// <summary>The same for the first list of running apps, which arrives by itself a moment after the readings.</summary>
+    [ObservableProperty] private bool _appsPending = true;
+
+    /// <summary>Nothing more to wait for: the agent isn't there, or hasn't sent anything for too long.</summary>
+    public void StopWaiting()
+    {
+        ReadingsPending = AppsPending = false;
+        TodayIn = true; // no agent to send them: the figures as they are, not a loader for ever
+    }
+
+    public void AgentGone()
+    {
+        Net = null;
+        Line = null;
+        _netHistory.Clear();
+        PushNet(null);
+        long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        foreach (var item in _flat) item.Push(now, null);
+        if (_flat.Count > 0) UpdateDerived();
+        Tick++;
+    }
+
+    public void ApplyTick(AgentMessage tick)
+    {
+        if (tick.Net is { } net)
+        {
+            Net = net;
+            AddNet(net);
+            PushNet(net);
+        }
+        // A readings tick without the internet: it isn't being read (no admin rights and no card counts yet).
+        else if (tick.Values is not null) PushNet(null);
+        Line = tick.Line;
+        // The ping reading as the agent's taskbar shows it: the game's or call's server, else the provider, else the router.
+        PingSensors[0].Push(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            (Rigsight.Core.Net.ServerWords.Lead(tick.Line?.Servers)?.Ms ?? tick.Line?.IspMs ?? tick.Line?.LanMs) is int ms ? ms : null);
+        if (tick.Values is { } values && values.Length == _flat.Count)
+        {
+            // Only the readings' tick says which taskbar readings wait for room (none listed: all fit).
+            var waiting = tick.TrayWaiting ?? [];
+            if (!waiting.SequenceEqual(TrayWaiting))
+            {
+                TrayWaiting = waiting;
+                TrayWaitingChanged?.Invoke();
+            }
+            for (int i = 0; i < values.Length; i++)
+                _flat[i].Push(tick.Time, values[i]);
+            foreach (var node in Hardware) node.RefreshKeys();
+            UpdateGlance();
+            UpdateDerived();
+            RaisePeaks(tick.Time);
+            ReadingsPending = false;
+        }
+        if (tick.Today is not null) Today = tick.Today;
+        if (tick.Activity is not null) Activity = tick.Activity;
+        if (tick.Extremes is { } extremes) ApplyExtremes(extremes, tick.ExtremesDay, tick.ExtremesFull);
+        Tick++;
+    }
+
+    /// <summary>Today's lowest and highest readings, which the agent tracks all day (even with the app closed).</summary>
+    private void ApplyExtremes(Dictionary<string, double[]> extremes, string? day, bool full)
+    {
+        if (full || day != _extremesDay)
+        {
+            _extremes.Clear();
+            _extremesDay = day;
+        }
+        foreach (var (id, range) in extremes)
+        {
+            if (range.Length != 2) continue;
+            _extremes[id] = range;
+            if (_byId.TryGetValue(id, out var item)) item.SetTodayRange(range[0], range[1]);
+        }
+    }
+
+    private List<Rigsight.Core.Data.SystemMinute> _minutes = [];
+    private int _minuteStep = 60;
+    private List<DriveHealthInfo> _driveHealth = [];
+
+    /// <summary>
+    /// The last day of minute history, for the temperature chart's longer windows; or, with
+    /// <paramref name="stepSeconds"/> 3600, the hours of its week or month.
+    /// </summary>
+    private IReadOnlyList<Core.Stability.PowerEvent>? _power;
+
+    /// <summary>
+    /// Why a stretch of the temperature graph has nothing recorded (its ends in Unix milliseconds), from what Windows
+    /// logged about the PC starting, going down and sleeping. Unknown until that has been read, and where it doesn't say.
+    /// </summary>
+    public Func<long, long, Core.Stability.GapReason> ChartGapReason => (from, to) => Core.Stability.PowerLog.Reason(
+        DateTimeOffset.FromUnixTimeMilliseconds(from).LocalDateTime, DateTimeOffset.FromUnixTimeMilliseconds(to).LocalDateTime, _power,
+        TimeSpan.FromSeconds(Math.Max(120, _minuteStep)));
+
+    /// <summary>
+    /// What was in front over a stretch of the temperature graph (its ends in Unix milliseconds), for its hover: from
+    /// the minutes the graph has already read, so it's there with the box (read on the first hover, it came a moment
+    /// later and the box jumped, 2026-11-06). None on the week, month and year graphs, whose points are hours and days.
+    /// </summary>
+    public Func<long, long, Controls.HeatWho?> ChartWho => WhoFor;
+
+    /// <summary>Each app by its id, for the hover's names (set by the window with each read of the graph's minutes).</summary>
+    public IReadOnlyDictionary<long, (string Name, string? Path, bool IsGame)>? AppsById { get; set; }
+
+    private Controls.HeatWho? WhoFor(long fromMs, long toMs)
+    {
+        if (_minuteStep != 60 || AppsById is not { } apps || _minutes.Count == 0) return null;
+        long from = fromMs / 1000, to = (toMs + 999) / 1000;
+        int i = _minutes.BinarySearch(new Core.Data.SystemMinute { Ts = from }, MinuteByTime.Instance);
+        if (i < 0) i = ~i;
+        var inStretch = new List<Core.Data.SystemMinute>();
+        for (; i < _minutes.Count && _minutes[i].Ts < to; i++) inStretch.Add(_minutes[i]);
+        var front = Core.Reports.HeatWhoReader.FrontOf(inStretch, id => apps.TryGetValue(id, out var a) ? a : null);
+        // An hour or more is said with how long each app was in front; a minute, or a few, without.
+        return front.Count == 0 ? null : new Controls.HeatWho(front, Timed: toMs - fromMs >= 30 * 60_000);
+    }
+
+    private sealed class MinuteByTime : IComparer<Core.Data.SystemMinute>
+    {
+        public static readonly MinuteByTime Instance = new();
+        public int Compare(Core.Data.SystemMinute? x, Core.Data.SystemMinute? y) => (x?.Ts ?? 0).CompareTo(y?.Ts ?? 0);
+    }
+
+    /// <summary>Why the period the graph shows has nothing recorded, when it has nothing (null otherwise): see <see cref="Core.Reports.WhyEmpty"/>.</summary>
+    [ObservableProperty] private string? _chartEmptyText;
+
+    /// <summary>What Windows logged about the PC's power over the time the graph shows (null: couldn't be read).</summary>
+    public void LoadPowerEvents(IReadOnlyList<Core.Stability.PowerEvent>? events)
+    {
+        _power = events;
+        Tick++;
+    }
+
+    /// <summary>
+    /// A zoom into the temperature graph that wants finer points than its range has (2 days of the last 7 from minutes):
+    /// the stretch and how far apart, set by the graph. Null for none.
+    /// </summary>
+    public (DateTime From, DateTime To, int Step)? ChartDetail
+    {
+        get => _chartDetail;
+        set
+        {
+            if (_chartDetail == value) return;
+            _chartDetail = value;
+            if (value is not null) ChartDetailWanted?.Invoke();
+        }
+    }
+    private (DateTime From, DateTime To, int Step)? _chartDetail;
+
+    public event Action? ChartDetailWanted;
+
+    /// <summary>The finer points read for <paramref name="stretch"/>, kept beside each line's own (see <see cref="ChartSeries.Zoomed"/>).</summary>
+    public void LoadZoomHistory(List<Rigsight.Core.Data.SystemMinute> minutes, (DateTime From, DateTime To, int Step) stretch)
+    {
+        foreach (var series in TempSeries) series.LoadZoomed(minutes, stretch);
+        Tick++;
+    }
+
+    public void LoadMinuteHistory(List<Rigsight.Core.Data.SystemMinute> minutes, int stepSeconds = 60)
+    {
+        _minutes = minutes;
+        _minuteStep = stepSeconds;
+        foreach (var series in TempSeries) series.LoadMinutes(minutes, stepSeconds);
+        UpdatePeaks();
+        Tick++;
+    }
+
+    /// <summary>
+    /// What the temperature graph's legend says of each line over the day, week, month or year shown: the same thing
+    /// the graph's points are (<see cref="ChartPlot"/>), for the whole period. Its highest and when ("HIGHEST  CPU
+    /// 84.2 °C  Sat 12 Sep, 9 PM"), its lowest and when, or its average: finding a month's highest meant hovering along
+    /// the whole graph. The same over the last hour, six hours or day up to now. None on the five minutes (every
+    /// reading is drawn, there is no choice to name), nor while the history loaded is still another range's.
+    /// </summary>
+    private void UpdatePeaks()
+    {
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var (from, to) = ChartPeriod;
+        long fromMs = IsChartPaged ? new DateTimeOffset(from).ToUnixTimeMilliseconds() : nowMs - ChartWindowSeconds * 1000L;
+        long toMs = IsChartPaged ? new DateTimeOffset(to).ToUnixTimeMilliseconds() : nowMs + 1;
+        foreach (var series in TempSeries)
+        {
+            if (!CanChartPlot || series.StepSeconds != ChartStepSeconds) SetPeak(series, null);
+            else if (ChartPlot == "Avg") SetPeak(series, series.Average(fromMs, toMs) is { } average ? (average, 0, 0) : null);
+            // A stored point is named by its start ("9 PM" is 9 to 10), as the hover box names it.
+            else SetPeak(series, (ChartPlot == "High" ? series.Highest(fromMs, toMs) : series.Lowest(fromMs, toMs)) is { } b
+                ? (b.Value, b.At, b.Stored ? b.At - series.StepSeconds * 500L : b.At) : null);
+        }
+    }
+
+    /// <summary>The word in front of the legend's figures: what they are, as the graph's choice goes.</summary>
+    public string ChartLegendLabel => ChartPlot switch { "High" => Lang.T("HIGHEST"), "Low" => Lang.T("LOWEST"), _ => Lang.T("AVERAGE") };
+
+    private void SetPeak(ChartSeries series, (double Value, long At, long Named)? peak)
+    {
+        series.Peak = peak is { } p ? (p.Value, p.At) : null;
+        series.PeakText = Units.Format(SensorKind.Temperature, peak?.Value);
+        if (peak is not { At: > 0 } at) { series.PeakWhen = ""; return; }
+        var local = DateTimeOffset.FromUnixTimeMilliseconds(at.Named).LocalDateTime;
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        series.PeakWhen = ChartStepSeconds == 86400 ? local.ToString("ddd d MMM", culture)
+            : IsChartLong ? local.ToString(TimeText.Fit("ddd d MMM, h tt"), culture)
+            // The last 24 hours (or a custom range) reach into another day: a time alone could be either day's.
+            : (!IsChartPaged && ChartWindowSeconds >= 86400) || IsChartCustom ? local.ToString(TimeText.Fit("ddd h:mm tt"), culture)
+            : local.ToString(TimeText.Fit("h:mm tt"), culture);
+    }
+
+    /// <summary>
+    /// A reading that has just arrived, in a period still going on: the highest (lowest) so far if it passes it. An
+    /// average waits for the history to be read again.
+    /// </summary>
+    private void RaisePeaks(long time)
+    {
+        if (!CanChartPlot || ChartPlot == "Avg" || (IsChartPaged && ChartPeriod.To <= DateTime.Now)) return;
+        bool high = ChartPlot == "High";
+        foreach (var series in TempSeries)
+        {
+            if (series.Sensor.Value is not double v || series.StepSeconds != ChartStepSeconds) continue;
+            // With no lowest yet there may be none to say (a line whose lowest readings aren't kept).
+            if (series.Peak is { } peak ? (high ? v > peak.Value : v < peak.Value) : high) SetPeak(series, (v, time, time));
+        }
+    }
+
+    /// <summary>Asks the agent for each process of these apps (exe names joined by "|", or null for none).</summary>
+    public event Action<string?>? ProcessDetailChanged;
+
+    /// <summary>The apps opened to show their processes, as the agent's "procs-detail" argument.</summary>
+    public string? ExpandedApps => Procs.Any(p => p.IsExpanded) ? string.Join('|', Procs.Where(p => p.IsExpanded).Select(p => p.Exe)) : null;
+
+    [RelayCommand]
+    private void ToggleProcesses(ProcRow row)
+    {
+        if (!row.IsExpanded && !row.CanExpand) return;
+        SetExpanded(row, !row.IsExpanded);
+    }
+
+    /// <summary>Opens or closes an app's processes (the Processes page opens an app with a single process too).</summary>
+    public void SetExpanded(ProcRow row, bool expanded)
+    {
+        if (row.IsExpanded == expanded) return;
+        row.IsExpanded = expanded;
+        row.Children = [];
+        ProcessDetailChanged?.Invoke(ExpandedApps);
+    }
+
+    /// <summary>Has the agent read the running apps now, not at its next turn (the same request makes it look at once).</summary>
+    public void RequestProcs() => ProcessDetailChanged?.Invoke(ExpandedApps);
+
+    /// <summary>What every process together reads and writes, in bytes a second (null: the agent doesn't say).</summary>
+    public double? Disk { get; private set; }
+
+    /// <summary>Raised when a list of running apps from the agent has been taken in.</summary>
+    public event Action? ProcsApplied;
+
+    private bool _holdProcs;
+    private (List<ProcInfo> Procs, double? Disk)? _heldProcs;
+
+    /// <summary>
+    /// While on, the running apps stay as they are: a list from the agent is kept aside and taken in when this goes
+    /// off. The Processes page holds the list still under an open menu or question, and while something is being ended
+    /// (a row re-sorted or gone from under the pointer would put another app in its place).
+    /// </summary>
+    public bool HoldProcs
+    {
+        get => _holdProcs;
+        set
+        {
+            if (_holdProcs == value) return;
+            _holdProcs = value;
+            if (value || _heldProcs is not { } held) return;
+            _heldProcs = null;
+            ApplyProcs(held.Procs, held.Disk);
+        }
+    }
+
+    /// <summary>
+    /// Memory Windows holds compressed (the "Memory Compression" process), as a sensor of its own so it gets a
+    /// tile with a chart like the real ones. It's read with the process list, every couple of seconds.
+    /// </summary>
+    public SensorItem Compressed { get; } = new(new SensorMeta { Id = "/rigsight/compressed", Name = Lang.T("Compressed"), Kind = SensorKind.Data }, "Memory", "Memory");
+
+    /// <summary>Virtual memory in use (Windows' commit charge against its limit), if the PC reports it.</summary>
+    [ObservableProperty] private SensorItem? _virtualLoad;
+
+    /// <summary>How the memory is split, as star widths for the bar under the memory card.</summary>
+    [ObservableProperty] private System.Windows.GridLength _memAppsWidth = new(0, System.Windows.GridUnitType.Star);
+    [ObservableProperty] private System.Windows.GridLength _memCompressedWidth = new(0, System.Windows.GridUnitType.Star);
+    [ObservableProperty] private System.Windows.GridLength _memFreeWidth = new(1, System.Windows.GridUnitType.Star);
+    [ObservableProperty] private string _memAppsText = "—";
+
+    public void ApplyProcs(List<ProcInfo> procs, double? disk = null)
+    {
+        if (_holdProcs)
+        {
+            _heldProcs = (procs, disk);
+            return;
+        }
+        Disk = disk;
+        // Parts of Windows itself (no ".exe": Memory Compression, Registry, System) aren't apps, and today's
+        // totals leave them out too. Memory Compression holds other apps' memory, squeezed: it's shown with the
+        // system's memory instead.
+        // (Its process is "Memory Compression"; Task Manager's Details tab calls it MemCompression.)
+        var compressed = procs.FirstOrDefault(p => p.Exe is "Memory Compression" or "MemCompression");
+        Compressed.Push(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), compressed is null ? null : (float)(compressed.MemMB / 1024));
+        UpdateMemorySplit();
+        AppsPending = false;
+        procs = [.. procs.Where(p => p.Exe.Contains('.'))];
+        // In this order: the apps that have gone leave, the new ones come in, and only then do the ones that stay take
+        // their new figures. A list kept sorted as figures change (this page's, the Processes page's) puts a new row
+        // in its place by the rows around it, and one put in among rows whose figures had just changed, in the same
+        // turn as others left, ended up in the wrong place and stayed there: the list was out of order from then on.
+        var seen = new HashSet<string>(procs.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var p in procs) seen.Add(p.Exe);
+        for (int i = Procs.Count - 1; i >= 0; i--)
+        {
+            if (!seen.Contains(Procs[i].Exe))
+            {
+                _procIndex.Remove(Procs[i].Exe);
+                Procs.RemoveAt(i);
+            }
+        }
+        List<(ProcRow Row, ProcInfo Now)>? staying = null;
+        foreach (var p in procs)
+        {
+            if (_procIndex.TryGetValue(p.Exe, out var row))
+            {
+                (staying ??= new(procs.Count)).Add((row, p));
+                continue;
+            }
+            row = new ProcRow(p.Exe);
+            _procIndex[p.Exe] = row;
+            row.Update(p);
+            Procs.Add(row);
+        }
+        if (staying is not null)
+            foreach (var (row, now) in staying) row.Update(now);
+        // Rows update themselves; only replace the list (which rebuilds the tile's rows) when it changes.
+        var top6 = Procs.OrderByDescending(p => p.MemMB).Take(6).ToList();
+        if (!top6.SequenceEqual(TopMemory)) TopMemory = top6;
+        double totalMB = ((RamUsed?.Value ?? 0) + (RamAvailable?.Value ?? 0)) * 1024;
+        foreach (var p in Procs) p.MemShare = totalMB > 0 ? p.MemMB / totalMB * 100 : 0;
+        if (OnlyWindowedApps || _procWords.Length > 0 || OnlyAboveUsual)
+        {
+            ProcsView.Refresh();
+            OnPropertyChanged(nameof(NoProcsMatch));
+        }
+        UpdateBars();
+        ProcsApplied?.Invoke();
+    }
+
+    /// <summary>
+    /// Bars compare the apps with each other: the biggest one shown fills its bar and the rest are measured against
+    /// it. (Next to all the memory every bar would be a sliver, since no one app comes close to filling it.) Each bar
+    /// carries a mark at the app's usual, so the scale has room for the biggest usual shown too. The Memory page calls
+    /// this when it has read the usuals.
+    /// </summary>
+    public void UpdateBars()
+    {
+        // The filter's count first: with none left above their usual, the filter goes off and the list shows every app.
+        AboveUsualCount = Procs.Count(p => p.IsOver && Matches(p));
+        if (AboveUsualCount == 0 && OnlyAboveUsual)
+        {
+            OnlyAboveUsual = false;
+            return; // its change refreshed the list and came back here
+        }
+        double biggest = Procs.Where(Listed).Select(p => Math.Max(p.MemMB, p.UsualMB ?? 0)).DefaultIfEmpty(0).Max();
+        foreach (var p in Procs)
+        {
+            p.Bar = biggest > 0 ? Math.Min(p.MemMB / biggest * 100, 100) : 0;
+            p.Mark = biggest > 0 && p.UsualMB is { } usual ? Math.Min(usual / biggest * 100, 100) : 0;
+        }
+    }
+
+    private int _ticksSinceBuild;
+
+    /// <summary>Apps (in use, less what's compressed), compressed, available.</summary>
+    private void UpdateMemorySplit()
+    {
+        if (RamUsed?.Value is not double used || RamAvailable?.Value is not double available) return;
+        double compressed = Math.Min(Compressed.Value ?? 0, used);
+        MemAppsWidth = new(used - compressed, System.Windows.GridUnitType.Star);
+        MemCompressedWidth = new(compressed, System.Windows.GridUnitType.Star);
+        MemFreeWidth = new(available, System.Windows.GridUnitType.Star);
+        MemAppsText = $"{used - compressed:0.0} GB";
+    }
+
+    private void UpdateDerived()
+    {
+        // A few readings in (by then today's ranges have arrived too), drop fan headers that haven't spun
+        // at all today (nothing plugged in) and board sensors that read nonsense. A fan that's merely
+        // stopped right now (0 RPM fans at idle) stays.
+        if (++_ticksSinceBuild == 3)
+        {
+            foreach (var f in Fans.Where(f => f.Value is not > 0 && f.Max is not > 0).ToList()) Fans.Remove(f);
+            foreach (var t in BoardTemps.Where(t => t.Value is not (> 0 and < 115)).ToList()) BoardTemps.Remove(t);
+            RefreshPartTemps();
+        }
+
+        if (RamUsed?.Value is double used)
+        {
+            var total = used + (RamAvailable?.Value ?? 0);
+            RamText = Lang.T($"{used:0.0} GB of {total:0.0} GB");
+            RamTotalText = $"{total:0} GB";
+        }
+        UpdateMemorySplit();
+
+        foreach (var gpu in Gpus) gpu.Refresh();
+    }
+
+    /// <summary>Re-applies names, hidden flags and units after settings changed.</summary>
+    private string? _appliedSensorSettings;
+
+    /// <summary>Applies sensor names, hidden sensors and units, but only when one of them actually changed
+    /// (settings change often, e.g. while dragging a slider, and this refreshes every sensor).</summary>
+    public void ApplySettings()
+    {
+        var s = _settings.Current;
+        string key = $"{s.UseFahrenheit}|{string.Join(",", s.SensorLabels.OrderBy(kv => kv.Key).Select(kv => kv.Key + "=" + kv.Value))}|{string.Join(",", s.HiddenSensors.Order())}|{_flat.Count}";
+        if (key == _appliedSensorSettings) return;
+        _appliedSensorSettings = key;
+        foreach (var item in _flat)
+        {
+            item.CustomLabel = s.SensorLabels.GetValueOrDefault(item.Id);
+            item.IsHidden = s.HiddenSensors.Contains(item.Id);
+            item.RefreshFormatting();
+        }
+        ApplyFilter();
+        Tick++;
+    }
+
+    private void OnSensorPreferenceChanged(SensorItem item)
+    {
+        // A board sensor hidden or given another name: its tile on the Temperatures page follows.
+        if (item.Kind == SensorKind.Temperature) RefreshPartTemps();
+        _settings.Update(s =>
+        {
+            if (item.CustomLabel is null) s.SensorLabels.Remove(item.Id);
+            else s.SensorLabels[item.Id] = item.CustomLabel;
+            if (item.IsHidden) s.HiddenSensors.Add(item.Id);
+            else s.HiddenSensors.Remove(item.Id);
+        });
+        ApplyFilter();
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowHiddenText))]
+    private int _hiddenCount;
+
+    public string ShowHiddenText => HiddenCount == 1 ? Lang.T("Show 1 hidden sensor") : Lang.T($"Show {HiddenCount} hidden sensors");
+
+    /// <summary>The sensors a widget, a dashboard, the overlay or the taskbar offers to add: all but the hidden ones
+    /// (one already added stays where it is).</summary>
+    [ObservableProperty] private IReadOnlyList<SensorItem> _pickableSensors = [];
+
+    /// <summary>What the page says in place of an empty list; nothing while there are rows.</summary>
+    public string? SensorsEmptyText =>
+        SensorRows.Count > 0 ? null
+        : _flat.Count == 0 ? Lang.T("No sensors yet")
+        : Core.TextMatch.Words(SearchText).Length > 0 ? Lang.T("No sensors match")
+        : TypeFilter != "All" ? Lang.T("No sensors of this kind")
+        : Lang.T("Every sensor is hidden");
+
+    // ── What stands out right now: the pane beside the list, read from every sensor, nothing to pick ──
+
+    /// <summary>The most rows a part of the pane shows.</summary>
+    internal const int GlanceRows = 4;
+
+    /// <summary>The warmest parts, each by the reading of its that is nearest its limit, nearest first.</summary>
+    public ObservableCollection<GlanceRow> Warmest { get; } = [];
+    /// <summary>The main loads (CPU, GPU, video memory, memory), busiest first.</summary>
+    public ObservableCollection<GlanceRow> Hardest { get; } = [];
+    /// <summary>The fans that are spinning, fastest first.</summary>
+    public ObservableCollection<GlanceRow> FastestFans { get; } = [];
+    /// <summary>What the CPU and the graphics card draw, and (two of them) the sum.</summary>
+    public ObservableCollection<GlanceRow> PowerDraw { get; } = [];
+    [ObservableProperty] private string _powerNote = "";
+
+    private void UpdateGlance()
+    {
+        // Warmest: a temperature is set against the limit its own part reports where it reports one (a drive's
+        // "Warning Temperature"), else against the step it turns red at here. One reading a part, the nearest its
+        // limit. A board chip's readings ("Temperature #3") aren't ranked unless given a name: nobody knows what an
+        // unnamed one measures.
+        var warm = new List<(SensorItem Sensor, double Share, string Note)>();
+        foreach (var node in Hardware)
+        {
+            bool board = node.Badge == "BOARD";
+            double? reported = DriveTemp.ReportedLimitOf(node.Sensors)?.Value;
+            (SensorItem Sensor, double Share, string Note)? best = null;
+            foreach (var sensor in node.Sensors)
+            {
+                if (!sensor.HasTempScale || sensor.IsHidden || sensor.Value is not double v || v <= 0) continue;
+                if (board && sensor.CustomLabel is null) continue;
+                double limit = reported is > 0 ? reported.Value : double.Parse(sensor.TempScale!.Split(',')[2], System.Globalization.CultureInfo.InvariantCulture);
+                if (best is null || v / limit > best.Value.Share)
+                    best = (sensor, v / limit, reported is > 0 ? Lang.T($"{node.Name} · its limit is {Units.TempShort(reported)}") : node.Name);
+            }
+            if (best is { } found) warm.Add(found);
+        }
+        Fill(Warmest, warm.OrderByDescending(x => x.Share).Take(GlanceRows).Select(x => (x.Sensor, (double?)x.Share, x.Note)));
+        Fill(Hardest, new[] { CpuLoad, GpuLoad, GpuVramLoad, RamLoad }.Where(x => x?.Value is not null && !x.IsHidden).Select(x => x!)
+            .OrderByDescending(x => x.Value).Select(x => (x, (double?)(x.Value!.Value / 100), x.HardwareShown)));
+        Fill(FastestFans, _flat.Where(x => x.Kind == SensorKind.Fan && !x.IsHidden && x.Value > 0).OrderByDescending(x => x.Value).Take(GlanceRows)
+            .Select(x => (x, (double?)null, x.HardwareShown)));
+        var power = new[] { CpuPower, GpuPower }.Where(x => x?.Value is > 0 && !x.IsHidden).Select(x => x!).OrderByDescending(x => x.Value).ToList();
+        Fill(PowerDraw, power.Select(x => (x, (double?)null, x.HardwareShown)));
+        PowerNote = power.Count > 1 ? Lang.T($"{Units.Format(SensorKind.Power, power.Sum(x => x.Value!.Value))} together") : "";
+    }
+
+    /// <summary>Rows kept and given what they now show (a list made anew each second would be built anew each second).</summary>
+    private static void Fill(ObservableCollection<GlanceRow> rows, IEnumerable<(SensorItem Sensor, double? Bar, string Note)> items)
+    {
+        int i = 0;
+        foreach (var (sensor, bar, note) in items)
+        {
+            if (i >= rows.Count) rows.Add(new GlanceRow());
+            var row = rows[i++];
+            row.Sensor = sensor;
+            row.Bar = Math.Clamp(bar ?? 0, 0, 1);
+            row.HasBar = bar is not null;
+            row.Note = note;
+        }
+        while (rows.Count > i) rows.RemoveAt(rows.Count - 1);
+    }
+
+    /// <summary>A line of the pane was clicked: the list shows that sensor (its part opened, any search let go) and
+    /// the page scrolls to its row, which stays lit.</summary>
+    public event Action<SensorItem>? Revealed;
+
+    private SensorItem? _lit;
+
+    [RelayCommand]
+    private void Reveal(GlanceRow? row)
+    {
+        if (row?.Sensor is not { } sensor || GroupOf(sensor) is not { } node) return;
+        if (SearchText.Length > 0) SearchText = "";
+        if (TypeFilter != "All") TypeFilter = "All";
+        if (!node.IsExpanded)
+        {
+            node.IsExpanded = true;
+            SaveCollapsed();
+            RebuildRows();
+        }
+        if (_lit is not null) _lit.IsSelected = false;
+        (_lit = sensor).IsSelected = true;
+        Revealed?.Invoke(sensor);
+    }
+
+    // ── A sensor's menu (the "more" at the end of its row): where it is shown, copying its value ──
+
+    /// <summary>The user's dashboards, for "Show it on" (the shell gives them; none in a page shown on its own).</summary>
+    public Func<IReadOnlyList<CustomPageViewModel>>? Dashboards { get; set; }
+
+    /// <summary>Where <paramref name="sensor"/> can be shown, and whether it is: the taskbar, the overlay, each widget
+    /// that is on and takes its kind of reading, each dashboard.</summary>
+    public IReadOnlyList<SensorPlace> PlacesFor(SensorItem sensor)
+    {
+        var places = new List<SensorPlace>();
+        var set = _settings.Current;
+        places.Add(new SensorPlace(Lang.T("The taskbar"), "", set.TraySensors.Contains(sensor.Id), true,
+            () => _settings.Update(x => { if (!x.TraySensors.Remove(sensor.Id)) x.TraySensors.Add(sensor.Id); })));
+        bool onOverlay = set.Overlay.Sensors.Any(o => o.Id == sensor.Id);
+        places.Add(new SensorPlace(Lang.T("The overlay"), "", onOverlay, onOverlay || set.Overlay.Sensors.Count < OverlaySettings.MaxSensors,
+            () => _settings.Update(x =>
+            {
+                if (x.Overlay.Sensors.RemoveAll(o => o.Id == sensor.Id) == 0 && x.Overlay.Sensors.Count < OverlaySettings.MaxSensors)
+                    x.Overlay.Sensors.Add(new OverlaySensor { Id = sensor.Id });
+            })));
+        // Each widget that is on and can show this kind of reading (a gauge takes temperatures and percentages).
+        foreach (var w in set.Widgets.Where(w => w.Enabled))
+        {
+            var layout = WidgetCatalog.LayoutOf(w);
+            if (!WidgetCatalog.AllowsSensor(layout, sensor.Kind)) continue;
+            string item = WidgetCatalog.SensorPrefix + sensor.Id, widgetId = w.Id;
+            var items = WidgetCatalog.ItemsOf(w);
+            bool onWidget = items.Any(i => i.Id == item);
+            places.Add(new SensorPlace(Lang.T($"Widget · {WidgetCatalog.Title(w)}"), "", onWidget, onWidget || (WidgetCatalog.ShownItems(w).Count < WidgetCatalog.MaxItems(layout) && items.Count < WidgetCatalog.MaxKept),
+                () => _settings.Update(x =>
+                {
+                    if (x.Widgets.FirstOrDefault(v => v.Id == widgetId) is not { } target) return;
+                    // A built-in widget gets its own copy of its usual readings first, as on the Widgets page.
+                    var list = WidgetCatalog.ItemsOf(target).Select(i => new WidgetItem { Id = i.Id, Label = i.Label }).ToList();
+                    if (list.RemoveAll(i => i.Id == item) == 0) list.Add(new WidgetItem { Id = item });
+                    target.Items = list;
+                    WidgetCatalog.Clean(target);
+                })));
+        }
+        foreach (var page in Dashboards?.Invoke() ?? [])
+        {
+            places.Add(new SensorPlace(Lang.T($"Dashboard · {page.Name}"), "", page.Tiles.Any(t => t.SensorRef == sensor.Id), true, () =>
+            {
+                if (page.Tiles.FirstOrDefault(t => t.SensorRef == sensor.Id) is { } tile) page.Remove(tile);
+                else
+                {
+                    page.SensorToAdd = sensor;
+                    page.AddSensorTileCommand.Execute(null);
+                }
+            }));
+        }
+        return places;
+    }
+
+    /// <summary>Puts text on the clipboard (tests replace this).</summary>
+    internal Action<string> SetClipboard { get; set; } = text => System.Windows.Clipboard.SetText(text);
+
+    /// <summary>Copies a sensor's reading as it is shown ("49.0 °C"). False when the clipboard is held by another program.</summary>
+    public bool Copy(SensorItem sensor)
+    {
+        try
+        {
+            SetClipboard(sensor.FormattedValue);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    public void ApplyFilter()
+    {
+        HiddenCount = _flat.Count(s => s.IsHidden);
+        if (HiddenCount == 0 && ShowHidden) ShowHidden = false;
+        var pickable = _flat.Where(s => !s.IsHidden).ToList();
+        if (!pickable.SequenceEqual(PickableSensors)) PickableSensors = pickable;
+        // Every word typed must be in the sensor's name (the one given to it or its own), its part's name or its tag.
+        string[] words = Core.TextMatch.Words(SearchText);
+        foreach (var node in Hardware)
+        {
+            bool any = false;
+            foreach (var s in node.Sensors)
+            {
+                bool show = (ShowHidden || !s.IsHidden)
+                            && MatchesType(s.Kind)
+                            && Core.TextMatch.Has(words, [s.DisplayName, s.Name, node.Name, node.Badge, node.BadgeText, .. KindWords(s.Kind)]);
+                s.IsShown = show;
+                any |= show;
+            }
+            node.HasVisibleSensors = any;
+            int hidden = node.Sensors.Count(s => s.IsHidden);
+            node.Summary = (node.Sensors.Count == 1 ? Lang.T("1 sensor") : Lang.T($"{node.Sensors.Count} sensors")) + (hidden > 0 ? "  ·  " + (hidden == 1 ? Lang.T("1 hidden") : Lang.T($"{hidden} hidden")) : "");
+        }
+        RebuildRows();
+        UpdateGlance();
+    }
+
+    private void RebuildRows()
+    {
+        var rows = new List<object>(_flat.Count + Hardware.Count * 2);
+        foreach (var node in OrderedHardware().Where(n => n.HasVisibleSensors))
+        {
+            rows.Add(node);
+            if (node.IsExpanded && !IsReordering) rows.AddRange(node.Sensors.Where(s => s.IsShown));
+            rows.Add(node.End);
+        }
+        SensorRows = rows;
+    }
+
+    // ── Reordering the groups (drag a header) ──
+
+    /// <summary>While a group is being dragged: every group shows just its header, so the whole list fits.</summary>
+    [ObservableProperty] private bool _isReordering;
+
+    partial void OnIsReorderingChanged(bool value) => RebuildRows();
+
+    /// <summary>The groups in the order the user chose; ones not placed yet keep their usual order after them.</summary>
+    private List<HardwareNode> OrderedHardware()
+    {
+        var order = _settings.Current.HardwareOrder;
+        return [.. Hardware.Select((node, i) => (node, key: order.IndexOf(node.Key) is int k and >= 0 ? k : order.Count + i))
+            .OrderBy(x => x.key).Select(x => x.node)];
+    }
+
+    /// <summary>Moves a group to where another one is (after it when coming from above, before it when from below).</summary>
+    public void MoveHardware(HardwareNode node, HardwareNode target)
+    {
+        if (node == target) return;
+        var list = OrderedHardware();
+        int from = list.IndexOf(node), to = list.IndexOf(target);
+        if (from < 0 || to < 0) return;
+        list.RemoveAt(from);
+        list.Insert(to, node);
+        _settings.Update(s => s.HardwareOrder = [.. list.Select(n => n.Key)]);
+        RebuildRows();
+    }
+
+    /// <summary>The group a row of the All sensors list belongs to.</summary>
+    public HardwareNode? GroupOf(object? row) => row switch
+    {
+        HardwareNode node => node,
+        SensorGroupEnd end => end.Owner,
+        SensorItem item => Hardware.FirstOrDefault(n => n.Sensors.Contains(item)),
+        _ => null,
+    };
+
+    [RelayCommand]
+    private void ToggleExpanded(HardwareNode? node)
+    {
+        if (node is null) return;
+        node.IsExpanded = !node.IsExpanded;
+        SaveCollapsed();
+        RebuildRows();
+    }
+
+    [RelayCommand]
+    private void SetAllExpanded(string expand)
+    {
+        bool value = expand == "True";
+        foreach (var n in Hardware) n.IsExpanded = value;
+        SaveCollapsed();
+        RebuildRows();
+    }
+
+    private void SaveCollapsed() =>
+        _settings.Update(s => s.CollapsedHardware = [.. Hardware.Where(n => !n.IsExpanded).Select(n => n.Key)]);
+
+    [RelayCommand]
+    private void UnhideAll()
+    {
+        _settings.Update(s => s.HiddenSensors.Clear());
+        foreach (var item in _flat) item.IsHidden = false;
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// What kind of reading a sensor is, in English and in the language in use, so a search finds it by either word:
+    /// sensor names come from the hardware's drivers in English ("Fan #1"), and someone may type "ventilador".
+    /// </summary>
+    private static string[] KindWords(SensorKind k)
+    {
+        string? word = k switch
+        {
+            SensorKind.Temperature => Lang.Key("Temperatures"),
+            SensorKind.Load => Lang.Key("Load"),
+            SensorKind.Fan or SensorKind.Control => Lang.Key("Fans"),
+            SensorKind.Power or SensorKind.Current => Lang.Key("Power"),
+            SensorKind.Clock => Lang.Key("Clocks"),
+            SensorKind.Voltage => Lang.Key("Voltage"),
+            _ => null,
+        };
+        return word is null ? [] : [word, Lang.T(word)];
+    }
+
+    private bool MatchesType(SensorKind k) => TypeFilter switch
+    {
+        "Temperature" => k == SensorKind.Temperature,
+        "Load" => k == SensorKind.Load,
+        "Fan" => k is SensorKind.Fan or SensorKind.Control,
+        "Power" => k is SensorKind.Power or SensorKind.Current,
+        "Clock" => k == SensorKind.Clock,
+        "Voltage" => k == SensorKind.Voltage,
+        _ => true,
+    };
+
+    /// <remarks>
+    /// Takes object: the sensor list recycles rows, and while a row is being reused its button can
+    /// briefly be bound to a card header instead of a sensor. Anything that isn't a sensor is ignored.
+    /// </remarks>
+    [RelayCommand]
+    private static void ToggleHidden(object? item) => (item as SensorItem)?.ToggleHidden();
+
+    public IReadOnlyList<SensorItem> AllSensors => _flat;
+
+    private static SensorItem? Find(IEnumerable<SensorItem> sensors, SensorKind kind, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            var match = sensors.FirstOrDefault(s => s.Kind == kind && s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) return match;
+        }
+        return null;
+    }
+}
+
+/// <summary>A line of the pane beside the All sensors list: a sensor, what is said under its name, and a bar (0 to 1).</summary>
+public sealed partial class GlanceRow : ObservableObject
+{
+    [ObservableProperty] private SensorItem? _sensor;
+    [ObservableProperty] private string _note = "";
+    [ObservableProperty] private double _bar;
+    [ObservableProperty] private bool _hasBar;
+}
+
+/// <summary>Somewhere a sensor can be shown (the taskbar, the overlay, a widget, a dashboard), and whether it is there now.</summary>
+public sealed partial class SensorPlace(string name, string glyph, bool isShown, bool canToggle, Action toggle) : ObservableObject
+{
+    public string Name { get; } = name;
+    /// <summary>The place's icon, the same as its page's in the sidebar.</summary>
+    public string Glyph { get; } = glyph;
+    public bool IsShown { get; } = isShown;
+    /// <summary>False when it can't be added: the place is full.</summary>
+    public bool CanToggle { get; } = canToggle;
+
+    [RelayCommand]
+    private void Toggle()
+    {
+        if (CanToggle) toggle();
+    }
+}

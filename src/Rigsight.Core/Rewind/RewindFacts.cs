@@ -88,6 +88,18 @@ public sealed class RewindFacts
     public long Up { get; set; }
     public List<RewindItem> TopInternet { get; set; } = [];
 
+    // Energy (1.18.0): the CPU's and GPU's, from each minute's power. Null where the part gave no reading, and in every
+    // rewind made before 1.18.0 (no card then).
+    public double? CpuWh { get; set; }
+    public double? GpuWh { get; set; }
+    /// <summary>The part of it with a game in front.</summary>
+    public double GameWh { get; set; }
+    /// <summary>The same parts' energy in the month before (a month's rewind); null with too little of it recorded.</summary>
+    public double? PrevWh { get; set; }
+    /// <summary>A longer rewind's month that used the most, and how much.</summary>
+    public DateTime? TopMonth { get; set; }
+    public double TopMonthWh { get; set; }
+
     // Problems
     public int AppCrashes { get; set; }
     public int ShutOffs { get; set; }

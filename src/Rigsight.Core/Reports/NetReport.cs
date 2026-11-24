@@ -120,6 +120,10 @@ public sealed record NetDayLink(DateTime Day, NetDayState State, int RecordedMin
 public sealed class NetReport
 {
     public ReportRange Range { get; init; }
+
+    /// <summary>The bars are months: a year, or a custom range of more than <see cref="NetReportBuilder.CustomDaysMax"/> days.</summary>
+    public bool Monthly { get => _monthly || Range == ReportRange.Year; init => _monthly = value; }
+    private readonly bool _monthly;
     /// <summary>The chart's bars are hours (a day, and a week on the Network page); else days (a month) or months (a year).</summary>
     public bool Hourly { get; init; }
     public DateTime From { get; init; }
@@ -209,16 +213,28 @@ public static class NetReportBuilder
     /// <summary>How many of the biggest stretches a report lists.</summary>
     public const int DownloadsShown = 5;
 
+    /// <summary>
+    /// A custom range (2026-11-24: every page that looks back has one) is drawn by the hour up to this long on the Network
+    /// page (a week's bars are hours there too), by the day up to <see cref="CustomDaysMax"/> days, by the month past it.
+    /// </summary>
+    public static readonly TimeSpan CustomHoursMax = TimeSpan.FromDays(7);
+    public const int CustomDaysMax = 92;
+
     /// <param name="forPage">For the Network page: a week's bars are its hours, and the bars carry the games played and
     /// Steam's downloads, the line check, and "What happened" is told. Reports and Home don't show those.</param>
     public static NetReport Build(RigsightDb db, ReportRange range, DateTime anchor, IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings,
         IReadOnlyList<string>? gamesPlayed = null, DateTime? asOf = null, bool forPage = false,
-        Func<DateTime, IReadOnlyList<Stability.PowerEvent>?>? readPower = null)
+        Func<DateTime, IReadOnlyList<Stability.PowerEvent>?>? readPower = null, DateTime customFrom = default, DateTime customTo = default)
     {
-        var (from, to) = ReportBuilder.Bounds(range, anchor);
+        bool custom = range == ReportRange.Custom && customTo > customFrom;
+        var (from, to) = custom ? (customFrom, customTo) : ReportBuilder.Bounds(range, anchor);
         var now = asOf ?? DateTime.Now;
-        bool hourly = range == ReportRange.Day || range == ReportRange.Week && forPage;
-        var r = new NetReport { Range = range, From = from, To = to, BuiltAt = now, Hourly = hourly };
+        bool hourly = range == ReportRange.Day || range == ReportRange.Week && forPage
+            || custom && to - from <= (forPage ? CustomHoursMax : ReportBuilder.DayLikeLimit);
+        bool monthly = range == ReportRange.Year || custom && (to - from).TotalDays > CustomDaysMax;
+        // Hours a bar of their own, a day or a custom range of hours: what a day's own figures (its usual, its quarters) are read for.
+        bool dayLike = range == ReportRange.Day || custom && hourly;
+        var r = new NetReport { Range = range, From = from, To = to, BuiltAt = now, Hourly = hourly, Monthly = monthly };
         long f = TimeUtil.ToUnix(from), t = TimeUtil.ToUnix(to);
 
         var days = db.GetNetDays(f, t);
@@ -260,12 +276,15 @@ public static class NetReportBuilder
             })];
             if (range == ReportRange.Day) r.Quarters = quarters;
         }
-        else if (range == ReportRange.Year)
+        else if (monthly)
         {
-            r.Bins = [.. Enumerable.Range(0, 12).Select(i => from.AddMonths(i)).Select(month =>
+            // A year's 12 months; a long custom range's, from the month it starts in (each read within the range).
+            var months = new List<DateTime>();
+            for (var m = new DateTime(from.Year, from.Month, 1); m < to; m = m.AddMonths(1)) months.Add(m);
+            r.Bins = [.. months.Select(month =>
             {
                 var inMonth = days.Where(d => TimeUtil.FromUnix(d.Day) is var day && day >= month && day < month.AddMonths(1)).ToList();
-                var monthApps = inMonth.Count == 0 ? [] : db.GetNetAppTotals(TimeUtil.ToUnix(month), TimeUtil.ToUnix(month.AddMonths(1)));
+                var monthApps = inMonth.Count == 0 ? [] : db.GetNetAppTotals(TimeUtil.ToUnix(month < from ? from : month), TimeUtil.ToUnix(month.AddMonths(1) > to ? to : month.AddMonths(1)));
                 return new NetBin(month, inMonth.Sum(d => d.Down), inMonth.Sum(d => d.BgDown + d.AwayDown), inMonth.Sum(d => d.Up))
                 {
                     Background = inMonth.Sum(d => d.Background), Away = inMonth.Sum(d => d.AwayDown + d.AwayUp),
@@ -280,7 +299,7 @@ public static class NetReportBuilder
                 .ToDictionary(g => g.Key, g => (Down: g.Sum(d => d.Down), Background: g.Sum(d => d.BgDown + d.AwayDown), Up: g.Sum(d => d.Up),
                     Behind: g.Sum(d => d.Background), Away: g.Sum(d => d.AwayDown + d.AwayUp)));
             var appDays = db.GetNetAppDays(f, t).ToLookup(u => TimeUtil.FromUnix(u.Ts).Date);
-            r.Bins = [.. Enumerable.Range(0, (int)(to - from).TotalDays).Select(i => from.AddDays(i)).Select(day =>
+            r.Bins = [.. Enumerable.Range(0, (int)Math.Ceiling((to - from.Date).TotalDays)).Select(i => from.Date.AddDays(i)).Select(day =>
                 byDay.TryGetValue(day, out var d)
                     ? new NetBin(day, d.Down, d.Background, d.Up) { Background = d.Behind, Away = d.Away, Apps = Biggest(appDays[day]), AppCount = appDays[day].Count(u => u.Total > 0) }
                     : new NetBin(day, 0, 0, 0))];
@@ -306,7 +325,7 @@ public static class NetReportBuilder
                 Category = settings.AppCategories.TryGetValue(row.Exe, out var c) ? c : row.Category, Use = u,
             };
         }
-        var busiest = range == ReportRange.Day ? db.GetNetAppHours(f, t) : db.GetNetAppDays(f, t);
+        var busiest = dayLike ? db.GetNetAppHours(f, t) : db.GetNetAppDays(f, t);
         foreach (var g in busiest.GroupBy(u => u.App))
             if (stats.TryGetValue(g.Key, out var s) && g.MaxBy(u => u.Total) is { } top)
                 (s.BusiestAt, s.BusiestBytes) = (TimeUtil.FromUnix(top.Ts), top.Total);
@@ -324,7 +343,7 @@ public static class NetReportBuilder
             new NetDownload(NameOf(apps, settings, u.App), apps[u.App].Exe, apps[u.App].Path, TimeUtil.FromUnix(u.Ts), TimeUtil.FromUnix(u.Ts) + stretch, u.Total, 0))];
         // The biggest hours or days, whole: the chart's own bars, so a row and its bar say the same (a year's bars are
         // months: its days are added up here).
-        IEnumerable<NetBin> wholes = range == ReportRange.Year ? YearDays(db, days, f, t) : r.Bins;
+        IEnumerable<NetBin> wholes = monthly ? YearDays(db, days, f, t) : r.Bins;
         r.Biggest = [.. wholes.Where(b => b.Total >= MinBiggest).OrderByDescending(b => b.Total).Take(DownloadsShown)
             .Select(b => new NetStretch(b.Start, b.Start + stretch, b.Total, b.Apps))];
         r.Drops = db.GetNetDrops(f, t);
@@ -334,7 +353,7 @@ public static class NetReportBuilder
             if (db.FirstNetDay() is long firstNet && TimeUtil.FromUnix(firstNet).Date > from) r.RecordedSince = TimeUtil.FromUnix(firstNet).Date;
         }
         // Not recorded: the PC on, nothing written, and no drop that says why. A year's bars are months: not looked for.
-        if (range != ReportRange.Year)
+        if (!monthly)
         {
             r.Unrecorded = [.. db.GetNetUnrecorded(f, Math.Min(t, TimeUtil.ToUnix(now)))
                 .Where(u => !r.Drops.Any(d => d.Start < u.End && d.End > u.Start))
@@ -359,13 +378,13 @@ public static class NetReportBuilder
         }
         // Only a period recorded from its start: the one network recording began in holds part of what was used, and
         // "less than last month" against it would be false.
-        var p = ReportBuilder.PreviousPeriod(range, anchor, now);
+        var p = custom ? (From: from - (to - from), To: from) : ReportBuilder.PreviousPeriod(range, anchor, now);
         if (db.FirstNetDay() is long firstDay && p.From > TimeUtil.FromUnix(firstDay))
         {
             // Whole days from their totals, and the part of a day a period in progress ends in from its minutes (the
             // day's total would set this week's Monday morning against the whole of last Monday).
             long pf = TimeUtil.ToUnix(p.From), pt = TimeUtil.ToUnix(p.To), lastDay = TimeUtil.ToUnix(p.To.Date);
-            long previous = range == ReportRange.Day ? db.GetNetMinutes(pf, pt).Sum(m => m.Down)
+            long previous = dayLike || custom ? db.GetNetMinutes(pf, pt).Sum(m => m.Down)
                 : db.GetNetDays(pf, lastDay).Sum(d => d.Down) + (pt > lastDay ? db.GetNetMinutes(lastDay, pt).Sum(m => m.Down) : 0);
             if (previous > 0) r.PreviousDown = previous;
         }
@@ -382,7 +401,7 @@ public static class NetReportBuilder
     private static void ForPage(RigsightDb db, NetReport r, IReadOnlyDictionary<long, AppRow> apps, RigsightSettings settings, long f, long t,
         Func<DateTime, IReadOnlyList<Stability.PowerEvent>?> readPower)
     {
-        DateTime End(NetBin b) => r.Hourly ? b.Start.AddHours(1) : r.Range == ReportRange.Year ? b.Start.AddMonths(1) : b.Start.AddDays(1);
+        DateTime End(NetBin b) => r.Hourly ? b.Start.AddHours(1) : r.Monthly ? b.Start.AddMonths(1) : b.Start.AddDays(1);
         var pings = db.GetNetPings(f, t);
         var serverMinutes = db.GetNetServers(f, t);
         var byExe = apps.Values.GroupBy(a => a.Exe, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
@@ -438,7 +457,7 @@ public static class NetReportBuilder
         })];
         r.PingBars = r.Bins.Count(b => b.Ping is not null);
         r.PingBarsNeeded = NetLine.BarsToDraw(r.Hourly, r.Range);
-        if (r.Range != ReportRange.Year) r.Bins = OffReasons(db, r, f, t, readPower);
+        if (!r.Monthly) r.Bins = OffReasons(db, r, f, t, readPower);
         r.Link = LinkCells(db, r, f, t);
         r.LineText = NetLine.Sentence(r, r.Apps.ToDictionary(a => a.Id, a => a.Name));
         r.Happenings = NetHappenings.Build(db, r, apps, settings);
@@ -450,14 +469,15 @@ public static class NetReportBuilder
     /// </summary>
     private static List<NetLinkCell> LinkCells(RigsightDb db, NetReport r, long f, long t)
     {
-        TimeSpan step = r.Range switch { ReportRange.Day => TimeSpan.FromMinutes(15), ReportRange.Week => TimeSpan.FromHours(1), _ => TimeSpan.FromDays(1) };
+        TimeSpan step = r.Range == ReportRange.Day || r.Range == ReportRange.Custom && r.To - r.From <= ReportBuilder.DayLikeLimit ? TimeSpan.FromMinutes(15)
+            : r.Hourly ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1);
         var cells = new List<(DateTime Start, DateTime End)>();
-        if (r.Range == ReportRange.Year) for (var m = r.From; m < r.To; m = m.AddMonths(1)) cells.Add((m, m.AddMonths(1)));
+        if (r.Monthly) foreach (var b in r.Bins) cells.Add((b.Start < r.From ? r.From : b.Start, b.Start.AddMonths(1) > r.To ? r.To : b.Start.AddMonths(1)));
         else for (var c = r.From; c < r.To; c += step) cells.Add((c, c + step));
         var drops = r.Drops.Select(d => (From: TimeUtil.FromUnix(d.Start), To: TimeUtil.FromUnix(d.End))).ToList();
         // Which cells the PC was on in: its minutes (a year's months by their days with any use, not 500,000 minutes).
         var on = new HashSet<int>();
-        if (r.Range == ReportRange.Year)
+        if (r.Monthly)
         {
             for (int i = 0; i < cells.Count && i < r.Bins.Count; i++) if (r.Bins[i].Total > 0) on.Add(i);
         }

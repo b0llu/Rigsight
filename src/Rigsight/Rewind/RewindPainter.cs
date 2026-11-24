@@ -171,6 +171,7 @@ public static class RewindPainter
             "top" => Top(card, u, accent),
             "longest" => Longest(card, u, accent),
             "internet" => Internet(card, u, accent),
+            "energy" => Energy(card, u, accent),
             "heat" => Heat(card, u, accent),
             "changes" => Changes(card, u, accent),
             "problems" => Problems(card, f, u, accent),
@@ -414,6 +415,17 @@ public static class RewindPainter
             rows.Children.Add(one);
         }
         body.Children.Add(Rise(rows, 3));
+        return body;
+    }
+
+    /// <summary>The CPU and GPU energy (1.18.0, approved mock-up 2026-11-23): the kWh, one sentence, the GPU and CPU as tiles.</summary>
+    private static FrameworkElement Energy(RewindCard card, double u, Color? accent)
+    {
+        var body = new StackPanel { Margin = new Thickness(0, 6 * u, 0, 0) };
+        body.Children.Add(Rise(Label(card.Label, accent ?? RewindLook.C("#7FE6F6"), u), 0));
+        body.Children.Add(Rise(BigWithUnit(card.Big, card.Unit, 34, 10, u), 1));
+        body.Children.Add(Rise(Sub(card.Sub, u), 2));
+        if (card.Tiles.Count > 0) body.Children.Add(Rise(Tiles(card.Tiles, u, top: 7, accent), 3));
         return body;
     }
 
@@ -1052,6 +1064,8 @@ public static class RewindPainter
             "apps" or "hours" => Frozen(Linear(165, (RewindLook.C("#0D3A63"), 0), (RewindLook.C("#061727"), 0.55), (RewindLook.C("#03101C"), 1))),
             "games" or "top" or "longest" or "type" => Frozen(Linear(160, (RewindLook.C("#3A1670"), 0), (RewindLook.C("#160733"), 0.6), (RewindLook.C("#0B041C"), 1))),
             "heat" => Layered(Radial(new Point(0.5, 0.34), 0.7, 0.45, Color.FromArgb(140, 0xB1, 0x8C, 0xFF)), Linear(170, (RewindLook.C("#250C3D"), 0), (RewindLook.C("#0D0518"), 1))),
+            // Energy: the GPU's cyan glowing on a deep blue-green, between the internet's teal and the heat's violet.
+            "energy" => Layered(Radial(new Point(0.5, 0.34), 0.7, 0.45, Color.FromArgb(110, 0x22, 0xD3, 0xEE)), Linear(170, (RewindLook.C("#0A2F45"), 0), (RewindLook.C("#04121C"), 0.6), (RewindLook.C("#020A10"), 1))),
             "changes" or "internet" => Frozen(Linear(160, (RewindLook.C("#08414A"), 0), (RewindLook.C("#03181D"), 0.6), (RewindLook.C("#020C0F"), 1))),
             "problems" => Frozen(Linear(165, (RewindLook.C("#1D2433"), 0), (RewindLook.C("#0B0E15"), 1))),
             _ => Frozen(Linear(170, (RewindLook.C("#121A3D"), 0), (RewindLook.C("#070912"), 1))),

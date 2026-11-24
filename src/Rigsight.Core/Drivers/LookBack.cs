@@ -10,6 +10,12 @@ public sealed record LookBackResult(bool Found, string Title, string Body, strin
 {
     /// <summary>What was checked and found, with its numbers, for the agent's log (English, never shown).</summary>
     public string Detail { get; init; } = "";
+
+    /// <summary>
+    /// The grey line under a device found (issue #15 follow-up): its driver's file, its longest against its usual, and what
+    /// a shared driver is used by. Null when no device was found.
+    /// </summary>
+    public string? FileLine { get; init; }
 }
 
 /// <summary>
@@ -50,16 +56,21 @@ public static class LookBack
     /// <param name="nameOf">An app's name by its id, null when it can't be named.</param>
     /// <param name="sound">The heard sound glitches of the last <see cref="DriverRules.LookBackSec"/> seconds, or null when the
     /// sound trace isn't running: then the sound isn't checked, and the "as usual" text leaves it out.</param>
+    /// <param name="admin">RigSight's background part runs as administrator: with no bursts, the driver trace didn't start
+    /// (Windows refused it), which the text says rather than asking for admin rights it has.</param>
     public static LookBackResult Check(DateTime now, IReadOnlyList<DriverBurst>? bursts, IReadOnlyDictionary<string, DriverPart> parts,
-        Func<string, int?> usualOf, IReadOnlyList<CloseUpPoint> points, Func<long, string?>? nameOf = null, IReadOnlyList<SoundGlitch>? sound = null)
+        Func<string, int?> usualOf, IReadOnlyList<CloseUpPoint> points, Func<long, string?>? nameOf = null, IReadOnlyList<SoundGlitch>? sound = null,
+        bool admin = false)
     {
         long nowMs = new DateTimeOffset(now).ToUnixTimeMilliseconds();
         long fromMs = nowMs - DriverRules.LookBackSec * 1000L;
         var recent = points.Where(p => p.T >= fromMs && p.T <= nowMs).OrderBy(p => p.T).ToList();
         var before = points.Where(p => p.T >= nowMs - CloseUp.RingSec * 1000L && p.T < fromMs).ToList();
 
-        // ── A device (found first: the sound check says it too) ──
-        DriverPart? best = null;
+        // ── A device (found first: the sound check says it too). Every driver counts, Windows' shared ones too: since the
+        // issue #15 follow-up they're said for what they are ("Windows' storage driver"), with the file under it.
+        string? best = null;
+        DriverPart? bestPart = null;
         int bestUs = 0, bestUsual = 0;
         if (bursts is not null)
         {
@@ -67,16 +78,17 @@ public static class LookBack
             foreach (var group in bursts.Where(b => b.Driver.Length > 0 && b.EndMs >= fromMs && b.EndMs <= nowMs + 1000)
                          .GroupBy(b => b.Driver, StringComparer.OrdinalIgnoreCase))
             {
-                if (!parts.TryGetValue(group.Key, out var part) || part.Say is null) continue;
                 if (usualOf(group.Key) is not int usual) continue;
                 int longest = group.Max(b => b.Us);
                 double floor = Math.Max(DriverRules.LongUs, DriverRules.MuchLonger * usual);
                 if (longest < floor) continue;
                 double over = longest / (double)Math.Max(1, usual);
                 if (over <= bestOver) continue;
-                (best, bestUs, bestUsual, bestOver) = (part, longest, usual, over);
+                (best, bestPart, bestUs, bestUsual, bestOver) = (group.Key.ToLowerInvariant(), parts.GetValueOrDefault(group.Key), longest, usual, over);
             }
         }
+        string? who = best is null ? null : DriverWords.Who(best, bestPart);
+        string? fileLine = best is null ? null : DriverWords.FileLine(best, bestPart, bestUs, bestUsual);
 
         // ── The sound ──
         var cuts = sound is null ? new List<SoundGlitch>() : SoundDropouts.Cuts(sound.Where(g => g.AtMs >= fromMs && g.AtMs <= nowMs + 1000));
@@ -84,22 +96,24 @@ public static class LookBack
         {
             int n = cuts.Count;
             string cutOut = n == 1 ? Lang.T("Your sound cut out once in the 2 minutes before.") : Lang.T($"Your sound cut out {n} times in the 2 minutes before.");
-            string device = best?.Say is { } part ? " " + Lang.T($"Your {part} was using the CPU for much longer than usual right then.") : "";
+            string device = who is not null ? " " + Lang.T($"{who} was using the CPU for much longer than usual right then.") : "";
             return new LookBackResult(true, Lang.T($"Found something at {now:h:mm tt}"), cutOut + device,
                 (n == 1 ? Lang.T("You marked a problem. Your sound cut out once in the 2 minutes before.") : Lang.T($"You marked a problem. Your sound cut out {n} times in the 2 minutes before.")) + device)
             {
                 Detail = $"sound cut out {n} times ({sound!.Count} heard glitches)"
-                    + (best is null ? "" : $", device {best.Driver} ({best.Say}) {bestUs} µs at its longest against a usual {bestUsual} µs") + $"; {Checked(bursts, recent, sound)}",
+                    + (best is null ? "" : $", device {best} ({who}) {bestUs} µs at its longest against a usual {bestUsual} µs") + $"; {Checked(bursts, recent, sound)}",
+                FileLine = fileLine,
             };
         }
 
         // ── A device ──
-        if (best is { Say: { } say })
+        if (best is not null && who is not null)
             return new LookBackResult(true, Lang.T($"Found something at {now:h:mm tt}"),
-                Lang.T($"Your {say} was using the CPU for much longer than usual. That can cause stutters."),
-                Lang.T($"You marked a problem. Your {say} was using the CPU for much longer than usual."))
+                Lang.T($"{who} was using the CPU for much longer than usual. That can cause stutters."),
+                Lang.T($"You marked a problem. {who} was using the CPU for much longer than usual."))
             {
-                Detail = $"device {best.Driver} ({say}) {bestUs} µs at its longest against a usual {bestUsual} µs; {Checked(bursts, recent, sound)}",
+                Detail = $"device {best} ({who}) {bestUs} µs at its longest against a usual {bestUsual} µs; {Checked(bursts, recent, sound)}",
+                FileLine = fileLine,
             };
 
         // ── The drives ──
@@ -159,7 +173,9 @@ public static class LookBack
         }
         return new LookBackResult(false, Lang.T($"Nothing unusual at {now:h:mm tt}"),
             bursts is null
-                ? Lang.T("The CPU, the disk and memory were as usual in the 2 minutes before. Your devices can only be checked with RigSight's background part running as administrator.")
+                ? admin
+                    ? Lang.T("The CPU, the disk and memory were as usual in the 2 minutes before. Your devices couldn't be checked this time.")
+                    : Lang.T("The CPU, the disk and memory were as usual in the 2 minutes before. Your devices can only be checked with RigSight's background part running as administrator.")
                 : sound is not null
                     ? Lang.T("Your devices, your sound, the CPU, the disk and memory were as usual in the 2 minutes before.")
                     : Lang.T("Your devices, the CPU, the disk and memory were as usual in the 2 minutes before."),

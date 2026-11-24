@@ -4,6 +4,7 @@
              xmlns:views="clr-namespace:Rigsight.Views"
              xmlns:ctl="clr-namespace:Rigsight.Controls"
              xmlns:svc="clr-namespace:Rigsight.Services"
+             xmlns:models="clr-namespace:Rigsight.Models"
              x:Name="Page">
     <UserControl.Resources>
         <Style x:Key="PanelHead" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
@@ -47,6 +48,35 @@
             </Style.Triggers>
         </Style>
 
+        <!-- A line that opens something (a driver mark, a game, a crash): the whole line is one button, lit on hover and on
+             keyboard focus, with an arrow at its end (the user, 2026-11-24: "any type of interaction that can have a click
+             can have the whole row covered"). It reaches a little past the line's edges so the light has room. -->
+        <Style x:Key="RowButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="True" />
+            <!-- Past the line on the left only: the list clips at its right edge, which cut the light's corner off there. -->
+            <Setter Property="Margin" Value="-10,0,0,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Choice}" Opacity="0" />
+                            <ContentPresenter Margin="10,5" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- One line under a day. Most are a plain change (kept light: a long list builds hundreds of them); a problem has
              its way to the Crashes page; a change with more to it shows what was different after, or the updates folded into it. -->
         <DataTemplate x:Key="PlainEntry">
@@ -80,39 +110,49 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- A game's update: its line, and the way to the game (its plays before and since). -->
+        <!-- A game's update: the whole line opens the game (its plays before and since). -->
         <DataTemplate x:Key="GameEntry">
-            <Grid Margin="0,5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="72" />
-                    <ColumnDefinition Width="26" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
-                <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
-                           Foreground="{DynamicResource MutedBrush}" />
-                <TextBlock Grid.Column="2" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
-                    <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" /><Run Text="   " /><Hyperlink Focusable="False" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}"
-                        Command="{Binding DataContext.OpenGameCommand, ElementName=Page}" CommandParameter="{Binding}"><Run Text="{ctl:T 'Open game'}" /></Hyperlink>
-                </TextBlock>
-            </Grid>
+            <Button Style="{StaticResource RowButton}" Command="{Binding DataContext.OpenGameCommand, ElementName=Page}" CommandParameter="{Binding}"
+                    AutomationProperties.Name="{Binding Title}" AutomationProperties.HelpText="{ctl:T 'Open game'}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="72" />
+                        <ColumnDefinition Width="26" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                    <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
+                               Foreground="{DynamicResource MutedBrush}" />
+                    <TextBlock Grid.Column="2" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
+                        <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />
+                    </TextBlock>
+                    <TextBlock Grid.Column="3" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                               VerticalAlignment="Top" Margin="12,4,0,0" />
+                </Grid>
+            </Button>
         </DataTemplate>
 
+        <!-- A problem: the whole line opens it (its own case, or the Crashes page on its day). -->
         <DataTemplate x:Key="ProblemEntry">
-            <Grid Margin="0,5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="72" />
-                    <ColumnDefinition Width="26" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
-                <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
-                           Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
-                <TextBlock Grid.Column="2" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}">
-                    <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Hyperlink Focusable="False" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}"
-                        Command="{Binding DataContext.OpenCrashesCommand, ElementName=Page}" CommandParameter="{Binding}"><Run Text="{Binding OpenText, Mode=OneWay}" /></Hyperlink>
-                </TextBlock>
-            </Grid>
+            <Button Style="{StaticResource RowButton}" Command="{Binding DataContext.OpenCrashesCommand, ElementName=Page}" CommandParameter="{Binding}"
+                    AutomationProperties.Name="{Binding Title}" AutomationProperties.HelpText="{Binding OpenText}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="72" />
+                        <ColumnDefinition Width="26" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                    <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
+                               Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
+                    <TextBlock Grid.Column="2" Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                    <TextBlock Grid.Column="3" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                               VerticalAlignment="Top" Margin="12,4,0,0" />
+                </Grid>
+            </Button>
         </DataTemplate>
 
         <DataTemplate x:Key="RichEntry">
@@ -155,6 +195,10 @@
              stays as it was. -->
         <DataTemplate x:Key="ResultEntry">
             <Grid Margin="0,5">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="72" />
                     <ColumnDefinition Width="26" />
@@ -163,60 +207,105 @@
                 <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
                 <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
                            Foreground="{DynamicResource MutedBrush}" />
-                <StackPanel Grid.Column="2">
-                    <TextBlock FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
-                        <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />
-                    </TextBlock>
-                    <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Tile}"
-                            Padding="16,14" Margin="0,8,0,4" AutomationProperties.Name="{Binding Result.Headline}">
+                <TextBlock Grid.Column="2" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
+                    <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />
+                </TextBlock>
+                    <!-- The card (approved mock-up B, 2026-11-24): one button that opens the whole before and after, its
+                         figures in a soft panel, how sure in words under them, the AI question a quiet link. No row lines
+                         and no chip: "it looked chunky", "the lines look odd" (the user). From the time's column, under the
+                         line, and only as wide as it needs ("the space there is a bit weird", the user 2026-11-24). -->
+                    <Button Grid.Row="1" Grid.ColumnSpan="3" Margin="0,8,0,4" Cursor="Hand" Focusable="True" HorizontalAlignment="Left" HorizontalContentAlignment="Stretch" MaxWidth="820"
+                            AutomationProperties.Name="{Binding Result.Headline}"
+                            Command="{Binding DataContext.OpenResultCommand, ElementName=Page}" CommandParameter="{Binding}" ToolTip="{ctl:T 'Open this change\'s before and after'}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Grid>
+                                    <Border x:Name="Bd" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Tile}" />
+                                    <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Tile}" Opacity="0" Margin="1" />
+                                    <ContentPresenter Margin="16,14,16,12" />
+                                </Grid>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Hover" Property="Opacity" Value="0.6" />
+                                    </Trigger>
+                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                        <Setter TargetName="Hover" Property="Opacity" Value="0.6" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
                         <StackPanel>
                             <DockPanel>
-                                <Border DockPanel.Dock="Left" Style="{StaticResource IconBox}" VerticalAlignment="Top" Margin="0,0,12,0"
-                                        Background="{Binding ResultBrush, Converter={StaticResource SureBrush}, ConverterParameter=soft}">
-                                    <TextBlock Text="{Binding ResultIcon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Foreground="{Binding ResultBrush, Converter={StaticResource ResourceBrush}}" />
-                                </Border>
-                                <Border DockPanel.Dock="Right" Style="{StaticResource Chip}" VerticalAlignment="Top" Margin="12,1,0,0"
-                                        Background="{Binding ResultSure, Converter={StaticResource SureBrush}, ConverterParameter=soft}">
-                                    <TextBlock Text="{Binding Result.Chip}" FontSize="{x:Static ctl:TextSize.Mini}" FontWeight="Bold" Foreground="{Binding ResultSure, Converter={StaticResource SureBrush}}" />
-                                </Border>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Result.Headline}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding Result.Context}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
-                                </StackPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                                           VerticalAlignment="Top" Margin="12,5,0,0" />
+                                <TextBlock Text="{Binding Result.Headline}" FontSize="{x:Static ctl:TextSize.Heading}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
                             </DockPanel>
-                            <ItemsControl ItemsSource="{Binding ResultPairs}" Margin="42,10,0,0" Focusable="False">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock FontSize="{x:Static ctl:TextSize.Detail}" Margin="0,0,28,4" Foreground="{DynamicResource MutedBrush}">
-                                            <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Before, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run
-                                                Text="  →  " Foreground="{DynamicResource FaintBrush}" /><Run Text="{Binding After, Mode=OneWay}" FontWeight="SemiBold"
-                                                Foreground="{Binding AfterBrush, Converter={StaticResource ResourceBrush}}" />
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <DockPanel Margin="42,6,0,0">
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{ctl:T 'Open'}" Margin="12,0,0,0" VerticalAlignment="Center"
-                                        Command="{Binding DataContext.OpenResultCommand, ElementName=Page}" CommandParameter="{Binding}"
-                                        AutomationProperties.Name="{ctl:T 'Open this change\'s before and after'}" />
+                            <TextBlock Text="{Binding Result.Context}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Choice}" Padding="14,11" Margin="0,12,0,0">
+                                <ItemsControl ItemsSource="{Binding CardFigures}" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,34,0">
+                                                <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,3" />
+                                                <TextBlock FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold">
+                                                    <Run x:Name="Was" Text="{Binding Was, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" FontWeight="Medium" /><Run x:Name="Arrow" Text="  →  " Foreground="{DynamicResource FaintBrush}" FontWeight="Normal"
+                                                        FontSize="{x:Static ctl:TextSize.Body}" /><Run Text="{Binding Now, Mode=OneWay}" Foreground="{Binding NowBrush, Converter={StaticResource ResourceBrush}}" />
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Sub}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,2,0,0"
+                                                           Visibility="{Binding HasSub, Converter={StaticResource Vis}}" />
+                                            </StackPanel>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding HasWas}" Value="False">
+                                                    <Setter TargetName="Was" Property="Text" Value="" />
+                                                    <Setter TargetName="Arrow" Property="Text" Value="" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                            <DockPanel Margin="0,11,0,0">
                                 <!-- Worse since the change: ask whether it's why (hidden while the AI is off). -->
-                                <Border DockPanel.Dock="Right" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="{Binding HasResultAsk, Converter={StaticResource Vis}}">
-                                    <Button Style="{StaticResource AiButton}" Content="{Binding ResultAskText}" CommandParameter="{Binding ResultAsk}" AutomationProperties.Name="{Binding ResultAskText}" />
-                                </Border>
-                                <TextBlock Text="{Binding Result.Why}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                <Button DockPanel.Dock="Right" Style="{StaticResource AiLink}" Content="{Binding ResultAskText}" CommandParameter="{Binding ResultAsk}"
+                                        AutomationProperties.Name="{Binding ResultAskText}" VerticalAlignment="Center" Margin="12,-3,-6,-3" />
+                                <TextBlock FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center">
+                                    <Run Text="{Binding SureHead, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" /><Run Text="{Binding SureRest, Mode=OneWay}" />
+                                </TextBlock>
                             </DockPanel>
                         </StackPanel>
-                    </Border>
-                </StackPanel>
+                    </Button>
             </Grid>
         </DataTemplate>
 
+        <!-- A driver keeping the CPU busy much longer than usual (issue #15 follow-up, approved mock-up 2026-11-24): the
+             whole line is one button that opens what happened in place, with a hover of its own and an arrow at the end. -->
+        <DataTemplate x:Key="DelayEntry">
+            <Button Style="{StaticResource RowButton}" Command="{Binding DataContext.OpenDelayCommand, ElementName=Page}" CommandParameter="{Binding}"
+                    AutomationProperties.Name="{Binding Title}" AutomationProperties.HelpText="{ctl:T 'Open what happened'}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="72" />
+                        <ColumnDefinition Width="26" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding TimeText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                    <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
+                               Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
+                    <TextBlock Grid.Column="2" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
+                        <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                    </TextBlock>
+                    <TextBlock Grid.Column="3" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                               VerticalAlignment="Top" Margin="12,4,0,0" />
+                </Grid>
+            </Button>
+        </DataTemplate>
+
         <views:TimelineEntryTemplates x:Key="EntryTemplates" Plain="{StaticResource PlainEntry}" Problem="{StaticResource ProblemEntry}" Rich="{StaticResource RichEntry}"
-                                      Result="{StaticResource ResultEntry}" Game="{StaticResource GameEntry}" />
+                                      Result="{StaticResource ResultEntry}" Game="{StaticResource GameEntry}" Delay="{StaticResource DelayEntry}" />
 
         <!-- A day: its dot on the line that runs down the list, its name, and its lines. -->
         <DataTemplate x:Key="DayTemplate">
@@ -244,7 +333,7 @@
     </UserControl.Resources>
 
     <Grid>
-    <Grid Margin="32,26,32,0" MaxWidth="{StaticResource PageWidth}" Visibility="{Binding IsChangeOpen, Converter={StaticResource Vis}, ConverterParameter=Invert}">
+    <Grid Margin="32,26,32,0" MaxWidth="{StaticResource PageWidth}" Visibility="{Binding IsListShown, Converter={StaticResource Vis}}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -277,7 +366,7 @@
                 </StackPanel>
             </Button>
             <ComboBox AutomationProperties.Name="{ctl:T 'Show'}" ToolTip="{ctl:T 'Show one kind of change'}" MinWidth="190" VerticalAlignment="Center"
-                      ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}" DisplayMemberPath="Label" />
+                      ItemsSource="{Binding Filters}" SelectedItem="{Binding Filter}" DisplayMemberPath="Label" MaxDropDownHeight="700" />
             <TextBlock Text="{ctl:T 'Group'}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="22,0,10,0" VerticalAlignment="Center" />
             <Border Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
@@ -686,6 +775,158 @@
                         </ItemsControl>
                     </StackPanel>
                 </ctl:SmoothBorder>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+    </DataTemplate></ctl:LazyTab.Body></ctl:LazyTab>
+
+    <!-- An opened driver mark (issue #15 follow-up, approved mock-up 2026-11-24): what happened, its four facts, what the
+         driver is, what else was busy longer than usual then, the big changes in the week before, its longest each hour of
+         the day against its usual, and what can be tried. In place of the list until Back. -->
+    <ctl:LazyTab Shown="{Binding IsDelayOpen}"><ctl:LazyTab.Body><DataTemplate>
+    <Grid Loaded="Delay_Loaded">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <Border Padding="32,18,32,10">
+            <DockPanel MaxWidth="{StaticResource PageWidth}">
+                <Button DockPanel.Dock="Left" Style="{StaticResource ActionButton}" Margin="-9,0,16,0" VerticalAlignment="Center" AutomationProperties.Name="{ctl:T 'Back to Timeline'}"
+                        Command="{Binding CloseDelayCommand}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Margin="0,1,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{ctl:T 'Timeline'}" FontSize="{x:Static ctl:TextSize.Body}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Border />
+            </DockPanel>
+        </Border>
+        <ScrollViewer x:Name="DelayScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="32,4,32,32" MaxWidth="{StaticResource PageWidth}" DataContext="{Binding DelayOpened}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource AiButton}" Content="{ctl:T 'Explain this'}" CommandParameter="{Binding Ask}" VerticalAlignment="Top" Margin="16,4,0,0"
+                            AutomationProperties.Name="{ctl:T 'Explain this'}" />
+                    <StackPanel>
+                        <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding When}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,0" />
+                    </StackPanel>
+                </DockPanel>
+
+                <ItemsControl ItemsSource="{Binding Facts}" Margin="-6,16,-6,0" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="6,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" Foreground="{DynamicResource FaintBrush}" />
+                                    <TextBlock Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Figure}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,6,0,0"
+                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Value}" />
+                                    <TextBlock Text="{Binding Under}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </ctl:SmoothBorder>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid Margin="0,13,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="13" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ctl:SmoothBorder Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="{ctl:T 'What this driver is'}" Style="{StaticResource H2}" />
+                            <TextBlock Text="{Binding What}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <TextBlock Text="{Binding WhyItMatters}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+
+                            <TextBlock Text="{ctl:T 'Also busy longer than usual then'}" Style="{StaticResource H2}" Margin="0,18,0,0" />
+                            <ItemsControl ItemsSource="{Binding Others}" Margin="0,6,0,0" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="12,0,0,0" />
+                                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{ctl:T 'No other driver.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"
+                                       Visibility="{Binding HasOthers, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+
+                            <TextBlock Text="{ctl:T 'Changes in the 7 days before'}" Style="{StaticResource H2}" Margin="0,18,0,0" />
+                            <ItemsControl ItemsSource="{Binding Changes}" Margin="0,6,0,0" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,0,0,1" Padding="0,8">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Value}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{ctl:T 'No driver, Windows, BIOS or hardware change.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0"
+                                       Visibility="{Binding HasChanges, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                    <ctl:SmoothBorder Grid.Column="2" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding ChartTitle}" Style="{StaticResource H2}" />
+                            <Grid Height="{x:Static models:DelayView.ChartHeight}" Margin="0,14,0,0">
+                                <ItemsControl ItemsSource="{Binding Bars}" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <!-- The whole column takes the pointer, so an hour's hover is easy to hit however short its bar. -->
+                                            <Grid Background="Transparent" ToolTip="{Binding Tip}" ToolTipService.InitialShowDelay="0">
+                                                <Border Height="{Binding Height}" VerticalAlignment="Bottom" Margin="2,0" CornerRadius="2,2,0,0"
+                                                        Background="{Binding Brush, Converter={StaticResource ResourceBrush}}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Border VerticalAlignment="Bottom" BorderBrush="{DynamicResource FaintBrush}" BorderThickness="0,1,0,0" IsHitTestVisible="False"
+                                        Margin="{Binding UsualMargin}" Opacity="0.8" />
+                            </Grid>
+                            <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" />
+                            <Grid Margin="0,4,0,0">
+                                <TextBlock Text="{ctl:T '12 AM'}" FontSize="{x:Static ctl:TextSize.Mini}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Left" />
+                                <TextBlock Text="{ctl:T '12 PM'}" FontSize="{x:Static ctl:TextSize.Mini}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Center" />
+                                <TextBlock Text="{ctl:T '11 PM'}" FontSize="{x:Static ctl:TextSize.Mini}" Foreground="{DynamicResource FaintBrush}" HorizontalAlignment="Right" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Border Width="16" Height="1" BorderBrush="{DynamicResource FaintBrush}" BorderThickness="0,1,0,0" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="{Binding UsualText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding HasTips, Converter={StaticResource Vis}}">
+                                <TextBlock Text="{ctl:T 'Things you can try'}" Style="{StaticResource H2}" Margin="0,20,0,0" />
+                                <ItemsControl ItemsSource="{Binding Tips}" Margin="0,4,0,0" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,8,0,0">
+                                                <TextBlock DockPanel.Dock="Left" Text="&#xE90F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Top" Margin="0,3,10,0" />
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Step}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding More}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                               Visibility="{Binding HasMore, Converter={StaticResource Vis}}" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </StackPanel>
+                    </ctl:SmoothBorder>
+                </Grid>
             </StackPanel>
         </ScrollViewer>
     </Grid>

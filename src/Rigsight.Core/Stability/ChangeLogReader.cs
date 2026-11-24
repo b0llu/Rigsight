@@ -92,7 +92,11 @@ public sealed record SystemChange(DateTime Time, ChangeKind Kind, string Title)
     public string? Detail => Kind == ChangeKind.Storage ? Lang.T($"Was {Was} used, now {Now}")
         : Kind == ChangeKind.TaskEnded ? (string.IsNullOrEmpty(Now) ? null : Lang.T($"It held {Now}."))
         : Kind == ChangeKind.Fans ? Now
-        : string.IsNullOrEmpty(Was) ? null : Lang.T($"Was {Was}");
+        : string.IsNullOrEmpty(Was) ? null
+        // A Steam game keeps its build number ("build 26598758"): both builds, "From build 26598758 to 26612345".
+        : Was.StartsWith("build ", StringComparison.Ordinal) && Now is { } now && now.StartsWith("build ", StringComparison.Ordinal)
+            ? Lang.T($"From build {Was[6..]} to {now[6..]}")
+        : Lang.T($"Was {Was}");
 
     /// <summary>Drivers and updates are things that were installed; the rest say what happened themselves.</summary>
     public string Line => Kind is ChangeKind.Driver or ChangeKind.WindowsUpdate ? (Title.EndsWith(" installed", StringComparison.Ordinal) ? Title : Lang.T($"{Title} installed")) : Title;

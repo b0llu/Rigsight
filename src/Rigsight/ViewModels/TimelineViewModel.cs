@@ -28,9 +28,13 @@ public sealed partial class TimelineEntry : ObservableObject
     public string? GameKey { get; init; }
     public string? Detail { get; init; }
 
-    /// <summary>A muted line under the title (a stretch of sound dropouts' possible cause).</summary>
+    /// <summary>A muted line under the title (a stretch of sound dropouts' possible cause, a marked problem's device file).</summary>
     public string? Note { get; init; }
     public bool HasNote => Note is { Length: > 0 };
+
+    /// <summary>A driver keeping the CPU busy much longer than usual (issue #15 follow-up): the whole line opens what happened.</summary>
+    public Core.Drivers.DelayStretch? Delay { get; init; }
+    public bool IsDelay => Delay is not null;
 
     /// <summary>Drivers, Windows and hardware stand out: they're what a PC-wide problem usually comes from.</summary>
     public bool IsKey { get; init; }
@@ -63,6 +67,39 @@ public sealed partial class TimelineEntry : ObservableObject
     public AiQuestion? ResultAsk => Result is { Tone: Core.Reports.EffectTone.Worse } r
         ? new(Lang.T($"{r.Said}. Did {Core.Reports.ChangeEffects.InLine(r.Changes, r.Day)} cause this?"), Core.Ai.AiPages.Timeline) : null;
 
+    // ── The before and after card (approved mock-up B, 2026-11-24): the figures in a soft panel, how sure under them ──
+
+    /// <summary>
+    /// The card's figures: only what moved. One reading: each side as a figure of its own under its window ("11 DAYS
+    /// BEFORE" / "57°" / "4h 29m of play"). Several: each reading with its before and after ("LONGEST, USUALLY" / "1.1 → 2.9 ms").
+    /// </summary>
+    public List<CardFigure> CardFigures
+    {
+        get
+        {
+            if (Result is not { } r) return [];
+            var moved = r.Pairs.Where(p => p.Tone != Core.Reports.EffectTone.Same).ToList();
+            if (moved.Count == 0) moved = [.. r.Pairs.Take(1)];
+            string Brush(Core.Reports.ChangeFigure f) => f.Tone switch { Core.Reports.EffectTone.Worse => "WarmBrush", Core.Reports.EffectTone.Better => "GoodBrush", _ => "TextBrush" };
+            if (moved.Count > 1)
+                return [.. moved.Select(f => new CardFigure(f.Label.ToUpper(System.Globalization.CultureInfo.CurrentCulture), f.Before, f.After, Brush(f), null))];
+            var one = moved[0];
+            // Each side's own amount: the play compared for a temperature, the hours of use for a count of problems.
+            var before = r.Days.Where(d => d.Day < r.Day).ToList();
+            var after = r.Days.Where(d => d.Day > r.Day).ToList();
+            string? Sub(List<Core.Reports.ChangeDay> days) =>
+                one.Problems ? Lang.T($"{days.Sum(d => d.Hours):0}h of use")
+                : r.TempLabel is not null && days.Sum(d => d.Minutes) is int m and > 0 ? Lang.T($"{Core.Units.Duration(m * 60.0)} of play") : null;
+            string was = r.DaysBefore == 1 ? Lang.T("1 DAY BEFORE") : Lang.T($"{r.DaysBefore} DAYS BEFORE");
+            string now = r.Open ? Lang.T($"{r.DaysAfter} DAYS SINCE") : Lang.T($"{r.DaysAfter} DAYS AFTER");
+            return [new(was, null, one.Before, "MutedBrush", Sub(before)), new(now, null, one.After, Brush(one), Sub(after))];
+        }
+    }
+
+    /// <summary>How sure, its first sentence bold: "Possibly, not likely." and the reason after it.</summary>
+    public string SureHead => Result?.SureLine is { Length: > 0 } s && s.IndexOf(". ", StringComparison.Ordinal) is int i and > 0 ? s[..(i + 1)] : Result?.SureLine ?? "";
+    public string SureRest => Result?.SureLine is { Length: > 0 } s && s.IndexOf(". ", StringComparison.Ordinal) is int i and > 0 ? s[(i + 1)..] : "";
+
     /// <summary>The app updates folded into this line.</summary>
     public List<TimelineEntry> Children { get; init; } = [];
     public bool HasChildren => Children.Count > 0;
@@ -78,6 +115,16 @@ public sealed partial class TimelineEntry : ObservableObject
 
     /// <summary>Which of a row's folded lines this is (a month has one per kind of change), to keep it open when rebuilt.</summary>
     public string Key { get; init; } = "";
+}
+
+/// <summary>
+/// One figure in the before and after card's panel: a small caps label over the value (with the value before it and an
+/// arrow, when <see cref="Was"/> is set), and a quieter line under it.
+/// </summary>
+public sealed record CardFigure(string Label, string? Was, string Now, string NowBrush, string? Sub)
+{
+    public bool HasWas => Was is not null;
+    public bool HasSub => Sub is { Length: > 0 };
 }
 
 /// <summary>A reading before a change and since, for its card: "GPU in Crimson Desert  71° → 77°".</summary>
@@ -190,6 +237,9 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     /// <summary>A stretch of sound dropouts: a speaker, warm.</summary>
     private const string SoundIcon = "\uE995";
 
+    /// <summary>A driver keeping the CPU busy much longer than usual: a processor, in the marks' purple.</summary>
+    private const string DelayIcon = "\uE9D9";
+
     private const string ProblemIcon = "";
 
     public ObservableCollection<TimelineDay> Days { get; } = [];
@@ -292,6 +342,14 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     /// <summary>The filter that lists only the changes that made something better or worse.</summary>
     internal const string ResultsKey = "results";
 
+    /// <summary>
+    /// The filters that list only the problems marked from the tray, or only the drivers RigSight found keeping the CPU busy
+    /// much longer than usual (the user, 2026-11-24: no way to see just the purple lines).
+    /// </summary>
+    internal const string MarkedKey = "marked", DelaysKey = "delays";
+
+    private static bool IsMarked(TimelineMark m) => !m.Sound && m.Delay is null;
+
     private static readonly (string Key, string Name, ChangeKind[] Kinds)[] Kinds =
     [
         ("drivers", Lang.Key("Drivers"), [ChangeKind.Driver]),
@@ -317,6 +375,10 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         var filters = new List<TimelineFilter> { new("all", Lang.T("Everything"), _changes.Count) };
         // Only when a change made something better or worse: an empty "Before and after" would be a block for its own sake.
         if (_results.Count > 0 || key == ResultsKey) filters.Add(new(ResultsKey, Lang.T("Before and after"), _results.Count));
+        // Only when there are some, like "Before and after".
+        int marked = _marks.Count(IsMarked), delays = _marks.Count(m => m.Delay is not null);
+        if (marked > 0 || key == MarkedKey) filters.Add(new(MarkedKey, Lang.T("Problems you marked"), marked));
+        if (delays > 0 || key == DelaysKey) filters.Add(new(DelaysKey, Lang.T("Driver delays"), delays));
         filters.AddRange(Kinds.Select(k => new TimelineFilter(k.Key, Lang.T(k.Name), _changes.Count(c => k.Kinds.Contains(c.Kind)))).Where(f => f.Count > 0 || f.Key == key));
         // The same kinds and counts (only the filter or the grouping changed): the dropdown keeps its list.
         if (!filters.SequenceEqual(Filters) || Filter is null)
@@ -329,13 +391,17 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
         bool all = Filter.Key == "all";
         var kinds = Kinds.FirstOrDefault(k => k.Key == Filter.Key).Kinds;
+        bool marksOnly = Filter.Key is MarkedKey or DelaysKey;
         var changes = all ? _changes
+            : marksOnly ? []
             : Filter.Key == ResultsKey ? [.. _changes.Where(c => _results.TryGetValue(c.Time.Date, out var r) && r.Changes.Contains(c))]
             : [.. _changes.Where(c => kinds.Contains(c.Kind))];
         // Problems, and the ones marked from the tray, are context for everything together; a list of one kind is just that
         // kind. A mark is never a change: it has no filter of its own, as problems have none.
         var problems = all ? _problems : [];
-        var marks = all ? _marks : [];
+        var marks = all ? _marks
+            : Filter.Key == MarkedKey ? [.. _marks.Where(IsMarked)]
+            : Filter.Key == DelaysKey ? [.. _marks.Where(m => m.Delay is not null)] : [];
         var words = Core.TextMatch.Words(Search);
         if (words.Length > 0)
         {
@@ -515,7 +581,7 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         }
         // The problems marked from the tray: one is its own line; more fold into one, each with its date on request. The
         // stretches of sound dropouts the same, apart: "Sound cut out 23 times", each stretch with its date and time.
-        var marked = marks.Where(m => !m.Sound).ToList();
+        var marked = marks.Where(m => !m.Sound && m.Delay is null).ToList();
         if (marked.Count == 1) entries.Add(MarkEntry(marked[0], Span([marked[0].Time])));
         else if (marked.Count > 1)
         {
@@ -525,6 +591,19 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
                 Key = "marks", TimeText = Span(newest.Select(m => m.Time)), Icon = MarkIcon, IconBrush = "PurpleBrush", Title = Lang.T($"{marked.Count} problems marked"),
                 Children = [.. newest.Select(m => new TimelineEntry { Title = m.Text, Detail = TimeText.At(m.Time, "d MMM, h:mm tt") })],
                 ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((month, "marks")),
+            });
+        }
+        var delays = marks.Where(m => m.Delay is not null).ToList();
+        if (delays.Count == 1) entries.Add(MarkEntry(delays[0], Span([delays[0].Time])));
+        else if (delays.Count > 1)
+        {
+            var newest = delays.OrderByDescending(m => m.Time).ToList();
+            entries.Add(new TimelineEntry
+            {
+                Key = "delays", TimeText = Span(newest.Select(m => m.Time)), Icon = DelayIcon, IconBrush = "PurpleBrush",
+                Title = Lang.T($"Drivers kept the CPU busy much longer than usual {delays.Count} times"),
+                Children = [.. newest.Select(m => new TimelineEntry { Title = m.Text, Detail = TimeText.At(m.Time, "d MMM, h:mm tt") })],
+                ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((month, "delays")),
             });
         }
         var sound = marks.Where(m => m.Sound).ToList();
@@ -609,7 +688,9 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     /// </summary>
     private static TimelineEntry MarkEntry(TimelineMark m, string when) => m.Sound
         ? new() { TimeText = when, Icon = SoundIcon, IconBrush = "WarmBrush", Title = m.Text, Detail = m.Detail, Note = m.Note }
-        : new() { TimeText = when, Icon = MarkIcon, IconBrush = "PurpleBrush", Title = m.Text };
+        : m.Delay is not null
+            ? new() { TimeText = when, Icon = DelayIcon, IconBrush = "PurpleBrush", Title = m.Text, Detail = m.Detail, Delay = m.Delay }
+            : new() { TimeText = when, Icon = MarkIcon, IconBrush = "PurpleBrush", Title = m.Text, Note = m.Detail };
 
     /// <summary>The dot on the line: blue for changes, red for problems only, purple for marked problems only, warm for sound dropouts only.</summary>
     private static string NodeOf(List<SystemChange> changes, List<TimelineProblem> problems, List<TimelineMark> marks) =>
@@ -749,7 +830,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             }
             // Hovering a day says what's on it.
             var lines = day.Problems.GroupBy(p => p.Kind).Select(g => g.Count() == 1 ? g.First().Title : CrashesViewModel.KindCount(g.Key, g.Count()))
-                .Concat(Marked(day.Marks.Where(m => !m.Sound).ToList()))
+                .Concat(Marked(day.Marks.Where(m => !m.Sound && m.Delay is null).ToList()))
+                .Concat(Delays(day.Marks.Where(m => m.Delay is not null).ToList()))
                 .Concat(Sound(day.Marks.Where(m => m.Sound).ToList()))
                 .Concat(day.Changes.OrderByDescending(c => c.IsSystemLevel).Take(5).Select(c => c.Shown)).ToList();
             if (day.Changes.Count > 5) lines.Add(Lang.T($"and {day.Changes.Count - 5} more"));
@@ -761,6 +843,8 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             marks.Count switch { 0 => [], 1 => [marks[0].Text], var n => [Lang.T($"{n} problems marked")] };
         static string[] Sound(List<TimelineMark> marks) =>
             marks.Count switch { 0 => [], 1 => [marks[0].Text], _ => [Core.Sound.SoundDropouts.Title(marks.Sum(m => m.Count), null)] };
+        static string[] Delays(List<TimelineMark> marks) =>
+            marks.Count switch { 0 => [], 1 => [marks[0].Text], var n => [Lang.T($"Drivers kept the CPU busy much longer than usual {n} times")] };
         CalendarTitle = m.ToString("MMMM yyyy");
         CanGoBack = m > FirstMonth;
         CanGoForward = m < ThisMonth;
@@ -825,10 +909,45 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
 
     /// <summary>The change opened from its result: the page shows it in place of the list until Back.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsChangeOpen))]
+    [NotifyPropertyChangedFor(nameof(IsChangeOpen), nameof(IsListShown))]
     private Models.ChangeCase? _opened;
 
     public bool IsChangeOpen => Opened is not null;
+
+    /// <summary>The list, the calendar and This PC now: hidden while a change or a driver mark is open.</summary>
+    public bool IsListShown => Opened is null && DelayOpened is null;
+
+    // ── An opened driver mark (issue #15 follow-up) ─────────────────────
+
+    /// <summary>A driver mark opened from its line: the page shows it in place of the list until Back.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDelayOpen), nameof(IsListShown))]
+    private Models.DelayView? _delayOpened;
+
+    public bool IsDelayOpen => DelayOpened is not null;
+
+    private int _delayAsk;
+
+    [RelayCommand]
+    private async Task OpenDelay(TimelineEntry entry)
+    {
+        if (entry.Delay is not { } stretch) return;
+        int ask = ++_delayAsk;
+        var found = await reports.DelayCaseAsync(stretch);
+        if (ask != _delayAsk || found is null) return;
+        DelayOpened = new Models.DelayView(found);
+        DelayOpenedEvent?.Invoke();
+    }
+
+    /// <summary>Raised when a driver mark opens, to scroll its view to the top.</summary>
+    public event Action? DelayOpenedEvent;
+
+    [RelayCommand]
+    private void CloseDelay()
+    {
+        _delayAsk++;
+        DelayOpened = null;
+    }
 
     /// <summary>Raised when a change opens, to scroll its page to the top.</summary>
     public event Action? ChangeOpened;

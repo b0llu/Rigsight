@@ -345,7 +345,9 @@
                             </WrapPanel>
                         </StackPanel>
 
-                        <ItemsControl ItemsSource="{Binding RecapRows}" Margin="0,12,0,0" Focusable="False" ClipToBounds="True"
+                        <!-- 6 px of room each side, given back to the rows: a line's hover shade reaches 6 px out, and the clip
+                             cut its rounded corners square at the edges. -->
+                        <ItemsControl ItemsSource="{Binding RecapRows}" Margin="-6,12,-6,0" Focusable="False" ClipToBounds="True"
                                       Style="{StaticResource HiddenWhileLoading}" Visibility="{Binding RecapHasData, Converter={StaticResource Vis}}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -361,7 +363,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Grid>
-                                        <Grid x:Name="App" Margin="0,5" Visibility="{Binding IsApp, Converter={StaticResource Vis}}">
+                                        <Grid x:Name="App" Margin="6,5" Visibility="{Binding IsApp, Converter={StaticResource Vis}}">
                                             <Grid.ColumnDefinitions>
                                                 <!-- The time in a fixed column: sized to its text, a short "49m" widened the name and moved
                                                      that bar (issue #7). -->
@@ -379,7 +381,7 @@
                                             <TextBlock Grid.Column="3" Text="{Binding App.ActiveSec, Converter={StaticResource Duration}}" Style="{StaticResource Body}" FontWeight="SemiBold"
                                                        VerticalAlignment="Center" HorizontalAlignment="Right" />
                                         </Grid>
-                                        <Button x:Name="Line" Style="{StaticResource FlatRowButton}" Margin="-6,1" ToolTip="{Binding Line.DetailOrNull}" ToolTipService.ShowOnDisabled="True"
+                                        <Button x:Name="Line" Style="{StaticResource FlatRowButton}" Margin="0,1" ToolTip="{Binding Line.DetailOrNull}" ToolTipService.ShowOnDisabled="True"
                                                 IsEnabled="{Binding Line.CanOpen, FallbackValue=False}" AutomationProperties.Name="{Binding Line.Line}"
                                                 Command="{Binding DataContext.OpenRecapInsightCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Line}"
                                                 Visibility="{Binding IsApp, Converter={StaticResource Vis}, ConverterParameter=Invert}">
@@ -394,7 +396,7 @@
                                     <DataTemplate.Triggers>
                                         <!-- A gap between the apps and the lines about the period. -->
                                         <DataTrigger Binding="{Binding StartsLines}" Value="True">
-                                            <Setter TargetName="Line" Property="Margin" Value="-6,9,-6,1" />
+                                            <Setter TargetName="Line" Property="Margin" Value="0,9,0,1" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>

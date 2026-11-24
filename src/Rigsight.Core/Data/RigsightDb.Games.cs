@@ -43,6 +43,15 @@ public sealed record PlayStats
     /// <summary>The most RAM in use on the whole PC (GB, every app together) in a minute with the game in front.</summary>
     public double? RamUsedMax { get; init; }
 
+    /// <summary>The CPU and GPU energy (Wh) in its minutes: the PC's in that time, not the game's own (1.18.0, the Power page).</summary>
+    public double? EnergyWh { get; init; }
+    /// <summary>
+    /// A laptop played on battery: the battery (%) in its first and last minute on battery. Null when no minute of it was
+    /// on battery (a desktop, or a laptop on the charger).
+    /// </summary>
+    public int? BatteryFrom { get; init; }
+    public int? BatteryTo { get; init; }
+
     /// <summary>
     /// From every frame (recorded since 2026-10-25, see <see cref="Games.FrameSpread"/>): the true 0.1% low, how many
     /// stutters, and the minutes that had frames. Where there are such minutes, <see cref="Fps"/> and <see cref="FpsLow"/>
@@ -129,6 +138,17 @@ public sealed partial class RigsightDb
         r.Close();
         var (memAvg, memMax) = GetAppMemory(appId, from, to);
         stats = stats with { MemAvg = memAvg, MemMax = memMax };
+        stats = stats with { EnergyWh = stats.Power is double w ? w * stats.Minutes / 60 : null };
+        if (HasDrives)
+        {
+            // The battery over the play's minutes on battery: its first and its last reading there.
+            using var bat = Cmd("""
+                SELECT (SELECT battery FROM system_minute WHERE ts >= $from AND ts < $to AND fg_app = $app AND on_battery = 1 AND battery IS NOT NULL ORDER BY ts LIMIT 1),
+                       (SELECT battery FROM system_minute WHERE ts >= $from AND ts < $to AND fg_app = $app AND on_battery = 1 AND battery IS NOT NULL ORDER BY ts DESC LIMIT 1)
+                """, ("$from", from), ("$to", to), ("$app", appId));
+            using var b = bat.ExecuteReader();
+            if (b.Read() && !b.IsDBNull(0) && !b.IsDBNull(1)) stats = stats with { BatteryFrom = b.GetInt32(0), BatteryTo = b.GetInt32(1) };
+        }
         // Every frame, where it was recorded: the true lows and the stutters.
         var (spread, minutes, stutters) = GetFrameSpread(appId, from, to);
         if (minutes == 0 || spread.IsEmpty) return stats;

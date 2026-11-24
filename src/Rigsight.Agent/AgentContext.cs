@@ -1,3033 +1,3044 @@
-﻿using Microsoft.Win32;
-using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Net.NetworkInformation;
-using System.Reflection;
-using Rigsight.Agent.Ipc;
-using Rigsight.Agent.Native;
-using Rigsight.Agent.Network;
-using Rigsight.Agent.Sensors;
-using Rigsight.Agent.Tracking;
-using Rigsight.Agent.Ui;
-using Rigsight.Agent.Widgets;
-using Rigsight.Core;
-using Rigsight.Core.Ai;
-using Rigsight.Core.Data;
-using Rigsight.Core.Protocol;
-using Rigsight.Core.Reports;
-using Rigsight.Core.Settings;
-using Rigsight.Core.Stability;
-using Rigsight.Core.Updates;
-
-namespace Rigsight.Agent;
-
-/// <summary>
-/// Runs the agent. Two threads do the work:
-///  • the UI thread (WinForms message loop) owns the tray icon and widget windows;
-///  • the sampler thread reads sensors, tracks activity and writes the database.
-/// The sampler wakes once a second and does very little each time, so the agent stays near 0% CPU.
-/// </summary>
-internal sealed partial class AgentContext : ApplicationContext
-{
-    private readonly SynchronizationContext _ui;
-    private readonly bool _isAdmin;
-    private readonly Lock _settingsLock = new();
-    private volatile RigsightSettings _settings;
-
-    // Replaced (on the sampler thread) when the hardware is scanned again: another program started or quit (see
-    // HardwareApps), or the user asked to read everything again. Read it once into a local where it's used twice.
-    private volatile SensorHost _sensors = new();
-    private volatile SensorStatus _sensorStatus = new();
-    // The last hardware scan never finished: skip the risky parts until the user asks to read them again.
-    private bool _safeMode;
-    // Kernel memory ran away during a scan this run: the same.
-    private bool _stoppedForMemory;
-    // Sampler thread: when the programs we step aside for were last seen, for leaving them the hardware a little longer.
-    private SensorParts _yieldedParts;
-    private int _absentChecks;
-    // What is wrong with the PawnIO driver (see SensorStatus.Driver) and how installing it is going (DriverInstall).
-    // Looked at when the sensors open, a minute after, and every five minutes from then (Environment.TickCount64).
-    private volatile string? _driver, _driverInstall;
-    private long _driverCheckAt = long.MaxValue;
-    private bool _driverStartTried, _driverUnsupportedSaid;
-    private string? _cpuReadingsSaid;
-    private HashSet<string>? _silentSaid;
-    private static string ScanMarker => Path.Combine(RigsightPaths.DataDir, "sensors-scan.pending");
-    private readonly KeyHistory _history = new();
-    private readonly DailyExtremes _extremes = new();
-    private readonly DriveTempHistory _driveHistory = new();
-    // Set when an app connects (hello), so the next tick carries every sensor's range, not just changes.
-    private volatile bool _sendAllExtremes;
-    private readonly EventWaitHandle _quitSignal;
-    private RegisteredWaitHandle? _quitWait;
-    private readonly RigsightDb _db;
-    private readonly AppResolver _apps;
-    private readonly Tracker _tracker;
-    private readonly ProcessSampler _procSampler = new();
-    private readonly GpuSampler _gpuSampler = new();
-    private readonly GpuMemorySampler _gpuMemory = new();
-    private readonly ProcessLabels _procLabels = new();
-    private readonly CriticalMarks _criticalMarks = new();
-    private bool _procsNow; // sampler thread: sample processes on this pass
-    private bool _sensorsNow; // sampler thread: read the sensors (and redraw the taskbar readings) on this pass
-    private readonly ActivityMonitor _activity = new();
-    // Internet use (sampler thread): the trace of every app's bytes (null without admin rights), this PC's addresses (read
-    // again when the adapters change), drops, and the last minute's speeds for an app that connects.
-    private NetworkTrace? _netTrace;
-    private volatile AddressBook _addresses = AddressBook.Empty;
-    private volatile bool _addressesChanged = true;
-    private readonly ConnectionWatch _connection = new();
-    private readonly DropNotices _dropNotices = new();
-    /// <summary>The network card's kind ("Wi-Fi", "Ethernet") while it was last connected: what a drop's words name.</summary>
-    private string? _cardKind;
-    private long _cardKindAt;
-    private LineCheck? _line;
-    private readonly TraceWatch _traceWatch = new();
-    private readonly SensorHealth _sensorHealth = new();
-    // A part of the sampler's pass or the tick's drawing that failed: noted, not repeated in the log every second.
-    private readonly RepeatedErrors _errors = new("sampler");
-    private readonly DisplayDriverWatch _displayWatch = new();
-    private bool _gpusPaused, _restarting; // sampler thread
-    private readonly string[] _args;
-    private IReadOnlyDictionary<int, string> _running = new Dictionary<int, string>();
-    private readonly Queue<NetLive> _netHistory = new();
-    private readonly Lock _netHistoryLock = new();
-    // The PC was just turned on or woke from sleep: the recap is due once the user is here (sampler thread reads it).
-    private volatile bool _justTurnedOn = DailyRecap.JustSignedIn();
-    private bool _presentNow;
-    private readonly AlertMonitor _alerts = new();
-    private readonly PipeServer _pipe;
-    private readonly TrayController _tray;
-    private readonly TrayReadings _trayReadings;
-    private readonly TaskbarStrips _taskbarStrip;
-    private readonly ReadingCard _card;
-    // Whether the screen is off: the taskbar readings and widgets wait, unseen, until it's back (see ScreenState).
-    private readonly ScreenState _screen;
-
-    /// <summary>The latest process pass (sampler thread): what a reading card lists as the apps using a part.</summary>
-    private ProcessSnapshot? _lastProcs;
-
-    /// <summary>The taskbar readings waiting for room in the strip's "+N" (set on the UI thread, sent with each tick for the Taskbar page).</summary>
-    private volatile IReadOnlyList<string> _trayWaiting = [];
-    private readonly WidgetManager _widgets;
-    private readonly OverlayManager _overlay;
-    /// <summary>The Ask shortcut: opens the app on the Ask window from anywhere, while the AI is on (2026-10-26).</summary>
-    private readonly GlobalHotkey _askHotkey = new();
-    private string? _askRegistered;
-    private bool _askHotkeyTaken;
-    private readonly NotificationCenter _notices;
-
-    private readonly ConcurrentQueue<Action> _samplerWork = new();
-    private readonly AutoResetEvent _wake = new(false);
-    private readonly Thread _sampler;
-    private volatile bool _stopping;
-    private volatile bool _sensorsReady;
-    private volatile bool _overlayVisible;
-    // Today's totals as last computed on the sampler thread, for the hello sent to a newly connected app.
-    private volatile TodayInfo? _lastToday;
-    private bool _startupEnabled;
-
-    /// <summary>"Start with Windows" is this person's own Run entry: a standard account, on a PC not set up for everyone.</summary>
-    private static bool OwnStartup => Account.Kind == AccountKind.Standard && !MachineSetup.Everyone && !RigsightPaths.IsTestInstance;
-    private string? _pendingPage, _pendingArg;
-
-    // Set RIGSIGHT_PROFILE=1 to log how long each part of the sampler loop takes, once a minute.
-    private static readonly bool Profiling = Environment.GetEnvironmentVariable("RIGSIGHT_PROFILE") == "1";
-    private readonly Dictionary<string, double> _profile = [];
-    private long _profileStart = Stopwatch.GetTimestamp();
-    private bool _procsSampled;
-
-    /// <summary>With RIGSIGHT_PROFILE=1: the private memory at a step of starting up, to see which step costs what.</summary>
-    private static void MemoryAt(string step)
-    {
-        if (Profiling) Log.Write("profile", $"{step}: {Process.GetCurrentProcess().PrivateMemorySize64 / 1048576.0:0.0} MB private");
-    }
-
-    private void Measure(string name, long startTimestamp)
-    {
-        if (!Profiling) return;
-        _profile[name] = _profile.GetValueOrDefault(name) + Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
-        if (Stopwatch.GetElapsedTime(_profileStart).TotalSeconds >= 60)
-        {
-            Log.Write("profile", string.Join(", ", _profile.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}={kv.Value:0}ms")));
-            _profile.Clear();
-            _profileStart = Stopwatch.GetTimestamp();
-        }
-    }
-
-    public AgentContext(string[] args, bool isAdmin)
-    {
-        SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
-        _ui = SynchronizationContext.Current!;
-        _isAdmin = isAdmin;
-        _args = args;
-        MemoryAt("starting");
-
-        _settings = SettingsStore.Load();
-        ForgetRiggySetting();
-        _settingsCopies[0] = SettingsStore.Serialize(_settings); // copy 0, the one the first hello carries
-        Units.Fahrenheit = _settings.UseFahrenheit;
-        TimeText.Style = _settings.ClockStyle;
-        LanguageStore.Apply(_settings.Language);
-        // Just updated and the new pack didn't come with it: one more try, where updates may reach GitHub by themselves.
-        if (LanguageStore.NewestMissing)
-            _ = LanguageStore.RefreshAsync(mayCheck: _settings.AutoUpdate && !RigsightPaths.IsTestInstance);
-        DarkMenuRenderer.Theme = _settings.Theme;
-        // A new install's first start, before the hardware is ever scanned: if an RGB or fan-control app is running,
-        // step aside for it from the very first scan (that first scan is when two programs colliding does the most harm).
-        if (!_settings.HardwareAppsChecked)
-        {
-            var apps = HardwareApps.Running();
-            _settings.HardwareAppsChecked = true;
-            if (apps.Count > 0) _settings.YieldToHardwareApps = true;
-            SettingsStore.Save(_settings);
-            Log.Write("sensors", apps.Count > 0
-                ? $"First start: {string.Join(", ", apps.Select(a => a.Name))} running, so Rigsight steps aside for RGB and fan apps"
-                : "First start: no RGB or fan apps running");
-        }
-
-        // Checked first when the last run didn't end normally, and repaired when it really is damaged (see HistoryRepair).
-        _db = HistoryRepair.Open(RigsightPaths.Database, out var history);
-        HistoryRepair.MarkRunning(RigsightPaths.DataDir);
-        HistoryRepair.DamageSeen += OnHistoryDamageSeen;
-        // Windows saves a crash file if the agent or the app crashes where nothing can log it (issue #10). Off the start's path.
-        _ = Task.Run(() => CrashFileSetup.Ensure(isAdmin));
-        // Which folders the launchers say hold games, before the apps are loaded: an app filed wrongly by an older
-        // version (an Epic game outside "Epic Games") is put right as they load. Read again with each change check.
-        Core.Apps.AppCatalog.InstalledGames = Core.Games.GameLibrary.Scan(Core.Games.GameSources.ThisPc());
-        Log.Write("games", $"Launchers list {Core.Apps.AppCatalog.InstalledGames.Count} installed games: "
-            + string.Join(", ", Core.Apps.AppCatalog.InstalledGames.GroupBy(g => g.Launcher).Select(g => $"{g.Key} {g.Count()}")));
-        _apps = new AppResolver(_db);
-        _tracker = new Tracker(_db, _apps);
-        _tracker.SetSettings(_settings);
-        _tracker.SessionEnded += OnSessionEnded;
-        _closeUps = new CloseUpKeeper(_db, _tracker.Ring);
-        MemoryAt("database open");
-
-        _widgets = new WidgetManager(() => _settings, MutateSettings, id => OpenApp("widgets", id));
-        MemoryAt("widgets");
-        _overlay = new OverlayManager(isAdmin);
-        _overlay.StateChanged += OnOverlayStateChanged;
-        _overlay.CantReachGame += OnOverlayCantReachGame;
-        _trayReadings = new TrayReadings(open: () => OpenApp(null),
-            remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
-            setGrouped: on => MutateSettings(s => s.TrayStyle = on ? TrayStyle.Grouped : TrayStyle.Icons),
-            openPage: () => OpenApp("taskbar"));
-        _card = new ReadingCard(page => OpenApp(page));
-        // One strip per taskbar that shows the readings (the main one, and other screens' when asked): each the same.
-        _taskbarStrip = new TaskbarStrips(other => new TaskbarStrip(open: () => OpenApp(null),
-            remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
-            // Every reading in one style: each one's own style goes.
-            setStyle: style => MutateSettings(s => { s.TrayStyle = style; s.TrayStyles.Clear(); }),
-            openPage: () => OpenApp("taskbar"),
-            setSide: side => MutateSettings(s => s.TraySide = side),
-            setLook: (id, look) => MutateSettings(s => { s.TrayLooks.Remove(id); if (look != TrayLook.Number) s.TrayLooks[id] = look; }),
-            openCard: OpenCard, cardShowing: () => _card.Key is not null,
-            setStyleOf: (ids, style) => MutateSettings(s =>
-            {
-                foreach (var id in ids)
-                {
-                    s.TrayStyles.Remove(id);
-                    if (style != s.TrayStyle) s.TrayStyles[id] = style;
-                }
-            }),
-            setScreens: screens => MutateSettings(s => s.TrayScreens = screens),
-            other: other));
-        // The three on/off switches, as on their pages (the user, 2026-11-09: quick ways to turn them off).
-        TrayController.Switch[] switches =
-        [
-            new(Lang.Key("Taskbar readings"), () => _settings.TrayShown, () => MutateSettings(s => s.TrayShown = !s.TrayShown)),
-            new(Lang.Key("Desktop widgets"), () => _settings.WidgetsShown, () => MutateSettings(s => s.WidgetsShown = !s.WidgetsShown)),
-            new(Lang.Key("Game overlay"), () => _settings.Overlay.Enabled, () => MutateSettings(s => s.Overlay.Enabled = !s.Overlay.Enabled)),
-        ];
-        _tray = new TrayController(() => OpenApp(null), LookBackNow, switches, _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
-            () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
-        _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
-        _widgets.TimerUp = (title, body) => _notices.Show(new Notice(NoticeKind.Timer, title, body, Page: "widgets"));
-
-        // A window that has just opened gets its readings and the running apps now, not at their next turn (readings
-        // are two seconds apart and the apps five while no window is open: its pages stood empty that long).
-        _pipe = new PipeServer(BuildHello, OnUiMessage, onConnected: () => RunOnSampler(() => _sensorsNow = _procsNow = true));
-        _pipe.Start();
-        _widgets.Apply(_settings);
-        _overlay.Apply(_settings.Overlay);
-        _askHotkey.Pressed += () => OpenApp("ask");
-        ApplyAskShortcut(_settings);
-        if (NeedsRtss(_settings) && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
-
-        // Save before Windows shuts down or signs out (otherwise the process is simply killed, losing
-        // the game session in progress), and let the installer ask for a clean stop ("--quit").
-        SystemEvents.SessionEnding += OnSessionEnding;
-        // A time zone change (e.g. travelling) must move "today" too; .NET caches the zone otherwise.
-        SystemEvents.TimeChanged += OnTimeChanged;
-        // Waking from sleep is turning the PC on again, for the daily recap.
-        SystemEvents.PowerModeChanged += OnPowerModeChanged;
-        // Off: nothing on the taskbar or the desktop is drawn, as nobody sees it. Back on: drawn at once with fresh readings.
-        _screen = new ScreenState(off =>
-        {
-            Log.Write("screen", off
-                ? "The screen went off: the taskbar readings and widgets aren't drawn, nor the sensors only they show read, until it's back on (recording goes on)"
-                : "The screen is back on: drawing the taskbar readings and widgets again");
-            if (!off) RunOnSampler(() => _sensorsNow = true);
-        });
-        _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, RigsightPaths.AgentQuitEvent);
-        WatchAppCrashes();
-        _quitWait = ThreadPool.RegisterWaitForSingleObject(_quitSignal, (_, _) => _ui.Post(_ => Quit("a quit signal (the installer, or --quit)"), null), null, Timeout.Infinite, executeOnlyOnce: true);
-
-        // First run: register to start with Windows (the user can turn this off in Settings). A test copy leaves
-        // the real startup task alone.
-        // What opening the history found, for the app: here, once everything settings changes reach exists (noted where
-        // the file is opened, it ended the agent before it had started).
-        NoteHistory(history);
-
-        _startupEnabled = StartupTask.IsEnabled();
-        if (!_isAdmin && MachineSetup.Everyone) _startupEnabled = _settings.StartAtSignIn;
-        bool manageStartup = _isAdmin && !RigsightPaths.IsTestInstance;
-        if (!_settings.StartupConfigured && manageStartup)
-        {
-            _startupEnabled = StartupTask.Enable();
-            MutateSettings(s => s.StartupConfigured = true);
-        }
-        else if (_startupEnabled && manageStartup && !StartupTask.PointsHere())
-        {
-            // Installed somewhere new (or reinstalled): point the task at this copy.
-            _startupEnabled = StartupTask.Enable();
-        }
-        // A standard account on a PC nobody set up for everyone: its own start at sign-in, added on the first run like
-        // an admin's task is (this is the PC an admin installed Rigsight on once, then an update brought this version).
-        if (OwnStartup)
-        {
-            _startupEnabled = MachineSetup.StartsForMe;
-            if (!_settings.StartupConfigured && Environment.ProcessPath is { } me)
-            {
-                _startupEnabled = MachineSetup.SetStartsForMe(true, me) && MachineSetup.StartsForMe;
-                MutateSettings(s => s.StartupConfigured = true);
-            }
-        }
-
-        _displayWatch.Start();
-        _sampler = new Thread(SamplerLoop) { IsBackground = true, Name = "Sampler", Priority = ThreadPriority.BelowNormal };
-        _sampler.Start();
-
-        if (args.Contains("--open")) OpenApp(null);
-        // "Update now" was pressed in this person's window, and the update closed it: open it again.
-        else if (!RigsightPaths.IsTestInstance && UpdateStore.TakeNow()) OpenApp(null);
-        if (RigsightPaths.IsTestInstance) return; // no updates in a test copy
-        if (_isAdmin) ThreadPool.QueueUserWorkItem(_ => UpdateInstaller.Cleanup());
-        // Updates: first a minute and a half after starting (Windows is still settling at sign-in), then every
-        // six hours; GitHub itself is asked at most once a day.
-        _updateTimer = new System.Threading.Timer(_ => _ = RunUpdaterAsync(), null, TimeSpan.FromSeconds(90), TimeSpan.FromHours(6));
-    }
-
-    // ── Updates ───────────────────────────────────────────────────────────
-
-    private System.Threading.Timer? _updateTimer;
-    private bool _updaterStarted;
-    private int _updaterRunning;
-
-    private async Task RunUpdaterAsync()
-    {
-        if (_stopping || Environment.ProcessPath is not { } exe || Interlocked.Exchange(ref _updaterRunning, 1) == 1) return;
-        // An account that can't install anything, on a PC that updates Rigsight itself: as this agent starts (a sign-in,
-        // or Rigsight closed and opened again) it asks the PC's updater to have a look, once. Never later in the day.
-        // An admin on such a PC too: their own install would close everyone else's Rigsight and couldn't start it again;
-        // the PC's updater can.
-        if (MachineSetup.KeepUpdated && !RigsightPaths.IsTestInstance)
-        {
-            if (!_updaterStarted)
-            {
-                _updaterStarted = true;
-                if (!UpdaterTask.Run()) Log.Write("update", "The PC's updater couldn't be asked to run");
-            }
-            Volatile.Write(ref _updaterRunning, 0);
-            return;
-        }
-        // Automatic updates off: no look at GitHub by itself, not even the updater started (it would only say so).
-        if (!_settings.AutoUpdate)
-        {
-            Volatile.Write(ref _updaterRunning, 0);
-            return;
-        }
-        try
-        {
-            bool appOpen = _pipe.ClientCount > 0;
-            var args = new List<string> { "--update" };
-            // Installing a waiting update is for the first run after sign-in, and never under an open window.
-            if (!_updaterStarted && _isAdmin && !appOpen) args.Add("--at-startup");
-            if (appOpen) args.Add("--no-download"); // the app shows its own download
-            _updaterStarted = true;
-
-            using var child = Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false, CreateNoWindow = true });
-            if (child is null) return;
-            await child.WaitForExitAsync();
-            int code = child.ExitCode; // read now: the process object is disposed before the UI thread gets to it
-            if (code is BackgroundUpdater.Downloaded or BackgroundUpdater.Available)
-                _ui.Post(_ => OnUpdateFound(code == BackgroundUpdater.Downloaded), null);
-        }
-        catch (Exception ex)
-        {
-            Log.Error("update", ex);
-        }
-        finally
-        {
-            Volatile.Write(ref _updaterRunning, 0);
-        }
-    }
-
-    /// <summary>
-    /// UI thread: a newer version is out (downloaded or not). An open app is told, so it shows it at once;
-    /// otherwise one notification per version says so.
-    /// </summary>
-    private void OnUpdateFound(bool downloaded)
-    {
-        if (_pipe.ClientCount > 0)
-        {
-            _pipe.Broadcast(new AgentMessage { T = "update", UpdateStatus = "found" });
-            return;
-        }
-        var version = UpdateStore.ReadCheck()?.Latest?.Version.ToString(3);
-        if (version is null || _settings.LastUpdateNotice == version) return;
-        MutateSettings(s => s.LastUpdateNotice = version);
-        string body = !downloaded ? Lang.T("Click to update.")
-            : _settings.AutoUpdate && _isAdmin ? Lang.T("It installs the next time you start your PC, or click to update now.")
-            : Lang.T("It's downloaded. Click to finish updating.");
-        // Clicked, the app opens asking to restart (or downloading), not on its usual page with no word of the update.
-        Notify(new Notice(NoticeKind.Update, downloaded ? Lang.T($"RigSight {version} is ready") : Lang.T($"RigSight {version} is out"), body, Page: "update"));
-    }
-
-    // ── Sampler thread ────────────────────────────────────────────────────
-
-    private void SamplerLoop()
-    {
-        // Today's totals come from the database, not the sensors: load and send them first, so the app's
-        // Home page isn't left waiting while hardware discovery runs (several seconds on a fresh start).
-        // Each start-up step on its own: this is a thread of its own, where an error nobody catches ends the agent.
-        Step("today's totals", () =>
-        {
-            _tracker.Initialize();
-            _lastToday = _tracker.Today();
-            if (_pipe.ClientCount > 0) _pipe.Broadcast(new AgentMessage { T = "tick", Time = TimeUtil.NowUnixMs(), Today = _lastToday });
-        });
-
-        Step("sensors", () =>
-        {
-            _safeMode = ScanGuard.LastScanUnfinished(ScanMarker);
-            if (_safeMode) Log.Write("sensors", "The last hardware scan didn't finish: skipping the motherboard, fan hubs and power supply");
-            OpenSensors();
-        });
-
-        // Hardware discovery allocates a lot of short-lived data; hand it back once so the
-        // always-running agent settles at its real (small) footprint.
-        Step("memory", CompactMemory);
-
-        Step("drives", RecordDrives);
-        Step("extremes", RestoreExtremes);
-        Step("network", StartNetwork);
-        Step("disk use", StartDiskUse);
-        Step("drivers", StartDrivers);
-        Step("sound", StartSound);
-        Step("frames", StartFrames);
-
-        var clock = Stopwatch.StartNew();
-        // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
-        long lastNet = 0, nextAddresses = 0, nextTraceCheck = 60_000;
-        long lastActivity = 0, lastProc = 0, nextSensor = 0, nextProc = 0, nextDrives = 6 * 3600_000L, nextMinuteCheck = 30_000, nextCrashScan = 20_000, nextChangeScan = 40_000,
-            nextHardwareApps = 30_000;
-        // While the app is open every sensor is read each second, which grows the heap (~40 MB); once the
-        // last window closes, hand that back too.
-        bool wasLive = false;
-        long compactAt = long.MaxValue;
-
-        // Each part of a pass on its own: one that fails (a full disk under a new app's first row, one widget) is noted and
-        // the others go on. A part whose turn is timed has its next turn set before it runs, so a failing part is tried
-        // again at its own pace, not on every pass.
-        while (!_stopping)
-        {
-            try
-            {
-                while (_samplerWork.TryDequeue(out var work))
-                    try { work(); }
-                    catch (Exception ex) { _errors.Failed("queued work", ex); }
-
-                // The RAM sticks, found in the background since the sensors opened: into the list, and tell the app.
-                try
-                {
-                    if (_sensors.TakeMemory())
-                    {
-                        Log.Write("sensors", $"Now {_sensors.SensorCount} sensors");
-                        MemoryAt("RAM sticks in");
-                        CompactMemory();
-                        if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
-                    }
-                }
-                catch (Exception ex) { _errors.Failed("RAM sticks", ex); }
-
-                // Wireless devices' batteries, read on their own thread: into their sensors, and a device that came or went into the list.
-                try
-                {
-                    if (_sensors.TakeDevices())
-                    {
-                        Log.Write("sensors", $"Wireless devices changed: now {_sensors.SensorCount} sensors");
-                        if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
-                    }
-                    MaybeCheckDevices();
-                }
-                catch (Exception ex) { _errors.Failed("device batteries", ex); }
-
-                long now = clock.ElapsedMilliseconds;
-                var settings = _settings;
-                // A timed pause that has run out is cleared, so the tray menu and Settings show tracking again.
-                if (settings.Tracking.PausedUntil > 0 && settings.Tracking.PausedUntil <= TimeUtil.NowUnix())
-                    MutateSettings(s => { if (s.Tracking.PausedUntil > 0 && s.Tracking.PausedUntil <= TimeUtil.NowUnix()) s.Tracking.PausedUntil = 0; });
-                bool live = _pipe.ClientCount > 0;
-                if (wasLive && !live) compactAt = now + 15_000;
-                if (live) compactAt = long.MaxValue;
-                wasLive = live;
-                if (now >= compactAt)
-                {
-                    compactAt = long.MaxValue;
-                    CompactMemory();
-                }
-
-                double dt = ActivityStep(lastActivity, now);
-                lastActivity = now;
-                long t0 = Stopwatch.GetTimestamp();
-                bool fullscreen = false;
-                try
-                {
-                    var sample = _activity.Sample();
-                    fullscreen = sample.Fullscreen;
-                    _presentNow = !sample.Locked && (sample.IdleMs < settings.Tracking.IdleMinutes * 60_000L
-                                                     || sample.Fullscreen && settings.Tracking.FullscreenCountsAsActive);
-                    _tracker.OnActivity(sample, dt);
-                }
-                catch (Exception ex) { _errors.Failed("activity", ex); }
-                Measure("activity", t0);
-
-                t0 = Stopwatch.GetTimestamp();
-                try
-                {
-                    if (_addressesChanged || now >= nextAddresses)
-                    {
-                        _addressesChanged = false;
-                        nextAddresses = now + 60_000;
-                        _addresses = AddressBook.Read();
-                    }
-                    if (now >= nextTraceCheck)
-                    {
-                        nextTraceCheck = now + 60_000;
-                        CheckNetworkTrace();
-                        CheckDiskTrace();
-                    }
-                    // Once a second (a pass woken early for other work leaves it be: a few milliseconds' bytes say nothing of a speed).
-                    if (lastNet == 0 || now - lastNet >= 900)
-                    {
-                        double seconds = lastNet == 0 ? 1 : Math.Min((now - lastNet) / 1000.0, 60);
-                        lastNet = now;
-                        SampleNetwork(seconds);
-                        long td = Stopwatch.GetTimestamp();
-                        SampleDiskUse();
-                        Measure("disk use", td);
-                        long tdr = Stopwatch.GetTimestamp();
-                        SampleDrivers();
-                        Measure("drivers", tdr);
-                        long tso = Stopwatch.GetTimestamp();
-                        SampleSound();
-                        Measure("sound", tso);
-                        long tfr = Stopwatch.GetTimestamp();
-                        SampleFrames();
-                        Measure("frames", tfr);
-                    }
-                }
-                catch (Exception ex) { _errors.Failed("network", ex); }
-                Measure("network", t0);
-
-                // The same slack as the network's: each pass wakes a few ms after the second, by a little more or less each
-                // time, and without it a pass 1 ms earlier than the last would wait a whole extra second.
-                if (now + TurnSlackMs >= nextSensor || _sensorsNow)
-                {
-                    _sensorsNow = false;
-                    int interval = live ? Math.Min(settings.LiveRefreshMs, settings.Tracking.SensorIntervalMs) : settings.Tracking.SensorIntervalMs;
-                    // The overlay is read mid-game: keep it to the second.
-                    if (_overlayVisible) interval = Math.Min(interval, 1000);
-                    nextSensor = now + interval;
-                    t0 = Stopwatch.GetTimestamp();
-                    try
-                    {
-                        // Sensors on the overlay stay live in games (the app is usually closed then).
-                        // And those in the taskbar, which are always on show.
-                        // With the screen off, only the overlay's (a game streamed elsewhere still shows it).
-                        _sensors.Watch(_screen.Off
-                            ? [.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : []]
-                            : [.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. _settings.TrayLookFrom.Values,
-                                .. WidgetSensorIds(_settings)]);
-                        CheckDisplayDriver();
-                        _sensors.Update(everything: live, now);
-                        if (_sensorHealth.Check(_sensors.Unwell, now))
-                        {
-                            Log.Write("sensors", "Some hardware has stopped answering (a driver updated, or a device unplugged): finding the sensors again");
-                            OpenSensors();
-                            _sensors.Update(everything: live, now);
-                        }
-                        Measure("sensors", t0);
-                        t0 = Stopwatch.GetTimestamp();
-                        var keys = _sensors.ReadKeys();
-                        long unixMs = TimeUtil.NowUnixMs();
-                        _history.Add(unixMs, _sensors);
-                        // What's written to history on its own: the readings still reach the taskbar, widgets, alerts and app.
-                        try
-                        {
-                            _tracker.OnSensors(SystemState.With(keys));
-                            var fansRead = _sensors.ReadFans();
-                            _tracker.OnFans(fansRead);
-                            if (fansRead.Count > 0) NoteFans(fansRead);
-                        }
-                        catch (Exception ex) { _errors.Failed("readings into history", ex); }
-                        try { _closeUps.Tick(); }
-                        catch (Exception ex) { _errors.Failed("crash close-ups", ex); }
-                        var values = _sensors.ReadAll();
-                        ObserveExtremes(values);
-                        if (_sensors.DrivesUpdated)
-                        {
-                            try
-                            {
-                                _driveHistory.Add(unixMs, _sensors);
-                                OnDrivesRead();
-                            }
-                            catch (Exception ex) { _errors.Failed("drives", ex); }
-                        }
-
-                        var alert = _alerts.Check(keys, _tracker.Activity.Name, settings.Alerts, now);
-                        // A fixed limit says it's hot, not whether that's new: the game's usual says that (from the research, 2026-11-07).
-                        if (alert is { } a && UsualForAlert(_tracker.Activity.Exe, _alerts.LastParts) is { } usual) alert = (a.Title, $"{a.Body} {usual}");
-                        PublishToUi(keys, fullscreen, alert);
-                        Measure("track+publish", t0);
-
-                        if (live)
-                        {
-                            // A newly connected app gets every range once; after that, only what changed.
-                            bool full = _sendAllExtremes;
-                            _sendAllExtremes = false;
-                            _pipe.Broadcast(new AgentMessage
-                            {
-                                T = "tick",
-                                Time = unixMs,
-                                Values = values,
-                                Activity = _tracker.Activity,
-                                Today = _lastToday,
-                                Extremes = full ? _extremes.Snapshot() : _extremes.TakeChanges(),
-                                ExtremesDay = _extremes.Day,
-                                ExtremesFull = full,
-                                // No trace on an agent that should have one, after the remedies: the page says it isn't recording.
-                                Net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : _isAdmin && _traceWatch.Stalled ? NotRecording : null,
-                                Line = LineNow(),
-                                TrayWaiting = _trayWaiting is { Count: > 0 } waiting ? [.. waiting] : null,
-                            });
-                        }
-                    }
-                    catch (Exception ex) { _errors.Failed("sensors", ex); }
-                }
-
-                if (now + TurnSlackMs >= nextProc || _procsNow)
-                {
-                    _procsNow = false;
-                    double pdt = lastProc == 0 ? settings.Tracking.ProcessIntervalSeconds : ProcessStep(lastProc, now, settings.Tracking.ProcessIntervalSeconds);
-                    lastProc = now;
-                    nextProc = now + (live ? 2000 : settings.Tracking.ProcessIntervalSeconds * 1000);
-                    t0 = Stopwatch.GetTimestamp();
-                    try
-                    {
-                        bool firstProcs = !_procsSampled;
-                        _procsSampled = true;
-                        if (firstProcs) MemoryAt("before the first process sample");
-                        var snapshot = _procSampler.Sample();
-                        if (firstProcs) MemoryAt("processes sampled");
-                        snapshot.Gpu = _gpuSampler.Sample(snapshot);
-                        snapshot.GpuMemMb = _gpuMemory.Sample(snapshot);
-                        if (firstProcs) MemoryAt("GPU use by app sampled");
-                        Measure("processes", t0);
-                        t0 = Stopwatch.GetTimestamp();
-                        _running = snapshot.PidToExe;
-                        _lastProcs = snapshot;
-                        _activity.UpdateProcessMap(snapshot.PidToExe);
-                        var windows = _activity.ScanWindows();
-                        _tracker.OnProcesses(snapshot, windows, pdt);
-                        Measure("windows+apps", t0);
-                        if (live) _pipe.Broadcast(new AgentMessage { T = "procs", Procs = BuildProcs(snapshot, windows), Disk = Math.Round(snapshot.Disk) });
-                    }
-                    catch (Exception ex) { _errors.Failed("processes", ex); }
-                }
-
-                if (now >= nextMinuteCheck)
-                {
-                    nextMinuteCheck = now + 60_000;
-                    _errors.Run("daily recap", MaybeShowDailyRecap);
-                    _errors.Run("Rewinds", MaybeMakeRewinds);
-                    _errors.Run("notice checks", MaybeCheckNotices);
-                    _errors.Run("extremes", () => SaveExtremes());
-                    _errors.Run("waiting repair", RetryWaitingRepair);
-                }
-
-                if (now >= nextHardwareApps)
-                {
-                    nextHardwareApps = now + 30_000;
-                    _errors.Run("hardware apps", CheckHardwareApps);
-                }
-
-                if (Environment.TickCount64 >= _driverCheckAt)
-                {
-                    _driverCheckAt = Environment.TickCount64 + 5 * 60_000;
-                    _errors.Run("driver check", CheckDriver);
-                }
-
-                if (now >= nextCrashScan)
-                {
-                    nextCrashScan = now + 10 * 60_000;
-                    bool long_ = !CrashScan.Scanned || CrashScan.FillDue;
-                    try
-                    {
-                        MemoryAt("before the crash scan");
-                        ScanCrashes();
-                        // The one-time catch-up of crashes stored by earlier versions is the next scan's, two minutes on:
-                        // a PC that has just started has enough to do.
-                        if (CrashScan.FillDue) nextCrashScan = now + 2 * 60_000;
-                        // A long scan (the first after starting, the catch-up) reads days to months of Windows' logs:
-                        // thousands of short-lived records, which the agent would otherwise sit on for as long as it
-                        // runs (26 MB more in Task Manager than the version before, measured on the first start after updating).
-                        if (long_)
-                        {
-                            MemoryAt("long crash scan done");
-                            CompactMemory();
-                            MemoryAt("handed back");
-                        }
-                    }
-                    catch (Exception ex) { _errors.Failed("crash scan", ex); }
-                }
-
-                if (now >= nextChangeScan)
-                {
-                    nextChangeScan = now + Inventory.CheckMinutes * 60_000;
-                    _errors.Run("change scan", ScanChanges);
-                }
-
-                if (now >= nextDrives)
-                {
-                    nextDrives = now + 6 * 3600_000L;
-                    _errors.Run("drive record", RecordDrives);
-                }
-
-                // Sleep until the next whole second (or until woken for work).
-                _wake.WaitOne((int)(1000 - clock.ElapsedMilliseconds % 1000));
-            }
-            catch (Exception ex)
-            {
-                // What no part caught on its own (the pass itself).
-                _errors.Failed("the pass", ex);
-                _wake.WaitOne(2000);
-            }
-        }
-
-        // Each closing step on its own too: a full disk at quit must not end the agent with a crash report.
-        // The database closes and the marker clears first, straight after the last writes: Quit waits only 5 s for
-        // this thread, and the traces and the sensors after them can take longer (the RAM scan up to 30 s). A marker
-        // left behind would mean a full check at the next start and a sudden close that never happened.
-        var took = new List<string>();
-        Step("last minute", () => _tracker.Flush(closeAllSessions: true), took);
-        Step("extremes", () => SaveExtremes(force: true), took);
-        Step("database", _db.Dispose, took);
-        Step("history marker", () => HistoryRepair.MarkStopped(RigsightPaths.DataDir), took); // closed normally: no check at the next start
-        Step("crash watch", () => _appCrashWatch?.Dispose(), took);
-        Step("network trace", () => _netTrace?.Dispose(), took);
-        Step("disk trace", () => _diskTrace?.Dispose(), took);
-        Step("driver trace", () => _driverTrace?.Dispose(), took);
-        Step("sound trace", () => _soundTrace?.Dispose(), took);
-        Step("frames trace", () => _presentTrace?.Dispose(), took);
-        Step("line check", () => _line?.Dispose(), took);
-        Step("server ping", () => _serverPing?.Dispose(), took);
-        NetworkChange.NetworkAddressChanged -= OnAddressChanged;
-        NetworkChange.NetworkAvailabilityChanged -= OnAvailabilityChanged;
-        Step("sensors", _sensors.Close, took);
-        Step("GPU sampler", _gpuSampler.Dispose, took);
-        Step("GPU memory sampler", _gpuMemory.Dispose, took);
-        Log.Write("sampler", $"Closed in {string.Join(", ", took)}");
-    }
-
-    /// <summary>How early a timed read may come (ms): see the sensors' turn in the sampler.</summary>
-    internal const int TurnSlackMs = 100;
-
-    /// <summary>One step of the sampler thread's start or end: an error is logged with what failed, and the rest goes on.</summary>
-    /// <param name="took">When given, gets "what N ms": a slow quit can then be traced to its step.</param>
-    private static void Step(string what, Action step, List<string>? took = null)
-    {
-        long start = Environment.TickCount64;
-        try { step(); }
-        catch (Exception ex) { Log.Write("sampler", $"{what} failed: {ex}"); }
-        took?.Add($"{what} {Environment.TickCount64 - start} ms");
-    }
-
-    /// <summary>
-    /// Sampler thread, before each read: a graphics card's driver that is going or coming (see <see cref="DisplayDriverWatch"/>)
-    /// stops the cards being read at once, and once it has settled the agent starts again to read them through the new driver.
-    /// </summary>
-    private void CheckDisplayDriver()
-    {
-        if (!_displayWatch.Changed) return;
-        _sensors.PauseGpus();
-        if (!_gpusPaused)
-        {
-            _gpusPaused = true;
-            Log.Write("sensors", "A GPU's driver is changing: leaving the GPUs alone, and starting again once it has settled");
-        }
-        if (_restarting || !_displayWatch.Settled(Environment.TickCount64)) return;
-        _restarting = true;
-        _ui.Post(_ => Restart("a graphics driver that changed"), null);
-    }
-
-    /// <summary>
-    /// Sampler thread: scans the hardware (again), leaving alone what an RGB or fan-control program is driving right now
-    /// (see <see cref="HardwareApps"/>) and, after a scan that never finished or ran Windows' kernel memory up, the risky
-    /// parts altogether (see <see cref="ScanGuard"/>). Nothing reads sensors meanwhile: this runs on the sampler thread.
-    /// </summary>
-    private void OpenSensors()
-    {
-        var apps = _settings.YieldToHardwareApps ? HardwareApps.Running() : [];
-        _yieldedParts = HardwareApps.PartsFor(apps);
-        _absentChecks = 0;
-        bool safe = _safeMode || _stoppedForMemory;
-        var skip = _yieldedParts | (safe ? SensorParts.Risky : SensorParts.None);
-
-        _sensorsReady = false;
-        _sensors.Close();
-        var host = new SensorHost(skip, gpus: !_displayWatch.Changed);
-        var scan = Stopwatch.StartNew();
-        using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
-        {
-            guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification(Lang.T("RigSight stopped reading some sensors"),
-                Lang.T("Windows' memory kept growing while it read the motherboard, fan hubs and power supply. After a restart, press Try again in Settings, Sensors."), warning: true), null);
-            try
-            {
-                host.Open();
-            }
-            catch (Exception ex)
-            {
-                Log.Error("sensors", ex);
-            }
-            MemoryAt("sensors open");
-            if (guard.Tripped) _stoppedForMemory = true;
-        }
-        if (_stoppedForMemory && !safe)
-        {
-            // It ran away with the risky parts in: read everything else without them.
-            host.Close();
-            OpenSensors();
-            return;
-        }
-
-        _sensors = host;
-        _gpuMemory.Reset();
-        _gpuSampler.Reset(); // the graphics card may be a different one to Windows now (a driver update gives it a new identity)
-        var parts = new[] { SensorParts.Motherboard, SensorParts.FanHubs, SensorParts.PowerSupply }.Where(p => skip.HasFlag(p)).Select(HardwareApps.PartName);
-        string left = skip == SensorParts.None ? ""
-            : $", leaving out {string.Join(", ", parts).ToLowerInvariant()}" + (apps.Count > 0 ? $" (for {string.Join(", ", apps.Select(a => a.Name))})" : "") + (safe ? " (safe mode)" : "");
-        Log.Write("agent", $"Sensors ready in {scan.Elapsed.TotalSeconds:0.0} s ({host.SensorCount} sensors{left})");
-        // What a report of missing readings is traced with: which parts were found with how many sensors of each kind,
-        // which of the main readings have no sensor at all, and the state of the driver the CPU's come through.
-        Log.Write("sensors", $"Found: {host.Summary()}");
-        if (host.NotFound() is { Count: > 0 } none) Log.Write("sensors", $"Expected and not found: {string.Join("; ", none)}");
-        Log.Write("sensors", $"PawnIO driver: {PawnIoDriver.Describe()}; memory integrity: {PawnIoDriver.MemoryIntegrity switch { true => "on", false => "off", null => "not set" }}");
-        _driver = DriverProblem(host);
-        _driverCheckAt = Environment.TickCount64 + 60_000;
-        _sensorStatus = BuildSensorStatus(apps);
-        _sensorsReady = true;
-        if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
-
-        // The RAM sticks take seconds to find (the memory bus is probed): readings are already going out, so find them
-        // meanwhile, under the same guard as the scan above. The sampler adds them when they're ready (TakeMemory).
-        host.OpenMemoryInBackground(() =>
-        {
-            var took = Stopwatch.StartNew();
-            using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
-            {
-                guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification(Lang.T("RigSight stopped reading some sensors"),
-                    Lang.T("Windows' memory kept growing while it read the RAM sticks. After a restart, press Try again in Settings, Sensors."), warning: true), null);
-                host.OpenMemory();
-                if (guard.Tripped) _stoppedForMemory = true;
-            }
-            Log.Write("sensors", $"RAM sticks found in {took.Elapsed.TotalSeconds:0.0} s");
-        });
-    }
-
-    /// <summary>
-    /// Sampler thread, every half minute: scans again when an RGB or fan-control program has started (at once, so the two
-    /// don't share the hardware) or has been gone for a whole minute (so a program restarting doesn't flip it back and forth).
-    /// </summary>
-    private void CheckHardwareApps()
-    {
-        var wanted = _settings.YieldToHardwareApps ? HardwareApps.PartsFor(HardwareApps.Running()) : SensorParts.None;
-        if ((wanted & ~_yieldedParts) != SensorParts.None)
-        {
-            OpenSensors();
-        }
-        else if (wanted != _yieldedParts)
-        {
-            if (++_absentChecks >= 2) OpenSensors();
-        }
-        else
-        {
-            _absentChecks = 0;
-        }
-    }
-
-    private SensorStatus BuildSensorStatus(List<HardwareApps.Known> apps)
-    {
-        var status = new SensorStatus { SafeMode = _safeMode, StoppedForMemory = _stoppedForMemory, Driver = _driver, DriverInstall = _driverInstall };
-        foreach (var part in new[] { SensorParts.Motherboard, SensorParts.FanHubs, SensorParts.PowerSupply })
-        {
-            var by = apps.Where(a => a.Parts.HasFlag(part)).Select(a => a.Name).ToList();
-            if (by.Count > 0) status.Paused.Add(new SkippedSensors { Part = HardwareApps.PartName(part), Because = by });
-        }
-        return status;
-    }
-
-    /// <summary>
-    /// What is wrong with the PawnIO driver, judged by what it is for: null while the CPU's temperature is read, or
-    /// without admin rights (said elsewhere, and nothing reads through the driver then).
-    /// </summary>
-    private string? DriverProblem(SensorHost sensors)
-    {
-        // A test copy can be told what to say, to look at the notice on a PC whose driver is fine.
-        if (RigsightPaths.IsTestInstance && Environment.GetEnvironmentVariable("RIGSIGHT_TEST_DRIVER") is { Length: > 0 } told) return told;
-        if (!_isAdmin || sensors.Read(KeySensors.CpuTemp) is not null) return null;
-        if (!PawnIoDriver.Installed) return "missing";
-        return PawnIoDriver.Running() == PawnIoDriver.State.Running ? null : "stopped";
-    }
-
-    /// <summary>
-    /// Sampler thread, a minute after the sensors opened and every five minutes: says in the log what the CPU reads
-    /// (once, and again when a reading comes or goes), and looks at the driver again: one found stopped is started once,
-    /// one installed meanwhile is read through by starting again, and Settings hears of any change.
-    /// </summary>
-    private void CheckDriver()
-    {
-        var sensors = _sensors;
-        var (readings, shape) = sensors.CpuReadings();
-        // Only a reading that came or went is news, not its figure.
-        if (shape != _cpuReadingsSaid)
-        {
-            _cpuReadingsSaid = shape;
-            Log.Write("sensors", $"CPU readings: {readings}");
-        }
-        // Sensors that are listed, were read just now and gave nothing: said once, and again when the list changes.
-        // Fewer are read with the window closed than with it open, so the list is only said again when something new is on it.
-        var silent = sensors.Silent();
-        if (_silentSaid is null && silent.Count == 0) Log.Write("sensors", "Every sensor read just now gave a reading");
-        if (silent.Where((_silentSaid ??= []).Add).ToList() is { Count: > 0 } news) Log.Write("sensors", $"Listed but giving no reading: {string.Join("; ", news)}");
-        if (!_isAdmin) return;
-
-        string? problem = DriverProblem(sensors);
-        if (problem == "stopped" && !_driverStartTried)
-        {
-            _driverStartTried = true;
-            string? why = PawnIoDriver.Start();
-            Log.Write("sensors", why is null ? "The PawnIO driver was stopped: started it, reading the hardware again" : $"The PawnIO driver is installed but won't start ({why})");
-            if (why is null)
-            {
-                OpenSensors();
-                return;
-            }
-        }
-        if (problem is null && sensors.Read(KeySensors.CpuTemp) is null && !_driverUnsupportedSaid)
-        {
-            _driverUnsupportedSaid = true;
-            Log.Write("sensors", "The PawnIO driver is installed and running, but the CPU gives no temperature: this processor may not be supported yet");
-        }
-        if (_driver == "missing" && PawnIoDriver.Installed && !_restarting)
-        {
-            // Installed by hand meanwhile: a new copy of the agent reads through it.
-            _restarting = true;
-            Log.Write("sensors", "The PawnIO driver has been installed: starting again to read through it");
-            _ui.Post(_ => Restart("the PawnIO driver being installed"), null);
-            return;
-        }
-        if (problem == _driver) return;
-        Log.Write("sensors", $"PawnIO driver: {PawnIoDriver.Describe()}{(problem is null ? "" : $" ({problem})")}");
-        _driver = problem;
-        PublishSensorStatus();
-    }
-
-    /// <summary>Sampler thread: tells the window what Settings says about the sensors now, without the hardware being read again.</summary>
-    private void PublishSensorStatus()
-    {
-        var old = _sensorStatus;
-        _sensorStatus = new SensorStatus { Paused = old.Paused, SafeMode = old.SafeMode, StoppedForMemory = old.StoppedForMemory, Driver = _driver, DriverInstall = _driverInstall };
-        if (_sensorsReady && _pipe.ClientCount > 0) _pipe.Broadcast(new AgentMessage { T = "status", SensorStatus = _sensorStatus });
-    }
-
-    /// <summary>
-    /// "Install" on the driver's notice in Settings: downloads PawnIO with winget as setup does (the agent has the admin
-    /// rights it needs, so nothing to accept), then starts again to read through it. A failure is said on the notice.
-    /// </summary>
-    private void InstallDriver()
-    {
-        if (_driverInstall == "installing") return;
-        _driverInstall = "installing";
-        RunOnSampler(PublishSensorStatus);
-        _ = Task.Run(() =>
-        {
-            string? failed;
-            try
-            {
-                if (RtssSetup.WingetInstall("namazso.PawnIO") is null)
-                {
-                    Log.Write("install", "winget isn't available: PawnIO can't be installed automatically");
-                    failed = "no-winget";
-                }
-                else failed = PawnIoDriver.Installed ? null : "failed";
-            }
-            catch (Exception ex)
-            {
-                Log.Error("install", ex);
-                failed = "failed";
-            }
-            if (failed is null)
-            {
-                Log.Write("install", "PawnIO installed: starting again to read through it");
-                _ui.Post(_ => Restart("the PawnIO driver being installed"), null);
-                return;
-            }
-            _driverInstall = failed;
-            RunOnSampler(PublishSensorStatus);
-        });
-    }
-
-    /// <summary>Sampler thread: the user asked to read everything again after a safe-mode start or a memory stop.</summary>
-    private void RetryAllSensors()
-    {
-        Log.Write("sensors", "Reading everything again (asked from Settings)");
-        ScanGuard.Forget(ScanMarker);
-        _safeMode = false;
-        _stoppedForMemory = false;
-        OpenSensors();
-    }
-
-    /// <summary>
-    /// Seconds an app was open since the last look at the processes. Far longer than the looks are apart means the PC was
-    /// asleep (or the agent held up): not counted, where it used to add a minute of "open in the background" to every
-    /// app with a window each time the PC woke.
-    /// </summary>
-    internal static double ProcessStep(long lastMs, long nowMs, int intervalSeconds)
-    {
-        double dt = (nowMs - lastMs) / 1000.0;
-        return dt > Math.Max(10, intervalSeconds * 2) ? 0 : dt;
-    }
-
-    /// <summary>Seconds to count since the last activity sample. A long gap means the PC was asleep: don't count it.</summary>
-    internal static double ActivityStep(long lastMs, long nowMs)
-    {
-        double dt = (nowMs - lastMs) / 1000.0;
-        return dt > 10 ? 0 : dt;
-    }
-
-    /// <summary>Sampler thread: widens today's range of every sensor with this reading.</summary>
-    private void ObserveExtremes(float?[] values)
-    {
-        _extremes.BeginTick();
-        var ids = _sensors.Ids;
-        var isTemp = _sensors.IsTemperature;
-        for (int i = 0; i < values.Length && i < ids.Length; i++)
-        {
-            // Only sensors actually read this tick: others keep old values (hardware only read while the
-            // app is open, or the GPU while its cheaper fast path is in use), which must not count as today.
-            if (!_sensors.IsFresh(i)) continue;
-            // Without driver access some temperature sensors report 0 instead of nothing.
-            if (values[i] is float v && !(isTemp[i] && v <= 0)) _extremes.Observe(ids[i], v);
-        }
-        // Key sensors may come from a cheaper source (the NVIDIA fast path) while the app is closed.
-        foreach (var (key, index) in _sensors.Keys)
-            if (index < ids.Length) _extremes.Observe(ids[index], _sensors.Read(key));
-    }
-
-    /// <summary>
-    /// Sampler thread, at start: today's ranges saved before a restart, widened with the CPU/GPU
-    /// temperatures in today's minute history (so a game played before the first run of this version counts).
-    /// </summary>
-    private void RestoreExtremes()
-    {
-        try
-        {
-            _extremes.Load(_db.GetMeta("extremes"));
-            var (cpuMin, cpuMax, gpuMin, gpuMax, hotMax, memMax) = _db.TempRange(TimeUtil.ToUnix(DateTime.Today), TimeUtil.NowUnix() + 60);
-            void Include(string key, double? min, double? max)
-            {
-                if (_sensors.Keys.TryGetValue(key, out int i) && i < _sensors.Ids.Length) _extremes.Include(_sensors.Ids[i], min, max);
-            }
-            Include(KeySensors.CpuTemp, cpuMin, cpuMax);
-            Include(KeySensors.GpuTemp, gpuMin, gpuMax);
-            Include(KeySensors.GpuHotSpot, null, hotMax);
-            Include(KeySensors.GpuMemJunction, null, memMax);
-        }
-        catch (Exception ex)
-        {
-            Log.Error("extremes", ex);
-        }
-    }
-
-    /// <summary>Sampler thread: stores today's ranges (only when they changed, unless forced).</summary>
-    private void SaveExtremes(bool force = false)
-    {
-        if (!force && !_extremes.Dirty) return;
-        _db.SetMeta("extremes", _extremes.Serialize());
-        _extremes.Dirty = false;
-    }
-
-    /// <summary>
-    /// Windows is shutting down or signing out: finish the session in progress and save today's ranges
-    /// now, on the sampler thread (which owns the database), waiting a few seconds at most.
-    /// </summary>
-    private void OnSessionEnding(object? sender, SessionEndingEventArgs e)
-    {
-        // Not disposed: after the 3 s wait the sampler may still get to Set it, which would throw on a disposed one.
-        var done = new ManualResetEventSlim();
-        RunOnSampler(() =>
-        {
-            try
-            {
-                _tracker.Flush(closeAllSessions: true);
-                SaveExtremes(force: true);
-            }
-            catch (Exception ex)
-            {
-                Log.Error("agent", ex);
-            }
-            finally
-            {
-                done.Set();
-            }
-        });
-        // Everything saved: Windows ending the agent from here on isn't a power cut, so no check at the next start.
-        if (done.Wait(TimeSpan.FromSeconds(3))) HistoryRepair.MarkStopped(RigsightPaths.DataDir);
-        Log.Write("agent", $"Saved before Windows {(e.Reason == SessionEndReasons.SystemShutdown ? "shut down" : "signed out")}");
-    }
-
-    private static void OnTimeChanged(object? sender, EventArgs e)
-    {
-        TimeZoneInfo.ClearCachedData();
-        System.Globalization.CultureInfo.CurrentCulture.ClearCachedData();
-    }
-
-    /// <summary>Returns memory the agent no longer needs to Windows (a one-off full, compacting collection).</summary>
-    private static void CompactMemory()
-    {
-        System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
-        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
-    }
-
-    private void RunOnSampler(Action work)
-    {
-        _samplerWork.Enqueue(work);
-        _wake.Set();
-    }
-
-    /// <summary>The overlay's chosen sensors with their labels: its own short name, else the name given on All sensors.</summary>
-    private List<OverlaySensorReading> OverlaySensors(RigsightSettings settings)
-    {
-        var list = new List<OverlaySensorReading>();
-        foreach (var x in settings.Overlay.Sensors)
-        {
-            if (_sensors.ReadSensor(x.Id) is not { } r) continue;
-            string label = x.Label ?? settings.SensorLabels.GetValueOrDefault(x.Id) ?? SensorWords.Show(r.Name);
-            list.Add(new OverlaySensorReading(label, r.Kind, r.Value));
-        }
-        return list;
-    }
-
-    /// <summary>The sensors on shown widgets (kept live while they show, as the overlay's are).</summary>
-    // A box's sensors are its tiles' (a reading's, a line's): its own reading list is the default one, with none, so a
-    // sensor on a Reading or Line tile was never read and the desktop said "Sensor —" where the app's picture had it.
-    internal static IEnumerable<string> WidgetSensorIds(RigsightSettings settings) =>
-        settings.Widgets.Where(w => w.Enabled).SelectMany(w => w.Tiles is null ? WidgetCatalog.ItemsOf(w) : WidgetCatalog.ShownItems(w))
-            .Select(i => WidgetCatalog.Sensor(i.Id)).OfType<string>().Distinct();
-
-    /// <summary>The widgets' sensors: the name given on All sensors, else the sensor's own (a widget's own short name wins when drawn).</summary>
-    private Dictionary<string, OverlaySensorReading> WidgetSensors(RigsightSettings settings)
-    {
-        var map = new Dictionary<string, OverlaySensorReading>();
-        foreach (var id in WidgetSensorIds(settings))
-            if (_sensors.ReadSensor(id) is { } r)
-                map[id] = new OverlaySensorReading(settings.SensorLabels.GetValueOrDefault(id) ?? SensorWords.Show(r.Name), r.Kind, r.Value);
-        return map;
-    }
-
-    /// <summary>Five minutes of each reading a tile or graph shows beyond CPU and GPU temperature (which have their own).</summary>
-    /// <summary>
-    /// The names given to the readings that are one sensor (renamed in All sensors, or in a widget's editor), so widgets
-    /// say the same name as everywhere else; a reading whose sensor wasn't renamed keeps its usual short name.
-    /// </summary>
-    private Dictionary<OverlayMetric, string> WidgetNames(RigsightSettings settings)
-    {
-        var names = new Dictionary<OverlayMetric, string>();
-        if (settings.SensorLabels.Count == 0) return names;
-        foreach (var m in Enum.GetValues<OverlayMetric>())
-        {
-            if (WidgetCatalog.KeyOf(m) is not { } key || !_sensors.Keys.TryGetValue(key, out int i) || i < 0 || i >= _sensors.Ids.Length) continue;
-            if (settings.SensorLabels.GetValueOrDefault(_sensors.Ids[i]) is { Length: > 0 } name) names[m] = name;
-        }
-        return names;
-    }
-
-    private Dictionary<OverlayMetric, float[]> WidgetHistories(HashSet<OverlayMetric> metrics)
-    {
-        var map = new Dictionary<OverlayMetric, float[]>();
-        foreach (var m in metrics)
-        {
-            string? key = m switch
-            {
-                OverlayMetric.GpuHotSpot => KeySensors.GpuHotSpot,
-                OverlayMetric.CpuLoad => KeySensors.CpuLoad,
-                OverlayMetric.GpuLoad => KeySensors.GpuLoad,
-                OverlayMetric.Ram => KeySensors.RamLoad,
-                _ => null,
-            };
-            if (key is not null) map[m] = _history.Recent(key, 300_000);
-        }
-        return map;
-    }
-
-    // ── Reading cards (issue #5): what a click on a taskbar reading opens ──
-
-    /// <summary>Each taskbar reading's last minutes (sampler thread), for its card's graph: since it came to the taskbar or the agent started.</summary>
-    private readonly Dictionary<string, Queue<(long Ms, float Value)>> _trayHistory = [];
-
-    private void RememberTray(IReadOnlyList<TrayReading> readings)
-    {
-        long now = Environment.TickCount64, keep = ReadingCards.GraphMinutes * 60_000L;
-        foreach (var gone in _trayHistory.Keys.Where(id => readings.All(r => r.Id != id)).ToList()) _trayHistory.Remove(gone);
-        foreach (var r in readings)
-        {
-            if (!_trayHistory.TryGetValue(r.Id, out var q)) _trayHistory[r.Id] = q = new();
-            q.Enqueue((now, r.Value is double v && double.IsFinite(v) ? (float)v : float.NaN));
-            while (q.Count > 0 && now - q.Peek().Ms > keep) q.Dequeue();
-        }
-    }
-
-    /// <summary>
-    /// A click on taskbar readings (UI thread): their card, gathered on the sampler, opened above them. The same readings
-    /// again close it (as a click on Windows' clock closes its own card).
-    /// </summary>
-    private void OpenCard(IReadOnlyList<string> ids, Rectangle anchor, float scale)
-    {
-        string key = string.Join('\n', ids);
-        if (_card.CloseIfShowing(key) || _card.JustClosed(key)) return;
-        bool light = DarkMenuRenderer.Light;
-        RunOnSampler(() =>
-        {
-            var settings = _settings;
-            var sections = CardFor(key, TrayReadingsFor(settings), settings, light);
-            var (accent, onAccent) = CardAccent(settings, light);
-            _ui.Post(_ =>
-            {
-                // A reading not found on this PC has nothing to show: RigSight, as a click did before.
-                if (sections.Count == 0) OpenApp(null);
-                else _card.Open(key, sections, anchor, scale, accent, onAccent);
-            }, null);
-        });
-    }
-
-    /// <summary>The button's colours: the accent picked in Settings, else the theme's own (its text colour, the card's colour on it).</summary>
-    private static (Color Accent, Color OnAccent) CardAccent(RigsightSettings settings, bool light) =>
-        AccentColors.Of(settings.Accent, light) is { } c
-            ? (Color.FromArgb(c.R, c.G, c.B), AccentColors.DarkTextOn(c.R, c.G, c.B) ? Color.Black : Color.White)
-            : (DarkMenuRenderer.TextColor, DarkMenuRenderer.Bg);
-
-    /// <summary>
-    /// A card's sections (sampler thread, see <see cref="ReadingCards"/>): one per part among the readings in
-    /// <paramref name="key"/>, in the order they were clicked. Readings not found on this PC are left out.
-    /// </summary>
-    private List<CardSection> CardFor(string key, IReadOnlyList<TrayReading> readings, RigsightSettings settings, bool light)
-    {
-        var ids = key.Split('\n');
-        var clicked = ids.Select(id => readings.FirstOrDefault(r => r.Id == id)).Where(r => r.Id is not null && r.Hardware.Length > 0).ToList();
-        var sensors = _sensors;
-        var schema = sensors.Schema;
-        string? KeyId(string name) => sensors.Keys.TryGetValue(name, out int i) && i >= 0 && i < sensors.Ids.Length ? sensors.Ids[i] : null;
-        string? cpuTempId = KeyId(KeySensors.CpuTemp), gpuTempId = KeyId(KeySensors.GpuTemp);
-        var extremes = _extremes.Snapshot();
-        var today = _lastToday;
-        bool gray = settings.TrayGrayscale;
-        var clickedIds = clicked.Select(r => r.Id).ToHashSet();
-        CardLine Line(string label, SensorKind kind, double value) =>
-            new(label, Units.StripText(kind, value), kind == SensorKind.Temperature && !gray ? WidgetRenderer.TrayColor(kind, value, light) : null);
-
-        var sections = new List<CardSection>();
-        foreach (var group in clicked.GroupBy(r => r.Group))
-        {
-            var first = group.First();
-            var device = schema.FirstOrDefault(h => h.Sensors.Any(s => s.Id == first.Id));
-
-            // The part's other readings: its key sensors (the CPU's, the graphics card's, RAM's) when they're on this
-            // device; a fan's, the board's other fans and temperatures; else one of each kind on the same device.
-            var rows = new List<CardLine>();
-            var keyRows = ReadingCards.KeyRows(first.Part).Select(k => (Id: KeyId(k.Key), k.Label)).Where(k => k.Id is not null).ToList();
-            bool keysHere = device is not null && keyRows.Any(k => device.Sensors.Any(s => s.Id == k.Id));
-            if (keysHere)
-            {
-                foreach (var (id, label) in keyRows)
-                {
-                    if (rows.Count >= ReadingCards.MaxRows || clickedIds.Contains(id!)) continue;
-                    if (sensors.ReadSensor(id!) is { } s && s.Value is double v) rows.Add(Line(label, s.Kind, v));
-                }
-            }
-            else if (device is not null)
-            {
-                var kinds = first.Part == TrayPart.Board ? [SensorKind.Fan, SensorKind.Temperature, SensorKind.Fan] : ReadingCards.DeviceKinds;
-                var used = new HashSet<string>(clickedIds);
-                foreach (var kind in kinds)
-                {
-                    if (rows.Count >= ReadingCards.MaxRows) break;
-                    foreach (var m in device.Sensors.Where(m => m.Kind == kind && !used.Contains(m.Id)))
-                    {
-                        if (sensors.ReadSensor(m.Id) is not { } s || s.Value is not double v) continue;
-                        used.Add(m.Id);
-                        rows.Add(Line(SensorWords.Show(m.Name), kind, v));
-                        break;
-                    }
-                }
-            }
-
-            // What uses the part; a fan, what it cools.
-            var (by, appsTitle) = ReadingCards.Apps(first.Part);
-            var apps = CardApps(by);
-            var cools = new List<CardLine>();
-            if (group.Any(r => r.Kind is SensorKind.Fan or SensorKind.Control))
-                foreach (var (id, label) in new[] { (cpuTempId, "CPU"), (gpuTempId, "GPU") })
-                    if (id is not null && sensors.ReadSensor(id) is { } s && s.Value is double v) cools.Add(Line(label, SensorKind.Temperature, v));
-
-            var page = ReadingCards.Page(first.Part, first.Kind);
-            sections.Add(new CardSection(TrayParts.Label(first.Part), first.Hardware, first.NameOn(light, gray), [.. group.Select(Big)], rows,
-                // Its app list kept even while nothing uses the part ("Nothing much right now"): dropping it when the last app
-                // went moved the button up the card (the user: "why did open temperature shift to top").
-                by != Core.CardApps.None ? appsTitle : null, apps, cools.Count > 0 ? Lang.T("What the fans are cooling now") : null, cools, ReadingCards.Button(page), page));
-        }
-        return sections;
-
-        // A clicked reading, big: now, its last minutes, and today's highest (CPU and GPU temperatures with when and what ran).
-        CardBig Big(TrayReading r)
-        {
-            var history = _trayHistory.TryGetValue(r.Id, out var q) ? q.ToList() : [];
-            var oldest = history.Count > 0 ? DateTime.Now - TimeSpan.FromMilliseconds(Environment.TickCount64 - history[0].Ms) : DateTime.Now;
-            string? highest = null;
-            if (ReadingCards.ShowsHighest(r.Part, r.Kind))
-            {
-                if (r.Id == cpuTempId && today?.CpuPeak is double cp) highest = Peak(cp, today.CpuPeakTime, today.CpuPeakApp);
-                else if (r.Id == gpuTempId && today?.GpuPeak is double gp) highest = Peak(gp, today.GpuPeakTime, today.GpuPeakApp);
-                else if (extremes.TryGetValue(r.Id, out var mm) && mm.Length > 1 && double.IsFinite(mm[1])) highest = Lang.T($"Highest today {Units.StripText(r.Kind, mm[1])}");
-            }
-            return new CardBig(r.Name, r.Kind, r.Value, r.NumberOn(light, gray), history, ReadingCards.Span(oldest, DateTime.Now),
-                ReadingCards.LowAvgHigh(r.Kind, [.. history.Select(p => p.Value)]), highest);
-        }
-
-        static string Peak(double value, long? time, string? app)
-        {
-            string v = Units.StripText(SensorKind.Temperature, value);
-            if (time is not long t) return Lang.T($"Highest today {v}");
-            string at = TimeText.Time(DateTimeOffset.FromUnixTimeSeconds(t).LocalDateTime);
-            return app is { Length: > 0 } ? Lang.T($"Highest today {v} at {at}, while {app} ran") : Lang.T($"Highest today {v} at {at}");
-        }
-    }
-
-    /// <summary>The apps using a part most (sampler thread), from the latest process pass or, for the network, its live rates.</summary>
-    private List<CardApp> CardApps(CardApps by)
-    {
-        var snap = _lastProcs;
-        string Name(string exe) => _apps.Describe(exe, snap?.Apps.TryGetValue(exe, out var a) == true ? a.FirstPid : 0).Name;
-        IEnumerable<CardApp> list = by switch
-        {
-            Core.CardApps.Cpu when snap is not null => snap.Apps.Values.Where(a => a.Cpu >= 0.1).OrderByDescending(a => a.Cpu)
-                .Take(ReadingCards.MaxApps).Select(a => new CardApp(Name(a.Exe), a.Cpu, Units.StripText(SensorKind.Load, a.Cpu))),
-            Core.CardApps.Memory when snap is not null => snap.Apps.Values.OrderByDescending(a => a.MemMB)
-                .Take(ReadingCards.MaxApps).Select(a => new CardApp(Name(a.Exe), a.MemMB, Units.Megabytes(a.MemMB))),
-            Core.CardApps.Disk when snap is not null => snap.Apps.Values.Where(a => a.Disk >= 1024).OrderByDescending(a => a.Disk)
-                .Take(ReadingCards.MaxApps).Select(a => new CardApp(Name(a.Exe), a.Disk, Units.Speed(a.Disk))),
-            Core.CardApps.Gpu when snap is not null => snap.Gpu.Where(kv => kv.Value >= 1).OrderByDescending(kv => kv.Value)
-                .Take(ReadingCards.MaxApps).Select(kv => new CardApp(Name(kv.Key), kv.Value, Units.StripText(SensorKind.Load, kv.Value))),
-            Core.CardApps.Network => _tracker.NetNow.Apps.Where(a => a.Down + a.Up >= 1024).OrderByDescending(a => a.Down + a.Up)
-                .Take(ReadingCards.MaxApps).Select(a => new CardApp(a.Name, a.Down + a.Up, Units.Speed(a.Down + a.Up))),
-            _ => [],
-        };
-        return [.. list];
-    }
-
-    /// <summary>
-    /// The taskbar's sensors (sampler thread): the name given on All sensors, else the sensor's own; each one's own style
-    /// and size (else the taskbar's style, fitted to it); the reading its look is drawn from (Together) with its value; a
-    /// CPU's cores for Each core. The network's speeds are RigSight's own count for the whole PC, as on the Network page;
-    /// the frame rate is RivaTuner's for the game in front, none (shown "–") while no game draws frames.
-    /// </summary>
-    private List<TrayReading> TrayReadingsFor(RigsightSettings settings)
-    {
-        var list = new List<TrayReading>(settings.TraySensors.Count);
-        var alone = settings.TrayAlone.ToHashSet();
-        foreach (var id in settings.TraySensors)
-        {
-            string? own = settings.SensorLabels.GetValueOrDefault(id);
-            var style = settings.TrayStyles.GetValueOrDefault(id, settings.TrayStyle);
-            var size = settings.TraySizes.GetValueOrDefault(id);
-            var look = settings.TrayLooks.GetValueOrDefault(id);
-            // Its part's icon in place of its word, when it or the taskbar has icons (see TrayParts.IconKey).
-            var naming = TrayParts.NameOf(settings, id);
-            string? IconOf(TrayPart part, SensorKind kind, string? device = null) => naming == TrayName.Word ? null : TrayParts.IconKey(part, kind, id, device);
-            bool beside = naming == TrayName.Beside;
-            TrayReading reading;
-            if (TrayParts.IsNet(id))
-            {
-                var net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : null;
-                double? down = net is { HasSpeed: true } ? net.Down : null, up = net is { HasSpeed: true } ? net.Up : null;
-                string name = own ?? SensorWords.Show(TrayParts.NetName(id));
-                reading = new TrayReading(id, name, SensorKind.Throughput, id == TrayParts.NetUp ? up : down, TrayPart.Network, SensorWords.Show(TrayParts.NetHardware),
-                    own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel } o ? o : id == TrayParts.NetUp ? Lang.T("Up") : Lang.T("Down"),
-                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
-                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
-                    Second: id == TrayParts.NetBoth ? up : null, Icon: IconOf(TrayPart.Network, SensorKind.Throughput), IconBeside: beside, PartIcon: TrayParts.IconKey(TrayPart.Network, SensorKind.Throughput, id));
-            }
-            else if (id == TrayParts.Ping)
-            {
-                // The game's or call's server when one is checked, else the provider's first router (else the router).
-                var line = LineNow();
-                double? ms = Core.Net.ServerWords.Lead(line?.Servers)?.Ms ?? line?.IspMs ?? line?.LanMs;
-                reading = new TrayReading(id, own ?? Lang.T("Ping"), SensorKind.Latency, ms, TrayPart.Network, Lang.T("The game or call you're on, else your internet provider"),
-                    TrayParts.ShortLabel(SensorKind.Latency, "", TrayPart.Network, own),
-                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
-                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id), Icon: IconOf(TrayPart.Network, SensorKind.Latency), IconBeside: beside, PartIcon: TrayParts.IconKey(TrayPart.Network, SensorKind.Latency, id));
-            }
-            else if (id == TrayParts.Fps)
-            {
-                double? fps = Rtss.ReadFrameStats(WidgetManager.ForegroundPid()) is { Fps: > 0 } f ? f.Fps : null;
-                reading = new TrayReading(id, own ?? Lang.T("Frame rate (FPS)"), SensorKind.FrameRate, fps, TrayPart.Gpu, Lang.T("From RivaTuner, in the game you're playing"),
-                    TrayParts.ShortLabel(SensorKind.FrameRate, "", TrayPart.Gpu, own),
-                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
-                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id), Icon: IconOf(TrayPart.Gpu, SensorKind.FrameRate), IconBeside: beside, PartIcon: TrayParts.IconKey(TrayPart.Gpu, SensorKind.FrameRate, id));
-            }
-            else if (_sensors.ReadSensor(id) is { } r)
-            {
-                var part = TrayParts.PartOf(r.HardwareType);
-                // Together: the look drawn from another reading (its kind and value), the number this one's.
-                string? from = settings.TrayLookFrom.GetValueOrDefault(id);
-                var source = from is null ? null : _sensors.ReadSensor(from);
-                float[]? cores = look == TrayLook.Cores && source is null && TrayParts.IsCpuTotal(r.Kind, part, r.Name) ? CoresOf(id) : null;
-                // A device's battery is named by its device ("G309 LIGHTSPEED battery"), and the strip's word is the device's first.
-                bool battery = r.Kind == SensorKind.Battery;
-                reading = new TrayReading(id, own ?? (battery ? Lang.T($"{r.HardwareName} battery") : SensorWords.Show(r.Name)), r.Kind, r.Value, part, r.HardwareName,
-                    TrayParts.ShortLabel(r.Kind, battery ? r.HardwareName : r.Name, part, own),
-                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
-                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
-                    LookId: source is null ? null : from, LookKind: source?.Kind, LookValue: source?.Value, Cores: cores,
-                    Icon: IconOf(part, r.Kind, _sensors.Devices.Of(id)?.Kind.ToString()), IconBeside: beside,
-                    PartIcon: TrayParts.IconKey(part, r.Kind, id, _sensors.Devices.Of(id)?.Kind.ToString()));
-            }
-            else reading = new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, "",
-                Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id));
-            list.Add(reading);
-        }
-        return list;
-    }
-
-    /// <summary>Each CPU's cores' load sensors (by its total's id), found once per list of sensors.</summary>
-    private (List<HardwareMeta> Schema, Dictionary<string, string[]> Map) _cores = ([], []);
-
-    /// <summary>A CPU's cores' loads now, 0 to 1, in their order (null: none listed), for Each core.</summary>
-    private float[]? CoresOf(string totalId)
-    {
-        var schema = _sensors.Schema;
-        if (!ReferenceEquals(schema, _cores.Schema)) _cores = (schema, []);
-        if (!_cores.Map.TryGetValue(totalId, out var ids))
-        {
-            var hardware = schema.FirstOrDefault(h => h.Sensors.Any(s => s.Id == totalId));
-            ids = hardware is null ? [] : [.. hardware.Sensors.Where(s => TrayParts.IsCoreLoad(s.Kind, s.Name)).Select(s => s.Id)];
-            _cores.Map[totalId] = ids;
-            Log.Write("taskbar", $"Cores for {totalId}: {ids.Length} ({string.Join(", ", hardware?.Sensors.Where(s => TrayParts.IsCoreLoad(s.Kind, s.Name)).Select(s => s.Name) ?? [])})");
-        }
-        if (ids.Length == 0) return null;
-        return [.. ids.Select(c => _sensors.ReadSensor(c)?.Value is double v ? (float)Math.Clamp(v / 100, 0, 1) : 0f)];
-    }
-
-    private string? _gameScreenNoted;
-
-    /// <summary>Saves the screen the game in front is on, when it's another than the one saved (sampler thread).</summary>
-    private void NoteGameScreen(RigsightSettings settings)
-    {
-        string device = Screen.FromHandle(Win32.GetForegroundWindow()).DeviceName;
-        if (device == settings.Overlay.GameScreen || device == _gameScreenNoted) return;
-        _gameScreenNoted = device;
-        Log.Write("overlay", $"A game is on screen {device} (was {settings.Overlay.GameScreen ?? "none noted"})");
-        _ui.Post(_ => MutateSettings(s => s.Overlay.GameScreen = device), null);
-    }
-
-    private void PublishToUi(KeyValues k, bool fullscreen, (string Title, string Body)? alert)
-    {
-        var settings = _settings;
-        // Switched off (the Taskbar page, the tray menu): none shown, the list kept.
-        var trayReadings = settings.TrayShown ? TrayReadingsFor(settings) : [];
-        RememberTray(trayReadings);
-        // A reading card that's open: its readings again, a tick later.
-        string? cardKey = _card.Key;
-        var cardSections = cardKey is null ? null : CardFor(cardKey, trayReadings, settings, DarkMenuRenderer.Light);
-        var activity = _tracker.Activity;
-        // Only what draws history lines (graph tiles, a reading as a graph, the older tiles and graph layouts); none otherwise.
-        var historyOf = (settings.WidgetsShown ? settings.Widgets.Where(w => w.Enabled) : []).SelectMany(WidgetTiles.HistoryMetrics).ToHashSet();
-        bool drawsHistory = historyOf.Contains(OverlayMetric.CpuTemp) || historyOf.Contains(OverlayMetric.GpuTemp);
-        var data = new WidgetData
-        {
-            CpuTemp = k.CpuTemp, CpuLoad = k.CpuLoad, CpuPower = k.CpuPower, CpuClock = k.CpuClock,
-            GpuTemp = k.GpuTemp, GpuLoad = k.GpuLoad, GpuPower = k.GpuPower, GpuHotSpot = k.GpuHotSpot, GpuClock = k.GpuClock,
-            VramUsedMb = k.GpuVramUsed, VramTotalMb = k.GpuVramTotal,
-            RamLoad = k.RamLoad, RamUsedGb = k.RamUsed,
-            RamTotalGb = k.RamUsed + k.RamAvailable,
-            // Only the compact and graph widgets draw history lines; skip scanning it otherwise.
-            CpuHistory = drawsHistory ? _history.Recent(KeySensors.CpuTemp, 300_000) : [],
-            GpuHistory = drawsHistory ? _history.Recent(KeySensors.GpuTemp, 300_000) : [],
-            Activity = activity,
-            Today = _tracker.Today(),
-            Sensors = OverlaySensors(settings),
-            Readings = WidgetSensors(settings),
-            Histories = WidgetHistories(historyOf),
-            HistorySeconds = historyOf.Count > 0 ? _history.SpanMs(KeySensors.CpuTemp, 300_000) / 1000.0 : 300,
-            Names = WidgetNames(settings),
-            Pc = PcNowFor(settings),
-            Facts = _facts,
-        };
-        _lastToday = data.Today;
-
-        var tip = $"RigSight\nCPU {Units.TempShort(k.CpuTemp)}  ·  GPU {Units.TempShort(k.GpuTemp)}  ·  RAM {Units.Short(SensorKind.Load, k.RamLoad)}";
-        if (activity.Paused) tip += "\n" + Lang.T("Tracking paused");
-        else if (activity.Name is not null && activity.SessionActiveSec > 0) tip += $"\n{activity.Name}  ·  {Units.Duration(activity.SessionActiveSec)}";
-
-        // Our own windows can report as fullscreen-sized; only treat other apps as fullscreen.
-        bool otherFullscreen = fullscreen && activity.Exe is not null &&
-            !activity.Exe.StartsWith("Rigsight", StringComparison.OrdinalIgnoreCase);
-        // Widgets step aside only for a game in exclusive fullscreen, or borderless on a screen without overlay planes (see WidgetsOverGames).
-        bool gameInFront = activity.Category == AppCategory.Game && activity.Exe is not null && !activity.Paused;
-        // The screen a game is played on, for the Overlay page's picture with two screens or more (noted when it changes).
-        if (gameInFront && SystemInformation.MonitorCount > 1) NoteGameScreen(settings);
-
-        // Tray health dot: amber within 12° of a limit, red at or over it.
-        var a = settings.Alerts;
-        double Margin(double? v, double limit) => v is double d ? d - limit : double.MinValue;
-        double worst = Math.Max(Margin(k.CpuTemp, a.CpuLimit), Math.Max(Margin(k.GpuTemp, a.GpuLimit), Margin(k.GpuHotSpot, a.GpuHotSpotLimit)));
-        int health = worst >= 0 ? 2 : worst >= -12 ? 1 : 0;
-
-        // Nobody sees the taskbar or the desktop with the screen off: neither is drawn until it's back (the tray's tooltip
-        // and the alerts still are, as they're worked out here once).
-        bool unseen = _screen.Off;
-        _ui.Post(_ =>
-        {
-            long t0 = Stopwatch.GetTimestamp();
-            // Each part on its own: one that fails (a widget, the tray) must not take the rest with it, least of all the
-            // temperature alert at the end, which is worked out once and not again.
-            try { _tray.Update(tip, health); }
-            catch (Exception ex) { _errors.Failed("tray", ex); }
-            if (!unseen) DrawReadings();
-            try { _overlay.Update(data); }
-            catch (Exception ex) { _errors.Failed("overlay", ex); }
-            try { _notices.SetFullscreen(otherFullscreen); }
-            catch (Exception ex) { _errors.Failed("held notices", ex); }
-            try { CheckRivaTunerOff(settings); }
-            catch (Exception ex) { _errors.Failed("RivaTuner check", ex); }
-            if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
-            if (alert is { } hot)
-                Notify(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true));
-        }, null);
-
-        // The taskbar readings and the widgets, on the UI thread.
-        void DrawReadings()
-        {
-            // In the taskbar, drawn by RigSight in any style, where it can be (Windows 11); else as Windows' own tray icons.
-            bool inStrip = _taskbarStrip.Update(trayReadings, settings.TrayGrayscale, settings.TraySide, settings.TrayStyle, settings.TrayTiles, settings.TrayWidth,
-                settings.TrayLetterNames, settings.TraySpeedBits, settings.TrayGap, settings.TrayScreens);
-            try
-            {
-                // Windows 10's own tray icons: an icon per part as before 1.3, or with any pair saved since.
-                _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped || settings.TrayPairs is { Count: > 0 }, settings.TrayGrayscale, settings.TrayTiles);
-                _trayWaiting = _taskbarStrip.Waiting;
-                if (cardKey is not null && cardSections is { Count: > 0 }) _card.Renew(cardKey, cardSections);
-            }
-            catch (Exception ex) { _errors.Failed("tray readings", ex); }
-            try
-            {
-                // Asked of Windows here, on this tick and for the same window, so Alt+Enter between windowed and borderless
-                // is caught on the next tick (only with a game in front: a few cheap calls, no new polling).
-                var front = gameInFront ? Win32.GetForegroundWindow() : IntPtr.Zero;
-                bool fillsScreen = gameInFront && Tracking.ActivityMonitor.IsFullscreen(front);
-                var gameMonitor = gameInFront ? Win32.MonitorFromWindow(front, 2 /* MONITOR_DEFAULTTONEAREST */) : IntPtr.Zero;
-                // Overlay planes are asked of Windows once a screen, and only when a game fills it.
-                _widgets.Update(data, gameInFront, fillsScreen,
-                    exclusive: gameInFront && OverlayManager.IsExclusiveFullscreen(),
-                    overlayPlanes: fillsScreen && OverlayPlanes.On(gameMonitor),
-                    gameMonitor);
-            }
-            catch (Exception ex) { _errors.Failed("widgets", ex); }
-        }
-    }
-
-    private List<ProcInfo> BuildProcs(ProcessSnapshot snapshot, Dictionary<string, WindowState> windows)
-    {
-        Dictionary<int, string>? titles = null;
-        // Asked of Windows once for each process (see CriticalMarks), and only here, while a window is open.
-        var marked = _criticalMarks.Marked(snapshot.Processes, DateTime.UtcNow.ToFileTimeUtc());
-        var markedApps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (int pid in marked)
-            if (snapshot.PidToExe.TryGetValue(pid, out var exe)) markedApps.Add(exe);
-        return [.. snapshot.Apps.Values
-            .OrderByDescending(a => a.MemMB)
-            // The biggest in memory, whatever has a window, and whatever is busy right now: the Processes page sorts
-            // by processor and disk too, and an app at work mustn't be missing from it for being small.
-            .Where((a, i) => i < 80 || windows.ContainsKey(a.Exe) || a.Cpu >= 0.5 || a.Disk >= 256 * 1024)
-            .Select(a =>
-            {
-                var (name, path) = _apps.Describe(a.Exe, a.FirstPid);
-                if (_settings.AppNames.TryGetValue(a.Exe, out var alias)) name = alias;
-                return new ProcInfo
-                {
-                    Exe = a.Exe, Name = name, Path = path, Count = a.Count,
-                    Cpu = Math.Round(a.Cpu, 1), MemMB = Math.Round(a.MemMB, 1), HasWindow = windows.ContainsKey(a.Exe),
-                    Disk = Math.Round(a.Disk), Started = a.Created > 0 ? new DateTimeOffset(DateTime.FromFileTimeUtc(a.Created)).ToUnixTimeSeconds() : 0,
-                    Critical = markedApps.Contains(a.Exe),
-                    Processes = a.Processes is { } processes ? _procLabels.Describe(a.Exe, name, processes, ref titles, marked) : null,
-                };
-            })];
-    }
-
-    private bool _drivesLogged;
-    private readonly Rigsight.Core.Storage.DriveTempPace _driveTempPace = new();
-
-    /// <summary>
-    /// The drives were just read: today's health row for each (see RigsightDb.UpsertDriveHealth), and their readings to
-    /// an open app (the Storage page and an opened drive show them as they are, not as they were when the app connected).
-    /// </summary>
-    private void OnDrivesRead()
-    {
-        var drives = _sensors.DriveHealth;
-        try
-        {
-            long day = TimeUtil.ToUnix(DateTime.Today);
-            long nowMs = Environment.TickCount64;
-            // One commit for every drive, not one each (every 10 s while the app is open).
-            using (var tx = _db.BeginTransaction())
-            {
-                foreach (var d in drives)
-                    _db.UpsertDriveHealth(day, d, countTemp: !string.IsNullOrEmpty(d.Key) && _driveTempPace.Counts(d.Key, day, nowMs));
-                tx.Commit();
-            }
-            if (!_drivesLogged)
-            {
-                _drivesLogged = true;
-                Log.Write("drives", $"Keeping each drive's daily health: {string.Join("; ", drives.Select(d =>
-                    $"{d.Name} key={(string.IsNullOrEmpty(d.Key) ? "none (not kept)" : d.Key)} disk={d.DiskNumber} bus={d.Bus} life={d.Life} hours={d.PowerOnHours} written={d.WrittenGb} GB attributes={d.Attributes?.Count ?? 0} warns at={d.TemperatureWarning}"))}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error("drives", ex);
-        }
-        _pipe.Broadcast(new AgentMessage { T = "drives", Drives = drives });
-    }
-
-    private void RecordDrives()
-    {
-        try
-        {
-            long day = TimeUtil.ToUnix(DateTime.Today);
-            foreach (var d in DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Fixed && d.IsReady))
-            {
-                double total = d.TotalSize / 1073741824.0, free = d.TotalFreeSpace / 1073741824.0;
-                _db.UpsertDriveDay(new DriveDay { Day = day, Drive = d.Name, UsedGb = total - free, TotalGb = total });
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error("drives", ex);
-        }
-    }
-
-    private void OnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
-    {
-        if (e.Mode == PowerModes.Resume)
-        {
-            _justTurnedOn = true;
-            RunOnSampler(() => _connection.Settle(TimeUtil.NowUnix()));
-            _line?.FindAgain();
-        }
-        else if (e.Mode == PowerModes.Suspend)
-            RunOnSampler(() =>
-            {
-                KeepOngoingDrop();
-                _connection.Suspend();
-            });
-    }
-
-    // ── Internet ──────────────────────────────────────────────────────────
-
-    /// <summary>Sampler thread: starts reading every app's network use (with admin rights), and watching for drops.</summary>
-    private void StartNetwork()
-    {
-        NetworkChange.NetworkAddressChanged += OnAddressChanged;
-        NetworkChange.NetworkAvailabilityChanged += OnAvailabilityChanged;
-        _addresses = AddressBook.Read();
-        _addressesChanged = false;
-        _connection.Settle(TimeUtil.NowUnix());
-        if (_isAdmin) _netTrace = NetworkTrace.Start(NetTraceName, () => _addresses);
-        _line = LineCheck.Start(_settings.Tracking.PingChecks);
-        _serverPing = ServerPing.Start();
-        MemoryAt("network");
-    }
-
-    private static string NetTraceName => "Rigsight Network" + RigsightPaths.InstanceSuffix;
-
-    // Without admin rights there is no trace of each app's use: the network cards' own counters say what the whole
-    // PC moved. Read every few seconds (listing the cards isn't free), the last reading and what has gone by since.
-    private Dictionary<string, (long Received, long Sent)>? _cardsBefore;
-    private double _cardSeconds;
-    private const double CardEverySeconds = 3;
-
-    /// <summary>
-    /// Sampler thread, without admin rights: what crossed the network cards since the last look goes into the totals and
-    /// the speed right now. The bytes downloaded, for the drop watch (null between looks).
-    /// </summary>
-    private long? SampleCards(double seconds)
-    {
-        _cardSeconds += seconds;
-        if (_cardSeconds < CardEverySeconds && _cardsBefore is not null) return null;
-        var now = NetAdapters.CardTraffic();
-        var before = _cardsBefore;
-        double span = _cardSeconds;
-        _cardsBefore = now;
-        _cardSeconds = 0;
-        // The first look, or counters that couldn't be read: nothing to count.
-        if (now is null || before is null) return null;
-        // Card by card: one that has just come back (Wi-Fi reconnecting, a dock, waking up) has no reading before, and
-        // its whole count since Windows started is not what moved in these seconds. One whose count went back restarted.
-        long down = 0, up = 0;
-        foreach (var (id, n) in now)
-            if (before.TryGetValue(id, out var b) && n.Received >= b.Received && n.Sent >= b.Sent)
-            {
-                down += n.Received - b.Received;
-                up += n.Sent - b.Sent;
-            }
-        _tracker.OnNetworkTotal(down, up, span);
-        var live = _tracker.NetNow;
-        lock (_netHistoryLock)
-        {
-            _netHistory.Enqueue(new NetLive { Time = live.Time, Down = live.Down, Up = live.Up });
-            while (_netHistory.Count > 60) _netHistory.Dequeue();
-        }
-        return down;
-    }
-
-    private static readonly NetLive NotRecording = new() { Stalled = true };
-
-    private bool _sessionsLogged;
-
-    // While the trace is silent: the network cards' own counters for the whole PC's speed right now, so the taskbar,
-    // widgets and Network page keep a speed (issue #13: they showed dashes for hours). Live only, never written to the
-    // history: a minute the trace comes back in would count twice.
-    private Dictionary<string, (long Received, long Sent)>? _stallCards;
-    private double _stallSeconds;
-    private (double Down, double Up)? _stallSpeed;
-
-    /// <summary>Sampler thread, each second while the trace is silent: the cards' speed, read every few seconds.</summary>
-    private (double Down, double Up)? CardSpeedWhileStalled(double seconds)
-    {
-        _stallSeconds += seconds;
-        if (_stallSeconds < CardEverySeconds && _stallCards is not null) return _stallSpeed;
-        var now = NetAdapters.CardTraffic();
-        var before = _stallCards;
-        double span = _stallSeconds;
-        _stallCards = now;
-        _stallSeconds = 0;
-        if (now is null || before is null || span <= 0) return _stallSpeed = null;
-        long down = 0, up = 0;
-        foreach (var (id, n) in now)
-            if (before.TryGetValue(id, out var b) && n.Received >= b.Received && n.Sent >= b.Sent)
-            {
-                down += n.Received - b.Received;
-                up += n.Sent - b.Sent;
-            }
-        return _stallSpeed = (down / span, up / span);
-    }
-
-    /// <summary>
-    /// Sampler thread, each minute: a trace that delivers nothing while megabytes go through the network cards is started
-    /// again; if that doesn't help, traces left behind by test copies are stopped first (see <see cref="TraceWatch"/>).
-    /// </summary>
-    private void CheckNetworkTrace()
-    {
-        KeepOngoingDrop();
-        WriteLineMinutes();
-        if (!_isAdmin) return;
-        long now = TimeUtil.NowUnix();
-        // No trace at all (Windows wouldn't start one, or ended it): there are no events to count, only the remedies.
-        var remedy = _netTrace is { Ended: false } trace ? _traceWatch.Check(now, NetAdapters.CardBytes(), trace.Events) : _traceWatch.Missing(now);
-        switch (remedy)
-        {
-            case TraceRemedy.Restart:
-                Log.Write("network", _netTrace is { Ended: false } ? "App network use stopped coming in while the network was busy: reading it again"
-                    : "App network use isn't being read: starting it again");
-                RestartNetworkTrace();
-                break;
-            case TraceRemedy.ClearOthers:
-                var others = NetworkTrace.StopOthers(NetTraceName);
-                Log.Write("network", others.Count == 0 ? "Still nothing coming in: reading it again"
-                    : $"Still nothing coming in: stopped {others.Count} trace(s) left by test copies ({string.Join(", ", others)}), reading it again");
-                RestartNetworkTrace();
-                break;
-            case TraceRemedy.GiveUp:
-                Log.Write("network", $"App network use still isn't coming in: trying again in {TraceWatch.RetrySeconds / 60} minutes");
-                // Once a stall: which trace sessions are running, so the log names one that may hold the network events
-                // (issue #13: a network tool installed and removed left them silent until a restart; the log couldn't say).
-                if (!_sessionsLogged)
-                {
-                    _sessionsLogged = true;
-                    var sessions = NetworkTrace.Running();
-                    Log.Write("network", $"Trace sessions running now ({sessions.Count}): {string.Join(", ", sessions)}");
-                }
-                break;
-            case TraceRemedy.Recovered:
-                Log.Write("network", "App network use is coming in again");
-                _sessionsLogged = false;
-                break;
-        }
-    }
-
-    /// <summary>Sampler thread, each minute and before sleep: a drop still going on is written as far as it has got, so
-    /// one the PC is switched off or put to sleep in isn't lost (see <see cref="ConnectionWatch.Ongoing"/>).</summary>
-    private void KeepOngoingDrop()
-    {
-        if (_connection.Ongoing(TimeUtil.NowUnix()) is { } drop) _tracker.OnDrop(drop);
-    }
-
-    private void RestartNetworkTrace()
-    {
-        _netTrace?.Dispose();
-        _netTrace = NetworkTrace.Start(NetTraceName, () => _addresses);
-        _traceWatch.Restarted();
-    }
-
-    private void OnAddressChanged(object? sender, EventArgs e)
-    {
-        _addressesChanged = true;
-        _line?.FindAgain();
-    }
-
-    private void OnAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
-    {
-        _addressesChanged = true;
-        _line?.FindAgain();
-    }
-
-    /// <summary>Sampler thread, each minute: the line check's whole minutes into the history (none while tracking is paused).</summary>
-    private void WriteLineMinutes()
-    {
-        if (_line is null) return;
-        long now = TimeUtil.NowUnix();
-        var minutes = _line.TakeMinutes(now);
-        var servers = _serverPing?.TakeMinutes(now) ?? [];
-        if (_settings.Tracking.IsPaused(now)) return;
-        foreach (var m in minutes) _db.WriteNetPing(m);
-        foreach (var s in servers) _db.WriteNetServer(s);
-    }
-
-    // The ping to each game's, call's and picked app's server (see ServerPing): needs the admin trace to see the servers.
-    private ServerPing? _serverPing;
-
-    /// <summary>The line check's live figures with each app's server beside them (sampler thread, for the tick).</summary>
-    private LineLive? LineNow()
-    {
-        var line = _line?.Live();
-        var servers = _serverPing?.Live(_db);
-        if (servers is null) return line;
-        line ??= new LineLive();
-        line.Servers = servers;
-        return line;
-    }
-
-    /// <summary>Sampler thread, each second: the servers the games, calls and picked apps talk to, from the trace's flows.</summary>
-    private void SampleServers(NetworkTrace trace)
-    {
-        if (_serverPing is not { } servers) return;
-        var t = _settings.Tracking;
-        bool on = t.PingChecks && t.ServerPings && !t.IsPaused(TimeUtil.NowUnix());
-        trace.WatchTcp(on ? ServerPing.PickedPids(_running, t.PingApps) : null);
-        servers.OnSecond(trace.TakeFlows(), trace.TakeEchoes(), _running, _tracker.IsGameExe, t.PingApps, on);
-        trace.WatchEchoes(on ? servers.EchoServers() : null);
-    }
-
-    /// <summary>Sampler thread, each second: what each app moved since the last time, and whether the internet is there.</summary>
-    private void SampleNetwork(double seconds)
-    {
-        long? internetDown = null;
-        // A standard account only: an admin's agent that isn't elevated (yet) records nothing here, as before.
-        if (_netTrace is null && Account.Kind == AccountKind.Standard) internetDown = SampleCards(seconds);
-        if (_netTrace is { } trace)
-        {
-            var counts = trace.Take();
-            try { SampleServers(trace); }
-            catch (Exception ex) { _errors.Failed("server ping", ex); }
-            long down = 0;
-            foreach (var c in counts.Values) down += c.InternetDown;
-            internetDown = down;
-            _tracker.OnNetwork(counts, _running, seconds);
-            var now = _tracker.NetNow;
-            now.Stalled = _traceWatch.Stalled;
-            now.FromCards = false;
-            if (now.Stalled && CardSpeedWhileStalled(seconds) is { } cards)
-                (now.Down, now.Up, now.FromCards) = (cards.Down, cards.Up, true);
-            else if (!now.Stalled)
-                (_stallCards, _stallSpeed) = (null, null);
-            lock (_netHistoryLock)
-            {
-                _netHistory.Enqueue(new NetLive { Time = now.Time, Down = now.Down, Up = now.Up });
-                while (_netHistory.Count > 60) _netHistory.Dequeue();
-            }
-        }
-        long nowTs = TimeUtil.NowUnix();
-        var ended = _connection.Observe(nowTs, NetAdapters.WindowsSeesInternet(), _addresses.CardConnected, internetDown);
-        if (ended is { } drop)
-        {
-            Log.Write("network", $"The internet dropped for {drop.Seconds} s ({drop.Kind})");
-            _tracker.OnDrop(drop);
-        }
-        NoticeDrops(nowTs, ended);
-    }
-
-    /// <summary>
-    /// Sampler thread, each second: tell the person the internet dropped and came back (when Settings says so). The card's
-    /// kind is read every half minute while connected, so a drop names what was lost even with the card gone.
-    /// </summary>
-    private void NoticeDrops(long now, NetDrop? ended)
-    {
-        var open = _connection.Current(now);
-        if (open is null && now - _cardKindAt >= 30)
-        {
-            _cardKindAt = now;
-            if (NetAdapters.Current()?.Kind is { } kind) _cardKind = kind;
-        }
-        if (_dropNotices.Tick(now, open, ended, _cardKind, _line?.RouterAnswered(now - 10)) is not { } said) return;
-        Log.Write("network", $"Notice: {said.Title} ({said.Body})" + (_settings.Alerts.InternetDrops ? "" : ", not shown: drop alerts are off"));
-        if (!_settings.Alerts.InternetDrops) return;
-        string day = TimeUtil.FromUnix(said.At).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
-        Notify(new Notice(said.Good ? NoticeKind.InternetBack : NoticeKind.Internet, said.Title, said.Body, Page: "network", Arg: day, Urgent: true));
-    }
-
-    /// <summary>
-    /// Sampler thread, each minute: once the PC was just turned on (or woke) and the user is here, the recap of the last
-    /// day it was used, unless that day's was shown already (see <see cref="DailyRecap"/>).
-    /// </summary>
-    private void MaybeShowDailyRecap()
-    {
-        if (!_justTurnedOn || !_presentNow) return;
-        _justTurnedOn = false;
-        var settings = _settings;
-        var today = DateTime.Today;
-        var over = DailyRecap.OverBefore(DateTime.Now);
-        var lastUsed = _db.LastUsedDayBefore(TimeUtil.ToUnix(over)) is long d ? TimeUtil.FromUnix(d).Date : (DateTime?)null;
-        MaybeShowWeeklyRecap(today);
-        if (DailyRecap.DayToRecap(over, lastUsed, DailyRecap.Recapped(settings)) is not { } day) return;
-        // Built before the day is marked as recapped: if building fails, the next turn-on tries again.
-        var report = settings.Alerts.DailyRecap ? ReportBuilder.Build(_db, ReportRange.Day, day, settings) : null;
-        MutateSettings(s =>
-        {
-            s.RecappedDay = DailyRecap.Key(day);
-            s.LastRecapDay = DailyRecap.Key(today);
-        });
-        if (report is null || !report.HasData || report.ActiveSec < 300) return;
-
-        var top = report.Apps.FirstOrDefault(a => a.ActiveSec > 0 && a.Category != AppCategory.System);
-        var (title, text) = NoticeWords.Recap(day, today, report.ActiveSec, top?.Name, top?.ActiveSec ?? 0, report.CpuTempPeak?.Value, report.GpuTempPeak?.Value);
-        Notify(new Notice(NoticeKind.Recap, title, text, Page: "reports", Arg: DailyRecap.Key(day)));
-    }
-
-    private DateTime _rewindsChecked;
-
-    /// <summary>
-    /// Sampler thread, each minute (read at most every half hour): a rewind finished (a month, three, six, a year) is
-    /// made and saved. While RigSight is closed, the biggest one made is announced with a notification in the user's
-    /// Notifications style (held back during a fullscreen game like every other); RigSight open shows it itself.
-    /// </summary>
-    private void MaybeMakeRewinds()
-    {
-        var now = DateTime.Now;
-        if (now - _rewindsChecked < TimeSpan.FromMinutes(30)) return;
-        _rewindsChecked = now;
-        if (Core.Rewind.RewindStore.Quiet) return;
-        var settings = _settings;
-        List<Core.Rewind.RewindFacts> made;
-        try { made = Core.Rewind.RewindStore.MakeDue(_db, settings, now); }
-        catch (Exception ex) { Log.Error("rewind", ex); return; }
-        if (made.Count > 0)
-        {
-            // A month's history read once a month: given back, as after the long crash scan (the 2026-11-03 gate: 146 MB
-            // private with October's just made, still 116 MB 25 s after, against 62 when none is due).
-            MemoryAt("rewind made");
-            CompactMemory();
-        }
-        if (made.Count == 0 || !settings.Rewind.Notify || _pipe.ClientCount > 0) return;
-        var f = made[0];
-        // Told now: the app shows them as its sidebar line, not full screen again (2026-10-30: the first rewind, 1 Nov,
-        // would have come twice, as this notification and then full screen at RigSight's next start).
-        foreach (var m in made) { m.Announced = true; Core.Rewind.RewindStore.Save(m); }
-        Log.Write("rewind", $"Announcing {f.Id} with a notification");
-        Notify(new Notice(NoticeKind.Rewind, Core.Rewind.RewindCards.Ready(f), Core.Rewind.RewindCards.Teaser(f), Page: "rewind", Arg: f.Id));
-    }
-
-    private void OnSessionEnded(SessionRow row, AppInfo app)
-    {
-        var settings = _settings;
-        bool summaryWanted = settings.Alerts.SessionSummaries && row.IsGame && row.ActiveSec >= settings.Alerts.SessionSummaryMinMinutes * 60;
-        string name = AppResolver.DisplayName(app, settings);
-
-        // Windows logs a crash a few seconds after the process dies, so wait a moment before deciding
-        // between a normal summary and a (gentle) "what happened". After a crash, the summary is
-        // skipped entirely unless crash notifications are on — nobody needs a scoreboard right then.
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(12_000);
-                var crash = CrashLogReader.RecentAppCrash(app.Exe, TimeSpan.FromMinutes(3));
-                if (crash is not null)
-                {
-                    // Stored and on the Crashes page either way; said only if alerts are on, the app isn't muted, and
-                    // it isn't the same app crashing again and again (the first is always said).
-                    if (!_settings.Alerts.CrashNotifications || _settings.IsCrashMuted(app.Exe) || !_crashNotices.Allow(app.Exe, crash.Time))
-                    {
-                        RunOnSampler(ScanCrashes);
-                        return;
-                    }
-                    // The notification says what the crash's own case will say: the crash is stored first, and its
-                    // finding worked out from the history exactly as every page does (the minutes before, earlier
-                    // times, a driver being installed, other things failing at the same moment).
-                    var finding = await OnSampler(() => { ScanCrashes(); return FindingOf(crash); });
-                    // Windows files its report (the kind of failure, what a frozen app was waiting on) some seconds
-                    // after the crash's own entry: before saying there isn't enough, one more look once it has had time.
-                    if (finding is null or { Confidence: Confidence.NotEnough })
-                    {
-                        await Task.Delay(CrashNotices.SecondLook);
-                        finding = await OnSampler(() => { ScanCrashes(); return FindingOf(crash); }) ?? finding;
-                    }
-                    string body = NoticeWords.AppDown(finding, row.IsGame, row.ActiveSec);
-                    // The title says what Windows recorded, which is never in doubt: "Dota 2 crashed", "Chrome froze".
-                    Notify(new Notice(NoticeKind.Crash, Wording.Title(crash.Kind, NoticeWords.Name(name)), body,
-                        app.Path, "crashes", crash.Time.Ticks.ToString()));
-                    return;
-                }
-                // What's worth knowing about the game (hotter than usual, the GPU slowing itself): the summary's last
-                // sentences when there is one, so the game gets one card; its own cards when there isn't.
-                var (more, cards) = row.IsGame ? await OnSampler(() => AfterGame(row, name, app.Exe)) : ([], []);
-                if (!summaryWanted)
-                {
-                    foreach (var c in cards) Notify(c, app.Path);
-                    return;
-                }
-                var (title, text) = NoticeWords.Session(name, row.ActiveSec, row.CpuTempMax, row.GpuTempMax);
-                if (more.Count > 0) text = string.Join(" ", new[] { text }.Concat(more).Where(x => x.Length > 0));
-                Notify(new Notice(NoticeKind.Session, title, text, app.Path, "games", app.Exe) { AlsoSays = [.. cards.Select(c => c.Key)] });
-            }
-            catch (Exception ex)
-            {
-                Log.Error("session", ex); // a background task's error would otherwise vanish with it
-            }
-        });
-    }
-
-
-    /// <summary>Runs <paramref name="work"/> on the sampler thread (the only one that touches the database) and hands back what it returns.</summary>
-    private Task<T> OnSampler<T>(Func<T> work)
-    {
-        var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-        RunOnSampler(() =>
-        {
-            try { done.SetResult(work()); }
-            catch (Exception ex) { done.SetException(ex); }
-        });
-        return done.Task;
-    }
-
-    /// <summary>
-    /// Sampler thread: the finding of a crash just read from Windows' log, once it is stored. Worked out with what
-    /// else failed in the five minutes around it, so several things failing together say the one thing here too.
-    /// Null when it isn't stored (yet).
-    /// </summary>
-    private CrashFinding? FindingOf(CrashEvent crash)
-    {
-        var near = _db.GetCrashes(crash.Ts - 300, crash.Ts + 301);
-        var stored = near.FirstOrDefault(c => c.Kind == crash.Kind && c.Ts == crash.Ts && c.AppExe.Equals(crash.AppExe, StringComparison.OrdinalIgnoreCase));
-        return stored is null ? null : CrashCases.Of(_db, near, _settings).GetValueOrDefault(stored.Id);
-    }
-
-    private System.Diagnostics.Eventing.Reader.EventLogWatcher? _appCrashWatch;
-    private int _appCrashScanDue;
-
-    /// <summary>
-    /// Windows tells the agent the moment it logs an app crashing or freezing, so its close-up is kept while the ring
-    /// still holds the minutes before: the ten-minute scan alone comes too late for most of them, and a crash of an
-    /// app nobody was using has no session ending to look for it. Nothing is read until one is logged.
-    /// </summary>
-    private void WatchAppCrashes()
-    {
-        try
-        {
-            // And Windows filing an error report: that is how most PCs record the graphics card hanging (a driver reset).
-            var query = new System.Diagnostics.Eventing.Reader.EventLogQuery("Application", System.Diagnostics.Eventing.Reader.PathType.LogName,
-                CrashLogReader.AppQuery.Replace("]]", " or (EventID=1001 and Provider[@Name='Windows Error Reporting'])]]"));
-            _appCrashWatch = new System.Diagnostics.Eventing.Reader.EventLogWatcher(query);
-            _appCrashWatch.EventRecordWritten += (_, e) =>
-            {
-                e.EventRecord?.Dispose();
-                // Several at once (an app and its helpers) are one scan; a few seconds on, for Windows' own report too.
-                if (Interlocked.Exchange(ref _appCrashScanDue, 1) == 1) return;
-                _ = Task.Delay(5_000).ContinueWith(_ =>
-                {
-                    Interlocked.Exchange(ref _appCrashScanDue, 0);
-                    RunOnSampler(ScanCrashes);
-                });
-            };
-            _appCrashWatch.Enabled = true;
-        }
-        catch (Exception ex)
-        {
-            Log.Error("closeup", ex);
-            _appCrashWatch = null;
-        }
-    }
-
-    private readonly CrashNoticeGate _crashNotices = new();
-    private CloseUpKeeper _closeUps = null!;
-
-    // Crash records from Windows' logs into the history, and which become a card (see CrashScanner). Made on first use:
-    // the database and the close-ups are ready by then.
-    private CrashScanner? _crashScanner;
-    private CrashScanner CrashScan => _crashScanner ??= new CrashScanner(_db, CrashScanner.Source.WindowsLogs, () => DateTime.Now,
-        () => _settings, _crashNotices, added => _closeUps.OnStored(added), Notify);
-
-    /// <summary>Sampler thread: copies new crash records from the Windows event logs into the database.</summary>
-    private void ScanCrashes() => CrashScan.Scan();
-
-    /// <summary>When the fans' speeds were last looked through for a setting changed while the PC was off.</summary>
-    private DateTime? _fanSettingsRead;
-
-    /// <summary>
-    /// Once an hour (and the first time over all the history): motherboard fans that came back from a restart at another
-    /// set speed (see <see cref="FanSettings"/>), from the fan minutes already written. A restart is looked at only once
-    /// its fans have run for an hour after it, so a fan still settling isn't taken for a setting, and only once.
-    /// </summary>
-    private void ScanFanSettings(DateTime now)
-    {
-        if (_fanSettingsRead is { } read && now - read < TimeSpan.FromHours(1)) return;
-        _fanSettingsRead = now;
-        try
-        {
-            long through = long.TryParse(_db.GetMeta(FanSettingsKey), out long t) ? t : 0, settled = TimeUtil.ToUnix(now.AddHours(-1)), end = TimeUtil.ToUnix(now);
-            var fans = _db.GetFans();
-            if (fans.Count == 0) return;
-            // A week at a time (the first scan reads all the history: months of every fan's minutes at once would be a
-            // spike), each restart in exactly one week: the 3 days before it are what it's set against, a day after it
-            // lets its fans settle.
-            const long Day = 86400, Week = 7 * Day;
-            int weeks = 0;
-            for (long w = through > 0 ? through : _db.FirstFanMinute() ?? settled; w < settled; w += Week, weeks++)
-            {
-                long upTo = Math.Min(w + Week, settled);
-                var minutes = _db.GetFanMinutes(w - 3 * Day, Math.Min(upTo + Day, end));
-                var found = FanSettings.Find(fans, minutes).Where(c => TimeUtil.ToUnix(c.Time) > w && TimeUtil.ToUnix(c.Time) <= upTo).ToList();
-                foreach (var c in _db.InsertChanges(found)) Log.Write("changes", $"{c.Title} at {c.Time:d MMM HH:mm}: {c.Now}");
-            }
-            _db.SetMeta(FanSettingsKey, settled.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            if (weeks > 1) CompactMemory();
-        }
-        catch (Exception ex) { Log.Error("changes", ex); }
-    }
-
-    private const string FanSettingsKey = "fan_settings_through";
-
-    private static bool IsDropout(SystemChange c) => c.Kind == ChangeKind.Hardware && c.Title.StartsWith("GPU disconnected", StringComparison.Ordinal);
-
-    /// <summary>When Windows' logs were last read for changes (null: not since the agent started).</summary>
-    private DateTime? _changeLogsRead;
-
-    /// <summary>
-    /// Sampler thread, every minute: notes what changed on the PC. Apps, startup programs, hardware and settings from
-    /// setting the PC's inventory against the last one (6 ms, measured); drivers and Windows updates from the event logs
-    /// (all they still hold the first time, then what's new), every ten minutes, and at once when a graphics driver
-    /// turned up in the inventory, for the moment it was installed.
-    /// </summary>
-    private void ScanChanges()
-    {
-        long started = Stopwatch.GetTimestamp();
-        int foundCount = 0;
-        try
-        {
-            var now = DateTime.Now;
-            bool first = _db.ChangesScanned is null;
-            var reading = Inventory.Read();
-            var before = _db.GetInventory();
-            Inventory.HoldRunningUpdates(reading, before, RunningPaths);
-            Inventory.HoldDownloads(reading, before);
-            var found = _db.ApplyInventory(reading, Inventory.Owner(), now);
-
-            List<SystemChange> logged = [];
-            if (first || _changeLogsRead is not { } read || now - read >= TimeSpan.FromMinutes(Inventory.ScanMinutes) || found.Any(c => c.IsGraphicsDriver || IsDropout(c)))
-            {
-                var since = (_changeLogsRead ?? (_db.ChangesScanned is long scanned ? TimeUtil.FromUnix(scanned) : now.AddYears(-2))).AddHours(-1);
-                logged = ChangeLogReader.Read(since, now);
-                _changeLogsRead = now;
-            }
-
-            // A graphics driver is followed by its version in the inventory (the logs often don't name it); the
-            // log entry only says when: the last one in the hour before it was found (an install takes minutes, and
-            // may have begun before the check before). Before the first inventory the logs are all there is.
-            var graphics = logged.LastOrDefault(c => c.IsGraphicsDriver && c.Time > now.AddHours(-1));
-            // A GPU back with the driver it had: no install, unless Windows logged one while it was gone (the same
-            // version put on again, after a driver cleaner): then that's what it was.
-            found.RemoveAll(c => IsDropout(c) && logged.Any(l => l.IsGraphicsDriver && l.Time >= c.Time.AddMinutes(-2)));
-            if (!first) logged.RemoveAll(c => c.IsGraphicsDriver);
-            // Found by this check, so it happened since the last one (which may be last night's).
-            if (_db.ChangesScanned is long last) found = [.. found.Select(c => c with { NoticedFrom = TimeUtil.FromUnix(last) })];
-            // Apps and startup programs to the second, where the registry says when it was written in between.
-            if (found.Count > 0)
-            {
-                try
-                {
-                    var exact = Inventory.Exact(found, Inventory.ReadWriteTimes());
-                    for (int i = 0; i < found.Count; i++)
-                        Log.Write("changes", exact[i].IsApproximate ? $"{found[i].Title}: between {found[i].Earliest:HH:mm:ss} and {found[i].Time:HH:mm:ss}"
-                            : $"{found[i].Title}: at {exact[i].Time:HH:mm:ss} ({(exact[i].Time == found[i].Time ? "the minute it was found" : "registry")}), found between {found[i].Earliest:HH:mm:ss} and {found[i].Time:HH:mm:ss}");
-                    found = exact;
-                }
-                catch (Exception ex) { Log.Error("changes", ex); }
-            }
-            if (graphics is not null)
-                found = [.. found.Select(c => c.IsGraphicsDriver ? c with { Time = graphics.Time, Subject = c.IsApproximate ? Inventory.ExactPrefix + c.Subject : c.Subject, NoticedFrom = null } : c)];
-
-            _db.InsertChanges(logged);
-            _db.InsertChanges(found);
-            _db.ChangesScanned = TimeUtil.ToUnix(now);
-            ScanFanSettings(now);
-            foundCount = found.Count + logged.Count;
-        }
-        catch (Exception ex)
-        {
-            Log.Error("changes", ex);
-        }
-        finally
-        {
-            // The first check since starting reads Windows' logs since the last one and the fans' last hour, and runs its
-            // code for the first time: start-up work, said with its time (the later checks take a few ms each). Like the
-            // RAM sticks and the long crash scan, what it read is handed back after: kept, it was ~5 MB more in Task
-            // Manager for as long as the agent ran (68 MB against 59-64, measured 2026-11-21).
-            if (!_changesCheckedOnce)
-            {
-                _changesCheckedOnce = true;
-                double ms = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-                CompactMemory();
-                Log.Write("changes", $"First check since starting: {ms:0} ms, {foundCount} changes found; memory handed back");
-            }
-        }
-    }
-
-    private bool _changesCheckedOnce;
-
-    /// <summary>
-    /// Riggy (0.16.0 to 0.17.1) had a switch in the settings file. Settings no longer have it, but the file keeps the
-    /// line until it's next written, and its backup copy one writing longer: written twice now, neither has it.
-    /// </summary>
-    private void ForgetRiggySetting()
-    {
-        try
-        {
-            string file = RigsightPaths.SettingsFile;
-            if (!File.Exists(file) || !File.ReadAllText(file).Contains("\"ShowAsk\"", StringComparison.Ordinal)) return;
-            SettingsStore.Save(_settings);
-            SettingsStore.Save(_settings);
-        }
-        catch (Exception ex)
-        {
-            Log.Error("settings", ex);
-        }
-    }
-
-    /// <summary>The full path of every program running now (a few milliseconds; asked for when an app's version changed).</summary>
-    private static List<string> RunningPaths()
-    {
-        var paths = new List<string>();
-        foreach (var p in Process.GetProcesses())
-        {
-            try
-            {
-                if (Win32.ProcessPath(p.Id) is { } path) paths.Add(path);
-            }
-            catch
-            {
-                // Exited meanwhile.
-            }
-            finally
-            {
-                p.Dispose();
-            }
-        }
-        return paths;
-    }
-
-    /// <summary>
-    /// The Timeline's refresh button: looks for new problems and changes now instead of at the next ten-minute check,
-    /// and says when it's done so the page can read them.
-    /// </summary>
-    private void ScanNow()
-    {
-        ScanCrashes();
-        ScanChanges();
-        _pipe.Broadcast(new AgentMessage { T = "scanned" });
-    }
-
-    /// <summary>Shows an example of each notification so the user can judge them (Settings → Notifications).</summary>
-    private void PreviewNotification(string? kind)
-    {
-        var s = _settings;
-        var activity = _tracker.Activity;
-        Notice notice = kind switch
-        {
-            "alert" => NoticeWords.Running([new("GPU", s.Alerts.GpuLimit + 3, s.Alerts.GpuLimit)], s.Alerts.SustainSeconds, "Cyberpunk 2077") is var (aTitle, aBody)
-                ? new(NoticeKind.Alert, aTitle, aBody, Page: "temperatures", Urgent: true) : null!,
-            "session" => NoticeWords.Session("Dota 2", 2 * 3600 + 14 * 60, 71, 68) is var (sTitle, sBody)
-                ? new(NoticeKind.Session, sTitle, sBody, activity.Path, "games") : null!,
-            "crash" => new(NoticeKind.Crash, Wording.Title(CrashKind.AppCrash, "Dota 2"), CrashNotices.Sample, activity.Path, "crashes"),
-            // The notifications round's kinds, each through its real words with made-up figures.
-            _ when NoticePreviews.Of(kind) is { } p => new(p.Kind, p.Text.Title, p.Text.Body, Page: p.Page, Urgent: p.Kind is NoticeKind.FanStopped or NoticeKind.DriveFailing),
-            _ => NoticeWords.Recap(DateTime.Today.AddDays(-1), DateTime.Today, 6 * 3600 + 12 * 60, "Dota 2", 3 * 3600 + 5 * 60, 78, 72) is var (rTitle, rBody)
-                ? new(NoticeKind.Recap, rTitle, rBody, Page: "reports", Arg: "yesterday") : null!,
-        };
-        _notices.Show(notice with { Title = Lang.T($"{notice.Title} (preview)") }, bypassQuiet: true);
-    }
-
-    // ── App connection ────────────────────────────────────────────────────
-
-    private AgentMessage BuildHello()
-    {
-        RigsightSettings helloSettings;
-        long helloRev;
-        lock (_settingsLock) (helloSettings, helloRev) = (_settings, _settingsRev);
-        var hello = new AgentMessage
-        {
-            T = "hello",
-            Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3),
-            IsAdmin = _isAdmin,
-            StandardAccount = Account.Kind == AccountKind.Standard,
-            Everyone = MachineSetup.Everyone,
-            KeepUpdated = MachineSetup.KeepUpdated,
-            StartupEnabled = _startupEnabled,
-            Settings = helloSettings,
-            SettingsRev = helloRev,
-            Page = _pendingPage,
-            Arg = _pendingArg,
-            OverlayVisible = _overlayVisible,
-            OverlayHotkeyTaken = _overlay.HotkeyTaken,
-            AskHotkeyTaken = _askHotkeyTaken,
-            RtssState = _overlay.RtssState,
-            Today = _lastToday,
-        };
-        if (_sensorsReady)
-        {
-            var sensors = _sensors;
-            hello.Hardware = sensors.Schema;
-            hello.Keys = sensors.Keys;
-            hello.PreferredGpus = sensors.PreferredGpus;
-            hello.History = [.. _history.Snapshot(), .. _driveHistory.Snapshot()];
-            hello.Drives = sensors.DriveHealth;
-            hello.SensorStatus = _sensorStatus;
-            if (_netTrace is not null || _cardsBefore is not null)
-                lock (_netHistoryLock) hello.NetHistory = [.. _netHistory];
-            _sendAllExtremes = true;
-        }
-        _pendingPage = _pendingArg = null;
-        return hello;
-    }
-
-    private void OnUiMessage(UiMessage msg)
-    {
-        if (msg.T == "settings" && msg.Settings is not null)
-        {
-            // Through the store, so the app's copy gets the same repairs and limits as a file on disk
-            // (case-insensitive app lookups, clamped intervals, a valid shortcut...).
-            var incoming = SettingsStore.Deserialize(SettingsStore.Serialize(msg.Settings));
-            MutateSettings(_ => { }, replaceWith: incoming, appBase: msg.SettingsBase);
-            return;
-        }
-
-        switch (msg.Cmd)
-        {
-            case "procs-detail":
-                // The Memory page opened (or closed) apps to see each of their processes: resample now, not in 2 s.
-                var exes = string.IsNullOrEmpty(msg.Arg) ? null : new HashSet<string>(msg.Arg.Split('|'), StringComparer.OrdinalIgnoreCase);
-                RunOnSampler(() =>
-                {
-                    _procSampler.Detail = exes;
-                    _procsNow = true;
-                });
-                break;
-            case Core.Stability.TaskEnded.Command:
-                // The Processes page ended an app (itself: the agent is never asked to end anything) and has it
-                // written down for the Timeline.
-                if (Core.Stability.TaskEnded.Parse(msg.Arg, DateTime.Now) is { } ended) RunOnSampler(() => _db.InsertChanges([ended]));
-                break;
-            case "clear-history":
-                RunOnSampler(() =>
-                {
-                    _tracker.ClearHistory();
-                    _extremes.Clear();
-                    _sendAllExtremes = true;
-                    _pipe.Broadcast(new AgentMessage { T = "history-cleared" });
-                    // The apps list went too, and much here points at its rows: start again, fresh (the app reconnects by itself).
-                    _ui.Post(_ => Restart("history cleared"), null);
-                });
-                break;
-            // Without admin rights there is no task to switch: where the PC starts Rigsight for everyone, this person's
-            // own choice is kept in their settings (the sign-in start reads it).
-            case "startup-on" or "startup-off" when !RigsightPaths.IsTestInstance && !_isAdmin && MachineSetup.Everyone:
-                MutateSettings(s => s.StartAtSignIn = msg.Cmd == "startup-on");
-                _startupEnabled = msg.Cmd == "startup-on";
-                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
-                break;
-            // A standard account, on a PC not set up for everyone: the task needs an admin, their own Run entry doesn't.
-            case "startup-on" or "startup-off" when OwnStartup:
-                if (Environment.ProcessPath is { } own) MachineSetup.SetStartsForMe(msg.Cmd == "startup-on", own);
-                if (msg.Cmd == "startup-on") MutateSettings(s => s.StartAtSignIn = true);
-                _startupEnabled = MachineSetup.StartsForMe;
-                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
-                break;
-            // An admin turns keeping Rigsight up to date for everyone on or off, from their own Settings.
-            case "updater-on" or "updater-off" when _isAdmin && !RigsightPaths.IsTestInstance:
-                try { UpdaterTask.Set(msg.Cmd == "updater-on"); } catch (Exception ex) { Log.Error("setup", ex); }
-                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled, Everyone = MachineSetup.Everyone, KeepUpdated = MachineSetup.KeepUpdated });
-                break;
-            case "startup-on" or "startup-off" when !RigsightPaths.IsTestInstance:
-                _startupEnabled = msg.Cmd == "startup-on" ? StartupTask.Enable() : !StartupTask.Disable();
-                _startupEnabled = StartupTask.IsEnabled();
-                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
-                break;
-            case WidgetCatalog.MoveCommand:
-                // A widget moved in the app (its map, its editor): the one way the app moves a widget (see KeepAgentFields).
-                if (WidgetCatalog.ParseMove(msg.Arg) is { } move)
-                    _ui.Post(_ => MutateSettings(s =>
-                    {
-                        if (s.Widgets.FirstOrDefault(w => w.Id == move.Id) is { } w) (w.X, w.Y) = (move.X, move.Y);
-                    }), null);
-                break;
-            case "pause":
-                _ui.Post(_ => PauseFor(int.TryParse(msg.Arg, out var m) ? m : 60), null);
-                break;
-            case "resume":
-                _ui.Post(_ => Resume(), null);
-                break;
-            case "sensors-retry":
-                RunOnSampler(RetryAllSensors);
-                break;
-            case "scan-now":
-                RunOnSampler(ScanNow);
-                break;
-            case "install-driver" when _isAdmin && !RigsightPaths.IsTestInstance:
-                InstallDriver();
-                break;
-            case "quit":
-                _ui.Post(_ => Quit("the app"), null);
-                break;
-            case "render-previews":
-                RenderPreviews(_settings);
-                break;
-            case "preview-notification":
-                _ui.Post(_ => PreviewNotification(msg.Arg), null);
-                break;
-            case "overlay-toggle":
-                _ui.Post(_ => _overlay.Toggle("its page"), null);
-                break;
-            case "start-rtss" when !RigsightPaths.IsTestInstance:
-                _ui.Post(_ => _overlay.StartRtss(), null);
-                break;
-            case "install-rtss" when !RigsightPaths.IsTestInstance:
-                _ui.Post(_ => _overlay.InstallRtss(_ui), null);
-                break;
-            case "overlay-status":
-                _ui.Post(_ => OnOverlayStateChanged(), null);
-                break;
-            case "restart-elevated":
-                _ui.Post(_ => RestartElevated(), null);
-                break;
-            case "history-damage":
-                RunOnSampler(() => OnHistoryDamage(fromSave: false));
-                break;
-            case "check-history":
-                RunOnSampler(CheckHistoryNow);
-                break;
-            case "repair-history":
-                HistoryRepair.AskRepair(RigsightPaths.DataDir, "you asked for a repair");
-                _ui.Post(_ => Restart("a history repair asked for in the app"), null);
-                break;
-            case "history-dismiss":
-                MutateSettings(s => s.HistoryFile.Dismissed = true);
-                break;
-            case "install-update" when !RigsightPaths.IsTestInstance:
-                _ = Task.Run(async () =>
-                {
-                    // Its own download of the latest release, not the path in the message (see UpdateInstaller).
-                    bool started = _isAdmin && await UpdateInstaller.RunAsync();
-                    _pipe.Broadcast(new AgentMessage { T = "update", UpdateStatus = started ? "started" : "failed" });
-                });
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Settings from the app, before they replace the agent's: fields the agent owns are kept from the agent's copy
-    /// (pausing goes through commands, so a tray "Pause" is never undone by the app sending settings it had before).
-    /// </summary>
-    internal static void KeepAgentFields(RigsightSettings incoming, RigsightSettings current)
-    {
-        incoming.StartupConfigured = current.StartupConfigured;
-        incoming.LastRecapDay = current.LastRecapDay;
-        incoming.RecappedDay = current.RecappedDay;
-        incoming.LastUpdateNotice = current.LastUpdateNotice;
-        incoming.HardwareAppsChecked = current.HardwareAppsChecked;
-        incoming.StartAtSignIn = current.StartAtSignIn;
-        incoming.Tracking.PausedUntil = current.Tracking.PausedUntil;
-        incoming.HistoryFile = current.HistoryFile; // the agent's alone: dismissing goes through a command
-        foreach (var w in incoming.Widgets)
-        {
-            var mine = current.Widgets.FirstOrDefault(x => x.Id == w.Id);
-            if (mine is not null) { w.X = mine.X; w.Y = mine.Y; }
-        }
-    }
-
-    /// <summary>
-    /// The Ask shortcut, registered only while the AI is on for this PC and not Off (nothing is taken from other programs
-    /// otherwise), and never the overlay's own. Pressed, it opens the app on the Ask window. UI thread.
-    /// </summary>
-    private void ApplyAskShortcut(RigsightSettings settings)
-    {
-        string? wanted = settings.Ai.Shortcut is { Length: > 0 } s && settings.Ai.Mode != AiMode.Off
-                         && !(settings.Overlay.Enabled && string.Equals(s, settings.Overlay.Hotkey, StringComparison.OrdinalIgnoreCase)) ? s : null;
-        if (wanted == _askRegistered) return;
-        _askRegistered = wanted;
-        bool taken = !_askHotkey.Register(Hotkey.TryParse(wanted, out var key) ? key : null);
-        if (taken) Log.Write("ask", $"Shortcut {wanted} is already used by another program");
-        else if (wanted is not null) Log.Write("ask", $"Shortcut {wanted} opens Ask");
-        if (taken == _askHotkeyTaken) return;
-        _askHotkeyTaken = taken;
-        _pipe.Broadcast(new AgentMessage { T = "ask-hotkey", AskHotkeyTaken = taken });
-    }
-
-    /// <summary>Opens the Rigsight app (or brings it to the front) on an optional page.</summary>
-    private void OpenApp(string? page, string? arg = null)
-    {
-        // "RivaTuner isn't running": its click starts it, and the Games page opens, where its FPS will show.
-        if (page == "rivatuner")
-        {
-            if (!RigsightPaths.IsTestInstance) _ui.Post(_ => _overlay.StartRtss(), null);
-            page = "games";
-        }
-        if (_pipe.ClientCount > 0)
-        {
-            Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
-            _pipe.Broadcast(new AgentMessage { T = "navigate", Page = page, Arg = arg });
-            return;
-        }
-
-        _pendingPage = page;
-        _pendingArg = arg;
-        var exe = RigsightPaths.Sibling(RigsightPaths.AppExe);
-        if (!File.Exists(exe))
-        {
-            Log.Write("agent", $"App not found at {exe}");
-            return;
-        }
-        try
-        {
-            if (_isAdmin)
-            {
-                // The desktop's own Explorer opens it, so the window runs with normal (non-admin) rights; explorer.exe as
-                // before when it can't be asked (that way cost 280-650 ms more on every open, see DesktopShell).
-                Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
-                var asked = Stopwatch.StartNew();
-                if (DesktopShell.Open(exe, null, out var why))
-                    Log.Write("agent", $"Opening the window (the desktop's Explorer took it in {asked.ElapsedMilliseconds} ms)");
-                else
-                {
-                    Log.Write("agent", $"The desktop's Explorer couldn't be asked to open the window ({why}): through explorer.exe instead");
-                    Process.Start(RigsightPaths.Explorer, $"\"{exe}\"");
-                }
-            }
-            else Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            Log.Error("agent", ex);
-        }
-    }
-
-    // ── Settings ──────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// A line in the log for a change to what's shown or tracked (the taskbar readings, the overlay's sensors, the
-    /// widgets on, the apps left out), saying where it came from: a list that vanished can be traced.
-    /// </summary>
-    /// <summary>The taskbar readings' own colours in one line ("id=number/name/tile; ..."), to compare and to log.</summary>
-    private static string TrayColorsText(RigsightSettings s) =>
-        string.Join("; ", s.TrayColors.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value.Number ?? "-"}/{kv.Value.Name ?? "-"}/{kv.Value.Tile ?? "-"}"));
-
-    /// <summary>The taskbar readings' looks in one line ("id=Area; ..."), to compare and to log.</summary>
-    private static string TrayLooksText(RigsightSettings s) =>
-        string.Join("; ", s.TrayLooks.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"));
-
-    /// <summary>Each reading's own style, size, look source, pairs, grayscale, tiles and names, and the speeds' unit, in one line, to compare and to log.</summary>
-    private static string TrayOwnText(RigsightSettings s) =>
-        "styles " + string.Join("; ", s.TrayStyles.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
-        + " | sizes " + string.Join("; ", s.TraySizes.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
-        + " | looks from " + string.Join("; ", s.TrayLookFrom.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
-        + (s.TraySpeedBits ? " | speeds in bits" : " | speeds in bytes")
-        + " | pairs " + (s.TrayPairs is null ? "as before 1.3" : string.Join(", ", s.TrayPairs))
-        + " | grayscale " + string.Join("; ", s.TrayGrayOf.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
-        + " | tiles " + string.Join("; ", s.TrayTilesOf.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
-        + " | one letter " + string.Join(", ", s.TrayLetters)
-        + " | room between " + s.TrayGap
-        + " | graphs behind " + string.Join(", ", s.TrayGraphsBehind);
-
-    private static void LogSettingsChanges(RigsightSettings before, RigsightSettings after, string from)
-    {
-        void Note(string what, int a, int b) { if (a != b) Log.Write("settings", $"{what}: {a} -> {b} (from the {from})"); }
-        Note("taskbar readings", before.TraySensors.Count, after.TraySensors.Count);
-        if (before.TrayShown != after.TrayShown) Log.Write("settings", $"taskbar readings shown: {before.TrayShown} -> {after.TrayShown} (from the {from})");
-        if (before.WidgetsShown != after.WidgetsShown) Log.Write("settings", $"desktop widgets shown: {before.WidgetsShown} -> {after.WidgetsShown} (from the {from})");
-        if (before.Overlay.Enabled != after.Overlay.Enabled) Log.Write("settings", $"game overlay on: {before.Overlay.Enabled} -> {after.Overlay.Enabled} (from the {from})");
-        if (before.TrayStyle != after.TrayStyle) Log.Write("settings", $"taskbar style: {before.TrayStyle} -> {after.TrayStyle} (from the {from})");
-        if (before.TraySide != after.TraySide) Log.Write("settings", $"taskbar side: {before.TraySide} -> {after.TraySide} (from the {from})");
-        if (before.TrayScreens != after.TrayScreens) Log.Write("settings", $"taskbar screens: {before.TrayScreens} -> {after.TrayScreens} (from the {from})");
-        if (TrayLooksText(before) != TrayLooksText(after)) Log.Write("settings", $"taskbar looks: {TrayLooksText(before)} -> {TrayLooksText(after)} (from the {from})");
-        if (TrayOwnText(before) != TrayOwnText(after)) Log.Write("settings", $"taskbar readings' own: {TrayOwnText(before)} -> {TrayOwnText(after)} (from the {from})");
-        if (before.TrayTiles != after.TrayTiles) Log.Write("settings", $"taskbar tiles: {before.TrayTiles} -> {after.TrayTiles} (from the {from})");
-        if (before.TrayWidth != after.TrayWidth) Log.Write("settings", $"taskbar width: {before.TrayWidth} -> {after.TrayWidth} (from the {from})");
-        if (before.TrayLetterNames != after.TrayLetterNames) Log.Write("settings", $"taskbar names as one letter: {before.TrayLetterNames} -> {after.TrayLetterNames} (from the {from})");
-        if (!before.TrayAlone.SequenceEqual(after.TrayAlone))
-            Log.Write("settings", $"taskbar readings on their own: {string.Join(", ", before.TrayAlone)} -> {string.Join(", ", after.TrayAlone)} (from the {from})");
-        if (TrayColorsText(before) != TrayColorsText(after)) Log.Write("settings", $"taskbar colors: {TrayColorsText(before)} -> {TrayColorsText(after)} (from the {from})");
-        Note("overlay sensors", before.Overlay.Sensors.Count, after.Overlay.Sensors.Count);
-        // A user's overlay background kept coming back after he had set it to none (Oct 2026), with nothing to say what moved it.
-        Note("overlay background (%)", (int)Math.Round(before.Overlay.BackgroundOpacity * 100), (int)Math.Round(after.Overlay.BackgroundOpacity * 100));
-        Note("widgets on", before.Widgets.Count(w => w.Enabled), after.Widgets.Count(w => w.Enabled));
-        Note("apps left out of tracking", before.Tracking.ExcludedApps.Count, after.Tracking.ExcludedApps.Count);
-    }
-
-    /// <summary>
-    /// The agent is the only writer of settings.json. Every change goes through here: copy, change,
-    /// save, apply locally, and tell the app.
-    /// </summary>
-    private void MutateSettings(Action<RigsightSettings> change) => MutateSettings(change, replaceWith: null);
-
-    // Each copy of the settings is numbered, and the last few kept as written: the app says which copy its change was made
-    // on (UiMessage.SettingsBase), so what the agent changed since is kept when the two cross (see SettingsFromApp).
-    private long _settingsRev;
-    private readonly Dictionary<long, string> _settingsCopies = [];
-    private const int SettingsCopiesKept = 32;
-
-    /// <param name="replaceWith">A copy from the app: its change, merged onto the agent's copy, with the agent's own fields kept.</param>
-    /// <param name="appBase">The agent's copy the app's change was made on, when the app said.</param>
-    private void MutateSettings(Action<RigsightSettings> change, RigsightSettings? replaceWith, long? appBase = null)
-    {
-        RigsightSettings updated;
-        bool yieldChanged, trayChanged, pingChanged;
-        long rev;
-        lock (_settingsLock)
-        {
-            var current = _settings;
-            if (replaceWith is not null)
-            {
-                updated = SettingsFromApp(replaceWith, current, appBase);
-                KeepAgentFields(updated, current);
-            }
-            else
-            {
-                updated = current.Clone();
-                change(updated);
-            }
-            yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
-            pingChanged = updated.Tracking.PingChecks != current.Tracking.PingChecks;
-            trayChanged = updated.TrayStyle != current.TrayStyle || updated.TrayGrayscale != current.TrayGrayscale
-                          || updated.TraySide != current.TraySide || updated.TrayScreens != current.TrayScreens || TrayLooksText(updated) != TrayLooksText(current)
-                          || updated.TrayTiles != current.TrayTiles || updated.TrayWidth != current.TrayWidth
-                          || updated.TrayLetterNames != current.TrayLetterNames || !updated.TrayAlone.SequenceEqual(current.TrayAlone)
-                          || !updated.TraySensors.SequenceEqual(current.TraySensors) || TrayColorsText(updated) != TrayColorsText(current)
-                          || TrayOwnText(updated) != TrayOwnText(current) || updated.TrayShown != current.TrayShown;
-            LogSettingsChanges(current, updated, replaceWith is null ? "agent" : "app");
-            _settings = updated;
-            SettingsStore.Save(updated);
-            rev = ++_settingsRev;
-            _settingsCopies[rev] = SettingsStore.Serialize(updated);
-            _settingsCopies.Remove(rev - SettingsCopiesKept);
-        }
-
-        Units.Fahrenheit = updated.UseFahrenheit;
-        TimeText.Style = updated.ClockStyle;
-        // Another language picked (its pack downloaded by the app first): notifications, the tray and widgets switch now.
-        if (updated.Language != Lang.Code) LanguageStore.Apply(updated.Language);
-        DarkMenuRenderer.Theme = updated.Theme;
-        RunOnSampler(() => _tracker.SetSettings(updated));
-        // Ping checks turned on or off: at once, and the moment written down (the Network page marks it on its graph).
-        if (pingChanged && _line is { } line)
-        {
-            line.Enabled = updated.Tracking.PingChecks;
-            bool on = updated.Tracking.PingChecks;
-            RunOnSampler(() => _db.WriteNetPingSwitch(TimeUtil.NowUnix(), on));
-        }
-        // A reading added to or removed from the taskbar, or another way of showing them: there now, not at the next read.
-        if (trayChanged) RunOnSampler(() => _sensorsNow = true);
-        // Stepping aside turned on or off: scan again now, with or without the parts those programs control.
-        if (yieldChanged)
-        {
-            Log.Write("sensors", $"Stepping aside for RGB and fan apps turned {(updated.YieldToHardwareApps ? "on" : "off")}");
-            RunOnSampler(OpenSensors);
-        }
-        _ui.Post(_ =>
-        {
-            _widgets.Apply(updated);
-            _overlay.Apply(updated.Overlay);
-            ApplyAskShortcut(updated);
-            if (NeedsRtss(updated) && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
-            // The overlay's picture on its page, only when something it shows changed: a to-do ticked or a note typed on
-            // a widget is a settings change too, and drawing for each was work nobody saw.
-            if (_pipe.ClientCount > 0 && OverlayLook(updated) != _overlayLook) RenderPreviews(updated);
-        }, null);
-        _pipe.Broadcast(new AgentMessage { T = "settings", Settings = updated, SettingsRev = rev });
-    }
-
-    /// <summary>
-    /// The app's copy, as it goes in: made on the agent's latest copy, it's taken as it is. Made on an earlier one (the
-    /// agent switched the tray or a widget's to-do was ticked while the app's change was on its way), only what the app
-    /// changed is laid onto the agent's copy now, value by value, so the agent's change isn't undone. An older app, or a
-    /// copy too old to still be kept, is taken as it is, as before. Under the settings lock.
-    /// </summary>
-    private RigsightSettings SettingsFromApp(RigsightSettings incoming, RigsightSettings current, long? appBase)
-    {
-        if (appBase is not long b || b >= _settingsRev) return incoming;
-        if (!_settingsCopies.TryGetValue(b, out var baseJson))
-        {
-            Log.Write("settings", $"The app's change was made on copy {b}, no longer kept (now {_settingsRev}): taken as it is");
-            return incoming;
-        }
-        Log.Write("settings", $"The app's change was made on copy {b} (now {_settingsRev}): laid onto the agent's copy, keeping what changed here since");
-        return LayOnto(incoming, current, baseJson);
-    }
-
-    /// <summary>What the app changed from <paramref name="baseJson"/> to <paramref name="incoming"/>, made on <paramref name="current"/>.</summary>
-    internal static RigsightSettings LayOnto(RigsightSettings incoming, RigsightSettings current, string baseJson)
-    {
-        var merged = SettingsMerge.Merge(System.Text.Json.Nodes.JsonNode.Parse(baseJson),
-            System.Text.Json.Nodes.JsonNode.Parse(SettingsStore.Serialize(incoming)), System.Text.Json.Nodes.JsonNode.Parse(SettingsStore.Serialize(current)));
-        return merged is null ? incoming : SettingsStore.Deserialize(merged.ToJsonString());
-    }
-
-    /// <summary>The overlay draws in games through RivaTuner, and the FPS widget and the taskbar's FPS read the frame rate from it.</summary>
-    private static bool NeedsRtss(RigsightSettings s) =>
-        s.Overlay.Enabled || s.WidgetsShown && s.Widgets.Any(w => w.Enabled && WidgetManager.ShowsFrameRate(w)) || s.TrayShown && s.TraySensors.Contains(TrayParts.Fps);
-
-    // What the overlay's picture was last drawn for (UI thread): see OverlayLook.
-    private string? _overlayLook;
-
-    /// <summary>Everything the overlay's picture depends on: its own settings, and the units, language, clock and theme it's drawn in.</summary>
-    private static string OverlayLook(RigsightSettings s) =>
-        $"{System.Text.Json.JsonSerializer.Serialize(s.Overlay, SettingsStore.JsonOptions)}|{s.UseFahrenheit}|{s.Language}|{s.ClockStyle}|{s.Theme}|{s.DarkTheme}|{s.LightTheme}|{s.Accent}";
-
-    /// <summary>
-    /// Writes the overlay's picture for its page (the Widgets page draws widgets itself) and tells the app it's ready. The
-    /// overlay's sensors are read on the sampler thread for these settings (so one just added shows straight away), then
-    /// drawn on the UI thread.
-    /// </summary>
-    private void RenderPreviews(RigsightSettings settings) =>
-        RunOnSampler(() =>
-        {
-            var sensors = OverlaySensors(settings);
-            _ui.Post(_ => DrawPreviews(settings, sensors), null);
-        });
-
-    private void DrawPreviews(RigsightSettings settings, List<OverlaySensorReading> sensors)
-    {
-        _overlayLook = OverlayLook(settings);
-        try
-        {
-            _overlay.RenderPreview(Path.Combine(RigsightPaths.DataDir, "previews"), sensors);
-        }
-        catch (Exception ex)
-        {
-            Log.Error("overlay", ex);
-        }
-        _pipe.Broadcast(new AgentMessage { T = "previews" });
-    }
-
-    // The day the "RivaTuner isn't running" notice was last looked at for (said or not, once a day).
-    private DateTime _rtssOffCheckedOn;
-
-    /// <summary>
-    /// UI thread, on every tick: RivaTuner installed but off for 10 minutes, on a PC that played a game in the last 30
-    /// days, means no FPS is being recorded, and nothing else would say so (the user, 2026-11-14: it had been off
-    /// unnoticed). Said of RivaTuner, not of a game ("i want it generic"), and before the next game if it can be: it
-    /// only measures games opened after it. Once a day. Not when it isn't installed (the Games page says that; a notice
-    /// each day would nag).
-    /// </summary>
-    private void CheckRivaTunerOff(RigsightSettings settings)
-    {
-        if (_overlay.RtssOffSince is not { } off || DateTime.Now - off < RtssOffFor || _rtssOffCheckedOn == DateTime.Today) return;
-        _rtssOffCheckedOn = DateTime.Today;
-        string state = _overlay.RtssState;
-        bool on = settings.Alerts.FpsNotRecorded;
-        RunOnSampler(() =>
-        {
-            bool gamer = false, own = false;
-            try
-            {
-                gamer = _db.PlayedGameSince(TimeUtil.ToUnix(DateTime.Today.AddDays(-30)));
-                // RigSight's own frame times (admin rights, issue #15): FPS is being recorded without RivaTuner, so
-                // "none is being recorded" would be false.
-                own = _isAdmin && _db.HasOwnFramesSince(TimeUtil.ToUnix(DateTime.Today.AddDays(-30)));
-            }
-            catch (Exception ex) { Log.Error("notice", ex); }
-            bool say = state == "stopped" && gamer && on && !own && !RigsightPaths.IsTestInstance;
-            Log.Write("notice", $"RivaTuner {state} since {off:t}" + (say ? "" : state != "stopped" ? ", nothing to start"
-                : !gamer ? ", not shown: no game in the last 30 days" : !on ? ", not shown: switched off"
-                : own ? ", not shown: RigSight records games' frame times itself" : ", not shown: test copy"));
-            if (!say) return;
-            var text = NoticeWords.RivaTunerOff();
-            Notify(new Notice(NoticeKind.Fps, text.Title, text.Body, Page: "rivatuner"));
-        });
-    }
-
-    private static readonly TimeSpan RtssOffFor = TimeSpan.FromMinutes(10);
-
-    /// <summary>UI thread: the overlay appeared, disappeared, or its shortcut turned out to be taken.</summary>
-    private void OnOverlayStateChanged()
-    {
-        _overlayVisible = _overlay.Visible;
-        _pipe.Broadcast(new AgentMessage
-        {
-            T = "overlay", OverlayVisible = _overlay.Visible, OverlayHotkeyTaken = _overlay.HotkeyTaken, RtssState = _overlay.RtssState,
-        });
-    }
-
-    /// <summary>
-    /// The overlay was turned on over a fullscreen game it can't reach. Notifications wait until the game
-    /// is closed or minimised (nothing can show over it), then explain what to do.
-    /// </summary>
-    private void OnOverlayCantReachGame(string app)
-    {
-        var (title, body) = _overlay.RtssState switch
-        {
-            "running" => (Lang.T($"Restart {app} to see the overlay"),
-                Lang.T("It was already open when RivaTuner started, so RivaTuner isn't drawing in it yet.")),
-            "stopped" => (Lang.T("The overlay can't show in this game"),
-                Lang.T("Fullscreen games need RivaTuner, and it isn't running. Start it from the Overlay page, then restart the game.")),
-            _ => (Lang.T("The overlay can't show in this game"),
-                Lang.T("Fullscreen games need RivaTuner Statistics Server (free). Install it from the Overlay page, then restart the game.")),
-        };
-        _notices.Show(new Notice(NoticeKind.Overlay, title, body, _tracker.Activity.Path, "overlay"));
-    }
-
-    private void PauseFor(int minutes) =>
-        MutateSettings(s => s.Tracking.PausedUntil = minutes < 0 ? -1 : TimeUtil.NowUnix() + minutes * 60L);
-
-    private void Resume() => MutateSettings(s => s.Tracking.PausedUntil = 0);
-
-    /// <summary>Starts an elevated copy that takes over, then exits (needs the user to accept UAC).</summary>
-    private void RestartElevated()
-    {
-        if (_isAdmin || RigsightPaths.IsTestInstance || Environment.ProcessPath is not { } exe) return;
-        // Never on a standard account, whoever asks: the copy that took over would run as the admin whose password was
-        // typed, with that admin's folder, and the person's history would stop there and an empty one start.
-        if (Account.Kind == AccountKind.Standard) return;
-        try
-        {
-            Process.Start(new ProcessStartInfo(exe, "--replace") { UseShellExecute = true, Verb = "runas" });
-            Quit("an elevated copy taking over");
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            // UAC declined: keep running without admin.
-        }
-    }
-
-    // ── The history file ─────────────────────────────────────────────────
-
-    /// <summary>What opening the history found, for the sidebar card and Settings → History.</summary>
-    private void NoteHistory(HistoryReport r)
-    {
-        if (r.Outcome == HistoryOutcome.Fine && r.Why is null) return; // a normal start: nothing was checked
-        MutateSettings(s =>
-        {
-            var h = s.HistoryFile;
-            h.CheckedAt = DateTime.Now;
-            h.CheckedWhy = r.Why switch
-            {
-                "it wouldn't open" => Lang.Key("when it wouldn't open"),
-                "a reading failed to save" => Lang.Key("after a reading failed to save"),
-                "you asked for a repair" => Lang.Key("when you asked for a repair"),
-                "a repair was waiting for room on the drive" => Lang.Key("once there was room on the drive"),
-                _ => Lang.Key("after RigSight last closed suddenly"),
-            };
-            h.Checking = false;
-            switch (r.Outcome)
-            {
-                case HistoryOutcome.Fine:
-                    h.Damaged = false;
-                    break;
-                case HistoryOutcome.ListsRebuilt:
-                    h.Damaged = false;
-                    h.Outcome = "lists";
-                    h.RepairedAt = DateTime.Now;
-                    break;
-                case HistoryOutcome.Repaired or HistoryOutcome.NothingSaved:
-                    h.Damaged = false;
-                    h.Outcome = r.Outcome == HistoryOutcome.NothingSaved ? "nothing" : HistoryRepair.LostAny(r) ? "repaired" : "whole";
-                    h.RepairedAt = DateTime.Now;
-                    h.Summary = HistoryRepair.Summary(r);
-                    h.DamagedCopy = r.DamagedCopy;
-                    h.WaitingReason = null;
-                    h.Dismissed = false;
-                    break;
-                case HistoryOutcome.Waiting:
-                    h.Damaged = true;
-                    h.Outcome = "waiting";
-                    h.WaitingReason = r.WaitingReason;
-                    h.Dismissed = false;
-                    break;
-            }
-        });
-    }
-
-    private long _historyDamageTicks;
-
-    /// <summary>A save said the file is damaged (any thread): checked on the sampler thread, at most once in 10 minutes.</summary>
-    private void OnHistoryDamageSeen(Exception ex)
-    {
-        long now = Environment.TickCount64, last = Interlocked.Read(ref _historyDamageTicks);
-        if (last != 0 && now - last < 600_000) return;
-        if (Interlocked.CompareExchange(ref _historyDamageTicks, now, last) != last) return;
-        Log.Write("history", $"A save failed as damaged ({ex.Message}): checking the file");
-        RunOnSampler(() => OnHistoryDamage(fromSave: true));
-    }
-
-    /// <summary>
-    /// The check decides, never the error: fine, nothing; only lookup lists, rebuilt here; real damage, repaired at once
-    /// when new readings can't be saved (a restart, as the file has to be closed), else the card, and the user picks when.
-    /// </summary>
-    private void OnHistoryDamage(bool fromSave)
-    {
-        var health = _db.CheckHealth();
-        if (health.Ok)
-        {
-            Log.Write("history", $"{(fromSave ? "A save" : "A reading in the app")} said the history file is damaged, but the check finds it fine: nothing done");
-            return;
-        }
-        if (health.OnlyLists && _db.RebuildLists())
-        {
-            Log.Write("history", "Only the history's lookup lists were damaged: rebuilt, no readings lost");
-            MutateSettings(s => { s.HistoryFile.CheckedAt = DateTime.Now; s.HistoryFile.Outcome = "lists"; s.HistoryFile.RepairedAt = DateTime.Now; });
-            return;
-        }
-        Log.Write("history", $"The check confirms the history file is damaged: {string.Join("; ", health.Problems.Take(6))}");
-        if (fromSave)
-        {
-            HistoryRepair.AskRepair(RigsightPaths.DataDir);
-            _ui.Post(_ => Restart("a history repair (new readings couldn't be saved)"), null);
-            return;
-        }
-        MutateSettings(s =>
-        {
-            s.HistoryFile.Damaged = true;
-            s.HistoryFile.Dismissed = false;
-            s.HistoryFile.CheckedAt = DateTime.Now;
-            s.HistoryFile.CheckedWhy = Lang.Key("after a reading failed");
-        });
-    }
-
-    /// <summary>Settings → History → Check now.</summary>
-    private void CheckHistoryNow()
-    {
-        MutateSettings(s => s.HistoryFile.Checking = true);
-        HistoryHealth health;
-        try { health = _db.CheckHealth(); }
-        catch (Exception ex) { Log.Error("history", ex); health = HistoryHealth.Fine; }
-        bool rebuilt = !health.Ok && health.OnlyLists && _db.RebuildLists();
-        Log.Write("history", health.Ok ? "Checked the history file when asked: it's fine"
-            : rebuilt ? "Checked the history file when asked: its lookup lists were damaged, rebuilt with nothing lost"
-            : $"Checked the history file when asked: damaged ({string.Join("; ", health.Problems.Take(6))})");
-        MutateSettings(s =>
-        {
-            var h = s.HistoryFile;
-            h.Checking = false;
-            h.CheckedAt = DateTime.Now;
-            h.CheckedWhy = Lang.Key("when you asked");
-            h.Damaged = !health.Ok && !rebuilt;
-            if (rebuilt) { h.Outcome = "lists"; h.RepairedAt = DateTime.Now; }
-            if (h.Damaged) h.Dismissed = false;
-        });
-    }
-
-    private long _nextRepairRetry;
-
-    /// <summary>A repair that waited for room on the drive: once there is, the agent restarts to do it (checked every 10 minutes).</summary>
-    private void RetryWaitingRepair()
-    {
-        if (_settings.HistoryFile.Outcome != "waiting" || Environment.TickCount64 < _nextRepairRetry) return;
-        _nextRepairRetry = Environment.TickCount64 + 600_000;
-        if (!HistoryRepair.RoomFor(RigsightPaths.Database)) return;
-        HistoryRepair.AskRepair(RigsightPaths.DataDir, "a repair was waiting for room on the drive");
-        _ui.Post(_ => Restart("a history repair that was waiting for room on the drive"), null);
-    }
-
-    /// <summary>Starts a new copy that takes over (with the same rights, so nothing to accept), then exits.</summary>
-    private void Restart(string why)
-    {
-        if (_stopping || Environment.ProcessPath is not { } exe) return;
-        try
-        {
-            Process.Start(new ProcessStartInfo(exe, [.. Program.RestartArgs(_args), "--replace"]) { UseShellExecute = false })?.Dispose();
-        }
-        catch (Exception ex)
-        {
-            Log.Error("agent", ex);
-            return;
-        }
-        Quit(why);
-    }
-
-    /// <summary>Stops the agent, saying why in the log (a copy that's simply gone can then be traced).</summary>
-    private void Quit(string why)
-    {
-        if (_stopping) return;
-        Log.Write("agent", $"Quitting: asked by {why}");
-        SystemEvents.SessionEnding -= OnSessionEnding;
-        SystemEvents.TimeChanged -= OnTimeChanged;
-        SystemEvents.PowerModeChanged -= OnPowerModeChanged;
-        _quitWait?.Unregister(null);
-        _displayWatch.Dispose();
-        _stopping = true;
-        // The taskbar strip first: its look-up of the taskbar's buttons asks Explorer through UI Automation, and a quit
-        // often comes with the taskbar being rebuilt (after a graphics driver change). On 13 Nov the agent crashed inside
-        // UI Automation 50 s into such a quit, with the strip still there.
-        try { _taskbarStrip.Dispose(); }
-        catch (Exception ex) { Log.Error("agent", ex); }
-        _updateTimer?.Dispose();
-        _wake.Set();
-        _sampler.Join(5000);
-
-        // Each step is independent: a failure in one must never leave the agent half-closed.
-        foreach (var step in new Action[] { _screen.Dispose, _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _askHotkey.Dispose, _notices.CloseAll, _trayReadings.Dispose, _card.Dispose, _taskbarStrip.Dispose, _tray.Dispose })
-        {
-            try { step(); }
-            catch (Exception ex) { Log.Error("agent", ex); }
-        }
-        ExitThread();
-    }
-}
+﻿using Microsoft.Win32;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Net.NetworkInformation;
+using System.Reflection;
+using Rigsight.Agent.Ipc;
+using Rigsight.Agent.Native;
+using Rigsight.Agent.Network;
+using Rigsight.Agent.Sensors;
+using Rigsight.Agent.Tracking;
+using Rigsight.Agent.Ui;
+using Rigsight.Agent.Widgets;
+using Rigsight.Core;
+using Rigsight.Core.Ai;
+using Rigsight.Core.Data;
+using Rigsight.Core.Protocol;
+using Rigsight.Core.Reports;
+using Rigsight.Core.Settings;
+using Rigsight.Core.Stability;
+using Rigsight.Core.Updates;
+
+namespace Rigsight.Agent;
+
+/// <summary>
+/// Runs the agent. Two threads do the work:
+///  • the UI thread (WinForms message loop) owns the tray icon and widget windows;
+///  • the sampler thread reads sensors, tracks activity and writes the database.
+/// The sampler wakes once a second and does very little each time, so the agent stays near 0% CPU.
+/// </summary>
+internal sealed partial class AgentContext : ApplicationContext
+{
+    private readonly SynchronizationContext _ui;
+    private readonly bool _isAdmin;
+    private readonly Lock _settingsLock = new();
+    private volatile RigsightSettings _settings;
+
+    // Replaced (on the sampler thread) when the hardware is scanned again: another program started or quit (see
+    // HardwareApps), or the user asked to read everything again. Read it once into a local where it's used twice.
+    private volatile SensorHost _sensors = new();
+    private volatile SensorStatus _sensorStatus = new();
+    // The last hardware scan never finished: skip the risky parts until the user asks to read them again.
+    private bool _safeMode;
+    // Kernel memory ran away during a scan this run: the same.
+    private bool _stoppedForMemory;
+    // Sampler thread: when the programs we step aside for were last seen, for leaving them the hardware a little longer.
+    private SensorParts _yieldedParts;
+    private int _absentChecks;
+    // What is wrong with the PawnIO driver (see SensorStatus.Driver) and how installing it is going (DriverInstall).
+    // Looked at when the sensors open, a minute after, and every five minutes from then (Environment.TickCount64).
+    private volatile string? _driver, _driverInstall;
+    private long _driverCheckAt = long.MaxValue;
+    private bool _driverStartTried, _driverUnsupportedSaid;
+    private string? _cpuReadingsSaid;
+    private HashSet<string>? _silentSaid;
+    private static string ScanMarker => Path.Combine(RigsightPaths.DataDir, "sensors-scan.pending");
+    private readonly KeyHistory _history = new();
+    private readonly DailyExtremes _extremes = new();
+    private readonly DriveTempHistory _driveHistory = new();
+    // Set when an app connects (hello), so the next tick carries every sensor's range, not just changes.
+    private volatile bool _sendAllExtremes;
+    private readonly EventWaitHandle _quitSignal;
+    private RegisteredWaitHandle? _quitWait;
+    private readonly RigsightDb _db;
+    private readonly AppResolver _apps;
+    private readonly Tracker _tracker;
+    private readonly ProcessSampler _procSampler = new();
+    private readonly GpuSampler _gpuSampler = new();
+    private readonly GpuMemorySampler _gpuMemory = new();
+    private readonly ProcessLabels _procLabels = new();
+    private readonly CriticalMarks _criticalMarks = new();
+    private bool _procsNow; // sampler thread: sample processes on this pass
+    private bool _sensorsNow; // sampler thread: read the sensors (and redraw the taskbar readings) on this pass
+    private readonly ActivityMonitor _activity = new();
+    // Internet use (sampler thread): the trace of every app's bytes (null without admin rights), this PC's addresses (read
+    // again when the adapters change), drops, and the last minute's speeds for an app that connects.
+    private NetworkTrace? _netTrace;
+    private volatile AddressBook _addresses = AddressBook.Empty;
+    private volatile bool _addressesChanged = true;
+    private readonly ConnectionWatch _connection = new();
+    private readonly DropNotices _dropNotices = new();
+    /// <summary>The network card's kind ("Wi-Fi", "Ethernet") while it was last connected: what a drop's words name.</summary>
+    private string? _cardKind;
+    private long _cardKindAt;
+    private LineCheck? _line;
+    private readonly TraceWatch _traceWatch = new();
+    private readonly SensorHealth _sensorHealth = new();
+    // A part of the sampler's pass or the tick's drawing that failed: noted, not repeated in the log every second.
+    private readonly RepeatedErrors _errors = new("sampler");
+    private readonly DisplayDriverWatch _displayWatch = new();
+    private bool _gpusPaused, _restarting; // sampler thread
+    private readonly string[] _args;
+    private IReadOnlyDictionary<int, string> _running = new Dictionary<int, string>();
+    private readonly Queue<NetLive> _netHistory = new();
+    private readonly Lock _netHistoryLock = new();
+    // The PC was just turned on or woke from sleep: the recap is due once the user is here (sampler thread reads it).
+    private volatile bool _justTurnedOn = DailyRecap.JustSignedIn();
+    private bool _presentNow;
+    private readonly AlertMonitor _alerts = new();
+    private readonly PipeServer _pipe;
+    private readonly TrayController _tray;
+    private readonly TrayReadings _trayReadings;
+    private readonly TaskbarStrips _taskbarStrip;
+    private readonly ReadingCard _card;
+    // Whether the screen is off: the taskbar readings and widgets wait, unseen, until it's back (see ScreenState).
+    private readonly ScreenState _screen;
+
+    /// <summary>The latest process pass (sampler thread): what a reading card lists as the apps using a part.</summary>
+    private ProcessSnapshot? _lastProcs;
+
+    /// <summary>The taskbar readings waiting for room in the strip's "+N" (set on the UI thread, sent with each tick for the Taskbar page).</summary>
+    private volatile IReadOnlyList<string> _trayWaiting = [];
+    private readonly WidgetManager _widgets;
+    private readonly OverlayManager _overlay;
+    /// <summary>The Ask shortcut: opens the app on the Ask window from anywhere, while the AI is on (2026-10-26).</summary>
+    private readonly GlobalHotkey _askHotkey = new();
+    private string? _askRegistered;
+    private bool _askHotkeyTaken;
+    private readonly NotificationCenter _notices;
+
+    private readonly ConcurrentQueue<Action> _samplerWork = new();
+    private readonly AutoResetEvent _wake = new(false);
+    private readonly Thread _sampler;
+    private volatile bool _stopping;
+    private volatile bool _sensorsReady;
+    private volatile bool _overlayVisible;
+    // Today's totals as last computed on the sampler thread, for the hello sent to a newly connected app.
+    private volatile TodayInfo? _lastToday;
+    private bool _startupEnabled;
+
+    /// <summary>"Start with Windows" is this person's own Run entry: a standard account, on a PC not set up for everyone.</summary>
+    private static bool OwnStartup => Account.Kind == AccountKind.Standard && !MachineSetup.Everyone && !RigsightPaths.IsTestInstance;
+    private string? _pendingPage, _pendingArg;
+
+    // Set RIGSIGHT_PROFILE=1 to log how long each part of the sampler loop takes, once a minute.
+    private static readonly bool Profiling = Environment.GetEnvironmentVariable("RIGSIGHT_PROFILE") == "1";
+    private readonly Dictionary<string, double> _profile = [];
+    private long _profileStart = Stopwatch.GetTimestamp();
+    private bool _procsSampled;
+
+    /// <summary>With RIGSIGHT_PROFILE=1: the private memory at a step of starting up, to see which step costs what.</summary>
+    private static void MemoryAt(string step)
+    {
+        if (Profiling) Log.Write("profile", $"{step}: {Process.GetCurrentProcess().PrivateMemorySize64 / 1048576.0:0.0} MB private");
+    }
+
+    private void Measure(string name, long startTimestamp)
+    {
+        if (!Profiling) return;
+        _profile[name] = _profile.GetValueOrDefault(name) + Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+        if (Stopwatch.GetElapsedTime(_profileStart).TotalSeconds >= 60)
+        {
+            Log.Write("profile", string.Join(", ", _profile.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}={kv.Value:0}ms")));
+            _profile.Clear();
+            _profileStart = Stopwatch.GetTimestamp();
+        }
+    }
+
+    public AgentContext(string[] args, bool isAdmin)
+    {
+        SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
+        _ui = SynchronizationContext.Current!;
+        _isAdmin = isAdmin;
+        _args = args;
+        MemoryAt("starting");
+
+        _settings = SettingsStore.Load();
+        ForgetRiggySetting();
+        _settingsCopies[0] = SettingsStore.Serialize(_settings); // copy 0, the one the first hello carries
+        Units.Fahrenheit = _settings.UseFahrenheit;
+        TimeText.Style = _settings.ClockStyle;
+        LanguageStore.Apply(_settings.Language);
+        // Just updated and the new pack didn't come with it: one more try, where updates may reach GitHub by themselves.
+        if (LanguageStore.NewestMissing)
+            _ = LanguageStore.RefreshAsync(mayCheck: _settings.AutoUpdate && !RigsightPaths.IsTestInstance);
+        DarkMenuRenderer.Theme = _settings.Theme;
+        // A new install's first start, before the hardware is ever scanned: if an RGB or fan-control app is running,
+        // step aside for it from the very first scan (that first scan is when two programs colliding does the most harm).
+        if (!_settings.HardwareAppsChecked)
+        {
+            var apps = HardwareApps.Running();
+            _settings.HardwareAppsChecked = true;
+            if (apps.Count > 0) _settings.YieldToHardwareApps = true;
+            SettingsStore.Save(_settings);
+            Log.Write("sensors", apps.Count > 0
+                ? $"First start: {string.Join(", ", apps.Select(a => a.Name))} running, so Rigsight steps aside for RGB and fan apps"
+                : "First start: no RGB or fan apps running");
+        }
+
+        // Checked first when the last run didn't end normally, and repaired when it really is damaged (see HistoryRepair).
+        _db = HistoryRepair.Open(RigsightPaths.Database, out var history);
+        HistoryRepair.MarkRunning(RigsightPaths.DataDir);
+        HistoryRepair.DamageSeen += OnHistoryDamageSeen;
+        // Windows saves a crash file if the agent or the app crashes where nothing can log it (issue #10). Off the start's path.
+        _ = Task.Run(() => CrashFileSetup.Ensure(isAdmin));
+        // Which folders the launchers say hold games, before the apps are loaded: an app filed wrongly by an older
+        // version (an Epic game outside "Epic Games") is put right as they load. Read again with each change check.
+        Core.Apps.AppCatalog.InstalledGames = Core.Games.GameLibrary.Scan(Core.Games.GameSources.ThisPc());
+        Log.Write("games", $"Launchers list {Core.Apps.AppCatalog.InstalledGames.Count} installed games: "
+            + string.Join(", ", Core.Apps.AppCatalog.InstalledGames.GroupBy(g => g.Launcher).Select(g => $"{g.Key} {g.Count()}")));
+        _apps = new AppResolver(_db);
+        _tracker = new Tracker(_db, _apps);
+        _tracker.SetSettings(_settings);
+        _tracker.SessionEnded += OnSessionEnded;
+        _closeUps = new CloseUpKeeper(_db, _tracker.Ring);
+        MemoryAt("database open");
+
+        _widgets = new WidgetManager(() => _settings, MutateSettings, id => OpenApp("widgets", id));
+        MemoryAt("widgets");
+        _overlay = new OverlayManager(isAdmin);
+        _overlay.StateChanged += OnOverlayStateChanged;
+        _overlay.CantReachGame += OnOverlayCantReachGame;
+        _trayReadings = new TrayReadings(open: () => OpenApp(null),
+            remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
+            setGrouped: on => MutateSettings(s => s.TrayStyle = on ? TrayStyle.Grouped : TrayStyle.Icons),
+            openPage: () => OpenApp("taskbar"));
+        _card = new ReadingCard(page => OpenApp(page));
+        // One strip per taskbar that shows the readings (the main one, and other screens' when asked): each the same.
+        _taskbarStrip = new TaskbarStrips(other => new TaskbarStrip(open: () => OpenApp(null),
+            remove: ids => MutateSettings(s => s.TraySensors.RemoveAll(ids.Contains)),
+            // Every reading in one style: each one's own style goes.
+            setStyle: style => MutateSettings(s => { s.TrayStyle = style; s.TrayStyles.Clear(); }),
+            openPage: () => OpenApp("taskbar"),
+            setSide: side => MutateSettings(s => s.TraySide = side),
+            setLook: (id, look) => MutateSettings(s => { s.TrayLooks.Remove(id); if (look != TrayLook.Number) s.TrayLooks[id] = look; }),
+            openCard: OpenCard, cardShowing: () => _card.Key is not null,
+            setStyleOf: (ids, style) => MutateSettings(s =>
+            {
+                foreach (var id in ids)
+                {
+                    s.TrayStyles.Remove(id);
+                    if (style != s.TrayStyle) s.TrayStyles[id] = style;
+                }
+            }),
+            setScreens: screens => MutateSettings(s => s.TrayScreens = screens),
+            other: other));
+        // The three on/off switches, as on their pages (the user, 2026-11-09: quick ways to turn them off).
+        TrayController.Switch[] switches =
+        [
+            new(Lang.Key("Taskbar readings"), () => _settings.TrayShown, () => MutateSettings(s => s.TrayShown = !s.TrayShown)),
+            new(Lang.Key("Desktop widgets"), () => _settings.WidgetsShown, () => MutateSettings(s => s.WidgetsShown = !s.WidgetsShown)),
+            new(Lang.Key("Game overlay"), () => _settings.Overlay.Enabled, () => MutateSettings(s => s.Overlay.Enabled = !s.Overlay.Enabled)),
+        ];
+        _tray = new TrayController(() => OpenApp(null), LookBackNow, switches, _widgets.BuildTrayMenu(), _overlay.TrayItem, PauseFor, Resume,
+            () => _settings.Tracking.IsPaused(TimeUtil.NowUnix()), () => Quit("the tray menu"));
+        _notices = new NotificationCenter(() => _settings, _tray, OpenApp, n => _overlay.ShowInGame(n, _settings.Alerts.CardSeconds));
+        _widgets.TimerUp = (title, body) => _notices.Show(new Notice(NoticeKind.Timer, title, body, Page: "widgets"));
+
+        // A window that has just opened gets its readings and the running apps now, not at their next turn (readings
+        // are two seconds apart and the apps five while no window is open: its pages stood empty that long).
+        _pipe = new PipeServer(BuildHello, OnUiMessage, onConnected: () => RunOnSampler(() => _sensorsNow = _procsNow = true));
+        _pipe.Start();
+        _widgets.Apply(_settings);
+        _overlay.Apply(_settings.Overlay);
+        _askHotkey.Pressed += () => OpenApp("ask");
+        ApplyAskShortcut(_settings);
+        if (NeedsRtss(_settings) && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
+
+        // Save before Windows shuts down or signs out (otherwise the process is simply killed, losing
+        // the game session in progress), and let the installer ask for a clean stop ("--quit").
+        SystemEvents.SessionEnding += OnSessionEnding;
+        // A time zone change (e.g. travelling) must move "today" too; .NET caches the zone otherwise.
+        SystemEvents.TimeChanged += OnTimeChanged;
+        // Waking from sleep is turning the PC on again, for the daily recap.
+        SystemEvents.PowerModeChanged += OnPowerModeChanged;
+        // Off: nothing on the taskbar or the desktop is drawn, as nobody sees it. Back on: drawn at once with fresh readings.
+        _screen = new ScreenState(off =>
+        {
+            Log.Write("screen", off
+                ? "The screen went off: the taskbar readings and widgets aren't drawn, nor the sensors only they show read, until it's back on (recording goes on)"
+                : "The screen is back on: drawing the taskbar readings and widgets again");
+            if (!off) RunOnSampler(() => _sensorsNow = true);
+        });
+        _quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, RigsightPaths.AgentQuitEvent);
+        WatchAppCrashes();
+        _quitWait = ThreadPool.RegisterWaitForSingleObject(_quitSignal, (_, _) => _ui.Post(_ => Quit("a quit signal (the installer, or --quit)"), null), null, Timeout.Infinite, executeOnlyOnce: true);
+
+        // First run: register to start with Windows (the user can turn this off in Settings). A test copy leaves
+        // the real startup task alone.
+        // What opening the history found, for the app: here, once everything settings changes reach exists (noted where
+        // the file is opened, it ended the agent before it had started).
+        NoteHistory(history);
+
+        _startupEnabled = StartupTask.IsEnabled();
+        if (!_isAdmin && MachineSetup.Everyone) _startupEnabled = _settings.StartAtSignIn;
+        bool manageStartup = _isAdmin && !RigsightPaths.IsTestInstance;
+        if (!_settings.StartupConfigured && manageStartup)
+        {
+            _startupEnabled = StartupTask.Enable();
+            MutateSettings(s => s.StartupConfigured = true);
+        }
+        else if (_startupEnabled && manageStartup && !StartupTask.PointsHere())
+        {
+            // Installed somewhere new (or reinstalled): point the task at this copy.
+            _startupEnabled = StartupTask.Enable();
+        }
+        // A standard account on a PC nobody set up for everyone: its own start at sign-in, added on the first run like
+        // an admin's task is (this is the PC an admin installed Rigsight on once, then an update brought this version).
+        if (OwnStartup)
+        {
+            _startupEnabled = MachineSetup.StartsForMe;
+            if (!_settings.StartupConfigured && Environment.ProcessPath is { } me)
+            {
+                _startupEnabled = MachineSetup.SetStartsForMe(true, me) && MachineSetup.StartsForMe;
+                MutateSettings(s => s.StartupConfigured = true);
+            }
+        }
+
+        _displayWatch.Start();
+        _sampler = new Thread(SamplerLoop) { IsBackground = true, Name = "Sampler", Priority = ThreadPriority.BelowNormal };
+        _sampler.Start();
+
+        if (args.Contains("--open")) OpenApp(null);
+        // "Update now" was pressed in this person's window, and the update closed it: open it again.
+        else if (!RigsightPaths.IsTestInstance && UpdateStore.TakeNow()) OpenApp(null);
+        if (RigsightPaths.IsTestInstance) return; // no updates in a test copy
+        if (_isAdmin) ThreadPool.QueueUserWorkItem(_ => UpdateInstaller.Cleanup());
+        // Updates: first a minute and a half after starting (Windows is still settling at sign-in), then every
+        // six hours; GitHub itself is asked at most once a day.
+        _updateTimer = new System.Threading.Timer(_ => _ = RunUpdaterAsync(), null, TimeSpan.FromSeconds(90), TimeSpan.FromHours(6));
+    }
+
+    // ── Updates ───────────────────────────────────────────────────────────
+
+    private System.Threading.Timer? _updateTimer;
+    private bool _updaterStarted;
+    private int _updaterRunning;
+
+    private async Task RunUpdaterAsync()
+    {
+        if (_stopping || Environment.ProcessPath is not { } exe || Interlocked.Exchange(ref _updaterRunning, 1) == 1) return;
+        // An account that can't install anything, on a PC that updates Rigsight itself: as this agent starts (a sign-in,
+        // or Rigsight closed and opened again) it asks the PC's updater to have a look, once. Never later in the day.
+        // An admin on such a PC too: their own install would close everyone else's Rigsight and couldn't start it again;
+        // the PC's updater can.
+        if (MachineSetup.KeepUpdated && !RigsightPaths.IsTestInstance)
+        {
+            if (!_updaterStarted)
+            {
+                _updaterStarted = true;
+                if (!UpdaterTask.Run()) Log.Write("update", "The PC's updater couldn't be asked to run");
+            }
+            Volatile.Write(ref _updaterRunning, 0);
+            return;
+        }
+        // Automatic updates off: no look at GitHub by itself, not even the updater started (it would only say so).
+        if (!_settings.AutoUpdate)
+        {
+            Volatile.Write(ref _updaterRunning, 0);
+            return;
+        }
+        try
+        {
+            bool appOpen = _pipe.ClientCount > 0;
+            var args = new List<string> { "--update" };
+            // Installing a waiting update is for the first run after sign-in, and never under an open window.
+            if (!_updaterStarted && _isAdmin && !appOpen) args.Add("--at-startup");
+            if (appOpen) args.Add("--no-download"); // the app shows its own download
+            _updaterStarted = true;
+
+            using var child = Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false, CreateNoWindow = true });
+            if (child is null) return;
+            await child.WaitForExitAsync();
+            int code = child.ExitCode; // read now: the process object is disposed before the UI thread gets to it
+            if (code is BackgroundUpdater.Downloaded or BackgroundUpdater.Available)
+                _ui.Post(_ => OnUpdateFound(code == BackgroundUpdater.Downloaded), null);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("update", ex);
+        }
+        finally
+        {
+            Volatile.Write(ref _updaterRunning, 0);
+        }
+    }
+
+    /// <summary>
+    /// UI thread: a newer version is out (downloaded or not). An open app is told, so it shows it at once;
+    /// otherwise one notification per version says so.
+    /// </summary>
+    private void OnUpdateFound(bool downloaded)
+    {
+        if (_pipe.ClientCount > 0)
+        {
+            _pipe.Broadcast(new AgentMessage { T = "update", UpdateStatus = "found" });
+            return;
+        }
+        var version = UpdateStore.ReadCheck()?.Latest?.Version.ToString(3);
+        if (version is null || _settings.LastUpdateNotice == version) return;
+        MutateSettings(s => s.LastUpdateNotice = version);
+        string body = !downloaded ? Lang.T("Click to update.")
+            : _settings.AutoUpdate && _isAdmin ? Lang.T("It installs the next time you start your PC, or click to update now.")
+            : Lang.T("It's downloaded. Click to finish updating.");
+        // Clicked, the app opens asking to restart (or downloading), not on its usual page with no word of the update.
+        Notify(new Notice(NoticeKind.Update, downloaded ? Lang.T($"RigSight {version} is ready") : Lang.T($"RigSight {version} is out"), body, Page: "update"));
+    }
+
+    // ── Sampler thread ────────────────────────────────────────────────────
+
+    private void SamplerLoop()
+    {
+        // Today's totals come from the database, not the sensors: load and send them first, so the app's
+        // Home page isn't left waiting while hardware discovery runs (several seconds on a fresh start).
+        // Each start-up step on its own: this is a thread of its own, where an error nobody catches ends the agent.
+        Step("today's totals", () =>
+        {
+            _tracker.Initialize();
+            _lastToday = _tracker.Today();
+            if (_pipe.ClientCount > 0) _pipe.Broadcast(new AgentMessage { T = "tick", Time = TimeUtil.NowUnixMs(), Today = _lastToday });
+        });
+
+        Step("sensors", () =>
+        {
+            _safeMode = ScanGuard.LastScanUnfinished(ScanMarker);
+            if (_safeMode) Log.Write("sensors", "The last hardware scan didn't finish: skipping the motherboard, fan hubs and power supply");
+            OpenSensors();
+        });
+
+        // Hardware discovery allocates a lot of short-lived data; hand it back once so the
+        // always-running agent settles at its real (small) footprint.
+        Step("memory", CompactMemory);
+
+        Step("drives", RecordDrives);
+        Step("extremes", RestoreExtremes);
+        Step("network", StartNetwork);
+        Step("disk use", StartDiskUse);
+        Step("drivers", StartDrivers);
+        Step("sound", StartSound);
+        Step("frames", StartFrames);
+
+        var clock = Stopwatch.StartNew();
+        // The first daily-recap check waits a little so it doesn't pop up the instant Windows starts.
+        long lastNet = 0, nextAddresses = 0, nextTraceCheck = 60_000;
+        long lastActivity = 0, lastProc = 0, nextSensor = 0, nextProc = 0, nextDrives = 6 * 3600_000L, nextMinuteCheck = 30_000, nextCrashScan = 20_000, nextChangeScan = 40_000,
+            nextHardwareApps = 30_000;
+        // While the app is open every sensor is read each second, which grows the heap (~40 MB); once the
+        // last window closes, hand that back too.
+        bool wasLive = false;
+        long compactAt = long.MaxValue;
+
+        // Each part of a pass on its own: one that fails (a full disk under a new app's first row, one widget) is noted and
+        // the others go on. A part whose turn is timed has its next turn set before it runs, so a failing part is tried
+        // again at its own pace, not on every pass.
+        while (!_stopping)
+        {
+            try
+            {
+                while (_samplerWork.TryDequeue(out var work))
+                    try { work(); }
+                    catch (Exception ex) { _errors.Failed("queued work", ex); }
+
+                // The RAM sticks, found in the background since the sensors opened: into the list, and tell the app.
+                try
+                {
+                    if (_sensors.TakeMemory())
+                    {
+                        Log.Write("sensors", $"Now {_sensors.SensorCount} sensors");
+                        MemoryAt("RAM sticks in");
+                        CompactMemory();
+                        if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
+                    }
+                }
+                catch (Exception ex) { _errors.Failed("RAM sticks", ex); }
+
+                // Wireless devices' batteries, read on their own thread: into their sensors, and a device that came or went into the list.
+                try
+                {
+                    if (_sensors.TakeDevices())
+                    {
+                        Log.Write("sensors", $"Wireless devices changed: now {_sensors.SensorCount} sensors");
+                        if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
+                    }
+                    MaybeCheckDevices();
+                }
+                catch (Exception ex) { _errors.Failed("device batteries", ex); }
+
+                long now = clock.ElapsedMilliseconds;
+                var settings = _settings;
+                // A timed pause that has run out is cleared, so the tray menu and Settings show tracking again.
+                if (settings.Tracking.PausedUntil > 0 && settings.Tracking.PausedUntil <= TimeUtil.NowUnix())
+                    MutateSettings(s => { if (s.Tracking.PausedUntil > 0 && s.Tracking.PausedUntil <= TimeUtil.NowUnix()) s.Tracking.PausedUntil = 0; });
+                bool live = _pipe.ClientCount > 0;
+                if (wasLive && !live) compactAt = now + 15_000;
+                if (live) compactAt = long.MaxValue;
+                wasLive = live;
+                if (now >= compactAt)
+                {
+                    compactAt = long.MaxValue;
+                    CompactMemory();
+                }
+
+                double dt = ActivityStep(lastActivity, now);
+                lastActivity = now;
+                long t0 = Stopwatch.GetTimestamp();
+                bool fullscreen = false;
+                try
+                {
+                    var sample = _activity.Sample();
+                    fullscreen = sample.Fullscreen;
+                    _presentNow = !sample.Locked && (sample.IdleMs < settings.Tracking.IdleMinutes * 60_000L
+                                                     || sample.Fullscreen && settings.Tracking.FullscreenCountsAsActive);
+                    _tracker.OnActivity(sample, dt);
+                }
+                catch (Exception ex) { _errors.Failed("activity", ex); }
+                Measure("activity", t0);
+
+                t0 = Stopwatch.GetTimestamp();
+                try
+                {
+                    if (_addressesChanged || now >= nextAddresses)
+                    {
+                        _addressesChanged = false;
+                        nextAddresses = now + 60_000;
+                        _addresses = AddressBook.Read();
+                    }
+                    if (now >= nextTraceCheck)
+                    {
+                        nextTraceCheck = now + 60_000;
+                        CheckNetworkTrace();
+                        CheckDiskTrace();
+                    }
+                    // Once a second (a pass woken early for other work leaves it be: a few milliseconds' bytes say nothing of a speed).
+                    if (lastNet == 0 || now - lastNet >= 900)
+                    {
+                        double seconds = lastNet == 0 ? 1 : Math.Min((now - lastNet) / 1000.0, 60);
+                        lastNet = now;
+                        SampleNetwork(seconds);
+                        long td = Stopwatch.GetTimestamp();
+                        SampleDiskUse();
+                        Measure("disk use", td);
+                        long tdr = Stopwatch.GetTimestamp();
+                        SampleDrivers();
+                        Measure("drivers", tdr);
+                        long tso = Stopwatch.GetTimestamp();
+                        SampleSound();
+                        Measure("sound", tso);
+                        long tfr = Stopwatch.GetTimestamp();
+                        SampleFrames();
+                        Measure("frames", tfr);
+                    }
+                }
+                catch (Exception ex) { _errors.Failed("network", ex); }
+                Measure("network", t0);
+
+                // The same slack as the network's: each pass wakes a few ms after the second, by a little more or less each
+                // time, and without it a pass 1 ms earlier than the last would wait a whole extra second.
+                if (now + TurnSlackMs >= nextSensor || _sensorsNow)
+                {
+                    _sensorsNow = false;
+                    int interval = live ? Math.Min(settings.LiveRefreshMs, settings.Tracking.SensorIntervalMs) : settings.Tracking.SensorIntervalMs;
+                    // The overlay is read mid-game: keep it to the second.
+                    if (_overlayVisible) interval = Math.Min(interval, 1000);
+                    nextSensor = now + interval;
+                    t0 = Stopwatch.GetTimestamp();
+                    try
+                    {
+                        // Sensors on the overlay stay live in games (the app is usually closed then).
+                        // And those in the taskbar, which are always on show.
+                        // With the screen off, only the overlay's (a game streamed elsewhere still shows it).
+                        _sensors.Watch(_screen.Off
+                            ? [.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : []]
+                            : [.. _overlayVisible ? _settings.Overlay.Sensors.Select(s => s.Id) : [], .. _settings.TraySensors, .. _settings.TrayLookFrom.Values,
+                                .. WidgetSensorIds(_settings)]);
+                        CheckDisplayDriver();
+                        _sensors.Update(everything: live, now);
+                        if (_sensorHealth.Check(_sensors.Unwell, now))
+                        {
+                            Log.Write("sensors", "Some hardware has stopped answering (a driver updated, or a device unplugged): finding the sensors again");
+                            OpenSensors();
+                            _sensors.Update(everything: live, now);
+                        }
+                        Measure("sensors", t0);
+                        t0 = Stopwatch.GetTimestamp();
+                        var keys = _sensors.ReadKeys();
+                        long unixMs = TimeUtil.NowUnixMs();
+                        _history.Add(unixMs, _sensors);
+                        // What's written to history on its own: the readings still reach the taskbar, widgets, alerts and app.
+                        try
+                        {
+                            _tracker.OnSensors(SystemState.With(keys));
+                            var fansRead = _sensors.ReadFans();
+                            _tracker.OnFans(fansRead);
+                            if (fansRead.Count > 0) NoteFans(fansRead);
+                        }
+                        catch (Exception ex) { _errors.Failed("readings into history", ex); }
+                        try { _closeUps.Tick(); }
+                        catch (Exception ex) { _errors.Failed("crash close-ups", ex); }
+                        var values = _sensors.ReadAll();
+                        ObserveExtremes(values);
+                        if (_sensors.DrivesUpdated)
+                        {
+                            try
+                            {
+                                _driveHistory.Add(unixMs, _sensors);
+                                OnDrivesRead();
+                            }
+                            catch (Exception ex) { _errors.Failed("drives", ex); }
+                        }
+
+                        var alert = _alerts.Check(keys, _tracker.Activity.Name, settings.Alerts, now);
+                        // A fixed limit says it's hot, not whether that's new: the game's usual says that (from the research, 2026-11-07).
+                        if (alert is { } a && UsualForAlert(_tracker.Activity.Exe, _alerts.LastParts) is { } usual) alert = (a.Title, $"{a.Body} {usual}");
+                        PublishToUi(keys, fullscreen, alert);
+                        Measure("track+publish", t0);
+
+                        if (live)
+                        {
+                            // A newly connected app gets every range once; after that, only what changed.
+                            bool full = _sendAllExtremes;
+                            _sendAllExtremes = false;
+                            _pipe.Broadcast(new AgentMessage
+                            {
+                                T = "tick",
+                                Time = unixMs,
+                                Values = values,
+                                Activity = _tracker.Activity,
+                                Today = _lastToday,
+                                Extremes = full ? _extremes.Snapshot() : _extremes.TakeChanges(),
+                                ExtremesDay = _extremes.Day,
+                                ExtremesFull = full,
+                                // No trace on an agent that should have one, after the remedies: the page says it isn't recording.
+                                Net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : _isAdmin && _traceWatch.Stalled ? NotRecording : null,
+                                Line = LineNow(),
+                                TrayWaiting = _trayWaiting is { Count: > 0 } waiting ? [.. waiting] : null,
+                            });
+                        }
+                    }
+                    catch (Exception ex) { _errors.Failed("sensors", ex); }
+                }
+
+                if (now + TurnSlackMs >= nextProc || _procsNow)
+                {
+                    _procsNow = false;
+                    double pdt = lastProc == 0 ? settings.Tracking.ProcessIntervalSeconds : ProcessStep(lastProc, now, settings.Tracking.ProcessIntervalSeconds);
+                    lastProc = now;
+                    nextProc = now + (live ? 2000 : settings.Tracking.ProcessIntervalSeconds * 1000);
+                    t0 = Stopwatch.GetTimestamp();
+                    try
+                    {
+                        bool firstProcs = !_procsSampled;
+                        _procsSampled = true;
+                        if (firstProcs) MemoryAt("before the first process sample");
+                        var snapshot = _procSampler.Sample();
+                        if (firstProcs) MemoryAt("processes sampled");
+                        snapshot.Gpu = _gpuSampler.Sample(snapshot);
+                        snapshot.GpuMemMb = _gpuMemory.Sample(snapshot);
+                        if (firstProcs) MemoryAt("GPU use by app sampled");
+                        Measure("processes", t0);
+                        t0 = Stopwatch.GetTimestamp();
+                        _running = snapshot.PidToExe;
+                        _lastProcs = snapshot;
+                        _activity.UpdateProcessMap(snapshot.PidToExe);
+                        var windows = _activity.ScanWindows();
+                        _tracker.OnProcesses(snapshot, windows, pdt);
+                        Measure("windows+apps", t0);
+                        if (live) _pipe.Broadcast(new AgentMessage { T = "procs", Procs = BuildProcs(snapshot, windows), Disk = Math.Round(snapshot.Disk) });
+                    }
+                    catch (Exception ex) { _errors.Failed("processes", ex); }
+                }
+
+                if (now >= nextMinuteCheck)
+                {
+                    nextMinuteCheck = now + 60_000;
+                    _errors.Run("daily recap", MaybeShowDailyRecap);
+                    _errors.Run("Rewinds", MaybeMakeRewinds);
+                    _errors.Run("notice checks", MaybeCheckNotices);
+                    _errors.Run("extremes", () => SaveExtremes());
+                    _errors.Run("waiting repair", RetryWaitingRepair);
+                }
+
+                if (now >= nextHardwareApps)
+                {
+                    nextHardwareApps = now + 30_000;
+                    _errors.Run("hardware apps", CheckHardwareApps);
+                }
+
+                if (Environment.TickCount64 >= _driverCheckAt)
+                {
+                    _driverCheckAt = Environment.TickCount64 + 5 * 60_000;
+                    _errors.Run("driver check", CheckDriver);
+                }
+
+                if (now >= nextCrashScan)
+                {
+                    nextCrashScan = now + 10 * 60_000;
+                    bool long_ = !CrashScan.Scanned || CrashScan.FillDue;
+                    try
+                    {
+                        MemoryAt("before the crash scan");
+                        ScanCrashes();
+                        // The one-time catch-up of crashes stored by earlier versions is the next scan's, two minutes on:
+                        // a PC that has just started has enough to do.
+                        if (CrashScan.FillDue) nextCrashScan = now + 2 * 60_000;
+                        // A long scan (the first after starting, the catch-up) reads days to months of Windows' logs:
+                        // thousands of short-lived records, which the agent would otherwise sit on for as long as it
+                        // runs (26 MB more in Task Manager than the version before, measured on the first start after updating).
+                        if (long_)
+                        {
+                            MemoryAt("long crash scan done");
+                            CompactMemory();
+                            MemoryAt("handed back");
+                        }
+                    }
+                    catch (Exception ex) { _errors.Failed("crash scan", ex); }
+                }
+
+                if (now >= nextChangeScan)
+                {
+                    nextChangeScan = now + Inventory.CheckMinutes * 60_000;
+                    _errors.Run("change scan", ScanChanges);
+                }
+
+                if (now >= nextDrives)
+                {
+                    nextDrives = now + 6 * 3600_000L;
+                    _errors.Run("drive record", RecordDrives);
+                }
+
+                // Sleep until the next whole second (or until woken for work).
+                _wake.WaitOne((int)(1000 - clock.ElapsedMilliseconds % 1000));
+            }
+            catch (Exception ex)
+            {
+                // What no part caught on its own (the pass itself).
+                _errors.Failed("the pass", ex);
+                _wake.WaitOne(2000);
+            }
+        }
+
+        // Each closing step on its own too: a full disk at quit must not end the agent with a crash report.
+        // The database closes and the marker clears first, straight after the last writes: Quit waits only 5 s for
+        // this thread, and the traces and the sensors after them can take longer (the RAM scan up to 30 s). A marker
+        // left behind would mean a full check at the next start and a sudden close that never happened.
+        var took = new List<string>();
+        Step("last minute", () => _tracker.Flush(closeAllSessions: true), took);
+        Step("extremes", () => SaveExtremes(force: true), took);
+        Step("database", _db.Dispose, took);
+        Step("history marker", () => HistoryRepair.MarkStopped(RigsightPaths.DataDir), took); // closed normally: no check at the next start
+        Step("crash watch", () => _appCrashWatch?.Dispose(), took);
+        Step("network trace", () => _netTrace?.Dispose(), took);
+        Step("disk trace", () => _diskTrace?.Dispose(), took);
+        Step("driver trace", () => _driverTrace?.Dispose(), took);
+        Step("sound trace", () => _soundTrace?.Dispose(), took);
+        Step("frames trace", () => _presentTrace?.Dispose(), took);
+        Step("line check", () => _line?.Dispose(), took);
+        Step("server ping", () => _serverPing?.Dispose(), took);
+        NetworkChange.NetworkAddressChanged -= OnAddressChanged;
+        NetworkChange.NetworkAvailabilityChanged -= OnAvailabilityChanged;
+        Step("sensors", _sensors.Close, took);
+        Step("GPU sampler", _gpuSampler.Dispose, took);
+        Step("GPU memory sampler", _gpuMemory.Dispose, took);
+        Log.Write("sampler", $"Closed in {string.Join(", ", took)}");
+    }
+
+    /// <summary>How early a timed read may come (ms): see the sensors' turn in the sampler.</summary>
+    internal const int TurnSlackMs = 100;
+
+    /// <summary>One step of the sampler thread's start or end: an error is logged with what failed, and the rest goes on.</summary>
+    /// <param name="took">When given, gets "what N ms": a slow quit can then be traced to its step.</param>
+    private static void Step(string what, Action step, List<string>? took = null)
+    {
+        long start = Environment.TickCount64;
+        try { step(); }
+        catch (Exception ex) { Log.Write("sampler", $"{what} failed: {ex}"); }
+        took?.Add($"{what} {Environment.TickCount64 - start} ms");
+    }
+
+    /// <summary>
+    /// Sampler thread, before each read: a graphics card's driver that is going or coming (see <see cref="DisplayDriverWatch"/>)
+    /// stops the cards being read at once, and once it has settled the agent starts again to read them through the new driver.
+    /// </summary>
+    private void CheckDisplayDriver()
+    {
+        if (!_displayWatch.Changed) return;
+        _sensors.PauseGpus();
+        if (!_gpusPaused)
+        {
+            _gpusPaused = true;
+            Log.Write("sensors", "A GPU's driver is changing: leaving the GPUs alone, and starting again once it has settled");
+        }
+        if (_restarting || !_displayWatch.Settled(Environment.TickCount64)) return;
+        _restarting = true;
+        _ui.Post(_ => Restart("a graphics driver that changed"), null);
+    }
+
+    /// <summary>
+    /// Sampler thread: scans the hardware (again), leaving alone what an RGB or fan-control program is driving right now
+    /// (see <see cref="HardwareApps"/>) and, after a scan that never finished or ran Windows' kernel memory up, the risky
+    /// parts altogether (see <see cref="ScanGuard"/>). Nothing reads sensors meanwhile: this runs on the sampler thread.
+    /// </summary>
+    private void OpenSensors()
+    {
+        var apps = _settings.YieldToHardwareApps ? HardwareApps.Running() : [];
+        _yieldedParts = HardwareApps.PartsFor(apps);
+        _absentChecks = 0;
+        bool safe = _safeMode || _stoppedForMemory;
+        var skip = _yieldedParts | (safe ? SensorParts.Risky : SensorParts.None);
+
+        _sensorsReady = false;
+        _sensors.Close();
+        var host = new SensorHost(skip, gpus: !_displayWatch.Changed);
+        var scan = Stopwatch.StartNew();
+        using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
+        {
+            guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification(Lang.T("RigSight stopped reading some sensors"),
+                Lang.T("Windows' memory kept growing while it read the motherboard, fan hubs and power supply. After a restart, press Try again in Settings, Sensors."), warning: true), null);
+            try
+            {
+                host.Open();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("sensors", ex);
+            }
+            MemoryAt("sensors open");
+            if (guard.Tripped) _stoppedForMemory = true;
+        }
+        if (_stoppedForMemory && !safe)
+        {
+            // It ran away with the risky parts in: read everything else without them.
+            host.Close();
+            OpenSensors();
+            return;
+        }
+
+        _sensors = host;
+        _gpuMemory.Reset();
+        _gpuSampler.Reset(); // the graphics card may be a different one to Windows now (a driver update gives it a new identity)
+        var parts = new[] { SensorParts.Motherboard, SensorParts.FanHubs, SensorParts.PowerSupply }.Where(p => skip.HasFlag(p)).Select(HardwareApps.PartName);
+        string left = skip == SensorParts.None ? ""
+            : $", leaving out {string.Join(", ", parts).ToLowerInvariant()}" + (apps.Count > 0 ? $" (for {string.Join(", ", apps.Select(a => a.Name))})" : "") + (safe ? " (safe mode)" : "");
+        Log.Write("agent", $"Sensors ready in {scan.Elapsed.TotalSeconds:0.0} s ({host.SensorCount} sensors{left})");
+        // What a report of missing readings is traced with: which parts were found with how many sensors of each kind,
+        // which of the main readings have no sensor at all, and the state of the driver the CPU's come through.
+        Log.Write("sensors", $"Found: {host.Summary()}");
+        if (host.NotFound() is { Count: > 0 } none) Log.Write("sensors", $"Expected and not found: {string.Join("; ", none)}");
+        Log.Write("sensors", $"PawnIO driver: {PawnIoDriver.Describe()}; memory integrity: {PawnIoDriver.MemoryIntegrity switch { true => "on", false => "off", null => "not set" }}");
+        _driver = DriverProblem(host);
+        _driverCheckAt = Environment.TickCount64 + 60_000;
+        _sensorStatus = BuildSensorStatus(apps);
+        _sensorsReady = true;
+        if (_pipe.ClientCount > 0) _pipe.Broadcast(BuildHello());
+
+        // The RAM sticks take seconds to find (the memory bus is probed): readings are already going out, so find them
+        // meanwhile, under the same guard as the scan above. The sampler adds them when they're ready (TakeMemory).
+        host.OpenMemoryInBackground(() =>
+        {
+            var took = Stopwatch.StartNew();
+            using (var guard = new ScanGuard(ScanMarker, keepMarker: safe))
+            {
+                guard.Exceeded += grown => _ui.Post(_ => _tray.ShowNotification(Lang.T("RigSight stopped reading some sensors"),
+                    Lang.T("Windows' memory kept growing while it read the RAM sticks. After a restart, press Try again in Settings, Sensors."), warning: true), null);
+                host.OpenMemory();
+                if (guard.Tripped) _stoppedForMemory = true;
+            }
+            Log.Write("sensors", $"RAM sticks found in {took.Elapsed.TotalSeconds:0.0} s");
+        });
+    }
+
+    /// <summary>
+    /// Sampler thread, every half minute: scans again when an RGB or fan-control program has started (at once, so the two
+    /// don't share the hardware) or has been gone for a whole minute (so a program restarting doesn't flip it back and forth).
+    /// </summary>
+    private void CheckHardwareApps()
+    {
+        var wanted = _settings.YieldToHardwareApps ? HardwareApps.PartsFor(HardwareApps.Running()) : SensorParts.None;
+        if ((wanted & ~_yieldedParts) != SensorParts.None)
+        {
+            OpenSensors();
+        }
+        else if (wanted != _yieldedParts)
+        {
+            if (++_absentChecks >= 2) OpenSensors();
+        }
+        else
+        {
+            _absentChecks = 0;
+        }
+    }
+
+    private SensorStatus BuildSensorStatus(List<HardwareApps.Known> apps)
+    {
+        var status = new SensorStatus { SafeMode = _safeMode, StoppedForMemory = _stoppedForMemory, Driver = _driver, DriverInstall = _driverInstall };
+        foreach (var part in new[] { SensorParts.Motherboard, SensorParts.FanHubs, SensorParts.PowerSupply })
+        {
+            var by = apps.Where(a => a.Parts.HasFlag(part)).Select(a => a.Name).ToList();
+            if (by.Count > 0) status.Paused.Add(new SkippedSensors { Part = HardwareApps.PartName(part), Because = by });
+        }
+        return status;
+    }
+
+    /// <summary>
+    /// What is wrong with the PawnIO driver, judged by what it is for: null while the CPU's temperature is read, or
+    /// without admin rights (said elsewhere, and nothing reads through the driver then).
+    /// </summary>
+    private string? DriverProblem(SensorHost sensors)
+    {
+        // A test copy can be told what to say, to look at the notice on a PC whose driver is fine.
+        if (RigsightPaths.IsTestInstance && Environment.GetEnvironmentVariable("RIGSIGHT_TEST_DRIVER") is { Length: > 0 } told) return told;
+        if (!_isAdmin || sensors.Read(KeySensors.CpuTemp) is not null) return null;
+        if (!PawnIoDriver.Installed) return "missing";
+        return PawnIoDriver.Running() == PawnIoDriver.State.Running ? null : "stopped";
+    }
+
+    /// <summary>
+    /// Sampler thread, a minute after the sensors opened and every five minutes: says in the log what the CPU reads
+    /// (once, and again when a reading comes or goes), and looks at the driver again: one found stopped is started once,
+    /// one installed meanwhile is read through by starting again, and Settings hears of any change.
+    /// </summary>
+    private void CheckDriver()
+    {
+        var sensors = _sensors;
+        var (readings, shape) = sensors.CpuReadings();
+        // Only a reading that came or went is news, not its figure.
+        if (shape != _cpuReadingsSaid)
+        {
+            _cpuReadingsSaid = shape;
+            Log.Write("sensors", $"CPU readings: {readings}");
+        }
+        // Sensors that are listed, were read just now and gave nothing: said once, and again when the list changes.
+        // Fewer are read with the window closed than with it open, so the list is only said again when something new is on it.
+        var silent = sensors.Silent();
+        if (_silentSaid is null && silent.Count == 0) Log.Write("sensors", "Every sensor read just now gave a reading");
+        if (silent.Where((_silentSaid ??= []).Add).ToList() is { Count: > 0 } news) Log.Write("sensors", $"Listed but giving no reading: {string.Join("; ", news)}");
+        if (!_isAdmin) return;
+
+        string? problem = DriverProblem(sensors);
+        if (problem == "stopped" && !_driverStartTried)
+        {
+            _driverStartTried = true;
+            string? why = PawnIoDriver.Start();
+            Log.Write("sensors", why is null ? "The PawnIO driver was stopped: started it, reading the hardware again" : $"The PawnIO driver is installed but won't start ({why})");
+            if (why is null)
+            {
+                OpenSensors();
+                return;
+            }
+        }
+        if (problem is null && sensors.Read(KeySensors.CpuTemp) is null && !_driverUnsupportedSaid)
+        {
+            _driverUnsupportedSaid = true;
+            Log.Write("sensors", "The PawnIO driver is installed and running, but the CPU gives no temperature: this processor may not be supported yet");
+        }
+        if (_driver == "missing" && PawnIoDriver.Installed && !_restarting)
+        {
+            // Installed by hand meanwhile: a new copy of the agent reads through it.
+            _restarting = true;
+            Log.Write("sensors", "The PawnIO driver has been installed: starting again to read through it");
+            _ui.Post(_ => Restart("the PawnIO driver being installed"), null);
+            return;
+        }
+        if (problem == _driver) return;
+        Log.Write("sensors", $"PawnIO driver: {PawnIoDriver.Describe()}{(problem is null ? "" : $" ({problem})")}");
+        _driver = problem;
+        PublishSensorStatus();
+    }
+
+    /// <summary>Sampler thread: tells the window what Settings says about the sensors now, without the hardware being read again.</summary>
+    private void PublishSensorStatus()
+    {
+        var old = _sensorStatus;
+        _sensorStatus = new SensorStatus { Paused = old.Paused, SafeMode = old.SafeMode, StoppedForMemory = old.StoppedForMemory, Driver = _driver, DriverInstall = _driverInstall };
+        if (_sensorsReady && _pipe.ClientCount > 0) _pipe.Broadcast(new AgentMessage { T = "status", SensorStatus = _sensorStatus });
+    }
+
+    /// <summary>
+    /// "Install" on the driver's notice in Settings: downloads PawnIO with winget as setup does (the agent has the admin
+    /// rights it needs, so nothing to accept), then starts again to read through it. A failure is said on the notice.
+    /// </summary>
+    private void InstallDriver()
+    {
+        if (_driverInstall == "installing") return;
+        _driverInstall = "installing";
+        RunOnSampler(PublishSensorStatus);
+        _ = Task.Run(() =>
+        {
+            string? failed;
+            try
+            {
+                if (RtssSetup.WingetInstall("namazso.PawnIO") is null)
+                {
+                    Log.Write("install", "winget isn't available: PawnIO can't be installed automatically");
+                    failed = "no-winget";
+                }
+                else failed = PawnIoDriver.Installed ? null : "failed";
+            }
+            catch (Exception ex)
+            {
+                Log.Error("install", ex);
+                failed = "failed";
+            }
+            if (failed is null)
+            {
+                Log.Write("install", "PawnIO installed: starting again to read through it");
+                _ui.Post(_ => Restart("the PawnIO driver being installed"), null);
+                return;
+            }
+            _driverInstall = failed;
+            RunOnSampler(PublishSensorStatus);
+        });
+    }
+
+    /// <summary>Sampler thread: the user asked to read everything again after a safe-mode start or a memory stop.</summary>
+    private void RetryAllSensors()
+    {
+        Log.Write("sensors", "Reading everything again (asked from Settings)");
+        ScanGuard.Forget(ScanMarker);
+        _safeMode = false;
+        _stoppedForMemory = false;
+        OpenSensors();
+    }
+
+    /// <summary>
+    /// Seconds an app was open since the last look at the processes. Far longer than the looks are apart means the PC was
+    /// asleep (or the agent held up): not counted, where it used to add a minute of "open in the background" to every
+    /// app with a window each time the PC woke.
+    /// </summary>
+    internal static double ProcessStep(long lastMs, long nowMs, int intervalSeconds)
+    {
+        double dt = (nowMs - lastMs) / 1000.0;
+        return dt > Math.Max(10, intervalSeconds * 2) ? 0 : dt;
+    }
+
+    /// <summary>Seconds to count since the last activity sample. A long gap means the PC was asleep: don't count it.</summary>
+    internal static double ActivityStep(long lastMs, long nowMs)
+    {
+        double dt = (nowMs - lastMs) / 1000.0;
+        return dt > 10 ? 0 : dt;
+    }
+
+    /// <summary>Sampler thread: widens today's range of every sensor with this reading.</summary>
+    private void ObserveExtremes(float?[] values)
+    {
+        _extremes.BeginTick();
+        var ids = _sensors.Ids;
+        var isTemp = _sensors.IsTemperature;
+        for (int i = 0; i < values.Length && i < ids.Length; i++)
+        {
+            // Only sensors actually read this tick: others keep old values (hardware only read while the
+            // app is open, or the GPU while its cheaper fast path is in use), which must not count as today.
+            if (!_sensors.IsFresh(i)) continue;
+            // Without driver access some temperature sensors report 0 instead of nothing.
+            if (values[i] is float v && !(isTemp[i] && v <= 0)) _extremes.Observe(ids[i], v);
+        }
+        // Key sensors may come from a cheaper source (the NVIDIA fast path) while the app is closed.
+        foreach (var (key, index) in _sensors.Keys)
+            if (index < ids.Length) _extremes.Observe(ids[index], _sensors.Read(key));
+    }
+
+    /// <summary>
+    /// Sampler thread, at start: today's ranges saved before a restart, widened with the CPU/GPU
+    /// temperatures in today's minute history (so a game played before the first run of this version counts).
+    /// </summary>
+    private void RestoreExtremes()
+    {
+        try
+        {
+            _extremes.Load(_db.GetMeta("extremes"));
+            var (cpuMin, cpuMax, gpuMin, gpuMax, hotMax, memMax) = _db.TempRange(TimeUtil.ToUnix(DateTime.Today), TimeUtil.NowUnix() + 60);
+            void Include(string key, double? min, double? max)
+            {
+                if (_sensors.Keys.TryGetValue(key, out int i) && i < _sensors.Ids.Length) _extremes.Include(_sensors.Ids[i], min, max);
+            }
+            Include(KeySensors.CpuTemp, cpuMin, cpuMax);
+            Include(KeySensors.GpuTemp, gpuMin, gpuMax);
+            Include(KeySensors.GpuHotSpot, null, hotMax);
+            Include(KeySensors.GpuMemJunction, null, memMax);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("extremes", ex);
+        }
+    }
+
+    /// <summary>Sampler thread: stores today's ranges (only when they changed, unless forced).</summary>
+    private void SaveExtremes(bool force = false)
+    {
+        if (!force && !_extremes.Dirty) return;
+        _db.SetMeta("extremes", _extremes.Serialize());
+        _extremes.Dirty = false;
+    }
+
+    /// <summary>
+    /// Windows is shutting down or signing out: finish the session in progress and save today's ranges
+    /// now, on the sampler thread (which owns the database), waiting a few seconds at most.
+    /// </summary>
+    private void OnSessionEnding(object? sender, SessionEndingEventArgs e)
+    {
+        // Not disposed: after the 3 s wait the sampler may still get to Set it, which would throw on a disposed one.
+        var done = new ManualResetEventSlim();
+        RunOnSampler(() =>
+        {
+            try
+            {
+                _tracker.Flush(closeAllSessions: true);
+                SaveExtremes(force: true);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("agent", ex);
+            }
+            finally
+            {
+                done.Set();
+            }
+        });
+        // Everything saved: Windows ending the agent from here on isn't a power cut, so no check at the next start.
+        if (done.Wait(TimeSpan.FromSeconds(3))) HistoryRepair.MarkStopped(RigsightPaths.DataDir);
+        Log.Write("agent", $"Saved before Windows {(e.Reason == SessionEndReasons.SystemShutdown ? "shut down" : "signed out")}");
+    }
+
+    private static void OnTimeChanged(object? sender, EventArgs e)
+    {
+        TimeZoneInfo.ClearCachedData();
+        System.Globalization.CultureInfo.CurrentCulture.ClearCachedData();
+    }
+
+    /// <summary>Returns memory the agent no longer needs to Windows (a one-off full, compacting collection).</summary>
+    private static void CompactMemory()
+    {
+        System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+    }
+
+    private void RunOnSampler(Action work)
+    {
+        _samplerWork.Enqueue(work);
+        _wake.Set();
+    }
+
+    /// <summary>The overlay's chosen sensors with their labels: its own short name, else the name given on All sensors.</summary>
+    private List<OverlaySensorReading> OverlaySensors(RigsightSettings settings)
+    {
+        var list = new List<OverlaySensorReading>();
+        foreach (var x in settings.Overlay.Sensors)
+        {
+            if (_sensors.ReadSensor(x.Id) is not { } r) continue;
+            string label = x.Label ?? settings.SensorLabels.GetValueOrDefault(x.Id) ?? SensorWords.Show(r.Name);
+            list.Add(new OverlaySensorReading(label, r.Kind, r.Value));
+        }
+        return list;
+    }
+
+    /// <summary>The sensors on shown widgets (kept live while they show, as the overlay's are).</summary>
+    // A box's sensors are its tiles' (a reading's, a line's): its own reading list is the default one, with none, so a
+    // sensor on a Reading or Line tile was never read and the desktop said "Sensor —" where the app's picture had it.
+    internal static IEnumerable<string> WidgetSensorIds(RigsightSettings settings) =>
+        settings.Widgets.Where(w => w.Enabled).SelectMany(w => w.Tiles is null ? WidgetCatalog.ItemsOf(w) : WidgetCatalog.ShownItems(w))
+            .Select(i => WidgetCatalog.Sensor(i.Id)).OfType<string>().Distinct();
+
+    /// <summary>The widgets' sensors: the name given on All sensors, else the sensor's own (a widget's own short name wins when drawn).</summary>
+    private Dictionary<string, OverlaySensorReading> WidgetSensors(RigsightSettings settings)
+    {
+        var map = new Dictionary<string, OverlaySensorReading>();
+        foreach (var id in WidgetSensorIds(settings))
+            if (_sensors.ReadSensor(id) is { } r)
+                map[id] = new OverlaySensorReading(settings.SensorLabels.GetValueOrDefault(id) ?? SensorWords.Show(r.Name), r.Kind, r.Value);
+        return map;
+    }
+
+    /// <summary>Five minutes of each reading a tile or graph shows beyond CPU and GPU temperature (which have their own).</summary>
+    /// <summary>
+    /// The names given to the readings that are one sensor (renamed in All sensors, or in a widget's editor), so widgets
+    /// say the same name as everywhere else; a reading whose sensor wasn't renamed keeps its usual short name.
+    /// </summary>
+    private Dictionary<OverlayMetric, string> WidgetNames(RigsightSettings settings)
+    {
+        var names = new Dictionary<OverlayMetric, string>();
+        if (settings.SensorLabels.Count == 0) return names;
+        foreach (var m in Enum.GetValues<OverlayMetric>())
+        {
+            if (WidgetCatalog.KeyOf(m) is not { } key || !_sensors.Keys.TryGetValue(key, out int i) || i < 0 || i >= _sensors.Ids.Length) continue;
+            if (settings.SensorLabels.GetValueOrDefault(_sensors.Ids[i]) is { Length: > 0 } name) names[m] = name;
+        }
+        return names;
+    }
+
+    private Dictionary<OverlayMetric, float[]> WidgetHistories(HashSet<OverlayMetric> metrics)
+    {
+        var map = new Dictionary<OverlayMetric, float[]>();
+        foreach (var m in metrics)
+        {
+            string? key = m switch
+            {
+                OverlayMetric.GpuHotSpot => KeySensors.GpuHotSpot,
+                OverlayMetric.CpuLoad => KeySensors.CpuLoad,
+                OverlayMetric.GpuLoad => KeySensors.GpuLoad,
+                OverlayMetric.Ram => KeySensors.RamLoad,
+                _ => null,
+            };
+            if (key is not null) map[m] = _history.Recent(key, 300_000);
+        }
+        return map;
+    }
+
+    // ── Reading cards (issue #5): what a click on a taskbar reading opens ──
+
+    /// <summary>Each taskbar reading's last minutes (sampler thread), for its card's graph: since it came to the taskbar or the agent started.</summary>
+    private readonly Dictionary<string, Queue<(long Ms, float Value)>> _trayHistory = [];
+
+    private void RememberTray(IReadOnlyList<TrayReading> readings)
+    {
+        long now = Environment.TickCount64, keep = ReadingCards.GraphMinutes * 60_000L;
+        foreach (var gone in _trayHistory.Keys.Where(id => readings.All(r => r.Id != id)).ToList()) _trayHistory.Remove(gone);
+        foreach (var r in readings)
+        {
+            if (!_trayHistory.TryGetValue(r.Id, out var q)) _trayHistory[r.Id] = q = new();
+            q.Enqueue((now, r.Value is double v && double.IsFinite(v) ? (float)v : float.NaN));
+            while (q.Count > 0 && now - q.Peek().Ms > keep) q.Dequeue();
+        }
+    }
+
+    /// <summary>
+    /// A click on taskbar readings (UI thread): their card, gathered on the sampler, opened above them. The same readings
+    /// again close it (as a click on Windows' clock closes its own card).
+    /// </summary>
+    private void OpenCard(IReadOnlyList<string> ids, Rectangle anchor, float scale)
+    {
+        string key = string.Join('\n', ids);
+        if (_card.CloseIfShowing(key) || _card.JustClosed(key)) return;
+        bool light = DarkMenuRenderer.Light;
+        RunOnSampler(() =>
+        {
+            var settings = _settings;
+            var sections = CardFor(key, TrayReadingsFor(settings), settings, light);
+            var (accent, onAccent) = CardAccent(settings, light);
+            _ui.Post(_ =>
+            {
+                // A reading not found on this PC has nothing to show: RigSight, as a click did before.
+                if (sections.Count == 0) OpenApp(null);
+                else _card.Open(key, sections, anchor, scale, accent, onAccent);
+            }, null);
+        });
+    }
+
+    /// <summary>The button's colours: the accent picked in Settings, else the theme's own (its text colour, the card's colour on it).</summary>
+    private static (Color Accent, Color OnAccent) CardAccent(RigsightSettings settings, bool light) =>
+        AccentColors.Of(settings.Accent, light) is { } c
+            ? (Color.FromArgb(c.R, c.G, c.B), AccentColors.DarkTextOn(c.R, c.G, c.B) ? Color.Black : Color.White)
+            : (DarkMenuRenderer.TextColor, DarkMenuRenderer.Bg);
+
+    /// <summary>
+    /// A card's sections (sampler thread, see <see cref="ReadingCards"/>): one per part among the readings in
+    /// <paramref name="key"/>, in the order they were clicked. Readings not found on this PC are left out.
+    /// </summary>
+    private List<CardSection> CardFor(string key, IReadOnlyList<TrayReading> readings, RigsightSettings settings, bool light)
+    {
+        var ids = key.Split('\n');
+        var clicked = ids.Select(id => readings.FirstOrDefault(r => r.Id == id)).Where(r => r.Id is not null && r.Hardware.Length > 0).ToList();
+        var sensors = _sensors;
+        var schema = sensors.Schema;
+        string? KeyId(string name) => sensors.Keys.TryGetValue(name, out int i) && i >= 0 && i < sensors.Ids.Length ? sensors.Ids[i] : null;
+        string? cpuTempId = KeyId(KeySensors.CpuTemp), gpuTempId = KeyId(KeySensors.GpuTemp);
+        var extremes = _extremes.Snapshot();
+        var today = _lastToday;
+        bool gray = settings.TrayGrayscale;
+        var clickedIds = clicked.Select(r => r.Id).ToHashSet();
+        CardLine Line(string label, SensorKind kind, double value) =>
+            new(label, Units.StripText(kind, value), kind == SensorKind.Temperature && !gray ? WidgetRenderer.TrayColor(kind, value, light) : null);
+
+        var sections = new List<CardSection>();
+        foreach (var group in clicked.GroupBy(r => r.Group))
+        {
+            var first = group.First();
+            var device = schema.FirstOrDefault(h => h.Sensors.Any(s => s.Id == first.Id));
+
+            // The part's other readings: its key sensors (the CPU's, the graphics card's, RAM's) when they're on this
+            // device; a fan's, the board's other fans and temperatures; else one of each kind on the same device.
+            var rows = new List<CardLine>();
+            var keyRows = ReadingCards.KeyRows(first.Part).Select(k => (Id: KeyId(k.Key), k.Label)).Where(k => k.Id is not null).ToList();
+            bool keysHere = device is not null && keyRows.Any(k => device.Sensors.Any(s => s.Id == k.Id));
+            if (keysHere)
+            {
+                foreach (var (id, label) in keyRows)
+                {
+                    if (rows.Count >= ReadingCards.MaxRows || clickedIds.Contains(id!)) continue;
+                    if (sensors.ReadSensor(id!) is { } s && s.Value is double v) rows.Add(Line(label, s.Kind, v));
+                }
+            }
+            else if (device is not null)
+            {
+                var kinds = first.Part == TrayPart.Board ? [SensorKind.Fan, SensorKind.Temperature, SensorKind.Fan] : ReadingCards.DeviceKinds;
+                var used = new HashSet<string>(clickedIds);
+                foreach (var kind in kinds)
+                {
+                    if (rows.Count >= ReadingCards.MaxRows) break;
+                    foreach (var m in device.Sensors.Where(m => m.Kind == kind && !used.Contains(m.Id)))
+                    {
+                        if (sensors.ReadSensor(m.Id) is not { } s || s.Value is not double v) continue;
+                        used.Add(m.Id);
+                        rows.Add(Line(SensorWords.Show(m.Name), kind, v));
+                        break;
+                    }
+                }
+            }
+
+            // What uses the part; a fan, what it cools.
+            var (by, appsTitle) = ReadingCards.Apps(first.Part);
+            var apps = CardApps(by);
+            var cools = new List<CardLine>();
+            if (group.Any(r => r.Kind is SensorKind.Fan or SensorKind.Control))
+                foreach (var (id, label) in new[] { (cpuTempId, "CPU"), (gpuTempId, "GPU") })
+                    if (id is not null && sensors.ReadSensor(id) is { } s && s.Value is double v) cools.Add(Line(label, SensorKind.Temperature, v));
+
+            var page = ReadingCards.Page(first.Part, first.Kind);
+            sections.Add(new CardSection(TrayParts.Label(first.Part), first.Hardware, first.NameOn(light, gray), [.. group.Select(Big)], rows,
+                // Its app list kept even while nothing uses the part ("Nothing much right now"): dropping it when the last app
+                // went moved the button up the card (the user: "why did open temperature shift to top").
+                by != Core.CardApps.None ? appsTitle : null, apps, cools.Count > 0 ? Lang.T("What the fans are cooling now") : null, cools, ReadingCards.Button(page), page));
+        }
+        return sections;
+
+        // A clicked reading, big: now, its last minutes, and today's highest (CPU and GPU temperatures with when and what ran).
+        CardBig Big(TrayReading r)
+        {
+            var history = _trayHistory.TryGetValue(r.Id, out var q) ? q.ToList() : [];
+            var oldest = history.Count > 0 ? DateTime.Now - TimeSpan.FromMilliseconds(Environment.TickCount64 - history[0].Ms) : DateTime.Now;
+            string? highest = null;
+            if (ReadingCards.ShowsHighest(r.Part, r.Kind))
+            {
+                if (r.Id == cpuTempId && today?.CpuPeak is double cp) highest = Peak(cp, today.CpuPeakTime, today.CpuPeakApp);
+                else if (r.Id == gpuTempId && today?.GpuPeak is double gp) highest = Peak(gp, today.GpuPeakTime, today.GpuPeakApp);
+                else if (extremes.TryGetValue(r.Id, out var mm) && mm.Length > 1 && double.IsFinite(mm[1])) highest = Lang.T($"Highest today {Units.StripText(r.Kind, mm[1])}");
+            }
+            return new CardBig(r.Name, r.Kind, r.Value, r.NumberOn(light, gray), history, ReadingCards.Span(oldest, DateTime.Now),
+                ReadingCards.LowAvgHigh(r.Kind, [.. history.Select(p => p.Value)]), highest);
+        }
+
+        static string Peak(double value, long? time, string? app)
+        {
+            string v = Units.StripText(SensorKind.Temperature, value);
+            if (time is not long t) return Lang.T($"Highest today {v}");
+            string at = TimeText.Time(DateTimeOffset.FromUnixTimeSeconds(t).LocalDateTime);
+            return app is { Length: > 0 } ? Lang.T($"Highest today {v} at {at}, while {app} ran") : Lang.T($"Highest today {v} at {at}");
+        }
+    }
+
+    /// <summary>The apps using a part most (sampler thread), from the latest process pass or, for the network, its live rates.</summary>
+    private List<CardApp> CardApps(CardApps by)
+    {
+        var snap = _lastProcs;
+        string Name(string exe) => _apps.Describe(exe, snap?.Apps.TryGetValue(exe, out var a) == true ? a.FirstPid : 0).Name;
+        IEnumerable<CardApp> list = by switch
+        {
+            Core.CardApps.Cpu when snap is not null => snap.Apps.Values.Where(a => a.Cpu >= 0.1).OrderByDescending(a => a.Cpu)
+                .Take(ReadingCards.MaxApps).Select(a => new CardApp(Name(a.Exe), a.Cpu, Units.StripText(SensorKind.Load, a.Cpu))),
+            Core.CardApps.Memory when snap is not null => snap.Apps.Values.OrderByDescending(a => a.MemMB)
+                .Take(ReadingCards.MaxApps).Select(a => new CardApp(Name(a.Exe), a.MemMB, Units.Megabytes(a.MemMB))),
+            Core.CardApps.Disk when snap is not null => snap.Apps.Values.Where(a => a.Disk >= 1024).OrderByDescending(a => a.Disk)
+                .Take(ReadingCards.MaxApps).Select(a => new CardApp(Name(a.Exe), a.Disk, Units.Speed(a.Disk))),
+            Core.CardApps.Gpu when snap is not null => snap.Gpu.Where(kv => kv.Value >= 1).OrderByDescending(kv => kv.Value)
+                .Take(ReadingCards.MaxApps).Select(kv => new CardApp(Name(kv.Key), kv.Value, Units.StripText(SensorKind.Load, kv.Value))),
+            Core.CardApps.Network => _tracker.NetNow.Apps.Where(a => a.Down + a.Up >= 1024).OrderByDescending(a => a.Down + a.Up)
+                .Take(ReadingCards.MaxApps).Select(a => new CardApp(a.Name, a.Down + a.Up, Units.Speed(a.Down + a.Up))),
+            _ => [],
+        };
+        return [.. list];
+    }
+
+    /// <summary>
+    /// The taskbar's sensors (sampler thread): the name given on All sensors, else the sensor's own; each one's own style
+    /// and size (else the taskbar's style, fitted to it); the reading its look is drawn from (Together) with its value; a
+    /// CPU's cores for Each core. The network's speeds are RigSight's own count for the whole PC, as on the Network page;
+    /// the frame rate is RivaTuner's for the game in front, none (shown "–") while no game draws frames.
+    /// </summary>
+    private List<TrayReading> TrayReadingsFor(RigsightSettings settings)
+    {
+        var list = new List<TrayReading>(settings.TraySensors.Count);
+        var alone = settings.TrayAlone.ToHashSet();
+        foreach (var id in settings.TraySensors)
+        {
+            string? own = settings.SensorLabels.GetValueOrDefault(id);
+            var style = settings.TrayStyles.GetValueOrDefault(id, settings.TrayStyle);
+            var size = settings.TraySizes.GetValueOrDefault(id);
+            var look = settings.TrayLooks.GetValueOrDefault(id);
+            // Its part's icon in place of its word, when it or the taskbar has icons (see TrayParts.IconKey).
+            var naming = TrayParts.NameOf(settings, id);
+            string? IconOf(TrayPart part, SensorKind kind, string? device = null) => naming == TrayName.Word ? null : TrayParts.IconKey(part, kind, id, device);
+            bool beside = naming == TrayName.Beside;
+            TrayReading reading;
+            if (TrayParts.IsNet(id))
+            {
+                var net = _netTrace is not null || _cardsBefore is not null ? _tracker.NetNow : null;
+                double? down = net is { HasSpeed: true } ? net.Down : null, up = net is { HasSpeed: true } ? net.Up : null;
+                string name = own ?? SensorWords.Show(TrayParts.NetName(id));
+                reading = new TrayReading(id, name, SensorKind.Throughput, id == TrayParts.NetUp ? up : down, TrayPart.Network, SensorWords.Show(TrayParts.NetHardware),
+                    own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel } o ? o : id == TrayParts.NetUp ? Lang.T("Up") : Lang.T("Down"),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
+                    Second: id == TrayParts.NetBoth ? up : null, Icon: IconOf(TrayPart.Network, SensorKind.Throughput), IconBeside: beside, PartIcon: TrayParts.IconKey(TrayPart.Network, SensorKind.Throughput, id));
+            }
+            else if (id == TrayParts.Ping)
+            {
+                // The game's or call's server when one is checked, else the provider's first router (else the router).
+                var line = LineNow();
+                double? ms = Core.Net.ServerWords.Lead(line?.Servers)?.Ms ?? line?.IspMs ?? line?.LanMs;
+                reading = new TrayReading(id, own ?? Lang.T("Ping"), SensorKind.Latency, ms, TrayPart.Network, Lang.T("The game or call you're on, else your internet provider"),
+                    TrayParts.ShortLabel(SensorKind.Latency, "", TrayPart.Network, own),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id), Icon: IconOf(TrayPart.Network, SensorKind.Latency), IconBeside: beside, PartIcon: TrayParts.IconKey(TrayPart.Network, SensorKind.Latency, id));
+            }
+            else if (id == TrayParts.DriverDelay)
+            {
+                // The longest a single driver kept a CPU core busy in the last 2 seconds (issue #15 follow-up); none
+                // without admin rights, and the hover says why.
+                var delay = DriverDelayNow();
+                reading = new TrayReading(id, own ?? Lang.T("Driver delay"), SensorKind.Delay, delay?.Ms, TrayPart.Other,
+                    delay?.Who ?? Lang.T("Only recorded with RigSight running as administrator"),
+                    TrayParts.ShortLabel(SensorKind.Delay, "", TrayPart.Other, own),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id), Icon: IconOf(TrayPart.Other, SensorKind.Delay), IconBeside: beside, PartIcon: TrayParts.IconKey(TrayPart.Other, SensorKind.Delay, id));
+            }
+            else if (id == TrayParts.Fps)
+            {
+                double? fps = Rtss.ReadFrameStats(WidgetManager.ForegroundPid()) is { Fps: > 0 } f ? f.Fps : null;
+                reading = new TrayReading(id, own ?? Lang.T("Frame rate (FPS)"), SensorKind.FrameRate, fps, TrayPart.Gpu, Lang.T("From RivaTuner, in the game you're playing"),
+                    TrayParts.ShortLabel(SensorKind.FrameRate, "", TrayPart.Gpu, own),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id), Icon: IconOf(TrayPart.Gpu, SensorKind.FrameRate), IconBeside: beside, PartIcon: TrayParts.IconKey(TrayPart.Gpu, SensorKind.FrameRate, id));
+            }
+            else if (_sensors.ReadSensor(id) is { } r)
+            {
+                var part = TrayParts.PartOf(r.HardwareType);
+                // Together: the look drawn from another reading (its kind and value), the number this one's.
+                string? from = settings.TrayLookFrom.GetValueOrDefault(id);
+                var source = from is null ? null : _sensors.ReadSensor(from);
+                float[]? cores = look == TrayLook.Cores && source is null && TrayParts.IsCpuTotal(r.Kind, part, r.Name) ? CoresOf(id) : null;
+                // A device's battery is named by its device ("G309 LIGHTSPEED battery"), and the strip's word is the device's first.
+                bool battery = r.Kind == SensorKind.Battery;
+                reading = new TrayReading(id, own ?? (battery ? Lang.T($"{r.HardwareName} battery") : SensorWords.Show(r.Name)), r.Kind, r.Value, part, r.HardwareName,
+                    TrayParts.ShortLabel(r.Kind, battery ? r.HardwareName : r.Name, part, own),
+                    TrayColors.NumberOf(settings, id), TrayColors.NameOf(settings, id), look, TrayColors.TileOf(settings, id),
+                    OwnShort: own?.Trim() is { Length: > 0 and <= TrayParts.MaxShortLabel }, Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id),
+                    LookId: source is null ? null : from, LookKind: source?.Kind, LookValue: source?.Value, Cores: cores,
+                    Icon: IconOf(part, r.Kind, _sensors.Devices.Of(id)?.Kind.ToString()), IconBeside: beside,
+                    PartIcon: TrayParts.IconKey(part, r.Kind, id, _sensors.Devices.Of(id)?.Kind.ToString()));
+            }
+            else reading = new TrayReading(id, _sensorsReady ? Lang.T("Not found on this PC") : Lang.T("Starting…"), SensorKind.Factor, null, TrayPart.Other, "",
+                Alone: alone.Contains(id), Style: style, Size: size, Gray: TrayParts.GrayOf(settings, id), Tiles: TrayParts.TilesOf(settings, id), Letters: TrayParts.LettersOf(settings, id), PairNext: TrayParts.PairNextOf(settings, id), GraphBehind: settings.TrayGraphsBehind.Contains(id));
+            list.Add(reading);
+        }
+        return list;
+    }
+
+    /// <summary>Each CPU's cores' load sensors (by its total's id), found once per list of sensors.</summary>
+    private (List<HardwareMeta> Schema, Dictionary<string, string[]> Map) _cores = ([], []);
+
+    /// <summary>A CPU's cores' loads now, 0 to 1, in their order (null: none listed), for Each core.</summary>
+    private float[]? CoresOf(string totalId)
+    {
+        var schema = _sensors.Schema;
+        if (!ReferenceEquals(schema, _cores.Schema)) _cores = (schema, []);
+        if (!_cores.Map.TryGetValue(totalId, out var ids))
+        {
+            var hardware = schema.FirstOrDefault(h => h.Sensors.Any(s => s.Id == totalId));
+            ids = hardware is null ? [] : [.. hardware.Sensors.Where(s => TrayParts.IsCoreLoad(s.Kind, s.Name)).Select(s => s.Id)];
+            _cores.Map[totalId] = ids;
+            Log.Write("taskbar", $"Cores for {totalId}: {ids.Length} ({string.Join(", ", hardware?.Sensors.Where(s => TrayParts.IsCoreLoad(s.Kind, s.Name)).Select(s => s.Name) ?? [])})");
+        }
+        if (ids.Length == 0) return null;
+        return [.. ids.Select(c => _sensors.ReadSensor(c)?.Value is double v ? (float)Math.Clamp(v / 100, 0, 1) : 0f)];
+    }
+
+    private string? _gameScreenNoted;
+
+    /// <summary>Saves the screen the game in front is on, when it's another than the one saved (sampler thread).</summary>
+    private void NoteGameScreen(RigsightSettings settings)
+    {
+        string device = Screen.FromHandle(Win32.GetForegroundWindow()).DeviceName;
+        if (device == settings.Overlay.GameScreen || device == _gameScreenNoted) return;
+        _gameScreenNoted = device;
+        Log.Write("overlay", $"A game is on screen {device} (was {settings.Overlay.GameScreen ?? "none noted"})");
+        _ui.Post(_ => MutateSettings(s => s.Overlay.GameScreen = device), null);
+    }
+
+    private void PublishToUi(KeyValues k, bool fullscreen, (string Title, string Body)? alert)
+    {
+        var settings = _settings;
+        // Switched off (the Taskbar page, the tray menu): none shown, the list kept.
+        var trayReadings = settings.TrayShown ? TrayReadingsFor(settings) : [];
+        RememberTray(trayReadings);
+        // A reading card that's open: its readings again, a tick later.
+        string? cardKey = _card.Key;
+        var cardSections = cardKey is null ? null : CardFor(cardKey, trayReadings, settings, DarkMenuRenderer.Light);
+        var activity = _tracker.Activity;
+        // Only what draws history lines (graph tiles, a reading as a graph, the older tiles and graph layouts); none otherwise.
+        var historyOf = (settings.WidgetsShown ? settings.Widgets.Where(w => w.Enabled) : []).SelectMany(WidgetTiles.HistoryMetrics).ToHashSet();
+        bool drawsHistory = historyOf.Contains(OverlayMetric.CpuTemp) || historyOf.Contains(OverlayMetric.GpuTemp);
+        var data = new WidgetData
+        {
+            CpuTemp = k.CpuTemp, CpuLoad = k.CpuLoad, CpuPower = k.CpuPower, CpuClock = k.CpuClock,
+            GpuTemp = k.GpuTemp, GpuLoad = k.GpuLoad, GpuPower = k.GpuPower, GpuHotSpot = k.GpuHotSpot, GpuClock = k.GpuClock,
+            VramUsedMb = k.GpuVramUsed, VramTotalMb = k.GpuVramTotal,
+            RamLoad = k.RamLoad, RamUsedGb = k.RamUsed,
+            RamTotalGb = k.RamUsed + k.RamAvailable,
+            // Only the compact and graph widgets draw history lines; skip scanning it otherwise.
+            CpuHistory = drawsHistory ? _history.Recent(KeySensors.CpuTemp, 300_000) : [],
+            GpuHistory = drawsHistory ? _history.Recent(KeySensors.GpuTemp, 300_000) : [],
+            Activity = activity,
+            Today = _tracker.Today(),
+            Sensors = OverlaySensors(settings),
+            Readings = WidgetSensors(settings),
+            Histories = WidgetHistories(historyOf),
+            HistorySeconds = historyOf.Count > 0 ? _history.SpanMs(KeySensors.CpuTemp, 300_000) / 1000.0 : 300,
+            Names = WidgetNames(settings),
+            Pc = PcNowFor(settings),
+            Facts = _facts,
+        };
+        _lastToday = data.Today;
+
+        var tip = $"RigSight\nCPU {Units.TempShort(k.CpuTemp)}  ·  GPU {Units.TempShort(k.GpuTemp)}  ·  RAM {Units.Short(SensorKind.Load, k.RamLoad)}";
+        if (activity.Paused) tip += "\n" + Lang.T("Tracking paused");
+        else if (activity.Name is not null && activity.SessionActiveSec > 0) tip += $"\n{activity.Name}  ·  {Units.Duration(activity.SessionActiveSec)}";
+
+        // Our own windows can report as fullscreen-sized; only treat other apps as fullscreen.
+        bool otherFullscreen = fullscreen && activity.Exe is not null &&
+            !activity.Exe.StartsWith("Rigsight", StringComparison.OrdinalIgnoreCase);
+        // Widgets step aside only for a game in exclusive fullscreen, or borderless on a screen without overlay planes (see WidgetsOverGames).
+        bool gameInFront = activity.Category == AppCategory.Game && activity.Exe is not null && !activity.Paused;
+        // The screen a game is played on, for the Overlay page's picture with two screens or more (noted when it changes).
+        if (gameInFront && SystemInformation.MonitorCount > 1) NoteGameScreen(settings);
+
+        // Tray health dot: amber within 12° of a limit, red at or over it.
+        var a = settings.Alerts;
+        double Margin(double? v, double limit) => v is double d ? d - limit : double.MinValue;
+        double worst = Math.Max(Margin(k.CpuTemp, a.CpuLimit), Math.Max(Margin(k.GpuTemp, a.GpuLimit), Margin(k.GpuHotSpot, a.GpuHotSpotLimit)));
+        int health = worst >= 0 ? 2 : worst >= -12 ? 1 : 0;
+
+        // Nobody sees the taskbar or the desktop with the screen off: neither is drawn until it's back (the tray's tooltip
+        // and the alerts still are, as they're worked out here once).
+        bool unseen = _screen.Off;
+        _ui.Post(_ =>
+        {
+            long t0 = Stopwatch.GetTimestamp();
+            // Each part on its own: one that fails (a widget, the tray) must not take the rest with it, least of all the
+            // temperature alert at the end, which is worked out once and not again.
+            try { _tray.Update(tip, health); }
+            catch (Exception ex) { _errors.Failed("tray", ex); }
+            if (!unseen) DrawReadings();
+            try { _overlay.Update(data); }
+            catch (Exception ex) { _errors.Failed("overlay", ex); }
+            try { _notices.SetFullscreen(otherFullscreen); }
+            catch (Exception ex) { _errors.Failed("held notices", ex); }
+            try { CheckRivaTunerOff(settings); }
+            catch (Exception ex) { _errors.Failed("RivaTuner check", ex); }
+            if (Profiling) RunOnSampler(() => Measure("ui:tray+widgets", t0));
+            if (alert is { } hot)
+                Notify(new Notice(NoticeKind.Alert, hot.Title, hot.Body, activity.Path, "temperatures", Urgent: true));
+        }, null);
+
+        // The taskbar readings and the widgets, on the UI thread.
+        void DrawReadings()
+        {
+            // In the taskbar, drawn by RigSight in any style, where it can be (Windows 11); else as Windows' own tray icons.
+            bool inStrip = _taskbarStrip.Update(trayReadings, settings.TrayGrayscale, settings.TraySide, settings.TrayStyle, settings.TrayTiles, settings.TrayWidth,
+                settings.TrayLetterNames, settings.TraySpeedBits, settings.TrayGap, settings.TrayScreens);
+            try
+            {
+                // Windows 10's own tray icons: an icon per part as before 1.3, or with any pair saved since.
+                _trayReadings.Update(inStrip ? [] : trayReadings, settings.TrayStyle == TrayStyle.Grouped || settings.TrayPairs is { Count: > 0 }, settings.TrayGrayscale, settings.TrayTiles);
+                _trayWaiting = _taskbarStrip.Waiting;
+                if (cardKey is not null && cardSections is { Count: > 0 }) _card.Renew(cardKey, cardSections);
+            }
+            catch (Exception ex) { _errors.Failed("tray readings", ex); }
+            try
+            {
+                // Asked of Windows here, on this tick and for the same window, so Alt+Enter between windowed and borderless
+                // is caught on the next tick (only with a game in front: a few cheap calls, no new polling).
+                var front = gameInFront ? Win32.GetForegroundWindow() : IntPtr.Zero;
+                bool fillsScreen = gameInFront && Tracking.ActivityMonitor.IsFullscreen(front);
+                var gameMonitor = gameInFront ? Win32.MonitorFromWindow(front, 2 /* MONITOR_DEFAULTTONEAREST */) : IntPtr.Zero;
+                // Overlay planes are asked of Windows once a screen, and only when a game fills it.
+                _widgets.Update(data, gameInFront, fillsScreen,
+                    exclusive: gameInFront && OverlayManager.IsExclusiveFullscreen(),
+                    overlayPlanes: fillsScreen && OverlayPlanes.On(gameMonitor),
+                    gameMonitor);
+            }
+            catch (Exception ex) { _errors.Failed("widgets", ex); }
+        }
+    }
+
+    private List<ProcInfo> BuildProcs(ProcessSnapshot snapshot, Dictionary<string, WindowState> windows)
+    {
+        Dictionary<int, string>? titles = null;
+        // Asked of Windows once for each process (see CriticalMarks), and only here, while a window is open.
+        var marked = _criticalMarks.Marked(snapshot.Processes, DateTime.UtcNow.ToFileTimeUtc());
+        var markedApps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (int pid in marked)
+            if (snapshot.PidToExe.TryGetValue(pid, out var exe)) markedApps.Add(exe);
+        return [.. snapshot.Apps.Values
+            .OrderByDescending(a => a.MemMB)
+            // The biggest in memory, whatever has a window, and whatever is busy right now: the Processes page sorts
+            // by processor and disk too, and an app at work mustn't be missing from it for being small.
+            .Where((a, i) => i < 80 || windows.ContainsKey(a.Exe) || a.Cpu >= 0.5 || a.Disk >= 256 * 1024)
+            .Select(a =>
+            {
+                var (name, path) = _apps.Describe(a.Exe, a.FirstPid);
+                if (_settings.AppNames.TryGetValue(a.Exe, out var alias)) name = alias;
+                return new ProcInfo
+                {
+                    Exe = a.Exe, Name = name, Path = path, Count = a.Count,
+                    Cpu = Math.Round(a.Cpu, 1), MemMB = Math.Round(a.MemMB, 1), HasWindow = windows.ContainsKey(a.Exe),
+                    Disk = Math.Round(a.Disk), Started = a.Created > 0 ? new DateTimeOffset(DateTime.FromFileTimeUtc(a.Created)).ToUnixTimeSeconds() : 0,
+                    Critical = markedApps.Contains(a.Exe),
+                    Processes = a.Processes is { } processes ? _procLabels.Describe(a.Exe, name, processes, ref titles, marked) : null,
+                };
+            })];
+    }
+
+    private bool _drivesLogged;
+    private readonly Rigsight.Core.Storage.DriveTempPace _driveTempPace = new();
+
+    /// <summary>
+    /// The drives were just read: today's health row for each (see RigsightDb.UpsertDriveHealth), and their readings to
+    /// an open app (the Storage page and an opened drive show them as they are, not as they were when the app connected).
+    /// </summary>
+    private void OnDrivesRead()
+    {
+        var drives = _sensors.DriveHealth;
+        try
+        {
+            long day = TimeUtil.ToUnix(DateTime.Today);
+            long nowMs = Environment.TickCount64;
+            // One commit for every drive, not one each (every 10 s while the app is open).
+            using (var tx = _db.BeginTransaction())
+            {
+                foreach (var d in drives)
+                    _db.UpsertDriveHealth(day, d, countTemp: !string.IsNullOrEmpty(d.Key) && _driveTempPace.Counts(d.Key, day, nowMs));
+                tx.Commit();
+            }
+            if (!_drivesLogged)
+            {
+                _drivesLogged = true;
+                Log.Write("drives", $"Keeping each drive's daily health: {string.Join("; ", drives.Select(d =>
+                    $"{d.Name} key={(string.IsNullOrEmpty(d.Key) ? "none (not kept)" : d.Key)} disk={d.DiskNumber} bus={d.Bus} life={d.Life} hours={d.PowerOnHours} written={d.WrittenGb} GB attributes={d.Attributes?.Count ?? 0} warns at={d.TemperatureWarning}"))}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("drives", ex);
+        }
+        _pipe.Broadcast(new AgentMessage { T = "drives", Drives = drives });
+    }
+
+    private void RecordDrives()
+    {
+        try
+        {
+            long day = TimeUtil.ToUnix(DateTime.Today);
+            foreach (var d in DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Fixed && d.IsReady))
+            {
+                double total = d.TotalSize / 1073741824.0, free = d.TotalFreeSpace / 1073741824.0;
+                _db.UpsertDriveDay(new DriveDay { Day = day, Drive = d.Name, UsedGb = total - free, TotalGb = total });
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("drives", ex);
+        }
+    }
+
+    private void OnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume)
+        {
+            _justTurnedOn = true;
+            RunOnSampler(() => _connection.Settle(TimeUtil.NowUnix()));
+            _line?.FindAgain();
+        }
+        else if (e.Mode == PowerModes.Suspend)
+            RunOnSampler(() =>
+            {
+                KeepOngoingDrop();
+                _connection.Suspend();
+            });
+    }
+
+    // ── Internet ──────────────────────────────────────────────────────────
+
+    /// <summary>Sampler thread: starts reading every app's network use (with admin rights), and watching for drops.</summary>
+    private void StartNetwork()
+    {
+        NetworkChange.NetworkAddressChanged += OnAddressChanged;
+        NetworkChange.NetworkAvailabilityChanged += OnAvailabilityChanged;
+        _addresses = AddressBook.Read();
+        _addressesChanged = false;
+        _connection.Settle(TimeUtil.NowUnix());
+        if (_isAdmin) _netTrace = NetworkTrace.Start(NetTraceName, () => _addresses);
+        _line = LineCheck.Start(_settings.Tracking.PingChecks);
+        _serverPing = ServerPing.Start();
+        MemoryAt("network");
+    }
+
+    private static string NetTraceName => "Rigsight Network" + RigsightPaths.InstanceSuffix;
+
+    // Without admin rights there is no trace of each app's use: the network cards' own counters say what the whole
+    // PC moved. Read every few seconds (listing the cards isn't free), the last reading and what has gone by since.
+    private Dictionary<string, (long Received, long Sent)>? _cardsBefore;
+    private double _cardSeconds;
+    private const double CardEverySeconds = 3;
+
+    /// <summary>
+    /// Sampler thread, without admin rights: what crossed the network cards since the last look goes into the totals and
+    /// the speed right now. The bytes downloaded, for the drop watch (null between looks).
+    /// </summary>
+    private long? SampleCards(double seconds)
+    {
+        _cardSeconds += seconds;
+        if (_cardSeconds < CardEverySeconds && _cardsBefore is not null) return null;
+        var now = NetAdapters.CardTraffic();
+        var before = _cardsBefore;
+        double span = _cardSeconds;
+        _cardsBefore = now;
+        _cardSeconds = 0;
+        // The first look, or counters that couldn't be read: nothing to count.
+        if (now is null || before is null) return null;
+        // Card by card: one that has just come back (Wi-Fi reconnecting, a dock, waking up) has no reading before, and
+        // its whole count since Windows started is not what moved in these seconds. One whose count went back restarted.
+        long down = 0, up = 0;
+        foreach (var (id, n) in now)
+            if (before.TryGetValue(id, out var b) && n.Received >= b.Received && n.Sent >= b.Sent)
+            {
+                down += n.Received - b.Received;
+                up += n.Sent - b.Sent;
+            }
+        _tracker.OnNetworkTotal(down, up, span);
+        var live = _tracker.NetNow;
+        lock (_netHistoryLock)
+        {
+            _netHistory.Enqueue(new NetLive { Time = live.Time, Down = live.Down, Up = live.Up });
+            while (_netHistory.Count > 60) _netHistory.Dequeue();
+        }
+        return down;
+    }
+
+    private static readonly NetLive NotRecording = new() { Stalled = true };
+
+    private bool _sessionsLogged;
+
+    // While the trace is silent: the network cards' own counters for the whole PC's speed right now, so the taskbar,
+    // widgets and Network page keep a speed (issue #13: they showed dashes for hours). Live only, never written to the
+    // history: a minute the trace comes back in would count twice.
+    private Dictionary<string, (long Received, long Sent)>? _stallCards;
+    private double _stallSeconds;
+    private (double Down, double Up)? _stallSpeed;
+
+    /// <summary>Sampler thread, each second while the trace is silent: the cards' speed, read every few seconds.</summary>
+    private (double Down, double Up)? CardSpeedWhileStalled(double seconds)
+    {
+        _stallSeconds += seconds;
+        if (_stallSeconds < CardEverySeconds && _stallCards is not null) return _stallSpeed;
+        var now = NetAdapters.CardTraffic();
+        var before = _stallCards;
+        double span = _stallSeconds;
+        _stallCards = now;
+        _stallSeconds = 0;
+        if (now is null || before is null || span <= 0) return _stallSpeed = null;
+        long down = 0, up = 0;
+        foreach (var (id, n) in now)
+            if (before.TryGetValue(id, out var b) && n.Received >= b.Received && n.Sent >= b.Sent)
+            {
+                down += n.Received - b.Received;
+                up += n.Sent - b.Sent;
+            }
+        return _stallSpeed = (down / span, up / span);
+    }
+
+    /// <summary>
+    /// Sampler thread, each minute: a trace that delivers nothing while megabytes go through the network cards is started
+    /// again; if that doesn't help, traces left behind by test copies are stopped first (see <see cref="TraceWatch"/>).
+    /// </summary>
+    private void CheckNetworkTrace()
+    {
+        KeepOngoingDrop();
+        WriteLineMinutes();
+        if (!_isAdmin) return;
+        long now = TimeUtil.NowUnix();
+        // No trace at all (Windows wouldn't start one, or ended it): there are no events to count, only the remedies.
+        var remedy = _netTrace is { Ended: false } trace ? _traceWatch.Check(now, NetAdapters.CardBytes(), trace.Events) : _traceWatch.Missing(now);
+        switch (remedy)
+        {
+            case TraceRemedy.Restart:
+                Log.Write("network", _netTrace is { Ended: false } ? "App network use stopped coming in while the network was busy: reading it again"
+                    : "App network use isn't being read: starting it again");
+                RestartNetworkTrace();
+                break;
+            case TraceRemedy.ClearOthers:
+                var others = NetworkTrace.StopOthers(NetTraceName);
+                Log.Write("network", others.Count == 0 ? "Still nothing coming in: reading it again"
+                    : $"Still nothing coming in: stopped {others.Count} trace(s) left by test copies ({string.Join(", ", others)}), reading it again");
+                RestartNetworkTrace();
+                break;
+            case TraceRemedy.GiveUp:
+                Log.Write("network", $"App network use still isn't coming in: trying again in {TraceWatch.RetrySeconds / 60} minutes");
+                // Once a stall: which trace sessions are running, so the log names one that may hold the network events
+                // (issue #13: a network tool installed and removed left them silent until a restart; the log couldn't say).
+                if (!_sessionsLogged)
+                {
+                    _sessionsLogged = true;
+                    var sessions = NetworkTrace.Running();
+                    Log.Write("network", $"Trace sessions running now ({sessions.Count}): {string.Join(", ", sessions)}");
+                }
+                break;
+            case TraceRemedy.Recovered:
+                Log.Write("network", "App network use is coming in again");
+                _sessionsLogged = false;
+                break;
+        }
+    }
+
+    /// <summary>Sampler thread, each minute and before sleep: a drop still going on is written as far as it has got, so
+    /// one the PC is switched off or put to sleep in isn't lost (see <see cref="ConnectionWatch.Ongoing"/>).</summary>
+    private void KeepOngoingDrop()
+    {
+        if (_connection.Ongoing(TimeUtil.NowUnix()) is { } drop) _tracker.OnDrop(drop);
+    }
+
+    private void RestartNetworkTrace()
+    {
+        _netTrace?.Dispose();
+        _netTrace = NetworkTrace.Start(NetTraceName, () => _addresses);
+        _traceWatch.Restarted();
+    }
+
+    private void OnAddressChanged(object? sender, EventArgs e)
+    {
+        _addressesChanged = true;
+        _line?.FindAgain();
+    }
+
+    private void OnAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
+    {
+        _addressesChanged = true;
+        _line?.FindAgain();
+    }
+
+    /// <summary>Sampler thread, each minute: the line check's whole minutes into the history (none while tracking is paused).</summary>
+    private void WriteLineMinutes()
+    {
+        if (_line is null) return;
+        long now = TimeUtil.NowUnix();
+        var minutes = _line.TakeMinutes(now);
+        var servers = _serverPing?.TakeMinutes(now) ?? [];
+        if (_settings.Tracking.IsPaused(now)) return;
+        foreach (var m in minutes) _db.WriteNetPing(m);
+        foreach (var s in servers) _db.WriteNetServer(s);
+    }
+
+    // The ping to each game's, call's and picked app's server (see ServerPing): needs the admin trace to see the servers.
+    private ServerPing? _serverPing;
+
+    /// <summary>The line check's live figures with each app's server beside them (sampler thread, for the tick).</summary>
+    private LineLive? LineNow()
+    {
+        var line = _line?.Live();
+        var servers = _serverPing?.Live(_db);
+        if (servers is null) return line;
+        line ??= new LineLive();
+        line.Servers = servers;
+        return line;
+    }
+
+    /// <summary>Sampler thread, each second: the servers the games, calls and picked apps talk to, from the trace's flows.</summary>
+    private void SampleServers(NetworkTrace trace)
+    {
+        if (_serverPing is not { } servers) return;
+        var t = _settings.Tracking;
+        bool on = t.PingChecks && t.ServerPings && !t.IsPaused(TimeUtil.NowUnix());
+        trace.WatchTcp(on ? ServerPing.PickedPids(_running, t.PingApps) : null);
+        servers.OnSecond(trace.TakeFlows(), trace.TakeEchoes(), _running, _tracker.IsGameExe, t.PingApps, on);
+        trace.WatchEchoes(on ? servers.EchoServers() : null);
+    }
+
+    /// <summary>Sampler thread, each second: what each app moved since the last time, and whether the internet is there.</summary>
+    private void SampleNetwork(double seconds)
+    {
+        long? internetDown = null;
+        // A standard account only: an admin's agent that isn't elevated (yet) records nothing here, as before.
+        if (_netTrace is null && Account.Kind == AccountKind.Standard) internetDown = SampleCards(seconds);
+        if (_netTrace is { } trace)
+        {
+            var counts = trace.Take();
+            try { SampleServers(trace); }
+            catch (Exception ex) { _errors.Failed("server ping", ex); }
+            long down = 0;
+            foreach (var c in counts.Values) down += c.InternetDown;
+            internetDown = down;
+            _tracker.OnNetwork(counts, _running, seconds);
+            var now = _tracker.NetNow;
+            now.Stalled = _traceWatch.Stalled;
+            now.FromCards = false;
+            if (now.Stalled && CardSpeedWhileStalled(seconds) is { } cards)
+                (now.Down, now.Up, now.FromCards) = (cards.Down, cards.Up, true);
+            else if (!now.Stalled)
+                (_stallCards, _stallSpeed) = (null, null);
+            lock (_netHistoryLock)
+            {
+                _netHistory.Enqueue(new NetLive { Time = now.Time, Down = now.Down, Up = now.Up });
+                while (_netHistory.Count > 60) _netHistory.Dequeue();
+            }
+        }
+        long nowTs = TimeUtil.NowUnix();
+        var ended = _connection.Observe(nowTs, NetAdapters.WindowsSeesInternet(), _addresses.CardConnected, internetDown);
+        if (ended is { } drop)
+        {
+            Log.Write("network", $"The internet dropped for {drop.Seconds} s ({drop.Kind})");
+            _tracker.OnDrop(drop);
+        }
+        NoticeDrops(nowTs, ended);
+    }
+
+    /// <summary>
+    /// Sampler thread, each second: tell the person the internet dropped and came back (when Settings says so). The card's
+    /// kind is read every half minute while connected, so a drop names what was lost even with the card gone.
+    /// </summary>
+    private void NoticeDrops(long now, NetDrop? ended)
+    {
+        var open = _connection.Current(now);
+        if (open is null && now - _cardKindAt >= 30)
+        {
+            _cardKindAt = now;
+            if (NetAdapters.Current()?.Kind is { } kind) _cardKind = kind;
+        }
+        if (_dropNotices.Tick(now, open, ended, _cardKind, _line?.RouterAnswered(now - 10)) is not { } said) return;
+        Log.Write("network", $"Notice: {said.Title} ({said.Body})" + (_settings.Alerts.InternetDrops ? "" : ", not shown: drop alerts are off"));
+        if (!_settings.Alerts.InternetDrops) return;
+        string day = TimeUtil.FromUnix(said.At).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        Notify(new Notice(said.Good ? NoticeKind.InternetBack : NoticeKind.Internet, said.Title, said.Body, Page: "network", Arg: day, Urgent: true));
+    }
+
+    /// <summary>
+    /// Sampler thread, each minute: once the PC was just turned on (or woke) and the user is here, the recap of the last
+    /// day it was used, unless that day's was shown already (see <see cref="DailyRecap"/>).
+    /// </summary>
+    private void MaybeShowDailyRecap()
+    {
+        if (!_justTurnedOn || !_presentNow) return;
+        _justTurnedOn = false;
+        var settings = _settings;
+        var today = DateTime.Today;
+        var over = DailyRecap.OverBefore(DateTime.Now);
+        var lastUsed = _db.LastUsedDayBefore(TimeUtil.ToUnix(over)) is long d ? TimeUtil.FromUnix(d).Date : (DateTime?)null;
+        MaybeShowWeeklyRecap(today);
+        if (DailyRecap.DayToRecap(over, lastUsed, DailyRecap.Recapped(settings)) is not { } day) return;
+        // Built before the day is marked as recapped: if building fails, the next turn-on tries again.
+        var report = settings.Alerts.DailyRecap ? ReportBuilder.Build(_db, ReportRange.Day, day, settings) : null;
+        MutateSettings(s =>
+        {
+            s.RecappedDay = DailyRecap.Key(day);
+            s.LastRecapDay = DailyRecap.Key(today);
+        });
+        if (report is null || !report.HasData || report.ActiveSec < 300) return;
+
+        var top = report.Apps.FirstOrDefault(a => a.ActiveSec > 0 && a.Category != AppCategory.System);
+        var (title, text) = NoticeWords.Recap(day, today, report.ActiveSec, top?.Name, top?.ActiveSec ?? 0, report.CpuTempPeak?.Value, report.GpuTempPeak?.Value);
+        Notify(new Notice(NoticeKind.Recap, title, text, Page: "reports", Arg: DailyRecap.Key(day)));
+    }
+
+    private DateTime _rewindsChecked;
+
+    /// <summary>
+    /// Sampler thread, each minute (read at most every half hour): a rewind finished (a month, three, six, a year) is
+    /// made and saved. While RigSight is closed, the biggest one made is announced with a notification in the user's
+    /// Notifications style (held back during a fullscreen game like every other); RigSight open shows it itself.
+    /// </summary>
+    private void MaybeMakeRewinds()
+    {
+        var now = DateTime.Now;
+        if (now - _rewindsChecked < TimeSpan.FromMinutes(30)) return;
+        _rewindsChecked = now;
+        if (Core.Rewind.RewindStore.Quiet) return;
+        var settings = _settings;
+        List<Core.Rewind.RewindFacts> made;
+        try { made = Core.Rewind.RewindStore.MakeDue(_db, settings, now); }
+        catch (Exception ex) { Log.Error("rewind", ex); return; }
+        if (made.Count > 0)
+        {
+            // A month's history read once a month: given back, as after the long crash scan (the 2026-11-03 gate: 146 MB
+            // private with October's just made, still 116 MB 25 s after, against 62 when none is due).
+            MemoryAt("rewind made");
+            CompactMemory();
+        }
+        if (made.Count == 0 || !settings.Rewind.Notify || _pipe.ClientCount > 0) return;
+        var f = made[0];
+        // Told now: the app shows them as its sidebar line, not full screen again (2026-10-30: the first rewind, 1 Nov,
+        // would have come twice, as this notification and then full screen at RigSight's next start).
+        foreach (var m in made) { m.Announced = true; Core.Rewind.RewindStore.Save(m); }
+        Log.Write("rewind", $"Announcing {f.Id} with a notification");
+        Notify(new Notice(NoticeKind.Rewind, Core.Rewind.RewindCards.Ready(f), Core.Rewind.RewindCards.Teaser(f), Page: "rewind", Arg: f.Id));
+    }
+
+    private void OnSessionEnded(SessionRow row, AppInfo app)
+    {
+        var settings = _settings;
+        bool summaryWanted = settings.Alerts.SessionSummaries && row.IsGame && row.ActiveSec >= settings.Alerts.SessionSummaryMinMinutes * 60;
+        string name = AppResolver.DisplayName(app, settings);
+
+        // Windows logs a crash a few seconds after the process dies, so wait a moment before deciding
+        // between a normal summary and a (gentle) "what happened". After a crash, the summary is
+        // skipped entirely unless crash notifications are on — nobody needs a scoreboard right then.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(12_000);
+                var crash = CrashLogReader.RecentAppCrash(app.Exe, TimeSpan.FromMinutes(3));
+                if (crash is not null)
+                {
+                    // Stored and on the Crashes page either way; said only if alerts are on, the app isn't muted, and
+                    // it isn't the same app crashing again and again (the first is always said).
+                    if (!_settings.Alerts.CrashNotifications || _settings.IsCrashMuted(app.Exe) || !_crashNotices.Allow(app.Exe, crash.Time))
+                    {
+                        RunOnSampler(ScanCrashes);
+                        return;
+                    }
+                    // The notification says what the crash's own case will say: the crash is stored first, and its
+                    // finding worked out from the history exactly as every page does (the minutes before, earlier
+                    // times, a driver being installed, other things failing at the same moment).
+                    var finding = await OnSampler(() => { ScanCrashes(); return FindingOf(crash); });
+                    // Windows files its report (the kind of failure, what a frozen app was waiting on) some seconds
+                    // after the crash's own entry: before saying there isn't enough, one more look once it has had time.
+                    if (finding is null or { Confidence: Confidence.NotEnough })
+                    {
+                        await Task.Delay(CrashNotices.SecondLook);
+                        finding = await OnSampler(() => { ScanCrashes(); return FindingOf(crash); }) ?? finding;
+                    }
+                    string body = NoticeWords.AppDown(finding, row.IsGame, row.ActiveSec);
+                    // The title says what Windows recorded, which is never in doubt: "Dota 2 crashed", "Chrome froze".
+                    Notify(new Notice(NoticeKind.Crash, Wording.Title(crash.Kind, NoticeWords.Name(name)), body,
+                        app.Path, "crashes", crash.Time.Ticks.ToString()));
+                    return;
+                }
+                // What's worth knowing about the game (hotter than usual, the GPU slowing itself): the summary's last
+                // sentences when there is one, so the game gets one card; its own cards when there isn't.
+                var (more, cards) = row.IsGame ? await OnSampler(() => AfterGame(row, name, app.Exe)) : ([], []);
+                if (!summaryWanted)
+                {
+                    foreach (var c in cards) Notify(c, app.Path);
+                    return;
+                }
+                var (title, text) = NoticeWords.Session(name, row.ActiveSec, row.CpuTempMax, row.GpuTempMax);
+                if (more.Count > 0) text = string.Join(" ", new[] { text }.Concat(more).Where(x => x.Length > 0));
+                Notify(new Notice(NoticeKind.Session, title, text, app.Path, "games", app.Exe) { AlsoSays = [.. cards.Select(c => c.Key)] });
+            }
+            catch (Exception ex)
+            {
+                Log.Error("session", ex); // a background task's error would otherwise vanish with it
+            }
+        });
+    }
+
+
+    /// <summary>Runs <paramref name="work"/> on the sampler thread (the only one that touches the database) and hands back what it returns.</summary>
+    private Task<T> OnSampler<T>(Func<T> work)
+    {
+        var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        RunOnSampler(() =>
+        {
+            try { done.SetResult(work()); }
+            catch (Exception ex) { done.SetException(ex); }
+        });
+        return done.Task;
+    }
+
+    /// <summary>
+    /// Sampler thread: the finding of a crash just read from Windows' log, once it is stored. Worked out with what
+    /// else failed in the five minutes around it, so several things failing together say the one thing here too.
+    /// Null when it isn't stored (yet).
+    /// </summary>
+    private CrashFinding? FindingOf(CrashEvent crash)
+    {
+        var near = _db.GetCrashes(crash.Ts - 300, crash.Ts + 301);
+        var stored = near.FirstOrDefault(c => c.Kind == crash.Kind && c.Ts == crash.Ts && c.AppExe.Equals(crash.AppExe, StringComparison.OrdinalIgnoreCase));
+        return stored is null ? null : CrashCases.Of(_db, near, _settings).GetValueOrDefault(stored.Id);
+    }
+
+    private System.Diagnostics.Eventing.Reader.EventLogWatcher? _appCrashWatch;
+    private int _appCrashScanDue;
+
+    /// <summary>
+    /// Windows tells the agent the moment it logs an app crashing or freezing, so its close-up is kept while the ring
+    /// still holds the minutes before: the ten-minute scan alone comes too late for most of them, and a crash of an
+    /// app nobody was using has no session ending to look for it. Nothing is read until one is logged.
+    /// </summary>
+    private void WatchAppCrashes()
+    {
+        try
+        {
+            // And Windows filing an error report: that is how most PCs record the graphics card hanging (a driver reset).
+            var query = new System.Diagnostics.Eventing.Reader.EventLogQuery("Application", System.Diagnostics.Eventing.Reader.PathType.LogName,
+                CrashLogReader.AppQuery.Replace("]]", " or (EventID=1001 and Provider[@Name='Windows Error Reporting'])]]"));
+            _appCrashWatch = new System.Diagnostics.Eventing.Reader.EventLogWatcher(query);
+            _appCrashWatch.EventRecordWritten += (_, e) =>
+            {
+                e.EventRecord?.Dispose();
+                // Several at once (an app and its helpers) are one scan; a few seconds on, for Windows' own report too.
+                if (Interlocked.Exchange(ref _appCrashScanDue, 1) == 1) return;
+                _ = Task.Delay(5_000).ContinueWith(_ =>
+                {
+                    Interlocked.Exchange(ref _appCrashScanDue, 0);
+                    RunOnSampler(ScanCrashes);
+                });
+            };
+            _appCrashWatch.Enabled = true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("closeup", ex);
+            _appCrashWatch = null;
+        }
+    }
+
+    private readonly CrashNoticeGate _crashNotices = new();
+    private CloseUpKeeper _closeUps = null!;
+
+    // Crash records from Windows' logs into the history, and which become a card (see CrashScanner). Made on first use:
+    // the database and the close-ups are ready by then.
+    private CrashScanner? _crashScanner;
+    private CrashScanner CrashScan => _crashScanner ??= new CrashScanner(_db, CrashScanner.Source.WindowsLogs, () => DateTime.Now,
+        () => _settings, _crashNotices, added => _closeUps.OnStored(added), Notify);
+
+    /// <summary>Sampler thread: copies new crash records from the Windows event logs into the database.</summary>
+    private void ScanCrashes() => CrashScan.Scan();
+
+    /// <summary>When the fans' speeds were last looked through for a setting changed while the PC was off.</summary>
+    private DateTime? _fanSettingsRead;
+
+    /// <summary>
+    /// Once an hour (and the first time over all the history): motherboard fans that came back from a restart at another
+    /// set speed (see <see cref="FanSettings"/>), from the fan minutes already written. A restart is looked at only once
+    /// its fans have run for an hour after it, so a fan still settling isn't taken for a setting, and only once.
+    /// </summary>
+    private void ScanFanSettings(DateTime now)
+    {
+        if (_fanSettingsRead is { } read && now - read < TimeSpan.FromHours(1)) return;
+        _fanSettingsRead = now;
+        try
+        {
+            long through = long.TryParse(_db.GetMeta(FanSettingsKey), out long t) ? t : 0, settled = TimeUtil.ToUnix(now.AddHours(-1)), end = TimeUtil.ToUnix(now);
+            var fans = _db.GetFans();
+            if (fans.Count == 0) return;
+            // A week at a time (the first scan reads all the history: months of every fan's minutes at once would be a
+            // spike), each restart in exactly one week: the 3 days before it are what it's set against, a day after it
+            // lets its fans settle.
+            const long Day = 86400, Week = 7 * Day;
+            int weeks = 0;
+            for (long w = through > 0 ? through : _db.FirstFanMinute() ?? settled; w < settled; w += Week, weeks++)
+            {
+                long upTo = Math.Min(w + Week, settled);
+                var minutes = _db.GetFanMinutes(w - 3 * Day, Math.Min(upTo + Day, end));
+                var found = FanSettings.Find(fans, minutes).Where(c => TimeUtil.ToUnix(c.Time) > w && TimeUtil.ToUnix(c.Time) <= upTo).ToList();
+                foreach (var c in _db.InsertChanges(found)) Log.Write("changes", $"{c.Title} at {c.Time:d MMM HH:mm}: {c.Now}");
+            }
+            _db.SetMeta(FanSettingsKey, settled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (weeks > 1) CompactMemory();
+        }
+        catch (Exception ex) { Log.Error("changes", ex); }
+    }
+
+    private const string FanSettingsKey = "fan_settings_through";
+
+    private static bool IsDropout(SystemChange c) => c.Kind == ChangeKind.Hardware && c.Title.StartsWith("GPU disconnected", StringComparison.Ordinal);
+
+    /// <summary>When Windows' logs were last read for changes (null: not since the agent started).</summary>
+    private DateTime? _changeLogsRead;
+
+    /// <summary>
+    /// Sampler thread, every minute: notes what changed on the PC. Apps, startup programs, hardware and settings from
+    /// setting the PC's inventory against the last one (6 ms, measured); drivers and Windows updates from the event logs
+    /// (all they still hold the first time, then what's new), every ten minutes, and at once when a graphics driver
+    /// turned up in the inventory, for the moment it was installed.
+    /// </summary>
+    private void ScanChanges()
+    {
+        long started = Stopwatch.GetTimestamp();
+        int foundCount = 0;
+        try
+        {
+            var now = DateTime.Now;
+            bool first = _db.ChangesScanned is null;
+            var reading = Inventory.Read();
+            var before = _db.GetInventory();
+            Inventory.HoldRunningUpdates(reading, before, RunningPaths);
+            Inventory.HoldDownloads(reading, before);
+            var found = _db.ApplyInventory(reading, Inventory.Owner(), now);
+
+            List<SystemChange> logged = [];
+            if (first || _changeLogsRead is not { } read || now - read >= TimeSpan.FromMinutes(Inventory.ScanMinutes) || found.Any(c => c.IsGraphicsDriver || IsDropout(c)))
+            {
+                var since = (_changeLogsRead ?? (_db.ChangesScanned is long scanned ? TimeUtil.FromUnix(scanned) : now.AddYears(-2))).AddHours(-1);
+                logged = ChangeLogReader.Read(since, now);
+                _changeLogsRead = now;
+            }
+
+            // A graphics driver is followed by its version in the inventory (the logs often don't name it); the
+            // log entry only says when: the last one in the hour before it was found (an install takes minutes, and
+            // may have begun before the check before). Before the first inventory the logs are all there is.
+            var graphics = logged.LastOrDefault(c => c.IsGraphicsDriver && c.Time > now.AddHours(-1));
+            // A GPU back with the driver it had: no install, unless Windows logged one while it was gone (the same
+            // version put on again, after a driver cleaner): then that's what it was.
+            found.RemoveAll(c => IsDropout(c) && logged.Any(l => l.IsGraphicsDriver && l.Time >= c.Time.AddMinutes(-2)));
+            if (!first) logged.RemoveAll(c => c.IsGraphicsDriver);
+            // Found by this check, so it happened since the last one (which may be last night's).
+            if (_db.ChangesScanned is long last) found = [.. found.Select(c => c with { NoticedFrom = TimeUtil.FromUnix(last) })];
+            // Apps and startup programs to the second, where the registry says when it was written in between.
+            if (found.Count > 0)
+            {
+                try
+                {
+                    var exact = Inventory.Exact(found, Inventory.ReadWriteTimes());
+                    for (int i = 0; i < found.Count; i++)
+                        Log.Write("changes", exact[i].IsApproximate ? $"{found[i].Title}: between {found[i].Earliest:HH:mm:ss} and {found[i].Time:HH:mm:ss}"
+                            : $"{found[i].Title}: at {exact[i].Time:HH:mm:ss} ({(exact[i].Time == found[i].Time ? "the minute it was found" : "registry")}), found between {found[i].Earliest:HH:mm:ss} and {found[i].Time:HH:mm:ss}");
+                    found = exact;
+                }
+                catch (Exception ex) { Log.Error("changes", ex); }
+            }
+            if (graphics is not null)
+                found = [.. found.Select(c => c.IsGraphicsDriver ? c with { Time = graphics.Time, Subject = c.IsApproximate ? Inventory.ExactPrefix + c.Subject : c.Subject, NoticedFrom = null } : c)];
+
+            _db.InsertChanges(logged);
+            _db.InsertChanges(found);
+            _db.ChangesScanned = TimeUtil.ToUnix(now);
+            ScanFanSettings(now);
+            foundCount = found.Count + logged.Count;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("changes", ex);
+        }
+        finally
+        {
+            // The first check since starting reads Windows' logs since the last one and the fans' last hour, and runs its
+            // code for the first time: start-up work, said with its time (the later checks take a few ms each). Like the
+            // RAM sticks and the long crash scan, what it read is handed back after: kept, it was ~5 MB more in Task
+            // Manager for as long as the agent ran (68 MB against 59-64, measured 2026-11-21).
+            if (!_changesCheckedOnce)
+            {
+                _changesCheckedOnce = true;
+                double ms = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                CompactMemory();
+                Log.Write("changes", $"First check since starting: {ms:0} ms, {foundCount} changes found; memory handed back");
+            }
+        }
+    }
+
+    private bool _changesCheckedOnce;
+
+    /// <summary>
+    /// Riggy (0.16.0 to 0.17.1) had a switch in the settings file. Settings no longer have it, but the file keeps the
+    /// line until it's next written, and its backup copy one writing longer: written twice now, neither has it.
+    /// </summary>
+    private void ForgetRiggySetting()
+    {
+        try
+        {
+            string file = RigsightPaths.SettingsFile;
+            if (!File.Exists(file) || !File.ReadAllText(file).Contains("\"ShowAsk\"", StringComparison.Ordinal)) return;
+            SettingsStore.Save(_settings);
+            SettingsStore.Save(_settings);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("settings", ex);
+        }
+    }
+
+    /// <summary>The full path of every program running now (a few milliseconds; asked for when an app's version changed).</summary>
+    private static List<string> RunningPaths()
+    {
+        var paths = new List<string>();
+        foreach (var p in Process.GetProcesses())
+        {
+            try
+            {
+                if (Win32.ProcessPath(p.Id) is { } path) paths.Add(path);
+            }
+            catch
+            {
+                // Exited meanwhile.
+            }
+            finally
+            {
+                p.Dispose();
+            }
+        }
+        return paths;
+    }
+
+    /// <summary>
+    /// The Timeline's refresh button: looks for new problems and changes now instead of at the next ten-minute check,
+    /// and says when it's done so the page can read them.
+    /// </summary>
+    private void ScanNow()
+    {
+        ScanCrashes();
+        ScanChanges();
+        _pipe.Broadcast(new AgentMessage { T = "scanned" });
+    }
+
+    /// <summary>Shows an example of each notification so the user can judge them (Settings → Notifications).</summary>
+    private void PreviewNotification(string? kind)
+    {
+        var s = _settings;
+        var activity = _tracker.Activity;
+        Notice notice = kind switch
+        {
+            "alert" => NoticeWords.Running([new("GPU", s.Alerts.GpuLimit + 3, s.Alerts.GpuLimit)], s.Alerts.SustainSeconds, "Cyberpunk 2077") is var (aTitle, aBody)
+                ? new(NoticeKind.Alert, aTitle, aBody, Page: "temperatures", Urgent: true) : null!,
+            "session" => NoticeWords.Session("Dota 2", 2 * 3600 + 14 * 60, 71, 68) is var (sTitle, sBody)
+                ? new(NoticeKind.Session, sTitle, sBody, activity.Path, "games") : null!,
+            "crash" => new(NoticeKind.Crash, Wording.Title(CrashKind.AppCrash, "Dota 2"), CrashNotices.Sample, activity.Path, "crashes"),
+            // The notifications round's kinds, each through its real words with made-up figures.
+            _ when NoticePreviews.Of(kind) is { } p => new(p.Kind, p.Text.Title, p.Text.Body, Page: p.Page, Urgent: p.Kind is NoticeKind.FanStopped or NoticeKind.DriveFailing),
+            _ => NoticeWords.Recap(DateTime.Today.AddDays(-1), DateTime.Today, 6 * 3600 + 12 * 60, "Dota 2", 3 * 3600 + 5 * 60, 78, 72) is var (rTitle, rBody)
+                ? new(NoticeKind.Recap, rTitle, rBody, Page: "reports", Arg: "yesterday") : null!,
+        };
+        _notices.Show(notice with { Title = Lang.T($"{notice.Title} (preview)") }, bypassQuiet: true);
+    }
+
+    // ── App connection ────────────────────────────────────────────────────
+
+    private AgentMessage BuildHello()
+    {
+        RigsightSettings helloSettings;
+        long helloRev;
+        lock (_settingsLock) (helloSettings, helloRev) = (_settings, _settingsRev);
+        var hello = new AgentMessage
+        {
+            T = "hello",
+            Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3),
+            IsAdmin = _isAdmin,
+            StandardAccount = Account.Kind == AccountKind.Standard,
+            Everyone = MachineSetup.Everyone,
+            KeepUpdated = MachineSetup.KeepUpdated,
+            StartupEnabled = _startupEnabled,
+            Settings = helloSettings,
+            SettingsRev = helloRev,
+            Page = _pendingPage,
+            Arg = _pendingArg,
+            OverlayVisible = _overlayVisible,
+            OverlayHotkeyTaken = _overlay.HotkeyTaken,
+            AskHotkeyTaken = _askHotkeyTaken,
+            RtssState = _overlay.RtssState,
+            Today = _lastToday,
+        };
+        if (_sensorsReady)
+        {
+            var sensors = _sensors;
+            hello.Hardware = sensors.Schema;
+            hello.Keys = sensors.Keys;
+            hello.PreferredGpus = sensors.PreferredGpus;
+            hello.History = [.. _history.Snapshot(), .. _driveHistory.Snapshot()];
+            hello.Drives = sensors.DriveHealth;
+            hello.SensorStatus = _sensorStatus;
+            if (_netTrace is not null || _cardsBefore is not null)
+                lock (_netHistoryLock) hello.NetHistory = [.. _netHistory];
+            _sendAllExtremes = true;
+        }
+        _pendingPage = _pendingArg = null;
+        return hello;
+    }
+
+    private void OnUiMessage(UiMessage msg)
+    {
+        if (msg.T == "settings" && msg.Settings is not null)
+        {
+            // Through the store, so the app's copy gets the same repairs and limits as a file on disk
+            // (case-insensitive app lookups, clamped intervals, a valid shortcut...).
+            var incoming = SettingsStore.Deserialize(SettingsStore.Serialize(msg.Settings));
+            MutateSettings(_ => { }, replaceWith: incoming, appBase: msg.SettingsBase);
+            return;
+        }
+
+        switch (msg.Cmd)
+        {
+            case "procs-detail":
+                // The Memory page opened (or closed) apps to see each of their processes: resample now, not in 2 s.
+                var exes = string.IsNullOrEmpty(msg.Arg) ? null : new HashSet<string>(msg.Arg.Split('|'), StringComparer.OrdinalIgnoreCase);
+                RunOnSampler(() =>
+                {
+                    _procSampler.Detail = exes;
+                    _procsNow = true;
+                });
+                break;
+            case Core.Stability.TaskEnded.Command:
+                // The Processes page ended an app (itself: the agent is never asked to end anything) and has it
+                // written down for the Timeline.
+                if (Core.Stability.TaskEnded.Parse(msg.Arg, DateTime.Now) is { } ended) RunOnSampler(() => _db.InsertChanges([ended]));
+                break;
+            case "clear-history":
+                RunOnSampler(() =>
+                {
+                    _tracker.ClearHistory();
+                    _extremes.Clear();
+                    _sendAllExtremes = true;
+                    _pipe.Broadcast(new AgentMessage { T = "history-cleared" });
+                    // The apps list went too, and much here points at its rows: start again, fresh (the app reconnects by itself).
+                    _ui.Post(_ => Restart("history cleared"), null);
+                });
+                break;
+            // Without admin rights there is no task to switch: where the PC starts Rigsight for everyone, this person's
+            // own choice is kept in their settings (the sign-in start reads it).
+            case "startup-on" or "startup-off" when !RigsightPaths.IsTestInstance && !_isAdmin && MachineSetup.Everyone:
+                MutateSettings(s => s.StartAtSignIn = msg.Cmd == "startup-on");
+                _startupEnabled = msg.Cmd == "startup-on";
+                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
+                break;
+            // A standard account, on a PC not set up for everyone: the task needs an admin, their own Run entry doesn't.
+            case "startup-on" or "startup-off" when OwnStartup:
+                if (Environment.ProcessPath is { } own) MachineSetup.SetStartsForMe(msg.Cmd == "startup-on", own);
+                if (msg.Cmd == "startup-on") MutateSettings(s => s.StartAtSignIn = true);
+                _startupEnabled = MachineSetup.StartsForMe;
+                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
+                break;
+            // An admin turns keeping Rigsight up to date for everyone on or off, from their own Settings.
+            case "updater-on" or "updater-off" when _isAdmin && !RigsightPaths.IsTestInstance:
+                try { UpdaterTask.Set(msg.Cmd == "updater-on"); } catch (Exception ex) { Log.Error("setup", ex); }
+                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled, Everyone = MachineSetup.Everyone, KeepUpdated = MachineSetup.KeepUpdated });
+                break;
+            case "startup-on" or "startup-off" when !RigsightPaths.IsTestInstance:
+                _startupEnabled = msg.Cmd == "startup-on" ? StartupTask.Enable() : !StartupTask.Disable();
+                _startupEnabled = StartupTask.IsEnabled();
+                _pipe.Broadcast(new AgentMessage { T = "status", StartupEnabled = _startupEnabled });
+                break;
+            case WidgetCatalog.MoveCommand:
+                // A widget moved in the app (its map, its editor): the one way the app moves a widget (see KeepAgentFields).
+                if (WidgetCatalog.ParseMove(msg.Arg) is { } move)
+                    _ui.Post(_ => MutateSettings(s =>
+                    {
+                        if (s.Widgets.FirstOrDefault(w => w.Id == move.Id) is { } w) (w.X, w.Y) = (move.X, move.Y);
+                    }), null);
+                break;
+            case "pause":
+                _ui.Post(_ => PauseFor(int.TryParse(msg.Arg, out var m) ? m : 60), null);
+                break;
+            case "resume":
+                _ui.Post(_ => Resume(), null);
+                break;
+            case "sensors-retry":
+                RunOnSampler(RetryAllSensors);
+                break;
+            case "scan-now":
+                RunOnSampler(ScanNow);
+                break;
+            case "install-driver" when _isAdmin && !RigsightPaths.IsTestInstance:
+                InstallDriver();
+                break;
+            case "quit":
+                _ui.Post(_ => Quit("the app"), null);
+                break;
+            case "render-previews":
+                RenderPreviews(_settings);
+                break;
+            case "preview-notification":
+                _ui.Post(_ => PreviewNotification(msg.Arg), null);
+                break;
+            case "overlay-toggle":
+                _ui.Post(_ => _overlay.Toggle("its page"), null);
+                break;
+            case "start-rtss" when !RigsightPaths.IsTestInstance:
+                _ui.Post(_ => _overlay.StartRtss(), null);
+                break;
+            case "install-rtss" when !RigsightPaths.IsTestInstance:
+                _ui.Post(_ => _overlay.InstallRtss(_ui), null);
+                break;
+            case "overlay-status":
+                _ui.Post(_ => OnOverlayStateChanged(), null);
+                break;
+            case "restart-elevated":
+                _ui.Post(_ => RestartElevated(), null);
+                break;
+            case "history-damage":
+                RunOnSampler(() => OnHistoryDamage(fromSave: false));
+                break;
+            case "check-history":
+                RunOnSampler(CheckHistoryNow);
+                break;
+            case "repair-history":
+                HistoryRepair.AskRepair(RigsightPaths.DataDir, "you asked for a repair");
+                _ui.Post(_ => Restart("a history repair asked for in the app"), null);
+                break;
+            case "history-dismiss":
+                MutateSettings(s => s.HistoryFile.Dismissed = true);
+                break;
+            case "install-update" when !RigsightPaths.IsTestInstance:
+                _ = Task.Run(async () =>
+                {
+                    // Its own download of the latest release, not the path in the message (see UpdateInstaller).
+                    bool started = _isAdmin && await UpdateInstaller.RunAsync();
+                    _pipe.Broadcast(new AgentMessage { T = "update", UpdateStatus = started ? "started" : "failed" });
+                });
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Settings from the app, before they replace the agent's: fields the agent owns are kept from the agent's copy
+    /// (pausing goes through commands, so a tray "Pause" is never undone by the app sending settings it had before).
+    /// </summary>
+    internal static void KeepAgentFields(RigsightSettings incoming, RigsightSettings current)
+    {
+        incoming.StartupConfigured = current.StartupConfigured;
+        incoming.LastRecapDay = current.LastRecapDay;
+        incoming.RecappedDay = current.RecappedDay;
+        incoming.LastUpdateNotice = current.LastUpdateNotice;
+        incoming.HardwareAppsChecked = current.HardwareAppsChecked;
+        incoming.StartAtSignIn = current.StartAtSignIn;
+        incoming.Tracking.PausedUntil = current.Tracking.PausedUntil;
+        incoming.HistoryFile = current.HistoryFile; // the agent's alone: dismissing goes through a command
+        foreach (var w in incoming.Widgets)
+        {
+            var mine = current.Widgets.FirstOrDefault(x => x.Id == w.Id);
+            if (mine is not null) { w.X = mine.X; w.Y = mine.Y; }
+        }
+    }
+
+    /// <summary>
+    /// The Ask shortcut, registered only while the AI is on for this PC and not Off (nothing is taken from other programs
+    /// otherwise), and never the overlay's own. Pressed, it opens the app on the Ask window. UI thread.
+    /// </summary>
+    private void ApplyAskShortcut(RigsightSettings settings)
+    {
+        string? wanted = settings.Ai.Shortcut is { Length: > 0 } s && settings.Ai.Mode != AiMode.Off
+                         && !(settings.Overlay.Enabled && string.Equals(s, settings.Overlay.Hotkey, StringComparison.OrdinalIgnoreCase)) ? s : null;
+        if (wanted == _askRegistered) return;
+        _askRegistered = wanted;
+        bool taken = !_askHotkey.Register(Hotkey.TryParse(wanted, out var key) ? key : null);
+        if (taken) Log.Write("ask", $"Shortcut {wanted} is already used by another program");
+        else if (wanted is not null) Log.Write("ask", $"Shortcut {wanted} opens Ask");
+        if (taken == _askHotkeyTaken) return;
+        _askHotkeyTaken = taken;
+        _pipe.Broadcast(new AgentMessage { T = "ask-hotkey", AskHotkeyTaken = taken });
+    }
+
+    /// <summary>Opens the Rigsight app (or brings it to the front) on an optional page.</summary>
+    private void OpenApp(string? page, string? arg = null)
+    {
+        // "RivaTuner isn't running": its click starts it, and the Games page opens, where its FPS will show.
+        if (page == "rivatuner")
+        {
+            if (!RigsightPaths.IsTestInstance) _ui.Post(_ => _overlay.StartRtss(), null);
+            page = "games";
+        }
+        if (_pipe.ClientCount > 0)
+        {
+            Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
+            _pipe.Broadcast(new AgentMessage { T = "navigate", Page = page, Arg = arg });
+            return;
+        }
+
+        _pendingPage = page;
+        _pendingArg = arg;
+        var exe = RigsightPaths.Sibling(RigsightPaths.AppExe);
+        if (!File.Exists(exe))
+        {
+            Log.Write("agent", $"App not found at {exe}");
+            return;
+        }
+        try
+        {
+            if (_isAdmin)
+            {
+                // The desktop's own Explorer opens it, so the window runs with normal (non-admin) rights; explorer.exe as
+                // before when it can't be asked (that way cost 280-650 ms more on every open, see DesktopShell).
+                Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
+                var asked = Stopwatch.StartNew();
+                if (DesktopShell.Open(exe, null, out var why))
+                    Log.Write("agent", $"Opening the window (the desktop's Explorer took it in {asked.ElapsedMilliseconds} ms)");
+                else
+                {
+                    Log.Write("agent", $"The desktop's Explorer couldn't be asked to open the window ({why}): through explorer.exe instead");
+                    Process.Start(RigsightPaths.Explorer, $"\"{exe}\"");
+                }
+            }
+            else Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Error("agent", ex);
+        }
+    }
+
+    // ── Settings ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A line in the log for a change to what's shown or tracked (the taskbar readings, the overlay's sensors, the
+    /// widgets on, the apps left out), saying where it came from: a list that vanished can be traced.
+    /// </summary>
+    /// <summary>The taskbar readings' own colours in one line ("id=number/name/tile; ..."), to compare and to log.</summary>
+    private static string TrayColorsText(RigsightSettings s) =>
+        string.Join("; ", s.TrayColors.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value.Number ?? "-"}/{kv.Value.Name ?? "-"}/{kv.Value.Tile ?? "-"}"));
+
+    /// <summary>The taskbar readings' looks in one line ("id=Area; ..."), to compare and to log.</summary>
+    private static string TrayLooksText(RigsightSettings s) =>
+        string.Join("; ", s.TrayLooks.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"));
+
+    /// <summary>Each reading's own style, size, look source, pairs, grayscale, tiles and names, and the speeds' unit, in one line, to compare and to log.</summary>
+    private static string TrayOwnText(RigsightSettings s) =>
+        "styles " + string.Join("; ", s.TrayStyles.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        + " | sizes " + string.Join("; ", s.TraySizes.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        + " | looks from " + string.Join("; ", s.TrayLookFrom.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        + (s.TraySpeedBits ? " | speeds in bits" : " | speeds in bytes")
+        + " | pairs " + (s.TrayPairs is null ? "as before 1.3" : string.Join(", ", s.TrayPairs))
+        + " | grayscale " + string.Join("; ", s.TrayGrayOf.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        + " | tiles " + string.Join("; ", s.TrayTilesOf.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key}={kv.Value}"))
+        + " | one letter " + string.Join(", ", s.TrayLetters)
+        + " | room between " + s.TrayGap
+        + " | graphs behind " + string.Join(", ", s.TrayGraphsBehind);
+
+    private static void LogSettingsChanges(RigsightSettings before, RigsightSettings after, string from)
+    {
+        void Note(string what, int a, int b) { if (a != b) Log.Write("settings", $"{what}: {a} -> {b} (from the {from})"); }
+        Note("taskbar readings", before.TraySensors.Count, after.TraySensors.Count);
+        if (before.TrayShown != after.TrayShown) Log.Write("settings", $"taskbar readings shown: {before.TrayShown} -> {after.TrayShown} (from the {from})");
+        if (before.WidgetsShown != after.WidgetsShown) Log.Write("settings", $"desktop widgets shown: {before.WidgetsShown} -> {after.WidgetsShown} (from the {from})");
+        if (before.Overlay.Enabled != after.Overlay.Enabled) Log.Write("settings", $"game overlay on: {before.Overlay.Enabled} -> {after.Overlay.Enabled} (from the {from})");
+        if (before.TrayStyle != after.TrayStyle) Log.Write("settings", $"taskbar style: {before.TrayStyle} -> {after.TrayStyle} (from the {from})");
+        if (before.TraySide != after.TraySide) Log.Write("settings", $"taskbar side: {before.TraySide} -> {after.TraySide} (from the {from})");
+        if (before.TrayScreens != after.TrayScreens) Log.Write("settings", $"taskbar screens: {before.TrayScreens} -> {after.TrayScreens} (from the {from})");
+        if (TrayLooksText(before) != TrayLooksText(after)) Log.Write("settings", $"taskbar looks: {TrayLooksText(before)} -> {TrayLooksText(after)} (from the {from})");
+        if (TrayOwnText(before) != TrayOwnText(after)) Log.Write("settings", $"taskbar readings' own: {TrayOwnText(before)} -> {TrayOwnText(after)} (from the {from})");
+        if (before.TrayTiles != after.TrayTiles) Log.Write("settings", $"taskbar tiles: {before.TrayTiles} -> {after.TrayTiles} (from the {from})");
+        if (before.TrayWidth != after.TrayWidth) Log.Write("settings", $"taskbar width: {before.TrayWidth} -> {after.TrayWidth} (from the {from})");
+        if (before.TrayLetterNames != after.TrayLetterNames) Log.Write("settings", $"taskbar names as one letter: {before.TrayLetterNames} -> {after.TrayLetterNames} (from the {from})");
+        if (!before.TrayAlone.SequenceEqual(after.TrayAlone))
+            Log.Write("settings", $"taskbar readings on their own: {string.Join(", ", before.TrayAlone)} -> {string.Join(", ", after.TrayAlone)} (from the {from})");
+        if (TrayColorsText(before) != TrayColorsText(after)) Log.Write("settings", $"taskbar colors: {TrayColorsText(before)} -> {TrayColorsText(after)} (from the {from})");
+        Note("overlay sensors", before.Overlay.Sensors.Count, after.Overlay.Sensors.Count);
+        // A user's overlay background kept coming back after he had set it to none (Oct 2026), with nothing to say what moved it.
+        Note("overlay background (%)", (int)Math.Round(before.Overlay.BackgroundOpacity * 100), (int)Math.Round(after.Overlay.BackgroundOpacity * 100));
+        Note("widgets on", before.Widgets.Count(w => w.Enabled), after.Widgets.Count(w => w.Enabled));
+        Note("apps left out of tracking", before.Tracking.ExcludedApps.Count, after.Tracking.ExcludedApps.Count);
+    }
+
+    /// <summary>
+    /// The agent is the only writer of settings.json. Every change goes through here: copy, change,
+    /// save, apply locally, and tell the app.
+    /// </summary>
+    private void MutateSettings(Action<RigsightSettings> change) => MutateSettings(change, replaceWith: null);
+
+    // Each copy of the settings is numbered, and the last few kept as written: the app says which copy its change was made
+    // on (UiMessage.SettingsBase), so what the agent changed since is kept when the two cross (see SettingsFromApp).
+    private long _settingsRev;
+    private readonly Dictionary<long, string> _settingsCopies = [];
+    private const int SettingsCopiesKept = 32;
+
+    /// <param name="replaceWith">A copy from the app: its change, merged onto the agent's copy, with the agent's own fields kept.</param>
+    /// <param name="appBase">The agent's copy the app's change was made on, when the app said.</param>
+    private void MutateSettings(Action<RigsightSettings> change, RigsightSettings? replaceWith, long? appBase = null)
+    {
+        RigsightSettings updated;
+        bool yieldChanged, trayChanged, pingChanged;
+        long rev;
+        lock (_settingsLock)
+        {
+            var current = _settings;
+            if (replaceWith is not null)
+            {
+                updated = SettingsFromApp(replaceWith, current, appBase);
+                KeepAgentFields(updated, current);
+            }
+            else
+            {
+                updated = current.Clone();
+                change(updated);
+            }
+            yieldChanged = updated.YieldToHardwareApps != current.YieldToHardwareApps;
+            pingChanged = updated.Tracking.PingChecks != current.Tracking.PingChecks;
+            trayChanged = updated.TrayStyle != current.TrayStyle || updated.TrayGrayscale != current.TrayGrayscale
+                          || updated.TraySide != current.TraySide || updated.TrayScreens != current.TrayScreens || TrayLooksText(updated) != TrayLooksText(current)
+                          || updated.TrayTiles != current.TrayTiles || updated.TrayWidth != current.TrayWidth
+                          || updated.TrayLetterNames != current.TrayLetterNames || !updated.TrayAlone.SequenceEqual(current.TrayAlone)
+                          || !updated.TraySensors.SequenceEqual(current.TraySensors) || TrayColorsText(updated) != TrayColorsText(current)
+                          || TrayOwnText(updated) != TrayOwnText(current) || updated.TrayShown != current.TrayShown;
+            LogSettingsChanges(current, updated, replaceWith is null ? "agent" : "app");
+            _settings = updated;
+            SettingsStore.Save(updated);
+            rev = ++_settingsRev;
+            _settingsCopies[rev] = SettingsStore.Serialize(updated);
+            _settingsCopies.Remove(rev - SettingsCopiesKept);
+        }
+
+        Units.Fahrenheit = updated.UseFahrenheit;
+        TimeText.Style = updated.ClockStyle;
+        // Another language picked (its pack downloaded by the app first): notifications, the tray and widgets switch now.
+        if (updated.Language != Lang.Code) LanguageStore.Apply(updated.Language);
+        DarkMenuRenderer.Theme = updated.Theme;
+        RunOnSampler(() => _tracker.SetSettings(updated));
+        // Ping checks turned on or off: at once, and the moment written down (the Network page marks it on its graph).
+        if (pingChanged && _line is { } line)
+        {
+            line.Enabled = updated.Tracking.PingChecks;
+            bool on = updated.Tracking.PingChecks;
+            RunOnSampler(() => _db.WriteNetPingSwitch(TimeUtil.NowUnix(), on));
+        }
+        // A reading added to or removed from the taskbar, or another way of showing them: there now, not at the next read.
+        if (trayChanged) RunOnSampler(() => _sensorsNow = true);
+        // Stepping aside turned on or off: scan again now, with or without the parts those programs control.
+        if (yieldChanged)
+        {
+            Log.Write("sensors", $"Stepping aside for RGB and fan apps turned {(updated.YieldToHardwareApps ? "on" : "off")}");
+            RunOnSampler(OpenSensors);
+        }
+        _ui.Post(_ =>
+        {
+            _widgets.Apply(updated);
+            _overlay.Apply(updated.Overlay);
+            ApplyAskShortcut(updated);
+            if (NeedsRtss(updated) && !RigsightPaths.IsTestInstance) _overlay.EnsureRtssRunning();
+            // The overlay's picture on its page, only when something it shows changed: a to-do ticked or a note typed on
+            // a widget is a settings change too, and drawing for each was work nobody saw.
+            if (_pipe.ClientCount > 0 && OverlayLook(updated) != _overlayLook) RenderPreviews(updated);
+        }, null);
+        _pipe.Broadcast(new AgentMessage { T = "settings", Settings = updated, SettingsRev = rev });
+    }
+
+    /// <summary>
+    /// The app's copy, as it goes in: made on the agent's latest copy, it's taken as it is. Made on an earlier one (the
+    /// agent switched the tray or a widget's to-do was ticked while the app's change was on its way), only what the app
+    /// changed is laid onto the agent's copy now, value by value, so the agent's change isn't undone. An older app, or a
+    /// copy too old to still be kept, is taken as it is, as before. Under the settings lock.
+    /// </summary>
+    private RigsightSettings SettingsFromApp(RigsightSettings incoming, RigsightSettings current, long? appBase)
+    {
+        if (appBase is not long b || b >= _settingsRev) return incoming;
+        if (!_settingsCopies.TryGetValue(b, out var baseJson))
+        {
+            Log.Write("settings", $"The app's change was made on copy {b}, no longer kept (now {_settingsRev}): taken as it is");
+            return incoming;
+        }
+        Log.Write("settings", $"The app's change was made on copy {b} (now {_settingsRev}): laid onto the agent's copy, keeping what changed here since");
+        return LayOnto(incoming, current, baseJson);
+    }
+
+    /// <summary>What the app changed from <paramref name="baseJson"/> to <paramref name="incoming"/>, made on <paramref name="current"/>.</summary>
+    internal static RigsightSettings LayOnto(RigsightSettings incoming, RigsightSettings current, string baseJson)
+    {
+        var merged = SettingsMerge.Merge(System.Text.Json.Nodes.JsonNode.Parse(baseJson),
+            System.Text.Json.Nodes.JsonNode.Parse(SettingsStore.Serialize(incoming)), System.Text.Json.Nodes.JsonNode.Parse(SettingsStore.Serialize(current)));
+        return merged is null ? incoming : SettingsStore.Deserialize(merged.ToJsonString());
+    }
+
+    /// <summary>The overlay draws in games through RivaTuner, and the FPS widget and the taskbar's FPS read the frame rate from it.</summary>
+    private static bool NeedsRtss(RigsightSettings s) =>
+        s.Overlay.Enabled || s.WidgetsShown && s.Widgets.Any(w => w.Enabled && WidgetManager.ShowsFrameRate(w)) || s.TrayShown && s.TraySensors.Contains(TrayParts.Fps);
+
+    // What the overlay's picture was last drawn for (UI thread): see OverlayLook.
+    private string? _overlayLook;
+
+    /// <summary>Everything the overlay's picture depends on: its own settings, and the units, language, clock and theme it's drawn in.</summary>
+    private static string OverlayLook(RigsightSettings s) =>
+        $"{System.Text.Json.JsonSerializer.Serialize(s.Overlay, SettingsStore.JsonOptions)}|{s.UseFahrenheit}|{s.Language}|{s.ClockStyle}|{s.Theme}|{s.DarkTheme}|{s.LightTheme}|{s.Accent}";
+
+    /// <summary>
+    /// Writes the overlay's picture for its page (the Widgets page draws widgets itself) and tells the app it's ready. The
+    /// overlay's sensors are read on the sampler thread for these settings (so one just added shows straight away), then
+    /// drawn on the UI thread.
+    /// </summary>
+    private void RenderPreviews(RigsightSettings settings) =>
+        RunOnSampler(() =>
+        {
+            var sensors = OverlaySensors(settings);
+            _ui.Post(_ => DrawPreviews(settings, sensors), null);
+        });
+
+    private void DrawPreviews(RigsightSettings settings, List<OverlaySensorReading> sensors)
+    {
+        _overlayLook = OverlayLook(settings);
+        try
+        {
+            _overlay.RenderPreview(Path.Combine(RigsightPaths.DataDir, "previews"), sensors);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("overlay", ex);
+        }
+        _pipe.Broadcast(new AgentMessage { T = "previews" });
+    }
+
+    // The day the "RivaTuner isn't running" notice was last looked at for (said or not, once a day).
+    private DateTime _rtssOffCheckedOn;
+
+    /// <summary>
+    /// UI thread, on every tick: RivaTuner installed but off for 10 minutes, on a PC that played a game in the last 30
+    /// days, means no FPS is being recorded, and nothing else would say so (the user, 2026-11-14: it had been off
+    /// unnoticed). Said of RivaTuner, not of a game ("i want it generic"), and before the next game if it can be: it
+    /// only measures games opened after it. Once a day. Not when it isn't installed (the Games page says that; a notice
+    /// each day would nag).
+    /// </summary>
+    private void CheckRivaTunerOff(RigsightSettings settings)
+    {
+        if (_overlay.RtssOffSince is not { } off || DateTime.Now - off < RtssOffFor || _rtssOffCheckedOn == DateTime.Today) return;
+        _rtssOffCheckedOn = DateTime.Today;
+        string state = _overlay.RtssState;
+        bool on = settings.Alerts.FpsNotRecorded;
+        RunOnSampler(() =>
+        {
+            bool gamer = false, own = false;
+            try
+            {
+                gamer = _db.PlayedGameSince(TimeUtil.ToUnix(DateTime.Today.AddDays(-30)));
+                // RigSight's own frame times (admin rights, issue #15): FPS is being recorded without RivaTuner, so
+                // "none is being recorded" would be false.
+                own = _isAdmin && _db.HasOwnFramesSince(TimeUtil.ToUnix(DateTime.Today.AddDays(-30)));
+            }
+            catch (Exception ex) { Log.Error("notice", ex); }
+            bool say = state == "stopped" && gamer && on && !own && !RigsightPaths.IsTestInstance;
+            Log.Write("notice", $"RivaTuner {state} since {off:t}" + (say ? "" : state != "stopped" ? ", nothing to start"
+                : !gamer ? ", not shown: no game in the last 30 days" : !on ? ", not shown: switched off"
+                : own ? ", not shown: RigSight records games' frame times itself" : ", not shown: test copy"));
+            if (!say) return;
+            var text = NoticeWords.RivaTunerOff();
+            Notify(new Notice(NoticeKind.Fps, text.Title, text.Body, Page: "rivatuner"));
+        });
+    }
+
+    private static readonly TimeSpan RtssOffFor = TimeSpan.FromMinutes(10);
+
+    /// <summary>UI thread: the overlay appeared, disappeared, or its shortcut turned out to be taken.</summary>
+    private void OnOverlayStateChanged()
+    {
+        _overlayVisible = _overlay.Visible;
+        _pipe.Broadcast(new AgentMessage
+        {
+            T = "overlay", OverlayVisible = _overlay.Visible, OverlayHotkeyTaken = _overlay.HotkeyTaken, RtssState = _overlay.RtssState,
+        });
+    }
+
+    /// <summary>
+    /// The overlay was turned on over a fullscreen game it can't reach. Notifications wait until the game
+    /// is closed or minimised (nothing can show over it), then explain what to do.
+    /// </summary>
+    private void OnOverlayCantReachGame(string app)
+    {
+        var (title, body) = _overlay.RtssState switch
+        {
+            "running" => (Lang.T($"Restart {app} to see the overlay"),
+                Lang.T("It was already open when RivaTuner started, so RivaTuner isn't drawing in it yet.")),
+            "stopped" => (Lang.T("The overlay can't show in this game"),
+                Lang.T("Fullscreen games need RivaTuner, and it isn't running. Start it from the Overlay page, then restart the game.")),
+            _ => (Lang.T("The overlay can't show in this game"),
+                Lang.T("Fullscreen games need RivaTuner Statistics Server (free). Install it from the Overlay page, then restart the game.")),
+        };
+        _notices.Show(new Notice(NoticeKind.Overlay, title, body, _tracker.Activity.Path, "overlay"));
+    }
+
+    private void PauseFor(int minutes) =>
+        MutateSettings(s => s.Tracking.PausedUntil = minutes < 0 ? -1 : TimeUtil.NowUnix() + minutes * 60L);
+
+    private void Resume() => MutateSettings(s => s.Tracking.PausedUntil = 0);
+
+    /// <summary>Starts an elevated copy that takes over, then exits (needs the user to accept UAC).</summary>
+    private void RestartElevated()
+    {
+        if (_isAdmin || RigsightPaths.IsTestInstance || Environment.ProcessPath is not { } exe) return;
+        // Never on a standard account, whoever asks: the copy that took over would run as the admin whose password was
+        // typed, with that admin's folder, and the person's history would stop there and an empty one start.
+        if (Account.Kind == AccountKind.Standard) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(exe, "--replace") { UseShellExecute = true, Verb = "runas" });
+            Quit("an elevated copy taking over");
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // UAC declined: keep running without admin.
+        }
+    }
+
+    // ── The history file ─────────────────────────────────────────────────
+
+    /// <summary>What opening the history found, for the sidebar card and Settings → History.</summary>
+    private void NoteHistory(HistoryReport r)
+    {
+        if (r.Outcome == HistoryOutcome.Fine && r.Why is null) return; // a normal start: nothing was checked
+        MutateSettings(s =>
+        {
+            var h = s.HistoryFile;
+            h.CheckedAt = DateTime.Now;
+            h.CheckedWhy = r.Why switch
+            {
+                "it wouldn't open" => Lang.Key("when it wouldn't open"),
+                "a reading failed to save" => Lang.Key("after a reading failed to save"),
+                "you asked for a repair" => Lang.Key("when you asked for a repair"),
+                "a repair was waiting for room on the drive" => Lang.Key("once there was room on the drive"),
+                _ => Lang.Key("after RigSight last closed suddenly"),
+            };
+            h.Checking = false;
+            switch (r.Outcome)
+            {
+                case HistoryOutcome.Fine:
+                    h.Damaged = false;
+                    break;
+                case HistoryOutcome.ListsRebuilt:
+                    h.Damaged = false;
+                    h.Outcome = "lists";
+                    h.RepairedAt = DateTime.Now;
+                    break;
+                case HistoryOutcome.Repaired or HistoryOutcome.NothingSaved:
+                    h.Damaged = false;
+                    h.Outcome = r.Outcome == HistoryOutcome.NothingSaved ? "nothing" : HistoryRepair.LostAny(r) ? "repaired" : "whole";
+                    h.RepairedAt = DateTime.Now;
+                    h.Summary = HistoryRepair.Summary(r);
+                    h.DamagedCopy = r.DamagedCopy;
+                    h.WaitingReason = null;
+                    h.Dismissed = false;
+                    break;
+                case HistoryOutcome.Waiting:
+                    h.Damaged = true;
+                    h.Outcome = "waiting";
+                    h.WaitingReason = r.WaitingReason;
+                    h.Dismissed = false;
+                    break;
+            }
+        });
+    }
+
+    private long _historyDamageTicks;
+
+    /// <summary>A save said the file is damaged (any thread): checked on the sampler thread, at most once in 10 minutes.</summary>
+    private void OnHistoryDamageSeen(Exception ex)
+    {
+        long now = Environment.TickCount64, last = Interlocked.Read(ref _historyDamageTicks);
+        if (last != 0 && now - last < 600_000) return;
+        if (Interlocked.CompareExchange(ref _historyDamageTicks, now, last) != last) return;
+        Log.Write("history", $"A save failed as damaged ({ex.Message}): checking the file");
+        RunOnSampler(() => OnHistoryDamage(fromSave: true));
+    }
+
+    /// <summary>
+    /// The check decides, never the error: fine, nothing; only lookup lists, rebuilt here; real damage, repaired at once
+    /// when new readings can't be saved (a restart, as the file has to be closed), else the card, and the user picks when.
+    /// </summary>
+    private void OnHistoryDamage(bool fromSave)
+    {
+        var health = _db.CheckHealth();
+        if (health.Ok)
+        {
+            Log.Write("history", $"{(fromSave ? "A save" : "A reading in the app")} said the history file is damaged, but the check finds it fine: nothing done");
+            return;
+        }
+        if (health.OnlyLists && _db.RebuildLists())
+        {
+            Log.Write("history", "Only the history's lookup lists were damaged: rebuilt, no readings lost");
+            MutateSettings(s => { s.HistoryFile.CheckedAt = DateTime.Now; s.HistoryFile.Outcome = "lists"; s.HistoryFile.RepairedAt = DateTime.Now; });
+            return;
+        }
+        Log.Write("history", $"The check confirms the history file is damaged: {string.Join("; ", health.Problems.Take(6))}");
+        if (fromSave)
+        {
+            HistoryRepair.AskRepair(RigsightPaths.DataDir);
+            _ui.Post(_ => Restart("a history repair (new readings couldn't be saved)"), null);
+            return;
+        }
+        MutateSettings(s =>
+        {
+            s.HistoryFile.Damaged = true;
+            s.HistoryFile.Dismissed = false;
+            s.HistoryFile.CheckedAt = DateTime.Now;
+            s.HistoryFile.CheckedWhy = Lang.Key("after a reading failed");
+        });
+    }
+
+    /// <summary>Settings → History → Check now.</summary>
+    private void CheckHistoryNow()
+    {
+        MutateSettings(s => s.HistoryFile.Checking = true);
+        HistoryHealth health;
+        try { health = _db.CheckHealth(); }
+        catch (Exception ex) { Log.Error("history", ex); health = HistoryHealth.Fine; }
+        bool rebuilt = !health.Ok && health.OnlyLists && _db.RebuildLists();
+        Log.Write("history", health.Ok ? "Checked the history file when asked: it's fine"
+            : rebuilt ? "Checked the history file when asked: its lookup lists were damaged, rebuilt with nothing lost"
+            : $"Checked the history file when asked: damaged ({string.Join("; ", health.Problems.Take(6))})");
+        MutateSettings(s =>
+        {
+            var h = s.HistoryFile;
+            h.Checking = false;
+            h.CheckedAt = DateTime.Now;
+            h.CheckedWhy = Lang.Key("when you asked");
+            h.Damaged = !health.Ok && !rebuilt;
+            if (rebuilt) { h.Outcome = "lists"; h.RepairedAt = DateTime.Now; }
+            if (h.Damaged) h.Dismissed = false;
+        });
+    }
+
+    private long _nextRepairRetry;
+
+    /// <summary>A repair that waited for room on the drive: once there is, the agent restarts to do it (checked every 10 minutes).</summary>
+    private void RetryWaitingRepair()
+    {
+        if (_settings.HistoryFile.Outcome != "waiting" || Environment.TickCount64 < _nextRepairRetry) return;
+        _nextRepairRetry = Environment.TickCount64 + 600_000;
+        if (!HistoryRepair.RoomFor(RigsightPaths.Database)) return;
+        HistoryRepair.AskRepair(RigsightPaths.DataDir, "a repair was waiting for room on the drive");
+        _ui.Post(_ => Restart("a history repair that was waiting for room on the drive"), null);
+    }
+
+    /// <summary>Starts a new copy that takes over (with the same rights, so nothing to accept), then exits.</summary>
+    private void Restart(string why)
+    {
+        if (_stopping || Environment.ProcessPath is not { } exe) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(exe, [.. Program.RestartArgs(_args), "--replace"]) { UseShellExecute = false })?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("agent", ex);
+            return;
+        }
+        Quit(why);
+    }
+
+    /// <summary>Stops the agent, saying why in the log (a copy that's simply gone can then be traced).</summary>
+    private void Quit(string why)
+    {
+        if (_stopping) return;
+        Log.Write("agent", $"Quitting: asked by {why}");
+        SystemEvents.SessionEnding -= OnSessionEnding;
+        SystemEvents.TimeChanged -= OnTimeChanged;
+        SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+        _quitWait?.Unregister(null);
+        _displayWatch.Dispose();
+        _stopping = true;
+        // The taskbar strip first: its look-up of the taskbar's buttons asks Explorer through UI Automation, and a quit
+        // often comes with the taskbar being rebuilt (after a graphics driver change). On 13 Nov the agent crashed inside
+        // UI Automation 50 s into such a quit, with the strip still there.
+        try { _taskbarStrip.Dispose(); }
+        catch (Exception ex) { Log.Error("agent", ex); }
+        _updateTimer?.Dispose();
+        _wake.Set();
+        _sampler.Join(5000);
+
+        // Each step is independent: a failure in one must never leave the agent half-closed.
+        foreach (var step in new Action[] { _screen.Dispose, _pipe.Dispose, _widgets.CloseAll, _overlay.Dispose, _askHotkey.Dispose, _notices.CloseAll, _trayReadings.Dispose, _card.Dispose, _taskbarStrip.Dispose, _tray.Dispose })
+        {
+            try { step(); }
+            catch (Exception ex) { Log.Error("agent", ex); }
+        }
+        ExitThread();
+    }
+}

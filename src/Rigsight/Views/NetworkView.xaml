@@ -264,7 +264,7 @@
             </ctl:SmoothBorder>
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
-                <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}" AllowCustom="False"
+                <ctl:PeriodPicker IsBusy="{Binding IsLoading}" Unit="{Binding Unit}" Anchor="{Binding Anchor}" MinDate="{Binding FirstDay}"
                                   CustomFrom="{Binding CustomFrom}" CustomTo="{Binding CustomTo}" />
                 <TextBlock Text="{Binding RangeNote}" Foreground="{DynamicResource MutedBrush}" FontSize="{x:Static ctl:TextSize.Detail}" Margin="30,0,0,0" VerticalAlignment="Center" />
             </StackPanel>

@@ -201,10 +201,23 @@ public sealed partial class NetworkViewModel : ObservableObject
     [ObservableProperty] private DateTime _customFrom;
     [ObservableProperty] private DateTime _customTo;
 
-    private (DateTime From, DateTime To) Period => ReportBuilder.Bounds(Unit, Anchor);
+    private (DateTime From, DateTime To) Period => Controls.PeriodPicker.Bounds(Unit, Anchor, CustomFrom, CustomTo);
     public bool IsDay => Unit == ReportRange.Day;
     public bool IncludesToday => Period.To > DateTime.Today && Period.From <= DateTime.Today;
-    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor);
+    public string RangeNote => Controls.PeriodPicker.Span(Unit, Anchor, CustomFrom, CustomTo);
+
+    /// <summary>The bars are months: a year, or a long custom range (see <see cref="NetReport.Monthly"/>).</summary>
+    private bool Monthly => _report?.Monthly ?? Monthly;
+
+    // A custom range (2026-11-24: every page that looks back has one): read once both ends are set.
+    partial void OnCustomFromChanged(DateTime value) => CustomChanged();
+    partial void OnCustomToChanged(DateTime value) => CustomChanged();
+    private void CustomChanged()
+    {
+        OnPropertyChanged(nameof(RangeNote));
+        OnPropertyChanged(nameof(PeriodWord));
+        if (Unit == ReportRange.Custom && CustomTo > CustomFrom) NewPeriod();
+    }
 
     /// <summary>"today", "this week", "in September 2026"… for the labels that follow the period (see <see cref="Controls.PeriodPicker.Words"/>).</summary>
     public string PeriodWord => Controls.PeriodPicker.Words(Unit, Anchor);
@@ -222,6 +235,7 @@ public sealed partial class NetworkViewModel : ObservableObject
 
     private void NewPeriod()
     {
+        if (Unit == ReportRange.Custom && CustomTo <= CustomFrom) return; // the range editor is open: nothing to read yet
         LetGo();
         Zoomed = null;
         _ = RefreshAsync();
@@ -505,6 +519,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             (ReportRange.Day, false) => Lang.T("the day before"),
             (ReportRange.Week, _) => Lang.T("the 7 days before"),
             (ReportRange.Month, _) => Lang.T("the 30 days before"),
+            (ReportRange.Custom, _) => Lang.T("the same length of time before"),
             _ => Lang.T("the 12 months before"),
         };
         double ratio = (double)r.Down / before;
@@ -602,7 +617,7 @@ public sealed partial class NetworkViewModel : ObservableObject
 
     /// <summary>What dragging and clicking the graph do, under its title.</summary>
     public string ChartHint => ShowPingNote ? "" : Hourly ? Lang.T("Drag across to zoom in · click an hour for its apps")
-        : Unit == ReportRange.Year ? Lang.T("Click a month for its apps") : Lang.T("Drag across to zoom in · click a day for its apps");
+        : Monthly ? Lang.T("Click a month for its apps") : Lang.T("Drag across to zoom in · click a day for its apps");
 
     /// <summary>The apps with a colour of their own on the chart, and every app's name for its hover box.</summary>
     [ObservableProperty] private IReadOnlyList<long> _colorApps = [];
@@ -653,7 +668,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     public bool IsZoomed => Zoomed is not null;
     public string ZoomText => Zoomed is { } z ? NetBarsChart.ZoomWords(z, Step) : "";
     /// <summary>The button back: "Whole day", "Whole week", "Whole month".</summary>
-    public string ResetText => Unit switch { ReportRange.Day => Lang.T("Whole day"), ReportRange.Week => Lang.T("All 7 days"), _ => Lang.T("All 30 days") };
+    public string ResetText => Unit switch { ReportRange.Day => Lang.T("Whole day"), ReportRange.Week => Lang.T("All 7 days"), ReportRange.Custom => Lang.T("The whole range"), _ => Lang.T("All 30 days") };
     partial void OnZoomedChanged(NetDropSpan? value) => FillApps();
 
     [RelayCommand]
@@ -677,7 +692,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     internal bool Hourly => _report?.Hourly ?? Unit == ReportRange.Day;
 
     private DateTime BinEnd(int i) => i + 1 < Bins.Count ? Bins[i + 1].Start
-        : Hourly ? Bins[i].Start.AddHours(1) : Unit == ReportRange.Year ? Bins[i].Start.AddMonths(1) : Bins[i].Start.AddDays(1);
+        : Hourly ? Bins[i].Start.AddHours(1) : Monthly ? Bins[i].Start.AddMonths(1) : Bins[i].Start.AddDays(1);
 
     [RelayCommand]
     private void ClearSelection() => LetGo();
@@ -703,13 +718,13 @@ public sealed partial class NetworkViewModel : ObservableObject
         var end = BinEnd(i);
         string title = Hourly
             ? (Unit == ReportRange.Day ? "" : b.Start.ToString("ddd d MMM") + " · ") + $"{TimeText.At(b.Start, "h tt")} – {TimeText.At(end, "h tt")}"
-            : Unit == ReportRange.Year ? b.Start.ToString("MMMM yyyy") : b.Start.ToString("dddd, d MMMM");
+            : Monthly ? b.Start.ToString("MMMM yyyy") : b.Start.ToString("dddd, d MMMM");
         // What a click does on this bar: picks it (or lets it go); dragging zooms in (not a year's months).
-        string unitWord = Hourly ? "hour" : Unit == ReportRange.Year ? "month" : "day";
+        string unitWord = Hourly ? "hour" : Monthly ? "month" : "day";
         string click = Picked == (i, i)
             ? unitWord switch { "hour" => Lang.T("Click again to let go of this hour"), "month" => Lang.T("Click again to let go of this month"), _ => Lang.T("Click again to let go of this day") }
             : unitWord switch { "hour" => Lang.T("Click to see this hour's apps"), "month" => Lang.T("Click to see this month's apps"), _ => Lang.T("Click to see this day's apps") };
-        string footer = b.Total == 0 ? "" : Unit == ReportRange.Year ? click : click + " · " + Lang.T("drag across to zoom in");
+        string footer = b.Total == 0 ? "" : Monthly ? click : click + " · " + Lang.T("drag across to zoom in");
         if (IsPingView) return PingHover(b, title, footer);
         string? missing = b.UnrecordedMinutes >= NetBarsChart.MinUnrecorded ? Lang.T($"Not recorded for {Units.Duration(b.UnrecordedMinutes * 60)}") : null;
         var drops = _report?.Drops.Where(d => TimeUtil.FromUnix(d.Start) < end && TimeUtil.FromUnix(d.End) > b.Start).ToList() ?? [];
@@ -730,8 +745,14 @@ public sealed partial class NetworkViewModel : ObservableObject
             {
                 Game = b.Game, GamePath = b.GamePath, Ping = ping, PingNote = pingNote, PingHigh = b.Ping?.Highest >= HighPing && HighPing > 0,
                 Drop = drop, Missing = missing,
-                // Why it's empty: still to come, the PC off (or asleep…), or nothing used with the PC on.
-                Empty = b.Start > DateTime.Now ? Lang.T("Still to come") : b.OffWhy ?? (missing is null ? Lang.T("No internet use") : null),
+                // What Steam downloaded, read from Steam's own log, even in an hour RigSight didn't record: its dot sat on
+                // an empty bar with nothing saying what it was (the user, 2026-11-24).
+                Steam = steam, SteamPath = _steamPath,
+                // Why it's empty: still to come, the PC off (or asleep…), or nothing used with the PC on. Steam downloading
+                // means the PC was on for some of it, so then it wasn't recorded rather than off.
+                Empty = b.Start > DateTime.Now ? Lang.T("Still to come")
+                    : steam is not null && b.OffWhy is not null ? Lang.T("Not recorded")
+                    : b.OffWhy ?? (missing is null ? Lang.T("No internet use") : null),
             };
         long behind = Math.Min(b.Background, b.Total);
         int bgPercent = (int)Math.Round(100.0 * behind / b.Total);
@@ -880,7 +901,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         }
         int id = ++_load;
         IsLoading = true;
-        var (report, firstDay) = await _reports.NetworkAsync(Unit, Anchor);
+        var (report, firstDay) = await _reports.NetworkAsync(Unit, Anchor, CustomFrom, CustomTo);
         if (id != _load) return;
         if (report is not { HasData: true })
         {
@@ -893,7 +914,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         }
         IsLoading = false;
         _report = report;
-        _loadedPast = IncludesToday ? null : (Unit, from);
+        _loadedPast = IncludesToday || Unit == ReportRange.Custom ? null : (Unit, from);
         FirstDay = firstDay ?? DateTime.Today;
         Loaded = true;
         UpdateLive();
@@ -968,7 +989,7 @@ public sealed partial class NetworkViewModel : ObservableObject
         Bins = Models.Kept.Or(Bins, r.Bins);
         Link = Models.Kept.Or(Link, r.Link);
         if (SelectedBin >= Bins.Count) LetGo();
-        ChartTitle = r.Hourly ? Lang.T("Each hour") : r.Range == ReportRange.Year ? Lang.T("Each month") : Lang.T("Each day");
+        ChartTitle = r.Hourly ? Lang.T("Each hour") : r.Monthly ? Lang.T("Each month") : Lang.T("Each day");
         _lineSentence = r.LineText;
         OnPropertyChanged(nameof(ShowPingNote));
         FillPingStatus();
@@ -1107,7 +1128,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     private IReadOnlyList<NetSparkBar> Spark(NetAppStat stat, List<(DateTime Start, bool Off, string? Why, Dictionary<long, long> Use)> buckets)
     {
         double top = Math.Max(1, buckets.Max(b => b.Use.GetValueOrDefault(stat.Id)));
-        string format = Unit == ReportRange.Year ? "MMMM" : "ddd d MMM";
+        string format = Monthly ? "MMMM" : "ddd d MMM";
         return [.. buckets.Select(b =>
         {
             long v = b.Use.GetValueOrDefault(stat.Id);
@@ -1124,7 +1145,7 @@ public sealed partial class NetworkViewModel : ObservableObject
     {
         var start = Bins[first].Start;
         if (Hourly) return (Unit == ReportRange.Day ? "" : start.ToString("ddd d MMM") + ", ") + $"{TimeText.At(start, "h tt")} – {TimeText.At(BinEnd(last), "h tt")}";
-        string Day(int k) => Unit == ReportRange.Year ? Bins[k].Start.ToString("MMMM") : Bins[k].Start.ToString("ddd d MMM");
+        string Day(int k) => Monthly ? Bins[k].Start.ToString("MMMM") : Bins[k].Start.ToString("ddd d MMM");
         return last > first ? $"{Day(first)} – {Day(last)}" : Day(first);
     }
 
@@ -1195,7 +1216,7 @@ public sealed partial class NetworkViewModel : ObservableObject
             string took = Took(r.Unrecorded.Sum(u => (u.End - u.Start).TotalSeconds));
             parts.Add(parts.Count == 0 && r.Range != ReportRange.Day ? Lang.T($"{took} not recorded {periodWord}") : Lang.T($"{took} not recorded"));
         }
-        if (r.Range == ReportRange.Year && r.RecordedSince is { } since) parts.Add(Lang.T($"recorded since {since:d MMM}"));
+        if (r.Monthly && r.RecordedSince is { } since) parts.Add(Lang.T($"recorded since {since:d MMM}"));
         return (title, string.Join(" · ", parts));
     }
 

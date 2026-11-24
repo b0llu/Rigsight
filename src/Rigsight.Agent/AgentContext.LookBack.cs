@@ -44,14 +44,15 @@ internal sealed partial class AgentContext
             // The sound trace's heard glitches (sound dropouts), while it runs; null otherwise, and the sound isn't checked.
             var sound = _soundTrace is { Ended: false } soundTrace ? soundTrace.Recent(nowMs - DriverRules.LookBackSec * 1000L) : null;
 
-            var found = LookBack.Check(now, bursts, parts, UsualOf, points, NameOf, sound);
-            try { _db.AddProblemMark(nowUnix, found.TimelineText); }
+            var found = LookBack.Check(now, bursts, parts, UsualOf, points, NameOf, sound, _isAdmin);
+            // The device's file goes on a line of its own (issue #15 follow-up): the Timeline shows it grey under the mark.
+            try { _db.AddProblemMark(nowUnix, found.FileLine is { } line ? $"{found.TimelineText}\n{line}" : found.TimelineText); }
             catch (Exception ex) { _errors.Failed("look back mark", ex); }
             Log.Write("lookback", $"Look back at {now:HH:mm:ss}: "
                 + (trace is null ? (_isAdmin ? "the driver trace isn't running, " : "no admin rights, ") : "")
                 + $"{points.Count} readings kept from {(points.Count > 0 ? $"{TimeUtil.FromUnix(points[0].T / 1000):HH:mm:ss}" : "-")}; "
                 + $"{(found.Found ? "found" : "nothing found")}: {found.Detail}; said \"{found.Title}\"");
-            Notify(new Notice(NoticeKind.LookBack, found.Title, found.Body, Page: "timeline", Urgent: true));
+            Notify(new Notice(NoticeKind.LookBack, found.Title, found.FileLine is { } file ? $"{found.Body}\n{file}" : found.Body, Page: "timeline", Urgent: true));
         }
         catch (Exception ex) { _errors.Failed("look back", ex); }
     });

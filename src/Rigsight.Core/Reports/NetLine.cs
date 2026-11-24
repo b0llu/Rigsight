@@ -78,7 +78,7 @@ public static class NetLine
                 : Lang.T($"Ping was usually {line.Usual} ms."),
         };
         var highBins = r.Bins.Where(b => b.Ping is { } p && p.Highest >= high).ToList();
-        string unit = r.Hourly ? "hour" : r.Range == ReportRange.Year ? "month" : "day";
+        string unit = r.Hourly ? "hour" : r.Monthly ? "month" : "day";
         if (highBins.Count == 0) parts.Add(Lang.T($"It stayed under {high} ms."));
         else
         {

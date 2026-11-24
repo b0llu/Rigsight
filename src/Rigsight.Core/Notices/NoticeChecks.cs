@@ -259,7 +259,8 @@ public static class NoticeChecks
         if (!on) return list;
         foreach (var (day, r) in results.OrderBy(x => x.Key))
         {
-            if (r.Tone != EffectTone.Worse || now.Date - day.Date > TimeSpan.FromDays(ChangeEffects.WindowDays)) continue;
+            // A driver's delays stay on the Timeline (see ChangeResult.DriverDelays).
+            if (r.Tone != EffectTone.Worse || r.DriverDelays || now.Date - day.Date > TimeSpan.FromDays(ChangeEffects.WindowDays)) continue;
             string key = $"change|{Day(day)}";
             if (said(key) is null) list.Add(new("change", NoticeLevel.Worth, NoticeWords.WorseChange(r), "timeline", Day(day), key));
         }

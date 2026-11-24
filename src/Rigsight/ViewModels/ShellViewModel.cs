@@ -64,7 +64,8 @@ public sealed partial class ShellViewModel : ObservableObject
         Live.ChartRangeChanged += () => _ = LoadTemperatureHistoryAsync();
         Live.ChartDetailWanted += () => _ = LoadZoomHistoryAsync();
         Home = new HomeViewModel(Reports, Live) { OpenChange = OpenChange, Open = OpenPage, GoTo = page => CurrentPage = page };
-        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, OpenChange = OpenChange, OpenGame = OpenGame, GoTo = page => CurrentPage = page };
+        ReportsPage = new ReportsViewModel(Reports) { OpenCrash = OpenCrash, OpenChange = OpenChange, OpenGame = OpenGame, GoTo = page => CurrentPage = page,
+            OpenPower = (range, anchor, customFrom, customTo) => { Power.ShowPeriod(range, anchor, customFrom, customTo); CurrentPage = "power"; } };
         Apps = new AppsViewModel(Reports, Settings) { OpenGame = exe => OpenGame(exe) };
         Crashes = new CrashesViewModel(Reports, Settings) { OpenChange = OpenChange, GoBackTo = page => CurrentPage = page, OpenGame = OpenGame };
         Timeline = new TimelineViewModel(Reports, openCrashes: day =>
@@ -81,6 +82,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Processes = new ProcessesViewModel(Reports, Live, (cmd, arg) => _client.SendCommand(cmd, arg));
         Storage = new StorageViewModel(Reports, Live);
         Fans = new FansViewModel(Reports, Live, Settings);
+        Power = new PowerViewModel(Reports, Live, Settings);
         Network = new NetworkViewModel(Reports, Live, Settings);
         // An app row on the Network page opens that app on the Apps page, for the same period (its internet use is there).
         Network.OpenAppRequested += (exe, unit, anchor) =>
@@ -370,6 +372,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public ProcessesViewModel Processes { get; }
     public StorageViewModel Storage { get; }
     public FansViewModel Fans { get; }
+    public PowerViewModel Power { get; }
     public NetworkViewModel Network { get; }
     public WidgetsViewModel Widgets { get; }
     public OverlayViewModel Overlay { get; }
@@ -465,7 +468,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public static readonly IReadOnlyList<PageOption> BuiltInPages =
     [
         new("home", Lang.T("Home")), new("reports", Lang.T("Reports")), new("apps", Lang.T("Apps")), new("processes", Lang.T("Processes")), new("crashes", Lang.T("Crashes")), new("timeline", Lang.T("Timeline")),
-        new("temperatures", Lang.T("Temperatures")), new("fans", Lang.T("Fans")), new("memory", Lang.T("Memory")), new("storage", Lang.T("Storage")), new("network", Lang.T("Network")), new("sensors", Lang.T("All sensors")),
+        new("temperatures", Lang.T("Temperatures")), new("power", Lang.T("Power")), new("fans", Lang.T("Fans")), new("memory", Lang.T("Memory")), new("storage", Lang.T("Storage")), new("network", Lang.T("Network")), new("sensors", Lang.T("All sensors")),
     ];
 
     [ObservableProperty]
@@ -637,6 +640,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "storage": await Storage.ShownAsync(); break;
             case "temperatures": await LoadTemperatureHistoryAsync(); break;
             case "fans": await Fans.RefreshAsync(); break;
+            case "power": await Power.RefreshAsync(); break;
             case "network": await Network.RefreshAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
             case "overlay":
@@ -701,6 +705,8 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "storage": if (_tickCount % 5 == 0) await Storage.RefreshAsync(); break;
                 // A day moves each minute; a week or a month is read again every five (all of its minutes, every time).
                 case "fans": if (Fans.IsDay || _tickCount % 5 == 0) await Fans.RefreshAsync(); break;
+                // A period that includes today grows by the minute; read again every 5th one (the totals move slowly).
+                case "power": if (Power.IncludesToday && _tickCount % 5 == 0) await Power.RefreshAsync(); break;
                 case "network": await Network.RefreshAsync(); break;
                 case "temperatures": if (ChartDueNow) await LoadTemperatureHistoryAsync(); break;
                 default:
@@ -741,6 +747,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Apps.NewDay(was);
         Crashes.NewDay(was);
         Fans.NewDay(was);
+        Power.NewDay(was);
         Network.NewDay(was);
         Live.NewDay(was);
         Controls.PeriodPicker.OnDayChanged();

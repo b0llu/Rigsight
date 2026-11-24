@@ -30,7 +30,12 @@ public static class StutterParts
     /// <param name="Line">The stutter line in the play's chart.</param>
     /// <param name="Value">The bright line of the play's hover ("Your Ethernet adapter"), under <see cref="Label"/>.</param>
     /// <param name="Sentence">The quieter line under it.</param>
-    public sealed record Cause(DriverPart Part, int UsualUs, string Line, string Label, string Value, string Sentence);
+    /// <param name="LongestUs">Its longest burst inside a stutter's frame.</param>
+    public sealed record Cause(DriverPart Part, int UsualUs, string Line, string Label, string Value, string Sentence, int LongestUs = 0)
+    {
+        /// <summary>Grey under the cause (issue #15 follow-up): "nvlddmkm.sys · longest 3.1 ms at a stutter, usually under 1.6 ms".</summary>
+        public string FileLine => $"{Part.Driver} · " + Lang.T($"longest {DriverWords.Ms(LongestUs)} at a stutter, {DriverWords.Usually(UsualUs)}");
+    }
 
     /// <summary>The part for a play's stutters, from what the agent stored, or null.</summary>
     public static Cause? Find(RigsightDb db, IReadOnlyList<Stutter> stutters, long playFrom, long playTo)
@@ -70,7 +75,7 @@ public static class StutterParts
             bestCount = matched.Count;
             string sentence = Lang.T("Right when the game stuttered, it was often using the CPU for much longer than usual.");
             best = new Cause(part, usual, Lang.T($"Possibly your {say}. Right when the game stuttered, it was often using the CPU for much longer than usual."),
-                Lang.T("Possible cause"), Lang.T($"Your {say}"), sentence);
+                Lang.T("Possible cause"), Lang.T($"Your {say}"), sentence, matched.Count > 0 ? group.Where(s => s.DrvUs >= floor).Max(s => s.DrvUs) : 0);
         }
         return best;
     }
@@ -91,6 +96,30 @@ public static class StutterParts
 
     /// <summary>A minute whose driver readings were partly dropped, in a play's minute hover.</summary>
     public static string Missed => Lang.T("Some readings from your devices were missed in this minute, so nothing is said about them.");
+
+    /// <summary>
+    /// When no part was found for a play's stutters, which of the cases it was (issue #15 follow-up, approved mock-up
+    /// 2026-11-24): what the devices were doing wasn't recorded then (no admin rights), there wasn't a week of history to
+    /// compare with yet, or they were checked and none stood out. Null for a play with too few stutters to check, or from
+    /// before RigSight recorded devices on a PC that does now.
+    /// </summary>
+    public static string? NoCause(RigsightDb db, int stutters, long playFrom, long playTo)
+    {
+        if (stutters < AtLeast) return null;
+        string notChecked = Lang.T("Not checked. What your devices were doing is only recorded with RigSight running as administrator.");
+        if (db.FirstDriverHour() is not long first) return notChecked;
+        if (playTo < first) return null;
+        if (db.GetDriverHours(playFrom / 3600 * 3600, playTo + 1).Count == 0) return notChecked;
+        long days = (playFrom - first) / 86400;
+        if (days < DriverRules.UsualDays)
+            return days switch
+            {
+                0 => Lang.T("Too soon to say. Your devices need 7 days of history to compare against, and had less than a day then."),
+                1 => Lang.T("Too soon to say. Your devices need 7 days of history to compare against, and had 1 day then."),
+                _ => Lang.T($"Too soon to say. Your devices need 7 days of history to compare against, and had {days} days then."),
+            };
+        return Lang.T("No one part stood out in what was recorded.");
+    }
 
     private static long MinuteOf(long atMs) => atMs / 60_000 * 60;
 }

@@ -519,4 +519,12 @@ public static class StorageScanner
     /// <summary>Empties the Recycle Bin, every drive's or one drive's (Windows shows its own confirmation and progress).</summary>
     public static bool EmptyRecycleBin(IntPtr owner) => SHEmptyRecycleBin(owner, null, 0) == 0;
     public static bool EmptyRecycleBin(IntPtr owner, string? root) => SHEmptyRecycleBin(owner, root, 0) == 0;
+
+    /// <summary>
+    /// Empties every drive's Recycle Bin without Windows' own question and progress box: for where RigSight has already
+    /// asked and shows its own progress (the Storage overview's Recycle Bin line).
+    /// </summary>
+    public static bool EmptyRecycleBinQuiet(IntPtr owner) => SHEmptyRecycleBin(owner, null, SherbNoConfirmation | SherbNoProgressUi) == 0;
+
+    private const uint SherbNoConfirmation = 0x1, SherbNoProgressUi = 0x2;
 }

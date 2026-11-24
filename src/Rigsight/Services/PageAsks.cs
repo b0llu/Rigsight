@@ -19,6 +19,8 @@ public static class PageAsks
     public static AiQuestion Crashes { get; } = Q(Lang.T("Looking at all my crashes and shut-offs, is there a pattern, and what should I try first?"), AiPages.Crashes);
     public static AiQuestion Timeline { get; } = Q(Lang.T("Did any recent driver, Windows update or setting change make my PC worse?"), AiPages.Timeline);
     public static AiQuestion Temperatures { get; } = Q(Lang.T("Are my temperatures normal for my parts, and should I do anything about them?"), AiPages.Temperatures);
+    // The Power page (1.18.0) reads the report's look-up, which carries the period's CPU and GPU energy.
+    public static AiQuestion Power { get; } = Q(Lang.T("Where did my CPU and GPU power go lately, and did anything use more than usual?"), AiPages.Reports);
     public static AiQuestion Fans { get; } = Q(Lang.T("Are my fans keeping up, and would a different fan curve be quieter or cooler?"), AiPages.Fans);
     public static AiQuestion Memory { get; } = Q(Lang.T("Is my memory enough for how I use this PC, or would more help?"), AiPages.Memory);
     public static AiQuestion Storage { get; } = Q(Lang.T("What is filling my drives, and what is safe to free up?"), AiPages.Storage);

@@ -347,6 +347,12 @@ public sealed partial class ReportsViewModel(ReportService reports) : Observable
     [RelayCommand]
     private void Go(string page) => GoTo?.Invoke(page);
 
+    /// <summary>The Power page on this report's period (the Energy tile, 1.18.0); set by the window.</summary>
+    public Action<ReportRange, DateTime, DateTime, DateTime>? OpenPower { get; set; }
+
+    [RelayCommand]
+    private void ShowPower() => OpenPower?.Invoke(Range, Range == ReportRange.Custom ? CustomTo.Date : Anchor, CustomFrom, CustomTo);
+
     [RelayCommand]
     private void OpenLine(HomeLine line)
     {

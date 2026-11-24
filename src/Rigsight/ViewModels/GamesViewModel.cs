@@ -120,6 +120,8 @@ public sealed record PlayRow
     /// <summary>The game's own RAM in the play, on average ("9.6 GB") and at most ("peak 11.4"); null when not recorded.</summary>
     public string? Ram { get; init; }
     public string? RamPeak { get; init; }
+    /// <summary>A play on battery: "Battery 82% to 47%"; null on the charger or a desktop.</summary>
+    public string? Battery { get; init; }
     /// <summary>How a play ended, only when it ended badly ("Game crashed 1h 30m in"); a closed game says nothing.</summary>
     public string? Ended { get; init; }
     public string EndedJoin => Ended is null ? "" : " · ";
@@ -745,7 +747,11 @@ public sealed partial class GamesViewModel : ObservableObject
                     db.GetFrontMinutes(app, play.Start, play.End + 60)).CountBy(c => c.AtMs / 60_000 * 60).ToDictionary();
                 var m = db.GetFrameMinutes(app, play.Start, play.End + 60).Select(x => new RunsMinute(TimeUtil.FromUnix(x.Ts), x.Fps, x.Low, x.Stutters, Note(x.Ts, x.Stutters),
                     sound.GetValueOrDefault(x.Ts))).ToList();
-                return (m, s, cause?.Line ?? StutterCauses.Explain(db, app, s, play.Start, play.End + 60, settings));
+                // No part found: which of the cases it was (issue #15 follow-up): not recorded, too soon, or none stood out.
+                string? why = cause?.Line ?? StutterCauses.Explain(db, app, s, play.Start, play.End + 60, settings);
+                if (cause is null && Rigsight.Core.Drivers.StutterParts.NoCause(db, s.Count, play.Start, play.End + 60) is { } none)
+                    why = why is null ? none : $"{why} {none}";
+                return (m, s, why);
             });
             if (ask != _runsAsk) return;
             PlayMinutes = minutes ?? [];
@@ -785,11 +791,19 @@ public sealed partial class GamesViewModel : ObservableObject
         if (weekly) return;
         var framed = inRange.Where(p => p.Stats.FrameMinutes > 0).ToList();
         if (framed.Count == 0) return;
-        var causes = await _reports.QueryAsync((db, _) => framed.ToDictionary(p => p.StartTime,
-            p => Rigsight.Core.Drivers.StutterParts.Find(db, db.GetStutters(game, p.Start * 1000, (p.End + 60) * 1000), p.Start, p.End + 60)));
+        // A part found: its driver's file and longest under it. None: which of the cases it was (issue #15 follow-up,
+        // approved mock-up 2026-11-24), so "400 stutters" never stands without saying whether devices were looked at.
+        var causes = await _reports.QueryAsync((db, _) => framed.ToDictionary(p => p.StartTime, p =>
+        {
+            var stutters = db.GetStutters(game, p.Start * 1000, (p.End + 60) * 1000);
+            return Rigsight.Core.Drivers.StutterParts.Find(db, stutters, p.Start, p.End + 60) is { } c
+                ? new HoverNote(c.Label, c.Value, c.Sentence, c.FileLine)
+                : Rigsight.Core.Drivers.StutterParts.NoCause(db, stutters.Count, p.Start, p.End + 60) is { } none
+                    ? new HoverNote(Lang.T("Possible cause"), null, none, Quiet: true) : (HoverNote?)null;
+        }));
         if (ask != _runsAsk || causes is null || causes.Values.All(c => c is null)) return;
         RunsPoints = RunsPoints.Select(pt => !pt.IsWeek && causes.TryGetValue(pt.At, out var c) && c is not null
-            ? pt with { Cause = new HoverNote(c.Label, c.Value, c.Sentence) } : pt).ToList();
+            ? pt with { Cause = c } : pt).ToList();
     }
 
     /// <summary>A week of plays as one point: its plays' average and 1% low by time played, and its stutters an hour.</summary>
@@ -1297,6 +1311,7 @@ public sealed partial class GamesViewModel : ObservableObject
             Usual = note,
             UsualWarm = warm,
             Power = p.Stats.GpuPower is double w ? $"{w:0} W" : "",
+            Battery = p.Stats is { BatteryFrom: int bf, BatteryTo: int bt } ? Lang.T($"Battery {bf}% to {bt}%") : null,
             Ram = PlayRam(p.Stats).Ram,
             RamPeak = PlayRam(p.Stats).Peak,
             Ended = ended is null ? null : $"{ended} {In(p)}",

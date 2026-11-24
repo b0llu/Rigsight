@@ -450,8 +450,85 @@
                             <Grid>
                             <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,30"
                                          Visibility="{Binding CleanupRead, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                            <ItemsControl ItemsSource="{Binding CleanupLines}" Focusable="False" VerticalAlignment="Top"
-                                          Visibility="{Binding CleanupRead, Converter={StaticResource Vis}}">
+                            <StackPanel VerticalAlignment="Top" Visibility="{Binding CleanupRead, Converter={StaticResource Vis}}">
+                            <!-- Every drive's Recycle Bin, emptied from here (approved mock-up B, 2026-11-23): one line, only while it
+                                 holds something. Open shows it in File Explorer; Empty asks first, beside the button. -->
+                            <DockPanel Margin="8,10" Visibility="{Binding HasBin, Converter={StaticResource Vis}}">
+                                <Border DockPanel.Dock="Left" Width="28" Height="26" CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" Margin="0,0,14,0">
+                                    <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Button x:Name="EmptyBin" DockPanel.Dock="Right" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" MinWidth="72" Margin="8,0,0,0"
+                                        VerticalAlignment="Center" Command="{Binding AskEmptyBinCommand}" AutomationProperties.Name="{ctl:T 'Empty the Recycle Bin'}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource DangerButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding BinBusy}" Value="True"><Setter Property="IsHitTestVisible" Value="False" /></DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <!-- The word keeps its room while the spinner takes its place: the button doesn't change size. -->
+                                    <Grid>
+                                        <TextBlock Text="{ctl:T Empty}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding BinBusy}" Value="True"><Setter Property="Visibility" Value="Hidden" /></DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <ctl:Spinner Width="14" Height="14" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                     Visibility="{Binding BinBusy, Converter={StaticResource Vis}}" />
+                                    </Grid>
+                                </Button>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="12,5" FontSize="{x:Static ctl:TextSize.Small}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                        Content="{ctl:T Open}" Command="{Binding OpenBinCommand}" AutomationProperties.Name="{ctl:T 'Open the Recycle Bin'}" />
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding BinSizeText}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                <TextBlock FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="None">
+                                    <Run Text="{ctl:T 'Recycle Bin'}" /><Run Text=" · " Foreground="{DynamicResource MutedBrush}" /><Run Text="{Binding BinCountText, Mode=OneWay}" Foreground="{DynamicResource MutedBrush}" />
+                                </TextBlock>
+                                <!-- The question, beside Empty, over the page: nothing moves. It names how many, how much and the drives. -->
+                                <Popup IsOpen="{Binding ConfirmBinOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=EmptyBin}" Placement="Bottom" HorizontalOffset="-276"
+                                       StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                                    <Border Width="340" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource HoverBrush}" BorderThickness="1"
+                                            CornerRadius="{x:Static ctl:Corner.Control}" Padding="16,14" Margin="0,8,8,8" AutomationProperties.Name="{Binding BinAskTitle}">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" />
+                                        </Border.Effect>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding BinAskTitle}" FontSize="{x:Static ctl:TextSize.Lead}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding BinAskText}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,14" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Style="{StaticResource DangerButton}" Background="{DynamicResource HotBrush}" Foreground="{DynamicResource OnHotBrush}" FontWeight="SemiBold"
+                                                        Content="{ctl:T 'Empty Recycle Bin'}" Command="{Binding EmptyBinNowCommand}" Margin="0,0,8,0" />
+                                                <Button Style="{StaticResource GhostButton}" Content="{ctl:T 'Cancel'}" Command="{Binding CancelEmptyBinCommand}" IsDefault="True" IsCancel="True" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
+                            </DockPanel>
+                            <!-- Just emptied: what was freed, for a few seconds, then it fades out. -->
+                            <DockPanel Margin="8,10" Visibility="{Binding HasBinDone, Converter={StaticResource Vis}}">
+                                <DockPanel.Style>
+                                    <Style TargetType="DockPanel">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding BinFading}" Value="True">
+                                                <DataTrigger.EnterActions>
+                                                    <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="{StaticResource MotionNormal}" /></Storyboard></BeginStoryboard>
+                                                </DataTrigger.EnterActions>
+                                                <DataTrigger.ExitActions>
+                                                    <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" To="1" Duration="0" /></Storyboard></BeginStoryboard>
+                                                </DataTrigger.ExitActions>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DockPanel.Style>
+                                <Border DockPanel.Dock="Left" Width="28" Height="26" CornerRadius="{x:Static ctl:Corner.Choice}" Background="{DynamicResource Surface2Brush}" Margin="0,0,14,0">
+                                    <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S13}" Foreground="{DynamicResource GoodBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="{Binding BinDoneText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding CleanupLines}" Focusable="False">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Button Style="{StaticResource FlatRowButton}" Command="{Binding DataContext.OpenCleanupLineCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
@@ -470,6 +547,7 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            </StackPanel>
                             </Grid>
                         </DockPanel>
                     </ctl:SmoothBorder>

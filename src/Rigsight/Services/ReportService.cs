@@ -44,6 +44,36 @@ public sealed class ReportService(SettingsModel settings)
         return Run(db => query(db, s));
     }
 
+    /// <summary>The Power page's facts for a period (1.18.0), with apps named and games counted as the rest of the app does.</summary>
+    public Task<ViewModels.PowerPage?> PowerAsync(PowerPeriod period, DateTime from, DateTime to)
+    {
+        var s = Snapshot();
+        return Run(db =>
+        {
+            var apps = db.LoadApps().ToDictionary(a => a.Id);
+            var games = apps.Keys.Where(id => ReportBuilder.CategoryOf(apps, s, id) == Core.Settings.AppCategory.Game).ToList();
+            string Name(long id) => ReportBuilder.NameOf(apps, s, id);
+            var report = PowerReport.Build(db, period, from, to, Name, games, DateTime.Now);
+            var paths = apps.ToDictionary(kv => kv.Key, kv => kv.Value.Path);
+            return new ViewModels.PowerPage(report, report.Apps.Select(a => a.App).Concat(report.Buckets.Where(b => b.TopApp is not null).Select(b => b.TopApp!.Value))
+                .Distinct().ToDictionary(id => id, Name), paths);
+        });
+    }
+
+    /// <summary>
+    /// The CPU and GPU energy (Wh) in the minutes an app was in front or busy, today, the last 7 days and the last 30 days
+    /// (the Processes page's opened app, 1.18.0); nulls where nothing was read.
+    /// </summary>
+    public Task<(double? Today, double? Week, double? Month)> PowerWhileBusyAsync(string exe) => Run(db =>
+    {
+        var app = db.LoadApps().FirstOrDefault(a => string.Equals(a.Exe, exe, StringComparison.OrdinalIgnoreCase));
+        if (app is null) return ((double?)null, (double?)null, (double?)null);
+        var today = DateTime.Today;
+        long T(DateTime d) => Core.Data.TimeUtil.ToUnix(d);
+        long end = T(today.AddDays(1));
+        return (db.GetPowerWhileBusy(app.Id, T(today), end), db.GetPowerWhileBusy(app.Id, T(today.AddDays(-6)), end), db.GetPowerWhileBusy(app.Id, T(today.AddDays(-29)), end));
+    });
+
     public Task<Report?> BuildAsync(ReportRange range, DateTime anchor)
     {
         var s = Snapshot();
@@ -159,14 +189,15 @@ public sealed class ReportService(SettingsModel settings)
     }
 
     /// <summary>The Network page: the period's internet use (with its insights), and the first day any was recorded.</summary>
-    public async Task<(NetReport Report, DateTime? FirstDay)> NetworkAsync(ReportRange range, DateTime anchor)
+    public async Task<(NetReport Report, DateTime? FirstDay)> NetworkAsync(ReportRange range, DateTime anchor, DateTime customFrom = default, DateTime customTo = default)
     {
         var s = Snapshot();
         var result = await Run(db =>
         {
             var apps = db.LoadApps().ToDictionary(a => a.Id);
-            var (from, to) = ReportBuilder.Bounds(range, anchor);
-            var report = NetReportBuilder.Build(db, range, anchor, apps, s, NetReportBuilder.GamesPlayed(db, from, to, apps, s), forPage: true);
+            var (from, to) = range == ReportRange.Custom && customTo > customFrom ? (customFrom, customTo) : ReportBuilder.Bounds(range, anchor);
+            var report = NetReportBuilder.Build(db, range, anchor, apps, s, NetReportBuilder.GamesPlayed(db, from, to, apps, s), forPage: true,
+                customFrom: customFrom, customTo: customTo);
             IconCache.Warm(report.Apps.Select(a => a.Path).Concat(report.Happenings.Select(h => h.Path)).Concat(report.Bins.Select(b => b.GamePath)));
             return (report, db.FirstNetDay() is long f ? TimeUtil.FromUnix(f).Date : (DateTime?)null);
         });
@@ -653,14 +684,32 @@ public sealed class ReportService(SettingsModel settings)
                 }).ToList();
             var results = Results(db, s, changes, crashes, found);
             // The problems marked from the tray, with what the 2 minutes before them showed (never counted as changes).
-            var marks = db.GetProblemMarks(0, long.MaxValue / 2).Select(m => new TimelineMark(TimeUtil.FromUnix(m.Ts), m.Text)).ToList();
+            // A mark's second line, where there is one, is the device's file (since the issue #15 follow-up): grey under it.
+            var marks = db.GetProblemMarks(0, long.MaxValue / 2).Select(m => m.Text.Split('\n', 2) is [var text, var file]
+                ? new TimelineMark(TimeUtil.FromUnix(m.Ts), text) { Detail = file } : new TimelineMark(TimeUtil.FromUnix(m.Ts), m.Text)).ToList();
             marks.AddRange(SoundMarks(db, s, byExe.Values));
+            // A driver keeping the CPU busy much longer than usual, outside games (issue #15 follow-up): a line each stretch.
+            var byId = byExe.Values.ToDictionary(a => a.Id);
+            var games = byId.Keys.Where(id => ReportBuilder.CategoryOf(byId, s, id) == AppCategory.Game).ToHashSet();
+            marks.AddRange(Core.Drivers.DriverDelays.Marks(db, games).Select(d => new TimelineMark(TimeUtil.FromUnix(d.From), d.Title) { Delay = d, Detail = d.Detail }));
             marks.Sort((a, b) => a.Time.CompareTo(b.Time));
             return new TimelineData(changes, problems, db.GetInventory()) { Results = results, Marks = marks };
         });
     }
 
     private static List<Core.Stability.CrashEvent> PcProblems(RigsightDb db) => ChangeEffects.PcProblems(db);
+
+    /// <summary>What an opened driver mark shows (see <see cref="Core.Drivers.DriverDelays.Open"/>), the apps by the names the person knows them by.</summary>
+    public Task<Core.Drivers.DelayCase?> DelayCaseAsync(Core.Drivers.DelayStretch stretch)
+    {
+        var s = Snapshot();
+        return Run(db =>
+        {
+            var apps = db.LoadApps().ToDictionary(a => a.Id);
+            var games = apps.Keys.Where(id => ReportBuilder.CategoryOf(apps, s, id) == AppCategory.Game).ToHashSet();
+            return Core.Drivers.DriverDelays.Open(db, stretch, id => apps.ContainsKey(id) ? ReportBuilder.NameOf(apps, s, id) : null, games);
+        });
+    }
 
     /// <summary>
     /// Each stretch of sound dropouts as a row (approved mock-up board 5, 2026-11-22): how many times and in which app,
@@ -734,6 +783,9 @@ public sealed record TimelineMark(DateTime Time, string Text)
 
     /// <summary>A muted line under it: a stretch's possible cause.</summary>
     public string? Note { get; init; }
+
+    /// <summary>A driver keeping the CPU busy much longer than usual (issue #15 follow-up): the line opens what happened.</summary>
+    public Core.Drivers.DelayStretch? Delay { get; init; }
 }
 
 /// <summary>A crash, freeze or sudden shut-off as one line on the timeline.</summary>

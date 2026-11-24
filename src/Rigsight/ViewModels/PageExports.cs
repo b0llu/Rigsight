@@ -26,6 +26,7 @@ public static class PageExports
         "timeline" => Timeline(shell.Timeline),
         "temperatures" => Temperatures(shell.Live),
         "fans" => Fans(shell.Fans, shell.Reports, shell.Live, shell.Settings),
+        "power" => Power(shell.Power, shell.Reports, shell.Live, shell.Settings),
         "memory" => Memory(shell.Live),
         "storage" => Storage(shell.Storage),
         "network" => Network(shell.Network),
@@ -33,7 +34,7 @@ public static class PageExports
     };
 
     /// <summary>Whether a page has an Export button.</summary>
-    public static bool Has(string page) => page is "home" or "reports" or "apps" or "games" or "crashes" or "timeline" or "temperatures" or "fans"
+    public static bool Has(string page) => page is "home" or "reports" or "apps" or "games" or "crashes" or "timeline" or "temperatures" or "fans" or "power"
         or "memory" or "storage" or "network" || page.StartsWith("custom:", StringComparison.Ordinal);
 
     private static string From(string page) => Lang.T($"From the {page} page. Nothing leaves this PC.");
@@ -343,6 +344,29 @@ public static class PageExports
             periods, picked, live.IsChartCustom ? live.ChartPeriod : null, [readings],
             Now(_ => new ExportFilter { Readings = readings.Picked.OfType<ExportReadings>().Aggregate(ExportReadings.None, (a, b) => a | b) }),
             FirstDay: live.ChartHistoryStart);
+    }
+
+    /// <summary>Power (1.18.0): the page's summary for a period, as the page says it.</summary>
+    private static PageExportSpec Power(PowerViewModel vm, ReportService reports, LiveData live, SettingsModel settings)
+    {
+        var periods = Units(vm.Anchor, custom: false);
+        var (unitShown, anchorShown) = (vm.Unit, vm.Anchor);
+        return new(Lang.T("Export power"), From(Lang.T("Power")),
+            [
+                // Ticked: it is the page's only item, and an Export box opens with something to export.
+                new(Lang.T("Summary"), Lang.T("The CPU and GPU energy, what changed, the games' share and the apps in front."), PageItemKind.Sheet, true)
+                {
+                    BytesPerDay = 200,
+                    SheetAsync = async run =>
+                    {
+                        var (unit, anchor) = (run.Choice?.Unit ?? unitShown, run.Choice?.Anchor ?? anchorShown);
+                        bool onScreen = unit == vm.Unit && anchor == vm.Anchor && vm.Loaded && !vm.IsLoading;
+                        var facts = onScreen ? vm.SummaryFacts() : await PowerViewModel.SummaryAsync(reports, live, settings, unit, anchor);
+                        return (_, _) => ExportSheets.Summary(Lang.T("Power summary"), Lang.T("What the Power page says about the period."), facts, run.From, run.To);
+                    },
+                },
+            ],
+            periods, IndexOf(periods, vm.Unit), null, [], NoFilter, FirstDay: vm.FirstDay);
     }
 
     private static PageExportSpec Fans(FansViewModel vm, ReportService reports, LiveData live, SettingsModel settings)

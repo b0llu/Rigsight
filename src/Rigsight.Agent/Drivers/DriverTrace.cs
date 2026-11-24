@@ -21,10 +21,13 @@ internal sealed unsafe class DriverTrace : IDisposable
 
     /// <summary>
     /// The session's own GUID. A system logger session names itself with a GUID of its own (not the kernel logger's
-    /// SystemTraceControlGuid); this one is ours, made for RigSight's driver trace on 2026-11-22. Test copies use the
-    /// same one: their sessions differ by name.
+    /// SystemTraceControlGuid); this one is ours, made for RigSight's driver trace on 2026-11-22. A test copy gets one of
+    /// its own, made from its suffix: with the same GUID Windows refused its session while the installed RigSight's ran
+    /// (error 183, already exists, 2026-11-24), a different name or not.
     /// </summary>
-    internal static readonly Guid SessionGuid = new("5B0B6C2E-8F4A-4D7B-9E21-6A3C1D7F0E94");
+    internal static readonly Guid SessionGuid = RigsightPaths.InstanceSuffix.Length == 0
+        ? new("5B0B6C2E-8F4A-4D7B-9E21-6A3C1D7F0E94")
+        : new(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes("Rigsight Drivers" + RigsightPaths.InstanceSuffix)));
 
     /// <summary>PerfInfo opcodes (EventDescriptor.Opcode): what kind of call each event is.</summary>
     internal const byte OpThreadedDpc = 66, OpIsr = 67, OpDpc = 68, OpTimerDpc = 69;

@@ -1768,7 +1768,7 @@
                                         </Setter.Value>
                                     </Setter>
                                 </Style>
-                                <!-- The 16 pages as tiles in a 4 by 4 square: lit ones filled, the rest a dashed outline. -->
+                                <!-- The 17 pages as tiles, 6 by 3: lit ones filled, the rest a dashed outline. -->
                                 <DataTemplate x:Key="PageTileT">
                                     <Grid Margin="4">
                                         <Border x:Name="Tile" CornerRadius="{x:Static ctl:Corner.Field}" Background="{DynamicResource HoverBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" />
@@ -1856,7 +1856,7 @@
                                         <StackPanel>
                                             <Border Style="{StaticResource TileBox}">
                                                 <ItemsControl ItemsSource="{Binding BasicTiles}" ItemTemplate="{StaticResource PageTileT}" Focusable="False">
-                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4" Rows="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="6" Rows="3" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                                 </ItemsControl>
                                             </Border>
                                             <StackPanel Orientation="Horizontal" Height="24" Margin="0,14,0,0">
@@ -1865,7 +1865,7 @@
                                                     <TextBlock Text="{ctl:T 'RECOMMENDED'}" FontSize="{x:Static ctl:TextSize.MiniPlus}" FontWeight="Bold" Foreground="{DynamicResource OnAccentBrush}" />
                                                 </Border>
                                             </StackPanel>
-                                            <TextBlock Text="{ctl:T '6 of the 16 pages, to see whether your PC is fine and what went wrong.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
+                                            <TextBlock Text="{ctl:T '6 of the 17 pages, to see whether your PC is fine and what went wrong.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
                                                        TextWrapping="Wrap" MinHeight="38" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Button>
@@ -1873,13 +1873,13 @@
                                         <StackPanel>
                                             <Border Style="{StaticResource TileBox}">
                                                 <ItemsControl ItemsSource="{Binding FullTiles}" ItemTemplate="{StaticResource PageTileT}" Focusable="False">
-                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4" Rows="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="6" Rows="3" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                                 </ItemsControl>
                                             </Border>
                                             <StackPanel Orientation="Horizontal" Height="24" Margin="0,14,0,0">
                                                 <TextBlock Text="{ctl:T 'Everything'}" FontSize="{x:Static ctl:TextSize.Subtitle}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                             </StackPanel>
-                                            <TextBlock Text="{ctl:T 'All 16 pages, for every detail like what\'s running, fans, sensors and widgets.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
+                                            <TextBlock Text="{ctl:T 'All 17 pages, for every detail like what\'s running, power, fans, sensors and widgets.'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
                                                        TextWrapping="Wrap" MinHeight="38" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Button>
