@@ -204,11 +204,16 @@ public partial class MainWindow
         NavFadeBottom.Background = Fade(clear, color);
     }
 
-    /// <summary>The open page's entry (or its group's icon, with icons only) is scrolled into view.</summary>
+    /// <summary>
+    /// The open page's entry (or its group's icon, with icons only) is scrolled into view, before the window is drawn: at
+    /// Loaded priority it ran after the new page was drawn and drew the window a second time, which made opening a page
+    /// whose row is out of sight (All sensors, once All pages made the list scroll) about 35 ms slower (2026-11-25).
+    /// </summary>
     private void KeepOpenPageInView() => Dispatcher.BeginInvoke(() =>
     {
+        NavScroll.UpdateLayout();
         if (Find(NavScroll) is { } item) item.BringIntoView();
-    }, DispatcherPriority.Loaded);
+    }, DispatcherPriority.Normal);
 
     private static FrameworkElement? Find(DependencyObject from)
     {
