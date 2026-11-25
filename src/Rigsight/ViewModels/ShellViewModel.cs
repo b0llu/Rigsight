@@ -155,6 +155,10 @@ public sealed partial class ShellViewModel : ObservableObject
         Update.Leaving = Ask.LetGo;
         foreach (var config in Settings.Current.CustomPages) CustomPages.Add(CreateCustomPage(config));
         Sidebar = new SidebarViewModel(Settings, page => CurrentPage = page, CustomPages);
+        AllPages = new AllPagesViewModel(Sidebar, Live, page => CurrentPage = page);
+        // Ctrl+K finds pages too: what's typed in the Ask box lists the pages it names, above asking (approved mock-up 2026-11-24).
+        Ask.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(AskViewModel.BarDraft)) { OnPropertyChanged(nameof(BarPages)); OnPropertyChanged(nameof(HasBarPages)); } };
+        Home.Sidebar = Sidebar;
         Presets = new PresetPickerViewModel(Live, preset => NewPage(preset));
         Export = new ExportViewModel(Reports, Settings, Live);
         PageExport = new PageExportViewModel(Reports, Settings, Live);
@@ -422,9 +426,16 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>The Ask window over every page, and its button in the top bar or the sidebar.</summary>
     public AskViewModel Ask { get; }
 
+    /// <summary>The pages what's typed in the Ask box names (at most four): a press opens one; Enter still asks.</summary>
+    public IReadOnlyList<NavEntry> BarPages => Sidebar.Find(Ask.BarDraft);
+    public bool HasBarPages => BarPages.Count > 0;
+
     public PlansViewModel Plans { get; }
     public UpdateViewModel Update { get; }
     public SidebarViewModel Sidebar { get; }
+
+    /// <summary>All pages, fixed above Settings in the sidebar (approved mock-up 2026-11-24).</summary>
+    public AllPagesViewModel AllPages { get; }
 
     /// <summary>"New dashboard": pick a preset or a blank page.</summary>
     public PresetPickerViewModel Presets { get; }
@@ -634,6 +645,7 @@ public sealed partial class ShellViewModel : ObservableObject
         else if (SettingsPage.IsAi) SettingsPage.Ai?.Shown();
         foreach (var page in CustomPages) page.IsSelected = page.NavKey == value;
         Sidebar.Select(value);
+        AllPages.IsShown = value == SidebarViewModel.AllPagesKey;
         LatencyShown(_windowShown);
         _ = RefreshCurrentPageAsync();
     }
@@ -676,6 +688,7 @@ public sealed partial class ShellViewModel : ObservableObject
             case "fans": await Fans.RefreshAsync(); break;
             case "power": await Power.RefreshAsync(); break;
             case "latency": Latency.NoAdmin = IsConnected && !AgentIsAdmin; await Latency.RefreshAsync(); break;
+            case SidebarViewModel.AllPagesKey: AllPages.RefreshFigures(); break;
             case "network": await Network.RefreshAsync(); break;
             case "widgets": Widgets.RequestPreviews(); break;
             case "overlay":
@@ -744,6 +757,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 case "power": if (Power.IncludesToday && _tickCount % 5 == 0) await Power.RefreshAsync(); break;
                 // The live part comes with each tick; the period's figures move slowly: read again every 5th minute.
                 case "latency": if (Latency.IncludesToday && Latency.IsListShown && _tickCount % 5 == 0) await Latency.RefreshAsync(); break;
+                case SidebarViewModel.AllPagesKey: AllPages.RefreshFigures(); break;
                 case "network": await Network.RefreshAsync(); break;
                 case "temperatures": if (ChartDueNow) await LoadTemperatureHistoryAsync(); break;
                 default:

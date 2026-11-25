@@ -213,5 +213,20 @@ public partial class MainWindow
             e.Handled = true;
             AskDropList.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
         }
+        else if (e.Key == Key.Down && _vm.HasBarPages)
+        {
+            e.Handled = true;
+            AskDropPages.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+        }
+    }
+
+    /// <summary>A page found from the Ask box: it opens, and the box closes with what was typed cleared.</summary>
+    private void BarPage_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not ViewModels.NavEntry page) return;
+        CloseDrop();
+        _vm.Ask.BarDraft = "";
+        _vm.CurrentPage = page.Key;
+        Core.Log.Write("app", $"Opened {page.Key} from the Ask box");
     }
 }

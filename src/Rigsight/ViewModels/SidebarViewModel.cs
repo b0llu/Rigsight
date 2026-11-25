@@ -40,9 +40,22 @@ public sealed partial class NavEntry(string key, string title, string icon, stri
     public bool CanHide => Key != "home";
 
     /// <summary>An update's new feature is here and it hasn't been opened since: a dot, and what's new as its hover.</summary>
-    public bool IsNew => owner.NewPage == Key;
+    public bool IsNew => owner.NewPage == Key && !IsNewPage;
     public string? NewText => IsNew ? owner.NewText : null;
-    internal void NewChanged() { OnPropertyChanged(nameof(IsNew)); OnPropertyChanged(nameof(NewText)); }
+
+    /// <summary>A page an update added that this person hasn't opened yet: a NEW tag, here and in All pages (mock-up 2026-11-24).</summary>
+    public bool IsNewPage => owner.IsNewPage(Key);
+
+    internal void NewChanged() { OnPropertyChanged(nameof(IsNew)); OnPropertyChanged(nameof(NewText)); OnPropertyChanged(nameof(IsNewPage)); }
+
+    /// <summary>
+    /// A page left out of the sidebar, listed in its group's "N more" (while that list is open, or while it's the page on
+    /// screen). It never slots in among the shown pages, so nothing jumps when it's opened (the user, 2026-11-24).
+    /// </summary>
+    [ObservableProperty] private bool _inMore;
+
+    /// <summary>What the page is for, in one line (All pages, a new page's Home card).</summary>
+    public string Description => SidebarViewModel.DescriptionOf(Key);
 
     /// <summary>Its name is being typed in the Customize pop-up (the pencil); otherwise the name shows as text.</summary>
     [ObservableProperty] private bool _isRenaming;
@@ -62,7 +75,7 @@ public sealed partial class NavEntry(string key, string title, string icon, stri
     public bool IsShown
     {
         get => !owner.IsHidden(Key);
-        set => owner.SetHidden(this, !value);
+        set => owner.SetShown(this, value);
     }
 
     internal void ShownChanged() => OnPropertyChanged(nameof(IsShown));
@@ -119,10 +132,11 @@ public sealed class SidebarGroup(string key, string? name, SidebarViewModel owne
     public bool Collapsed => ShowHeading && owner.IsFolded(Key);
 
     /// <summary>
-    /// The heading in the sidebar itself: shown, with a page of the group not hidden (DASHBOARDS, with nothing in it yet,
-    /// keeps its heading for "New dashboard", except with only the basics shown).
+    /// The heading in the sidebar itself: shown, over any page of the group, shown or in its "N more" (approved mock-up
+    /// 2026-11-24: a basics sidebar keeps ON SCREEN with "3 more" under it). DASHBOARDS, with nothing in it yet, keeps its
+    /// heading for "New dashboard", except with only the basics shown.
     /// </summary>
-    public bool HeadingInSidebar => ShowHeading && (Pages.Any(p => !owner.IsHidden(p.Key)) || (Key == SidebarViewModel.Dashboards && !owner.IsBasic));
+    public bool HeadingInSidebar => ShowHeading && (Pages.Count > 0 || (Key == SidebarViewModel.Dashboards && !owner.IsBasic));
 
     /// <summary>Its heading's name is being typed in the Customize pop-up (the pencil), with the switch that hides the heading.</summary>
     public bool IsRenaming
@@ -136,6 +150,43 @@ public sealed class SidebarGroup(string key, string? name, SidebarViewModel owne
 
     /// <summary>It has no page (every one was moved out, or there is no dashboard yet): the editor shows a box to drop one in.</summary>
     public bool ShowDropBox => Pages.Count == 0;
+
+    // ── "N more": the group's pages that aren't shown, at its end (approved mock-up 2026-11-24) ──
+
+    /// <summary>The group's pages left out of the sidebar, in its order; each shows only while <see cref="NavEntry.InMore"/>.</summary>
+    public ObservableCollection<NavEntry> MorePages { get; } = [];
+
+    /// <summary>The "N more" list is open (for as long as the app runs).</summary>
+    public bool MoreOpen
+    {
+        get => _moreOpen;
+        set { if (_moreOpen == value) return; _moreOpen = value; owner.MoreToggled(); }
+    }
+    private bool _moreOpen;
+
+    public CommunityToolkit.Mvvm.Input.IRelayCommand ToggleMoreCommand => _toggleMore ??= new CommunityToolkit.Mvvm.Input.RelayCommand(() => MoreOpen = !MoreOpen);
+    private CommunityToolkit.Mvvm.Input.RelayCommand? _toggleMore;
+
+    /// <summary>The "N more" row: there are pages left out, and the group isn't folded.</summary>
+    public bool ShowMoreRow => MorePages.Count > 0 && !Collapsed;
+
+    /// <summary>"3 more", or "Fewer" while the list is open.</summary>
+    public string MoreText => MoreOpen ? Lang.T("Fewer") : MorePages.Count == 1 ? Lang.T("1 more") : Lang.T($"{MorePages.Count} more");
+
+    internal void SyncMore(IEnumerable<NavEntry> hidden)
+    {
+        var wanted = hidden.ToList();
+        foreach (var gone in MorePages.Except(wanted).ToList()) MorePages.Remove(gone);
+        for (int i = 0; i < wanted.Count; i++)
+        {
+            int at = MorePages.IndexOf(wanted[i]);
+            if (at < 0) MorePages.Insert(i, wanted[i]);
+            else if (at != i) MorePages.Move(at, i);
+        }
+        OnPropertyChanged(nameof(ShowMoreRow));
+        OnPropertyChanged(nameof(MoreText));
+        OnPropertyChanged(nameof(HeadingInSidebar));
+    }
 
     // ── Icons only: the group as one icon, its pages in a small list beside it (approved mock-up, 2026-10-25) ──
 
@@ -176,6 +227,8 @@ public sealed class SidebarGroup(string key, string? name, SidebarViewModel owne
         OnPropertyChanged(nameof(Collapsed));
         OnPropertyChanged(nameof(ShowDropBox));
         OnPropertyChanged(nameof(HeadingInSidebar));
+        OnPropertyChanged(nameof(ShowMoreRow));
+        OnPropertyChanged(nameof(MoreText));
         RailChanged();
     }
 }
@@ -236,6 +289,51 @@ public sealed partial class SidebarViewModel : ObservableObject
     /// <summary>Every built-in page with its name in the person's language ("games", "Juegos").</summary>
     public static IEnumerable<(string Key, string Name)> BuiltInNames() => BuiltIn.Select(p => (p.Key, Lang.T(p.Title)));
 
+    /// <summary>
+    /// The version each page came in, for the pages added after the first versions (the rest were always there). Someone
+    /// who updates from before a page came meets it as new; a page added later is one more line here.
+    /// </summary>
+    private static readonly Dictionary<string, Version> AddedIn = new()
+    {
+        ["games"] = new(0, 29, 0),
+        ["power"] = new(1, 18, 0),
+        ["latency"] = new(1, 19, 0),
+    };
+
+    /// <summary>
+    /// What a page is for, in one line short enough for an All pages tile at any window width (approved mock-up
+    /// 2026-11-24: every tile one line, so the tiles in a row are the same height).
+    /// </summary>
+    public static string DescriptionOf(string key) => key switch
+    {
+        "home" => Lang.T("How your PC is doing today"),
+        "reports" => Lang.T("Your days and weeks"),
+        "apps" => Lang.T("Time spent in each app"),
+        "games" => Lang.T("Every game you played"),
+        "processes" => Lang.T("What's running right now"),
+        "crashes" => Lang.T("Crashes and blue screens"),
+        "timeline" => Lang.T("What changed on this PC"),
+        "latency" => Lang.T("How long drivers held the CPU"),
+        "temperatures" => Lang.T("Heat of each part"),
+        "power" => Lang.T("What the parts draw"),
+        "fans" => Lang.T("How fast each fan spins"),
+        "memory" => Lang.T("What fills your memory"),
+        "storage" => Lang.T("Drives, space and wear"),
+        "network" => Lang.T("Internet used by each app"),
+        "sensors" => Lang.T("Every reading this PC gives"),
+        "widgets" => Lang.T("Readings on your desktop"),
+        "overlay" => Lang.T("Readings over your games"),
+        "taskbar" => Lang.T("Readings in the taskbar"),
+        _ => Lang.T("Your own page"),
+    };
+
+    /// <summary>A new page's Home card, under its name: what the page shows, as a sentence (its own subtitle where it has one).</summary>
+    public static string PitchOf(string key) => key switch
+    {
+        "latency" => Lang.T("How long drivers kept a CPU core busy, and how long apps waited to run."),
+        _ => DescriptionOf(key) + ".",
+    };
+
     private readonly SettingsModel _settings;
     private readonly Action<string> _go;
     private readonly List<NavEntry> _entries;
@@ -256,8 +354,147 @@ public sealed partial class SidebarViewModel : ObservableObject
         foreach (var page in dashboards ?? []) Add(page);
         if (dashboards is not null) dashboards.CollectionChanged += OnDashboardsChanged;
         _settings.Changed += NewDotChanged;
+        MeetPages();
         Arrange();
         Update();
+    }
+
+    // ── New pages, All pages and its card (approved mock-up 2026-11-24) ──
+
+    /// <summary>
+    /// The first time this version reads the sidebar: every page the person's last version had is one they've met. A new
+    /// install has met every page (each is new to them alike); someone who updated also gets the one card about All pages.
+    /// </summary>
+    private void MeetPages()
+    {
+        if (S.Known is not null) return;
+        string? last = _settings.Current.WhatsNewSeen;
+        bool updated = !S.AskPages && Version.TryParse(last, out var from);
+        var known = BuiltIn.Where(p => !updated || !AddedIn.TryGetValue(p.Key, out var came) || came <= Version.Parse(last!)).Select(p => p.Key).ToList();
+        _settings.Update(s => { s.Sidebar.Known = known; s.Sidebar.AllPagesCard = updated; });
+        Core.Log.Write("sidebar", updated
+            ? $"Pages met, updated from {last}: {known.Count} of {BuiltIn.Length}; new: {string.Join(", ", BuiltIn.Select(p => p.Key).Except(known))}"
+            : $"Pages met on a new install: all {known.Count}");
+    }
+
+    /// <summary>A built-in page this person hasn't opened since an update brought it.</summary>
+    internal bool IsNewPage(string key) => S.Known is { } known && !known.Contains(key) && BuiltIn.Any(p => p.Key == key);
+
+    /// <summary>A page opened on a basics sidebar for the first time goes back to All pages once another page opens (no jump while it's open).</summary>
+    private string? _backToAllPages;
+
+    /// <summary>New pages shown in the sidebar, for "1 new" on the All pages row.</summary>
+    public int NewCount => _entries.Count(e => e.IsNewPage && !IsHidden(e.Key));
+
+    /// <summary>The All pages row: "1 new" while a new page waits to be opened, else how many pages there are.</summary>
+    public string AllPagesNote => NewCount switch { 0 => _entries.Count.ToString(System.Globalization.CultureInfo.CurrentCulture), 1 => Lang.T("1 new"), var n => Lang.T($"{n} new") };
+    public bool AllPagesHasNew => NewCount > 0;
+
+    /// <summary>All pages is the page on screen: its row is marked like a page.</summary>
+    public bool AllPagesSelected
+    {
+        get => _selected == AllPagesKey;
+        set { if (value && _selected != AllPagesKey) _go(AllPagesKey); }
+    }
+
+    public const string AllPagesKey = "allpages";
+
+    /// <summary>Every page, in sidebar order: the All pages page lists these.</summary>
+    public IEnumerable<NavEntry> Entries => _entries;
+
+    /// <summary>
+    /// The switch on an All pages tile, and "Show in sidebar": the person's own choice, which a basics sidebar keeps after
+    /// a first visit and which takes a new page out of the sidebar at once (the user, 2026-11-24).
+    /// </summary>
+    public void SetShown(NavEntry entry, bool shown)
+    {
+        if (!entry.CanHide) return;
+        if (_backToAllPages == entry.Key) _backToAllPages = null;
+        if (!S.Chosen.Contains(entry.Key)) _settings.Update(s => s.Sidebar.Chosen.Add(entry.Key));
+        SetHidden(entry, !shown);
+    }
+
+    // The Home card: a new page first, else the one about All pages.
+
+    private NavEntry? CardPage => _entries.FirstOrDefault(e => e.IsNewPage && !IsHidden(e.Key) && !S.CardsLater.Contains(e.Key));
+
+    public bool HasCard => CardPage is not null || S.AllPagesCard;
+    public bool CardIsPage => CardPage is not null;
+    public string CardIcon => CardPage?.Icon is { } icon ? icon : "";
+    public string CardTitle => CardPage is { } p ? Lang.T($"{p.Title} is a new page") : Lang.T("All pages is above Settings");
+    public string CardText => CardPage is { } p ? PitchOf(p.Key) : Lang.T("It lists every page, each with a switch for the sidebar. Your sidebar stays as you set it.");
+    public string CardOpenText => CardPage is { } p ? Lang.T($"Open {p.Title}") : Lang.T("Open All pages");
+
+    [RelayCommand]
+    private void CardOpen() => _go(CardPage?.Key ?? AllPagesKey);
+
+    /// <summary>Later on a new page's card: the card goes, the NEW tag stays until the page is opened. The All pages card just closes.</summary>
+    [RelayCommand]
+    private void CardLater()
+    {
+        // One card per update: putting off a new page's card retires the All pages one too.
+        if (CardPage is { } p) _settings.Update(s => { if (!s.Sidebar.CardsLater.Contains(p.Key)) s.Sidebar.CardsLater.Add(p.Key); s.Sidebar.AllPagesCard = false; });
+        else if (S.AllPagesCard) _settings.Update(s => s.Sidebar.AllPagesCard = false);
+        CardChanged();
+    }
+
+    /// <summary>
+    /// The card and the All pages row are told only when what they show changed: this runs on every page switch, and
+    /// Home's card would otherwise read its words again each time.
+    /// </summary>
+    private void CardChanged()
+    {
+        string now = $"{CardPage?.Key}|{CardPage?.Title}|{S.AllPagesCard}|{NewCount}|{_entries.Count}";
+        if (now == _cardShown) return;
+        _cardShown = now;
+        Notify(nameof(HasCard), nameof(CardIsPage), nameof(CardIcon), nameof(CardTitle), nameof(CardText), nameof(CardOpenText),
+            nameof(NewCount), nameof(AllPagesNote), nameof(AllPagesHasNew));
+    }
+    private string? _cardShown;
+
+    /// <summary>A group's "N more" opened or closed.</summary>
+    internal void MoreToggled() => Update();
+
+    // ── Moving pages in the sidebar itself, with Undo (a plain drag, nothing on screen for it: the user, 2026-11-24) ──
+
+    private sealed record Layout(List<string> Order, Dictionary<string, string> Groups, List<string> Hidden, List<string> Chosen);
+    private Layout? _undo;
+    private System.Windows.Threading.DispatcherTimer? _undoTimer;
+
+    /// <summary>"Moved Temperatures": shown under the pages for a few seconds after a drag, with Undo beside it.</summary>
+    [ObservableProperty] private string _undoText = "";
+
+    /// <summary>A page dropped in the sidebar: before <paramref name="before"/>, or at the end of <paramref name="group"/>. A page that wasn't shown is shown.</summary>
+    public void Drop(NavEntry entry, SidebarGroup group, NavEntry? before)
+    {
+        var undo = new Layout([.. S.Order], new(S.Groups), [.. S.Hidden], [.. S.Chosen]);
+        bool shown = false;
+        if (IsHidden(entry.Key)) { SetShown(entry, true); shown = true; }
+        int index = before is not null && group.Pages.Contains(before) ? group.Pages.IndexOf(before) : group.Pages.Count;
+        if (!MoveTo(entry, group, index) && !shown) return;
+        _undo = undo;
+        UndoText = Lang.T($"Moved {entry.Title}");
+        _undoTimer ??= new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(7) };
+        _undoTimer.Tick -= UndoExpired;
+        _undoTimer.Tick += UndoExpired;
+        _undoTimer.Stop();
+        _undoTimer.Start();
+        Core.Log.Write("sidebar", $"Dragged {entry.Key} to {group.Key}{(before is null ? " (end)" : $" before {before.Key}")}");
+    }
+
+    private void UndoExpired(object? sender, EventArgs e) { _undoTimer?.Stop(); UndoText = ""; _undo = null; }
+
+    [RelayCommand]
+    private void Undo()
+    {
+        if (_undo is not { } was) return;
+        _settings.Update(s => { s.Sidebar.Order = was.Order; s.Sidebar.Groups = was.Groups; s.Sidebar.Hidden = was.Hidden; s.Sidebar.Chosen = was.Chosen; });
+        UndoExpired(null, EventArgs.Empty);
+        foreach (var e in _entries) e.ShownChanged();
+        Arrange();
+        GroupsChanged();
+        Update();
+        Core.Log.Write("sidebar", "Undid the last drag");
     }
 
     // ── Dashboards ──
@@ -378,6 +615,7 @@ public sealed partial class SidebarViewModel : ObservableObject
             if (S.IconsOnly == value) return;
             _settings.Update(s => s.Sidebar.IconsOnly = value);
             Notify(nameof(IconsOnly), nameof(IconsTip), nameof(HandleGlyph));
+            Update();
         }
     }
 
@@ -453,16 +691,33 @@ public sealed partial class SidebarViewModel : ObservableObject
     private void NewDotChanged()
     {
         foreach (var e in _entries) e.NewChanged();
+        CardChanged();
     }
 
     public void Select(string page)
     {
         // The page with the dot opened: what's new there has been seen.
         if (page == NewPage) _settings.Update(s => { s.NewFeaturePage = null; s.NewFeatureText = null; });
+        // Leaving a page a basics sidebar met for the first time: it goes back to All pages (and its group's "N more").
+        if (_backToAllPages is { } back && back != page)
+        {
+            _backToAllPages = null;
+            if (EntryOf(back) is { } leaving && IsBasic && !S.Chosen.Contains(back)) SetHidden(leaving, true);
+        }
+        // A new page opened: met. Shown pages keep it (everything sidebars); a basics one lets it go once it's left.
+        if (IsNewPage(page))
+        {
+            _settings.Update(s => { if (s.Sidebar.Known is { } k && !k.Contains(page)) k.Add(page); s.Sidebar.CardsLater.Remove(page); });
+            if (IsBasic && !S.Chosen.Contains(page) && !IsHidden(page)) _backToAllPages = page;
+            if (EntryOf(page) is { } met) met.NewChanged();
+            Core.Log.Write("sidebar", $"New page {page} opened for the first time{(_backToAllPages == page ? "; back to All pages once left (basics)" : "")}");
+        }
+        if (page == AllPagesKey && S.AllPagesCard) _settings.Update(s => s.Sidebar.AllPagesCard = false);
         _selected = page;
         _selecting = true;
         foreach (var e in _entries) e.IsSelected = e.Key == page;
         _selecting = false;
+        OnPropertyChanged(nameof(AllPagesSelected));
         Update();
     }
 
@@ -559,6 +814,23 @@ public sealed partial class SidebarViewModel : ObservableObject
     private SidebarGroup? GroupOf(NavEntry entry) => Groups.FirstOrDefault(g => g.Pages.Contains(entry));
 
     /// <summary>
+    /// The pages a few typed words name, for Ctrl+K: names first, then what a page is for; at most four, none for a long
+    /// question (that's for the AI).
+    /// </summary>
+    public IReadOnlyList<NavEntry> Find(string? text)
+    {
+        text = text?.Trim() ?? "";
+        if (text.Length < 2 || text.Length > 30 || text.Contains('\n')) return [];
+        var byName = _entries.Where(e => e.Title.Contains(text, StringComparison.CurrentCultureIgnoreCase))
+            .OrderBy(e => e.Title.StartsWith(text, StringComparison.CurrentCultureIgnoreCase) ? 0 : 1);
+        var byUse = _entries.Where(e => e.Description.Contains(text, StringComparison.CurrentCultureIgnoreCase));
+        return [.. byName.Concat(byUse).Distinct().Take(4)];
+    }
+
+    /// <summary>The group a page is in now (for a drop in the sidebar).</summary>
+    public SidebarGroup? GroupOfEntry(NavEntry entry) => GroupOf(entry);
+
+    /// <summary>
     /// Puts a page at a place in any group: <paramref name="index"/> counts that group's pages as they are now, the
     /// moved one included. False when it's already there.
     /// </summary>
@@ -651,11 +923,20 @@ public sealed partial class SidebarViewModel : ObservableObject
     {
         foreach (var group in Groups)
         {
-            foreach (var e in group.Pages) e.IsVisible = (!IsHidden(e.Key) && !group.Collapsed) || e.IsSelected;
+            // A shown page: in its place (a folded group keeps the page on screen and a new page in sight). A page that
+            // isn't shown: only in the group's "N more", never among the shown ones (approved mock-up 2026-11-24).
+            foreach (var e in group.Pages)
+            {
+                bool hidden = IsHidden(e.Key);
+                e.IsVisible = !hidden && (!group.Collapsed || e.IsSelected || e.IsNewPage);
+                e.InMore = hidden && (e.IsSelected || (group.MoreOpen && !group.Collapsed && !IconsOnly));
+            }
+            group.SyncMore(group.Pages.Where(e => IsHidden(e.Key)));
             group.SelectionChanged();
         }
         OnPropertyChanged(nameof(HiddenSummary));
         OnPropertyChanged(nameof(ShownSummary));
+        CardChanged();
         Changed?.Invoke();
     }
 }

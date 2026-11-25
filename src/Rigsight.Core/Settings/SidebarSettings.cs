@@ -39,4 +39,20 @@ public sealed class SidebarSettings
 
     /// <summary>The sidebar shows its pages' icons only, narrow; each page's name is its hover.</summary>
     public bool IconsOnly { get; set; }
+
+    /// <summary>
+    /// The pages this person has met (approved mock-up 2026-11-24): opened, or already there when All pages came. A built-in
+    /// page not listed is new: it shows under its heading with a NEW tag until opened. Null until this version first reads
+    /// the sidebar, which then lists every page the person's last version had (a new install: every page).
+    /// </summary>
+    public List<string>? Known { get; set; }
+
+    /// <summary>Pages whose sidebar switch the person set themselves: a basics sidebar doesn't send them back to All pages after a first visit.</summary>
+    public List<string> Chosen { get; set; } = [];
+
+    /// <summary>New pages whose Home card was put off with Later: the card stays away, the NEW tag stays until the page is opened.</summary>
+    public List<string> CardsLater { get; set; } = [];
+
+    /// <summary>The one Home card that tells someone who updated where All pages is: waiting until closed or All pages is opened.</summary>
+    public bool AllPagesCard { get; set; }
 }

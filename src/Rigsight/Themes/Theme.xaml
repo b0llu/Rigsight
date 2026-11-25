@@ -100,6 +100,7 @@
     <conv:EqualsConverter x:Key="Equals" />
     <conv:TimeFormatConverter x:Key="TimeFormat" />
     <conv:NavIconConverter x:Key="NavIcon" />
+    <conv:TileColumnsConverter x:Key="TileColumns" />
     <conv:EqualsToVisibilityConverter x:Key="EqualsVis" />
     <conv:VisibilityConverter x:Key="Vis" />
     <conv:ScaleConverter x:Key="Scale" />
@@ -458,6 +459,14 @@
         <Setter Property="FontSize" Value="{x:Static ctl:TextSize.Caption}" />
         <Setter Property="FontWeight" Value="Bold" />
     </Style>
+
+    <!-- A page an update added that hasn't been opened yet: a small NEW tag in the accent colour, the same in the sidebar,
+         on All pages and in Ctrl+K (approved mock-up 2026-11-24). -->
+    <ControlTemplate x:Key="NewTag" TargetType="ContentControl">
+        <Border Background="{DynamicResource AccentBrush}" CornerRadius="{x:Static ctl:Corner.Tag}" Padding="5,1,5,2" VerticalAlignment="Center" SnapsToDevicePixels="True">
+            <TextBlock Text="{ctl:T NEW}" FontSize="{x:Static ctl:TextSize.Mini}" FontWeight="Bold" Foreground="{DynamicResource OnAccentBrush}" />
+        </Border>
+    </ControlTemplate>
 
     <!-- ── Sidebar navigation ──────────────────────────────────────────── -->
     <Style x:Key="NavItem" TargetType="RadioButton">

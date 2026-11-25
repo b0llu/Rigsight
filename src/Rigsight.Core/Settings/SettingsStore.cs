@@ -262,6 +262,8 @@ public static class SettingsStore
         s.Sidebar.Names = Filled(s.Sidebar.Names);
         s.Sidebar.HeadingNames = Filled(s.Sidebar.HeadingNames);
         s.Sidebar.HiddenHeadings ??= [];
+        s.Sidebar.Chosen ??= [];
+        s.Sidebar.CardsLater ??= [];
 
         // The built-in widgets, each at most once, in order, then the user's own (each with its own identifier, name and
         // layout or tiles). Before v13 every built-in one was always there; since, Remove takes one away for good.

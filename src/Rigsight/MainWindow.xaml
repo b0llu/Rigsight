@@ -618,6 +618,41 @@
                         </DockPanel>
                         <TextBlock Text="{Binding Ask.BarCount}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="46,0,14,10"
                                    Visibility="{Binding Ask.BarShowCount, Converter={StaticResource Vis}}" />
+                        <!-- Pages the typed words name (Ctrl+K finds pages, approved mock-up 2026-11-24): a press opens one, Enter
+                             still asks. ↓ from the box steps into them. -->
+                        <StackPanel x:Name="AskDropPages" Visibility="{Binding HasBarPages, Converter={StaticResource Vis}}" KeyboardNavigation.DirectionalNavigation="Contained">
+                            <Border Height="1" Background="{DynamicResource StrokeBrush}" />
+                            <TextBlock Text="{ctl:T 'PAGES'}" FontSize="{x:Static ctl:TextSize.Label}" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="18,12,0,6" />
+                            <ItemsControl ItemsSource="{Binding BarPages}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Click="BarPage_Click" Cursor="Hand" HorizontalContentAlignment="Stretch" FocusVisualStyle="{x:Null}" AutomationProperties.Name="{Binding Title}">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Field}" Padding="10,9" Margin="8,0">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                            <DockPanel>
+                                                <ContentPresenter DockPanel.Dock="Left" Content="{Binding Icon, Converter={StaticResource NavIcon}}" Width="16" Margin="0,0,12,0" VerticalAlignment="Center"
+                                                                  TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S14}" TextElement.Foreground="{DynamicResource MutedBrush}" />
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding Description}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" Margin="12,0,4,0" />
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.BodyPlus}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <ContentControl Template="{StaticResource NewTag}" Margin="8,0,0,0" Focusable="False" Visibility="{Binding IsNewPage, Converter={StaticResource Vis}}" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Border Height="6" />
+                        </StackPanel>
                         <!-- Questions to start from and the last chats, while nothing is typed. ↓ from the box steps into them. -->
                         <StackPanel x:Name="AskDropList" Visibility="{Binding Ask.BarSuggests, Converter={StaticResource Vis}}" KeyboardNavigation.DirectionalNavigation="Contained">
                             <StackPanel.Resources>
@@ -1211,7 +1246,37 @@
                     <RadioButton Style="{StaticResource NavItem}" GroupName="AskSide" Tag="{StaticResource AiIcon}" Content="{ctl:T 'Ask'}" Command="{Binding Ask.ToggleCommand}"
                                  IsChecked="{Binding Ask.IsOpen, Mode=OneWay}" AutomationProperties.Name="{ctl:T 'Ask RigSight'}" Margin="0,0,0,4"
                                  Visibility="{Binding Ask.InSidebar, Converter={StaticResource Vis}}" />
+                    <!-- After a page is dragged in the sidebar: what moved, and Undo, for a few seconds. -->
+                    <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Control}"
+                                      Padding="12,6,6,6" Margin="0,0,0,8" Visibility="{Binding Sidebar.UndoText, Converter={StaticResource Vis}}">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Background="Transparent" Padding="10,4" Content="{ctl:T Undo}"
+                                    Command="{Binding Sidebar.UndoCommand}" Foreground="{DynamicResource AccentBrush}" />
+                            <TextBlock Text="{Binding Sidebar.UndoText}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                    </ctl:SmoothBorder>
                     <Border Height="1" Background="{DynamicResource StrokeBrush}" Margin="12,4,12,10" />
+                    <!-- All pages: fixed above Settings so it never scrolls away (approved mock-up 2026-11-24). "1 new" while a page
+                         an update added waits to be opened, else how many pages there are. -->
+                    <RadioButton x:Name="AllPagesRow" Style="{StaticResource NavItem}" Tag="&#xE80A;" AutomationProperties.Name="{ctl:T 'All pages'}"
+                                 IsChecked="{Binding Sidebar.AllPagesSelected, Mode=TwoWay}">
+                        <DockPanel>
+                            <TextBlock x:Name="AllPagesNote" DockPanel.Dock="Right" Text="{Binding Sidebar.AllPagesNote}" FontSize="{x:Static ctl:TextSize.Small}" VerticalAlignment="Center" Margin="8,0,2,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Sidebar.AllPagesHasNew}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{ctl:T 'All pages'}" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                    </RadioButton>
                     <ToggleButton x:Name="SettingsRow" AutomationProperties.Name="{ctl:T 'Settings and more'}" Cursor="Hand" Focusable="False"
                                   HorizontalAlignment="Stretch" Foreground="{DynamicResource MutedBrush}"
                                   Tag="{Binding CurrentPage, Converter={StaticResource Equals}, ConverterParameter=settings}">
@@ -1379,9 +1444,56 @@
                                 <DockPanel>
                                     <Ellipse DockPanel.Dock="Right" Width="7" Height="7" Margin="8,0,2,0" VerticalAlignment="Center" Fill="{DynamicResource CpuBrush}"
                                              ToolTip="{Binding NewText}" Visibility="{Binding IsNew, Converter={StaticResource Vis}}" />
+                                    <ContentControl DockPanel.Dock="Right" Template="{StaticResource NewTag}" Margin="8,0,0,0" Focusable="False"
+                                                    Visibility="{Binding IsNewPage, Converter={StaticResource Vis}}" />
                                     <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
                                 </DockPanel>
                             </RadioButton>
+                        </DataTemplate>
+                        <!-- A page left out of the sidebar, in its group's "N more": while that list is open, or while it's the page
+                             on screen. Fainter than a shown page, and it keeps its place in that list when opened. Its own radio
+                             group: the page's (collapsed) row among the shown ones is bound to the same IsSelected, and two
+                             rows of one group would uncheck each other. -->
+                        <DataTemplate x:Key="MoreEntry">
+                            <RadioButton Style="{StaticResource NavItem}" Tag="{Binding Icon, Converter={StaticResource NavIcon}}" AutomationProperties.Name="{Binding Title}"
+                                         IsChecked="{Binding IsSelected, Mode=TwoWay}" Visibility="{Binding InMore, Converter={StaticResource Vis}}" Click="NavClicked" Opacity="0.72"
+                                         GroupName="NavMore">
+                                <DockPanel>
+                                    <ContentControl DockPanel.Dock="Right" Template="{StaticResource NewTag}" Margin="8,0,0,0" Focusable="False"
+                                                    Visibility="{Binding IsNewPage, Converter={StaticResource Vis}}" />
+                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </RadioButton>
+                        </DataTemplate>
+                        <!-- "3 more" at a group's end: opens its pages that aren't shown, in place; "Fewer" folds them again. -->
+                        <DataTemplate x:Key="MoreRow">
+                            <Button Command="{Binding ToggleMoreCommand}" AutomationProperties.Name="{Binding MoreText}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    Cursor="Hand" Focusable="False" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4"
+                                    Visibility="{Binding ShowMoreRow, Converter={StaticResource Vis}}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Control}" Padding="12,8">
+                                            <StackPanel x:Name="Row" Orientation="Horizontal">
+                                                <TextBlock x:Name="Chevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" Width="16" TextAlignment="Center"
+                                                           Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="Label" Text="{Binding MoreText}" Margin="12,0,0,0" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface2Brush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding MoreOpen}" Value="True">
+                                                <Setter TargetName="Chevron" Property="Text" Value="&#xE70E;" />
+                                            </DataTrigger>
+                                            <Trigger Property="ctl:SidebarLook.Narrow" Value="True">
+                                                <Setter TargetName="Bd" Property="Visibility" Value="Collapsed" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
                         </DataTemplate>
                         <!-- A page in a group's list beside its icon (icons only): shown even while the group is folded. -->
                         <DataTemplate x:Key="FlyoutEntry">
@@ -1432,6 +1544,8 @@
                     </StackPanel.Resources>
 
                     <ItemsControl ItemsSource="{Binding Main}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
+                    <ItemsControl ItemsSource="{Binding MainGroup.MorePages}" ItemTemplate="{StaticResource MoreEntry}" Focusable="False" />
+                    <ContentControl Content="{Binding MainGroup}" ContentTemplate="{StaticResource MoreRow}" Focusable="False" />
 
                     <!-- Icons only: DASHBOARDS, HARDWARE and ON SCREEN are one icon each; a press lists the group's pages beside it
                          (approved mock-up, 2026-10-25), so the narrow sidebar rarely needs to scroll. -->
@@ -1516,6 +1630,8 @@
                     </Button>
                     <!-- The user's dashboards, and any page moved in among them; a dashboard moved out is in the group it was put in. -->
                     <ItemsControl ItemsSource="{Binding DashboardsGroup.Pages}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
+                    <ItemsControl ItemsSource="{Binding DashboardsGroup.MorePages}" ItemTemplate="{StaticResource MoreEntry}" Focusable="False" />
+                    <ContentControl Content="{Binding DashboardsGroup}" ContentTemplate="{StaticResource MoreRow}" Focusable="False" />
                     <Button Command="{Binding DataContext.Presets.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}" AutomationProperties.Name="{ctl:T 'New dashboard'}"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand" Focusable="False" Foreground="{DynamicResource FaintBrush}" Margin="0,0,0,4"
                             ToolTip="{ctl:T 'Start from a preset or a blank page'}" ToolTipService.Placement="Right"
@@ -1548,6 +1664,8 @@
                         <TextBlock Text="{Binding HardwareGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
                     <ItemsControl ItemsSource="{Binding Hardware}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
+                    <ItemsControl ItemsSource="{Binding HardwareGroup.MorePages}" ItemTemplate="{StaticResource MoreEntry}" Focusable="False" />
+                    <ContentControl Content="{Binding HardwareGroup}" ContentTemplate="{StaticResource MoreRow}" Focusable="False" />
 
                     <Button Style="{StaticResource SectionToggle}" Tag="{Binding OnScreenCollapsed}" Command="{Binding ToggleSectionCommand}" CommandParameter="onscreen"
                             AutomationProperties.Name="{Binding OnScreenGroup.Title}" ToolTip="{ctl:T 'Show or hide these pages'}"
@@ -1555,6 +1673,8 @@
                         <TextBlock Text="{Binding OnScreenGroup.Heading}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </Button>
                     <ItemsControl ItemsSource="{Binding OnScreen}" ItemTemplate="{StaticResource NavEntry}" Focusable="False" />
+                    <ItemsControl ItemsSource="{Binding OnScreenGroup.MorePages}" ItemTemplate="{StaticResource MoreEntry}" Focusable="False" />
+                    <ContentControl Content="{Binding OnScreenGroup}" ContentTemplate="{StaticResource MoreRow}" Focusable="False" />
                     </StackPanel>
                 </StackPanel>
                 </ScrollViewer>

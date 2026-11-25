@@ -549,3 +549,13 @@ public sealed class InkOnConverter : IValueConverter
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
+
+/// <summary>
+/// All pages' columns from the width it has: three where each tile's one line fits beside its switch, two in a narrower
+/// window (Spanish lines are longer: at the narrowest window three columns cut them short).
+/// </summary>
+public sealed class TileColumnsConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value is double width && width > 0 && width < 1080 ? 2 : 3;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
+}

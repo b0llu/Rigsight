@@ -187,6 +187,14 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.20.0", 11, 25,
+            feature: new(Lang.T("All pages"), Lang.T("Every page in one place, so your sidebar holds only the pages you want there."),
+                [Lang.T("All pages sits above Settings and lists every page, with its reading right now or what it's for."),
+                    Lang.T("A switch on each page shows it in the sidebar or takes it out, under its own heading."),
+                    Lang.T("Pages you don't show stay one click away under their heading, and a page an update adds is marked NEW until you open it."),
+                    Lang.T("Drag a page in the sidebar to move it, and Undo puts it back.")],
+                ViewModels.SidebarViewModel.AllPagesKey, "") { OpenText = Lang.T("Open All pages") },
+            better: [Lang.T("Typing in the Ask box with Ctrl+K now lists the pages it names, and Enter still asks.")]),
         V("1.19.0", 11, 24,
             feature: new(Lang.T("Latency"), Lang.T("See how long drivers kept your CPU busy, and how long apps waited to run."),
                 [Lang.T("Latency shows the longest driver delay of any period, with the driver and the app in front, hour by hour."),

@@ -130,6 +130,38 @@
                 </StackPanel>
             </DockPanel>
 
+            <!-- A page an update added, once (Later puts it off; its NEW tag stays until it's opened), or, once after the
+                 update that brought All pages, where All pages is (approved mock-up 2026-11-24). -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Padding="18,14" Margin="0,0,0,18" DataContext="{Binding Sidebar}"
+                              Visibility="{Binding HasCard, Converter={StaticResource Vis}}">
+                <DockPanel>
+                    <Border DockPanel.Dock="Left" Style="{StaticResource IconBox}" Width="34" Height="34" VerticalAlignment="Center">
+                        <ContentPresenter Content="{Binding CardIcon, Converter={StaticResource NavIcon}}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.FontFamily="{StaticResource IconFont}" TextElement.FontSize="{x:Static ctl:IconSize.S16}"
+                                          TextElement.Foreground="{DynamicResource TextBrush}" />
+                    </Border>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                        <Button Style="{StaticResource GhostButton}" Background="Transparent" Command="{Binding CardLaterCommand}" Margin="0,0,8,0">
+                            <TextBlock>
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{ctl:T Later}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CardIsPage}" Value="False"><Setter Property="Text" Value="{ctl:T Close}" /></DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Button>
+                        <Button Style="{StaticResource AccentButton}" Content="{Binding CardOpenText}" Command="{Binding CardOpenCommand}" AutomationProperties.Name="{Binding CardOpenText}" />
+                    </StackPanel>
+                    <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding CardTitle}" FontSize="{x:Static ctl:TextSize.BodyPlus}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding CardText}" Style="{StaticResource Muted}" TextWrapping="Wrap" TextTrimming="None" Margin="0,2,0,0" />
+                    </StackPanel>
+                </DockPanel>
+            </ctl:SmoothBorder>
+
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="3*" />

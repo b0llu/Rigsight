@@ -427,6 +427,7 @@ public partial class MainWindow : Window
                 "fans" => new FansView { DataContext = _vm.Fans },
                 "power" => new PowerView { DataContext = _vm.Power },
                 "latency" => new LatencyView { DataContext = _vm.Latency },
+                ViewModels.SidebarViewModel.AllPagesKey => new AllPagesView { DataContext = _vm.AllPages },
                 "network" => new NetworkView { DataContext = _vm.Network },
                 "memory" => new MemoryView { DataContext = _vm.Memory },
                 "processes" => new ProcessesView { DataContext = _vm.Processes },

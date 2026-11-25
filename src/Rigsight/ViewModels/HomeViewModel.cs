@@ -436,6 +436,14 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     [RelayCommand]
     private void Go(string page) => GoTo?.Invoke(page);
 
+    /// <summary>The sidebar (set by the window), for the card about a new page or All pages at the top of Home.</summary>
+    public SidebarViewModel? Sidebar
+    {
+        get => _sidebar;
+        set => SetProperty(ref _sidebar, value);
+    }
+    private SidebarViewModel? _sidebar;
+
     /// <summary>Opens Your usual (set by the window): every usual this PC has, and what each one not there yet needs.</summary>
     public Action? ShowUsual { get; set; }
 
