@@ -26,6 +26,8 @@ public partial class MainWindow
             _vm.Sidebar.ToggleIconsCommand.Execute(null);
             e.Handled = true;
         };
+        // A theme change repaints the fades in the new sidebar colour (after the theme is in place).
+        _vm.Settings.Changed += () => Dispatcher.BeginInvoke(() => { _fadeColor = null; NavScroll_ScrollChanged(NavScroll, null!); }, DispatcherPriority.Background);
         // A page can be dragged to another place, in any group, with nothing on screen to say so (the user, 2026-11-24).
         NavScroll.PreviewMouseLeftButtonDown += Drag_Down;
         NavScroll.PreviewMouseMove += Drag_Move;
@@ -169,19 +171,37 @@ public partial class MainWindow
 
     // ── A sidebar that scrolls ──
 
-    /// <summary>A soft fade at the end that has more (top, bottom or both); none when everything fits.</summary>
+    /// <summary>
+    /// A soft fade at the end that has more (top, bottom or both); none when everything fits. Drawn as two strips over the
+    /// list in the sidebar's colour, from solid at the edge to clear: an opacity mask did the same but redrew the whole
+    /// list off screen on every scroll (opening All sensors took about 37 ms longer once the list scrolled, 2026-11-25).
+    /// </summary>
     private void NavScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        if (NavScroll.ScrollableHeight < 0.5 || NavScroll.ActualHeight < 80) { NavScroll.OpacityMask = null; return; }
-        bool above = NavScroll.VerticalOffset > 1, below = NavScroll.VerticalOffset < NavScroll.ScrollableHeight - 1;
-        double f = 36 / NavScroll.ActualHeight;
-        var mask = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
-        mask.GradientStops.Add(new GradientStop(above ? Colors.Transparent : Colors.Black, 0));
-        mask.GradientStops.Add(new GradientStop(Colors.Black, f));
-        mask.GradientStops.Add(new GradientStop(Colors.Black, 1 - f));
-        mask.GradientStops.Add(new GradientStop(below ? Colors.Transparent : Colors.Black, 1));
-        mask.Freeze();
-        NavScroll.OpacityMask = mask;
+        bool scrolls = NavScroll.ScrollableHeight >= 0.5 && NavScroll.ActualHeight >= 80;
+        bool above = scrolls && NavScroll.VerticalOffset > 1, below = scrolls && NavScroll.VerticalOffset < NavScroll.ScrollableHeight - 1;
+        if (above || below) PaintFades();
+        NavFadeTop.Visibility = above ? Visibility.Visible : Visibility.Collapsed;
+        NavFadeBottom.Visibility = below ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private Color? _fadeColor;
+
+    /// <summary>The strips' brushes, made again only when the sidebar's colour changed (a theme switch).</summary>
+    private void PaintFades()
+    {
+        var color = (TryFindResource("SidebarBrush") as SolidColorBrush)?.Color ?? Colors.Black;
+        if (_fadeColor == color) return;
+        _fadeColor = color;
+        var clear = Color.FromArgb(0, color.R, color.G, color.B);
+        static LinearGradientBrush Fade(Color from, Color to)
+        {
+            var brush = new LinearGradientBrush(from, to, new Point(0, 0), new Point(0, 1));
+            brush.Freeze();
+            return brush;
+        }
+        NavFadeTop.Background = Fade(color, clear);
+        NavFadeBottom.Background = Fade(clear, color);
     }
 
     /// <summary>The open page's entry (or its group's icon, with icons only) is scrolled into view.</summary>

@@ -60,32 +60,62 @@ public sealed class LanguagePack
     /// least once and no others, so a mistake in one sentence leaves that sentence English instead of breaking the page.
     /// Throws <see cref="InvalidDataException"/> when the file isn't a pack at all.
     /// </summary>
-    public static LanguagePack Read(string json)
+    public static LanguagePack Read(string json) => Read(System.Text.Encoding.UTF8.GetBytes(json));
+
+    /// <summary>
+    /// Reads a pack from its UTF-8 bytes, one token at a time. Not through JsonDocument: it rents its buffers from .NET's
+    /// shared pool, which keeps them for reuse, and that left about 2.3 MB held for good in the agent and the app after
+    /// a pack was read (measured 2026-11-25: the Spanish end-to-end stage's agent was 3.5 MB over the English one; 1.6 MB
+    /// of it is the translations, which have to stay).
+    /// </summary>
+    public static LanguagePack Read(byte[] utf8)
     {
         try
         {
-            using var doc = JsonDocument.Parse(json, new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
-            var root = doc.RootElement;
-            string code = root.GetProperty("code").GetString() ?? "";
+            // A file saved with a byte order mark (as File.ReadAllText used to drop it).
+            ReadOnlySpan<byte> bytes = utf8.AsSpan();
+            if (bytes.StartsWith((ReadOnlySpan<byte>)[0xEF, 0xBB, 0xBF])) bytes = bytes[3..];
+            var reader = new Utf8JsonReader(bytes, new JsonReaderOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject) throw new InvalidOperationException("the file isn't a JSON object");
+            string? code = null, name = null, forApp = null, monthPrefix = null;
+            int version = 0;
+            Dictionary<string, string>? strings = null;
+            var dropped = new List<string>();
+            while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+            {
+                string property = reader.GetString()!;
+                reader.Read();
+                switch (property)
+                {
+                    case "code": code = reader.GetString(); break;
+                    case "name": name = reader.GetString(); break;
+                    case "forApp": forApp = reader.GetString(); break;
+                    case "monthPrefix": monthPrefix = reader.GetString(); break;
+                    case "version": version = reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out int v) ? v : 0; break;
+                    case "strings":
+                        if (reader.TokenType != JsonTokenType.StartObject) throw new InvalidOperationException("\"strings\" isn't an object");
+                        strings = new Dictionary<string, string>(StringComparer.Ordinal);
+                        while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+                        {
+                            string english = reader.GetString()!;
+                            reader.Read();
+                            if (reader.TokenType != JsonTokenType.String) { dropped.Add(english); reader.Skip(); continue; }
+                            string text = reader.GetString()!;
+                            if (text.Length == 0) continue; // not translated yet: stays English
+                            if (Fits(english, text)) strings[english] = text;
+                            else dropped.Add(english);
+                        }
+                        break;
+                    default: reader.Skip(); break; // "stale", anything a newer tool adds
+                }
+            }
+            if (code is null) throw new KeyNotFoundException("no \"code\"");
             if (code.Length is < 2 or > 16 || code == English || !code.All(c => char.IsAsciiLetterOrDigit(c) || c == '-'))
                 throw new InvalidDataException($"Not a language code: \"{code}\"");
-            string name = root.TryGetProperty("name", out var n) ? n.GetString() ?? code : code;
-            int version = root.TryGetProperty("version", out var v) && v.TryGetInt32(out int vv) ? vv : 0;
-            string forApp = root.TryGetProperty("forApp", out var f) ? f.GetString() ?? "" : "";
-
-            var strings = new Dictionary<string, string>(StringComparer.Ordinal);
-            var dropped = new List<string>();
-            foreach (var entry in root.GetProperty("strings").EnumerateObject())
-            {
-                if (entry.Value.ValueKind != JsonValueKind.String) { dropped.Add(entry.Name); continue; }
-                string text = entry.Value.GetString()!;
-                if (text.Length == 0) continue; // not translated yet: stays English
-                if (Fits(entry.Name, text)) strings[entry.Name] = text;
-                else dropped.Add(entry.Name);
-            }
-            string monthPrefix = root.TryGetProperty("monthPrefix", out var mp) ? mp.GetString() ?? "" : "";
+            if (strings is null) throw new KeyNotFoundException("no \"strings\"");
+            monthPrefix ??= "";
             if (monthPrefix.Length > 12) monthPrefix = "";
-            return new LanguagePack(code, name, version, forApp, strings, dropped) { MonthPrefix = monthPrefix };
+            return new LanguagePack(code, name ?? code, version, forApp ?? "", strings, dropped) { MonthPrefix = monthPrefix };
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {
@@ -93,7 +123,7 @@ public sealed class LanguagePack
         }
     }
 
-    public static LanguagePack Load(string path) => Read(File.ReadAllText(path));
+    public static LanguagePack Load(string path) => Read(File.ReadAllBytes(path));
 
     /// <summary>Whether a translation fills exactly the English text's holes and would format without an error.</summary>
     public static bool Fits(string english, string text)

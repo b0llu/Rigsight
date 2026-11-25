@@ -3709,6 +3709,8 @@
     "NEW PAGE": "PÁGINA NUEVA",
     "NEW FEATURE": "FUNCIÓN NUEVA",
     "REMOVED": "ELIMINADO",
+    "Switching between pages is quicker again, after 1.20.0 had made it a little slower.": "Cambiar de página vuelve a ser más rápido, después de que 1.20.0 lo hiciera un poco más lento.",
+    "With RigSight in Spanish, its background agent uses about 2 MB less memory.": "Con RigSight en español, su agente en segundo plano usa unos 2 MB menos de memoria.",
     "Every page in one place, so your sidebar holds only the pages you want there.": "Todas las páginas en un solo sitio, para que tu barra lateral tenga solo las que quieras.",
     "All pages sits above Settings and lists every page, with its reading right now or what it's for.": "Todas las páginas está encima de Ajustes y muestra cada página, con su lectura de ahora o para qué sirve.",
     "A switch on each page shows it in the sidebar or takes it out, under its own heading.": "Un interruptor en cada página la muestra en la barra lateral o la quita, bajo su propio encabezado.",

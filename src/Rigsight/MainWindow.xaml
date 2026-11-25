@@ -1433,6 +1433,7 @@
                 <!-- Its bar sits in the sidebar's right margin, clear of the items (it used to lie on their edge). -->
                 <!-- When the pages don't fit, a soft fade shows the side with more (see MainWindow.Sidebar); Settings and the cards
                      at the foot stay put. -->
+                <Grid>
                 <ScrollViewer x:Name="NavScroll" Style="{StaticResource CardScroll}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
                               ScrollChanged="NavScroll_ScrollChanged">
                 <StackPanel DataContext="{Binding Sidebar}">
@@ -1678,6 +1679,12 @@
                     </StackPanel>
                 </StackPanel>
                 </ScrollViewer>
+                <!-- The fades at the ends that have more: two strips laid over the list, in the sidebar's own colour (see
+                     MainWindow.Sidebar). Not an opacity mask: a mask redrew the whole list off screen on every scroll, which
+                     made opening the last page slow once All pages made the list scroll (the 1.20.0 gate, 2026-11-25). -->
+                <Border x:Name="NavFadeTop" VerticalAlignment="Top" Height="36" IsHitTestVisible="False" Visibility="Collapsed" />
+                <Border x:Name="NavFadeBottom" VerticalAlignment="Bottom" Height="36" IsHitTestVisible="False" Visibility="Collapsed" />
+                </Grid>
             </DockPanel>
         </Border>
 

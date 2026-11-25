@@ -187,6 +187,9 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.20.1", 11, 25,
+            fixedBugs: [Lang.T("Switching between pages is quicker again, after 1.20.0 had made it a little slower."),
+                Lang.T("With RigSight in Spanish, its background agent uses about 2 MB less memory.")]),
         V("1.20.0", 11, 25,
             feature: new(Lang.T("All pages"), Lang.T("Every page in one place, so your sidebar holds only the pages you want there."),
                 [Lang.T("All pages sits above Settings and lists every page, with its reading right now or what it's for."),

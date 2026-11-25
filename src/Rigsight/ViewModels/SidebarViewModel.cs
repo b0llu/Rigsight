@@ -160,7 +160,7 @@ public sealed class SidebarGroup(string key, string? name, SidebarViewModel owne
     public bool MoreOpen
     {
         get => _moreOpen;
-        set { if (_moreOpen == value) return; _moreOpen = value; owner.MoreToggled(); }
+        set { if (_moreOpen == value) return; _moreOpen = value; OnPropertyChanged(nameof(MoreText)); owner.MoreToggled(); }
     }
     private bool _moreOpen;
 
@@ -173,9 +173,15 @@ public sealed class SidebarGroup(string key, string? name, SidebarViewModel owne
     /// <summary>"3 more", or "Fewer" while the list is open.</summary>
     public string MoreText => MoreOpen ? Lang.T("Fewer") : MorePages.Count == 1 ? Lang.T("1 more") : Lang.T($"{MorePages.Count} more");
 
+    /// <summary>
+    /// The pages left out, in order. This runs on every page switch, so the row, its words and the heading are told only
+    /// when the list really changed: telling them every time cost about 2 ms a switch (the 1.20.0 gate's made-up year,
+    /// against 1.19.0: 2 and 4 switches over 100 ms instead of none). Folding and opening tell them themselves.
+    /// </summary>
     internal void SyncMore(IEnumerable<NavEntry> hidden)
     {
         var wanted = hidden.ToList();
+        if (wanted.Count == MorePages.Count && wanted.SequenceEqual(MorePages)) return;
         foreach (var gone in MorePages.Except(wanted).ToList()) MorePages.Remove(gone);
         for (int i = 0; i < wanted.Count; i++)
         {
