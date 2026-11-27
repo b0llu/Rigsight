@@ -328,10 +328,6 @@
                         <!-- The connection: drops (the warning colour only when worth a look), how long it was down, the usual ping. -->
                         <Border Grid.Column="3" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1,0,0,0">
                             <DockPanel Margin="20,14,16,15" AutomationProperties.Name="{ctl:T 'Connection'}">
-                                <!-- Drops worth a look: why, asked of the AI (hidden while it's off). -->
-                                <Border DockPanel.Dock="Right" VerticalAlignment="Top" Visibility="{Binding DropsWarn, Converter={StaticResource Vis}}">
-                                    <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'Why does it drop?'}" CommandParameter="{Binding DropsAsk}" AutomationProperties.Name="{ctl:T 'Why does it drop?'}" />
-                                </Border>
                                 <StackPanel ToolTip="{Binding DropsTip}">
                                     <TextBlock Text="{ctl:T 'CONNECTION'}" Style="{StaticResource Caption}" />
                                     <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
@@ -356,6 +352,21 @@
                             </DockPanel>
                         </Border>
                     </Grid>
+                </ctl:SmoothBorder>
+
+                <!-- Drops worth a look: the insight's sentence and What to try under it (1.21.0); its "Ask about this" is the AI's way in. -->
+                <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,0,0,18" Visibility="{Binding DropsWarn, Converter={StaticResource Vis}}">
+                    <StackPanel>
+                        <HeaderedContentControl Style="{StaticResource IconRow}">
+                            <HeaderedContentControl.Header>
+                                <Border Style="{StaticResource IconBox}">
+                                    <TextBlock Text="&#xE968;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource WarmBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </HeaderedContentControl.Header>
+                            <TextBlock Text="{Binding DropsLine}" Style="{StaticResource Body}" TextWrapping="Wrap" />
+                        </HeaderedContentControl>
+                        <ContentControl Content="{Binding DropsTry}" Focusable="False" IsTabStop="False" Margin="0,12,0,0" Visibility="{Binding DropsTry, Converter={StaticResource Vis}}" />
+                    </StackPanel>
                 </ctl:SmoothBorder>
 
                 <!-- ── Each hour (day, month): its usage or its ping, one graph on one time line; drag across to zoom in. ── -->

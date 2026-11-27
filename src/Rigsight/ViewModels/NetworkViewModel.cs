@@ -8,6 +8,7 @@ using Rigsight.Core.Data;
 using Rigsight.Core.Protocol;
 using Rigsight.Core.Reports;
 using Rigsight.Services;
+using Rigsight.Models;
 
 namespace Rigsight.ViewModels;
 
@@ -531,6 +532,10 @@ public sealed partial class NetworkViewModel : ObservableObject
 
     /// <summary>Drops worth a look: the AI button asks why, from the Network page's records.</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(DropsAsk))] private bool _dropsWarn;
+    /// <summary>The drops worth a look, as the insight says it; null without.</summary>
+    [ObservableProperty] private string? _dropsLine;
+    /// <summary>What to try under them (1.21.0).</summary>
+    [ObservableProperty] private TryBlockView? _dropsTry;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(DropsAsk))] private string _dropsTitle = "";
     public Services.AiQuestion? DropsAsk => DropsWarn ? new(Lang.T($"{DropsTitle} {PeriodWord}. Why does my connection drop, and is it the PC or the line?"), Core.Ai.AiPages.Network) : null;
 
@@ -964,6 +969,9 @@ public sealed partial class NetworkViewModel : ObservableObject
             s.On ? Lang.T($"Ping checks resumed · {MarkWhen(s.At)}") : Lang.T($"Ping checks paused · {MarkWhen(s.At)}")))]);
         HighPing = r.Line is { } l ? NetLinePing.HighFor(l.Usual) : 0;
         DropsWarn = r.Insights.Any(i => i.Key == "net-drops");
+        // What to try under drops worth a look (1.21.0), with the insight's own sentence over it.
+        var drops = r.Insights.FirstOrDefault(i => i.Key == "net-drops");
+        if (drops?.Text != DropsLine) (DropsLine, DropsTry) = (drops?.Text, drops is null ? null : new TryBlockView(Core.Advice.WhatToTry.NetDrops(drops.Text)));
         (DropsTitle, DropsTip) = DropsText(r, PeriodWord);
         (DropsCount, DropsWord) = r.Drops.Count switch { 0 => (Lang.C("drops", "No"), Lang.T("drops")), 1 => ("1", Lang.T("drop")), var n => ($"{n}", Lang.T("drops")) };
         // The four figures' bars and lines.

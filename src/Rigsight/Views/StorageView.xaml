@@ -57,6 +57,7 @@
         </Style>
         <!-- One drive: a row of its own (letter, name, bar, how full, growth, Scan), about 44 tall. -->
         <DataTemplate x:Key="DriveRow">
+            <StackPanel>
             <Grid Margin="0,0,0,2" MinHeight="44" Background="Transparent">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="32" />
@@ -100,6 +101,9 @@
                     </StackPanel>
                 </Grid>
             </Grid>
+            <!-- A drive 90% full or more: What to try under it (1.21.0), the bin, Storage Sense, apps not used. -->
+            <ContentControl Content="{Binding Try}" Focusable="False" IsTabStop="False" Margin="32,6,0,10" Visibility="{Binding Try, Converter={StaticResource Vis}}" />
+            </StackPanel>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsScanning}" Value="True">
                     <Setter TargetName="Scanning" Property="Visibility" Value="Visible" />

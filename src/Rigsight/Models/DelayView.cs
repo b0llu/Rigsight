@@ -105,6 +105,9 @@ public sealed class DelayView(DelayCase c)
 
     public List<DelayTip> Tips => [.. c.Tips.Select(t => new DelayTip(t.Step, t.More))];
     public bool HasTips => c.Tips.Count > 0;
+    private TryBlockView? _try;
+    /// <summary>What to try (1.21.0): the tips as one block.</summary>
+    public TryBlockView? Try => HasTips ? _try ??= Core.Advice.WhatToTry.Latency(DriverWords.AreaOf(S.Driver, S.Part), S.Driver, $"{S.Title}. {S.Detail}") is { } b ? new TryBlockView(b) : null : null;
 
     /// <summary>The AI's question: what happened, with its figures, and what could be behind it.</summary>
     public AiQuestion Ask => new(Lang.T($"{S.Title} at {When}: {S.Driver}, up to {DriverWords.Ms(S.LongestUs)}, {DriverWords.Usually(S.UsualUs)}. What could cause this, and what can I do?"),

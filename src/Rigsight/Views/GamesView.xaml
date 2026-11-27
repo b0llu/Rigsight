@@ -666,6 +666,8 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                <!-- What to try under a game that crashed more than once (1.21.0). -->
+                                <ContentControl Content="{Binding ProblemsTry}" Focusable="False" IsTabStop="False" Margin="0,14,0,0" Visibility="{Binding ProblemsTry, Converter={StaticResource Vis}}" />
                             </StackPanel>
                         </ctl:SmoothBorder>
 

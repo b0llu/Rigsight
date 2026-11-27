@@ -338,176 +338,192 @@
         </Grid>
 
         <!-- Live list -->
-        <ctl:SmoothBorder Grid.Row="2" Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
-            <DockPanel>
-                <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
-                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Only apps with windows'}" FontSize="{x:Static ctl:TextSize.Detail}"
-                              IsChecked="{Binding Live.OnlyWindowedApps}" />
-                    <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search apps…'}" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
-                             AutomationProperties.Name="{ctl:T 'Search the apps using memory'}" ctl:Debounce.Text="{Binding Live.ProcSearch}" />
-                    <!-- Only the apps above their usual, in this same box; greyed while there are none. -->
-                    <CheckBox x:Name="OverFilter" DockPanel.Dock="Right" Style="{StaticResource OverFilter}" Content="{ctl:T 'Above their usual'}" Margin="0,0,18,0"
-                              Tag="{Binding Live.AboveUsualCount}" IsChecked="{Binding Live.OnlyAboveUsual}" IsEnabled="{Binding Live.HasAboveUsual}"
-                              AutomationProperties.Name="{ctl:T 'Above their usual'}" />
-                    <TextBlock Text="{ctl:T 'Using memory right now'}" Style="{StaticResource H2}" />
-                </DockPanel>
-                <!-- The first days: no app has a usual yet, so no row is marked; this says why. -->
-                <HeaderedContentControl DockPanel.Dock="Top" Style="{StaticResource IconRow}" Padding="12,0,0,0" Margin="0,2,8,10"
-                                        Visibility="{Binding TooSoonText, Converter={StaticResource Vis}}">
-                    <HeaderedContentControl.Header>
-                        <Border Style="{StaticResource IconBox}" Width="26" Height="26">
-                            <TextBlock Text="&#xE823;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                    </HeaderedContentControl.Header>
-                    <TextBlock Text="{Binding TooSoonText}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" />
-                </HeaderedContentControl>
-                <!-- Its right edge is set in the code-behind, to where the rows' figures end: the list's scrollbar takes room from
-                     the rows that a fixed margin here could only guess at (the heading sat to the right of its figures). The
-                     columns are the rows' own, so each heading ends where its figures do. -->
-                <Grid x:Name="LiveHead" DockPanel.Dock="Top" Margin="0,0,18,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="2*" />
-                        <ColumnDefinition Width="90" />
-                        <ColumnDefinition Width="90" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="{ctl:T APP}" Style="{StaticResource Caption}" Margin="62,0,0,0" />
-                    <TextBlock Grid.Column="2" Text="{ctl:T NOW}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
-                    <TextBlock Grid.Column="3" Text="{ctl:T USUAL}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
-                </Grid>
-                <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Nothing running matches'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
-                           Visibility="{Binding Live.NoProcsMatch, Converter={StaticResource Vis}}" />
-                <!-- An app with more than one process opens (click) to list each of them underneath. -->
-                <Grid>
-                <!-- The list arrives from the agent a moment after the window opens: the box says it's on its way. -->
-                <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,8,40"
-                             Visibility="{Binding Live.AppsPending, Converter={StaticResource Vis}}" />
-                <ListBox x:Name="LiveList" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource LiveRow}" ItemsSource="{Binding Live.ProcsView}" VirtualizingPanel.IsVirtualizing="True"
-                         ctl:WheelChain.Enabled="True">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Margin="0,0,8,0">
-                                <!-- The row and its "above its usual" line open the app's processes as one: a click anywhere on them
-                                     but the AI button (the user, 2026-11-14: the line and the gap above it didn't open it). -->
-                                <StackPanel Background="Transparent" MouseLeftButtonUp="App_Click">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="2*" />
-                                        <ColumnDefinition Width="90" />
-                                        <ColumnDefinition Width="90" />
-                                    </Grid.ColumnDefinitions>
-                                    <DockPanel>
-                                        <Grid Width="20" VerticalAlignment="Center">
-                                            <TextBlock x:Name="Chevron" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
-                                                       HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Hidden" />
-                                            <!-- Turns while the processes are on their way -->
-                                            <Path x:Name="Spinner" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed"
-                                                  Data="M 5,0.75 A 4.25,4.25 0 1 1 0.75,5" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.5"
-                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
-                                                <Path.RenderTransform>
-                                                    <RotateTransform />
-                                                </Path.RenderTransform>
-                                            </Path>
-                                        </Grid>
-                                        <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="22" Height="22" />
-                                        <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
-                                            <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
-                                            <TextBlock x:Name="Sub" Text="{Binding SubText}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" />
-                                        </StackPanel>
-                                    </DockPanel>
-                                    <!-- The bar is thin: the whole height of the row over it brings up its box. -->
-                                    <Grid Grid.Column="1" Margin="8,0" Background="Transparent" ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="60000">
-                                        <Grid.ToolTip>
-                                            <ToolTip Style="{StaticResource BarTip}" />
-                                        </Grid.ToolTip>
-                                        <ProgressBar Style="{StaticResource Bar}" VerticalAlignment="Center" Maximum="100"
-                                                     Value="{Binding Bar, Mode=OneWay}" Foreground="{DynamicResource RamBrush}" />
-                                        <ProgressBar Style="{StaticResource UsualMark}" VerticalAlignment="Center" Value="{Binding Mark, Mode=OneWay}"
-                                                     Visibility="{Binding HasUsual, Converter={StaticResource Vis}}" />
-                                    </Grid>
-                                    <TextBlock x:Name="Now" Grid.Column="2" Text="{Binding MemText}" Style="{StaticResource Body}" FontWeight="SemiBold"
-                                               HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="3" Text="{Binding UsualText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                </Grid>
-                                <!-- Above its usual: since when, with its peak today, and what to do about it asked of the AI. The
-                                     button keeps its room while the AI is off (a hidden twin under it), so no row changes height. -->
-                                <Grid Margin="54,4,0,0" Visibility="{Binding IsOver, Converter={StaticResource Vis}}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="OverLine" Text="{Binding OverLine}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}"
-                                               TextWrapping="Wrap" VerticalAlignment="Center" />
-                                    <Grid Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
-                                        <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'What should I do about it?'}" Visibility="Hidden" IsTabStop="False" />
-                                        <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'What should I do about it?'}" CommandParameter="{Binding OverAsk}"
-                                                AutomationProperties.Name="{ctl:T 'What should I do about it?'}" />
-                                    </Grid>
-                                </Grid>
-                                </StackPanel>
-                                <ItemsControl ItemsSource="{Binding Children}" Margin="0,6,0,0" Visibility="{Binding ShowChildren, Converter={StaticResource Vis}}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,3">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="2*" />
-                                                    <ColumnDefinition Width="90" />
-                                                    <ColumnDefinition Width="90" />
-                                                </Grid.ColumnDefinitions>
-                                                <!-- Spans the bar's column too: window titles can be long. -->
-                                                <TextBlock Grid.ColumnSpan="2" Margin="54,0,16,0" Style="{StaticResource Muted}" VerticalAlignment="Center"
-                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Label}">
-                                                    <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding PidText, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" />
-                                                </TextBlock>
-                                                <TextBlock Grid.Column="2" Text="{Binding MemText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+        <StackPanel Grid.Row="2">
+            <!-- Memory nearly full today: What to try under it (1.21.0), the app holding the most closed after a question. -->
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" DataContext="{Binding Fullest}" Visibility="{Binding HasTry, Converter={StaticResource Vis}, FallbackValue=Collapsed}">
+                <StackPanel>
+                    <HeaderedContentControl Style="{StaticResource IconRow}">
+                        <HeaderedContentControl.Header>
+                            <Border Style="{StaticResource IconBox}">
+                                <TextBlock Text="&#xE964;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource WarmBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </HeaderedContentControl.Header>
+                        <TextBlock Text="{Binding Text}" Style="{StaticResource Body}" TextWrapping="Wrap" />
+                    </HeaderedContentControl>
+                    <ContentControl Content="{Binding Try}" Focusable="False" IsTabStop="False" Margin="0,12,0,0" Visibility="{Binding Try, Converter={StaticResource Vis}}" />
+                </StackPanel>
+            </ctl:SmoothBorder>
+            <ctl:SmoothBorder Style="{StaticResource Card}" Margin="0,18,0,0" Padding="20,16,12,12" x:Name="LiveCard" MinHeight="440" Height="440">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
+                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="{ctl:T 'Only apps with windows'}" FontSize="{x:Static ctl:TextSize.Detail}"
+                                  IsChecked="{Binding Live.OnlyWindowedApps}" />
+                        <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search apps…'}" Width="220" Margin="0,-4,18,-4" VerticalAlignment="Center"
+                                 AutomationProperties.Name="{ctl:T 'Search the apps using memory'}" ctl:Debounce.Text="{Binding Live.ProcSearch}" />
+                        <!-- Only the apps above their usual, in this same box; greyed while there are none. -->
+                        <CheckBox x:Name="OverFilter" DockPanel.Dock="Right" Style="{StaticResource OverFilter}" Content="{ctl:T 'Above their usual'}" Margin="0,0,18,0"
+                                  Tag="{Binding Live.AboveUsualCount}" IsChecked="{Binding Live.OnlyAboveUsual}" IsEnabled="{Binding Live.HasAboveUsual}"
+                                  AutomationProperties.Name="{ctl:T 'Above their usual'}" />
+                        <TextBlock Text="{ctl:T 'Using memory right now'}" Style="{StaticResource H2}" />
+                    </DockPanel>
+                    <!-- The first days: no app has a usual yet, so no row is marked; this says why. -->
+                    <HeaderedContentControl DockPanel.Dock="Top" Style="{StaticResource IconRow}" Padding="12,0,0,0" Margin="0,2,8,10"
+                                            Visibility="{Binding TooSoonText, Converter={StaticResource Vis}}">
+                        <HeaderedContentControl.Header>
+                            <Border Style="{StaticResource IconBox}" Width="26" Height="26">
+                                <TextBlock Text="&#xE823;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S12}" Foreground="{DynamicResource MutedBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </HeaderedContentControl.Header>
+                        <TextBlock Text="{Binding TooSoonText}" Style="{StaticResource Muted}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" />
+                    </HeaderedContentControl>
+                    <!-- Its right edge is set in the code-behind, to where the rows' figures end: the list's scrollbar takes room from
+                         the rows that a fixed margin here could only guess at (the heading sat to the right of its figures). The
+                         columns are the rows' own, so each heading ends where its figures do. -->
+                    <Grid x:Name="LiveHead" DockPanel.Dock="Top" Margin="0,0,18,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="90" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{ctl:T APP}" Style="{StaticResource Caption}" Margin="62,0,0,0" />
+                        <TextBlock Grid.Column="2" Text="{ctl:T NOW}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="3" Text="{ctl:T USUAL}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                    </Grid>
+                    <TextBlock DockPanel.Dock="Top" Text="{ctl:T 'Nothing running matches'}" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,28,0,0"
+                               Visibility="{Binding Live.NoProcsMatch, Converter={StaticResource Vis}}" />
+                    <!-- An app with more than one process opens (click) to list each of them underneath. -->
+                    <Grid>
+                    <!-- The list arrives from the agent a moment after the window opens: the box says it's on its way. -->
+                    <ctl:Spinner Late="True" Width="28" Height="28" StrokeThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,8,40"
+                                 Visibility="{Binding Live.AppsPending, Converter={StaticResource Vis}}" />
+                    <ListBox x:Name="LiveList" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource LiveRow}" ItemsSource="{Binding Live.ProcsView}" VirtualizingPanel.IsVirtualizing="True"
+                             ctl:WheelChain.Enabled="True">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,8,0">
+                                    <!-- The row and its "above its usual" line open the app's processes as one: a click anywhere on them
+                                         but the AI button (the user, 2026-11-14: the line and the gap above it didn't open it). -->
+                                    <StackPanel Background="Transparent" MouseLeftButtonUp="App_Click">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="2*" />
+                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="90" />
+                                        </Grid.ColumnDefinitions>
+                                        <DockPanel>
+                                            <Grid Width="20" VerticalAlignment="Center">
+                                                <TextBlock x:Name="Chevron" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                                                           HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Hidden" />
+                                                <!-- Turns while the processes are on their way -->
+                                                <Path x:Name="Spinner" Width="10" Height="10" HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed"
+                                                      Data="M 5,0.75 A 4.25,4.25 0 1 1 0.75,5" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.5"
+                                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+                                                    <Path.RenderTransform>
+                                                        <RotateTransform />
+                                                    </Path.RenderTransform>
+                                                </Path>
                                             </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                            <DataTemplate.Triggers>
-                                <!-- Amber says how the reading is doing: well above the app's usual, or growing hour after hour. -->
-                                <DataTrigger Binding="{Binding IsOver}" Value="True">
-                                    <Setter TargetName="Now" Property="Foreground" Value="{DynamicResource WarmBrush}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding SubIsGrowing}" Value="True">
-                                    <Setter TargetName="Sub" Property="Foreground" Value="{DynamicResource WarmBrush}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding OverLineIsGrowing}" Value="True">
-                                    <Setter TargetName="OverLine" Property="Foreground" Value="{DynamicResource WarmBrush}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding CanExpand}" Value="True">
-                                    <Setter TargetName="Chevron" Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsExpanded}" Value="True">
-                                    <Setter TargetName="Chevron" Property="Visibility" Value="Visible" />
-                                    <Setter TargetName="Chevron" Property="Text" Value="&#xE70D;" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsLoading}" Value="True">
-                                    <Setter TargetName="Chevron" Property="Visibility" Value="Hidden" />
-                                    <Setter TargetName="Spinner" Property="Visibility" Value="Visible" />
-                                    <DataTrigger.EnterActions>
-                                        <BeginStoryboard x:Name="Spin">
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetName="Spinner" Storyboard.TargetProperty="RenderTransform.Angle"
-                                                                 From="0" To="360" Duration="0:0:0.8" RepeatBehavior="Forever" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                    <DataTrigger.ExitActions>
-                                        <StopStoryboard BeginStoryboardName="Spin" />
-                                    </DataTrigger.ExitActions>
-                                </DataTrigger>
-                            </DataTemplate.Triggers>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-                </Grid>
-            </DockPanel>
-        </ctl:SmoothBorder>
+                                            <Image Source="{Binding Icon}" Style="{StaticResource AppIcon}" Width="22" Height="22" />
+                                            <StackPanel Margin="12,0,8,0" VerticalAlignment="Center">
+                                                <TextBlock ctl:TrimmedText.ToolTip="True" Text="{Binding Name}" Style="{StaticResource Body}" />
+                                                <TextBlock x:Name="Sub" Text="{Binding SubText}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                        <!-- The bar is thin: the whole height of the row over it brings up its box. -->
+                                        <Grid Grid.Column="1" Margin="8,0" Background="Transparent" ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="60000">
+                                            <Grid.ToolTip>
+                                                <ToolTip Style="{StaticResource BarTip}" />
+                                            </Grid.ToolTip>
+                                            <ProgressBar Style="{StaticResource Bar}" VerticalAlignment="Center" Maximum="100"
+                                                         Value="{Binding Bar, Mode=OneWay}" Foreground="{DynamicResource RamBrush}" />
+                                            <ProgressBar Style="{StaticResource UsualMark}" VerticalAlignment="Center" Value="{Binding Mark, Mode=OneWay}"
+                                                         Visibility="{Binding HasUsual, Converter={StaticResource Vis}}" />
+                                        </Grid>
+                                        <TextBlock x:Name="Now" Grid.Column="2" Text="{Binding MemText}" Style="{StaticResource Body}" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{Binding UsualText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    </Grid>
+                                    <!-- Above its usual: since when, with its peak today, and what to do about it asked of the AI. The
+                                         button keeps its room while the AI is off (a hidden twin under it), so no row changes height. -->
+                                    <Grid Margin="54,4,0,0" Visibility="{Binding IsOver, Converter={StaticResource Vis}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="OverLine" Text="{Binding OverLine}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}"
+                                                   TextWrapping="Wrap" VerticalAlignment="Center" />
+                                        <Grid Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                                            <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'What should I do about it?'}" Visibility="Hidden" IsTabStop="False" />
+                                            <Button Style="{StaticResource AiButtonSmall}" Content="{ctl:T 'What should I do about it?'}" CommandParameter="{Binding OverAsk}"
+                                                    AutomationProperties.Name="{ctl:T 'What should I do about it?'}" />
+                                        </Grid>
+                                    </Grid>
+                                    </StackPanel>
+                                    <ItemsControl ItemsSource="{Binding Children}" Margin="0,6,0,0" Visibility="{Binding ShowChildren, Converter={StaticResource Vis}}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,3">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="2*" />
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="90" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <!-- Spans the bar's column too: window titles can be long. -->
+                                                    <TextBlock Grid.ColumnSpan="2" Margin="54,0,16,0" Style="{StaticResource Muted}" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Label}">
+                                                        <Run Text="{Binding Label, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding PidText, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Caption}" Foreground="{DynamicResource FaintBrush}" />
+                                                    </TextBlock>
+                                                    <TextBlock Grid.Column="2" Text="{Binding MemText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                                <DataTemplate.Triggers>
+                                    <!-- Amber says how the reading is doing: well above the app's usual, or growing hour after hour. -->
+                                    <DataTrigger Binding="{Binding IsOver}" Value="True">
+                                        <Setter TargetName="Now" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding SubIsGrowing}" Value="True">
+                                        <Setter TargetName="Sub" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding OverLineIsGrowing}" Value="True">
+                                        <Setter TargetName="OverLine" Property="Foreground" Value="{DynamicResource WarmBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding CanExpand}" Value="True">
+                                        <Setter TargetName="Chevron" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                        <Setter TargetName="Chevron" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="Chevron" Property="Text" Value="&#xE70D;" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                        <Setter TargetName="Chevron" Property="Visibility" Value="Hidden" />
+                                        <Setter TargetName="Spinner" Property="Visibility" Value="Visible" />
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="Spin">
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="Spinner" Storyboard.TargetProperty="RenderTransform.Angle"
+                                                                     From="0" To="360" Duration="0:0:0.8" RepeatBehavior="Forever" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="Spin" />
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    </Grid>
+                </DockPanel>
+            </ctl:SmoothBorder>
+        </StackPanel>
     </Grid>
     </ScrollViewer>
 </UserControl>

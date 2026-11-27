@@ -155,37 +155,151 @@
             </Button>
         </DataTemplate>
 
+        <!-- A kind in the Fold list: a tick box (the accent when ticked, as in the Export box) and its name, lit on hover. -->
+        <Style x:Key="FoldCheck" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <ctl:SmoothBorder x:Name="Bd" Background="Transparent" CornerRadius="{x:Static ctl:Corner.Field}" Padding="10,8">
+                            <StackPanel Orientation="Horizontal">
+                                <Border x:Name="Box" Width="16" Height="16" CornerRadius="{x:Static ctl:Corner.Chip}" BorderThickness="1" BorderBrush="{DynamicResource FaintBrush}"
+                                        VerticalAlignment="Center" Margin="0,0,11,0">
+                                    <TextBlock x:Name="Tick" Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource OnAccentBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Hidden" />
+                                </Border>
+                                <TextBlock Text="{Binding Name}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ctl:SmoothBorder>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A line inside a folded one: lit on hover only when it opens something (a crash, a driver mark, a game). -->
+        <Style x:Key="SubRow" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Hover" Background="{DynamicResource HoverBrush}" CornerRadius="{x:Static ctl:Corner.Choice}" Opacity="0" />
+                            <ContentPresenter Margin="10,3" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Hover" Property="Opacity" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Lines folded into one (by day the kinds ticked under Fold, by month each kind of change). The whole line opens
+             and closes it, with an arrow at its end that turns (approved mock-up, 2026-11-25: no "Show all" link under it).
+             Open, each line is under it at its own time, a thin thread of the kind's colour running down from its icon;
+             those that open something are lit on hover and have an arrow of their own. A long list scrolls in a box of
+             its own, about fifteen lines high, and hands the wheel back to the page at its ends. -->
         <DataTemplate x:Key="RichEntry">
-            <Grid Margin="0,5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="72" />
-                    <ColumnDefinition Width="26" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
-                <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
-                           Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
-                <StackPanel Grid.Column="2">
-                    <TextBlock x:Name="Line" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}">
-                        <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />
-                    </TextBlock>
-                    <Button Style="{StaticResource ActionButton}" Content="{Binding ToggleText}" HorizontalAlignment="Left" Margin="-9,2,0,0"
-                            Command="{Binding DataContext.ToggleVersionsCommand, ElementName=Page}" CommandParameter="{Binding}"
-                            Visibility="{Binding HasChildren, Converter={StaticResource Vis}}" />
-                    <ItemsControl ItemsSource="{Binding Children}" Margin="0,2,0,0" Visibility="{Binding IsExpanded, Converter={StaticResource Vis}}">
+            <StackPanel>
+                <Button Style="{StaticResource RowButton}" Command="{Binding DataContext.ToggleVersionsCommand, ElementName=Page}" CommandParameter="{Binding}"
+                        AutomationProperties.Name="{Binding SpokenName}" AutomationProperties.HelpText="{Binding ToggleText}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="72" />
+                            <ColumnDefinition Width="26" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding Icon}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" VerticalAlignment="Top" Margin="0,2,0,0"
+                                   Foreground="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
+                        <TextBlock x:Name="Line" Grid.Column="2" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{Binding Brush, Converter={StaticResource ResourceBrush}}">
+                            <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" FontSize="{x:Static ctl:TextSize.Small}" FontWeight="Normal" Foreground="{DynamicResource MutedBrush}" />
+                        </TextBlock>
+                        <TextBlock x:Name="Chevron" Grid.Column="3" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                                   VerticalAlignment="Top" Margin="12,4,0,0" RenderTransformOrigin="0.5,0.5">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                    </Grid>
+                </Button>
+                <ScrollViewer Style="{StaticResource CardScroll}" MaxHeight="352" Margin="-10,0,0,2" Visibility="{Binding IsExpanded, Converter={StaticResource Vis}}">
+                    <ItemsControl ItemsSource="{Binding Children}" Focusable="False">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,2">
-                                    <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" />
-                                </TextBlock>
+                                <Button x:Name="Row" Style="{StaticResource SubRow}" Command="{Binding DataContext.OpenChildCommand, ElementName=Page}" CommandParameter="{Binding}"
+                                        IsHitTestVisible="{Binding CanOpen}" Focusable="{Binding CanOpen}" AutomationProperties.Name="{Binding SpokenName}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="72" />
+                                            <ColumnDefinition Width="26" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding TimeText}" ToolTip="{Binding TimeTip}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,1,0,0" />
+                                        <!-- The thread: a faint line down the icon's column with a dot at each line, in the kind's colour. -->
+                                        <Border Grid.Column="1" Width="1" HorizontalAlignment="Left" Margin="6.5,-3,0,-3" Opacity="0.35"
+                                                Background="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
+                                        <Ellipse Grid.Column="1" Width="6" Height="6" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="4,6,0,0" Opacity="0.8"
+                                                 Fill="{Binding IconBrush, Converter={StaticResource ResourceBrush}}" />
+                                        <TextBlock x:Name="SubLine" Grid.Column="2" FontSize="{x:Static ctl:TextSize.Small}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}">
+                                            <Run Text="{Binding Title, Mode=OneWay}" /><Run Text="   " /><Run Text="{Binding Detail, Mode=OneWay}" Foreground="{DynamicResource FaintBrush}" />
+                                        </TextBlock>
+                                        <TextBlock x:Name="Go" Grid.Column="3" Text="&#xE76C;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                                                   VerticalAlignment="Top" Margin="12,3,0,0" Visibility="{Binding CanOpen, Converter={StaticResource Vis}}" />
+                                    </Grid>
+                                </Button>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, ElementName=Row}" Value="True">
+                                        <Setter TargetName="SubLine" Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </StackPanel>
-            </Grid>
+                </ScrollViewer>
+            </StackPanel>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsKey}" Value="True">
                     <Setter TargetName="Line" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <!-- The arrow turns to point up while the line is open. -->
+                <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="Chevron" Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)" To="180" Duration="0:0:0.15" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetName="Chevron" Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)" To="0" Duration="0:0:0.15" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.ExitActions>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -371,7 +485,7 @@
             <Border Style="{StaticResource SegmentHost}" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
                     <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="{ctl:T 'By day'}"
-                                 ToolTip="{ctl:T 'Day by day, with three or more app updates on a day as one line'}"
+                                 ToolTip="{ctl:T 'Day by day, with the kinds ticked under Fold as one line'}"
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Day}" />
                     <RadioButton Style="{StaticResource Segment}" GroupName="TimelineUpdates" Content="{ctl:T 'By month'}"
                                  ToolTip="{ctl:T 'A row a month, with each kind of change in it as one line'}"
@@ -380,6 +494,39 @@
                                  IsChecked="{Binding Grouping, Converter={StaticResource Equals}, ConverterParameter=Each}" />
                 </StackPanel>
             </Border>
+            <!-- Which kinds fold into one line on a day (the user, 2026-11-26): a short list floating under the button,
+                 each tick taking effect at once and kept for good; it takes no room on the page. "1 of 6" beside the
+                 word while not every kind is ticked. -->
+            <Button x:Name="FoldButton" Style="{StaticResource GhostButton}" VerticalAlignment="Center" Margin="10,0,0,0" Click="FoldButton_Click"
+                    ToolTip="{ctl:T 'Which kinds fold into one line on a day'}" AutomationProperties.Name="{ctl:T 'Fold'}" AutomationProperties.HelpText="{Binding FoldText}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{ctl:T 'Fold'}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding FoldText}" Foreground="{DynamicResource FaintBrush}" FontSize="{x:Static ctl:TextSize.Small}" Margin="6,0,0,0" VerticalAlignment="Center"
+                               Visibility="{Binding HasFoldText, Converter={StaticResource Vis}}" />
+                    <TextBlock x:Name="FoldChevron" Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S10}" Foreground="{DynamicResource MutedBrush}"
+                               Margin="8,1,0,0" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                        <TextBlock.RenderTransform>
+                            <RotateTransform />
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                </StackPanel>
+            </Button>
+            <Popup x:Name="FoldPop" PlacementTarget="{Binding ElementName=FoldButton}" Placement="Bottom" VerticalOffset="6" StaysOpen="False" AllowsTransparency="True"
+                   PopupAnimation="Fade" Opened="FoldPop_Opened" Closed="FoldPop_Closed">
+                <ctl:SmoothBorder Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Control}"
+                                  Padding="5" Margin="0,0,8,8" MinWidth="236" PreviewKeyDown="FoldPop_KeyDown">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.45" Color="Black" />
+                    </Border.Effect>
+                    <ItemsControl ItemsSource="{Binding FoldChoices}" Focusable="False" AutomationProperties.Name="{ctl:T 'Fold'}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox Style="{StaticResource FoldCheck}" IsChecked="{Binding IsOn}" AutomationProperties.Name="{Binding Name}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ctl:SmoothBorder>
+            </Popup>
             <TextBox Style="{StaticResource SearchBox}" Tag="{ctl:T 'Search changes…'}" Width="220" Margin="22,0,0,0" VerticalAlignment="Center"
                      AutomationProperties.Name="{ctl:T 'Search the timeline'}" ctl:Debounce.Text="{Binding Search}" HorizontalAlignment="Left" />
         </DockPanel>

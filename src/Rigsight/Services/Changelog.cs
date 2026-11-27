@@ -187,6 +187,19 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.21.0", 11, 27,
+            feature: new(Lang.T("What to try"), Lang.T("Steps to try for what RigSight found, with a button for the ones it can start."),
+                [Lang.T("Crashes, Temperatures, Fans, Storage, Memory, Network, Latency and Games list what to try under what they found."),
+                    Lang.T("A step's button can open the right Windows setting, check a game's files in Steam, close an app or empty the Recycle Bin."),
+                    Lang.T("Tried it keeps the day you tried a step, and the list then says whether the problem was seen again since."),
+                    Lang.T("I know about this takes a line off Home until it gets worse, and Show again brings it back.")],
+                "crashes", "", isPage: false) { OpenText = Lang.T("Open Crashes") },
+            added: [Lang.T("On Timeline, a day's sound cut-outs are now one line that opens to list each one."),
+                Lang.T("Fold, beside Group on Timeline, picks what else joins into one line, like app updates or game updates.")],
+            better: [Lang.T("App updates and repeated problems on Timeline now get a line each, unless you tick them under Fold."),
+                Lang.T("Timeline remembers how you group it, by day, by month or not at all."),
+                Lang.T("The notifications list under the bell opens quicker when it holds many notifications."),
+                Lang.T("After 10 minutes minimized, RigSight frees the memory of the pages you aren't on, and builds them again when you open them.")]),
         V("1.20.1", 11, 25,
             fixedBugs: [Lang.T("Switching between pages is quicker again, after 1.20.0 had made it a little slower."),
                 Lang.T("With RigSight in Spanish, its background agent uses about 2 MB less memory.")]),

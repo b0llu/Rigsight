@@ -492,6 +492,8 @@
                                             <TextBlock Text="{Binding LoadText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,22,0" />
                                             <TextBlock Text="{Binding RestText}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource MutedBrush}" />
                                         </StackPanel>
+                                        <!-- What to try under a part that runs warmer (1.21.0): Home's amber heat line opens here. -->
+                                        <ContentControl Content="{Binding Try}" Focusable="False" IsTabStop="False" Margin="0,14,0,0" Visibility="{Binding Try, Converter={StaticResource Vis}}" />
                                     </StackPanel>
                                     <DataTemplate.Triggers>
                                         <DataTrigger Binding="{Binding RelativeSource={RelativeSource PreviousData}}" Value="{x:Null}">

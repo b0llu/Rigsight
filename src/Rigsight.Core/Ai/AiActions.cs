@@ -89,6 +89,9 @@ public static class AiActions
         ["task-manager"] = ("taskmgr.exe", Lang.Key("Open Task Manager"), ""),
     };
 
+    /// <summary>A Windows screen's address and button words (English, translated where shown), for What to try's steps; null for a key not on the list.</summary>
+    public static (string Uri, string Label)? Screen(string key) => Windows.TryGetValue(key, out var w) ? (w.Uri, w.Label) : null;
+
     /// <summary>The buttons for these "[do: …]" lines, at most <see cref="Most"/>, each checked; why one was dropped goes to the log.</summary>
     public static IReadOnlyList<AiAction> Resolve(IEnumerable<string> markers, AiActionContext context)
     {

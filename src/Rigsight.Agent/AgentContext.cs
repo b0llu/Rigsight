@@ -2366,6 +2366,40 @@ internal sealed partial class AgentContext : ApplicationContext
         return hello;
     }
 
+    /// <summary>
+    /// Sets Windows Memory Diagnostic for the next start, as its own "check for problems the next time I start" does, and
+    /// restarts now when asked to. What was run and what came back goes to the log.
+    /// </summary>
+    private static void MemoryTest(bool now)
+    {
+        if (RigsightPaths.IsTestInstance)
+        {
+            Log.Write("try", $"Memory test asked for ({(now ? "now" : "at next start")}): a test copy, so nothing was set and the PC wasn't restarted");
+            return;
+        }
+        string system = Environment.GetFolderPath(Environment.SpecialFolder.System);
+        int Run(string exe, string args)
+        {
+            try
+            {
+                using var p = Process.Start(new ProcessStartInfo(Path.Combine(system, exe), args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true });
+                if (p is null) return -1;
+                string said = (p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd()).Trim();
+                p.WaitForExit(15000);
+                Log.Write("try", $"{exe} {args}: exit {p.ExitCode}{(said.Length > 0 ? ", said: " + said : "")}");
+                return p.ExitCode;
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"try: running {exe} {args}", ex);
+                return -1;
+            }
+        }
+        int set = Run("bcdedit.exe", "/bootsequence {memdiag}");
+        if (set != 0) { Log.Write("try", "Memory test not set (expected bcdedit to exit 0), so the PC wasn't restarted"); return; }
+        if (now) Run("shutdown.exe", "/r /t 0");
+    }
+
     private void OnUiMessage(UiMessage msg)
     {
         if (msg.T == "settings" && msg.Settings is not null)
@@ -2396,6 +2430,11 @@ internal sealed partial class AgentContext : ApplicationContext
                 // The Processes page ended an app (itself: the agent is never asked to end anything) and has it
                 // written down for the Timeline.
                 if (Core.Stability.TaskEnded.Parse(msg.Arg, DateTime.Now) is { } ended) RunOnSampler(() => _db.InsertChanges([ended]));
+                break;
+            // What to try's memory test, after its question in the app (1.21.0): Windows Memory Diagnostic at the next
+            // start, and on "now" the restart. Admin only (the boot entry is Windows' own); a test copy never restarts the PC.
+            case "memory-test" when _isAdmin:
+                _ = Task.Run(() => MemoryTest(msg.Arg == "now"));
                 break;
             case "clear-history":
                 RunOnSampler(() =>

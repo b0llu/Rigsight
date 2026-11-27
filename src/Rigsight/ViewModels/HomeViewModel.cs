@@ -378,11 +378,62 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
     /// <summary>A line each for crashes, drives and fans: fine, or what needs a look.</summary>
     [ObservableProperty] private IReadOnlyList<HomeLine> _health = [];
 
+    // ── "I know about this" (1.21.0): a PC health line hidden from What to try, behind "1 hidden" with Show again ──
+
+    private IReadOnlyList<HomeLine> _allHealth = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHidden), nameof(HiddenText))]
+    private IReadOnlyList<HomeLine> _hiddenHealth = [];
+    public bool HasHidden => HiddenHealth.Count > 0;
+    public string HiddenText => HiddenHealth.Count == 1 ? Lang.T("1 hidden") : Lang.T($"{HiddenHealth.Count} hidden");
+
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HiddenChevron))] private bool _hiddenOpen;
+    public string HiddenChevron => HiddenOpen ? "" : "";
+
+    [RelayCommand] private void ToggleHidden() => HiddenOpen = !HiddenOpen;
+
+    [RelayCommand]
+    private void ShowAgain(HomeLine? line)
+    {
+        if (line?.Key is { Length: > 0 } key) TryActions.ShowAgain(key);
+    }
+
+    /// <summary>
+    /// The amber lines someone said they know about leave PC health, until one reads worse than when it was hidden (any
+    /// of its figures higher): then it comes back by itself. Home notes how each read the first time it hides it.
+    /// </summary>
+    private void SplitHidden()
+    {
+        var shown = new List<HomeLine>();
+        var hidden = new List<HomeLine>();
+        foreach (var line in _allHealth)
+        {
+            if (line.IsWarm && line.Key is { Length: > 0 } key && TryActions.HiddenAs(key) is { } was)
+            {
+                if (was.Length == 0) TryActions.NoteHidden(key, line.Text);
+                else if (TryActions.Worse(was, line.Text)) { TryActions.ShowAgain(key, quiet: true); shown.Add(line); continue; }
+                hidden.Add(line);
+            }
+            else shown.Add(line);
+        }
+        Health = Kept.Or(Health, shown);
+        HiddenHealth = Kept.Or(HiddenHealth, hidden);
+        if (hidden.Count == 0) HiddenOpen = false;
+    }
+
     /// <summary>How many lines each small card holds.</summary>
     public const int CardLines = 4;
 
+    private bool _tryHooked;
+
     private async Task LoadCardsAsync()
     {
+        if (!_tryHooked)
+        {
+            _tryHooked = true;
+            TryActions.Changed += SplitHidden;
+        }
         var now = DateTime.Now;
         var read = await reports.QueryAsync((db, s) => HomeCards.Read(db, s, now));
         var results = await reports.ChangeResultsAsync();
@@ -391,7 +442,8 @@ public sealed partial class HomeViewModel(ReportService reports, LiveData live) 
         var worse = WorseLine(results, now.Date);
         if (worse is not null && changeLines.Any(l => l.ChangeDay == worse.ChangeDay)) worse = null;
         Changes = Kept.Or(Changes, changeLines);
-        Health = Kept.Or(Health, HealthLines(Today, read?.Problems ?? [], read?.Mains ?? 0, Live.Drives, HomeCards.Fullest(), worse, read?.MainsLikely, read?.Wear));
+        _allHealth = HealthLines(Today, read?.Problems ?? [], read?.Mains ?? 0, Live.Drives, HomeCards.Fullest(), worse, read?.MainsLikely, read?.Wear);
+        SplitHidden();
     }
 
     /// <summary>How long the latest change that made a difference stays on top of "What changed lately".</summary>

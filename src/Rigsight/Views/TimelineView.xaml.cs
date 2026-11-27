@@ -55,6 +55,39 @@ public partial class TimelineView : UserControl
         };
     }
 
+    // ── The Fold list ──
+
+    // When the list last closed: a click on Fold that closed it (by leaving it) mustn't open it again at once.
+    private long _foldClosedAt;
+
+    private void FoldButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (Environment.TickCount64 - _foldClosedAt < 250) return;
+        FoldPop.IsOpen = !FoldPop.IsOpen;
+    }
+
+    /// <summary>Open: the arrow points up, and the keyboard is in the list (its first tick box).</summary>
+    private void FoldPop_Opened(object? sender, EventArgs e)
+    {
+        if (FoldChevron.RenderTransform is System.Windows.Media.RotateTransform turn) turn.Angle = 180;
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () => FoldPop.Child?.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First)));
+    }
+
+    private void FoldPop_Closed(object? sender, EventArgs e)
+    {
+        _foldClosedAt = Environment.TickCount64;
+        if (FoldChevron.RenderTransform is System.Windows.Media.RotateTransform turn) turn.Angle = 0;
+    }
+
+    /// <summary>Escape closes the list and puts the keyboard back on Fold.</summary>
+    private void FoldPop_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Escape) return;
+        FoldPop.IsOpen = false;
+        FoldButton.Focus();
+        e.Handled = true;
+    }
+
     /// <summary>A change opened: its page starts at the top (the first one opened is built new, at its top already).</summary>
     private void OnChangeOpened() => _changeScroller?.ScrollToTop();
 

@@ -441,7 +441,10 @@
                                 <TextBlock Text="{Binding Under}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
                             </StackPanel>
                         </DockPanel>
-                        <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Margin="0,16,0,0" Padding="0,14,0,0">
+                        <!-- What to try as steps (1.21.0, issue #12), where the finding has them; the one line otherwise. -->
+                        <ContentControl Content="{Binding Try}" Focusable="False" IsTabStop="False" Margin="0,16,0,0" Visibility="{Binding Try, Converter={StaticResource Vis}}" />
+                        <Border BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Margin="0,16,0,0" Padding="0,14,0,0"
+                                Visibility="{Binding HasTry, Converter={StaticResource Vis}, ConverterParameter=Invert}">
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Left" Text="&#xE90F;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" Foreground="{DynamicResource GoodBrush}" VerticalAlignment="Top" Margin="2,2,12,0" />
                                 <TextBlock DockPanel.Dock="Left" Text="{ctl:T 'What to try'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,0,16,0" />

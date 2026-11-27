@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using Rigsight.Core;
 using Rigsight.Core.Data;
 using Rigsight.Services;
+using Rigsight.Models;
 
 namespace Rigsight.ViewModels;
 
@@ -29,6 +30,10 @@ public sealed record VolumeRow(string Root, string Label, long Total, long Free,
     public string FullText => Lang.T($"{UsedPercent:0}% full");
     /// <summary>Nearly full: its bar in the warning colour.</summary>
     public bool NearlyFull => UsedPercent >= 90;
+
+    private TryBlockView? _try;
+    /// <summary>What to try under a fixed drive that's nearly full (1.21.0).</summary>
+    public TryBlockView? Try => NearlyFull && Kind == "fixed" ? _try ??= new TryBlockView(Core.Advice.WhatToTry.DriveFull(Root, null, Lang.T($"The {Letter} drive is {UsedPercent:0}% full."))) : null;
     private string? _scanText;
 
     /// <summary>While this drive is being scanned: how far along, going by the space it has in use ("40%"). Null otherwise.</summary>

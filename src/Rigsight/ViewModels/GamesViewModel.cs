@@ -12,6 +12,7 @@ using Rigsight.Core.Data;
 using Rigsight.Core.Games;
 using Rigsight.Core.Settings;
 using Rigsight.Core.Stability;
+using Rigsight.Models;
 using Rigsight.Services;
 
 namespace Rigsight.ViewModels;
@@ -299,6 +300,23 @@ public sealed partial class GamesViewModel : ObservableObject
         var ordered = list.ToList();
         if (playing is not null && ordered.Remove(playing)) ordered.Insert(0, playing);
         return ordered;
+    }
+
+    /// <summary>
+    /// After the window has been minimized a long while (see MainWindow): the library's cards, the shelf and the banner let
+    /// go of their pictures, which the window had decoded for every game (about 15 MB for 40 games, more for a big
+    /// library). The next visit reads them again, as a first visit does, behind the page's loader.
+    /// </summary>
+    public void Release()
+    {
+        Cards.Clear();
+        Shelf.Clear();
+        HeroBanner = null;
+        HeroLogo = null;
+        HeroIcon = null;
+        Ready = false;
+        OnPropertyChanged(nameof(HasShelf));
+        OnPropertyChanged(nameof(IsEmpty));
     }
 
     private void BuildCards()
@@ -1116,6 +1134,10 @@ public sealed partial class GamesViewModel : ObservableObject
 
         // Problems: the game's own, and the PC's that weren't a power cut, only those that happened. Power cuts in grey.
         Problems = ProblemTiles(st);
+        // What to try under the problems (1.21.0): a game that crashed more than once in the period.
+        ProblemsTry = st.Crashes >= 2 ? new TryBlockView(Core.Advice.WhatToTry.GameCrashes(st.Entry.Key,
+            st.Entry.Installed is { Launcher: Core.Games.Launcher.Steam } g && g.Key.StartsWith("steam:", StringComparison.Ordinal) ? g.Key["steam:".Length..] : null,
+            Lang.T($"{st.Entry.Name} crashed {st.Crashes} times.") )) : null;
 
         // Heat and power, and beside it Memory with as many rows (video memory moved there, 2026-11-14).
         var heat = new List<HeatRow>
@@ -1222,6 +1244,9 @@ public sealed partial class GamesViewModel : ObservableObject
     /// "Problems in …" as tiles, one for each kind that happened, with its days: shut-offs that weren't a power cut, the
     /// game's crashes, graphics driver resets and freezes in amber, power cuts in grey. Empty when nothing happened.
     /// </summary>
+    /// <summary>What to try under the opened game's problems; null unless it crashed more than once.</summary>
+    [ObservableProperty] private TryBlockView? _problemsTry;
+
     internal static List<ProblemTile> ProblemTiles(GameStory st)
     {
         var tiles = new List<ProblemTile>();

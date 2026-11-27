@@ -72,6 +72,9 @@ public sealed partial class CrashCase : ObservableObject
     public string Under => string.Join("  ·  ", new[] { Title == Headline ? null : Title, WhenText, WhenNote }.Where(s => !string.IsNullOrEmpty(s)));
     public string Text => Finding.Text;
     public string Advice => Finding.Advice;
+    /// <summary>What to try as steps, where the finding has them; the one line of <see cref="Advice"/> otherwise.</summary>
+    public TryBlockView? Try { get; init; }
+    public bool HasTry => Try is not null;
     public string WhenText => Group.IsIncident ? Lang.T($"{Group.First.Time:ddd d MMM, h:mm} to {Group.Latest.Time:h:mm tt}") : Row.TimeText;
     /// <summary>Under the time: where the time shown isn't Windows' own, or how many times it happened.</summary>
     public string? WhenNote { get; init; }

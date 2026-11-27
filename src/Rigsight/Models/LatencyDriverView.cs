@@ -91,6 +91,8 @@ public sealed class LatencyDriverView
 
         What = DriverWords.What(driver, part);
         Tips = [.. DriverWords.Tips(DriverWords.AreaOf(driver, part)).Select(t => new DelayTip(t.Step, t.More))];
+        // What to try (1.21.0): the same tips as one block, with a button where one is a screen RigSight can open.
+        Try = Core.Advice.WhatToTry.Latency(DriverWords.AreaOf(driver, part), driver, $"{Who} ({File}). {UsualText}") is { } block ? new TryBlockView(block) : null;
         Changes = [.. data.Changes.Select(c => new DelayOtherLine(c.Shown, TimeText.At(c.Time, "ddd d MMM, h:mm tt")))];
     }
 
@@ -118,6 +120,7 @@ public sealed class LatencyDriverView
     public string WhyItMatters => DriverWords.WhyItMatters;
     public List<DelayTip> Tips { get; }
     public bool HasTips => Tips.Count > 0;
+    public TryBlockView? Try { get; }
     public List<DelayOtherLine> Changes { get; }
     public bool HasChanges => Changes.Count > 0;
 }

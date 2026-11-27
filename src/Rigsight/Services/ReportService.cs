@@ -567,8 +567,18 @@ public sealed class ReportService(SettingsModel settings)
                 Running = running, Changes = changes, NoChanges = noChanges,
                 HistoryTitle = title, Bars = bars, Times = times, HistoryNote = note,
                 Tech = TechOf(group, row),
+                Try = TryOf(group, e, finding),
             };
         });
+
+        // What to try under the finding (1.21.0): an incident's steps are its own finding's; a game's Steam id where it has one.
+        static Models.TryBlockView? TryOf(Models.CrashGroup group, Core.Stability.CrashEvent e, Core.Stability.CrashFinding finding)
+        {
+            var game = group.IsIncident ? null : Core.Games.GameLibrary.Find(Core.Apps.AppCatalog.InstalledGames, e.AppPath);
+            string? steam = game is { Launcher: Core.Games.Launcher.Steam } g && g.Key.StartsWith("steam:", StringComparison.Ordinal) ? g.Key["steam:".Length..] : null;
+            var block = Core.Advice.WhatToTry.ForCrash(e, finding, steam, group.Latest.IsGame);
+            return block is null ? null : new Models.TryBlockView(block, day => group.Rows.Count(r => r.Time >= day.Date.AddDays(1)));
+        }
 
         // What came after: for an app, whether it was opened again in the ten minutes after; for the PC, when it was back on.
         static string? After(Core.Stability.CrashEvent e, long ts, DateTime to, Models.CrashRow row, Core.Data.RigsightDb db, Func<long, string> nameOf)
@@ -753,11 +763,14 @@ public sealed class ReportService(SettingsModel settings)
     {
         var names = apps.ToDictionary(a => a.Id, a => s.AppNames.TryGetValue(a.Exe, out var alias) ? alias : Core.Apps.AppCatalog.KnownName(a.Exe) ?? a.Name);
         return [.. Core.Sound.SoundDropouts.Stretches(db.GetSoundGlitches(0, long.MaxValue / 2, heardOnly: true)).Select(st =>
-            new TimelineMark(DateTimeOffset.FromUnixTimeMilliseconds(st.FromMs).LocalDateTime,
-                Core.Sound.SoundDropouts.Line(st, st.App is long id ? names.GetValueOrDefault(id) : null))
+        {
+            string? app = st.App is long id ? names.GetValueOrDefault(id) : null;
+            return new TimelineMark(DateTimeOffset.FromUnixTimeMilliseconds(st.FromMs).LocalDateTime, Core.Sound.SoundDropouts.Line(st, app))
             {
-                Sound = true, Count = st.Count, Detail = Core.Sound.SoundDropouts.When(st), Note = Core.Sound.SoundDropouts.Find(db, st)?.Line,
-            })];
+                Sound = true, Count = st.Count, App = app, End = DateTimeOffset.FromUnixTimeMilliseconds(st.ToMs).LocalDateTime,
+                Detail = Core.Sound.SoundDropouts.When(st), Note = Core.Sound.SoundDropouts.Find(db, st)?.Line,
+            };
+        })];
     }
 
     /// <summary>What each day's big changes made better or worse, worked out once (see <see cref="ChangeEffects.Read"/>) and kept for the other pages.</summary>
@@ -811,6 +824,12 @@ public sealed record TimelineMark(DateTime Time, string Text)
 
     /// <summary>A stretch's cuts.</summary>
     public int Count { get; init; }
+
+    /// <summary>A stretch's app (the one most of its cuts played in), or null; for a day's folded line.</summary>
+    public string? App { get; init; }
+
+    /// <summary>A stretch's last cut (its first is <see cref="Time"/>).</summary>
+    public DateTime End { get; init; }
 
     /// <summary>Grey beside the title: a stretch's time ("9:02 PM to 9:40 PM").</summary>
     public string? Detail { get; init; }

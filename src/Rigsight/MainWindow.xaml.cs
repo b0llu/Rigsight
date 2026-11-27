@@ -171,6 +171,10 @@ public partial class MainWindow : Window
         };
         // Nothing is refreshed while the window is minimized: catch up as it comes back, not at the next minute.
         StateChanged += (_, _) => { if (WindowState != WindowState.Minimized) _ = _vm.RefreshOnRestoreAsync(); _vm.WindowShown(WindowState != WindowState.Minimized && IsVisible); };
+        // Minimized a long while: the pages not on screen let go of what they built (see LetGoOfHiddenPages).
+        _letGo = new System.Windows.Threading.DispatcherTimer { Interval = LetGoAfter };
+        _letGo.Tick += (_, _) => { _letGo.Stop(); if (WindowState == WindowState.Minimized) LetGoOfHiddenPages(); };
+        StateChanged += (_, _) => { if (WindowState == WindowState.Minimized) _letGo.Start(); else _letGo.Stop(); };
         // Hidden or shown again (the Latency page speeds up the wake-up check only while it can be seen, issue #15).
         IsVisibleChanged += (_, _) => _vm.WindowShown(WindowState != WindowState.Minimized && IsVisible);
         ThemeManager.Changed += RebuildPages;
@@ -184,6 +188,61 @@ public partial class MainWindow : Window
         Closed += (_, _) => ThemeManager.Changed -= RebuildPages;
         Closing += (_, _) => { SaveBounds(); _vm.WindowClosing(); };
         RestoreBounds_();
+    }
+
+    private readonly System.Windows.Threading.DispatcherTimer _letGo;
+
+    /// <summary>The pages built and kept now (the tests).</summary>
+    internal IReadOnlyCollection<string> BuiltPages => _pages.Keys;
+
+    /// <summary>A page's view as built now, or null (the tests).</summary>
+    internal FrameworkElement? BuiltView(string page) => _pages.GetValueOrDefault(page);
+
+    /// <summary>
+    /// How long the window stays minimized before the hidden pages let go: ten minutes (agreed 2026-11-26). A test copy
+    /// can set RIGSIGHT_LET_GO_AFTER (seconds) to measure it without waiting.
+    /// </summary>
+    private static TimeSpan LetGoAfter =>
+        Core.RigsightPaths.IsTestInstance && int.TryParse(Environment.GetEnvironmentVariable("RIGSIGHT_LET_GO_AFTER"), out int s) && s > 0
+            ? TimeSpan.FromSeconds(s) : TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// The window has been minimized ten minutes: every page but the one it was left on lets go of its view, as a theme
+    /// change does, and the Games library of its pictures (2026-11-26). Measured on a real history, the pages' views are
+    /// most of what visiting them costs: about 45 MB of the window's objects after every page, against 2 MB of their
+    /// data. The page that was open comes back exactly as it was; another is built again on its next visit, behind the
+    /// loader a first visit shows. Then one full collection, while nobody is looking, so the memory is given back now
+    /// rather than whenever the next one comes (the agent does the same when the window closes).
+    /// </summary>
+    internal void LetGoOfHiddenPages()
+    {
+        var gone = _pages.Keys.Where(k => k != _vm.CurrentPage).ToList();
+        if (gone.Count == 0 && _vm.CurrentPage == "games") return;
+        long before = Environment.WorkingSet, heapBefore = GC.GetTotalMemory(false);
+        foreach (var key in gone)
+        {
+            if (!_pages.Remove(key, out var view)) continue;
+            view.DataContext = null;
+            // Emptied too: a UI Automation client (a screen reader, a password manager, an input tool) can keep a list
+            // item's proxy, and through the item's template the whole page. Emptied, only the item and a bare shell stay.
+            if (view is ContentControl page) page.Content = null;
+        }
+        if (_vm.CurrentPage != "games")
+        {
+            _vm.Games.Release();
+            Services.GamePictures.Clear();
+        }
+        // Collected once the window's thread is idle: work it had queued for the pages just let go (their Unloaded
+        // handlers, layout) still holds them until it has run, and a collection now would keep them till the next one.
+        Dispatcher.BeginInvoke(() =>
+        {
+            System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+            GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+            GC.WaitForPendingFinalizers();
+            GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+            Core.Log.Write("app", $"Minimized {LetGoAfter.TotalMinutes:0.#} minutes: let go of {gone.Count} page(s) ({string.Join(", ", gone)}) and the game pictures; "
+                + $"heap {heapBefore / 1048576.0:0.0} -> {GC.GetTotalMemory(false) / 1048576.0:0.0} MB, working set {before / 1048576.0:0} -> {Environment.WorkingSet / 1048576.0:0} MB");
+        }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
     }
 
     /// <summary>

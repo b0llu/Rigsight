@@ -4,6 +4,7 @@
              xmlns:ctl="clr-namespace:Rigsight.Controls"
         xmlns:views="clr-namespace:Rigsight.Views"
         xmlns:rw="clr-namespace:Rigsight.Rewind"
+        xmlns:vm="clr-namespace:Rigsight.ViewModels"
         Title="RigSight"
         Width="1400" Height="920" MinWidth="1140" MinHeight="680"
         WindowStartupLocation="CenterScreen"
@@ -823,87 +824,100 @@
          newest first; a row opens what it's about, as its card would have. Closed by a click elsewhere or a page change. -->
     <Popup x:Name="NoticesDrop" PlacementTarget="{Binding ElementName=BellButton}" Placement="Custom"
            AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade" IsOpen="{Binding Notices.IsOpen, Mode=TwoWay}">
-        <Border x:Name="NoticesDropRoot" Width="440" Margin="14,0,14,20" Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1"
-                CornerRadius="{x:Static ctl:Corner.Tile}" AutomationProperties.Name="{ctl:T 'Notifications'}">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="24" ShadowDepth="8" Opacity="0.5" Color="Black" />
-            </Border.Effect>
-            <DockPanel>
-                <DockPanel DockPanel.Dock="Top" Margin="18,10,10,6">
-                    <!-- Hidden, not collapsed, once everything is read: the heading doesn't move. -->
-                    <Button DockPanel.Dock="Right" Content="{ctl:T 'Mark all as read'}" Command="{Binding Notices.MarkAllReadCommand}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource ActionButton}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Notices.HasUnseen}" Value="False"><Setter Property="Visibility" Value="Hidden" /></DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                    <TextBlock Text="{ctl:T 'Notifications'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
-                </DockPanel>
-                <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="10,6,18,6">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Last 30 days'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
-                        <Button Style="{StaticResource ActionButton}" Content="{ctl:T 'Notification settings'}" Command="{Binding Notices.GoToSettingsCommand}" HorizontalAlignment="Left" />
+        <Grid x:Name="NoticesDropRoot" Width="440" Margin="14,0,14,20" AutomationProperties.Name="{ctl:T 'Notifications'}">
+            <!-- The shadow on a plain box behind the list, not on the list itself: on the list, every row's hover and every
+                 frame of the fade blurred all of it again (2026-11-26). -->
+            <Border Background="{DynamicResource TooltipBrush}" CornerRadius="{x:Static ctl:Corner.Tile}" IsHitTestVisible="False">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="8" Opacity="0.5" Color="Black" />
+                </Border.Effect>
+            </Border>
+            <Border Background="{DynamicResource TooltipBrush}" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="1" CornerRadius="{x:Static ctl:Corner.Tile}">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="18,10,10,6">
+                        <!-- Hidden, not collapsed, once everything is read: the heading doesn't move. -->
+                        <Button DockPanel.Dock="Right" Content="{ctl:T 'Mark all as read'}" Command="{Binding Notices.MarkAllReadCommand}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource ActionButton}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Notices.HasUnseen}" Value="False"><Setter Property="Visibility" Value="Hidden" /></DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <TextBlock Text="{ctl:T 'Notifications'}" FontSize="{x:Static ctl:TextSize.Body}" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                     </DockPanel>
-                </Border>
-                <Grid>
-                    <ctl:Spinner Width="20" Height="20" StrokeThickness="2" Margin="0,40" HorizontalAlignment="Center"
-                                 Visibility="{Binding Notices.Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
-                    <TextBlock Text="{ctl:T 'No notifications in the last 30 days'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
-                               HorizontalAlignment="Center" Margin="0,36" Visibility="{Binding Notices.IsEmpty, Converter={StaticResource Vis}}" />
-                    <ScrollViewer MaxHeight="560" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" Padding="0,0,0,6">
-                        <ItemsControl ItemsSource="{Binding Notices.Days}" Focusable="False">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Mini}" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="18,10,18,4" />
-                                        <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Button Command="{Binding DataContext.Notices.OpenRowCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
-                                                            Cursor="Hand" AutomationProperties.Name="{Binding Title}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                                                        <Button.Template>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border x:Name="Bd" Background="Transparent" Padding="18,8">
-                                                                    <DockPanel>
-                                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Time}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="12,2,0,0" VerticalAlignment="Top" />
-                                                                        <Ellipse DockPanel.Dock="Left" Width="6" Height="6" Margin="-11,12,5,0" VerticalAlignment="Top" Fill="{DynamicResource TextBrush}"
-                                                                                 Visibility="{Binding Unseen, Converter={StaticResource Vis}}" />
-                                                                        <HeaderedContentControl Style="{StaticResource IconRow}">
-                                                                            <HeaderedContentControl.Header>
-                                                                                <Border Style="{StaticResource IconBox}">
-                                                                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                                               Foreground="{Binding BrushKey, Converter={StaticResource ResourceBrush}}" />
-                                                                                </Border>
-                                                                            </HeaderedContentControl.Header>
-                                                                            <StackPanel>
-                                                                                <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
-                                                                                <TextBlock Text="{Binding Body}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
-                                                                                <TextBlock Text="{ctl:T 'Kept here, not shown as a card'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,3,0,0"
-                                                                                           Visibility="{Binding HeldBack, Converter={StaticResource Vis}}" />
-                                                                            </StackPanel>
-                                                                        </HeaderedContentControl>
-                                                                    </DockPanel>
-                                                                </Border>
-                                                                <ControlTemplate.Triggers>
-                                                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
-                                                                </ControlTemplate.Triggers>
-                                                            </ControlTemplate>
-                                                        </Button.Template>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
+                    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource StrokeBrush}" BorderThickness="0,1,0,0" Padding="10,6,18,6">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="{ctl:T 'Last 30 days'}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource FaintBrush}" VerticalAlignment="Center" />
+                            <Button Style="{StaticResource ActionButton}" Content="{ctl:T 'Notification settings'}" Command="{Binding Notices.GoToSettingsCommand}" HorizontalAlignment="Left" />
+                        </DockPanel>
+                    </Border>
+                    <Grid>
+                        <ctl:Spinner Width="20" Height="20" StrokeThickness="2" Margin="0,40" HorizontalAlignment="Center"
+                                     Visibility="{Binding Notices.Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <TextBlock Text="{ctl:T 'No notifications in the last 30 days'}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource MutedBrush}"
+                                   HorizontalAlignment="Center" Margin="0,36" Visibility="{Binding Notices.IsEmpty, Converter={StaticResource Vis}}" />
+                        <!-- One flat list, the days' headings among the rows: only what's on screen is built, however many there are.
+                         Not recycled: a row's box reused for a heading handed the row's button the heading, and its command threw. -->
+                        <ItemsControl ItemsSource="{Binding Notices.Items}" Focusable="False" MaxHeight="560"
+                                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard" VirtualizingPanel.ScrollUnit="Pixel"
+                                      ScrollViewer.CanContentScroll="True">
+                            <ItemsControl.Template>
+                                <ControlTemplate TargetType="ItemsControl">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False" Padding="0,0,0,6" CanContentScroll="True">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VirtualizingStackPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.Resources>
+                                <DataTemplate DataType="{x:Type vm:NoticeDay}">
+                                    <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Mini}" FontWeight="SemiBold" Foreground="{DynamicResource FaintBrush}" Margin="18,10,18,4" />
                                 </DataTemplate>
-                            </ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:NoticeRow}">
+                                    <Button Command="{Binding DataContext.Notices.OpenRowCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                            Cursor="Hand" AutomationProperties.Name="{Binding Title}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" Background="Transparent" Padding="18,8">
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Time}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="12,2,0,0" VerticalAlignment="Top" />
+                                                        <Ellipse DockPanel.Dock="Left" Width="6" Height="6" Margin="-11,12,5,0" VerticalAlignment="Top" Fill="{DynamicResource TextBrush}"
+                                                                 Visibility="{Binding Unseen, Converter={StaticResource Vis}}" />
+                                                        <HeaderedContentControl Style="{StaticResource IconRow}">
+                                                            <HeaderedContentControl.Header>
+                                                                <Border Style="{StaticResource IconBox}">
+                                                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S14}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                               Foreground="{Binding BrushKey, Converter={StaticResource ResourceBrush}}" />
+                                                                </Border>
+                                                            </HeaderedContentControl.Header>
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding Title}" FontSize="{x:Static ctl:TextSize.Body}" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                                                <TextBlock Text="{Binding Body}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                                                <TextBlock Text="{ctl:T 'Kept here, not shown as a card'}" FontSize="{x:Static ctl:TextSize.Small}" Foreground="{DynamicResource FaintBrush}" Margin="0,3,0,0"
+                                                                           Visibility="{Binding HeldBack, Converter={StaticResource Vis}}" />
+                                                            </StackPanel>
+                                                        </HeaderedContentControl>
+                                                    </DockPanel>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.Resources>
                         </ItemsControl>
-                    </ScrollViewer>
-                </Grid>
-            </DockPanel>
-        </Border>
+                    </Grid>
+                </DockPanel>
+            </Border>
+        </Grid>
     </Popup>
 
     <!-- Everything under the title bar, zoomed with Ctrl + wheel (MainWindow.xaml.cs, ApplyZoom) -->

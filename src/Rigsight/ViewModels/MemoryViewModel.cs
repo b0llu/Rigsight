@@ -15,6 +15,9 @@ namespace Rigsight.ViewModels;
 /// </summary>
 public sealed record FullestMoment(string Text, string? CommitText, string TipTitle, IReadOnlyList<HeldRow> Held)
 {
+    /// <summary>What to try under it (1.21.0); left out of comparing two readings.</summary>
+    [System.Text.Json.Serialization.JsonIgnore] public TryBlockView? Try { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore] public bool HasTry => Try is not null;
     public bool HasCommit => CommitText is not null;
     public bool HasHeld => Held.Count > 0;
 }
@@ -135,9 +138,20 @@ public sealed partial class MemoryViewModel(ReportService reports, LiveData live
         _past = past ?? new MemoryPast();
         _readAt = now;
         var fullest = FullestOf(_past, Live.RamLoad?.Max, (Live.RamUsed?.Value ?? 0) + (Live.RamAvailable?.Value ?? 0));
-        if (!Kept.Values(Fullest, fullest)) Fullest = fullest;
+        if (!Kept.Values(Fullest, fullest)) Fullest = fullest is null ? null : fullest with { Try = TryOf(_past, fullest) };
         TooSoonText = _past.TooSoon ? TooSoonOf(_past.RecordedDays) : null;
         Annotate(Live.Procs);
+    }
+
+    /// <summary>
+    /// What to try under today's fullest moment: the app that held the most, closed after a question where it still has a
+    /// window open now, then the apps that start with Windows.
+    /// </summary>
+    private TryBlockView TryOf(MemoryPast past, FullestMoment fullest)
+    {
+        var top = past.FullestApps.FirstOrDefault();
+        var row = top is null ? null : Live.Procs.FirstOrDefault(p => p.HasWindow && string.Equals(p.Name, top, StringComparison.OrdinalIgnoreCase));
+        return new TryBlockView(Core.Advice.WhatToTry.MemoryFull(row?.Name, row?.Exe, row is null ? null : Units.Megabytes(row.MemMB), fullest.Text));
     }
 
     private void Annotate(IEnumerable<ProcRow> rows)

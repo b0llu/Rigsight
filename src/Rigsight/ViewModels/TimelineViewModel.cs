@@ -14,8 +14,19 @@ public sealed record TimelineFilter(string Key, string Name, int Count)
     public string Label => $"{Name} ({Count:N0})";
 }
 
-/// <summary>One line under a day: a change, a problem, or a day's app updates folded into one. Under a month: one kind
-/// of change that month (its drivers, its app updates) folded into one.</summary>
+/// <summary>A kind of line ticked or not under the page's Fold list: two or more of it on a day fold into one line.</summary>
+public sealed partial class FoldChoice(string key, string name, bool on, Action changed) : ObservableObject
+{
+    public string Key => key;
+    public string Name => Lang.T(name);
+
+    [ObservableProperty] private bool _isOn = on;
+
+    partial void OnIsOnChanged(bool value) => changed();
+}
+
+/// <summary>One line under a day: a change, a problem, or the kinds ticked under Fold folded into one line. Under a
+/// month: one kind of change that month (its drivers, its app updates) folded into one.</summary>
 public sealed partial class TimelineEntry : ObservableObject
 {
     public string TimeText { get; init; } = "";
@@ -100,9 +111,15 @@ public sealed partial class TimelineEntry : ObservableObject
     public string SureHead => Result?.SureLine is { Length: > 0 } s && s.IndexOf(". ", StringComparison.Ordinal) is int i and > 0 ? s[..(i + 1)] : Result?.SureLine ?? "";
     public string SureRest => Result?.SureLine is { Length: > 0 } s && s.IndexOf(". ", StringComparison.Ordinal) is int i and > 0 ? s[(i + 1)..] : "";
 
-    /// <summary>The app updates folded into this line.</summary>
+    /// <summary>The lines folded into this one, newest first: each at its own time when opened.</summary>
     public List<TimelineEntry> Children { get; init; } = [];
     public bool HasChildren => Children.Count > 0;
+
+    /// <summary>A folded line's own line opens something (a crash, a driver mark, a game): lit on hover, with an arrow.</summary>
+    public bool CanOpen => IsDelay || IsProblem || GameKey is not null;
+
+    /// <summary>What a screen reader says for a folded line: its title and its grey part.</summary>
+    public string SpokenName => Detail is { Length: > 0 } d ? $"{Title}, {d}" : Title;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ToggleText))]
@@ -205,8 +222,9 @@ public sealed record NowFact(string Label, string Value, string? Since)
 /// </summary>
 /// <param name="scan">Has the agent look for new changes and problems now; done when it has (or it can't be reached).</param>
 /// <param name="openProblems">Opens the Crashes page on a span of days with the PC's own problems only (see CrashesViewModel.ShowPcProblems).</param>
+/// <param name="settings">Keeps the Group choice and the Fold list (none in tests: the defaults, kept for the visit).</param>
 public sealed partial class TimelineViewModel(ReportService reports, Action<DateTime> openCrashes, Func<Task>? scan = null, Action<DateTime>? openCrash = null,
-    Action<DateTime, DateTime>? openProblems = null) : ObservableObject
+    Action<DateTime, DateTime>? openProblems = null, SettingsModel? settings = null) : ObservableObject
 {
     /// <summary>
     /// Days built at first: the newest (about a screenful, so opening the page or changing the filter is quick); older
@@ -214,8 +232,45 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     /// </summary>
     internal const int PageSize = 6;
 
-    /// <summary>From this many app updates in a day they fold into one line (when grouping is on).</summary>
-    private const int GroupFrom = 3;
+    /// <summary>
+    /// The kinds of line that can fold into one on a day, as the Fold list names them. Anything else (drivers, Windows,
+    /// installs, startup, hardware...) never folds: it's what people look through when something breaks.
+    /// </summary>
+    internal static readonly (string Key, string Name)[] FoldKinds =
+    [
+        ("sound", Lang.Key("Sound cut-outs")), ("apps", Lang.Key("App updates")), ("games", Lang.Key("Game updates")),
+        ("problems", Lang.Key("Repeated problems")), ("delays", Lang.Key("Driver delays")), ("marks", Lang.Key("Problems you marked")),
+    ];
+
+    /// <summary>
+    /// The Fold list: each kind ticked or not, as saved; sound cut-outs alone until someone changes it (the user,
+    /// 2026-11-26: "by default, only the sound should be folded"). A change rebuilds the days and is kept for good.
+    /// </summary>
+    public List<FoldChoice> FoldChoices => _foldChoices ??= [.. FoldKinds.Select(k => new FoldChoice(k.Key, k.Name,
+        settings?.Current.Timeline.Folds is { } saved ? saved.Contains(k.Key) : k.Key == "sound", OnFoldsChanged))];
+    private List<FoldChoice>? _foldChoices;
+
+    /// <summary>Beside "Fold" when not every kind is ticked: "1 of 6".</summary>
+    public string FoldText
+    {
+        get
+        {
+            int on = FoldChoices.Count(c => c.IsOn), all = FoldChoices.Count;
+            return on == all ? "" : Lang.T($"{on} of {all}");
+        }
+    }
+
+    public bool HasFoldText => FoldText.Length > 0;
+
+    private bool IsFolded(string kind) => FoldChoices.FirstOrDefault(c => c.Key == kind)?.IsOn == true;
+
+    private void OnFoldsChanged()
+    {
+        OnPropertyChanged(nameof(FoldText));
+        OnPropertyChanged(nameof(HasFoldText));
+        settings?.Update(s => s.Timeline.Folds = [.. FoldChoices.Where(c => c.IsOn).Select(c => c.Key)]);
+        Rebuild(keepPlace: true);
+    }
 
     private List<SystemChange> _changes = [];
     private List<TimelineProblem> _problems = [];
@@ -248,12 +303,13 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     [ObservableProperty] private TimelineFilter? _filter;
 
     /// <summary>
-    /// How the list is grouped: "Day" (a row a day, three or more app updates on it one line; the default), "Month" (a
-    /// row a month, each kind of change in it one line) or "Each" (a row a day, every change on its own line).
+    /// How the list is grouped: "Day" (a row a day, the kinds ticked under Fold one line each; the default), "Month" (a
+    /// row a month, each kind of change in it one line) or "Each" (a row a day, every change on its own line). Kept from
+    /// visit to visit (it went back to "Day" every time before 1.21.0).
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(GroupUpdates))]
-    private string _grouping = "Day";
+    private string _grouping = settings?.Current.Timeline.Grouping is "Month" or "Each" ? settings.Current.Timeline.Grouping : "Day";
 
     /// <summary>Changes are folded (by day or by month), not one line each.</summary>
     public bool GroupUpdates
@@ -280,7 +336,11 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         if (!_applying) Rebuild(keepPlace: false);
     }
 
-    partial void OnGroupingChanged(string value) => Rebuild(keepPlace: false);
+    partial void OnGroupingChanged(string value)
+    {
+        settings?.Update(s => s.Timeline.Grouping = value);
+        Rebuild(keepPlace: false);
+    }
 
     /// <summary>
     /// What's typed in the search box: only the changes (and problems) that say it are listed, over all of the history
@@ -480,45 +540,82 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
         var (changes, problems, marks) = _byDay[day];
         var entries = new List<(DateTime At, TimelineEntry Entry)>();
 
-        // A problem marked from the tray, with what the 2 minutes before it showed: a line each, at its own time.
-        foreach (var m in marks)
-            entries.Add((m.Time, MarkEntry(m, TimeText.Time(m.Time))));
+        // By day, two or more of a kind ticked under Fold are one line, opened to show each at its own time (the user,
+        // 2026-11-26). Never while searching: each match is its own line. A line with something under it (a stretch's
+        // possible cause, a change's before and after) never folds.
+        bool folding = Grouping == "Day" && Search.Trim().Length == 0;
+        bool Folds(string kind, int n) => folding && n >= 2 && IsFolded(kind);
 
-        // The same kind of problem several times in a day is one line ("3 graphics driver resets").
+        // The marks: sound cut-outs, driver delays and problems marked from the tray, each its own line at its own time
+        // unless its kind folds.
+        var sound = marks.Where(m => m.Sound && !(m.Note is { Length: > 0 })).ToList();
+        var delays = marks.Where(m => m.Delay is not null).ToList();
+        var marked = marks.Where(IsMarked).ToList();
+        bool foldSound = Folds("sound", sound.Count), foldDelays = Folds("delays", delays.Count), foldMarked = Folds("marks", marked.Count);
+        foreach (var m in marks)
+        {
+            if (foldSound && sound.Contains(m) || foldDelays && m.Delay is not null || foldMarked && IsMarked(m)) continue;
+            entries.Add((m.Time, MarkEntry(m, TimeText.Time(m.Time))));
+        }
+        if (foldSound)
+        {
+            string span = Core.Sound.SoundDropouts.Span(sound.Min(m => m.Time), sound.Max(m => m.End > m.Time ? m.End : m.Time));
+            entries.Add(Folded(day, "sound", SoundIcon, "WarmBrush", Core.Sound.SoundDropouts.Title(sound.Sum(m => m.Count), null),
+                Core.Sound.SoundDropouts.DayDetail(span, [.. sound.Select(m => (m.App, m.Count))]),
+                [.. sound.Select(m => (m.Time, new TimelineEntry
+                {
+                    TimeText = TimeText.Time(m.Time), IconBrush = "WarmBrush", Title = Core.Sound.SoundDropouts.Short(m.Count, m.App),
+                    Detail = Core.Data.TimeUtil.LocalMinuteStart(m.End) > Core.Data.TimeUtil.LocalMinuteStart(m.Time) ? Lang.T($"to {TimeText.Time(m.End)}") : null,
+                }))]));
+        }
+        if (foldDelays)
+            entries.Add(Folded(day, "delays", DelayIcon, "PurpleBrush", Lang.T($"Drivers kept the CPU busy much longer than usual {delays.Count} times"),
+                Span(delays.Select(m => m.Time)),
+                [.. delays.Select(m => (m.Time, new TimelineEntry { TimeText = TimeText.Time(m.Time), IconBrush = "PurpleBrush", Title = m.Delay!.Who, Detail = m.Detail, Delay = m.Delay }))]));
+        if (foldMarked)
+            entries.Add(Folded(day, "marks", MarkIcon, "PurpleBrush", Lang.T($"{marked.Count} problems marked"), Span(marked.Select(m => m.Time)),
+                [.. marked.Select(m => (m.Time, new TimelineEntry { TimeText = TimeText.Time(m.Time), IconBrush = "PurpleBrush", Title = m.Text, Detail = m.Detail }))]));
+
+        // The same kind of problem several times in a day: one line when Repeated problems is ticked, each opening as its
+        // own case; otherwise each one its own line.
         foreach (var group in problems.GroupBy(p => (p.Kind, p.Outside)))
         {
-            var first = group.MinBy(p => p.Time)!;
-            int n = group.Count();
+            var list = group.OrderBy(p => p.Time).ToList();
+            var first = list[0];
             string brush = first.Outside ? "MutedBrush" : first.IsCritical ? "HotBrush" : "WarmBrush";
-            entries.Add((first.Time, new TimelineEntry
+            string text = first.Outside ? "TextBrush" : brush;
+            TimelineEntry One(TimelineProblem p) => new()
             {
-                TimeText = first.Time.ToString(TimeText.Fit("h:mm tt")), Icon = ProblemIcon, Brush = first.Outside ? "TextBrush" : brush, IconBrush = brush, IsKey = !first.Outside, CrashDay = day,
-                CrashTime = n == 1 ? first.Time : null,
-                Title = n == 1 ? first.Title : first.Outside ? Core.Wording.PowerCuts(n) : Core.Wording.Capital(CrashesViewModel.KindCount(group.Key.Kind, n)),
-            }));
+                TimeText = TimeText.Time(p.Time), Icon = ProblemIcon, Brush = text, IconBrush = brush, IsKey = !p.Outside, CrashDay = day, CrashTime = p.Time, Title = p.Title,
+            };
+            if (Folds("problems", list.Count))
+                entries.Add(Folded(day, $"problems:{group.Key.Kind}:{group.Key.Outside}", ProblemIcon, brush,
+                    first.Outside ? Core.Wording.PowerCuts(list.Count) : Core.Wording.Capital(CrashesViewModel.KindCount(group.Key.Kind, list.Count)),
+                    Span(list.Select(p => p.Time)), [.. list.Select(p => (p.Time, One(p)))], text, isKey: !first.Outside));
+            else
+                foreach (var p in list) entries.Add((p.Time, One(p)));
         }
 
-        var updates = changes.Where(c => c.Kind == ChangeKind.AppUpdated).OrderByDescending(c => c.Time).ToList();
-        bool fold = Grouping == "Day" && updates.Count >= GroupFrom;
         // What a day's big changes made better or worse goes under the one that names it (a graphics driver before a Windows update).
         var result = _results.GetValueOrDefault(day);
         var under = result?.Changes.FirstOrDefault(changes.Contains);
+        var apps = changes.Where(c => c.Kind == ChangeKind.AppUpdated && c != under).ToList();
+        var games = changes.Where(c => c.Kind == ChangeKind.GameUpdated && c != under).ToList();
+        bool foldApps = Folds("apps", apps.Count), foldGames = Folds("games", games.Count);
         foreach (var c in changes)
         {
-            if (fold && c.Kind == ChangeKind.AppUpdated) continue;
+            if (foldApps && apps.Contains(c) || foldGames && games.Contains(c)) continue;
             var entry = EntryOf(c);
             if (c == under) entry.Result = result;
             entries.Add((c.Time, entry));
         }
-        if (fold)
-        {
-            entries.Add((updates[0].Time, new TimelineEntry
-            {
-                TimeText = TimeOf(updates[0]), TimeTip = TipOf(updates[0]), // when the last of them was updated
-                Icon = IconOf(ChangeKind.AppUpdated), Title = Lang.T($"{updates.Count} apps updated"),
-                Detail = string.Join(", ", updates.Select(NameOf)), Children = [.. updates.Select(c => EntryOf(c))], IsExpanded = _expanded.Contains((day, "")),
-            }));
-        }
+        if (foldApps)
+            entries.Add(Folded(day, "apps", IconOf(ChangeKind.AppUpdated), "MutedBrush", Lang.T($"{apps.Count} apps updated"),
+                string.Join(", ", apps.OrderByDescending(c => c.Time).Select(NameOf)), [.. apps.Select(c => (c.Time, EntryOf(c)))]));
+        if (foldGames)
+            entries.Add(Folded(day, "games", IconOf(ChangeKind.GameUpdated), "MutedBrush", Lang.T($"{games.Count} game updates"),
+                string.Join(", ", games.GroupBy(NameOf).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key)),
+                [.. games.Select(c => (c.Time, EntryOf(c)))]));
 
         int ago = (int)(DateTime.Today - day).TotalDays;
         return new TimelineDay
@@ -531,6 +628,26 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
             // Newest first; a drive's space is the whole day's (dated at its midnight) and comes last.
             Entries = [.. entries.OrderByDescending(e => e.At).Select(e => e.Entry)],
         };
+
+        // When the lines of a fold were: "1:22 PM to 8:42 PM".
+        static string Span(IEnumerable<DateTime> times) => Core.Sound.SoundDropouts.Span(times.Min(), times.Max());
+    }
+
+    /// <summary>
+    /// Lines of one kind on a day as one line: at the time of the newest (the list reads newest first), its own lines under
+    /// it newest first, each with its own time and the thread's colour (<see cref="TimelineEntry.IconBrush"/>). Kept open
+    /// across rebuilds by its key.
+    /// </summary>
+    private (DateTime At, TimelineEntry Entry) Folded(DateTime day, string key, string icon, string iconBrush, string title, string? detail,
+        List<(DateTime At, TimelineEntry Line)> lines, string brush = "TextBrush", bool isKey = false)
+    {
+        var newest = lines.MaxBy(l => l.At);
+        return (newest.At, new TimelineEntry
+        {
+            Key = key, TimeText = newest.Line.TimeText, TimeTip = newest.Line.TimeTip, Icon = icon, IconBrush = iconBrush, Brush = brush, IsKey = isKey,
+            Title = title, Detail = detail, Children = [.. lines.OrderByDescending(l => l.At).Select(l => l.Line)],
+            ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((day, key)),
+        });
     }
 
     // "7-Zip (x64) updated to 26.01" is "7-Zip (x64)" in the folded line.
@@ -606,7 +723,10 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
                 ShowText = Lang.T("Show all"), HideText = Lang.T("Hide"), IsExpanded = _expanded.Contains((month, "delays")),
             });
         }
-        var sound = marks.Where(m => m.Sound).ToList();
+        // A stretch with a possible cause keeps its own line, as by day (approved mock-up, 2026-11-25).
+        foreach (var noted in marks.Where(m => m.Sound && m.Note is { Length: > 0 }).OrderByDescending(m => m.Time))
+            entries.Add(MarkEntry(noted, Span([noted.Time])));
+        var sound = marks.Where(m => m.Sound && !(m.Note is { Length: > 0 })).ToList();
         if (sound.Count == 1) entries.Add(MarkEntry(sound[0], Span([sound[0].Time])));
         else if (sound.Count > 1)
         {
@@ -751,6 +871,15 @@ public sealed partial class TimelineViewModel(ReportService reports, Action<Date
     private void OpenGame(TimelineEntry entry)
     {
         if (entry.GameKey is { } key) OpenGameAt?.Invoke(key);
+    }
+
+    /// <summary>A line inside a folded one: opens what it would open on its own (a driver mark, a crash, a game).</summary>
+    [RelayCommand]
+    private void OpenChild(TimelineEntry entry)
+    {
+        if (entry.IsDelay) OpenDelay(entry);
+        else if (entry.IsProblem) OpenCrashes(entry);
+        else if (entry.GameKey is not null) OpenGame(entry);
     }
 
     [RelayCommand]

@@ -63,6 +63,11 @@ public sealed class RigsightSettings
     public PowerSettings Power { get; set; } = new();
     /// <summary>The Latency page's app wake-up check, on unless turned off there (issue #15).</summary>
     public LatencySettings Latency { get; set; } = new();
+    /// <summary>The Timeline page's Group choice and the kinds that fold into one line on a day (1.21.0).</summary>
+    public TimelineSettings Timeline { get; set; } = new();
+
+    /// <summary>What to try's "Tried it" days and the PC health lines hidden with "I know about this" (1.21.0).</summary>
+    public TrySettings Try { get; set; } = new();
 
     /// <summary>User-chosen display names for apps, keyed by exe name (e.g. "eldenring.exe").</summary>
     /// <remarks>Read into this case-insensitive dictionary (not a new one), so copies from the pipe keep matching any case.</remarks>

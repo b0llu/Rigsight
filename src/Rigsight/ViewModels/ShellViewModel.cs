@@ -76,7 +76,7 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             Crashes.ShowPcProblems(first, last);
             CurrentPage = "crashes";
-        });
+        }, settings: Settings);
         Timeline.OpenGameAt = key => OpenGame(key);
         Memory = new MemoryViewModel(Reports, Live);
         Processes = new ProcessesViewModel(Reports, Live, (cmd, arg) => _client.SendCommand(cmd, arg));
@@ -128,6 +128,13 @@ public sealed partial class ShellViewModel : ObservableObject
         Ask.CopyReport = () => SettingsPage.CopyProblemReportCommand.Execute(null);
         Ask.SendAgent = (cmd, arg) => _client.SendCommand(cmd, arg);
         Ask.AgentRunning = () => IsConnected;
+        // What to try's buttons (1.21.0): the same pages and agent, the saved "Tried it" days, and the memory test only
+        // through an agent that runs as admin.
+        TryActions.Settings = Settings;
+        TryActions.OpenPage = OpenPageFromAnswer;
+        TryActions.SendAgent = (cmd, arg) => _client.SendCommand(cmd, arg);
+        TryActions.AgentIsAdmin = () => IsConnected && AgentIsAdmin;
+        TryActions.StandardAccount = () => StandardAccount;
         // A widget, the overlay or the taskbar from an answer (board 7): the sensors by name, and whether RivaTuner runs.
         Ask.SetupSensors = () => AskViewModel.SensorsOf(Live);
         Ask.TrayReadings = () => AskViewModel.TrayOf(Live);

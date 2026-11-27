@@ -148,6 +148,9 @@ public sealed partial class FanCard : ObservableObject
 
     [ObservableProperty] private bool _alertIsHot;
 
+    /// <summary>What to try under the warning (1.21.0); null without one.</summary>
+    [ObservableProperty] private TryBlockView? _try;
+
     public bool HasAlert => Alert.Length > 0;
     /// <summary>The warning's AI button: why, and what to do, from the Fans page's records.</summary>
     public Services.AiQuestion? AlertAsk => HasAlert ? new(Lang.T($"{Title}. {Alert} Why, and what should I do?"), Core.Ai.AiPages.Fans) : null;
@@ -580,6 +583,7 @@ public sealed partial class FansViewModel : ObservableObject
                 : !w.FanGpu && fans.Any(x => x.Name == name)));
             card.Alert = warning?.Text ?? "";
             card.AlertIsHot = warning?.Tone == Core.Reports.InsightTone.Hot;
+            card.Try = warning is null ? null : new TryBlockView(Core.Advice.WhatToTry.Fan(card.Title, warning.Key, $"{card.Title}. {warning.Text}"));
             card.MinutesOn = fans.Max(x => Current(x).Count);
             var curveDays = history.CurveDays.Where(c => ids.Contains(c.Fan) && (changed is null || TimeUtil.FromUnix(c.Day).Date >= changed)).ToList();
             // Worked out off the window's thread (a day of minutes for each fan: a tenth of a second for a PC with five).

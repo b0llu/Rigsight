@@ -26,6 +26,11 @@ public sealed record CoolingPart
 
     public string BigText => Row.Now is double now ? Units.TempGap(now) : "—";
 
+    private TryBlockView? _try;
+    /// <summary>What to try under a part that runs warmer (1.21.0): dust, its fan, the paste.</summary>
+    public TryBlockView? Try => IsWarmer ? _try ??= new TryBlockView(Core.Advice.WhatToTry.Heat(Brush == "GpuBrush",
+        Lang.T($"My {Name} climbs {BigText} above its resting temperature under the same load. {LeadText}{TailText}."))) : null;
+
     /// <summary>"Up 4° since late September," in amber when warmer; empty when it hasn't moved.</summary>
     public string LeadText => Row is { State: WearState.Moved, Now: double now, Then: double then, ThenDate: DateTime since }
         ? (now > then ? Lang.T($"Up {Units.TempGap(now - then)} since {Wear.WhenSaid(since)},") : Lang.T($"Down {Units.TempGap(then - now)} since {Wear.WhenSaid(since)},")) + " "

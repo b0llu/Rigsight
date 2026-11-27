@@ -3,9 +3,16 @@
                     xmlns:conv="clr-namespace:Rigsight.Converters"
                     xmlns:ctl="clr-namespace:Rigsight.Controls"
                     xmlns:svc="clr-namespace:Rigsight.Services"
+                    xmlns:models="clr-namespace:Rigsight.Models"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
     <!-- The colours live in Dark.xaml and Light.xaml (one of them is merged before this file). -->
+
+    <!-- What to try (1.21.0): a page holds a finding's TryBlockView in a ContentControl, and the block is made only when
+         there is one (see WhatToTryBlock). -->
+    <DataTemplate DataType="{x:Type models:TryBlockView}">
+        <ctl:WhatToTryBlock />
+    </DataTemplate>
 
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 

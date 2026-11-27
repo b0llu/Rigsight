@@ -69,6 +69,12 @@ public sealed partial class NoticesViewModel(ReportService reports, SettingsMode
 {
     public ObservableCollection<NoticeDay> Days { get; } = [];
 
+    /// <summary>
+    /// The list as the bell draws it: each day's heading, then its rows, in one flat list, so only the rows on screen are
+    /// built (2026-11-26: 30 days held over 100 rows, all built each time the bell opened, and it took a moment to show).
+    /// </summary>
+    public ObservableCollection<object> Items { get; } = [];
+
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasUnseen), nameof(UnseenText))] private int _unseen;
     public bool HasUnseen => Unseen > 0;
     public string UnseenText => Unseen > 9 ? "9+" : Unseen.ToString();
@@ -93,6 +99,12 @@ public sealed partial class NoticesViewModel(ReportService reports, SettingsMode
         Days.Clear();
         foreach (var g in list.GroupBy(n => n.Time.Date))
             Days.Add(new NoticeDay(DayTitle(g.Key, today), [.. g.Select(n => new NoticeRow(n, IsUnread(n.Id)))]));
+        Items.Clear();
+        foreach (var day in Days)
+        {
+            Items.Add(day);
+            foreach (var row in day.Rows) Items.Add(row);
+        }
         Count();
         Loaded = true;
         OnPropertyChanged(nameof(IsEmpty));

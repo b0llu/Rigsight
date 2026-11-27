@@ -262,11 +262,10 @@
                                 </Border.Style>
                                 <StackPanel>
                                     <TextBlock Text="{Binding Alert}" FontSize="{x:Static ctl:TextSize.Body}" TextWrapping="Wrap" Foreground="{DynamicResource TextBrush}" />
-                                    <!-- Why, and what to do, asked of the AI (hidden while it's off). -->
-                                    <Button Style="{StaticResource AiButtonSmall}" HorizontalAlignment="Left" Margin="0,8,0,0" Content="{ctl:T 'Is this fan okay?'}"
-                                            CommandParameter="{Binding AlertAsk}" AutomationProperties.Name="{ctl:T 'Is this fan okay?'}" />
                                 </StackPanel>
                             </Border>
+                            <!-- What to try under the warning (1.21.0); its "Ask about this" is the AI's way in. -->
+                            <ContentControl Content="{Binding Try}" Focusable="False" IsTabStop="False" Margin="0,10,0,0" Visibility="{Binding Try, Converter={StaticResource Vis}}" />
 
                             <!-- Its speed setting changed during the period: the facts and the curve are of the setting since. -->
                             <TextBlock Text="{Binding Detail.SettingNote}" FontSize="{x:Static ctl:TextSize.Detail}" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,14,0,0"

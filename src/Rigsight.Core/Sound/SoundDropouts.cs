@@ -109,11 +109,47 @@ public static class SoundDropouts
         : n == 1 ? Lang.T("Sound cut out once") : Lang.T($"Sound cut out {n} times");
 
     /// <summary>When the stretch was: "9:02 PM to 9:40 PM", or "9:14 PM" alone when it began and ended in the same minute.</summary>
-    public static string When(SoundStretch s)
+    public static string When(SoundStretch s) => Span(Local(s.FromMs), Local(s.ToMs));
+
+    /// <summary>"9:02 PM to 9:40 PM", or "9:14 PM" alone when both fall in the same minute.</summary>
+    public static string Span(DateTime from, DateTime to)
     {
-        DateTime from = Local(s.FromMs), to = Local(s.ToMs);
         string a = TimeText.Time(from);
         return TimeUtil.LocalMinuteStart(from) == TimeUtil.LocalMinuteStart(to) ? a : Lang.C("stretch", $"{a} to {TimeText.Time(to)}");
+    }
+
+    /// <summary>
+    /// A stretch under a day's folded line, which already says "Sound cut out": "Once in NVIDIA Broadcast", or "10 times,
+    /// app not known" when no one app could be named (none playing, or several with none in front). A bare "Once" read
+    /// as if something was missing (the user, 2026-11-26).
+    /// </summary>
+    public static string Short(int n, string? app) => app is { Length: > 0 }
+        ? n == 1 ? Lang.T($"Once in {app}") : Lang.T($"{n} times in {app}")
+        : n == 1 ? Lang.T("Once, app not known") : Lang.T($"{n} times, app not known");
+
+    /// <summary>
+    /// The grey part of a day's folded sound line: <paramref name="span"/> and the apps that had most of the cuts, each
+    /// with its count, most first ("1:25 PM to 9:44 PM, 8 of them in NVIDIA Broadcast and 3 in Crimson Desert"). Up to three
+    /// apps, then how many more; "all in Discord" for one app with all of them; the span alone with no app named. A
+    /// stretch counts for its app (<see cref="SoundStretch.App"/>), as its own line does.
+    /// </summary>
+    public static string DayDetail(string span, IReadOnlyList<(string? App, int Count)> stretches)
+    {
+        int total = stretches.Sum(s => s.Count);
+        var apps = stretches.Where(s => s.App is { Length: > 0 }).GroupBy(s => s.App!, StringComparer.CurrentCultureIgnoreCase)
+            .Select(g => (App: g.First().App!, N: g.Sum(s => s.Count))).OrderByDescending(a => a.N).ThenBy(a => a.App, StringComparer.CurrentCulture).ToList();
+        if (apps.Count == 0) return span;
+        if (apps.Count == 1 && apps[0].N == total) return Lang.T($"{span}, all in {apps[0].App}");
+        int more = apps.Count - 3;
+        return apps.Count switch
+        {
+            1 => Lang.T($"{span}, {apps[0].N} of them in {apps[0].App}"),
+            2 => Lang.T($"{span}, {apps[0].N} of them in {apps[0].App} and {apps[1].N} in {apps[1].App}"),
+            3 => Lang.T($"{span}, {apps[0].N} of them in {apps[0].App}, {apps[1].N} in {apps[1].App} and {apps[2].N} in {apps[2].App}"),
+            _ => more == 1
+                ? Lang.T($"{span}, {apps[0].N} of them in {apps[0].App}, {apps[1].N} in {apps[1].App}, {apps[2].N} in {apps[2].App} and 1 more app")
+                : Lang.T($"{span}, {apps[0].N} of them in {apps[0].App}, {apps[1].N} in {apps[1].App}, {apps[2].N} in {apps[2].App} and {more} more apps"),
+        };
     }
 
     /// <summary>

@@ -506,6 +506,33 @@
                         <ItemsControl ItemsSource="{Binding Health}" ItemTemplate="{StaticResource CardLine}" Focusable="False" />
                         <ctl:Spinner Late="True" Width="20" Height="20" StrokeThickness="2" HorizontalAlignment="Center" Margin="0,22"
                                      Visibility="{Binding Loaded, Converter={StaticResource Vis}, ConverterParameter=Invert}" />
+                        <!-- "I know about this" (1.21.0): what was hidden from a What to try, at the card's foot only while
+                             something is, with Show again. A hidden line comes back by itself when it reads worse. -->
+                        <StackPanel Margin="0,4,0,0" Visibility="{Binding HasHidden, Converter={StaticResource Vis}}">
+                            <Button Style="{StaticResource ActionButton}" HorizontalAlignment="Left" Margin="-6,0,0,0" Padding="6,3" Command="{Binding ToggleHiddenCommand}"
+                                    AutomationProperties.Name="{Binding HiddenText}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xED1A;" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S11}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock Text="{Binding HiddenText}" FontSize="{x:Static ctl:TextSize.Detail}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding HiddenChevron}" Style="{StaticResource Icon}" FontSize="{x:Static ctl:IconSize.S9}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="{x:Static ctl:Corner.Control}" Padding="10,6" Margin="0,6,0,0"
+                                    Visibility="{Binding HiddenOpen, Converter={StaticResource Vis}}">
+                                <ItemsControl ItemsSource="{Binding HiddenHealth}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,4">
+                                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Background="{DynamicResource SurfaceBrush}" Padding="10,4" FontSize="{x:Static ctl:TextSize.Small}" Margin="10,0,0,0"
+                                                        Content="{ctl:T 'Show again'}" VerticalAlignment="Center"
+                                                        Command="{Binding DataContext.ShowAgainCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                                                <TextBlock Text="{Binding Text}" FontSize="{x:Static ctl:TextSize.Detail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </StackPanel>
                     </StackPanel>
                 </ctl:SmoothBorder>
             </UniformGrid>

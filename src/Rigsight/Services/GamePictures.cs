@@ -16,6 +16,16 @@ public static class GamePictures
     private static readonly ConcurrentDictionary<(string Path, int Width), ImageSource?> Pictures = new();
     private static readonly ConcurrentDictionary<string, ImageSource?> Icons = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Lets go of every decoded picture and icon, after the window has been minimized a long while (see MainWindow): a
+    /// picture still shown somewhere stays with what shows it, and the next ask reads the file again.
+    /// </summary>
+    public static void Clear()
+    {
+        Pictures.Clear();
+        Icons.Clear();
+    }
+
     /// <summary>A picture file, decoded at <paramref name="width"/> pixels across (a cover needn't be read at 600 to show at 150).</summary>
     public static ImageSource? Picture(string? path, int width) =>
         string.IsNullOrEmpty(path) ? null : Pictures.GetOrAdd((path, width), key =>
