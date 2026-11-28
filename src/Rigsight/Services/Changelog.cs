@@ -187,6 +187,8 @@ public static class Changelog
     public static IReadOnlyList<ReleaseNotes> Releases { get; } =
     [
         // Version and date settled at release.
+        V("1.23.1", 11, 28,
+            added: [Lang.T("Logitech PRO X 2 LIGHTSPEED, PRO X 3 LIGHTSPEED and G522 LIGHTSPEED headsets now show their battery, read from their receiver.")]),
         V("1.23.0", 11, 28,
             feature: new(Lang.T("GPU and CPU"), Lang.T("Two new pages under Hardware, each showing one part right now and over the days you pick."),
                 [Lang.T("Live tiles show load, temperature, clock, power, memory and fan, each with its last minute."),
