@@ -6,7 +6,8 @@ namespace Rigsight.Agent.Sensors.Devices;
 
 /// <summary>
 /// Wireless devices' batteries, read once a minute on a thread of their own (a device that's asleep can keep a
-/// question waiting over a second, which the sampler mustn't): Logitech devices through their receiver or cable,
+/// question waiting over a second, which the sampler mustn't): Logitech devices through their receiver or cable, newer
+/// Logitech headsets through theirs,
 /// Bluetooth devices and Xbox controllers from Windows. Each device is a hardware group of its own with one Battery
 /// reading, so All sensors, the taskbar, widgets, the overlay and dashboards take it like any other reading.
 /// </summary>
@@ -15,6 +16,7 @@ internal sealed class DeviceBatteries : IDisposable
     private const int EveryMs = 60_000;
 
     private readonly LogitechDevices _logitech = new();
+    private readonly LogitechHeadsets _headsets = new();
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _stop = new();
     private readonly AutoResetEvent _now = new(false);
@@ -47,11 +49,12 @@ internal sealed class DeviceBatteries : IDisposable
         {
             var list = new List<DeviceBattery>();
             Take(list, "Logitech", () => _logitech.Read(Environment.TickCount64));
+            Take(list, "Logitech headset", () => _headsets.Read(Environment.TickCount64));
             Take(list, "Bluetooth", WindowsDevices.Bluetooth);
             Take(list, "Xbox", WindowsDevices.Xbox);
             if (RigsightPaths.IsTestInstance) Take(list, "test", TestDevices);
             if (first || Changed(_current, list))
-                Log.Write("devices", list.Count == 0 ? "No wireless device gave a battery level (looked at Logitech receivers, Bluetooth, Xbox controllers)"
+                Log.Write("devices", list.Count == 0 ? "No wireless device gave a battery level (looked at Logitech receivers and headsets, Bluetooth, Xbox controllers)"
                     : "Batteries: " + string.Join(", ", list.Select(d => $"{d.Name} {(d.Percent is double p ? $"{p:0}%" : d.Level?.ToString())}"
                         + $"{(d.Charge == ChargeState.Full ? " full on power" : d.Charging == true ? " charging" : "")}{(d.Connected ? "" : " (not connected, last reading)")} via {d.Via}")));
             first = false;
@@ -131,6 +134,7 @@ internal sealed class DeviceBatteries : IDisposable
         _stop.Set();
         _thread.Join(3000);
         _logitech.Dispose();
+        _headsets.Dispose();
     }
 
     /// <summary>A device as the sensor library's hardware: its name, and one Battery sensor.</summary>
